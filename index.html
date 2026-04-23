@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v21.98</title>
+<title>발주서 변환기 v21.99</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
@@ -54,7 +54,7 @@
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v21.98</span>
+  <span class="ver">v21.99</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -114,7 +114,8 @@ async function saveToSheet(){
   try{
     const token=await getAccessToken();
     // E열(번호 포함) 기준으로 마지막 행 찾기 - 최소 8행(헤더 7행 아래)부터 시작
-    const rRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!E:E`,{headers:{'Authorization':`Bearer ${token}`}});
+    // A열~N열 전체에서 마지막 행 찾기
+    const rRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A:N`,{headers:{'Authorization':`Bearer ${token}`}});
     const rData=await rRes.json();
     const lastRow=rData.values?rData.values.length:0;
     const nextRow=Math.max(lastRow+1, 8); // 최소 8행
