@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.00</title>
+<title>발주서 변환기 v22.03</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
@@ -54,7 +54,7 @@
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.00</span>
+  <span class="ver">v22.03</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -246,6 +246,11 @@ function mergeLines(raw){
 
 function norm(s){return s.replace(/\s+/g,'');}
 function pp(cl,pr,qty){
+  if(cl==='빅피쉬마켓'){
+    const _pn=norm(pr);
+    if(_pn.includes('알도루묵'))return{name:'알도루묵 1팩',qty,maxB:999};
+    if(_pn.includes('양미리'))return{name:'양미리 1kg',qty,maxB:999};
+  }
   let r=pr.replace(/\*/g,'x');
   if(r.includes('+')){const it=r.split('+').map(i=>i.trim());return{name:it.map(i=>/[x×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};}
   if(r.includes('/')){const pt=r.split('/').map(s=>s.trim()).filter(Boolean);if(pt.length>1)return{name:pt.map(i=>/[x×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};r=pt[0];}
@@ -293,7 +298,7 @@ function pp(cl,pr,qty){
 
 function br(cl,cfg,nq,nr,ord,iv){
   const ph=fp(cfg.phone||ord.cp);
-  const sa='address' in cfg?(cfg.address||''):(ord.ca||'');
+  const sa='address' in cfg?(cfg.address||''):ca(ord.ca||'');
   const cua=ca(ord.address||'');
   const cup=fp(ord.custPhone||'');
   const msg=ord.msg||'';
