@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v21.92</title>
+<title>발주서 변환기 v21.94</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
@@ -54,7 +54,7 @@
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v21.92</span>
+  <span class="ver">v21.94</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -176,6 +176,7 @@ function mergeLines(raw){
   return merged;
 }
 
+function norm(s){return s.replace(/\s+/g,'');}
 function pp(cl,pr,qty){
   let r=pr.replace(/\*/g,'x');
   if(r.includes('+')){const it=r.split('+').map(i=>i.trim());return{name:it.map(i=>/[x×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};}
@@ -191,34 +192,34 @@ function pp(cl,pr,qty){
   const wm=cn.match(/(\d+)kg/);const wi=wm?parseInt(wm[1]):1;
   const pn=qm?cn:cn.replace(/[x×]\s*[\d.]+/g,'').trim();
   if(cl==='대상수산'){
-    if(pn.includes('호래기'))return{name:'횟감 대짜 호래기 500g',qty:qty*wi*2,maxB:999};
-    if(pn.includes('참소라'))return{name:'연안 주먹참소라 1kg',qty:qty*wi,maxB:999};
-    if(pn.includes('주꾸미')||pn.includes('쭈꾸미'))return{name:'연안 활 주꾸미 1kg',qty:qty*wi,maxB:999};
-    if(pn.includes('전복'))return{name:'연안 오육미전복 1kg',qty:qty*wi,maxB:999};
-    if(pn.includes('멍게'))return{name:'향긋 깐 멍게 500g',qty:qty*wi*2,maxB:999};
-    if(pn.includes('홍가리비'))return{name:'활 홍가리비 1kg',qty:qty*wi,maxB:999};
-    if(pn.includes('바지락')&&!pn.includes('깐'))return{name:'왕 바지락 1kg',qty:qty*wi,maxB:999};
-    if(pn.includes('바지락살')||(pn.includes('깐')&&pn.includes('바지락')))return{name:'깐 바지락 500g',qty:qty*wi*2,maxB:999};
+    if(norm(pn).includes('호래기'))return{name:'횟감 대짜 호래기 500g',qty:qty*wi*2,maxB:999};
+    if(norm(pn).includes('참소라'))return{name:'연안 주먹참소라 1kg',qty:qty*wi,maxB:999};
+    if(norm(pn).includes('주꾸미')||norm(pn).includes('쭈꾸미'))return{name:'연안 활 주꾸미 1kg',qty:qty*wi,maxB:999};
+    if(norm(pn).includes('전복'))return{name:'연안 오육미전복 1kg',qty:qty*wi,maxB:999};
+    if(norm(pn).includes('멍게'))return{name:'향긋 깐 멍게 500g',qty:qty*wi*2,maxB:999};
+    if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty:qty*wi,maxB:999};
+    if(norm(pn).includes('바지락')&&!norm(pn).includes('깐'))return{name:'왕 바지락 1kg',qty:qty*wi,maxB:999};
+    if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty:qty*wi*2,maxB:999};
   }
-  if(pn.includes('홍가리비'))return{name:'활 홍가리비 1kg',qty,maxB:999};
-  if(pn.includes('생굴')&&!pn.includes('kg'))return{name:'생굴 1kg',qty,maxB:999};
-  if(pn.includes('꼼장어'))return{name:'생물 꼼장어 1kg',qty,maxB:999};
-  if(pn.includes('염소탕'))return{name:'김대헌 장수 염소탕 1팩',qty,maxB:999};
-  if(pn.includes('자반')&&pn.includes('고등어'))return{name:'국내산 자반 고등어 가정용 10미',qty,maxB:999};
-  if(pn.includes('삼배체')&&pn.includes('굴'))return{name:'통통 삼배체 굴 1kg',qty,maxB:999};
-  if(pn.includes('도다리회'))return{name:'통통 활 도다리회 250g',qty,maxB:999};
-  if(pn.includes('바지락살')||(pn.includes('깐')&&pn.includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
-  if(pn.includes('총알한치')&&pn.includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
-  if((pn.includes('피데기')||pn.includes('반건조오징어'))&&!pn.includes('버터'))return{name:'반건조오징어 1kg 5미',qty,maxB:999};
-  if(pn.includes('바다장어'))return{name:'비만 바다장어 1kg',qty:qty*wi,maxB:999};
-  if(pn.includes('생물 풍천 민물 장어')||(pn.includes('민물')&&pn.includes('장어')))return{name:'특왕 민물장어 1kg',qty:qty*wi,maxB:999};
-  if(pn.includes('비손질 풀도다리')||(pn.includes('풀도다리')&&!pn.includes('연안')))return{name:'연안 활 풀도다리 1kg',qty,maxB:999};
-  if(pn.includes('거북손')&&pn.includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
-  if(pn.includes('석화')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
-  if(pn.includes('새꼬막'))return{name:pn,qty,maxB:qty>=2?1:999};
-  if(pn.includes('박달홍게'))return{name:pn,qty,maxB:1};
-  if(pn.includes('생대구'))return{name:pn,qty,maxB:6};
-  if(pn.includes('낙지'))return{name:'초대왕 S급 낙지 2미',qty,maxB:999};
+  if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty,maxB:999};
+  if(norm(pn).includes('생굴')&&!norm(pn).includes('kg'))return{name:'생굴 1kg',qty,maxB:999};
+  if(norm(pn).includes('꼼장어'))return{name:'생물 꼼장어 1kg',qty,maxB:999};
+  if(norm(pn).includes('염소탕'))return{name:'김대헌 장수 염소탕 1팩',qty,maxB:999};
+  if(norm(pn).includes('자반')&&norm(pn).includes('고등어'))return{name:'국내산 자반 고등어 가정용 10미',qty,maxB:999};
+  if(norm(pn).includes('삼배체')&&norm(pn).includes('굴'))return{name:'통통 삼배체 굴 1kg',qty,maxB:999};
+  if(norm(pn).includes('도다리회'))return{name:'통통 활 도다리회 250g',qty,maxB:999};
+  if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
+  if(norm(pn).includes('총알한치')&&norm(pn).includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
+  if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터'))return{name:'반건조오징어 1kg 5미',qty,maxB:999};
+  if(norm(pn).includes('바다장어')||norm(pn).includes('바다 장어'))return{name:'비만 바다장어 1kg',qty:qty*wi,maxB:999};
+  if(norm(pn).includes('생물 풍천 민물 장어')||(norm(pn).includes('민물')&&norm(pn).includes('장어')))return{name:'특왕 민물장어 1kg',qty:qty*wi,maxB:999};
+  if(norm(pn).includes('비손질 풀도다리')||(norm(pn).includes('풀도다리')&&!norm(pn).includes('연안')))return{name:'연안 활 풀도다리 1kg',qty,maxB:999};
+  if(norm(pn).includes('거북손')&&norm(pn).includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
+  if(norm(pn).includes('석화')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
+  if(norm(pn).includes('새꼬막'))return{name:pn,qty,maxB:qty>=2?1:999};
+  if(norm(pn).includes('박달홍게'))return{name:pn,qty,maxB:1};
+  if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};
+  if(norm(pn).includes('낙지'))return{name:'초대왕 S급 낙지 2미',qty,maxB:999};
   return{name:pn,qty,maxB:999};
 }
 
