@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v21.97</title>
+<title>발주서 변환기 v21.98</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
@@ -54,7 +54,7 @@
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v21.97</span>
+  <span class="ver">v21.98</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -133,7 +133,19 @@ async function saveToSheet(){
     const range=`${SHEET_NAME}!${startCol}${nextRow}`;
     const wRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
     const wData=await wRes.json();
-    if(wData.updatedCells){sl('시트 저장 완료! '+wData.updatedRows+'행 추가됨','ok');}
+    if(wData.updatedCells){
+      // 가운데 정렬 적용
+      const sheetId = 1932703059; // 당일 탭 sheetId
+      const endRow = nextRow + rows.length;
+      const startColIdx = firstCols>=10 ? 4 : 5; // E=4, F=5
+      const endColIdx = startColIdx + firstCols;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,{
+        method:'POST',
+        headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({requests:[{repeatCell:{range:{sheetId,startRowIndex:nextRow-1,endRowIndex:endRow-1,startColumnIndex:startColIdx,endColumnIndex:endColIdx},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment)'}}]})
+      });
+      sl('시트 저장 완료! '+wData.updatedRows+'행 추가됨','ok');
+    }
     else{sl('저장 실패: '+JSON.stringify(wData),'warn');}
   }catch(e){sl('오류: '+e.message,'warn');}
 }
