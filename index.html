@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v21.86</title>
+<title>발주서 변환기 v21.87</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
@@ -51,7 +51,7 @@
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v21.86</span>
+  <span class="ver">v21.87</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -245,12 +245,21 @@ function pr2(line){
     cols.pop(); // 출력에서 제거
   }
 
-  // 상품명 컬럼 탐색: 전화번호/순수숫자 아닌 첫 컬럼
+  // 상품명 컬럼 탐색: 단위(kg,g,팩,미,구,개,마리) 포함된 컬럼 우선, 없으면 전화번호/숫자 아닌 첫 컬럼
+  const unitPattern = /\d+(kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L)/;
   let pi=3;
-  for(let i=2;i<Math.min(cols.length,8);i++){
+  // 1차: 단위 포함 컬럼 찾기
+  for(let i=1;i<Math.min(cols.length,8);i++){
     const c=cols[i].trim();
-    if(c&&!isPhone(c)&&!isPureNum(c)&&c.length>3){
-      if(i>=2){pi=i;break;}
+    if(c && unitPattern.test(c)){pi=i;break;}
+  }
+  // 2차: 단위 없으면 전화번호/숫자 아닌 첫 텍스트 컬럼
+  if(pi===3){
+    for(let i=2;i<Math.min(cols.length,8);i++){
+      const c=cols[i].trim();
+      if(c&&!isPhone(c)&&!isPureNum(c)&&c.length>3){
+        if(i>=2){pi=i;break;}
+      }
     }
   }
 
