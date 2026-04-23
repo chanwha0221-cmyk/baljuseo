@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v21.85</title>
+<title>발주서 변환기 v21.86</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
@@ -51,7 +51,7 @@
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v21.85</span>
+  <span class="ver">v21.86</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -259,7 +259,11 @@ function pr2(line){
   const addr=(cols[pi+2]||'').trim();
   const p1=(cols[pi+3]||'').trim();
   const p2=(cols[pi+4]||'').trim();
-  const msg=(cols[pi+5]||'').trim();
+  const p3=(cols[pi+5]||'').trim();
+  let custPhone='',msg='';
+  if(isPhone(p1)){custPhone=p1;msg=p2+(p3?' '+p3:'');}
+  else if(isPhone(p2)){custPhone=p2;msg=p3;}
+  else{custPhone=p1||p2;msg=p3;}
 
   // 수량 결정: 상품명 뒤 x수량 우선, 없으면 trailing 수량, 없으면 1
   const qm=prod.match(/[x×]\s*(\d+)\s*$/);
@@ -267,7 +271,7 @@ function pr2(line){
   if(qm) qty=parseInt(qm[1]);
   else if(trailingQty) qty=trailingQty;
 
-  return{client:cl,ca:ca2,cp,prod,nameRaw:nr,address:addr,custPhone:p1||p2,msg,qty};
+  return{client:cl,ca:ca2,cp,prod,nameRaw:nr,address:addr,custPhone,msg,qty};
 }
 
 function run(){
