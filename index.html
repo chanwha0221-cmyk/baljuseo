@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v21.88</title>
+<title>발주서 변환기 v21.89</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
@@ -54,7 +54,7 @@
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v21.88</span>
+  <span class="ver">v21.89</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -235,36 +235,36 @@ function isPureNum(s){return !!(s.match(/^\d{1,6}$/));}
 
 function pr2(line){
   const cols=line.split('\t');
-  if(cols.length<5)return null;
+  if(cols.length<4)return null;
   const cl=cols[0].trim().replace(/\s+/g,'');
-  const ca2=(cols[1]||'').trim();
-  const cp=(cols[2]||'').trim();
 
   // 수량: 맨 뒤 컬럼이 숫자 1~999면 수량으로 간주하고 컬럼에서 제거
   let trailingQty=null;
   const lastCol=(cols[cols.length-1]||'').trim();
   if(lastCol.match(/^\d{1,3}$/)&&parseInt(lastCol)>0&&parseInt(lastCol)<1000){
     trailingQty=parseInt(lastCol);
-    cols.pop(); // 출력에서 제거
+    cols.pop();
   }
 
-  // 상품명 컬럼 탐색: 단위(kg,g,팩,미,구,개,마리) 포함된 컬럼 우선, 없으면 전화번호/숫자 아닌 첫 컬럼
+  // 상품명 컬럼 탐색: 단위 패턴으로 먼저 찾기
   const unitPattern = /\d+(kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L)/;
-  let pi=3;
-  // 1차: 단위 포함 컬럼 찾기 (최소 col[2]부터, 업체연락처 이후)
-  for(let i=2;i<Math.min(cols.length,10);i++){
-    const c=cols[i].trim();
-    if(c && unitPattern.test(c)){pi=i;break;}
+  let pi=-1;
+  for(let i=1;i<cols.length;i++){
+    if(unitPattern.test((cols[i]||'').trim())){pi=i;break;}
   }
-  // 2차: 단위 없으면 전화번호/숫자 아닌 첫 텍스트 컬럼 (최소 col[3]부터)
-  if(pi===3 && !unitPattern.test((cols[3]||'').trim())){
-    for(let i=3;i<Math.min(cols.length,8);i++){
-      const c=cols[i].trim();
-      if(c&&!isPhone(c)&&!isPureNum(c)&&c.length>3){
-        pi=i;break;
-      }
+  // 단위 없으면 전화번호/숫자 아닌 첫 컬럼 (col[1] 이후)
+  if(pi===-1){
+    for(let i=1;i<cols.length;i++){
+      const c=(cols[i]||'').trim();
+      if(c&&!isPhone(c)&&!isPureNum(c)&&c.length>3){pi=i;break;}
     }
   }
+  if(pi===-1) pi=1;
+
+  // 상품명 앞 컬럼들에서 업체주소/연락처 추출
+  // pi-1: 업체연락처, pi-2: 업체주소 (없을 수도 있음)
+  const cp = pi>=2 ? (cols[pi-1]||'').trim() : '';
+  const ca2 = pi>=3 ? (cols[pi-2]||'').trim() : '';
 
   const prod=(cols[pi]||'').trim();
   const nr=(cols[pi+1]||'').trim();
@@ -277,7 +277,6 @@ function pr2(line){
   else if(isPhone(p2)){custPhone=p2;msg=p3;}
   else{custPhone=p1||p2;msg=p3;}
 
-  // 수량 결정: 상품명 뒤 x수량 우선, 없으면 trailing 수량, 없으면 1
   const qm=prod.match(/[x×]\s*(\d+)\s*$/);
   let qty=1;
   if(qm) qty=parseInt(qm[1]);
