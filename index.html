@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v21.91</title>
+<title>발주서 변환기 v21.92</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
@@ -54,7 +54,7 @@
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v21.91</span>
+  <span class="ver">v21.92</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -210,8 +210,8 @@ function pp(cl,pr,qty){
   if(pn.includes('바지락살')||(pn.includes('깐')&&pn.includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
   if(pn.includes('총알한치')&&pn.includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
   if((pn.includes('피데기')||pn.includes('반건조오징어'))&&!pn.includes('버터'))return{name:'반건조오징어 1kg 5미',qty,maxB:999};
-  if(pn.includes('바다장어'))return{name:'비만 바다장어 1kg',qty,maxB:999};
-  if(pn.includes('생물 풍천 민물 장어')||(pn.includes('민물')&&pn.includes('장어')))return{name:'특왕 민물장어 1kg',qty,maxB:999};
+  if(pn.includes('바다장어'))return{name:'비만 바다장어 1kg',qty:qty*wi,maxB:999};
+  if(pn.includes('생물 풍천 민물 장어')||(pn.includes('민물')&&pn.includes('장어')))return{name:'특왕 민물장어 1kg',qty:qty*wi,maxB:999};
   if(pn.includes('비손질 풀도다리')||(pn.includes('풀도다리')&&!pn.includes('연안')))return{name:'연안 활 풀도다리 1kg',qty,maxB:999};
   if(pn.includes('거북손')&&pn.includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
   if(pn.includes('석화')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
