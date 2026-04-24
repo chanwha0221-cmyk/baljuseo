@@ -195,15 +195,17 @@ function mergeLines(raw){
   const lines=raw.split('\n');
   const merged=[];
   let lastClient='';
-  // 컬럼 헤더행(주문처|주문처 주소|...) 이후부터만 처리
-  let dataStart=false;
+  // 컬럼 헤더행(주문처|주문처 주소|...) 있으면 그 이후부터만 처리, 없으면 전체 처리
+  const hasDataHeader=lines.some(l=>isDataHeader(l.trim()));
+  let dataStart=!hasDataHeader;
   for(const line of lines){
     const trimmed=line.trim();
     if(!trimmed)continue;
     if(!dataStart){
       if(isDataHeader(trimmed)){dataStart=true;}
-      continue; // 헤더 이전 줄은 전부 스킵
+      continue;
     }
+    if(isHeaderRow(trimmed))continue;
     const preprocessed=trimmed.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)k\b/g,'$1kg')).join('\t');
     const firstCol=preprocessed.split('\t')[0].trim().replace(/\s+/g,'');
     const isNew=isKnownClient(firstCol)||firstCol===lastClient;
