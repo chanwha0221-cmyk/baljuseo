@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.22</title>
+<title>발주서 변환기 v22.23</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -17,7 +17,7 @@
   --out-bg:#f8fffe;--out-text:#1a4a35;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column;overflow-y:auto}
 header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;gap:12px;flex-shrink:0}
 .logo{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.03em}
 .logo span{color:var(--accent)}
@@ -30,13 +30,13 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 .stat-item.ok strong{color:var(--ok)}
 .dot{width:5px;height:5px;border-radius:50%;background:var(--text3)}
 .dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}
-.workspace{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
-.panel{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface);overflow:hidden}
+.workspace{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:visible;align-items:start}
+.panel{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface);overflow:visible}
 .panel:last-child{border-right:none}
 .panel-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);flex-shrink:0}
 .panel-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3)}
 .panel-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);background:var(--border);padding:1px 8px;border-radius:10px}
-textarea{flex:1;width:100%;border:none;outline:none;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.75;resize:none;color:var(--text);background:var(--surface)}
+textarea{width:100%;border:none;outline:none;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.75;resize:none;color:var(--text);background:var(--surface);min-height:200px;overflow:hidden;box-sizing:border-box;}
 textarea::placeholder{color:var(--text3)}
 #out{background:var(--out-bg);color:var(--out-text)}
 .bottom{background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.22</span>
+  <span class="ver">v22.23</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -488,6 +488,8 @@ function run(){
   document.getElementById('out').value=out.join('\n');
   document.getElementById('s-out').textContent=out.length;
   document.getElementById('out-count').textContent=out.length+' 행';
+  autoResize(document.getElementById('inp'));
+  autoResize(document.getElementById('out'));
   document.getElementById('s-warn').textContent=wc;
   if(dupNames.length>0){sl('⚠️ 중복 발주 의심: '+dupNames.join(', '),'warn');}
   else{sl('완료 — '+out.length+'행 출력, 주의 '+wc+'건',wc>0?'warn':'ok');}
@@ -505,8 +507,16 @@ function clearAll(){
   ['s-in','s-out','s-warn'].forEach(id=>document.getElementById(id).textContent='0');
   document.getElementById('in-count').textContent='0 행';
   document.getElementById('out-count').textContent='0 행';
+  autoResize(document.getElementById('inp'));
+  autoResize(document.getElementById('out'));
   wc=0;sl('초기화됨');
 }
+function autoResize(el){el.style.height='auto';el.style.height=Math.max(200,el.scrollHeight)+'px';}
+document.addEventListener('DOMContentLoaded',function(){
+  const inp=document.getElementById('inp');
+  inp.addEventListener('input',function(){autoResize(inp);});
+  autoResize(inp);autoResize(document.getElementById('out'));
+});
 
 document.getElementById('inp').addEventListener('input',function(){
   const n=this.value.trim().split('\n').filter(l=>l.trim()).length;
