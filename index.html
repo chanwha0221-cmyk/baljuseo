@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.14</title>
+<title>발주서 변환기 v22.17</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.14</span>
+  <span class="ver">v22.17</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -286,7 +286,7 @@ function mergeLines(raw){
       continue;
     }
     if(isHeaderRow(normalized))continue;
-    const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)k\b/g,'$1kg')).join('\t');
+    const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)[kK]\b/g,'$1kg')).join('\t');
     const firstCol=preprocessed.split('\t')[0].trim().replace(/\s+/g,'');
     const isFullRow=preprocessed.split('\t').length>=4; // 컬럼 4개 이상이면 독립 주문행
     const isNew=isKnownClient(firstCol)||firstCol===lastClient||isFullRow;
@@ -337,7 +337,7 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('염소탕'))return{name:'김대헌 장수 염소탕 1팩',qty,maxB:999};
   if(norm(pn).includes('자반')&&norm(pn).includes('고등어'))return{name:'국내산 자반 고등어 가정용 10미',qty,maxB:999};
   if(norm(pn).includes('삼배체')&&norm(pn).includes('굴'))return{name:'통통 삼배체 굴 1kg',qty,maxB:999};
-  if(norm(pn).includes('도다리회'))return{name:'통통 활 도다리회 250g',qty,maxB:999};
+  if(norm(pn).includes('도다리회')){const wm=pn.match(/(\d+)\s*g/i);const w=wm?wm[1]+'g':'250g';return{name:'통통 활 도다리회 '+w,qty,maxB:999};}
   if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
   if(norm(pn).includes('총알한치')&&norm(pn).includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
   if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터'))return{name:'반건조오징어 1kg 5미',qty,maxB:999};
@@ -359,7 +359,6 @@ function br(cl,cfg,nq,nr,ord,iv){
   const cua=ca(ord.address||'');
   const cup=fp(ord.custPhone||'');
   const msg=ord.msg||'';
-  if(iv)return[iv,cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
   return[cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
 }
 
@@ -385,7 +384,7 @@ function pr2(line){
     trailingQty=parseInt(lastCol);
     cols.pop();
   }
-  const unitPattern=/\d+(kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L)/;
+  const unitPattern=/\d+(kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L)/i;
   let pi=-1;
   for(let i=1;i<cols.length;i++){
     if(unitPattern.test((cols[i]||'').trim())){pi=i;break;}
