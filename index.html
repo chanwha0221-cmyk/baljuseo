@@ -396,11 +396,11 @@ document.getElementById('inp').addEventListener('input',function(){
   document.getElementById('in-count').textContent=n+' 행';
 });
 
-// 단축키: Ctrl+1=변환실행 / 2=출력복사 / 3=시트저장 / 4=초기화
+// 단축키: 1=변환실행 2=출력복사 3=시트저장 4=초기화 (입력창 밖에서)
 document.addEventListener('keydown',function(e){
-  if(e.ctrlKey&&e.key==='1'){e.preventDefault();run();return;}
   if(e.target.tagName==='TEXTAREA')return;
-  if(e.key==='2'){copyOut();}
+  if(e.key==='1'){run();}
+  else if(e.key==='2'){copyOut();}
   else if(e.key==='3'){saveToSheet();}
   else if(e.key==='4'){clearAll();}
 });
