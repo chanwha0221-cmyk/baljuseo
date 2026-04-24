@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.04</title>
+<title>발주서 변환기 v22.05</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -54,7 +54,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.04</span>
+  <span class="ver">v22.05</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -285,7 +285,7 @@ function br(cl,cfg,nq,nr,ord,iv){
 function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4}$/)||s.match(/^\d{9,12}$/));}
 function isPureNum(s){return !!(s.match(/^\d{1,6}$/));}
 
-// 주소 문자열에서 전화번호 패턴 추출 (v22.04 신규)
+// 주소 문자열에서 전화번호 패턴 추출 (v22.05 신규)
 function extractPhoneFromAddr(addr){
   const m=addr.match(/0\d{1,2}-\d{3,4}-\d{4}/);
   if(!m)return{addr,phone:''};
@@ -317,11 +317,15 @@ function pr2(line){
   }
   if(pi===-1)pi=1;
   const cp=pi>=2?(cols[pi-1]||'').trim():'';
-  const ca2=pi>=3?(cols[pi-2]||'').trim():'';
+  // 업체 주소: cols[1]이 주소처럼 생겼으면 우선 사용, 아니면 pi-2
+  const addrKeywords=['시','구','군','동','로','길','읍','면','리'];
+  const col1=(cols[1]||'').trim();
+  const col1isAddr=addrKeywords.some(k=>col1.includes(k))&&col1.length>5;
+  const ca2=col1isAddr?col1:(pi>=3?(cols[pi-2]||'').trim():'');
   const prod=(cols[pi]||'').trim();
   const nr=(cols[pi+1]||'').trim();
 
-  // 주소에서 전화번호 자동 추출 (v22.04)
+  // 주소에서 전화번호 자동 추출 (v22.05)
   const rawAddr=(cols[pi+2]||'').trim();
   const extracted=extractPhoneFromAddr(rawAddr);
   let addr=extracted.addr;
