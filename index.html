@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.21</title>
+<title>발주서 변환기 v22.22</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.21</span>
+  <span class="ver">v22.22</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -289,7 +289,7 @@ function mergeLines(raw){
       continue;
     }
     if(isHeaderRow(normalized))continue;
-    const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)[kK]\b/g,'$1kg')).join('\t');
+    const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)[kK]\b/g,'$1kg').replace(/한판/g,'1판')).join('\t');
     const firstCol=preprocessed.split('\t')[0].trim().replace(/\s+/g,'');
     const isFullRow=preprocessed.split('\t').length>=4; // 컬럼 4개 이상이면 독립 주문행
     const isNew=isKnownClient(firstCol)||firstCol===lastClient||isFullRow;
@@ -318,7 +318,7 @@ function pp(cl,pr,qty){
   if(qm){qty=parseInt(qm[1]);cn=r.slice(0,qm.index).trim();}
   cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace('난간','난각').replace(/(\d+)[kK]\b/g,'$1kg').trim();
   if(cn.includes('자연산 급냉 대구'))cn='급냉 국내산 대구 1.5kg';
-  if(cn.includes('급냉 참치 오마카세 한판'))cn='참치 오마카세 한판';
+  if(norm(cn).includes('참치오마카세'))cn='참치 오마카세 한판';
   if(cl==='신선한아침'&&cn.includes('노르웨이 생연어'))cn='연안 생연어';
   if(cn.includes('유정란')){const em=cn.match(/(\d+)\s*[구알]/);const en=em?em[1]:'';if(cn.includes('1번'))return{name:'자연방사 난각 1번 유정란 '+en+'구',qty,maxB:999};if(cn.includes('2번'))return{name:'동물복지 난각 2번 유정란 '+en+'구',qty,maxB:999};}
   if(cl==='아크미소프트'&&cn.includes('홍어'))cn='아 '+cn;
@@ -387,7 +387,7 @@ function pr2(line){
     trailingQty=parseInt(lastCol);
     cols.pop();
   }
-  const unitPattern=/\d+(kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L)/i;
+  const unitPattern=/\d+(kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판)/i;
   let pi=-1;
   for(let i=1;i<cols.length;i++){
     if(unitPattern.test((cols[i]||'').trim())){pi=i;break;}
