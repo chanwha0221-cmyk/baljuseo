@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.06</title>
+<title>발주서 변환기 v22.07</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -54,7 +54,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.06</span>
+  <span class="ver">v22.07</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -287,7 +287,7 @@ function br(cl,cfg,nq,nr,ord,iv){
 function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4}$/)||s.match(/^\d{9,12}$/));}
 function isPureNum(s){return !!(s.match(/^\d{1,6}$/));}
 
-// 주소 문자열에서 전화번호 패턴 추출 (v22.06 신규)
+// 주소 문자열에서 전화번호 패턴 추출 (v22.07 신규)
 function extractPhoneFromAddr(addr){
   const m=addr.match(/0\d{1,2}-\d{3,4}-\d{4}/);
   if(!m)return{addr,phone:''};
@@ -325,28 +325,32 @@ function pr2(line){
   const col1isAddr=addrKeywords.some(k=>col1.includes(k))&&col1.length>5;
   const ca2=col1isAddr?col1:(pi>=3?(cols[pi-2]||'').trim():'');
   const prod=(cols[pi]||'').trim();
-  const nr=(cols[pi+1]||'').trim();
+  // 상품명 바로 뒤가 숫자면 별도 수량 컬럼 (ex: "상품명 x 1 | 3 | 김민혜")
+  const nextCol=(cols[pi+1]||'').trim();
+  const hasQtyCol=isPureNum(nextCol)&&parseInt(nextCol)>0&&parseInt(nextCol)<1000;
+  const qtyColOffset=hasQtyCol?1:0;
+  const nr=(cols[pi+1+qtyColOffset]||'').trim();
 
-  // 주소에서 전화번호 자동 추출 (v22.06)
-  const rawAddr=(cols[pi+2]||'').trim();
+  // 주소에서 전화번호 자동 추출 (v22.07)
+  const rawAddr=(cols[pi+2+qtyColOffset]||'').trim();
   const extracted=extractPhoneFromAddr(rawAddr);
   let addr=extracted.addr;
   const addrPhone=extracted.phone;
 
-  const p1=(cols[pi+3]||'').trim();
-  const p2=(cols[pi+4]||'').trim();
-  const p3=(cols[pi+5]||'').trim();
+  const p1=(cols[pi+3+qtyColOffset]||'').trim();
+  const p2=(cols[pi+4+qtyColOffset]||'').trim();
+  const p3=(cols[pi+5+qtyColOffset]||'').trim();
   let custPhone='',msg='';
   if(isPhone(p1)){custPhone=p1;msg=p2+(p3?' '+p3:'');}
   else if(isPhone(p2)){custPhone=p2;msg=p3;}
   else{
-    // 별도 연락처 컬럼이 없으면 주소에서 추출한 번호 사용
     custPhone=p1||p2||addrPhone;
     msg=p3;
   }
   const qm=prod.match(/[x×]\s*(\d+)\s*$/);
   let qty=1;
   if(qm)qty=parseInt(qm[1]);
+  if(hasQtyCol)qty=qty*parseInt(nextCol); // 상품 단위수량 × 별도 수량컬럼
   else if(trailingQty)qty=trailingQty;
   return{client:cl,ca:ca2,cp,prod,nameRaw:nr,address:addr,custPhone,msg,qty};
 }
