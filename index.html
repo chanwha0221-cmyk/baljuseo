@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.23</title>
+<title>발주서 변환기 v22.25</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.23</span>
+  <span class="ver">v22.25</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -209,7 +209,7 @@ async function saveToSheet(){
 }
 
 const CC={
-  "장씨네":{phone:"010-2458-1788",insert:"더본초"},
+  "장씨네":{phone:"010-2458-1788",insert:"더본초",showInsert:true},
   "지구식품":{phone:"070-4800-1166",insert:"동글지구"},
   "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일"},
   "청년어부":{phone:"010-2614-6813",insert:"마우셀"},
@@ -322,17 +322,18 @@ function pp(cl,pr,qty){
   if(cl==='신선한아침'&&cn.includes('노르웨이 생연어'))cn='연안 생연어';
   if(cn.includes('유정란')){const em=cn.match(/(\d+)\s*[구알]/);const en=em?em[1]:'';if(cn.includes('1번'))return{name:'자연방사 난각 1번 유정란 '+en+'구',qty,maxB:999};if(cn.includes('2번'))return{name:'동물복지 난각 2번 유정란 '+en+'구',qty,maxB:999};}
   if(cl==='아크미소프트'&&cn.includes('홍어'))cn='아 '+cn;
-  const wm=cn.match(/(\d+)kg/);const wi=wm?parseInt(wm[1]):1;
+  const wm=cn.match(/([\d.]+)kg/);const gm=!wm&&cn.match(/(\d+)g\b/);const wi=wm?parseFloat(wm[1]):gm?parseInt(gm[1])/1000:1;
   const pn=qm?cn:cn.replace(/[xX×]\s*[\d.]+/g,'').trim();
   if(cl==='대상수산'){
-    if(norm(pn).includes('호래기'))return{name:'횟감 대짜 호래기 500g',qty:qty*wi*2,maxB:999};
-    if(norm(pn).includes('참소라'))return{name:'연안 주먹참소라 1kg',qty:qty*wi,maxB:999};
-    if(norm(pn).includes('주꾸미')||norm(pn).includes('쭈꾸미'))return{name:'연안 활 주꾸미 1kg',qty:qty*wi,maxB:999};
-    if(norm(pn).includes('전복'))return{name:'연안 오육미전복 1kg',qty:qty*wi,maxB:999};
-    if(norm(pn).includes('멍게'))return{name:'향긋 깐 멍게 500g',qty:qty*wi*2,maxB:999};
-    if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty:qty*wi,maxB:999};
-    if(norm(pn).includes('바지락')&&!norm(pn).includes('깐'))return{name:'왕 바지락 1kg',qty:qty*wi,maxB:999};
-    if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty:qty*wi*2,maxB:999};
+    if(norm(pn).includes('호래기'))return{name:'횟감 대짜 호래기 500g',qty:Math.round(qty*wi*2),maxB:999};
+    if(norm(pn).includes('참소라'))return{name:'연안 주먹참소라 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('주꾸미')||norm(pn).includes('쭈꾸미'))return{name:'연안 활 주꾸미 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('전복'))return{name:'연안 오육미전복 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('멍게'))return{name:'향긋 깐 멍게 500g',qty:Math.round(qty*wi*2),maxB:999};
+    if(norm(pn).includes('해삼'))return{name:'자연산 활 해삼 500g',qty:Math.round(qty*wi*2),maxB:999};
+    if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('바지락')&&!norm(pn).includes('깐'))return{name:'왕 바지락 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty:Math.round(qty*wi*2),maxB:999};
   }
   if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty,maxB:999};
   if(norm(pn).includes('생굴')&&!norm(pn).includes('kg'))return{name:'생굴 1kg',qty,maxB:999};
@@ -344,15 +345,15 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
   if(norm(pn).includes('총알한치')&&norm(pn).includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
   if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터'))return{name:'반건조오징어 1kg 5미',qty,maxB:999};
-  if(cl==='대상수산'&&(norm(pn).includes('바다장어')||norm(pn).includes('바다 장어')))return{name:'비만 바다장어 1kg',qty:qty*wi,maxB:999};
-  if(cl==='대상수산'&&(norm(pn).includes('생물 풍천 민물 장어')||(norm(pn).includes('민물')&&norm(pn).includes('장어'))))return{name:'특왕 민물장어 1kg',qty:qty*wi,maxB:999};
+  if(cl==='대상수산'&&(norm(pn).includes('바다장어')||norm(pn).includes('바다 장어')))return{name:'비만 바다장어 1kg',qty:Math.round(qty*wi),maxB:999};
+  if(cl==='대상수산'&&(norm(pn).includes('생물 풍천 민물 장어')||(norm(pn).includes('민물')&&norm(pn).includes('장어'))))return{name:'특왕 민물장어 1kg',qty:Math.round(qty*wi),maxB:999};
   if(norm(pn).includes('비손질 풀도다리')||(norm(pn).includes('풀도다리')&&!norm(pn).includes('연안')))return{name:'연안 활 풀도다리 1kg',qty,maxB:999};
   if(norm(pn).includes('거북손')&&norm(pn).includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
   if(norm(pn).includes('석화')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
   if(norm(pn).includes('새꼬막'))return{name:pn,qty,maxB:qty>=2?1:999};
   if(norm(pn).includes('박달홍게'))return{name:pn,qty,maxB:1};
   if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};
-  if(norm(pn).includes('낙지'))return{name:'초대왕 S급 낙지 2미',qty,maxB:999};
+
   return{name:pn,qty,maxB:999};
 }
 
@@ -362,6 +363,7 @@ function br(cl,cfg,nq,nr,ord,iv){
   const cua=ca(ord.address||'');
   const cup=fp(ord.custPhone||'');
   const msg=ord.msg||'';
+  if(iv&&cfg.showInsert)return[iv,cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
   return[cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
 }
 
