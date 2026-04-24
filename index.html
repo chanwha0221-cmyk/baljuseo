@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.09</title>
+<title>발주서 변환기 v22.11</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -49,12 +49,16 @@ textarea::placeholder{color:var(--text3)}
 .log-pill{margin-left:auto;font-size:11px;padding:4px 12px;border-radius:20px;background:var(--surface2);color:var(--text3);font-family:'JetBrains Mono',monospace;border:1px solid var(--border);max-width:400px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log-pill.warn{background:var(--warn-bg);color:var(--warn);border-color:#fcd34d}
 .log-pill.ok{background:var(--ok-bg);color:var(--ok);border-color:#b7ddc8}
+.rules-bar{background:var(--surface2);border-top:1px solid var(--border);padding:6px 20px;display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
+.rules-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;padding-top:4px}
+#rules{flex:1;border:1px solid var(--border2);border-radius:5px;padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;resize:none;height:52px;color:var(--text);background:var(--surface);outline:none;}
+#rules::placeholder{color:var(--text3)}
 </style>
 </head>
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.09</span>
+  <span class="ver">v22.11</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -73,11 +77,17 @@ textarea::placeholder{color:var(--text3)}
     <textarea id="out" readonly placeholder="변환 결과가 여기에 나타납니다.&#10;엑셀에 그대로 붙여넣으세요."></textarea>
   </div>
 </div>
+<div class="rules-bar">
+  <span class="rules-label">임시 규칙</span>
+  <textarea id="rules" placeholder="후포리 박달홍게 4kg → 후후포리 박달홍게 4kg&#10;원래 상품명 → 바꿀 상품명  (한 줄에 하나)"></textarea>
+</div>
 <div class="bottom">
   <button class="btn primary" onclick="run()">변환 실행</button>
   <button class="btn copy-btn" onclick="copyOut()">출력 복사</button>
   <button class="btn" onclick="saveToSheet()" style="background:#1a73e8;color:#fff;border-color:#1a73e8;font-weight:700;">시트 저장</button>
   <button class="btn" onclick="clearAll()">초기화</button>
+  <button class="btn" onclick="analyzeDay()" style="background:#7b2d8b;color:#fff;border-color:#7b2d8b;font-weight:700;">판매 분석</button>
+  <button class="btn" onclick="clearDayHistory()" style="background:#b45309;color:#fff;border-color:#b45309;font-weight:600;">오늘 발주 끝</button>
   <div class="log-pill" id="log">대기 중...</div>
 </div>
 <script>
@@ -85,6 +95,49 @@ const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASC
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
 const SPREADSHEET_ID='1pCf_ubeip17RJM9fWVnlk6gXthkbTO8KCQnzxDSHzAw';
 const SHEET_NAME='당일';
+
+// === 발주 히스토리 ===
+let pendingHistory=[];
+let dayHistory=[];
+
+function clearDayHistory(){
+  dayHistory=[];pendingHistory=[];
+  sl('오늘 발주 히스토리 초기화됨','ok');
+}
+
+async function analyzeDay(){
+  if(dayHistory.length===0){sl('저장된 발주 데이터가 없습니다.','warn');return;}
+  sl('판매 분석 중...');
+  try{
+    const token=await getAccessToken();
+    const clientMap={},productMap={};
+    for(const h of dayHistory){
+      const ck=h.client+'||'+h.product;
+      if(!clientMap[ck])clientMap[ck]={client:h.client,product:h.product,qty:0};
+      clientMap[ck].qty+=h.qty;
+      if(!productMap[h.product])productMap[h.product]=0;
+      productMap[h.product]+=h.qty;
+    }
+    const today=new Date().toLocaleDateString('ko-KR');
+    const clientRows=[['업체명','상품명','수량'],['기준일',today,''],...Object.values(clientMap).sort((a,b)=>a.client.localeCompare(b.client)).map(r=>[r.client,r.product,r.qty])];
+    const productRows=[['상품명','수량'],['기준일',today],...Object.entries(productMap).sort((a,b)=>b[1]-a[1]).map(([p,q])=>[p,q])];
+    // 시트 존재 확인 후 없으면 생성
+    const metaRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties.title`,{headers:{'Authorization':`Bearer ${token}`}});
+    const meta=await metaRes.json();
+    const titles=(meta.sheets||[]).map(s=>s.properties.title);
+    const addReqs=[];
+    if(!titles.includes('업체별판매'))addReqs.push({addSheet:{properties:{title:'업체별판매'}}});
+    if(!titles.includes('전체판매'))addReqs.push({addSheet:{properties:{title:'전체판매'}}});
+    if(addReqs.length){
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:addReqs})});
+    }
+    for(const[sName,rows] of [['업체별판매',clientRows],['전체판매',productRows]]){
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sName)}!A1:Z1000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+    }
+    sl('판매 분석 완료! 업체별판매·전체판매 시트 업데이트됨','ok');
+  }catch(e){sl('분석 오류: '+e.message,'warn');}
+}
 
 async function getAccessToken(){
   const header={alg:'RS256',typ:'JWT'};
@@ -125,7 +178,9 @@ async function saveToSheet(){
       const startColIdx=firstCols>=10?4:5;
       const endColIdx=startColIdx+firstCols;
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{repeatCell:{range:{sheetId,startRowIndex:nextRow-1,endRowIndex:endRow-1,startColumnIndex:startColIdx,endColumnIndex:endColIdx},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment)'}}]})});
-      sl('시트 저장 완료! '+wData.updatedRows+'행 추가됨','ok');
+      dayHistory=dayHistory.concat(pendingHistory.map(h=>Object.assign({},h)));
+      pendingHistory=[];
+      sl('시트 저장 완료! '+wData.updatedRows+'행 추가됨 (히스토리 '+dayHistory.length+'건)','ok');
     } else{sl('저장 실패: '+JSON.stringify(wData),'warn');}
   }catch(e){sl('오류: '+e.message,'warn');}
 }
@@ -287,7 +342,7 @@ function br(cl,cfg,nq,nr,ord,iv){
 function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4}$/)||s.match(/^\d{9,12}$/));}
 function isPureNum(s){return !!(s.match(/^\d{1,6}$/));}
 
-// 주소 문자열에서 전화번호 패턴 추출 (v22.09 신규)
+// 주소 문자열에서 전화번호 패턴 추출 (v22.11 신규)
 function extractPhoneFromAddr(addr){
   const m=addr.match(/0\d{1,2}-\d{3,4}-\d{4}/);
   if(!m)return{addr,phone:''};
@@ -336,7 +391,7 @@ function pr2(line){
   const qtyColOffset=hasQtyCol?1:0;
   const nr=(cols[pi+1+qtyColOffset]||'').trim();
 
-  // 주소에서 전화번호 자동 추출 (v22.09)
+  // 주소에서 전화번호 자동 추출 (v22.11)
   const rawAddr=(cols[pi+2+qtyColOffset]||'').trim();
   const extracted=extractPhoneFromAddr(rawAddr);
   let addr=extracted.addr;
@@ -360,15 +415,25 @@ function pr2(line){
   return{client:cl,ca:ca2,cp,prod,nameRaw:nr,address:addr,custPhone,msg,qty,qtyColValue};
 }
 
+function parseRules(){
+  return (document.getElementById('rules').value||'').split('\n').map(l=>{
+    const parts=l.split(/→|->/).map(s=>s.trim());
+    return(parts.length===2&&parts[0]&&parts[1])?{from:parts[0],to:parts[1]}:null;
+  }).filter(Boolean);
+}
+
 function run(){
   wc=0;
   const input=document.getElementById('inp').value.trim();
   if(!input){sl('입력 데이터가 없습니다.','warn');return;}
+  const rules=parseRules();
   const lines=mergeLines(input);
   document.getElementById('s-in').textContent=lines.length;
   document.getElementById('in-count').textContent=lines.length+' 행';
   sl(lines.length+'행 처리 중...');
   const out=[];
+  pendingHistory=[];
+  const dupNames=[];
   for(const line of lines){
     const row=pr2(line);
     if(!row){sl('파싱 실패: '+line.slice(0,30),'warn');continue;}
@@ -377,8 +442,14 @@ function run(){
     let cfg=CC[client]||{};
     if(!CC[client])sl('미등록 업체: '+client,'warn');
     const iv=cfg.insert||'';
-    const{name,qty:fq,maxB}=pp(client,prod,qty);
-    const finalQty=fq*(qtyColValue||1); // 별도 수량 컬럼 있으면 곱함
+    const{name:rawName,qty:fq,maxB}=pp(client,prod,qty);
+    const finalQty=fq*(qtyColValue||1);
+    let name=rawName;
+    for(const rule of rules){if(name.includes(rule.from))name=name.replace(rule.from,rule.to);}
+    // 중복 발주 체크
+    const dupKey=(nameRaw+'|'+address).replace(/\s/g,'');
+    if(dayHistory.some(h=>h.key===dupKey))dupNames.push(nameRaw);
+    pendingHistory.push({client,product:name,qty:finalQty,nameRaw,address,key:dupKey});
     const ord={address,custPhone,msg,ca:cla,cp};
     if(name.includes(' / ')){
       out.push(br(client,cfg,name,nameRaw,ord,iv));
@@ -391,7 +462,8 @@ function run(){
   document.getElementById('s-out').textContent=out.length;
   document.getElementById('out-count').textContent=out.length+' 행';
   document.getElementById('s-warn').textContent=wc;
-  sl('완료 — '+out.length+'행 출력, 주의 '+wc+'건',wc>0?'warn':'ok');
+  if(dupNames.length>0){sl('⚠️ 중복 발주 의심: '+dupNames.join(', '),'warn');}
+  else{sl('완료 — '+out.length+'행 출력, 주의 '+wc+'건',wc>0?'warn':'ok');}
 }
 
 function copyOut(){
