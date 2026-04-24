@@ -189,15 +189,21 @@ function ca(a){
 
 function isKnownClient(s){return !!CC[s.replace(/\s+/g,'')];}
 function isHeaderRow(line){const first=line.split('\t')[0].trim();return HEADER_KEYWORDS.some(k=>first.includes(k));}
+function isDataHeader(line){const cols=line.split('\t');return cols.length>=3&&cols[0].trim()==='주문처';}
 
 function mergeLines(raw){
   const lines=raw.split('\n');
   const merged=[];
   let lastClient='';
+  // 컬럼 헤더행(주문처|주문처 주소|...) 이후부터만 처리
+  let dataStart=false;
   for(const line of lines){
     const trimmed=line.trim();
     if(!trimmed)continue;
-    if(isHeaderRow(trimmed)){sl('헤더 행 제거됨','');continue;}
+    if(!dataStart){
+      if(isDataHeader(trimmed)){dataStart=true;}
+      continue; // 헤더 이전 줄은 전부 스킵
+    }
     const preprocessed=trimmed.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)k\b/g,'$1kg')).join('\t');
     const firstCol=preprocessed.split('\t')[0].trim().replace(/\s+/g,'');
     const isNew=isKnownClient(firstCol)||firstCol===lastClient;
@@ -388,6 +394,15 @@ function clearAll(){
 document.getElementById('inp').addEventListener('input',function(){
   const n=this.value.trim().split('\n').filter(l=>l.trim()).length;
   document.getElementById('in-count').textContent=n+' 행';
+});
+
+// 숫자키 단축키: 1=변환실행 2=출력복사 3=시트저장 4=초기화
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='TEXTAREA')return; // 입력 중엔 무시
+  if(e.key==='1'){run();}
+  else if(e.key==='2'){copyOut();}
+  else if(e.key==='3'){saveToSheet();}
+  else if(e.key==='4'){clearAll();}
 });
 </script>
 </body>
