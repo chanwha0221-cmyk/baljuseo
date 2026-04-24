@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.11</title>
+<title>발주서 변환기 v22.12</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.11</span>
+  <span class="ver">v22.12</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -79,7 +79,7 @@ textarea::placeholder{color:var(--text3)}
 </div>
 <div class="rules-bar">
   <span class="rules-label">임시 규칙</span>
-  <textarea id="rules" placeholder="후포리 박달홍게 4kg → 후후포리 박달홍게 4kg&#10;원래 상품명 → 바꿀 상품명  (한 줄에 하나)"></textarea>
+  <textarea id="rules" placeholder="후포리 박달홍게 4kg > 후후포리 박달홍게 4kg&#10;원래 상품명 > 바꿀 상품명  (한 줄에 하나, > 또는 →)"></textarea>
 </div>
 <div class="bottom">
   <button class="btn primary" onclick="run()">변환 실행</button>
@@ -342,7 +342,7 @@ function br(cl,cfg,nq,nr,ord,iv){
 function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4}$/)||s.match(/^\d{9,12}$/));}
 function isPureNum(s){return !!(s.match(/^\d{1,6}$/));}
 
-// 주소 문자열에서 전화번호 패턴 추출 (v22.11 신규)
+// 주소 문자열에서 전화번호 패턴 추출 (v22.12 신규)
 function extractPhoneFromAddr(addr){
   const m=addr.match(/0\d{1,2}-\d{3,4}-\d{4}/);
   if(!m)return{addr,phone:''};
@@ -391,7 +391,7 @@ function pr2(line){
   const qtyColOffset=hasQtyCol?1:0;
   const nr=(cols[pi+1+qtyColOffset]||'').trim();
 
-  // 주소에서 전화번호 자동 추출 (v22.11)
+  // 주소에서 전화번호 자동 추출 (v22.12)
   const rawAddr=(cols[pi+2+qtyColOffset]||'').trim();
   const extracted=extractPhoneFromAddr(rawAddr);
   let addr=extracted.addr;
@@ -417,7 +417,7 @@ function pr2(line){
 
 function parseRules(){
   return (document.getElementById('rules').value||'').split('\n').map(l=>{
-    const parts=l.split(/→|->/).map(s=>s.trim());
+    const parts=l.split(/→|->|>/).map(s=>s.trim());
     return(parts.length===2&&parts[0]&&parts[1])?{from:parts[0],to:parts[1]}:null;
   }).filter(Boolean);
 }
