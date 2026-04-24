@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.12</title>
+<title>발주서 변환기 v22.13</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.12</span>
+  <span class="ver">v22.13</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -86,6 +86,7 @@ textarea::placeholder{color:var(--text3)}
   <button class="btn copy-btn" onclick="copyOut()">출력 복사</button>
   <button class="btn" onclick="saveToSheet()" style="background:#1a73e8;color:#fff;border-color:#1a73e8;font-weight:700;">시트 저장</button>
   <button class="btn" onclick="clearAll()">초기화</button>
+  <button class="btn" onclick="loadToHistory()" style="background:#4a5568;color:#fff;border-color:#4a5568;font-weight:600;">분석데이터 입력</button>
   <button class="btn" onclick="analyzeDay()" style="background:#7b2d8b;color:#fff;border-color:#7b2d8b;font-weight:700;">판매 분석</button>
   <button class="btn" onclick="clearDayHistory()" style="background:#b45309;color:#fff;border-color:#b45309;font-weight:600;">오늘 발주 끝</button>
   <div class="log-pill" id="log">대기 중...</div>
@@ -103,6 +104,28 @@ let dayHistory=[];
 function clearDayHistory(){
   dayHistory=[];pendingHistory=[];
   sl('오늘 발주 히스토리 초기화됨','ok');
+}
+
+function loadToHistory(){
+  const input=document.getElementById('inp').value.trim();
+  if(!input){sl('입력 데이터가 없습니다.','warn');return;}
+  dayHistory=[];pendingHistory=[];
+  const lines=mergeLines(input);
+  const rules=parseRules();
+  let count=0;
+  for(const line of lines){
+    const row=pr2(line);
+    if(!row)continue;
+    const{client,nameRaw,address,qty,qtyColValue,prod}=row;
+    const{name:rawName,qty:fq}=pp(client,prod,qty);
+    const finalQty=fq*(qtyColValue||1);
+    let name=rawName;
+    for(const rule of rules){if(name.includes(rule.from))name=name.replace(rule.from,rule.to);}
+    const dupKey=(nameRaw+'|'+address).replace(/\s/g,'');
+    dayHistory.push({client,product:name,qty:finalQty,nameRaw,address,key:dupKey});
+    count++;
+  }
+  sl('분석데이터 입력 완료 — 히스토리 '+count+'건 등록됨','ok');
 }
 
 async function analyzeDay(){
@@ -342,7 +365,7 @@ function br(cl,cfg,nq,nr,ord,iv){
 function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4}$/)||s.match(/^\d{9,12}$/));}
 function isPureNum(s){return !!(s.match(/^\d{1,6}$/));}
 
-// 주소 문자열에서 전화번호 패턴 추출 (v22.12 신규)
+// 주소 문자열에서 전화번호 패턴 추출 (v22.13 신규)
 function extractPhoneFromAddr(addr){
   const m=addr.match(/0\d{1,2}-\d{3,4}-\d{4}/);
   if(!m)return{addr,phone:''};
@@ -391,7 +414,7 @@ function pr2(line){
   const qtyColOffset=hasQtyCol?1:0;
   const nr=(cols[pi+1+qtyColOffset]||'').trim();
 
-  // 주소에서 전화번호 자동 추출 (v22.12)
+  // 주소에서 전화번호 자동 추출 (v22.13)
   const rawAddr=(cols[pi+2+qtyColOffset]||'').trim();
   const extracted=extractPhoneFromAddr(rawAddr);
   let addr=extracted.addr;
