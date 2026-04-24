@@ -396,13 +396,13 @@ document.getElementById('inp').addEventListener('input',function(){
   document.getElementById('in-count').textContent=n+' 행';
 });
 
-// 숫자키 단축키: 1=변환실행 2=출력복사 3=시트저장 4=초기화
+// Alt+숫자 단축키: Alt+1=변환실행 Alt+2=출력복사 Alt+3=시트저장 Alt+4=초기화
 document.addEventListener('keydown',function(e){
-  if(e.target.tagName==='TEXTAREA')return; // 입력 중엔 무시
-  if(e.key==='1'){run();}
-  else if(e.key==='2'){copyOut();}
-  else if(e.key==='3'){saveToSheet();}
-  else if(e.key==='4'){clearAll();}
+  if(!e.altKey)return;
+  if(e.key==='1'){e.preventDefault();run();}
+  else if(e.key==='2'){e.preventDefault();copyOut();}
+  else if(e.key==='3'){e.preventDefault();saveToSheet();}
+  else if(e.key==='4'){e.preventDefault();clearAll();}
 });
 </script>
 </body>
