@@ -3,7 +3,539 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidatea<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>발주서 변환기 v22.26</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --bg:#f5f4f0;--surface:#ffffff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;
+  --text:#1a1816;--text2:#6b6760;--text3:#a8a49e;
+  --accent:#2d6a4f;--accent-light:#e8f4ee;--accent-hover:#1e4d38;
+  --warn:#b45309;--warn-bg:#fef3c7;--ok:#2d6a4f;--ok-bg:#e8f4ee;
+  --out-bg:#f8fffe;--out-text:#1a4a35;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column;overflow-y:auto}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.logo{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.03em}
+.logo span{color:var(--accent)}
+.ver{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:var(--accent-light);border:1px solid #b7ddc8;padding:2px 7px;border-radius:20px;font-weight:500}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:20px}
+.stat-inline{display:flex;gap:16px}
+.stat-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+.stat-item strong{color:var(--text);font-weight:500}
+.stat-item.warn strong{color:var(--warn)}
+.stat-item.ok strong{color:var(--ok)}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--text3)}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}
+.workspace{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:visible;align-items:start}
+.panel{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface);overflow:visible}
+.panel:last-child{border-right:none}
+.panel-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);flex-shrink:0}
+.panel-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3)}
+.panel-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);background:var(--border);padding:1px 8px;border-radius:10px}
+textarea{width:100%;border:none;outline:none;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.75;resize:none;color:var(--text);background:var(--surface);min-height:200px;overflow:hidden;box-sizing:border-box;}
+textarea::placeholder{color:var(--text3)}
+#out{background:var(--out-bg);color:var(--out-text)}
+.bottom{background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.btn{padding:7px 16px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .1s}
+.btn:hover{background:var(--surface2);color:var(--text)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;padding:7px 22px}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn.copy-btn{color:var(--accent);border-color:#b7ddc8;background:var(--accent-light)}
+.btn.copy-btn:hover{background:#d4ecdf}
+.log-pill{margin-left:auto;font-size:11px;padding:4px 12px;border-radius:20px;background:var(--surface2);color:var(--text3);font-family:'JetBrains Mono',monospace;border:1px solid var(--border);max-width:400px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-pill.warn{background:var(--warn-bg);color:var(--warn);border-color:#fcd34d}
+.log-pill.ok{background:var(--ok-bg);color:var(--ok);border-color:#b7ddc8}
+.rules-bar{background:var(--surface2);border-top:1px solid var(--border);padding:6px 20px;display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
+.rules-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;padding-top:4px}
+#rules{flex:1;border:1px solid var(--border2);border-radius:5px;padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;resize:none;height:52px;color:var(--text);background:var(--surface);outline:none;}
+#rules::placeholder{color:var(--text3)}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">발주서 <span>변환기</span></span>
+  <span class="ver">v22.26</span>
+  <div class="header-right">
+    <div class="stat-inline">
+      <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
+      <div class="stat-item ok"><div class="dot ok"></div><span>출력</span><strong id="s-out">0</strong></div>
+      <div class="stat-item warn"><div class="dot warn"></div><span>주의</span><strong id="s-warn">0</strong></div>
+    </div>
+  </div>
+</header>
+<div class="workspace">
+  <div class="panel">
+    <div class="panel-head"><span class="panel-label">입력</span><span class="panel-count" id="in-count">0 행</span></div>
+    <textarea id="inp" placeholder="업체 발주 데이터를 여기에 붙여넣으세요.&#10;탭으로 구분된 데이터를 그대로 붙여넣으면 됩니다.&#10;헤더행 자동 제거 / 줄바꿈 자동 병합 지원"></textarea>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><span class="panel-label">출력</span><span class="panel-count" id="out-count">0 행</span></div>
+    <textarea id="out" readonly placeholder="변환 결과가 여기에 나타납니다.&#10;엑셀에 그대로 붙여넣으세요."></textarea>
+  </div>
+</div>
+<div class="rules-bar">
+  <span class="rules-label">임시 규칙</span>
+  <textarea id="rules" placeholder="후포리 박달홍게 4kg > 후후포리 박달홍게 4kg&#10;원래 상품명 > 바꿀 상품명  (한 줄에 하나, > 또는 →)"></textarea>
+</div>
+<div class="bottom">
+  <button class="btn primary" onclick="run()">변환 실행</button>
+  <button class="btn copy-btn" onclick="copyOut()">출력 복사</button>
+  <button class="btn" onclick="saveToSheet()" style="background:#1a73e8;color:#fff;border-color:#1a73e8;font-weight:700;">시트 저장</button>
+  <button class="btn" onclick="clearAll()">초기화</button>
+  <button class="btn" onclick="loadToHistory()" style="background:#4a5568;color:#fff;border-color:#4a5568;font-weight:600;">분석데이터 입력</button>
+  <button class="btn" onclick="analyzeDay()" style="background:#7b2d8b;color:#fff;border-color:#7b2d8b;font-weight:700;">판매 분석</button>
+  <button class="btn" onclick="clearDayHistory()" style="background:#b45309;color:#fff;border-color:#b45309;font-weight:600;">오늘 발주 끝</button>
+  <div class="log-pill" id="log">대기 중...</div>
+</div>
+<script>
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
+const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+const SPREADSHEET_ID='1pCf_ubeip17RJM9fWVnlk6gXthkbTO8KCQnzxDSHzAw';
+const SHEET_NAME='당일';
+
+// === 발주 히스토리 ===
+let pendingHistory=[];
+let dayHistory=[];
+
+function clearDayHistory(){
+  dayHistory=[];pendingHistory=[];
+  sl('오늘 발주 히스토리 초기화됨','ok');
+}
+
+function loadToHistory(){
+  const input=document.getElementById('inp').value.trim();
+  if(!input){sl('입력 데이터가 없습니다.','warn');return;}
+  dayHistory=[];pendingHistory=[];
+  const lines=mergeLines(input);
+  const rules=parseRules();
+  let count=0;
+  for(const line of lines){
+    const row=pr2(line);
+    if(!row)continue;
+    const{client,nameRaw,address,qty,qtyColValue,prod}=row;
+    const{name:rawName,qty:fq}=pp(client,prod,qty);
+    const finalQty=fq*(qtyColValue||1);
+    let name=rawName;
+    for(const rule of rules){if(name.includes(rule.from))name=name.replace(rule.from,rule.to);}
+    const dupKey=(nameRaw+'|'+address).replace(/\s/g,'');
+    dayHistory.push({client,product:name,qty:finalQty,nameRaw,address,key:dupKey});
+    count++;
+  }
+  sl('분석데이터 입력 완료 — 히스토리 '+count+'건 등록됨','ok');
+}
+
+async function analyzeDay(){
+  if(dayHistory.length===0){sl('저장된 발주 데이터가 없습니다.','warn');return;}
+  sl('판매 분석 중...');
+  try{
+    const token=await getAccessToken();
+    const clientMap={},productMap={};
+    for(const h of dayHistory){
+      const ck=h.client+'||'+h.product;
+      if(!clientMap[ck])clientMap[ck]={client:h.client,product:h.product,qty:0};
+      clientMap[ck].qty+=h.qty;
+      if(!productMap[h.product])productMap[h.product]=0;
+      productMap[h.product]+=h.qty;
+    }
+    const today=new Date().toLocaleDateString('ko-KR');
+    const clientRows=[['업체명','상품명','수량'],['기준일',today,''],...Object.values(clientMap).sort((a,b)=>a.client.localeCompare(b.client)).map(r=>[r.client,r.product,r.qty])];
+    const productRows=[['상품명','수량'],['기준일',today],...Object.entries(productMap).sort((a,b)=>b[1]-a[1]).map(([p,q])=>[p,q])];
+    const metaRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties.title`,{headers:{'Authorization':`Bearer ${token}`}});
+    const meta=await metaRes.json();
+    const titles=(meta.sheets||[]).map(s=>s.properties.title);
+    const addReqs=[];
+    if(!titles.includes('업체별판매'))addReqs.push({addSheet:{properties:{title:'업체별판매'}}});
+    if(!titles.includes('전체판매'))addReqs.push({addSheet:{properties:{title:'전체판매'}}});
+    if(addReqs.length){
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:addReqs})});
+    }
+    for(const[sName,rows] of [['업체별판매',clientRows],['전체판매',productRows]]){
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sName)}!A1:Z1000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+    }
+    sl('판매 분석 완료! 업체별판매·전체판매 시트 업데이트됨','ok');
+  }catch(e){sl('분석 오류: '+e.message,'warn');}
+}
+
+async function getAccessToken(){
+  const header={alg:'RS256',typ:'JWT'};
+  const now=Math.floor(Date.now()/1000);
+  const claim={iss:CLIENT_EMAIL,scope:'https://www.googleapis.com/auth/spreadsheets',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now};
+  const enc=(obj)=>btoa(JSON.stringify(obj)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const toSign=enc(header)+'.'+enc(claim);
+  const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(toSign));
+  const jwt=toSign+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const res=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`});
+  const d=await res.json();
+  return d.access_token;
+}
+
+async function saveToSheet(){
+  const val=document.getElementById('out').value.trim();
+  if(!val){sl('출력 데이터가 없습니다.','warn');return;}
+  sl('시트에 저장 중...');
+  try{
+    const token=await getAccessToken();
+    const rRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A:N`,{headers:{'Authorization':`Bearer ${token}`}});
+    const rData=await rRes.json();
+    const lastRow=rData.values?rData.values.length:0;
+    const nextRow=Math.max(lastRow+1,8);
+    const lines=val.split('\n').filter(l=>l.trim());
+    const rows=lines.map(l=>l.split('\t'));
+    const firstCols=rows[0]?rows[0].length:9;
+    const startCol=firstCols>=10?'E':'F';
+    const range=`${SHEET_NAME}!${startCol}${nextRow}`;
+    const wRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+    const wData=await wRes.json();
+    if(wData.updatedCells){
+      const sheetId=1932703059;
+      const endRow=nextRow+rows.length;
+      const startColIdx=firstCols>=10?4:5;
+      const endColIdx=startColIdx+firstCols;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{repeatCell:{range:{sheetId,startRowIndex:nextRow-1,endRowIndex:endRow-1,startColumnIndex:startColIdx,endColumnIndex:endColIdx},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment)'}}]})});
+      dayHistory=dayHistory.concat(pendingHistory.map(h=>Object.assign({},h)));
+      pendingHistory=[];
+      sl('시트 저장 완료! '+wData.updatedRows+'행 추가됨 (히스토리 '+dayHistory.length+'건)','ok');
+    } else{sl('저장 실패: '+JSON.stringify(wData),'warn');}
+  }catch(e){sl('오류: '+e.message,'warn');}
+}
+
+const CC={
+  "장씨네":{phone:"010-2458-1788",insert:"더본초",showInsert:true},
+  "지구식품":{phone:"070-4800-1166",insert:"동글지구"},
+  "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일"},
+  "청년어부":{phone:"010-2614-6813",insert:"마우셀"},
+  "혜인건강":{phone:"070-4473-7196",insert:"HN"},
+  "파더그로브":{phone:"0502-2679-0637",insert:"퍼니밀"},
+  "김융환":{phone:"",insert:"발볼"},
+  "대상수산":{address:"목포시 고하대로 597번길 1(죽교동)",phone:"010-3649-0583"},
+  "거문도수산":{address:"여수시 이순신광장로 125-3",phone:"010-9325-9899"},
+  "아크미소프트":{address:"서울시 마포구 매봉산로 37",phone:"02-3706-6522"},
+  "서진농수산":{address:"서울 강남구 테헤란로 424",phone:"010-8050-4229",insert:"도리농수산"},
+  "다정한공간":{phone:"010-9318-0895"},
+  "인베스토어":{phone:"010-7772-2984"},
+  "와이플로우":{phone:"1833-2285"},
+  "미식탁":{address:"",phone:"010-9119-3158"},
+  "명가네농장":{phone:"010-6467-5832",insert:"명안"},
+  "춘식이네":{phone:"010-5882-7730",insert:"그록"},
+  "라파고척본점":{phone:"010-2762-9227"},
+  "배민대용량":{phone:"010-2455-4156"},
+  "삼월이농수산":{phone:"010-6652-1574",insert:"냠냠식탁"},
+  "냠냠식탁":{phone:"010-6652-1574"},
+  "식봄":{address:"",phone:"010-2455-4156"},
+  "신선한아침":{phone:"070-7761-7676"},
+  "우디":{phone:"010-7929-8080",insert:"우디디자인랩"},
+  "우디디자인랩":{phone:"010-7929-8080"},
+  "제이피컴퍼니":{address:"하남시 미사강변한강로 165",phone:"010-2843-3051",insert:"서율컴퍼니"},
+  "서율컴퍼니":{address:"하남시 미사강변한강로 165",phone:"010-2843-3051"},
+  "호호야채":{address:"부천시 소향로223 105호 호호야채",phone:"010-7241-1903"},
+  "지투지샵":{address:"서울특별시 금천구 서부샛길 606, A동 2610호 (가산동, 대성디폴리스지식산업센터)",phone:"010-2329-8991"},
+  "토리팜":{address:"경남 합천군 용주면 고품용덕길 38-1",phone:"010-5758-0367"},
+  "푸른결":{address:"",phone:"070-3177-8080"}
+};
+
+const RA="강원특별자치도 동해시 대학로 16";
+const HEADER_KEYWORDS=["주문처","업체명","거래처","공급사","상품명","고객명","수취인","연락처"];
+let wc=0;
+
+function sl(m,t){const e=document.getElementById('log');e.textContent=m;e.className='log-pill'+(t?' '+t:'');if(t==='warn')wc++;}
+
+function fp(t){
+  if(!t)return"";
+  const n=String(t).replace(/[^0-9]/g,'');
+  if(!n)return"";
+  if(n.length===12&&n.startsWith('050'))return n.slice(0,4)+'-'+n.slice(4,8)+'-'+n.slice(8);
+  if(n.length===8&&n.startsWith('1'))return n.slice(0,4)+'-'+n.slice(4);
+  if(n.length>=10){
+    if(n.startsWith('02'))return n.slice(0,2)+'-'+n.slice(2,6)+'-'+n.slice(6);
+    if(n.startsWith('0'))return n.slice(0,3)+'-'+n.slice(3,7)+'-'+n.slice(7);
+    return n.slice(0,3)+'-'+n.slice(3,7)+'-'+n.slice(7);
+  }
+  return n;
+}
+
+function ca(a){
+  if(!a)return"";
+  if(a.includes(RA))a=a.replace(RA,"").replace("(천곡동)","").trim();
+  return a.replace("출고지주소","").replace(/\//g," ").trim();
+}
+
+function isKnownClient(s){return !!CC[s.replace(/\s+/g,'')];}
+function toTsv(line){return line.includes('\t')?line:line.replace(/ {3,}/g,'\t');}
+function isHeaderRow(line){const first=toTsv(line).split('\t')[0].trim();return HEADER_KEYWORDS.some(k=>first.includes(k));}
+function isDataHeader(line){const cols=toTsv(line).split('\t');return cols.length>=3&&cols[0].trim()==='주문처';}
+
+function mergeLines(raw){
+  const lines=raw.split('\n');
+  const merged=[];
+  let lastClient='';
+  const hasDataHeader=lines.some(l=>isDataHeader(l.trim()));
+  let dataStart=!hasDataHeader;
+  for(const line of lines){
+    const trimmed=line.trim();
+    if(!trimmed)continue;
+    const normalized=toTsv(trimmed);
+    if(!dataStart){
+      if(isDataHeader(normalized)){dataStart=true;}
+      continue;
+    }
+    if(isHeaderRow(normalized))continue;
+    const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)[kK]\b/g,'$1kg').replace(/한판/g,'1판')).join('\t');
+    const firstCol=preprocessed.split('\t')[0].trim().replace(/\s+/g,'');
+    const isFullRow=preprocessed.split('\t').length>=4;
+    const isNew=isKnownClient(firstCol)||firstCol===lastClient||isFullRow;
+    if(merged.length===0||isNew){
+      merged.push(preprocessed);
+      if(firstCol)lastClient=firstCol;
+    } else {
+      merged[merged.length-1]=merged[merged.length-1]+'\t'+preprocessed;
+    }
+  }
+  return merged;
+}
+
+function norm(s){return s.replace(/\s+/g,'');}
+
+function pp(cl,pr,qty){
+  if(cl==='빅피쉬마켓'){
+    const _pn=norm(pr);
+    if(_pn.includes('알도루묵'))return{name:'알도루묵 1팩',qty,maxB:999};
+    if(_pn.includes('양미리'))return{name:'양미리 1kg',qty,maxB:999};
+  }
+  let r=pr.replace(/\*/g,'x');
+  if(r.includes('+')){const it=r.split('+').map(i=>i.trim());return{name:it.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};}
+  if(r.includes('/')){const pt=r.split('/').map(s=>s.trim()).filter(Boolean);if(pt.length>1)return{name:pt.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};r=pt[0];}
+  const qm=r.match(/\s*[xX×]\s*(\d+)$/);let cn=r;
+  if(qm){qty=parseInt(qm[1]);cn=r.slice(0,qm.index).trim();}
+  cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace('난간','난각').replace(/(\d+)[kK]\b/g,'$1kg').trim();
+  if(cn.includes('자연산 급냉 대구'))cn='급냉 국내산 대구 1.5kg';
+  if(norm(cn).includes('참치오마카세'))cn='참치 오마카세 한판';
+  if(cl==='신선한아침'&&cn.includes('노르웨이 생연어'))cn='연안 생연어';
+  if(cn.includes('유정란')){const em=cn.match(/(\d+)\s*[구알]/);const en=em?em[1]:'';if(cn.includes('1번'))return{name:'자연방사 난각 1번 유정란 '+en+'구',qty,maxB:999};if(cn.includes('2번'))return{name:'동물복지 난각 2번 유정란 '+en+'구',qty,maxB:999};}
+  if(cl==='아크미소프트'&&cn.includes('홍어'))cn='아 '+cn;
+  const wm=cn.match(/([\d.]+)kg/);const gm=!wm&&cn.match(/(\d+)g\b/);const wi=wm?parseFloat(wm[1]):gm?parseInt(gm[1])/1000:1;
+  const pn=qm?cn:cn.replace(/[xX×]\s*[\d.]+/g,'').trim();
+  if(cl==='대상수산'){
+    if(norm(pn).includes('호래기'))return{name:'횟감 대짜 호래기 500g',qty:Math.round(qty*wi*2),maxB:999};
+    if(norm(pn).includes('참소라'))return{name:'연안 주먹참소라 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('주꾸미')||norm(pn).includes('쭈꾸미'))return{name:'연안 활 주꾸미 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('전복'))return{name:'연안 오육미전복 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('멍게'))return{name:'향긋 깐 멍게 500g',qty:Math.round(qty*wi*2),maxB:999};
+    if(norm(pn).includes('해삼'))return{name:'자연산 활 해삼 500g',qty:Math.round(qty*wi*2),maxB:999};
+    if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('바지락')&&!norm(pn).includes('깐'))return{name:'왕 바지락 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty:Math.round(qty*wi*2),maxB:999};
+  }
+  if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty,maxB:999};
+  if(norm(pn).includes('생굴')&&!norm(pn).includes('kg'))return{name:'생굴 1kg',qty,maxB:999};
+  if(norm(pn).includes('꼼장어'))return{name:'생물 꼼장어 1kg',qty,maxB:999};
+  if(norm(pn).includes('염소탕'))return{name:'김대헌 장수 염소탕 1팩',qty,maxB:999};
+  if(norm(pn).includes('자반')&&norm(pn).includes('고등어'))return{name:'국내산 자반 고등어 가정용 10미',qty,maxB:999};
+  if(norm(pn).includes('삼배체')&&norm(pn).includes('굴'))return{name:'통통 삼배체 굴 1kg',qty,maxB:999};
+  if(norm(pn).includes('도다리회')){const wm=pn.match(/(\d+)\s*g/i);const w=wm?wm[1]+'g':'250g';return{name:'통통 활 도다리회 '+w,qty,maxB:999};}
+  if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
+  if(norm(pn).includes('총알한치')&&norm(pn).includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
+  if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터'))return{name:'반건조오징어 1kg 5미',qty,maxB:999};
+  if(cl==='대상수산'&&(norm(pn).includes('바다장어')||norm(pn).includes('바다 장어')))return{name:'비만 바다장어 1kg',qty:Math.round(qty*wi),maxB:999};
+  if(cl==='대상수산'&&(norm(pn).includes('생물 풍천 민물 장어')||(norm(pn).includes('민물')&&norm(pn).includes('장어'))))return{name:'특왕 민물장어 1kg',qty:Math.round(qty*wi),maxB:999};
+  if(norm(pn).includes('비손질 풀도다리')||(norm(pn).includes('풀도다리')&&!norm(pn).includes('연안')))return{name:'연안 활 풀도다리 1kg',qty,maxB:999};
+  if(norm(pn).includes('거북손')&&norm(pn).includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
+  if(norm(pn).includes('석화')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
+  if(norm(pn).includes('새꼬막'))return{name:pn,qty,maxB:qty>=2?1:999};
+  if(norm(pn).includes('박달홍게'))return{name:pn,qty,maxB:1};
+  if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};
+
+  return{name:pn,qty,maxB:999};
+}
+
+function br(cl,cfg,nq,nr,ord,iv){
+  const ph=fp(cfg.phone||ord.cp);
+  const sa='address' in cfg?(cfg.address||''):ca(ord.ca||'');
+  const cua=ca(ord.address||'');
+  const cup=fp(ord.custPhone||'');
+  const msg=ord.msg||'';
+  if(iv&&cfg.showInsert)return[iv,cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
+  return[cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
+}
+
+function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));}
+function isPureNum(s){return !!(s.match(/^\d{1,6}$/));}
+
+function extractPhoneFromAddr(addr){
+  const m=addr.match(/0\d{1,2}-\d{3,4}-\d{4}/);
+  if(!m)return{addr,phone:''};
+  const phone=m[0];
+  const cleaned=addr.replace(phone,'').replace(/\s+/g,' ').trim();
+  return{addr:cleaned,phone};
+}
+
+function pr2(line){
+  const cols=line.split('\t');
+  if(cols.length<4)return null;
+  const cl=cols[0].trim().replace(/\s+/g,'');
+  let trailingQty=null;
+  const lastCol=(cols[cols.length-1]||'').trim();
+  if(lastCol.match(/^\d{1,3}$/)&&parseInt(lastCol)>0&&parseInt(lastCol)<1000){
+    trailingQty=parseInt(lastCol);
+    cols.pop();
+  }
+  const unitPattern=/\d+(kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판)/i;
+  let pi=-1;
+  for(let i=1;i<cols.length;i++){
+    if(unitPattern.test((cols[i]||'').trim())){pi=i;break;}
+  }
+  if(pi===-1){
+    for(let i=1;i<cols.length;i++){
+      const c=(cols[i]||'').trim();
+      if(c&&!isPhone(c)&&!isPureNum(c)&&c.length>3){pi=i;break;}
+    }
+  }
+  if(pi===-1)pi=1;
+  let cp='';
+  for(let ci=pi-1;ci>=1&&ci>=pi-4;ci--){
+    const cv=(cols[ci]||'').trim();
+    if(isPhone(cv)){cp=cv;break;}
+  }
+  const addrKeywords=['시','구','군','동','로','길','읍','면','리'];
+  const col1=(cols[1]||'').trim();
+  const col1isAddr=addrKeywords.some(k=>col1.includes(k))&&col1.length>5;
+  const ca2=col1isAddr?col1:(pi>=3?(cols[pi-2]||'').trim():'');
+  const prod=(cols[pi]||'').trim();
+  const nextCol=(cols[pi+1]||'').trim();
+  const hasQtyCol=isPureNum(nextCol)&&parseInt(nextCol)>0&&parseInt(nextCol)<1000;
+  const qtyColOffset=hasQtyCol?1:0;
+  const nr=(cols[pi+1+qtyColOffset]||'').trim();
+  const rawAddr=(cols[pi+2+qtyColOffset]||'').trim();
+  const extracted=extractPhoneFromAddr(rawAddr);
+  let addr=extracted.addr;
+  const addrPhone=extracted.phone;
+  const p1=(cols[pi+3+qtyColOffset]||'').trim();
+  const p2=(cols[pi+4+qtyColOffset]||'').trim();
+  const p3=(cols[pi+5+qtyColOffset]||'').trim();
+  let custPhone='',msg='';
+  if(isPhone(p1)){custPhone=p1;msg=p2+(p3?' '+p3:'');}
+  else if(isPhone(p2)){custPhone=p2;msg=p3;}
+  else{
+    custPhone=p1||p2||addrPhone;
+    msg=p3;
+  }
+  const qm=prod.match(/[xX×]\s*(\d+)\s*$/);
+  let qty=1;
+  if(qm)qty=parseInt(qm[1]);
+  else if(trailingQty)qty=trailingQty;
+  const qtyColValue=hasQtyCol?parseInt(nextCol):1;
+  return{client:cl,ca:ca2,cp,prod,nameRaw:nr,address:addr,custPhone,msg,qty,qtyColValue};
+}
+
+function parseRules(){
+  return (document.getElementById('rules').value||'').split('\n').map(l=>{
+    const parts=l.split(/→|->|>/).map(s=>s.trim());
+    return(parts.length===2&&parts[0]&&parts[1])?{from:parts[0],to:parts[1]}:null;
+  }).filter(Boolean);
+}
+
+function run(){
+  wc=0;
+  const input=document.getElementById('inp').value.trim();
+  if(!input){sl('입력 데이터가 없습니다.','warn');return;}
+  const rules=parseRules();
+  const lines=mergeLines(input);
+  document.getElementById('s-in').textContent=lines.length;
+  document.getElementById('in-count').textContent=lines.length+' 행';
+  sl(lines.length+'행 처리 중...');
+  const out=[];
+  // 이전 배치 자동 커밋 (저장 안 했어도 중복 체크용으로 dayHistory에 반영)
+  if(pendingHistory.length>0){
+    dayHistory=dayHistory.concat(pendingHistory.filter(p=>!dayHistory.some(h=>h.key===p.key)));
+  }
+  pendingHistory=[];
+  const dupNames=[];
+  for(const line of lines){
+    const row=pr2(line);
+    if(!row){sl('파싱 실패: '+line.slice(0,30),'warn');continue;}
+    const{client,ca:cla,cp,prod,nameRaw,address,custPhone,msg,qty,qtyColValue}=row;
+    if(client==='식봄'&&address.includes('동해시 대학로 16')){sl('식봄 대표님 주소 제외: '+nameRaw,'warn');continue;}
+    let cfg=CC[client]||{};
+    if(!CC[client])sl('미등록 업체: '+client,'warn');
+    const iv=cfg.insert||'';
+    const{name:rawName,qty:fq,maxB}=pp(client,prod,qty);
+    const finalQty=fq*(qtyColValue||1);
+    let name=rawName;
+    for(const rule of rules){if(name.includes(rule.from))name=name.replace(rule.from,rule.to);}
+    // 중복 발주 체크
+    const dupKey=(nameRaw+'|'+address).replace(/\s/g,'');
+    if(dayHistory.some(h=>h.key===dupKey))dupNames.push(nameRaw);
+    const salesClient=cfg.insert||client;
+    pendingHistory.push({client:salesClient,product:name,qty:finalQty,nameRaw,address,key:dupKey});
+    const ord={address,custPhone,msg,ca:cla,cp};
+    if(name.includes(' / ')){
+      out.push(br(client,cfg,name,nameRaw,ord,iv));
+    } else {
+      let rem=finalQty;
+      while(rem>0){const cur=Math.min(rem,maxB);out.push(br(client,cfg,name+' x '+cur,nameRaw,ord,iv));rem-=cur;}
+    }
+  }
+  document.getElementById('out').value=out.join('\n');
+  document.getElementById('s-out').textContent=out.length;
+  document.getElementById('out-count').textContent=out.length+' 행';
+  autoResize(document.getElementById('inp'));
+  autoResize(document.getElementById('out'));
+  document.getElementById('s-warn').textContent=wc;
+  if(dupNames.length>0){sl('⚠️ 중복 발주 의심: '+dupNames.join(', '),'warn');}
+  else{sl('완료 — '+out.length+'행 출력, 주의 '+wc+'건',wc>0?'warn':'ok');}
+}
+
+function copyOut(){
+  const v=document.getElementById('out').value;
+  if(!v)return;
+  navigator.clipboard.writeText(v).then(()=>sl('클립보드에 복사됐어요!','ok'));
+}
+
+function clearAll(){
+  document.getElementById('inp').value='';
+  document.getElementById('out').value='';
+  ['s-in','s-out','s-warn'].forEach(id=>document.getElementById(id).textContent='0');
+  document.getElementById('in-count').textContent='0 행';
+  document.getElementById('out-count').textContent='0 행';
+  autoResize(document.getElementById('inp'));
+  autoResize(document.getElementById('out'));
+  wc=0;sl('초기화됨');
+}
+function autoResize(el){el.style.height='auto';el.style.height=Math.max(200,el.scrollHeight)+'px';}
+document.addEventListener('DOMContentLoaded',function(){
+  const inp=document.getElementById('inp');
+  inp.addEventListener('input',function(){autoResize(inp);});
+  autoResize(inp);autoResize(document.getElementById('out'));
+});
+
+document.getElementById('inp').addEventListener('input',function(){
+  const n=this.value.trim().split('\n').filter(l=>l.trim()).length;
+  document.getElementById('in-count').textContent=n+' 행';
+});
+
+// 단축키: 1=변환실행 2=출력복사 3=시트저장 4=초기화 (입력창 밖에서)
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='TEXTAREA')return;
+  if(e.key==='1'){run();}
+  else if(e.key==='2'){copyOut();}
+  else if(e.key==='3'){saveToSheet();}
+  else if(e.key==='4'){clearAll();}
+});
+</script>
+</body>
+</html>">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>발주서 변환기 v22.25</title>
