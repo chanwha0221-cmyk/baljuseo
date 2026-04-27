@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v1.2</title>
+<title>외부 업체 등록 도구 v1.3</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -83,7 +83,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v1.2</span>
+  <span class="ver">v1.3</span>
   <span class="subtitle">사업자번호 OCR · 자유 형식 파싱 · 그룹웨어 연동</span>
 </header>
 <div class="main">
@@ -181,6 +181,47 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 let currentFile = null;
+
+// ========== 확장 프로그램 설치 감지 ==========
+let extensionInstalled = false;
+window.addEventListener('message', (e) => {
+  if (e.source !== window) return;
+  if (e.data && e.data.type === 'VENDOR_EXT_INSTALLED') {
+    extensionInstalled = true;
+    const gwBtn = document.getElementById('gwBtn');
+    if (gwBtn) gwBtn.textContent = '그룹웨어 자동등록 ▶ (확장 ON)';
+  }
+});
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+function sendToExtension(payload) {
+  return new Promise((resolve) => {
+    const handler = (e) => {
+      if (e.source !== window) return;
+      if (e.data && e.data.type === 'VENDOR_REGISTER_READY') {
+        window.removeEventListener('message', handler);
+        resolve(true);
+      } else if (e.data && e.data.type === 'VENDOR_REGISTER_ERROR') {
+        window.removeEventListener('message', handler);
+        resolve(false);
+      }
+    };
+    window.addEventListener('message', handler);
+    window.postMessage(payload, '*');
+    setTimeout(() => {
+      window.removeEventListener('message', handler);
+      resolve(false);
+    }, 3000);
+  });
+}
 
 // ========== 파일 업로드 ==========
 const dropzone = document.getElementById('dropzone');
@@ -482,24 +523,46 @@ async function uploadToGroupware() {
   if (!company) { showToast('업체명을 먼저 입력해주세요', '#b45309'); return; }
   if (!currentFile) { showToast('사업자등록증 사진을 먼저 올려주세요', '#b45309'); return; }
 
-  // 1) 사진 리네임 다운로드
   const ext = (currentFile.name.match(/\.[a-z0-9]+$/i) || ['.jpg'])[0].toLowerCase();
   const newName = company + ext;
+  const gwUrl = 'https://masterc.co.kr/index.php?mid=board_WmLw11&act=dispBoardWrite';
+
+  // === 확장 프로그램 설치된 경우: 자동 입력 모드 ===
+  if (extensionInstalled) {
+    showToast('🔄 데이터 전송 중...', 'var(--accent)', 1500);
+    try {
+      const base64 = await fileToBase64(currentFile);
+      const ready = await sendToExtension({
+        type: 'VENDOR_REGISTER',
+        title: company,
+        imageBase64: base64,
+        imageName: newName
+      });
+      if (ready) {
+        window.open(gwUrl, '_blank');
+        showToast('✅ 그룹웨어 새 탭 열림 - 제목/사진 자동 입력 후 등록 버튼만 누르세요', 'var(--ok)', 6000);
+        return;
+      }
+      // ready가 false면 폴백
+      showToast('⚠️ 확장 응답 없음 - 다운로드 모드로 폴백', '#b45309', 3000);
+    } catch (e) {
+      showToast('확장 통신 오류: ' + e.message + ' - 폴백', '#b45309', 3000);
+    }
+  }
+
+  // === 확장 없을 때 (또는 실패 시) 폴백: 다운로드 + 클립보드 ===
   const url = URL.createObjectURL(currentFile);
   const a = document.createElement('a');
   a.href = url; a.download = newName;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-  // 2) 업체명 클립보드
   try { await navigator.clipboard.writeText(company); } catch (e) {}
 
-  // 3) 안내
   document.getElementById('gwFileName').textContent = newName;
   document.getElementById('gwHint').classList.add('show');
 
-  // 4) 그룹웨어 글쓰기 페이지 새 탭
-  window.open('https://masterc.co.kr/index.php?mid=board_WmLw11&act=dispBoardWrite', '_blank');
+  window.open(gwUrl, '_blank');
 
   showToast('✅ 사진 다운로드 + 업체명 클립보드 복사 완료', 'var(--accent)', 5000);
 }
