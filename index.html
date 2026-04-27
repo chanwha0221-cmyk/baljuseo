@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.38</title>
+<title>발주서 변환기 v22.39</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -60,7 +60,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.38</span>
+  <span class="ver">v22.39</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -150,17 +150,17 @@ async function analyzeDay(){
   sl('판매 분석 중...');
   try{
     const token=await getAccessToken();
+    // 오늘자 집계
     const clientMap={},productMap={};
     for(const h of dayHistory){
       const ck=h.client+'||'+h.product;
       if(!clientMap[ck])clientMap[ck]={client:h.client,product:h.product,qty:0};
       clientMap[ck].qty+=h.qty;
-      if(!productMap[h.product])productMap[h.product]=0;
-      productMap[h.product]+=h.qty;
+      if(!productMap[h.product])productMap[h.product]={product:h.product,qty:0};
+      productMap[h.product].qty+=h.qty;
     }
     const today=new Date().toLocaleDateString('ko-KR');
-    const clientRows=[['업체명','상품명','수량'],['기준일',today,''],...Object.values(clientMap).sort((a,b)=>a.client.localeCompare(b.client)).map(r=>[r.client,r.product,r.qty])];
-    const productRows=[['상품명','수량'],['기준일',today],...Object.entries(productMap).sort((a,b)=>b[1]-a[1]).map(([p,q])=>[p,q])];
+    // 시트 존재 확인 + 생성
     const metaRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties.title`,{headers:{'Authorization':`Bearer ${token}`}});
     const meta=await metaRes.json();
     const titles=(meta.sheets||[]).map(s=>s.properties.title);
@@ -168,12 +168,66 @@ async function analyzeDay(){
     if(!titles.includes('업체별판매'))addReqs.push({addSheet:{properties:{title:'업체별판매'}}});
     if(!titles.includes('전체판매'))addReqs.push({addSheet:{properties:{title:'전체판매'}}});
     if(addReqs.length){await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:addReqs})});}
-    for(const[sName,rows] of [['업체별판매',clientRows],['전체판매',productRows]]){
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sName)}!A1:Z1000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
-    }
-    sl('판매 분석 완료! 업체별판매·전체판매 시트 업데이트됨','ok');
+    // 누적 병합 (와이드 포맷, 우측 컬럼으로 쌓기)
+    await mergeWide(token,'업체별판매',Object.values(clientMap),today,['업체명','상품명'],it=>[it.client,it.product]);
+    await mergeWide(token,'전체판매',Object.values(productMap),today,['상품명'],it=>[it.product]);
+    sl('판매 분석 완료! '+today+' 컬럼이 우측에 추가/갱신됨','ok');
   }catch(e){sl('분석 오류: '+e.message,'warn');}
+}
+
+// 와이드 포맷 누적 병합: 같은 날짜면 그 컬럼만 갱신, 새 날짜면 우측에 컬럼 추가
+async function mergeWide(token,sheetName,items,today,keyHeaders,getKey){
+  // 1) 기존 시트 읽기
+  const readRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}?majorDimension=ROWS`,{headers:{'Authorization':`Bearer ${token}`}});
+  const readData=await readRes.json();
+  let rows=(readData.values||[]).map(r=>r.slice());
+  // 2) 헤더 처리 (구버전 자동 마이그레이션)
+  const oldFormat=rows.length>0&&rows[0].length===keyHeaders.length+1&&rows[0][keyHeaders.length]==='수량';
+  if(oldFormat||rows.length===0){
+    rows=[[...keyHeaders]];
+  }
+  // 키 헤더 보정
+  for(let k=0;k<keyHeaders.length;k++){
+    if(rows[0][k]!==keyHeaders[k])rows[0][k]=keyHeaders[k];
+  }
+  // 구버전 "기준일" 메타 행 제거
+  if(rows[1]&&rows[1][0]==='기준일')rows.splice(1,1);
+  let header=rows[0];
+  // 3) 오늘 날짜 컬럼 인덱스 (없으면 우측 추가)
+  let dateColIdx=header.indexOf(today);
+  if(dateColIdx===-1){
+    header.push(today);
+    dateColIdx=header.length-1;
+  }
+  // 4) 키 -> 행 인덱스 맵
+  const keyToRowIdx={};
+  for(let i=1;i<rows.length;i++){
+    const keyVals=keyHeaders.map((_,k)=>(rows[i][k]||'').toString());
+    const key=keyVals.join('||');
+    if(key.replace(/\|/g,'').trim())keyToRowIdx[key]=i;
+  }
+  // 5) 오늘 데이터 병합
+  for(const item of items){
+    const keyVals=getKey(item);
+    const key=keyVals.join('||');
+    let rowIdx=keyToRowIdx[key];
+    if(rowIdx===undefined){
+      const newRow=Array(header.length).fill('');
+      for(let k=0;k<keyVals.length;k++)newRow[k]=keyVals[k];
+      rows.push(newRow);
+      rowIdx=rows.length-1;
+      keyToRowIdx[key]=rowIdx;
+    }
+    while(rows[rowIdx].length<header.length)rows[rowIdx].push('');
+    rows[rowIdx][dateColIdx]=item.qty;
+  }
+  // 6) 모든 행 padding (일관된 컬럼 수)
+  for(let i=0;i<rows.length;i++){
+    while(rows[i].length<header.length)rows[i].push('');
+  }
+  // 7) 시트 클리어 후 새로 쓰기
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ10000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
 }
 async function getAccessToken(){
   const header={alg:'RS256',typ:'JWT'};
