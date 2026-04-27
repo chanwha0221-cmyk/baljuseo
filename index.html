@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.36</title>
+<title>발주서 변환기 v22.37</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -60,7 +60,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.36</span>
+  <span class="ver">v22.37</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -369,6 +369,11 @@ function pp(cl,pr,qty){
     if(norm(pn).includes('생물풍천민물장어')||(norm(pn).includes('민물')&&norm(pn).includes('장어')))return{name:'특왕 민물장어 1kg',qty:Math.round(qty*wi),maxB:999};
     // 동해 활 골뱅이: 기본 단위 1kg
     if(norm(pn).includes('골뱅이'))return{name:'동해 활 골뱅이 1kg',qty:Math.round(qty*wi),maxB:999};
+    // 풍천 장어 등 (바다/민물 장어 외): 기본 단위 1kg, 입력 상품명 유지
+    if(norm(pn).includes('장어')&&!norm(pn).includes('바다')&&!norm(pn).includes('민물')){
+      const cleanName=pn.replace(/\s*[\d.]+\s*kg/gi,'').replace(/\s+/g,' ').trim();
+      return{name:cleanName+' 1kg',qty:Math.round(qty*wi),maxB:999};
+    }
     // 피데기/반건조오징어: 1팩=5미 기준으로 미 수를 팩 수로 환산
     if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터')){
       const miMatch=pn.match(/(\d+)\s*미/);
