@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.37</title>
+<title>발주서 변환기 v22.38</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -60,7 +60,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.37</span>
+  <span class="ver">v22.38</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -381,7 +381,7 @@ function pp(cl,pr,qty){
       return{name:'반건조오징어 1kg 5미',qty:qty*packs,maxB:999};
     }
   }
-  if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty,maxB:999};
+  if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty:Math.round(qty*wi),maxB:999};
   if(norm(pn).includes('생굴')&&!norm(pn).includes('kg'))return{name:'생굴 1kg',qty,maxB:999};
   if(norm(pn).includes('꼼장어'))return{name:'생물 꼼장어 1kg',qty,maxB:999};
   if(norm(pn).includes('염소탕'))return{name:'김대헌 장수 염소탕 1팩',qty,maxB:999};
