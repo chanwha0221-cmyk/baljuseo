@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.27</title>
+<title>발주서 변환기 v22.29</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -41,9 +41,9 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 textarea{width:100%;border:none;outline:none;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.75;resize:none;color:var(--text);background:var(--surface);min-height:200px;overflow:hidden;box-sizing:border-box;}
 textarea::placeholder{color:var(--text3)}
 #out{background:var(--out-bg);color:var(--out-text)}
-.rules-bar{background:var(--surface2);border-top:1px solid var(--border);padding:6px 20px;display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
+.rules-bar{background:var(--surface2);border-top:1px solid var(--border);padding:4px 20px;display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
 .rules-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;padding-top:4px}
-#rules{flex:1;border:1px solid var(--border2);border-radius:5px;padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;resize:none;height:52px;color:var(--text);background:var(--surface);outline:none;}
+#rules{flex:1;border:1px solid var(--border2);border-radius:5px;padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;resize:none;height:36px;color:var(--text);background:var(--surface);outline:none;}
 #rules::placeholder{color:var(--text3)}
 .bottom{background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:8px;flex-shrink:0}
 .btn{padding:7px 16px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .1s}
@@ -60,7 +60,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.27</span>
+  <span class="ver">v22.29</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -269,7 +269,7 @@ function mergeLines(raw){
     const normalized=toTsv(trimmed);
     if(!dataStart){if(isDataHeader(normalized)){dataStart=true;}continue;}
     if(isHeaderRow(normalized))continue;
-    const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)[kK]\b/g,'$1kg').replace(/한판/g,'1판')).join('\t');
+    const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)[kK][gG]?\b/g,(_,n)=>n+'kg').replace(/\s*[Xx×]\s*(\d+)/g,' x $1').replace(/한판/g,'1판')).join('\t');
     const firstCol=preprocessed.split('\t')[0].trim().replace(/\s+/g,'');
     const isFullRow=preprocessed.split('\t').length>=4;
     const isNew=isKnownClient(firstCol)||firstCol===lastClient||isFullRow;
