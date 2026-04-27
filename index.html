@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.30</title>
+<title>발주서 변환기 v22.31</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -60,7 +60,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.30</span>
+  <span class="ver">v22.31</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -102,7 +102,27 @@ const SPREADSHEET_ID='1pCf_ubeip17RJM9fWVnlk6gXthkbTO8KCQnzxDSHzAw';
 const SHEET_NAME='당일';
 let pendingHistory=[];
 let dayHistory=[];
-function clearDayHistory(){dayHistory=[];pendingHistory=[];sl('오늘 발주 히스토리 초기화됨','ok');}
+// === dayHistory 영구 저장 (새로고침/탭 재오픈에도 유지, 날짜 바뀌면 자동 초기화) ===
+const DAYHIST_KEY='baljuso_dayHistory_v1';
+function todayStr(){return new Date().toLocaleDateString('ko-KR');}
+function saveDayHistory(){
+  try{localStorage.setItem(DAYHIST_KEY,JSON.stringify({date:todayStr(),history:dayHistory}));}catch(e){}
+}
+function loadDayHistory(){
+  try{
+    const raw=localStorage.getItem(DAYHIST_KEY);
+    if(!raw)return 0;
+    const data=JSON.parse(raw);
+    if(data.date===todayStr()&&Array.isArray(data.history)){
+      dayHistory=data.history;
+      return dayHistory.length;
+    }
+    // 날짜 다름 → 자동 정리
+    localStorage.removeItem(DAYHIST_KEY);
+  }catch(e){}
+  return 0;
+}
+function clearDayHistory(){dayHistory=[];pendingHistory=[];saveDayHistory();sl('오늘 발주 히스토리 초기화됨','ok');}
 function loadToHistory(){
   const input=document.getElementById('inp').value.trim();
   if(!input){sl('입력 데이터가 없습니다.','warn');return;}
@@ -122,6 +142,7 @@ function loadToHistory(){
     dayHistory.push({client,product:name,qty:finalQty,nameRaw,address,key:dupKey});
     count++;
   }
+  saveDayHistory();
   sl('분석데이터 입력 완료 — 히스토리 '+count+'건 등록됨','ok');
 }
 async function analyzeDay(){
@@ -194,6 +215,7 @@ async function saveToSheet(){
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{repeatCell:{range:{sheetId,startRowIndex:nextRow-1,endRowIndex:endRow-1,startColumnIndex:startColIdx,endColumnIndex:endColIdx},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment)'}}]})});
       dayHistory=dayHistory.concat(pendingHistory.map(h=>Object.assign({},h)));
       pendingHistory=[];
+      saveDayHistory();
       sl('시트 저장 완료! '+wData.updatedRows+'행 추가됨 (히스토리 '+dayHistory.length+'건)','ok');
     }else{sl('저장 실패: '+JSON.stringify(wData),'warn');}
   }catch(e){sl('오류: '+e.message,'warn');}
@@ -201,7 +223,7 @@ async function saveToSheet(){
 const CC={
   "장씨네":{phone:"010-2458-1788",insert:"더본초",showInsert:true},
   "지구식품":{phone:"070-4800-1166",insert:"동글지구"},
-  "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일"},
+  "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일",showInsert:true},
   "청년어부":{phone:"010-2614-6813",insert:"마우셀"},
   "혜인건강":{phone:"070-4473-7196",insert:"HN"},
   "파더그로브":{phone:"0502-2679-0637",insert:"퍼니밀"},
@@ -429,7 +451,7 @@ function run(){
   document.getElementById('in-count').textContent=lines.length+' 행';
   sl(lines.length+'행 처리 중...');
   const out=[];
-  if(pendingHistory.length>0){dayHistory=dayHistory.concat(pendingHistory.filter(p=>!dayHistory.some(h=>h.key===p.key)));}
+  if(pendingHistory.length>0){dayHistory=dayHistory.concat(pendingHistory.filter(p=>!dayHistory.some(h=>h.key===p.key)));saveDayHistory();}
   pendingHistory=[];
   const dupNames=[];
   for(const line of lines){
@@ -477,6 +499,9 @@ document.addEventListener('DOMContentLoaded',function(){
   const inp=document.getElementById('inp');
   inp.addEventListener('input',function(){autoResize(inp);});
   autoResize(inp);autoResize(document.getElementById('out'));
+  // 오늘 발주 기록 복원 (새로고침/탭 재오픈 대응)
+  const restored=loadDayHistory();
+  if(restored>0)sl('이전 발주 '+restored+'건 복원됨 (오늘 발주 끝 누르면 초기화)','ok');
 });
 document.getElementById('inp').addEventListener('input',function(){
   const n=this.value.trim().split('\n').filter(l=>l.trim()).length;
