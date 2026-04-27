@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.29</title>
+<title>발주서 변환기 v22.30</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -60,7 +60,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.29</span>
+  <span class="ver">v22.30</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -231,6 +231,13 @@ const CC={
   "토리팜":{address:"경남 합천군 용주면 고품용덕길 38-1",phone:"010-5758-0367"},
   "푸른결":{address:"",phone:"070-3177-8080"}
 };
+// 업체별 상품명 매핑 (등급/규격 표기로 인해 자동 파싱이 어려운 경우 사용)
+// 형식: { 업체명: [ {match:'발주서표기 일부', name:'정식상품명', defaultWeight:'300g'} ] }
+const CLIENT_PRODUCT_MAP={
+  "팍스리테일":[
+    {match:"한우국거리", name:"깔끔손질 투뿔국거리", defaultWeight:"300g"}
+  ]
+};
 const RA="강원특별자치도 동해시 대학로 16";
 const HEADER_KEYWORDS=["주문처","업체명","거래처","공급사","상품명","고객명","수취인","연락처"];
 let wc=0;
@@ -284,6 +291,24 @@ function pp(cl,pr,qty){
     const _pn=norm(pr);
     if(_pn.includes('알도루묵'))return{name:'알도루묵 1팩',qty,maxB:999};
     if(_pn.includes('양미리'))return{name:'양미리 1kg',qty,maxB:999};
+  }
+  // === 업체별 상품 강제 매핑 (등급 표기 등으로 + 분할 로직이 오작동하는 케이스 우선 처리) ===
+  const cmap=CLIENT_PRODUCT_MAP[cl];
+  if(cmap){
+    const npr=norm(pr);
+    for(const m of cmap){
+      if(npr.includes(norm(m.match))){
+        const wm2=pr.match(/([\d.]+)\s*kg/i)||pr.match(/(\d+)\s*g\b/);
+        let w=m.defaultWeight||'';
+        if(wm2){
+          if(/kg/i.test(wm2[0]))w=wm2[1]+'kg';
+          else w=wm2[1]+'g';
+        }
+        const qm=pr.match(/[xX×*]\s*(\d+)/);
+        if(qm)qty=parseInt(qm[1]);
+        return{name:(m.name+(w?' '+w:'')).trim(),qty,maxB:999};
+      }
+    }
   }
   let r=pr.replace(/\*/g,'x');
   if(r.includes('+')){const it=r.split('+').map(i=>i.trim());return{name:it.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};}
