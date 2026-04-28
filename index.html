@@ -488,60 +488,85 @@ function normSikbomProd(raw){
   return raw.replace(/^(버피|연안)\s+/,'').trim();
 }
 
+function normLine(l){
+  // 탭 없으면 2칸 이상 공백을 탭으로 정규화
+  const t=l.trim();
+  return t.includes('\t')?t:t.replace(/ {2,}/g,'\t');
+}
+function isOrderHdr(l){return /^\d{9}[\t ]/.test(l)&&l.includes('GPG');}
+function extractAddrPhone(a){
+  // 주소 문자열에서 전화번호·메시지 분리
+  const m=a.match(/(0\d{1,2}[\s]?\d{3,4}[\s]?\d{4})/);
+  if(!m)return{addr:a.trim(),msg:''};
+  const ix=a.indexOf(m[1]);
+  return{addr:a.slice(0,ix).trim(),msg:a.slice(ix+m[1].length).trim()};
+}
+
 function preprocessSikbom(raw){
-  const lines=raw.trim().split('\n');
+  const lines=raw.trim().split('\n').map(normLine).filter(Boolean);
   const output=[];
   let i=0;
   while(i<lines.length){
-    const line=(lines[i]||'').trim();
-    // 주문 헤더: 9자리 주문번호 + GPG
-    if(!(/^\d{9}[\t ]/.test(line)&&line.includes('GPG'))){i++;continue;}
-    // Line 1: 주문 헤더 → 고객명 추출
-    const h1=line.split('\t');
+    if(!isOrderHdr(lines[i])){i++;continue;}
+    // === 헤더: 고객명 추출 ===
+    const h1=lines[i].split('\t');
     let custName='';
-    const baekIdx=h1.findIndex(c=>c.trim()==='발주대기');
-    if(baekIdx>=0&&h1[baekIdx+1])custName=h1[baekIdx+1].trim();
+    const bi=h1.findIndex(c=>c.trim()==='발주대기');
+    if(bi>=0&&h1[bi+1])custName=h1[bi+1].trim();
     i++;
-    // Line 2: 고객/결제 정보 → 고객 연락처 추출 (첫 컬럼이 01로 시작하는 숫자)
-    let custPhone='';
-    if(i<lines.length){
-      const h2=(lines[i]||'').trim().split('\t');
-      if(/^01\d{8,9}$/.test((h2[0]||'').trim())){
-        custPhone=fp(h2[0]);
-        i++;
+    // === 이 주문에 속한 나머지 행 수집 ===
+    const block=[];
+    while(i<lines.length&&!isOrderHdr(lines[i])){block.push(lines[i]);i++;}
+
+    let custPhone='',prodName='',qty=1,address='',msg='';
+
+    for(const bl of block){
+      const cols=bl.split('\t');
+      const c0=(cols[0]||'').trim();
+
+      // ① 고객 행: 01로 시작하는 10~11자리 숫자
+      if(/^01\d{8,9}$/.test(c0)){
+        if(!custPhone)custPhone=fp(c0);
+        // 행 안에서 브랜드 접두사 상품명(연안/버피) 탐색
+        for(let j=1;j<cols.length;j++){
+          const c=(cols[j]||'').trim();
+          if(!prodName&&/^(버피|연안)\s+/.test(c)&&/\d+(g|kg)/i.test(c)){
+            prodName=normSikbomProd(c);
+          }
+        }
+        // 수량: N팩/N개 패턴 (첫 발견 기준)
+        for(let j=1;j<cols.length;j++){
+          const c=(cols[j]||'').trim();
+          const pm=c.match(/(\d+)(팩|개)/);
+          if(pm&&parseInt(pm[1])>0){qty=parseInt(pm[1]);break;}
+        }
+      }
+
+      // ② 상품 상세 행: 한글로 시작 + 무게 패턴
+      else if(/^[가-힣]/.test(c0)&&/\d+(g|kg)/i.test(c0)){
+        if(!prodName)prodName=normSikbomProd(c0);
+        // 주소: col13 (상품행 형식)
+        if(!address){
+          const raw13=(cols[13]||'').trim();
+          if(raw13&&!raw13.includes('동해시')){
+            const r=extractAddrPhone(raw13);
+            address=r.addr;msg=r.msg;
+          }
+        }
+      }
+
+      // ③ 합계/주소 행: 5자리 이상 숫자로 시작 → col2에 주소
+      else if(/^\d{5,}$/.test(c0)&&!address){
+        const raw2=(cols[2]||'').trim();
+        if(raw2&&/[가-힣]/.test(raw2)&&!raw2.includes('동해시')){
+          const r=extractAddrPhone(raw2);
+          address=r.addr;msg=r.msg;
+        }
       }
     }
-    // Line 3+: 상품/주소 라인 (한글로 시작하는 라인)
-    while(i<lines.length){
-      const prodLine=(lines[i]||'').trim();
-      if(/^\d{9}[\t ]/.test(prodLine)&&prodLine.includes('GPG'))break; // 다음 주문 헤더
-      const h3=prodLine.split('\t');
-      const firstCol=(h3[0]||'').trim();
-      if(/^[가-힣]/.test(firstCol)){
-        // 상품명 정규화
-        const prodName=normSikbomProd(firstCol);
-        // 수량: 가격(col5) 바로 뒤 col6
-        const qty=parseInt(h3[6]||'1')||1;
-        // 주소: col13
-        let address=(h3[13]||'').trim();
-        let msg='';
-        // 주소에 포함된 전화번호/메시지 분리
-        const phoneInAddr=address.match(/(0\d{1,2}[\s\-]?\d{3,4}[\s\-]?\d{4})/);
-        if(phoneInAddr){
-          const idx=address.indexOf(phoneInAddr[1]);
-          const afterPhone=address.slice(idx+phoneInAddr[1].length).trim();
-          address=address.slice(0,idx).trim();
-          if(afterPhone)msg=afterPhone;
-        }
-        // 동해시 대표 주소 필터
-        if(!address.includes('동해시 대학로 16')&&address){
-          const nq=prodName+' x '+qty;
-          output.push(['식봄','','010-2455-4156','',nq,custName,address,custPhone,msg].join('\t'));
-        }
-        i++;
-      } else {
-        i++; // 주소 이어지는 행 또는 불필요한 행 → 스킵
-      }
+
+    if(prodName&&address&&custPhone){
+      output.push(['식봄','','010-2455-4156','',prodName+' x '+qty,custName,address,custPhone,msg].join('\t'));
     }
   }
   return output.join('\n');
