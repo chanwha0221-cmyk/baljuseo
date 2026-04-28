@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>통장 내역 조회</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;
+  --text:#1a1816;--text2:#6b6760;--text3:#a8a49e;
+  --accent:#2d6a4f;--accent-light:#e8f4ee;--accent-hover:#1e4d38;
+  --in:#1a6b3c;--in-bg:#e8f5ee;--in-border:#b7ddc8;
+  --out:#b45309;--out-bg:#fef3c7;--out-border:#fcd34d;
+  --warn:#dc2626;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;gap:12px}
+.logo{font-size:15px;font-weight:700;letter-spacing:-.03em}
+.logo span{color:var(--accent)}
+.ver{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:var(--accent-light);border:1px solid var(--in-border);padding:2px 7px;border-radius:20px}
+.upload-zone{margin:20px 24px 0;background:var(--surface);border:2px dashed var(--border2);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all .15s}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:var(--accent-light)}
+.upload-zone.loaded{border-style:solid;border-color:var(--in-border);background:var(--in-bg)}
+.upload-zone .icon{font-size:28px;margin-bottom:8px}
+.upload-zone .label{font-size:14px;font-weight:500;color:var(--text2)}
+.upload-zone .hint{font-size:11px;color:var(--text3);margin-top:4px}
+#fileInput{display:none}
+.filter-bar{margin:16px 24px 0;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.filter-bar label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.filter-bar input[type=date]{padding:6px 10px;border:1px solid var(--border2);border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);background:var(--surface);outline:none}
+.filter-bar input[type=date]:focus{border-color:var(--accent)}
+.sep{color:var(--text3);font-size:12px}
+.type-btns{display:flex;gap:4px;border:1px solid var(--border2);border-radius:6px;overflow:hidden}
+.type-btn{padding:6px 14px;border:none;background:transparent;font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);transition:all .1s}
+.type-btn.active{background:var(--accent);color:#fff;font-weight:700}
+.type-btn.in.active{background:var(--in);}
+.type-btn.out.active{background:var(--out);}
+.search-wrap{margin-left:auto;position:relative}
+.search-wrap input{padding:6px 10px 6px 30px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:180px;outline:none;color:var(--text)}
+.search-wrap input:focus{border-color:var(--accent)}
+.search-wrap .ico{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:13px}
+.btn-reset{padding:6px 14px;border:1px solid var(--border2);border-radius:5px;background:var(--surface);font-size:12px;cursor:pointer;color:var(--text2)}
+.btn-reset:hover{background:var(--surface2)}
+.summary-row{margin:14px 24px 0;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px}
+.card .title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.card .amount{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--text)}
+.card .amount.in{color:var(--in)}
+.card .amount.out{color:var(--out)}
+.card .sub{font-size:11px;color:var(--text3);margin-top:3px}
+.table-wrap{margin:14px 24px 24px;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.table-head{padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.table-head .tl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)}
+.table-head .tr{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+table{width:100%;border-collapse:collapse}
+th{padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text3);border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap}
+th.r,td.r{text-align:right}
+td{padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafaf8}
+td.in-amt{font-family:'JetBrains Mono',monospace;color:var(--in);font-weight:600}
+td.out-amt{font-family:'JetBrains Mono',monospace;color:var(--out)}
+td.date{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);white-space:nowrap}
+td.desc{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.name{color:var(--text2);font-size:11px}
+td.bank{color:var(--text3);font-size:11px}
+td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
+.empty{padding:48px;text-align:center;color:var(--text3)}
+.highlight{background:#fff3cd;border-radius:2px;padding:0 1px}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">통장 <span>내역 조회</span></span>
+  <span class="ver">v1.0</span>
+</header>
+<div class="upload-zone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+  <div class="icon">📂</div>
+  <div class="label" id="uploadLabel">은행 거래내역 xlsx 파일을 끌어다 놓거나 클릭해서 업로드</div>
+  <div class="hint" id="uploadHint">하나은행 기업자유예금 형식 지원</div>
+</div>
+<input type="file" id="fileInput" accept=".xlsx,.xls">
+<div class="filter-bar" id="filterBar" style="display:none">
+  <label>기간</label>
+  <input type="date" id="dateFrom" oninput="applyFilter()">
+  <span class="sep">~</span>
+  <input type="date" id="dateTo" oninput="applyFilter()">
+  <div class="type-btns">
+    <button class="type-btn active" data-t="all" onclick="setType('all')">전체</button>
+    <button class="type-btn in" data-t="in" onclick="setType('in')">입금</button>
+    <button class="type-btn out" data-t="out" onclick="setType('out')">출금</button>
+  </div>
+  <div class="search-wrap">
+    <span class="ico">🔍</span>
+    <input type="text" id="searchQ" placeholder="거래내용 검색..." oninput="applyFilter()">
+  </div>
+  <button class="btn-reset" onclick="resetFilter()">초기화</button>
+</div>
+<div class="summary-row" id="summaryRow" style="display:none">
+  <div class="card"><div class="title">조회 건수</div><div class="amount" id="s-count">0</div><div class="sub" id="s-period">-</div></div>
+  <div class="card"><div class="title">입금 합계</div><div class="amount in" id="s-in">0</div><div class="sub" id="s-in-cnt">0건</div></div>
+  <div class="card"><div class="title">출금 합계</div><div class="amount out" id="s-out">0</div><div class="sub" id="s-out-cnt">0건</div></div>
+  <div class="card"><div class="title">순 입금</div><div class="amount" id="s-net">0</div><div class="sub">입금 - 출금</div></div>
+</div>
+<div class="table-wrap" id="tableWrap" style="display:none">
+  <div class="table-head"><span class="tl">거래 내역</span><span class="tr" id="tableCount"></span></div>
+  <table><thead><tr><th>거래일시</th><th>거래내용</th><th>상대은행</th><th>예금주명</th><th class="r">입금</th><th class="r">출금</th><th class="r">거래후 잔액</th></tr></thead><tbody id="tbody"></tbody></table>
+</div>
+<script>
+let allData=[];let currentType="all";
+document.getElementById("fileInput").addEventListener("change",e=>{const file=e.target.files[0];if(file)readFile(file);});
+const dz=document.getElementById("dropzone");
+dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("drag");});
+dz.addEventListener("dragleave",()=>dz.classList.remove("drag"));
+dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("drag");const file=e.dataTransfer.files[0];if(file)readFile(file);});
+function readFile(file){const reader=new FileReader();reader.onload=e=>{const data=new Uint8Array(e.target.result);const wb=XLSX.read(data,{type:"array",cellText:true,cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:""});parseRows(rows,file.name);};reader.readAsArrayBuffer(file);}
+function parseRows(rows,filename){allData=[];let hdrIdx=rows.findIndex(r=>r.some(c=>String(c).includes("거래일시")));if(hdrIdx===-1)hdrIdx=2;const hdr=rows[hdrIdx];const colIdx={date:hdr.findIndex(c=>String(c).includes("거래일시")),out:hdr.findIndex(c=>String(c).trim()==="출금"),in:hdr.findIndex(c=>String(c).trim()==="입금"),bal:hdr.findIndex(c=>String(c).includes("잔액")),desc:hdr.findIndex(c=>String(c).includes("거래내용")),bank:hdr.findIndex(c=>String(c).includes("상대은행")),name:hdr.findIndex(c=>String(c).includes("예금주명"))};if(colIdx.date===-1){Object.assign(colIdx,{date:1,out:2,in:3,bal:4,desc:5,bank:7,name:12});}for(let i=hdrIdx+1;i<rows.length;i++){const r=rows[i];const dateStr=String(r[colIdx.date]||"").trim();if(!dateStr||dateStr==="합계")continue;const inAmt=parseNum(r[colIdx.in]);const outAmt=parseNum(r[colIdx.out]);if(inAmt===0&&outAmt===0)continue;const dateOnly=dateStr.slice(0,10);allData.push({date:dateStr,dateOnly,in:inAmt,out:outAmt,bal:parseNum(r[colIdx.bal]),desc:String(r[colIdx.desc]||"").trim(),bank:String(r[colIdx.bank]||"").trim(),name:String(r[colIdx.name]||"").trim()});}if(allData.length===0){alert("데이터를 읽지 못했어요. 파일 형식을 확인해주세요.");return;}const dates=allData.map(d=>d.dateOnly).sort();document.getElementById("dateFrom").value=dates[0];document.getElementById("dateTo").value=dates[dates.length-1];dz.classList.add("loaded");document.getElementById("uploadLabel").textContent="✅ "+filename+" 로드 완료 ("+allData.length+"건)";document.getElementById("uploadHint").textContent="다른 파일을 클릭해서 교체할 수 있어요";document.getElementById("filterBar").style.display="flex";document.getElementById("summaryRow").style.display="grid";document.getElementById("tableWrap").style.display="block";applyFilter();}
+function parseNum(v){const s=String(v||"").replace(/,/g,"").trim();const n=parseInt(s);return isNaN(n)?0:n;}
+function fmt(n){return n===0?"-":n.toLocaleString("ko-KR")+"원";}
+function fmtN(n){return n.toLocaleString("ko-KR")+"원";}
+function setType(t){currentType=t;document.querySelectorAll(".type-btn").forEach(b=>b.classList.toggle("active",b.dataset.t===t));applyFilter();}
+function resetFilter(){if(allData.length===0)return;const dates=allData.map(d=>d.dateOnly).sort();document.getElementById("dateFrom").value=dates[0];document.getElementById("dateTo").value=dates[dates.length-1];document.getElementById("searchQ").value="";setType("all");}
+function applyFilter(){if(allData.length===0)return;const from=document.getElementById("dateFrom").value;const to=document.getElementById("dateTo").value;const q=document.getElementById("searchQ").value.trim().toLowerCase();let filtered=allData.filter(d=>{if(from&&d.dateOnly<from)return false;if(to&&d.dateOnly>to)return false;if(currentType==="in"&&d.in===0)return false;if(currentType==="out"&&d.out===0)return false;if(q){const haystack=(d.desc+" "+d.name+" "+d.bank).toLowerCase();if(!haystack.includes(q))return false;}return true;});const totalIn=filtered.reduce((s,d)=>s+d.in,0);const totalOut=filtered.reduce((s,d)=>s+d.out,0);const cntIn=filtered.filter(d=>d.in>0).length;const cntOut=filtered.filter(d=>d.out>0).length;document.getElementById("s-count").textContent=filtered.length.toLocaleString()+"건";document.getElementById("s-period").textContent=from&&to?from+" ~ "+to:"-";document.getElementById("s-in").textContent=fmtN(totalIn);document.getElementById("s-in-cnt").textContent=cntIn+"건";document.getElementById("s-out").textContent=fmtN(totalOut);document.getElementById("s-out-cnt").textContent=cntOut+"건";const net=totalIn-totalOut;const netEl=document.getElementById("s-net");netEl.textContent=(net>=0?"+":"")+fmtN(net);netEl.style.color=net>=0?"var(--in)":"var(--out)";document.getElementById("tableCount").textContent=filtered.length+"건";const tbody=document.getElementById("tbody");if(filtered.length===0){tbody.innerHTML="<tr><td colspan='7' class='empty'>조건에 맞는 거래 내역이 없어요</td></tr>";return;}tbody.innerHTML=filtered.map(d=>"<tr><td class='date'>"+d.date.replace("T"," ")+"</td><td class='desc'>"+d.desc+"</td><td class='bank'>"+d.bank+"</td><td class='name'>"+d.name+"</td><td class='r "+(d.in>0?"in-amt":"")+"'>"+(d.in>0?fmtN(d.in):"")+"</td><td class='r "+(d.out>0?"out-amt":"")+"'>"+(d.out>0?fmtN(d.out):"")+"</td><td class='r bal'>"+fmtN(d.bal)+"</td></tr>").join("");}
+</script>
+</body>
+</html>
