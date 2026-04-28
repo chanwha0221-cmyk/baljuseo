@@ -14,20 +14,49 @@
   --in:#1a6b3c;--in-bg:#e8f5ee;--in-border:#b7ddc8;
   --out:#b45309;--out-bg:#fef3c7;--out-border:#fcd34d;
   --warn:#dc2626;
-  --chat-w:360px;
+  --chat-w:380px;
+  --kakao:#FEE500;
 }
+/* ── 채팅 탭 ── */
+.chat-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0}
+.chat-tab{flex:1;padding:10px 8px;border:none;background:transparent;font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px}
+.chat-tab.active{color:var(--accent);border-bottom-color:var(--accent);background:var(--surface);font-weight:700}
+.chat-tab:hover:not(.active){background:var(--border)}
+/* ── 정산 메시지 패널 ── */
+.msg-panel{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.msg-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.msg-section-title{padding:9px 14px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.msg-fields{padding:14px;display:flex;flex-direction:column;gap:10px}
+.msg-field{display:flex;flex-direction:column;gap:5px}
+.msg-field label{font-size:11px;font-weight:600;color:var(--text2)}
+.msg-field input{padding:8px 10px;border:1px solid var(--border2);border-radius:7px;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:var(--text);outline:none;background:var(--surface);transition:border .1s}
+.msg-field input:focus{border-color:var(--accent)}
+.msg-preview-wrap{position:relative}
+.msg-preview{width:100%;padding:12px;border:1px solid var(--border2);border-radius:7px;font-family:'Noto Sans KR',sans-serif;font-size:12px;line-height:1.75;color:var(--text);background:var(--surface);resize:vertical;min-height:180px;outline:none}
+.msg-preview:focus{border-color:var(--accent)}
+.msg-actions{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border)}
+.btn-copy{flex:1;padding:10px;border:1px solid var(--border2);border-radius:8px;background:var(--surface);font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);transition:all .1s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-copy:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
+.btn-copy.copied{background:var(--in-bg);border-color:var(--in-border);color:var(--in)}
+.btn-kakao{flex:1;padding:10px;border:none;border-radius:8px;background:var(--kakao);font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;cursor:pointer;color:#3C1E1E;display:flex;align-items:center;justify-content:center;gap:6px;transition:opacity .1s}
+.btn-kakao:hover{opacity:.85}
+.template-toggle{padding:8px 14px;font-size:11px;color:var(--accent);cursor:pointer;background:none;border:none;font-family:'Noto Sans KR',sans-serif;text-decoration:underline;text-align:left}
+.template-edit{padding:0 14px 14px}
+.template-edit textarea{width:100%;padding:10px;border:1px solid var(--border2);border-radius:7px;font-family:'Noto Sans KR',sans-serif;font-size:11px;line-height:1.7;color:var(--text);resize:vertical;min-height:160px;outline:none;background:#fffef8}
+.template-edit textarea:focus{border-color:var(--accent)}
+.template-hint{font-size:10px;color:var(--text3);margin-top:4px;line-height:1.6}
+.copy-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:#1a1816;color:#fff;padding:10px 20px;border-radius:24px;font-size:12px;font-weight:500;z-index:9999;transition:transform .25s,opacity .25s;opacity:0;pointer-events:none}
+.copy-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
 header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;gap:12px;flex-shrink:0}
 .logo{font-size:15px;font-weight:700;letter-spacing:-.03em}
 .logo span{color:var(--accent)}
 .ver{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:var(--accent-light);border:1px solid var(--in-border);padding:2px 7px;border-radius:20px}
-
 /* 레이아웃: 좌측 메인 + 우측 채팅 */
 .layout{display:flex;flex:1;min-height:0}
 .main-panel{flex:1;overflow-y:auto;padding-bottom:24px}
 .chat-panel{width:var(--chat-w);min-width:var(--chat-w);background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;height:calc(100vh - 52px);position:sticky;top:52px}
-
 /* 업로드 영역 */
 .upload-zone{margin:20px 24px 0;background:var(--surface);border:2px dashed var(--border2);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:all .15s}
 .upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:var(--accent-light)}
@@ -36,7 +65,6 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 .upload-zone .label{font-size:14px;font-weight:500;color:var(--text2)}
 .upload-zone .hint{font-size:11px;color:var(--text3);margin-top:4px}
 #fileInput{display:none}
-
 /* 필터 바 */
 .filter-bar{margin:14px 24px 0;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .filter-bar label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
@@ -54,7 +82,6 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 .search-wrap .ico{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:13px}
 .btn-reset{padding:5px 12px;border:1px solid var(--border2);border-radius:5px;background:var(--surface);font-size:12px;cursor:pointer;color:var(--text2)}
 .btn-reset:hover{background:var(--surface2)}
-
 /* 요약 카드 */
 .summary-row{margin:12px 24px 0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px}
@@ -63,7 +90,6 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 .card .amount.in{color:var(--in)}
 .card .amount.out{color:var(--out)}
 .card .sub{font-size:11px;color:var(--text3);margin-top:2px}
-
 /* 테이블 */
 .table-wrap{margin:12px 24px 0;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
 .table-head{padding:9px 14px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
@@ -84,7 +110,6 @@ td.bank{color:var(--text3);font-size:11px}
 td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 .empty{padding:40px;text-align:center;color:var(--text3)}
 .highlight{background:#fff3cd;border-radius:2px;padding:0 1px}
-
 /* ========== 채팅 패널 ========== */
 .chat-header{padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:8px;flex-shrink:0}
 .chat-header .ch-title{font-size:13px;font-weight:700}
@@ -120,9 +145,8 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body>
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v2.2</span>
+  <span class="ver">v2.3</span>
 </header>
-
 <div class="layout">
   <!-- 좌측: 기존 조회 패널 -->
   <div class="main-panel">
@@ -135,7 +159,6 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
       </div>
     </div>
     <input type="file" id="fileInput" accept=".xlsx,.xls">
-
     <div class="filter-bar" id="filterBar" style="display:none">
       <label>기간</label>
       <input type="date" id="dateFrom" oninput="applyFilter()">
@@ -152,14 +175,12 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
       </div>
       <button class="btn-reset" onclick="resetFilter()">초기화</button>
     </div>
-
     <div class="summary-row" id="summaryRow" style="display:none">
       <div class="card"><div class="title">조회 건수</div><div class="amount" id="s-count">0</div><div class="sub" id="s-period">-</div></div>
       <div class="card"><div class="title">입금 합계</div><div class="amount in" id="s-in">0</div><div class="sub" id="s-in-cnt">0건</div></div>
       <div class="card"><div class="title">출금 합계</div><div class="amount out" id="s-out">0</div><div class="sub" id="s-out-cnt">0건</div></div>
       <div class="card"><div class="title">순 입금</div><div class="amount" id="s-net">0</div><div class="sub">입금 - 출금</div></div>
     </div>
-
     <div class="table-wrap" id="tableWrap" style="display:none">
       <div class="table-head">
         <span class="tl">거래 내역</span>
@@ -176,9 +197,14 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
       </table>
     </div>
   </div>
-
-  <!-- 우측: 채팅 패널 -->
+  <!-- 우측: 채팅/메시지 패널 -->
   <div class="chat-panel">
+    <div class="chat-tabs">
+      <button class="chat-tab active" id="tab-chat" onclick="switchTab('chat')">💬 질문하기</button>
+      <button class="chat-tab" id="tab-msg" onclick="switchTab('msg')">✉️ 정산 메시지</button>
+    </div>
+    <!-- 질문하기 패널 -->
+    <div id="chatPanelWrap" style="display:flex;flex-direction:column;flex:1;min-height:0">
     <div class="chat-header">
       <span>💬</span>
       <span class="ch-title">질문하기</span>
@@ -212,20 +238,74 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
         <button class="chat-send-btn" onclick="sendChat()">↑</button>
       </div>
     </div>
+    </div><!-- /chatPanelWrap -->
+    <!-- 정산 메시지 패널 -->
+    <div id="msgPanelWrap" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto">
+      <div class="msg-panel">
+        <!-- 입력 필드 -->
+        <div class="msg-section">
+          <div class="msg-section-title">📋 정보 입력</div>
+          <div class="msg-fields">
+            <div class="msg-field">
+              <label>호칭 (상대방 이름/직함)</label>
+              <input type="text" id="msgTitle" placeholder="예: 대표님, 홍길동 대표님" value="대표님" oninput="generateMsg()">
+            </div>
+            <div class="msg-field">
+              <label>정산 기간</label>
+              <input type="text" id="msgPeriod" placeholder="예: 4월, 3월~4월" oninput="generateMsg()">
+            </div>
+            <div class="msg-field">
+              <label>미정산 금액</label>
+              <input type="text" id="msgAmount" placeholder="예: 2,504,000원" oninput="generateMsg()">
+            </div>
+          </div>
+        </div>
+        <!-- 메시지 미리보기 -->
+        <div class="msg-section">
+          <div class="msg-section-title">💬 생성된 메시지</div>
+          <div style="padding:12px 14px 0">
+            <textarea class="msg-preview" id="msgPreview" spellcheck="false"></textarea>
+          </div>
+          <div class="msg-actions">
+            <button class="btn-copy" id="copyBtn" onclick="copyMsg()">📋 복사하기</button>
+            <button class="btn-kakao" onclick="copyMsgKakao()">🟡 카카오 복사</button>
+          </div>
+        </div>
+        <!-- 기본 메시지 템플릿 편집 -->
+        <div class="msg-section">
+          <div class="msg-section-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>⚙️ 메시지 템플릿</span>
+            <button class="template-toggle" onclick="toggleTemplate()">편집하기 ▾</button>
+          </div>
+          <div class="template-edit" id="templateEdit" style="display:none">
+            <textarea id="msgTemplate" rows="9" spellcheck="false" oninput="generateMsg()">안녕하세요 {호칭}
+{기간} 한달 간 총 미정산 금액 {금액} 입니다.
+이번 주 {기간} 말일이라 정산금액 입금해 주시면 감사 드리겠습니다.
+30일 입금 내역까지 다음 달 운영비가 책정 됩니다.
+이는 클레임 처리나 단가 인하 등 제가 상품 운영하는데 쓰이고 있습니다.
+정산 확인되는 날짜까지 최대한 입금 해주시면 감사드리겠습니다.
+추가적으로 정산 이상 있으시면 언제든지 연락 주십시요!!</textarea>
+            <div class="template-hint">
+              ✏️ <b>{호칭}</b> · <b>{기간}</b> · <b>{금액}</b> 을 원하는 위치에 넣으세요<br>
+              변경 후 위 미리보기에 바로 반영됩니다
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /msgPanelWrap -->
   </div>
 </div>
-
+<!-- 복사 토스트 -->
+<div class="copy-toast" id="copyToast"></div>
 <script>
 let allData=[];
 let currentType='all';
 let sortDir='asc'; // 'asc'=오래된순, 'desc'=최신순
-
 function toggleSort(){
   sortDir=sortDir==='asc'?'desc':'asc';
   document.getElementById('thDate').textContent='거래일시 '+(sortDir==='asc'?'↑':'↓');
   applyFilter();
 }
-
 // ───── IndexedDB 자동 저장/복원 ─────
 const DB_NAME='bankviewer',DB_VER=1,STORE='files';
 function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VER);r.onupgradeneeded=e=>e.target.result.createObjectStore(STORE);r.onsuccess=e=>res(e.target.result);r.onerror=rej;});}
@@ -245,7 +325,6 @@ window.addEventListener('DOMContentLoaded',async()=>{
   parseRows(rows,saved.name,false);
   document.getElementById('uploadHint').textContent='저장된 파일을 자동으로 불러왔어요 ✅';
 });
-
 // ───── 파일 업로드 ─────
 document.getElementById('fileInput').addEventListener('change',e=>{
   const file=e.target.files[0]; if(file)readFile(file);
@@ -257,7 +336,6 @@ dz.addEventListener('drop',e=>{
   e.preventDefault();dz.classList.remove('drag');
   const file=e.dataTransfer.files[0]; if(file)readFile(file);
 });
-
 function readFile(file){
   const reader=new FileReader();
   reader.onload=async e=>{
@@ -275,7 +353,6 @@ function readFile(file){
   };
   reader.readAsArrayBuffer(file);
 }
-
 function parseRows(rows,filename,showChat=true){
   allData=[];
   let hdrIdx=rows.findIndex(r=>r.some(c=>String(c).includes('거래일시')));
@@ -291,7 +368,6 @@ function parseRows(rows,filename,showChat=true){
     name:hdr.findIndex(c=>String(c).includes('예금주명')),
   };
   if(colIdx.date===-1){Object.assign(colIdx,{date:1,out:2,in:3,bal:4,desc:5,bank:7,name:12});}
-
   for(let i=hdrIdx+1;i<rows.length;i++){
     const r=rows[i];
     const dateStr=String(r[colIdx.date]||'').trim();
@@ -309,9 +385,7 @@ function parseRows(rows,filename,showChat=true){
       name:String(r[colIdx.name]||'').trim(),
     });
   }
-
   if(allData.length===0){alert('데이터를 읽지 못했어요.');return;}
-
   const dates=allData.map(d=>d.dateOnly).sort();
   document.getElementById('dateFrom').value=dates[0];
   document.getElementById('dateTo').value=dates[dates.length-1];
@@ -326,11 +400,9 @@ function parseRows(rows,filename,showChat=true){
   if(showChat) addBotMsg('파일 로드 완료! 📊 총 <b>'+allData.length+'건</b>의 거래 내역이 있어요. 궁금한 거 물어보세요!');
   else addBotMsg('저장된 파일 자동 복원 완료! 📂 <b>'+allData.length+'건</b> 로드됨. 궁금한 거 물어보세요!');
 }
-
 function parseNum(v){const s=String(v||'').replace(/,/g,'').trim();const n=parseInt(s);return isNaN(n)?0:n;}
 function fmtN(n){return n.toLocaleString('ko-KR')+'원';}
 function nowTime(){const d=new Date();return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');}
-
 function setType(t){
   currentType=t;
   document.querySelectorAll('.type-btn').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
@@ -374,7 +446,6 @@ function applyFilter(){
   document.getElementById('tableCount').textContent=filtered.length+'건';
   // 정렬
   filtered.sort((a,b)=>sortDir==='asc'?a.date.localeCompare(b.date):b.date.localeCompare(a.date));
-
   const tbody=document.getElementById('tbody');
   if(!filtered.length){tbody.innerHTML='<tr><td colspan="7" class="empty">조건에 맞는 거래 내역이 없어요</td></tr>';return;}
   const hl=(s,q)=>{if(!q)return s;const re=new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');return s.replace(re,'<span class="highlight">$1</span>');};
@@ -389,7 +460,6 @@ function applyFilter(){
       <td class="r bal">${fmtN(d.bal)}</td>
     </tr>`).join('');
 }
-
 // ───── 채팅 ─────
 function addUserMsg(text){
   const body=document.getElementById('chatBody');
@@ -421,28 +491,23 @@ function sendChat(){
   const ans=interpret(text);
   setTimeout(()=>addBotMsg(ans),200);
 }
-
 // ───── 자연어 해석 엔진 ─────
 function interpret(q){
   const orig=q;
   q=q.toLowerCase().replace(/\s+/g,' ').trim();
-
   // 데이터의 연도 추출 (가장 많은 연도 기준)
   const yearCount={};
   allData.forEach(d=>{const y=d.dateOnly.slice(0,4);yearCount[y]=(yearCount[y]||0)+1;});
   const baseYear=Object.entries(yearCount).sort((a,b)=>b[1]-a[1])[0][0];
   const now=new Date();
   const curMonth=now.getMonth()+1;
-
   // ── 잔액 ──
   if(/잔액|남은돈|얼마있어|얼마 있어/.test(q)){
     const last=allData[allData.length-1];
     return `현재 잔액은 <span class="amt">${fmtN(last.bal)}</span> 입니다.<br><small style="color:var(--text3)">${last.date.replace('T',' ')} 기준</small>`;
   }
-
   // ── 날짜 범위 파싱: "X월 Y일부터 X월 Z일" / "X/Y~X/Z" / "X일~Y일" ──
   let fromDate=null, toDate=null;
-
   // "4월 1일부터 4월 15일" or "4월 1일~4월 15일"
   const rangeM=q.match(/(\d{1,2})월\s*(\d{1,2})일\s*[~부터～\-]\s*(?:(\d{1,2})월\s*)?(\d{1,2})일/);
   if(rangeM){
@@ -451,7 +516,6 @@ function interpret(q){
     fromDate=`${baseYear}-${String(m1).padStart(2,'0')}-${String(d1).padStart(2,'0')}`;
     toDate=`${baseYear}-${String(m2).padStart(2,'0')}-${String(d2).padStart(2,'0')}`;
   }
-
   // ── 월 파싱: "3월", "이번달", "지난달" ──
   let targetMonth=null;
   if(!fromDate){
@@ -468,46 +532,36 @@ function interpret(q){
       toDate=`${yr}-${String(targetMonth).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
     }
   }
-
   // ── 입금/출금 방향 ──
   const isIn  = /입금|들어온|들어왔|받은|받아/.test(q);
   const isOut = /출금|나간|나갔|쓴|결제|빠져/.test(q);
-
   // ── 이름 / 키워드 검색 ──
   const nameKw = extractNameKw(orig);
-
   // ── 순위 질문 ──
   if(/누가|많이|순위|top|랭킹|많은/.test(q)){
     return rankAnswer(fromDate, toDate, isOut);
   }
-
   // ── 건수 질문 ──
   const isCnt = /몇 건|몇건|건수|횟수|몇 번|몇번/.test(q);
-
   // ── 이름 검색 + 금액 ──
   if(nameKw){
     return nameAnswer(nameKw, fromDate, toDate, isIn, isOut, isCnt);
   }
-
   // ── 기간 + 입금/출금 합계 ──
   if(fromDate || isIn || isOut){
     return rangeAnswer(fromDate, toDate, isIn, isOut, isCnt, q);
   }
-
   // ── 전체 합계 ──
   if(/전체|총|합계|총액/.test(q)){
     return totalAnswer(isIn, isOut);
   }
-
   // ── 최근 N건 ──
   const recentM=q.match(/최근\s*(\d+)\s*건/);
   if(recentM){
     return recentAnswer(parseInt(recentM[1]), isIn, isOut);
   }
-
   return helpMsg();
 }
-
 function filterData(fromDate, toDate, isIn, isOut, nameKw){
   return allData.filter(d=>{
     if(fromDate && d.dateOnly < fromDate) return false;
@@ -521,17 +575,14 @@ function filterData(fromDate, toDate, isIn, isOut, nameKw){
     return true;
   });
 }
-
 function rangeAnswer(fromDate, toDate, isIn, isOut, isCnt, q){
   const data=filterData(fromDate, toDate, isIn, isOut, null);
   if(!data.length) return '해당 조건의 거래 내역이 없어요 😅';
-
   const totalIn=data.reduce((s,d)=>s+d.in,0);
   const totalOut=data.reduce((s,d)=>s+d.out,0);
   const cntIn=data.filter(d=>d.in>0).length;
   const cntOut=data.filter(d=>d.out>0).length;
   const period=fromDate&&toDate?`<b>${fromDate} ~ ${toDate}</b>`:'전체 기간';
-
   if(isIn && !isOut){
     if(isCnt) return `${period}<br>입금 건수: <b>${cntIn}건</b>`;
     return `${period} 입금 합계<br><span class="amt-in">${fmtN(totalIn)}</span> (${cntIn}건)`;
@@ -544,7 +595,6 @@ function rangeAnswer(fromDate, toDate, isIn, isOut, isCnt, q){
   const net=totalIn-totalOut;
   return `${period}<br>입금 <span class="amt-in">${fmtN(totalIn)}</span> (${cntIn}건)<br>출금 <span class="amt-out">${fmtN(totalOut)}</span> (${cntOut}건)<br>순입금 <span class="amt">${(net>=0?'+':'')+fmtN(net)}</span>`;
 }
-
 function nameAnswer(kw, fromDate, toDate, isIn, isOut, isCnt){
   const data=filterData(fromDate, toDate, isIn, isOut, kw);
   if(!data.length) return `<b>${kw}</b> 관련 거래 내역이 없어요.`;
@@ -562,7 +612,6 @@ function nameAnswer(kw, fromDate, toDate, isIn, isOut, isCnt){
   }
   return res;
 }
-
 function rankAnswer(fromDate, toDate, isOut){
   const data=filterData(fromDate, toDate, !isOut, isOut, null);
   const map={};
@@ -587,7 +636,6 @@ function rankAnswer(fromDate, toDate, isOut){
   res+='</table>';
   return res;
 }
-
 function totalAnswer(isIn, isOut){
   const totalIn=allData.reduce((s,d)=>s+d.in,0);
   const totalOut=allData.reduce((s,d)=>s+d.out,0);
@@ -598,7 +646,6 @@ function totalAnswer(isIn, isOut){
   if(isOut&&!isIn) return `전체 출금 합계<br><span class="amt-out">${fmtN(totalOut)}</span> (${cntOut}건)`;
   return `전체 기간 요약<br>입금 <span class="amt-in">${fmtN(totalIn)}</span> (${cntIn}건)<br>출금 <span class="amt-out">${fmtN(totalOut)}</span> (${cntOut}건)<br>순입금 <span class="amt">${(net>=0?'+':'')+fmtN(net)}</span>`;
 }
-
 function recentAnswer(n, isIn, isOut){
   let data=[...allData];
   if(isIn) data=data.filter(d=>d.in>0);
@@ -612,7 +659,6 @@ function recentAnswer(n, isIn, isOut){
   res+='</table>';
   return res;
 }
-
 function extractNameKw(orig){
   // 숫자/특수문자/일반 조사 제거 후 남은 한글 명사 추출
   const stopwords=['입금','출금','얼마','총액','합계','내역','거래','조회','보여','주세요','이야','이에요','인지','인가','부터','까지','동안','기간','전체','이번','지난','달','월','일','건수','몇','누가','제일','많이','누구','순위','랭킹','현재','잔액','최근','보여줘','알려줘','알려줘','뭐야','어때'];
@@ -621,10 +667,90 @@ function extractNameKw(orig){
   words=words.filter(w=>/[가-힣]/.test(w));
   return words.length>0?words[0]:null;
 }
-
 function helpMsg(){
   return `잘 못 알아들었어요 😅<br>이렇게 물어봐 주세요:<br>• <b>3월 입금 총액</b><br>• <b>홍길동 거래 내역</b><br>• <b>누가 제일 많이 입금했어?</b><br>• <b>현재 잔액</b>`;
 }
+
+// ───── 탭 전환 ─────
+function switchTab(tab){
+  document.getElementById('tab-chat').classList.toggle('active', tab==='chat');
+  document.getElementById('tab-msg').classList.toggle('active', tab==='msg');
+  document.getElementById('chatPanelWrap').style.display = tab==='chat' ? 'flex' : 'none';
+  document.getElementById('msgPanelWrap').style.display  = tab==='msg'  ? 'flex' : 'none';
+  if(tab==='msg') generateMsg();
+}
+
+// ───── 정산 메시지 생성 ─────
+function generateMsg(){
+  const title  = document.getElementById('msgTitle').value.trim()  || '{호칭}';
+  const period = document.getElementById('msgPeriod').value.trim() || '{기간}';
+  const amount = document.getElementById('msgAmount').value.trim() || '{금액}';
+  const tmpl   = document.getElementById('msgTemplate').value;
+  const result = tmpl
+    .replace(/\{호칭\}/g, title)
+    .replace(/\{기간\}/g, period)
+    .replace(/\{금액\}/g, amount);
+  document.getElementById('msgPreview').value = result;
+}
+
+// 탭 전환 시 기간 자동 입력 (파일 데이터 있으면)
+function autoFillMsgPeriod(){
+  const periodInput = document.getElementById('msgPeriod');
+  if(periodInput.value) return;
+  if(!allData.length) return;
+  // 가장 최근 월 추출
+  const dates = allData.map(d=>d.dateOnly).sort();
+  const lastDate = dates[dates.length-1];
+  const m = parseInt(lastDate.slice(5,7));
+  periodInput.value = m + '월';
+}
+
+// 파일 로드 후 자동으로 기간 채워주기
+const _origParseRows = parseRows;
+// 탭 전환 때 자동 채우기
+const _origSwitchTab = switchTab;
+// 탭 버튼 클릭 시 자동 채우기 트리거
+document.getElementById('tab-msg').addEventListener('click', autoFillMsgPeriod);
+
+// ───── 클립보드 복사 ─────
+function showToast(msg){
+  const t=document.getElementById('copyToast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2000);
+}
+function copyMsg(){
+  const text=document.getElementById('msgPreview').value;
+  if(!text){showToast('먼저 정보를 입력해 주세요');return;}
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=document.getElementById('copyBtn');
+    btn.classList.add('copied');
+    btn.textContent='✅ 복사 완료!';
+    showToast('✅ 메시지가 복사됐어요! 카톡에 붙여넣기 하세요');
+    setTimeout(()=>{btn.classList.remove('copied');btn.innerHTML='📋 복사하기';},2200);
+  }).catch(()=>showToast('복사에 실패했어요. 직접 선택해서 복사해 주세요'));
+}
+function copyMsgKakao(){
+  const text=document.getElementById('msgPreview').value;
+  if(!text){showToast('먼저 정보를 입력해 주세요');return;}
+  navigator.clipboard.writeText(text).then(()=>{
+    showToast('🟡 카카오톡에 붙여넣기 하세요!');
+  }).catch(()=>showToast('복사에 실패했어요'));
+}
+
+// ───── 템플릿 편집 토글 ─────
+function toggleTemplate(){
+  const el=document.getElementById('templateEdit');
+  const btn=document.querySelector('.template-toggle');
+  const isHidden=el.style.display==='none';
+  el.style.display=isHidden?'block':'none';
+  btn.textContent=isHidden?'접기 ▴':'편집하기 ▾';
+}
+
+// 초기 메시지 생성 (빈 상태라도 템플릿 보여주기)
+window.addEventListener('DOMContentLoaded', ()=>{
+  setTimeout(generateMsg, 100);
+});
 </script>
 </body>
 </html>
