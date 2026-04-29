@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.46</title>
+<title>발주서 변환기 v22.47</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.46</span>
+  <span class="ver">v22.47</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -117,6 +117,13 @@ function loadToHistory(){
 }
 async function analyzeDay(){
   if(dayHistory.length===0){sl('저장된 발주 데이터가 없습니다.','warn');return;}
+  const dateInput=prompt('이번 분석은 어느 날짜 데이터인가요?\n(M/D 형식, 예: 11/5)','');
+  if(dateInput===null)return;
+  const dm=dateInput.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+  if(!dm){sl('날짜 형식이 잘못됨. M/D 형식으로 입력 (예: 11/5)','warn');return;}
+  const mon=parseInt(dm[1]),day=parseInt(dm[2]);
+  if(mon<1||mon>12||day<1||day>31){sl('잘못된 월/일','warn');return;}
+  const dateLabel=mon+'/'+day;
   sl('판매 분석 중...');
   try{
     const token=await getAccessToken();
@@ -128,9 +135,6 @@ async function analyzeDay(){
       if(!productMap[h.product])productMap[h.product]=0;
       productMap[h.product]+=h.qty;
     }
-    const today=new Date().toLocaleDateString('ko-KR');
-    const clientRows=[['업체명','상품명','수량'],['기준일',today,''],...Object.values(clientMap).sort((a,b)=>a.client.localeCompare(b.client)).map(r=>[r.client,r.product,r.qty])];
-    const productRows=[['상품명','수량'],['기준일',today],...Object.entries(productMap).sort((a,b)=>b[1]-a[1]).map(([p,q])=>[p,q])];
     const metaRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties.title`,{headers:{'Authorization':`Bearer ${token}`}});
     const meta=await metaRes.json();
     const titles=(meta.sheets||[]).map(s=>s.properties.title);
@@ -138,12 +142,84 @@ async function analyzeDay(){
     if(!titles.includes('업체별판매'))addReqs.push({addSheet:{properties:{title:'업체별판매'}}});
     if(!titles.includes('전체판매'))addReqs.push({addSheet:{properties:{title:'전체판매'}}});
     if(addReqs.length){await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:addReqs})});}
-    for(const[sName,rows] of [['업체별판매',clientRows],['전체판매',productRows]]){
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sName)}!A1:Z1000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
-    }
-    sl('판매 분석 완료! 업체별판매·전체판매 시트 업데이트됨','ok');
+    const productData={};
+    for(const[p,q] of Object.entries(productMap))productData[p]=q;
+    const okP=await mergeDateColumn(token,'전체판매',dateLabel,productData,['상품명']);
+    if(!okP)return;
+    const clientData={};
+    for(const v of Object.values(clientMap))clientData[v.client+'||'+v.product]=v.qty;
+    const okC=await mergeDateColumn(token,'업체별판매',dateLabel,clientData,['업체명','상품명']);
+    if(!okC)return;
+    sl('판매 분석 완료! '+dateLabel+' 데이터 추가됨','ok');
   }catch(e){sl('분석 오류: '+e.message,'warn');}
+}
+async function mergeDateColumn(token,sheetName,dateLabel,dataMap,keyCols){
+  const readRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ10000`,{headers:{'Authorization':`Bearer ${token}`}});
+  const readData=await readRes.json();
+  const existing=readData.values||[];
+  let header=existing[0]||keyCols.slice();
+  let rows=existing.slice(1);
+  if(header.length<keyCols.length){header=keyCols.slice();rows=[];}
+  let allDateCols=header.slice(keyCols.length);
+  const validP=/^\d{1,2}\/\d{1,2}$/;
+  const keepIdxMap=[];
+  const newAllDateCols=[];
+  allDateCols.forEach((c,i)=>{if(validP.test(c)){keepIdxMap.push(i);newAllDateCols.push(c);}});
+  rows=rows.map(r=>{
+    const kp=keyCols.map((_,i)=>r[i]||'');
+    const dp=keepIdxMap.map(oi=>r[keyCols.length+oi]||'');
+    return [...kp,...dp];
+  });
+  allDateCols=newAllDateCols;
+  const metaWords=['기준일','업체명','상품명','수량','품목','거래처','품명'];
+  rows=rows.filter(r=>!metaWords.includes((r[0]||'').toString().trim()));
+  let dateCols=allDateCols;
+  let isNewCol=false;
+  let dateColIdx=dateCols.indexOf(dateLabel);
+  if(dateColIdx>=0){
+    if(!confirm(sheetName+': '+dateLabel+' 데이터가 이미 있습니다. 덮어쓸까요?'))return false;
+  }else{
+    dateCols.push(dateLabel);
+    dateColIdx=dateCols.length-1;
+    isNewCol=true;
+  }
+  const rowMap={};
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i];
+    const k=keyCols.map((_,j)=>r[j]||'').join('||');
+    rowMap[k]=i;
+    if(isNewCol)r.push('');
+  }
+  for(const[dk,dv] of Object.entries(dataMap)){
+    const ri=rowMap[dk];
+    if(ri!==undefined){
+      while(rows[ri].length<keyCols.length+dateCols.length)rows[ri].push('');
+      rows[ri][keyCols.length+dateColIdx]=dv;
+    }else{
+      const newRow=dk.split('||');
+      while(newRow.length<keyCols.length+dateCols.length)newRow.push('');
+      newRow[keyCols.length+dateColIdx]=dv;
+      rows.push(newRow);
+    }
+  }
+  const dateColOrder=dateCols.map((label,idx)=>{
+    const m=label.match(/^(\d{1,2})\/(\d{1,2})$/);
+    let sk=0;
+    if(m)sk=parseInt(m[1])*100+parseInt(m[2]);
+    return {label,idx,sk};
+  }).sort((a,b)=>b.sk-a.sk);
+  const newHeader=[...keyCols,...dateColOrder.map(d=>d.label),'합계'];
+  const newRows=rows.map(r=>{
+    const kp=keyCols.map((_,i)=>r[i]||'');
+    const dp=dateColOrder.map(d=>r[keyCols.length+d.idx]||'');
+    const sum=dp.reduce((s,v)=>s+(parseInt(v)||0),0);
+    return [...kp,...dp,sum];
+  });
+  newRows.sort((a,b)=>(a[0]||'').toString().localeCompare((b[0]||'').toString()));
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ10000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
+  const finalData=[newHeader,...newRows];
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:finalData})});
+  return true;
 }
 async function getAccessToken(){
   const header={alg:'RS256',typ:'JWT'};
@@ -395,7 +471,7 @@ function parseRules(){
     return(parts.length===2&&parts[0]&&parts[1])?{from:parts[0],to:parts[1]}:null;
   }).filter(Boolean);
 }
-// ===== 발볼(김융환) 전용 파서 (v22.46) =====
+// ===== 발볼(김융환) 전용 파서 (v22.47) =====
 function preprocessBalbolLine(raw){
   if(!raw.includes('///'))return null;
   if(!raw.includes('김융환'))return null;

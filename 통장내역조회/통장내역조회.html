@@ -492,33 +492,52 @@ function sendChat(){
   setTimeout(()=>addBotMsg(ans),200);
 }
 // ───── 자연어 해석 엔진 ─────
+let lastContext=null; // 후속 질문 컨텍스트 기억
 function interpret(q){
   const orig=q;
   q=q.toLowerCase().replace(/\s+/g,' ').trim();
-  // 데이터의 연도 추출 (가장 많은 연도 기준)
   const yearCount={};
   allData.forEach(d=>{const y=d.dateOnly.slice(0,4);yearCount[y]=(yearCount[y]||0)+1;});
   const baseYear=Object.entries(yearCount).sort((a,b)=>b[1]-a[1])[0][0];
   const now=new Date();
   const curMonth=now.getMonth()+1;
-  // ── 잔액 ──
   if(/잔액|남은돈|얼마있어|얼마 있어/.test(q)){
     const last=allData[allData.length-1];
     return `현재 잔액은 <span class="amt">${fmtN(last.bal)}</span> 입니다.<br><small style="color:var(--text3)">${last.date.replace('T',' ')} 기준</small>`;
   }
-  // ── 날짜 범위 파싱: "X월 Y일부터 X월 Z일" / "X/Y~X/Z" / "X일~Y일" ──
   let fromDate=null, toDate=null;
-  // "4월 1일부터 4월 15일" or "4월 1일~4월 15일"
-  const rangeM=q.match(/(\d{1,2})월\s*(\d{1,2})일\s*[~부터～\-]\s*(?:(\d{1,2})월\s*)?(\d{1,2})일/);
+  const rangeM=q.match(/(\d{1,2})월\s*(\d{1,2})일\s*[~～\-]\s*(?:(\d{1,2})월\s*)?(\d{1,2})일/);
   if(rangeM){
     const m1=parseInt(rangeM[1]), d1=parseInt(rangeM[2]);
     const m2=rangeM[3]?parseInt(rangeM[3]):m1, d2=parseInt(rangeM[4]);
     fromDate=`${baseYear}-${String(m1).padStart(2,'0')}-${String(d1).padStart(2,'0')}`;
     toDate=`${baseYear}-${String(m2).padStart(2,'0')}-${String(d2).padStart(2,'0')}`;
   }
-  // ── 월 파싱: "3월", "이번달", "지난달" ──
-  let targetMonth=null;
   if(!fromDate){
+    const fc=q.match(/(\d{1,2})월\s*(\d{1,2})일\s*부터\s*(?:(\d{1,2})월\s*)?(\d{1,2})일\s*까지/);
+    if(fc){
+      const m1=parseInt(fc[1]), d1=parseInt(fc[2]);
+      const m2=fc[3]?parseInt(fc[3]):m1, d2=parseInt(fc[4]);
+      fromDate=`${baseYear}-${String(m1).padStart(2,'0')}-${String(d1).padStart(2,'0')}`;
+      toDate=`${baseYear}-${String(m2).padStart(2,'0')}-${String(d2).padStart(2,'0')}`;
+    }
+  }
+  if(!fromDate){
+    const fo=q.match(/(\d{1,2})월\s*(\d{1,2})일[^까]{0,30}?(?:부터|이후|이상|에서)/);
+    if(fo){
+      const m=parseInt(fo[1]), d=parseInt(fo[2]);
+      fromDate=`${baseYear}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    }
+  }
+  if(!toDate){
+    const to=q.match(/(\d{1,2})월\s*(\d{1,2})일[^부]{0,30}?(?:까지|이전|이하)/);
+    if(to){
+      const m=parseInt(to[1]), d=parseInt(to[2]);
+      toDate=`${baseYear}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    }
+  }
+  if(!fromDate || !toDate){
+    let targetMonth=null;
     if(/이번달|이번 달/.test(q)) targetMonth=curMonth;
     else if(/지난달|지난 달|저번달/.test(q)) targetMonth=curMonth===1?12:curMonth-1;
     else {
@@ -527,35 +546,35 @@ function interpret(q){
     }
     if(targetMonth){
       const yr = (targetMonth > curMonth) ? String(parseInt(baseYear)-1) : baseYear;
-      fromDate=`${yr}-${String(targetMonth).padStart(2,'0')}-01`;
       const lastDay=new Date(parseInt(yr),targetMonth,0).getDate();
-      toDate=`${yr}-${String(targetMonth).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+      if(!fromDate) fromDate=`${yr}-${String(targetMonth).padStart(2,'0')}-01`;
+      if(!toDate) toDate=`${yr}-${String(targetMonth).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
     }
   }
-  // ── 입금/출금 방향 ──
-  const isIn  = /입금|들어온|들어왔|받은|받아/.test(q);
-  const isOut = /출금|나간|나갔|쓴|결제|빠져/.test(q);
-  // ── 이름 / 키워드 검색 ──
-  const nameKw = extractNameKw(orig);
-  // ── 순위 질문 ──
+  let isIn  = /입금|들어온|들어왔|받은|받아/.test(q);
+  let isOut = /출금|나간|나갔|쓴|결제|빠져/.test(q);
+  let nameKw = extractNameKw(orig);
+  const isFollowup=/^(아니|아냐|아니라|다시|그게 아니|수정|추가|더해|더 해)/.test(orig.trim());
+  if(isFollowup && lastContext){
+    if(!nameKw) nameKw=lastContext.nameKw;
+    if(!fromDate && lastContext.fromDate) fromDate=lastContext.fromDate;
+    if(!toDate && lastContext.toDate) toDate=lastContext.toDate;
+    if(!isIn && !isOut){ isIn=lastContext.isIn; isOut=lastContext.isOut; }
+  }
+  const saveCtx=()=>{lastContext={nameKw,fromDate,toDate,isIn,isOut};};
   if(/누가|많이|순위|top|랭킹|많은/.test(q)){
-    return rankAnswer(fromDate, toDate, isOut);
+    saveCtx(); return rankAnswer(fromDate, toDate, isOut);
   }
-  // ── 건수 질문 ──
   const isCnt = /몇 건|몇건|건수|횟수|몇 번|몇번/.test(q);
-  // ── 이름 검색 + 금액 ──
   if(nameKw){
-    return nameAnswer(nameKw, fromDate, toDate, isIn, isOut, isCnt);
+    saveCtx(); return nameAnswer(nameKw, fromDate, toDate, isIn, isOut, isCnt);
   }
-  // ── 기간 + 입금/출금 합계 ──
   if(fromDate || isIn || isOut){
-    return rangeAnswer(fromDate, toDate, isIn, isOut, isCnt, q);
+    saveCtx(); return rangeAnswer(fromDate, toDate, isIn, isOut, isCnt, q);
   }
-  // ── 전체 합계 ──
   if(/전체|총|합계|총액/.test(q)){
-    return totalAnswer(isIn, isOut);
+    saveCtx(); return totalAnswer(isIn, isOut);
   }
-  // ── 최근 N건 ──
   const recentM=q.match(/최근\s*(\d+)\s*건/);
   if(recentM){
     return recentAnswer(parseInt(recentM[1]), isIn, isOut);
@@ -661,7 +680,7 @@ function recentAnswer(n, isIn, isOut){
 }
 function extractNameKw(orig){
   // 숫자/특수문자/일반 조사 제거 후 남은 한글 명사 추출
-  const stopwords=['입금','출금','얼마','총액','합계','내역','거래','조회','보여','주세요','이야','이에요','인지','인가','부터','까지','동안','기간','전체','이번','지난','달','월','일','건수','몇','누가','제일','많이','누구','순위','랭킹','현재','잔액','최근','보여줘','알려줘','알려줘','뭐야','어때'];
+  const stopwords=['입금','출금','얼마','총액','합계','내역','거래','조회','보여','주세요','이야','이에요','인지','인가','부터','까지','동안','기간','전체','이번','지난','달','월','일','건수','몇','누가','제일','많이','누구','순위','랭킹','현재','잔액','최근','보여줘','알려줘','뭐야','어때','질문','질문하기','보완','수정','다시','추가','대답','답변','챗봇','이거','그거','못쓰','겠다','겠어','진짜','제대로','똑바로','자기','자기야','더해','더 해','더해달','수정해','보완해','요청','요청해','요청합'];
   let words=orig.replace(/[0-9\-~\/]/g,' ').split(/[\s,]+/).filter(w=>w.length>=2);
   words=words.filter(w=>!stopwords.some(s=>w.includes(s)));
   words=words.filter(w=>/[가-힣]/.test(w));
