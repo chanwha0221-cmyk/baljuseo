@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.47</title>
+<title>발주서 변환기 v22.48</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.47</span>
+  <span class="ver">v22.48</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -471,7 +471,7 @@ function parseRules(){
     return(parts.length===2&&parts[0]&&parts[1])?{from:parts[0],to:parts[1]}:null;
   }).filter(Boolean);
 }
-// ===== 발볼(김융환) 전용 파서 (v22.47) =====
+// ===== 발볼(김융환) 전용 파서 (v22.48) =====
 function preprocessBalbolLine(raw){
   if(!raw.includes('///'))return null;
   if(!raw.includes('김융환'))return null;
