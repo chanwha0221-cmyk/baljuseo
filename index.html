@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.43</title>
+<title>발주서 변환기 v22.45</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.43</span>
+  <span class="ver">v22.45</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -196,6 +196,7 @@ const CC={
   "혜인건강":{phone:"070-4473-7196",insert:"HN"},
   "파더그로브":{phone:"0502-2679-0637",insert:"퍼니밀"},
   "김융환":{address:"경기도 남양주시 홍유릉로 309 401호",phone:"010-6533-1027",insert:"발볼"},
+  "발볼":{address:"경기도 남양주시 홍유릉로 309 401호",phone:"010-6533-1027"},
   "대상수산":{address:"목포시 고하대로 597번길 1(죽교동)",phone:"010-3649-0583"},
   "거문도수산":{address:"여수시 이순신광장로 125-3",phone:"010-9325-9899"},
   "아크미소프트":{address:"서울시 마포구 매봉산로 37",phone:"02-3706-6522"},
@@ -393,7 +394,7 @@ function parseRules(){
     return(parts.length===2&&parts[0]&&parts[1])?{from:parts[0],to:parts[1]}:null;
   }).filter(Boolean);
 }
-// ===== 발볼(김융환) 전용 파서 (v22.43) =====
+// ===== 발볼(김융환) 전용 파서 (v22.45) =====
 function preprocessBalbolLine(raw){
   if(!raw.includes('///'))return null;
   if(!raw.includes('김융환'))return null;
@@ -416,7 +417,7 @@ function preprocessBalbolLine(raw){
   if(!product)return null;
   const address=data.slice(2,prodIdx).join(', ');
   const memo=data.slice(prodIdx+1).join(' ').trim();
-  return['김융환','','010-6533-1027','',product,custName,address,custPhone,memo].join('\t');
+  return['발볼','','010-6533-1027','',product,custName,address,custPhone,memo].join('\t');
 }
 // ===== 발볼 파서 끝 =====
 // ===== 식봄 전용 파서 =====
