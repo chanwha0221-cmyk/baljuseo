@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.45</title>
+<title>발주서 변환기 v22.46</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.45</span>
+  <span class="ver">v22.46</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -191,7 +191,7 @@ async function saveToSheet(){
 const CC={
   "장씨네":{phone:"010-2458-1788",insert:"더본초",showInsert:true},
   "지구식품":{phone:"070-4800-1166",insert:"동글지구"},
-  "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일"},
+  "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일",showInsert:true},
   "청년어부":{phone:"010-2614-6813",insert:"마우셀"},
   "혜인건강":{phone:"070-4473-7196",insert:"HN"},
   "파더그로브":{phone:"0502-2679-0637",insert:"퍼니밀"},
@@ -343,7 +343,7 @@ function preprocessHyein(line){
   if(pm){const idx=rest.indexOf(pm[1]);addr=rest.slice(0,idx).trim();msg=rest.slice(idx+pm[1].length).trim();custPhone=pm[1];}
   return`혜인건강\t\t\t\t${product}\t${custName}\t${addr}\t${custPhone}\t${msg}`;
 }
-function isPureNum(s){return !!(s.match(/^\d{1,6}$/));}
+function isPureNum(s){return !!(s.match(/^\d{1,6}$/))}
 function extractPhoneFromAddr(addr){
   const m=addr.match(/0\d{1,2}-\d{3,4}-\d{4}/);
   if(!m)return{addr,phone:''};
@@ -394,7 +394,7 @@ function parseRules(){
     return(parts.length===2&&parts[0]&&parts[1])?{from:parts[0],to:parts[1]}:null;
   }).filter(Boolean);
 }
-// ===== 발볼(김융환) 전용 파서 (v22.45) =====
+// ===== 발볼(김융환) 전용 파서 (v22.46) =====
 function preprocessBalbolLine(raw){
   if(!raw.includes('///'))return null;
   if(!raw.includes('김융환'))return null;
