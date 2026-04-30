@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.48</title>
+<title>발주서 변환기 v22.49</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.48</span>
+  <span class="ver">v22.49</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -266,6 +266,7 @@ async function saveToSheet(){
 }
 const CC={
   "장씨네":{phone:"010-2458-1788",insert:"더본초",showInsert:true},
+  "강씨네밥상":{phone:"010-4883-8092"},
   "지구식품":{phone:"070-4800-1166",insert:"동글지구"},
   "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일",showInsert:true},
   "청년어부":{phone:"010-2614-6813",insert:"마우셀"},
@@ -346,6 +347,20 @@ function mergeLines(raw){
 }
 function norm(s){return s.replace(/\s+/g,'');}
 function pp(cl,pr,qty){
+  // 💡 무료배송 품목: "N개" 또는 "x N" 후행 수량을 진짜 수량으로 추출 + 박스당 1개씩 분리 출고 (maxB:1)
+  const FREE_SHIP_KEYWORDS=['동치미'];
+  for(const kw of FREE_SHIP_KEYWORDS){
+    if(norm(pr).includes(kw)){
+      let _r=pr.replace(/\*/g,'x');
+      const gaeM=_r.match(/(\d+)\s*개\s*$/);
+      const xM=!gaeM&&_r.match(/[xX×]\s*(\d+)\s*$/);
+      let _qty=qty,_cn=_r;
+      if(gaeM){_qty=parseInt(gaeM[1]);_cn=_r.slice(0,gaeM.index).trim();}
+      else if(xM){_qty=parseInt(xM[1]);_cn=_r.slice(0,xM.index).trim();}
+      _cn=_cn.replace(/(\d+)[kK]\b/g,'$1kg').trim();
+      return{name:_cn,qty:_qty,maxB:1};
+    }
+  }
   if(cl==='빅피쉬마켓'){
     const colonIdx=pr.indexOf(':');const _actual=norm(colonIdx>=0?pr.slice(colonIdx+1):pr);
     if(_actual.includes('알도루묵'))return{name:'알도루묵 1팩',qty,maxB:999};
@@ -471,7 +486,7 @@ function parseRules(){
     return(parts.length===2&&parts[0]&&parts[1])?{from:parts[0],to:parts[1]}:null;
   }).filter(Boolean);
 }
-// ===== 발볼(김융환) 전용 파서 (v22.48) =====
+// ===== 발볼(김융환) 전용 파서 (v22.49) =====
 function preprocessBalbolLine(raw){
   if(!raw.includes('///'))return null;
   if(!raw.includes('김융환'))return null;
