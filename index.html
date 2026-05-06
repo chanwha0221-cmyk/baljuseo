@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.50</title>
+<title>발주서 변환기 v22.51</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.50</span>
+  <span class="ver">v22.51</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -270,6 +270,7 @@ const CC={
   "지구식품":{phone:"070-4800-1166",insert:"동글지구"},
   "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일",showInsert:true},
   "청년어부":{phone:"010-2614-6813",insert:"마우셀"},
+  "청년수산":{phone:"010-2614-6813",insert:"마우셀",showInsert:true},
   "혜인건강":{phone:"070-4473-7196",insert:"HN"},
   "파더그로브":{phone:"0502-2679-0637",insert:"퍼니밀"},
   "김융환":{address:"경기도 남양주시 홍유릉로 309 401호",phone:"010-6533-1027",insert:"발볼"},
@@ -325,7 +326,7 @@ function toTsv(line){return line.includes('\t')?line:line.replace(/ {3,}/g,'\t')
 function isHeaderRow(line){const first=toTsv(line).split('\t')[0].trim();return HEADER_KEYWORDS.some(k=>first.includes(k));}
 function isDataHeader(line){const cols=toTsv(line).split('\t');return cols.length>=3&&cols[0].trim()==='주문처';}
 function mergeLines(raw){
-  const lines=raw.split('\n');const merged=[];let lastClient='';
+  const lines=raw.split('\n');const merged=[];let lastClient='';let lastKnownClient='';
   const hasDataHeader=lines.some(l=>isDataHeader(l.trim()));
   let dataStart=!hasDataHeader;
   for(const line of lines){
@@ -335,13 +336,21 @@ function mergeLines(raw){
     if(isHeaderRow(normalized))continue;
     const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)[kK]\b/g,'$1kg').replace(/한판/g,'1판')).join('\t');
     const balbol=preprocessBalbolLine(trimmed);
-    if(balbol){merged.push(balbol);lastClient='김융환';continue;}
+    if(balbol){merged.push(balbol);lastClient='김융환';lastKnownClient='김융환';continue;}
     const hyein=preprocessHyein(preprocessed);
-    if(hyein){merged.push(hyein);lastClient='혜인건강';continue;}
+    if(hyein){merged.push(hyein);lastClient='혜인건강';lastKnownClient='혜인건강';continue;}
     const firstCol=preprocessed.split('\t')[0].trim().replace(/\s+/g,'');
     const isFullRow=preprocessed.split('\t').length>=4;
     const isNew=isKnownClient(firstCol)||firstCol===lastClient||isFullRow;
-    if(merged.length===0||isNew){merged.push(preprocessed);if(firstCol)lastClient=firstCol;}
+    if(merged.length===0||isNew){
+      let toPush=preprocessed;
+      if(isFullRow&&!isKnownClient(firstCol)&&firstCol!==lastClient&&lastKnownClient){
+        toPush=lastKnownClient+'\t'+preprocessed;
+      }
+      merged.push(toPush);
+      if(firstCol)lastClient=firstCol;
+      if(isKnownClient(firstCol))lastKnownClient=firstCol;
+    }
     else{merged[merged.length-1]=merged[merged.length-1]+'\t'+preprocessed;}
   }
   return merged;
