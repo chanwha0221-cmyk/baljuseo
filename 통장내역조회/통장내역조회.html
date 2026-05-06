@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>통장 내역 조회</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root{
@@ -145,7 +146,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body>
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v2.3</span>
+  <span class="ver">v3.0</span>
 </header>
 <div class="layout">
   <!-- 좌측: 기존 조회 패널 -->
@@ -202,6 +203,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
     <div class="chat-tabs">
       <button class="chat-tab active" id="tab-chat" onclick="switchTab('chat')">💬 질문하기</button>
       <button class="chat-tab" id="tab-msg" onclick="switchTab('msg')">✉️ 정산 메시지</button>
+      <button class="chat-tab" id="tab-match" onclick="switchTab('match')">🎯 정산 매칭</button>
     </div>
     <!-- 질문하기 패널 -->
     <div id="chatPanelWrap" style="display:flex;flex-direction:column;flex:1;min-height:0">
@@ -293,6 +295,46 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
         </div>
       </div>
     </div><!-- /msgPanelWrap -->
+    <!-- 정산 매칭 패널 -->
+    <div id="matchPanelWrap" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto">
+      <div class="msg-panel">
+        <div class="msg-section">
+          <div class="msg-section-title">📂 파일 업로드</div>
+          <div class="msg-fields">
+            <div class="msg-field">
+              <label>① 정산달력 (.xlsx)</label>
+              <input type="file" id="matchSettlementFile" accept=".xlsx">
+              <div class="template-hint" id="matchSettlementInfo">정산달력_YYYYMMDD_YYYYMMDD.xlsx</div>
+            </div>
+            <div class="msg-field">
+              <label>② 거래내역 (.xlsx)</label>
+              <input type="file" id="matchTransactionFile" accept=".xlsx">
+              <div class="template-hint" id="matchTransactionInfo">거래내역조회_입출식 예금YYYYMMDD.xlsx</div>
+            </div>
+          </div>
+        </div>
+        <div class="msg-section">
+          <div class="msg-section-title">⚙️ 매칭 옵션</div>
+          <div class="msg-fields">
+            <div class="msg-field">
+              <label><input type="checkbox" id="matchOptStrict" checked> 정확 일치만 매칭 (체크 해제 시 ±1000원 오차 허용)</label>
+            </div>
+            <div class="msg-field">
+              <label><input type="checkbox" id="matchOptRange" checked> 합산 매칭 시도 (주정산/월정산 자동 인식)</label>
+            </div>
+          </div>
+        </div>
+        <div class="msg-actions" style="flex-direction:column;gap:8px">
+          <button class="btn-copy" onclick="runSettlementMatch()" style="background:var(--accent);color:#fff;border-color:var(--accent)">🎯 매칭 실행 후 다운로드</button>
+        </div>
+        <div class="msg-section" id="matchLogSection" style="display:none">
+          <div class="msg-section-title">📋 매칭 결과 로그</div>
+          <div class="template-edit">
+            <textarea id="matchLog" readonly style="min-height:240px;font-family:'JetBrains Mono',monospace;font-size:11px"></textarea>
+          </div>
+        </div>
+      </div>
+    </div><!-- /matchPanelWrap -->
   </div>
 </div>
 <!-- 복사 토스트 -->
@@ -694,8 +736,10 @@ function helpMsg(){
 function switchTab(tab){
   document.getElementById('tab-chat').classList.toggle('active', tab==='chat');
   document.getElementById('tab-msg').classList.toggle('active', tab==='msg');
-  document.getElementById('chatPanelWrap').style.display = tab==='chat' ? 'flex' : 'none';
-  document.getElementById('msgPanelWrap').style.display  = tab==='msg'  ? 'flex' : 'none';
+  document.getElementById('tab-match').classList.toggle('active', tab==='match');
+  document.getElementById('chatPanelWrap').style.display  = tab==='chat'  ? 'flex' : 'none';
+  document.getElementById('msgPanelWrap').style.display   = tab==='msg'   ? 'flex' : 'none';
+  document.getElementById('matchPanelWrap').style.display = tab==='match' ? 'flex' : 'none';
   if(tab==='msg') generateMsg();
 }
 
@@ -770,6 +814,361 @@ function toggleTemplate(){
 window.addEventListener('DOMContentLoaded', ()=>{
   setTimeout(generateMsg, 100);
 });
+
+// ═══════════════════════════════════════════════════════════
+// 정산 매칭 (정산달력 + 거래내역 → 빨강 색칠 + 메모 추가)
+// ═══════════════════════════════════════════════════════════
+
+// 색깔 보존 룰 (이 색이 칠해진 셀은 절대 건드리지 않음 — 이미 다음 단계로 진행된 셀)
+// 참고: 하늘색(정산금 확인)은 빨강(정산금 입금)으로 변경 가능 — 다음 단계이므로
+const MATCH_COLOR_RED = 'FFFF0000';      // 빨강 (정산금 입금) — Claude가 칠하는 색
+const MATCH_PROTECT_HEX = ['FFFF0000','FFC6EFCE','FF92D050','FFFFFF00','FFFFFF99','FFA6A6A6','FFBFBFBF','FFD9D9D9','FFC9C9C9','FFFFC000','FFED7D31','FF00B050'];
+// 빨강/연초록/노랑/회색/주황 계열 — 이미 색칠된 셀은 절대 X
+// 하늘색(LIGHT_BLUE)는 보호 대상 X — 빨강으로 덮어쓸 수 있음
+
+function _isProtectedColor(argbHex){
+  if(!argbHex) return false;
+  const up = argbHex.toString().toUpperCase().replace(/^#/, '').replace(/^00/, 'FF');
+  // 채도 낮은 회색계 일반화: RR == GG == BB and not white
+  if(up.length===8){
+    const r=up.slice(2,4), g=up.slice(4,6), b=up.slice(6,8);
+    if(r===g && g===b && r!=='FF' && r!=='00') return true; // 회색 계열
+    // 완전 빨강 / 적색 계열 (R 우세)
+    if(parseInt(r,16)>200 && parseInt(g,16)<100 && parseInt(b,16)<100) return true;
+    // 노랑 / 주황 (R+G 높고 B 낮음)
+    if(parseInt(r,16)>200 && parseInt(g,16)>150 && parseInt(b,16)<120) return true;
+    // 연초록 (G 우세)
+    if(parseInt(g,16)>180 && parseInt(r,16)<200 && parseInt(b,16)<200 && parseInt(g,16)>parseInt(r,16) && parseInt(g,16)>parseInt(b,16)) return true;
+  }
+  return MATCH_PROTECT_HEX.includes(up);
+}
+
+function _logLine(s){
+  const ta = document.getElementById('matchLog');
+  ta.value += s + '\n';
+  ta.scrollTop = ta.scrollHeight;
+}
+
+function _readFileAsArrayBuffer(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(r.result);
+    r.onerror=reject;
+    r.readAsArrayBuffer(file);
+  });
+}
+
+// 거래내역 → 입금 row 배열 추출
+async function _parseTransactions(file){
+  const buf = await _readFileAsArrayBuffer(file);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  const ws = wb.worksheets[0];
+  // 거래일시 / 출금 / 입금 / 거래내용 컬럼 찾기 (3행 헤더)
+  let headerRow = -1, idxDate=-1, idxOut=-1, idxIn=-1, idxName=-1, idxMemo=-1;
+  for(let r=1; r<=Math.min(10, ws.rowCount); r++){
+    const row = ws.getRow(r);
+    for(let c=1; c<=20; c++){
+      const v = (row.getCell(c).value||'').toString().trim();
+      if(v==='거래일시'){ headerRow=r; idxDate=c; }
+      if(v==='출금') idxOut=c;
+      if(v==='입금') idxIn=c;
+      if(v==='거래내용') idxName=c;
+      if(v==='메모') idxMemo=c;
+    }
+    if(headerRow>0) break;
+  }
+  if(headerRow<0) throw new Error('거래내역 헤더 행을 찾지 못했어요 (거래일시/입금/거래내용)');
+  const txs = [];
+  for(let r=headerRow+1; r<=ws.rowCount; r++){
+    const row = ws.getRow(r);
+    const dateRaw = row.getCell(idxDate).value;
+    const inAmt = parseInt((row.getCell(idxIn).value||'0').toString().replace(/[^0-9]/g,'')) || 0;
+    if(!dateRaw || inAmt<=0) continue;
+    const name = (row.getCell(idxName).value||'').toString().trim();
+    let dt;
+    if(dateRaw instanceof Date) dt = dateRaw;
+    else { const m = dateRaw.toString().match(/(\d{4})-(\d{2})-(\d{2})/); if(m) dt = new Date(+m[1], +m[2]-1, +m[3]); }
+    if(!dt) continue;
+    txs.push({ date: dt, dateKey: `${dt.getMonth()+1}/${dt.getDate()}`, name, amount: inAmt, used: false });
+  }
+  return txs;
+}
+
+// 정산달력 워크북 + 메타데이터 파싱
+async function _parseSettlement(file){
+  const buf = await _readFileAsArrayBuffer(file);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  // 첫 시트가 정산 데이터 (다른 시트는 설명용일 수 있어 가장 큰 시트 선택)
+  let ws = wb.worksheets[0];
+  let bestArea = ws.rowCount * ws.columnCount;
+  wb.eachSheet(s=>{ if(s.rowCount*s.columnCount > bestArea){ ws = s; bestArea = s.rowCount*s.columnCount; }});
+  // A열: 일자, B열: 요일, C열부터 업체별 [면세, 과세] 두 컬럼
+  // 헤더는 보통 3~6행 사이. '일자' 텍스트가 들어간 행 찾기
+  let headerDateRow = -1;
+  for(let r=1; r<=10; r++){
+    const v = (ws.getRow(r).getCell(1).value||'').toString().trim();
+    if(v==='일자'){ headerDateRow = r; break; }
+  }
+  if(headerDateRow<0) throw new Error('정산달력의 "일자" 헤더 행을 찾지 못했어요');
+  // 업체명 행 = headerDateRow 위쪽 1~2행 중 텍스트 있는 행 (병합된 셀 처리)
+  // C열부터 면세/과세 라벨이 있는 행을 찾고, 그 위 행이 업체명
+  let labelRow = -1;
+  for(let r=headerDateRow-3; r<=headerDateRow+2; r++){
+    if(r<1) continue;
+    const v3 = (ws.getRow(r).getCell(3).value||'').toString().trim();
+    const v4 = (ws.getRow(r).getCell(4).value||'').toString().trim();
+    if((v3==='면세'||v3==='과세') && (v4==='면세'||v4==='과세')){ labelRow = r; break; }
+  }
+  if(labelRow<0) labelRow = headerDateRow - 1;
+  const companyRow = labelRow - 1;
+  // 업체명 매핑: C열부터 (면세, 과세) 두 컬럼씩 묶음. 병합셀 첫 셀에만 값
+  const companies = {}; // colIndex → companyName
+  let curName = '';
+  const maxCol = ws.columnCount;
+  for(let c=3; c<=maxCol; c++){
+    const v = (ws.getRow(companyRow).getCell(c).value||'').toString().trim();
+    if(v) curName = v;
+    if(curName) companies[c] = curName;
+  }
+  // 일자 행들 수집
+  const dateRows = []; // {row, date}
+  for(let r=headerDateRow+1; r<=ws.rowCount; r++){
+    const v = ws.getRow(r).getCell(1).value;
+    if(!v) continue;
+    let dt;
+    if(v instanceof Date) dt = v;
+    else { const m = v.toString().match(/(\d{4})-(\d{2})-(\d{2})/); if(m) dt = new Date(+m[1], +m[2]-1, +m[3]); }
+    if(!dt) continue;
+    dateRows.push({ row:r, date:dt, key:`${dt.getMonth()+1}/${dt.getDate()}` });
+  }
+  // 메모 행: '메모' 라벨이 A열에 있는 행
+  const memoMap = {}; // companyName → 입금자명 별칭 텍스트
+  for(let r=ws.rowCount; r>=headerDateRow; r--){
+    const v = (ws.getRow(r).getCell(1).value||'').toString().trim();
+    if(v==='메모'){
+      // 그 행에서 각 업체 컬럼의 값을 읽음
+      for(let c=3; c<=maxCol; c++){
+        const txt = (ws.getRow(r).getCell(c).value||'').toString().trim();
+        if(txt && companies[c]) memoMap[companies[c]] = (memoMap[companies[c]]||'') + ' ' + txt;
+      }
+      break;
+    }
+  }
+  // 업체별 면세/과세 컬럼 묶음 정리
+  const companyCols = {}; // companyName → {tax: colIdx, vat: colIdx}
+  for(const [c, name] of Object.entries(companies)){
+    const ci = parseInt(c);
+    const label = (ws.getRow(labelRow).getCell(ci).value||'').toString().trim();
+    if(!companyCols[name]) companyCols[name] = {};
+    if(label==='면세') companyCols[name].vat = ci;
+    else if(label==='과세') companyCols[name].tax = ci;
+  }
+  return { wb, ws, headerDateRow, labelRow, companyRow, companies, companyCols, dateRows, memoMap };
+}
+
+// 입금자명 ↔ 업체명 후보 키 만들기
+function _nameKeys(rawName){
+  const keys = new Set();
+  if(!rawName) return keys;
+  const s = rawName.toString().trim();
+  keys.add(s);
+  // 괄호 안 추출: '신종원(온필드푸드)' → '온필드푸드'
+  const m = s.match(/\(([^)]+)\)/);
+  if(m) keys.add(m[1].trim());
+  // 괄호 앞 부분
+  const pre = s.replace(/\([^)]*\)/g,'').trim();
+  if(pre) keys.add(pre);
+  // 공백 제거 버전
+  Array.from(keys).forEach(k=>keys.add(k.replace(/\s+/g,'')));
+  return keys;
+}
+
+// 정산달력의 입금자명 메모 ↔ 업체명 매핑 (양방향)
+function _buildAliasMap(memoMap){
+  // memoMap[업체명] = "배요섭 / 김시내 / (주)아이리스그" 등
+  const aliasToCompany = {}; // 별칭 → 업체명
+  for(const [company, txt] of Object.entries(memoMap)){
+    const tokens = txt.split(/[\/,>·\s]+/).map(t=>t.trim()).filter(Boolean);
+    tokens.forEach(t=>{ if(t.length>=2) aliasToCompany[t] = company; aliasToCompany[t.replace(/\s+/g,'')] = company; });
+  }
+  return aliasToCompany;
+}
+
+// 셀에 빨강 + 메모 추가 (보호색 셀은 건드리지 않음)
+function _paintAndComment(ws, row, col, comment){
+  const cell = ws.getCell(row, col);
+  const fill = cell.fill;
+  let curArgb = '';
+  if(fill && fill.type==='pattern' && fill.fgColor){
+    curArgb = (fill.fgColor.argb || (fill.fgColor.theme!==undefined ? '' : '')).toString().toUpperCase();
+  }
+  if(_isProtectedColor(curArgb)){
+    return { painted:false, reason:`기존 색(${curArgb}) 보호` };
+  }
+  // 빨강 칠
+  cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: MATCH_COLOR_RED } };
+  // 메모 추가 (기존 메모 보존)
+  const existing = cell.note ? (cell.note.texts ? cell.note.texts.map(t=>t.text).join('') : (cell.note.toString())) : '';
+  const newNote = existing ? (existing + '\n' + comment) : comment;
+  cell.note = newNote;
+  return { painted:true };
+}
+
+// 메인 매칭 실행
+async function runSettlementMatch(){
+  const fSet = document.getElementById('matchSettlementFile').files[0];
+  const fTx  = document.getElementById('matchTransactionFile').files[0];
+  if(!fSet || !fTx){ alert('두 파일을 모두 업로드해주세요.'); return; }
+  const strict = document.getElementById('matchOptStrict').checked;
+  const allowRange = document.getElementById('matchOptRange').checked;
+  document.getElementById('matchLogSection').style.display = '';
+  document.getElementById('matchLog').value = '';
+  _logLine('▶ 매칭 시작...');
+  try{
+    _logLine('• 거래내역 파싱 중...');
+    const txs = await _parseTransactions(fTx);
+    _logLine(`  → 입금건 ${txs.length}건 인식`);
+    _logLine('• 정산달력 파싱 중...');
+    const meta = await _parseSettlement(fSet);
+    _logLine(`  → 업체 ${Object.keys(meta.companyCols).length}개, 일자 행 ${meta.dateRows.length}개`);
+    const aliasMap = _buildAliasMap(meta.memoMap);
+    if(Object.keys(aliasMap).length) _logLine(`  → 입금자명 별칭 ${Object.keys(aliasMap).length}개 매핑`);
+
+    // 업체별로 정산 셀 인덱스 (date, vatCol, taxCol, vatVal, taxVal, sum)
+    const cellsByCompany = {};
+    for(const [name, cols] of Object.entries(meta.companyCols)){
+      cellsByCompany[name] = [];
+      meta.dateRows.forEach(d=>{
+        const vat = parseInt((meta.ws.getCell(d.row, cols.vat).value||'0').toString().replace(/[^0-9-]/g,''))||0;
+        const tax = parseInt((meta.ws.getCell(d.row, cols.tax).value||'0').toString().replace(/[^0-9-]/g,''))||0;
+        cellsByCompany[name].push({ row:d.row, date:d.date, key:d.key, vatCol:cols.vat, taxCol:cols.tax, vat, tax, sum: vat+tax });
+      });
+    }
+
+    let matchedCount=0, partialCount=0, failCount=0, paintedCount=0, protectedCount=0;
+    const tolerance = strict ? 0 : 1000;
+
+    // 각 입금건에 대해 업체 매칭 시도
+    for(const tx of txs){
+      // 후보 업체명 찾기
+      const keys = _nameKeys(tx.name);
+      let matchedCompany = null;
+      for(const k of keys){
+        if(meta.companyCols[k]){ matchedCompany = k; break; }
+        if(aliasMap[k]){ matchedCompany = aliasMap[k]; break; }
+      }
+      if(!matchedCompany){
+        // 업체명 부분 일치 시도
+        for(const company of Object.keys(meta.companyCols)){
+          for(const k of keys){
+            if(k.length>=2 && (company.includes(k) || k.includes(company))){ matchedCompany = company; break; }
+          }
+          if(matchedCompany) break;
+        }
+      }
+      if(!matchedCompany){
+        _logLine(`✖ 매칭 실패: ${tx.dateKey} ${tx.name} ${tx.amount.toLocaleString()}원 (업체 미식별)`);
+        failCount++;
+        continue;
+      }
+      const cells = cellsByCompany[matchedCompany];
+
+      // 1) 단일 셀 매칭 (금액 정확)
+      const exact = cells.filter(c=>c.sum>0 && Math.abs(c.sum - tx.amount) <= tolerance);
+      if(exact.length>0){
+        // 가장 가까운 날짜 선택 (입금일 기준 ±)
+        exact.sort((a,b)=>Math.abs(a.date - tx.date) - Math.abs(b.date - tx.date));
+        const target = exact[0];
+        const diff = target.sum - tx.amount;
+        const note = `${tx.dateKey} 입금 ${tx.amount.toLocaleString()}원 (${tx.name})` + (diff!==0 ? ` ⚠ 정산:${target.sum.toLocaleString()} / 입금:${tx.amount.toLocaleString()} (${diff>0?'+':''}${diff})` : '');
+        const r1 = _paintAndComment(meta.ws, target.row, target.vatCol, note);
+        const r2 = _paintAndComment(meta.ws, target.row, target.taxCol, note);
+        if(r1.painted||r2.painted){ paintedCount += (r1.painted?1:0)+(r2.painted?1:0); matchedCount++; _logLine(`✓ ${matchedCompany} ${target.key} ${tx.amount.toLocaleString()}원 매칭`); }
+        else { protectedCount++; _logLine(`⊘ ${matchedCompany} ${target.key} 이미 색칠된 셀 (보존)`); }
+        tx.used = true;
+        continue;
+      }
+
+      // 2) 합산 매칭 (주정산/월정산: 연속된 N개 일자 합)
+      if(allowRange){
+        let bestRange = null;
+        for(let i=0;i<cells.length;i++){
+          let sum = 0;
+          for(let j=i;j<cells.length;j++){
+            sum += cells[j].sum;
+            if(sum===0) continue;
+            const diff = Math.abs(sum - tx.amount);
+            if(diff <= tolerance){
+              const range = cells.slice(i, j+1);
+              const len = range.length;
+              if(!bestRange || len < bestRange.length) bestRange = range;
+              break;
+            }
+            if(sum > tx.amount + tolerance) break; // 더 더해도 초과
+          }
+        }
+        if(bestRange){
+          const totalSum = bestRange.reduce((a,c)=>a+c.sum,0);
+          const diff = totalSum - tx.amount;
+          const startKey = bestRange[0].key, endKey = bestRange[bestRange.length-1].key;
+          const note = `${tx.dateKey} 입금 ${tx.amount.toLocaleString()}원 → ${startKey}~${endKey} 합산 ${totalSum.toLocaleString()}` + (diff!==0?` ⚠ 차액 ${diff>0?'+':''}${diff}`:'') + ` (${tx.name})`;
+          let anyPainted = false;
+          bestRange.forEach(c=>{
+            if(c.sum<=0) return;
+            const r1 = _paintAndComment(meta.ws, c.row, c.vatCol, note);
+            const r2 = _paintAndComment(meta.ws, c.row, c.taxCol, note);
+            if(r1.painted) paintedCount++; if(r2.painted) paintedCount++;
+            if(r1.painted||r2.painted) anyPainted = true;
+          });
+          if(anyPainted){ matchedCount++; _logLine(`✓ ${matchedCompany} ${startKey}~${endKey} 합산 ${tx.amount.toLocaleString()}원 매칭`); }
+          else { protectedCount++; _logLine(`⊘ ${matchedCompany} ${startKey}~${endKey} 이미 색칠된 셀 (보존)`); }
+          tx.used = true;
+          continue;
+        }
+      }
+
+      // 3) 비슷한 금액 (정산:x / 입금:y) — 메모만 남기고 색칠 X
+      const closeOnes = cells.filter(c=>c.sum>0 && Math.abs(c.sum - tx.amount) <= 5000)
+        .sort((a,b)=>Math.abs(a.sum-tx.amount)-Math.abs(b.sum-tx.amount));
+      if(closeOnes.length>0){
+        const c = closeOnes[0];
+        const diff = c.sum - tx.amount;
+        const note = `${tx.dateKey} 입금 ${tx.amount.toLocaleString()} (${tx.name}) ⚠ 정산:${c.sum.toLocaleString()} / 입금:${tx.amount.toLocaleString()} (차액 ${diff>0?'+':''}${diff})`;
+        // 메모만 (색칠 X — 정확 매칭 아님)
+        const cell = meta.ws.getCell(c.row, c.vatCol);
+        const existing = cell.note ? (cell.note.texts ? cell.note.texts.map(t=>t.text).join('') : cell.note.toString()) : '';
+        cell.note = existing ? existing+'\n'+note : note;
+        partialCount++;
+        _logLine(`△ ${matchedCompany} ${c.key} 비슷한 금액 (정산:${c.sum.toLocaleString()} / 입금:${tx.amount.toLocaleString()}, 차액 ${diff})`);
+        continue;
+      }
+
+      _logLine(`✖ 매칭 실패: ${tx.dateKey} ${matchedCompany || tx.name} ${tx.amount.toLocaleString()}원 (금액 일치 없음)`);
+      failCount++;
+    }
+
+    _logLine('─────────────────────');
+    _logLine(`완료: 매칭 ${matchedCount}건 / 부분 ${partialCount}건 / 실패 ${failCount}건 / 색칠 ${paintedCount}셀 / 보호 ${protectedCount}건`);
+
+    // 다운로드
+    const outBuf = await meta.wb.xlsx.writeBuffer();
+    const blob = new Blob([outBuf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    a.href = url; a.download = `정산달력_매칭완료_${stamp}.xlsx`;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    _logLine('💾 다운로드 시작됨');
+    showToast('✅ 매칭 완료! 다운로드 받으세요');
+  }catch(e){
+    _logLine('❌ 오류: ' + e.message);
+    console.error(e);
+    showToast('오류: ' + e.message);
+  }
+}
 </script>
 </body>
 </html>
