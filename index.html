@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.55</title>
+<title>발주서 변환기 v22.56</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.55</span>
+  <span class="ver">v22.56</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -476,7 +476,8 @@ function pr2(line){
   const addrKeywords=['시','구','군','동','로','길','읍','면','리'];
   const col1=(cols[1]||'').trim();
   const col1isAddr=addrKeywords.some(k=>col1.includes(k))&&col1.length>5;
-  const ca2=col1isAddr?col1:(pi>=3?(cols[pi-2]||'').trim():'');
+  // col1이 명시적으로 빈칸이면 주문처 주소도 빈칸으로 처리 (전처리 함수들이 의도한 형식)
+  const ca2=col1isAddr?col1:(col1===''?'':(pi>=3?(cols[pi-2]||'').trim():''));
   const prod=(cols[pi]||'').trim();
   const nextCol=(cols[pi+1]||'').trim();
   const hasQtyCol=isPureNum(nextCol)&&parseInt(nextCol)>0&&parseInt(nextCol)<1000;
@@ -555,6 +556,48 @@ function preprocessBoardFormat(raw){
   }
   return rows.join('\n');
 }
+// 카톡 자유 형식 발주 — 한 줄에 "업체명 업체전화 상품명 X N 성함 (우편) 주소 고객전화 메모" 통째로
+function isKakaoOrderFormat(raw){
+  const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length===0)return false;
+  for(const line of lines){
+    if(line.includes('\t'))return false;
+    const firstWord=line.split(/\s+/)[0];
+    if(!CC[firstWord])return false;
+    const phones=line.match(/0\d{1,2}-\d{3,4}-\d{4}/g);
+    if(!phones||phones.length<2)return false;
+    if(!/[Xx×]\s*\d+/.test(line))return false;
+  }
+  return true;
+}
+function preprocessKakaoOrder(raw){
+  const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+  const output=[];
+  for(const line of lines){
+    const m1=line.match(/^(\S+)\s+(0\d{1,2}-\d{3,4}-\d{4})\s+(.+)$/);
+    if(!m1)continue;
+    const client=m1[1];const orderPhone=m1[2];const rest=m1[3];
+    const m2=rest.match(/^(.+?[Xx×]\s*\d+)\s+(.+)$/);
+    if(!m2)continue;
+    const product=m2[1].trim();const after=m2[2].trim();
+    let custName='',addrAndRest='';
+    const m3=after.match(/^(\S+?)\s*\(\d{5}\)\s*(.+)$/);
+    if(m3){custName=m3[1];addrAndRest=m3[2];}
+    else{
+      const m3b=after.match(/^(\S+)\s+(.+)$/);
+      if(!m3b)continue;
+      custName=m3b[1];addrAndRest=m3b[2];
+    }
+    const phM=addrAndRest.match(/(0\d{1,2}-\d{3,4}-\d{4})/);
+    if(!phM)continue;
+    const phIdx=addrAndRest.indexOf(phM[1]);
+    const address=addrAndRest.slice(0,phIdx).trim();
+    const custPhone=phM[1];
+    const msg=addrAndRest.slice(phIdx+phM[1].length).trim();
+    output.push([client,'',orderPhone,'',product,custName,address,custPhone,msg].join('\t'));
+  }
+  return output.join('\n');
+}
 function isSikbomFormat(raw){const first=raw.trim().split('\n')[0].trim();return /^\d{9}[\t ]/.test(first)&&first.includes('GPG');}
 function normSikbomProd(raw){return raw.replace(/^(버피|연안)\s+/,'').trim();}
 function normLine(l){const t=l.trim();return t.includes('\t')?t:t.replace(/ {2,}/g,'\t');}
@@ -607,6 +650,11 @@ function run(){
     input=preprocessBoardFormat(input);
     if(!input){sl('게시판 발주 형식 파싱 실패','warn');return;}
     sl('게시판 발주 형식 감지 — 자동 변환 중...');
+  }
+  if(isKakaoOrderFormat(input)){
+    input=preprocessKakaoOrder(input);
+    if(!input){sl('카톡 발주 형식 파싱 실패','warn');return;}
+    sl('카톡 발주 형식 감지 — 자동 변환 중...');
   }
   const rules=parseRules();const lines=mergeLines(input);
   document.getElementById('s-in').textContent=lines.length;
