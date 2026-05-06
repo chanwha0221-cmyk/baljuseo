@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.49</title>
+<title>발주서 변환기 v22.50</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.49</span>
+  <span class="ver">v22.50</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -94,7 +94,7 @@ textarea::placeholder{color:var(--text3)}
 <script>
 const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
-const SPREADSHEET_ID='1pCf_ubeip17RJM9fWVnlk6gXthkbTO8KCQnzxDSHzAw';
+const SPREADSHEET_ID='17viDOAi5RRvG4gYhzBApONy5XzAYlXHifaJrHiX_2Y0';
 const SHEET_NAME='당일';
 let pendingHistory=[];
 let dayHistory=[];
@@ -297,7 +297,8 @@ const CC={
   "호호야채":{address:"부천시 소향로223 105호 호호야채",phone:"010-7241-1903"},
   "지투지샵":{address:"서울특별시 금천구 서부샛길 606, A동 2610호 (가산동, 대성디폴리스지식산업센터)",phone:"010-2329-8991"},
   "토리팜":{address:"경남 합천군 용주면 고품용덕길 38-1",phone:"010-5758-0367"},
-  "푸른결":{address:"",phone:"070-3177-8080"}
+  "푸른결":{address:"",phone:"070-3177-8080"},
+  "더세븐홀딩스":{address:"",phone:"1577-0926"}
 };
 const RA="강원특별자치도 동해시 대학로 16";
 const HEADER_KEYWORDS=["주문처","업체명","거래처","공급사","상품명","고객명","수취인","연락처"];
@@ -347,7 +348,6 @@ function mergeLines(raw){
 }
 function norm(s){return s.replace(/\s+/g,'');}
 function pp(cl,pr,qty){
-  // 💡 무료배송 품목: "N개" 또는 "x N" 후행 수량을 진짜 수량으로 추출 + 박스당 1개씩 분리 출고 (maxB:1)
   const FREE_SHIP_KEYWORDS=['동치미'];
   for(const kw of FREE_SHIP_KEYWORDS){
     if(norm(pr).includes(kw)){
@@ -486,7 +486,6 @@ function parseRules(){
     return(parts.length===2&&parts[0]&&parts[1])?{from:parts[0],to:parts[1]}:null;
   }).filter(Boolean);
 }
-// ===== 발볼(김융환) 전용 파서 (v22.49) =====
 function preprocessBalbolLine(raw){
   if(!raw.includes('///'))return null;
   if(!raw.includes('김융환'))return null;
@@ -511,8 +510,33 @@ function preprocessBalbolLine(raw){
   const memo=data.slice(prodIdx+1).join(' ').trim();
   return['발볼','','010-6533-1027','',product,custName,address,custPhone,memo].join('\t');
 }
-// ===== 발볼 파서 끝 =====
-// ===== 식봄 전용 파서 =====
+function isBoardFormat(raw){
+  const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length<18)return false;
+  const expected=['no','주문처','주문연락처','상품명','수량','성함','주소','연락처','배송메모'];
+  for(let i=0;i<9;i++){if(lines[i]!==expected[i])return false;}
+  return true;
+}
+function preprocessBoardFormat(raw){
+  const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length<18)return '';
+  const data=lines.slice(9);
+  const rows=[];
+  for(let i=0;i+9<=data.length;i+=9){
+    const b=data.slice(i,i+9);
+    const orderClient=b[1]||'';
+    const orderPhone=b[2]||'';
+    const prodName=b[3]||'';
+    const qtyRaw=(b[4]||'').replace(/[xX×]/g,'').trim();
+    const qty=parseInt(qtyRaw)||1;
+    const custName=b[5]||'';
+    const address=b[6]||'';
+    const custPhone=b[7]||'';
+    const msg=b[8]||'';
+    rows.push([orderClient,'',orderPhone,'',prodName+' x '+qty,custName,address,custPhone,msg].join('\t'));
+  }
+  return rows.join('\n');
+}
 function isSikbomFormat(raw){const first=raw.trim().split('\n')[0].trim();return /^\d{9}[\t ]/.test(first)&&first.includes('GPG');}
 function normSikbomProd(raw){return raw.replace(/^(버피|연안)\s+/,'').trim();}
 function normLine(l){const t=l.trim();return t.includes('\t')?t:t.replace(/ {2,}/g,'\t');}
@@ -553,7 +577,6 @@ function preprocessSikbom(raw){
   }
   return output.join('\n');
 }
-// ===== 식봄 파서 끝 =====
 function run(){
   wc=0;let input=document.getElementById('inp').value.trim();
   if(!input){sl('입력 데이터가 없습니다.','warn');return;}
@@ -561,6 +584,11 @@ function run(){
     input=preprocessSikbom(input);
     if(!input){sl('식봄 데이터 파싱 실패','warn');return;}
     sl('식봄 형식 감지 — 자동 변환 중...');
+  }
+  if(isBoardFormat(input)){
+    input=preprocessBoardFormat(input);
+    if(!input){sl('게시판 발주 형식 파싱 실패','warn');return;}
+    sl('게시판 발주 형식 감지 — 자동 변환 중...');
   }
   const rules=parseRules();const lines=mergeLines(input);
   document.getElementById('s-in').textContent=lines.length;
