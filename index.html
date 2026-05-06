@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.54</title>
+<title>발주서 변환기 v22.55</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.54</span>
+  <span class="ver">v22.55</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -246,8 +246,14 @@ async function saveToSheet(){
     const lastRow=rData.values?rData.values.length:0;
     const nextRow=Math.max(lastRow+1,8);
     const lines=val.split('\n').filter(l=>l.trim());
-    const rows=lines.map(l=>l.split('\t'));
-    const firstCols=rows[0]?rows[0].length:9;
+    let rows=lines.map(l=>l.split('\t'));
+    // 행마다 칸 수 다를 수 있으니 max 기준으로 시작 컬럼 결정
+    // 10칸 행이 하나라도 있으면 9칸 행은 앞에 빈칸 추가해 10칸으로 정렬 (E열 비우고 F부터 시작)
+    const maxCols=rows.length?Math.max(...rows.map(r=>r.length)):9;
+    if(maxCols>=10){
+      rows=rows.map(r=>r.length<maxCols?Array(maxCols-r.length).fill('').concat(r):r);
+    }
+    const firstCols=maxCols;
     const startCol=firstCols>=10?'E':'F';
     const range=`${SHEET_NAME}!${startCol}${nextRow}`;
     const wRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
