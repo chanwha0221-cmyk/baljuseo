@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.51</title>
+<title>발주서 변환기 v22.52</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.51</span>
+  <span class="ver">v22.52</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -91,6 +91,12 @@ textarea::placeholder{color:var(--text3)}
   <button class="btn" onclick="clearDayHistory()" style="background:#b45309;color:#fff;border-color:#b45309;font-weight:600;">오늘 발주 끝</button>
   <div class="log-pill" id="log">대기 중...</div>
 </div>
+<script>
+// 외부 데이터 파일 로드 (CC 거래처 테이블 + 상품명 매핑 규칙)
+// ?v= 캐시 우회 — 매번 새 timestamp로 항상 최신 버전 받기
+document.write('<script src="data/clients.js?v='+Date.now()+'"><\/script>');
+document.write('<script src="data/product-rules.js?v='+Date.now()+'"><\/script>');
+</script>
 <script>
 const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
@@ -264,44 +270,7 @@ async function saveToSheet(){
     }else{sl('저장 실패: '+JSON.stringify(wData),'warn');}
   }catch(e){sl('오류: '+e.message,'warn');}
 }
-const CC={
-  "장씨네":{phone:"010-2458-1788",insert:"더본초",showInsert:true},
-  "강씨네밥상":{phone:"010-4883-8092"},
-  "지구식품":{phone:"070-4800-1166",insert:"동글지구"},
-  "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일",showInsert:true},
-  "청년어부":{phone:"010-2614-6813",insert:"마우셀"},
-  "청년수산":{phone:"010-2614-6813",insert:"마우셀",showInsert:true},
-  "혜인건강":{phone:"070-4473-7196",insert:"HN"},
-  "파더그로브":{phone:"0502-2679-0637",insert:"퍼니밀"},
-  "김융환":{address:"경기도 남양주시 홍유릉로 309 401호",phone:"010-6533-1027",insert:"발볼"},
-  "발볼":{address:"경기도 남양주시 홍유릉로 309 401호",phone:"010-6533-1027"},
-  "대상수산":{address:"목포시 고하대로 597번길 1(죽교동)",phone:"010-3649-0583"},
-  "거문도수산":{address:"여수시 이순신광장로 125-3",phone:"010-9325-9899"},
-  "아크미소프트":{address:"서울시 마포구 매봉산로 37",phone:"02-3706-6522"},
-  "서진농수산":{address:"서울 강남구 테헤란로 424",phone:"010-8050-4229",insert:"도리농수산"},
-  "다정한공간":{phone:"010-9318-0895"},
-  "인베스토어":{phone:"010-7772-2984"},
-  "와이플로우":{phone:"1833-2285"},
-  "미식탁":{address:"",phone:"010-9119-3158"},
-  "명가네농장":{phone:"010-6467-5832",insert:"명안"},
-  "춘식이네":{phone:"010-5882-7730",insert:"그록",showInsert:true},
-  "라파고척본점":{phone:"010-2762-9227"},
-  "배민대용량":{phone:"010-2455-4156"},
-  "삼월이농수산":{phone:"010-6652-1574",insert:"냠냠식탁",showInsert:true},
-  "냠냠식탁":{phone:"010-6652-1574"},
-  "식봄":{address:"",phone:"010-2455-4156"},
-  "신선한아침":{phone:"070-7761-7676"},
-  "우디":{phone:"010-7929-8080",insert:"우디디자인랩",showInsert:true},
-  "우디디자인랩":{phone:"010-7929-8080"},
-  "제이피컴퍼니":{address:"하남시 미사강변한강로 165",phone:"010-2843-3051",insert:"서율컴퍼니"},
-  "서율컴퍼니":{address:"하남시 미사강변한강로 165",phone:"010-2843-3051"},
-  "호호야채":{address:"부천시 소향로223 105호 호호야채",phone:"010-7241-1903"},
-  "지투지샵":{address:"서울특별시 금천구 서부샛길 606, A동 2610호 (가산동, 대성디폴리스지식산업센터)",phone:"010-2329-8991"},
-  "토리팜":{address:"경남 합천군 용주면 고품용덕길 38-1",phone:"010-5758-0367"},
-  "푸른결":{address:"",phone:"070-3177-8080"},
-  "더세븐홀딩스":{address:"",phone:"1577-0926"}
-};
-const RA="강원특별자치도 동해시 대학로 16";
+// CC 거래처 테이블 + RA 출고지 주소는 data/clients.js 로 분리됨
 const HEADER_KEYWORDS=["주문처","업체명","거래처","공급사","상품명","고객명","수취인","연락처"];
 let wc=0;
 function sl(m,t){const e=document.getElementById('log');e.textContent=m;e.className='log-pill'+(t?' '+t:'');if(t==='warn')wc++;}
@@ -355,71 +324,7 @@ function mergeLines(raw){
   }
   return merged;
 }
-function norm(s){return s.replace(/\s+/g,'');}
-function pp(cl,pr,qty){
-  const FREE_SHIP_KEYWORDS=['동치미'];
-  for(const kw of FREE_SHIP_KEYWORDS){
-    if(norm(pr).includes(kw)){
-      let _r=pr.replace(/\*/g,'x');
-      const gaeM=_r.match(/(\d+)\s*개\s*$/);
-      const xM=!gaeM&&_r.match(/[xX×]\s*(\d+)\s*$/);
-      let _qty=qty,_cn=_r;
-      if(gaeM){_qty=parseInt(gaeM[1]);_cn=_r.slice(0,gaeM.index).trim();}
-      else if(xM){_qty=parseInt(xM[1]);_cn=_r.slice(0,xM.index).trim();}
-      _cn=_cn.replace(/(\d+)[kK]\b/g,'$1kg').trim();
-      return{name:_cn,qty:_qty,maxB:1};
-    }
-  }
-  if(cl==='빅피쉬마켓'){
-    const colonIdx=pr.indexOf(':');const _actual=norm(colonIdx>=0?pr.slice(colonIdx+1):pr);
-    if(_actual.includes('알도루묵'))return{name:'알도루묵 1팩',qty,maxB:999};
-    if(_actual.includes('양미리'))return{name:'양미리 1kg',qty,maxB:999};
-  }
-  let r=pr.replace(/\*/g,'x');
-  if(r.includes('+')){const it=r.split('+').map(i=>i.trim());return{name:it.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};}
-  if(r.includes('/')){const pt=r.split('/').map(s=>s.trim()).filter(Boolean);if(pt.length>1)return{name:pt.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};r=pt[0];}
-  const qm=r.match(/\s*[xX×]\s*(\d+)$/);let cn=r;
-  if(qm){qty=parseInt(qm[1]);cn=r.slice(0,qm.index).trim();}
-  cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace('난간','난각').replace(/(\d+)[kK]\b/g,'$1kg').trim();
-  if(cn.includes('자연산 급냉 대구'))cn='급냉 국내산 대구 1.5kg';
-  if(norm(cn).includes('참치오마카세'))cn='참치 오마카세 한판';
-  if(cl==='신선한아침'&&cn.includes('노르웨이 생연어'))cn='연안 생연어';
-  if(cn.includes('유정란')){const em=cn.match(/(\d+)\s*[구알]/);const en=em?em[1]:'';if(cn.includes('1번'))return{name:'자연방사 난각 1번 유정란 '+en+'구',qty,maxB:999};if(cn.includes('2번'))return{name:'동물복지 난각 2번 유정란 '+en+'구',qty,maxB:999};}
-  if(cl==='아크미소프트'&&cn.includes('홍어'))cn='아 '+cn;
-  const wm=cn.match(/([\d.]+)kg/);const gm=!wm&&cn.match(/(\d+)g\b/);const wi=wm?parseFloat(wm[1]):gm?parseInt(gm[1])/1000:1;
-  const pn=qm?cn:cn.replace(/[xX×]\s*[\d.]+/g,'').trim();
-  if(cl==='대상수산'){
-    if(norm(pn).includes('호래기'))return{name:'횟감 대짜 호래기 500g',qty:Math.round(qty*wi*2),maxB:999};
-    if(norm(pn).includes('참소라'))return{name:'연안 주먹참소라 1kg',qty:Math.round(qty*wi),maxB:999};
-    if(norm(pn).includes('주꾸미')||norm(pn).includes('쭈꾸미'))return{name:'연안 활 주꾸미 1kg',qty:Math.round(qty*wi),maxB:999};
-    if(norm(pn).includes('전복'))return{name:'연안 오육미전복 1kg',qty:Math.round(qty*wi),maxB:999};
-    if(norm(pn).includes('멍게'))return{name:'향긋 깐 멍게 500g',qty:Math.round(qty*wi*2),maxB:999};
-    if(norm(pn).includes('해삼'))return{name:'자연산 활 해삼 500g',qty:Math.round(qty*wi*2),maxB:999};
-    if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty:Math.round(qty*wi),maxB:999};
-    if(norm(pn).includes('바지락')&&!norm(pn).includes('깐'))return{name:'왕 바지락 1kg',qty:Math.round(qty*wi),maxB:999};
-    if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty:Math.round(qty*wi*2),maxB:999};
-  }
-  if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty,maxB:999};
-  if(norm(pn).includes('생굴')&&!norm(pn).includes('kg'))return{name:'생굴 1kg',qty,maxB:999};
-  if(norm(pn).includes('꼼장어'))return{name:'생물 꼼장어 1kg',qty,maxB:999};
-  if(norm(pn).includes('염소탕'))return{name:'김대헌 장수 염소탕 1팩',qty,maxB:999};
-  if(norm(pn).includes('자반')&&norm(pn).includes('고등어'))return{name:'국내산 자반 고등어 가정용 10미',qty,maxB:999};
-  if(norm(pn).includes('삼배체')&&norm(pn).includes('굴'))return{name:'통통 삼배체 굴 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:1};
-  if(norm(pn).includes('도다리회')){const units=Math.max(1,Math.round(qty*wi*1000/250));return{name:'통통 활 도다리회 250g',qty:units,maxB:999};}
-  if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
-  if(norm(pn).includes('총알한치')&&norm(pn).includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
-  if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터'))return{name:'반건조오징어 1kg 5미',qty,maxB:999};
-  if(cl==='대상수산'&&(norm(pn).includes('바다장어')||norm(pn).includes('바다 장어')))return{name:'비만 바다장어 1kg',qty:Math.round(qty*wi),maxB:999};
-  if(cl==='대상수산'&&(norm(pn).includes('생물 풍천 민물 장어')||(norm(pn).includes('민물')&&norm(pn).includes('장어'))))return{name:'특왕 민물장어 1kg',qty:Math.round(qty*wi),maxB:999};
-  if(norm(pn).includes('풀도다리'))return{name:'연안 활 풀도다리 1kg',qty:Math.round(qty*wi),maxB:999};
-  if(norm(pn).includes('골뱅이'))return{name:'동해 활 골뱅이 1kg',qty:Math.round(qty*wi),maxB:999};
-  if(norm(pn).includes('거북손')&&norm(pn).includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
-  if(norm(pn).includes('석화')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
-  if(norm(pn).includes('새꼬막'))return{name:pn,qty,maxB:qty>=2?1:999};
-  if(norm(pn).includes('박달홍게'))return{name:pn,qty,maxB:1};
-  if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};
-  return{name:pn,qty,maxB:999};
-}
+// norm() 함수와 pp() 상품명 매핑은 data/product-rules.js 로 분리됨
 function br(cl,cfg,nq,nr,ord,iv){
   const ph=fp(cfg.phone||ord.cp);
   const sa='address' in cfg?(cfg.address||''):ca(ord.ca||'');
