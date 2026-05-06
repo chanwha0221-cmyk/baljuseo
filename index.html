@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.53</title>
+<title>발주서 변환기 v22.54</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.53</span>
+  <span class="ver">v22.54</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -299,7 +299,8 @@ const CC={
   "지투지샵":{address:"서울특별시 금천구 서부샛길 606, A동 2610호 (가산동, 대성디폴리스지식산업센터)",phone:"010-2329-8991"},
   "토리팜":{address:"경남 합천군 용주면 고품용덕길 38-1",phone:"010-5758-0367"},
   "푸른결":{address:"",phone:"070-3177-8080"},
-  "더세븐홀딩스":{address:"",phone:"1577-0926"}
+  "더세븐홀딩스":{address:"",phone:"1577-0926"},
+  "팍스리테일":{address:"대구시 남구 대명로 124KT&G 7층",phone:"053-942-5551"}
 };
 const RA="강원특별자치도 동해시 대학로 16";
 const HEADER_KEYWORDS=["주문처","업체명","거래처","공급사","상품명","고객명","수취인","연락처"];
@@ -376,7 +377,9 @@ function pp(cl,pr,qty){
     if(_actual.includes('양미리'))return{name:'양미리 1kg',qty,maxB:999};
   }
   let r=pr.replace(/\*/g,'x');
-  if(r.includes('+')){const it=r.split('+').map(i=>i.trim());return{name:it.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};}
+  // 한우 등급 표기(1++, 1+, 2+ 등)는 + 분기에서 제외
+  const hasMeatGrade=/\d\+\+?/.test(r);
+  if(r.includes('+')&&!hasMeatGrade){const it=r.split('+').map(i=>i.trim());return{name:it.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};}
   if(r.includes('/')){const pt=r.split('/').map(s=>s.trim()).filter(Boolean);if(pt.length>1)return{name:pt.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};r=pt[0];}
   const qm=r.match(/\s*[xX×]\s*(\d+)$/);let cn=r;
   if(qm){qty=parseInt(qm[1]);cn=r.slice(0,qm.index).trim();}
