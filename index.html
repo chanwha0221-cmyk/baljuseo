@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.63</title>
+<title>발주서 변환기 v22.64</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.63</span>
+  <span class="ver">v22.64</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -415,7 +415,7 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('꼼장어'))return{name:'생물 꼼장어 1kg',qty,maxB:999};
   if(norm(pn).includes('염소탕'))return{name:'김대헌 장수 염소탕 1팩',qty,maxB:999};
   if(norm(pn).includes('자반')&&norm(pn).includes('고등어'))return{name:'국내산 자반 고등어 가정용 10미',qty,maxB:999};
-  if(norm(pn).includes('삼배체')&&norm(pn).includes('굴'))return{name:'통통 삼배체 굴 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:1};
+  if(norm(pn).includes('삼배체')&&norm(pn).includes('굴'))return{name:'통통 삼배체 굴 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
   if(norm(pn).includes('도다리회')){const units=Math.max(1,Math.round(qty*wi*1000/250));return{name:'통통 활 도다리회 250g',qty:units,maxB:999};}
   if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
   if(norm(pn).includes('총알한치')&&norm(pn).includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
@@ -601,6 +601,56 @@ function preprocessKakaoOrder(raw){
   }
   return output.join('\n');
 }
+// ===== 365바겐 전용 파서 =====
+function is365BagenFormat(raw){
+  return raw.includes('보내는 사람')&&raw.replace(/\s/g,'').includes('365바겐');
+}
+function preprocess365Bagen(raw){
+  const allLines=raw.split('\n').map(l=>l.trim());
+  const sepPositions=[];
+  for(let i=0;i<allLines.length;i++){if(allLines[i]==='보내는 사람')sepPositions.push(i);}
+  const output=[];
+  for(const sepIdx of sepPositions){
+    // 업체 정보 (보내는 사람 이후)
+    const vendorRaw=toTsv(allLines[sepIdx+1]||'');
+    const vendorCols=vendorRaw.split('\t');
+    const vendorName=vendorCols[vendorCols.length-1].trim().replace(/\s+/g,'');
+    const vendorAddr=vendorCols.slice(0,-1).join(' ').trim();
+    const vendorPhone=fp(allLines[sepIdx+2]||'');
+    // 상품 라인: 보내는 사람 바로 위 줄
+    let prodLineIdx=sepIdx-1;
+    while(prodLineIdx>=0&&!allLines[prodLineIdx])prodLineIdx--;
+    const prodRaw=toTsv(allLines[prodLineIdx]||'');
+    const prodCols=prodRaw.split('\t');
+    // 수량: (8팩요청드립니다) 패턴
+    const qtyM=prodRaw.match(/\((\d+)[팩개박스]/);
+    const qty=qtyM?parseInt(qtyM[1]):1;
+    // 상품명: 두 번째 컬럼부터 한글+무게단위 있는 것 (첫 컬럼=창고/지역명 제외)
+    let prodName='';
+    for(let k=1;k<prodCols.length;k++){
+      const c=prodCols[k].trim();
+      if(/[가-힣]/.test(c)&&/\d+(g|kg)/i.test(c)&&!c.endsWith('원')){prodName=c;break;}
+    }
+    if(!prodName&&prodCols.length>1)prodName=prodCols[1].trim();
+    if(!prodName)continue;
+    // 고객 정보: 상품라인 위 빈 줄 만날 때까지
+    const custLines=[];
+    for(let k=prodLineIdx-1;k>=0;k--){
+      if(!allLines[k])break;
+      custLines.unshift(allLines[k]);
+    }
+    let custPhone='',custName='',custAddr='';
+    for(const l of custLines){
+      if(isPhone(l)){if(!custPhone)custPhone=fp(l);}
+      else if(!custAddr)custAddr=l;
+      else if(!custName)custName=l;
+    }
+    output.push([vendorName,vendorAddr,vendorPhone,'',prodName+' x '+qty,custName,custAddr,custPhone,''].join('\t'));
+  }
+  return output.join('\n');
+}
+// ===== 365바겐 파서 끝 =====
+
 function isSikbomFormat(raw){const first=raw.trim().split('\n')[0].trim();return /^\d{9}[\t ]/.test(first)&&first.includes('GPG');}
 function normSikbomProd(raw){return raw.replace(/^(버피|연안)\s+/,'').trim();}
 function normLine(l){const t=l.trim();return t.includes('\t')?t:t.replace(/ {2,}/g,'\t');}
@@ -644,6 +694,11 @@ function preprocessSikbom(raw){
 function run(){
   wc=0;let input=document.getElementById('inp').value.trim();
   if(!input){sl('입력 데이터가 없습니다.','warn');return;}
+  if(is365BagenFormat(input)){
+    input=preprocess365Bagen(input);
+    if(!input){sl('365바겐 형식 파싱 실패','warn');return;}
+    sl('365바겐 형식 감지 — 자동 변환 중...');
+  }
   if(isSikbomFormat(input)){
     input=preprocessSikbom(input);
     if(!input){sl('식봄 데이터 파싱 실패','warn');return;}
