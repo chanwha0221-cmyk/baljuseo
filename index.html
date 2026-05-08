@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.73</title>
+<title>발주서 변환기 v22.74</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.73</span>
+  <span class="ver">v22.74</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -223,9 +223,15 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
   // 기존 행 → rowMap
   const rowMap={};
   const num=v=>{const s=(v||'').toString().replace(/[^0-9.\-]/g,'');return parseFloat(s)||0;};
+  let lastFirstKey=''; // 셀 병합으로 인해 빈 업체명이 나오면 위쪽 행에서 채우기 위함
   for(const row of rows){
     const keyVals=keyCols.map((_,i)=>(row[i]||'').toString());
     if(keyVals.every(v=>!v.trim()))continue;
+    // 첫 키 컬럼(업체명)이 비어있으면 위쪽 행에서 propagate (셀 병합 영향 보정)
+    if(keyCols[0]==='업체명'){
+      if(keyVals[0].trim()){lastFirstKey=keyVals[0];}
+      else if(lastFirstKey){keyVals[0]=lastFirstKey;}
+    }
     // 요약 행(상품명="총합") 스킵 — 다시 누적되지 않게
     if(keyVals[keyVals.length-1].trim()==='총합')continue;
     const k=keyVals.join('||');
@@ -261,10 +267,10 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
     return (am?parseInt(am[1])*100+parseInt(am[2]):0)-(bm?parseInt(bm[1])*100+parseInt(bm[2]):0);
   });
 
-  // 새 헤더 (합계 마진율만 유지)
+  // 새 헤더 (합계 수량 / 합계 매출 / 합계 마진율)
   const newHeader=[...keyCols];
   for(const d of sortedDates)newHeader.push(d+' 수량',d+' 매출',d+' 마진');
-  newHeader.push('합계 마진율');
+  newHeader.push('합계 수량','합계 매출','합계 마진율');
 
   // 행 빌드 + 합계 (마진율은 숫자로 저장, % 포맷은 시트 쪽에서 적용)
   const newRows=[];
@@ -278,7 +284,7 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
       sQ+=q; sR+=R; sM+=M;
     }
     const rate=sR>0?Math.round((sM/sR)*10000)/100:0;
-    r.push(sR>0?rate:'');
+    r.push(sQ||'',sR||'',sR>0?rate:'');
     // 정렬용 메타
     r._sR=sR; r._sM=sM; r._sRate=rate; r._sQ=sQ;
     // 모든 합계 0이면 제외
@@ -311,20 +317,21 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
     for(const g of sortedGroups){
       const company=g.rows[0][0];
       for(const r of g.rows)newRows.push(r);
-      // 업체 총합 행 (수량 비우고 매출/마진/마진율만)
+      // 업체 총합 행 (per-date 수량은 비우고 매출/마진만, 합계는 수량/매출/마진율)
       const sumRow=[company,'총합'];
-      let totalR=0,totalM=0;
+      let totalQ=0,totalR=0,totalM=0;
       for(let d=0;d<sortedDates.length;d++){
-        let dR=0,dM=0;
+        let dQ=0,dR=0,dM=0;
         for(const gr of g.rows){
+          dQ+=parseFloat(gr[keyCols.length+d*3])||0;
           dR+=parseFloat(gr[keyCols.length+d*3+1])||0;
           dM+=parseFloat(gr[keyCols.length+d*3+2])||0;
         }
-        sumRow.push('', dR||'', dM||''); // 수량 빈칸
-        totalR+=dR; totalM+=dM;
+        sumRow.push('', dR||'', dM||''); // per-date 수량 빈칸 유지
+        totalQ+=dQ; totalR+=dR; totalM+=dM;
       }
       const rate=totalR>0?Math.round((totalM/totalR)*10000)/100:0;
-      sumRow.push(totalR>0?rate:'');
+      sumRow.push(totalQ||'',totalR||'',totalR>0?rate:'');
       newRows.push(sumRow);
     }
   }else{
@@ -354,6 +361,8 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
     // 1) 기존 셀 병합 해제 + 포맷 리셋 (큰 범위로)
     reqs.push({unmergeCells:{range:{sheetId,startRowIndex:0,endRowIndex:5000,startColumnIndex:0,endColumnIndex:50}}});
     reqs.push({updateBorders:{range:{sheetId,startRowIndex:0,endRowIndex:numRowsTotal+5,startColumnIndex:0,endColumnIndex:numCols},top:{style:'NONE'},bottom:{style:'NONE'},left:{style:'NONE'},right:{style:'NONE'},innerHorizontal:{style:'NONE'},innerVertical:{style:'NONE'}}});
+    // 1b) 숫자 포맷 리셋 — 이전 실행의 잔재 % 포맷 등이 새 컬럼 위치에 남지 않게 일괄 콤마로 초기화
+    reqs.push({repeatCell:{range:{sheetId,startRowIndex:0,endRowIndex:5000,startColumnIndex:0,endColumnIndex:50},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'}}},fields:'userEnteredFormat.numberFormat'}});
 
     // 2) 첫 행 고정
     reqs.push({updateSheetProperties:{properties:{sheetId,gridProperties:{frozenRowCount:1}},fields:'gridProperties.frozenRowCount'}});
@@ -366,9 +375,9 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
       reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:0,endColumnIndex:keyCols.length},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment)'}});
     }
 
-    // 5) 날짜 수량/매출/마진 컬럼: 천 단위 콤마 + 가운데
-    if(numRowsTotal>1 && dateCount>0){
-      reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:firstNumColIdx,endColumnIndex:lastNumColIdx},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(numberFormat,horizontalAlignment,verticalAlignment)'}});
+    // 5) 날짜 수량/매출/마진 + 합계 수량/매출 컬럼: 천 단위 콤마 + 가운데 (마진율 제외)
+    if(numRowsTotal>1 && rateColIdx>firstNumColIdx){
+      reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:firstNumColIdx,endColumnIndex:rateColIdx},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(numberFormat,horizontalAlignment,verticalAlignment)'}});
     }
 
     // 6) 합계 마진율 컬럼: "30.77%" 형식 + 가운데
