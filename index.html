@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.65</title>
+<title>발주서 변환기 v22.66</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.65</span>
+  <span class="ver">v22.66</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -435,7 +435,7 @@ function br(cl,cfg,nq,nr,ord,iv){
   const ph=fp(cfg.phone||ord.cp);
   const sa='address' in cfg?(cfg.address||''):ca(ord.ca||'');
   const cua=ca(ord.address||'');const cup=fp(ord.custPhone||'');const msg=ord.msg||'';
-  if(iv&&cfg.showInsert)return[iv,cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
+  if(iv&&cfg.showInsert)return['','','','',iv,cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
   return[cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
 }
 function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));}
