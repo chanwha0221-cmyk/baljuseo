@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.68</title>
+<title>발주서 변환기 v22.69</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.68</span>
+  <span class="ver">v22.69</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -86,9 +86,7 @@ textarea::placeholder{color:var(--text3)}
   <button class="btn copy-btn" onclick="copyOut()">출력 복사</button>
   <button class="btn" onclick="saveToSheet()" style="background:#1a73e8;color:#fff;border-color:#1a73e8;font-weight:700;">시트 저장</button>
   <button class="btn" onclick="clearAll()">초기화</button>
-  <button class="btn" onclick="loadToHistory()" style="background:#4a5568;color:#fff;border-color:#4a5568;font-weight:600;">분석데이터 입력</button>
   <button class="btn" onclick="analyzeDay()" style="background:#7b2d8b;color:#fff;border-color:#7b2d8b;font-weight:700;">판매 분석</button>
-  <button class="btn" onclick="clearDayHistory()" style="background:#b45309;color:#fff;border-color:#b45309;font-weight:600;">오늘 발주 끝</button>
   <div class="log-pill" id="log">대기 중...</div>
 </div>
 <script>
@@ -117,110 +115,175 @@ function loadToHistory(){
   }
   sl('분석데이터 입력 완료 — 히스토리 '+count+'건 등록됨','ok');
 }
+// 판매 분석: 정제된 발주서(원가·공급가 채워진) 데이터를 입력란에 붙여넣고 실행
+// 컬럼 위치 (마찬 기준): A=원번 B=원가(면세) C=원가(과세) D=공급가/면세 E=공급가/과세 F=업체명 ... J=상품명
+// 수량은 상품명 끝의 "x N" 패턴에서 추출
 async function analyzeDay(){
-  if(dayHistory.length===0){sl('저장된 발주 데이터가 없습니다.','warn');return;}
-  const dateInput=prompt('이번 분석은 어느 날짜 데이터인가요?\n(M/D 형식, 예: 11/5)','');
+  const input=document.getElementById('inp').value.trim();
+  if(!input){sl('입력란에 발주서 데이터가 없습니다. (정제된 발주서 — 원가·공급가까지 채워진 행을 붙여넣으세요)','warn');return;}
+  const dateInput=prompt('이번 분석은 어느 날짜 데이터인가요?\n(M/D 형식, 예: 5/8)','');
   if(dateInput===null)return;
   const dm=dateInput.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
-  if(!dm){sl('날짜 형식이 잘못됨. M/D 형식으로 입력 (예: 11/5)','warn');return;}
+  if(!dm){sl('날짜 형식이 잘못됨. M/D 형식으로 입력 (예: 5/8)','warn');return;}
   const mon=parseInt(dm[1]),day=parseInt(dm[2]);
   if(mon<1||mon>12||day<1||day>31){sl('잘못된 월/일','warn');return;}
   const dateLabel=mon+'/'+day;
   sl('판매 분석 중...');
+
+  // 입력 파싱
+  const COL={원가면세:1,원가과세:2,공급가면세:3,공급가과세:4,업체:5,상품:9};
+  const num=v=>{
+    if(v===null||v===undefined||v==='')return 0;
+    const s=String(v).replace(/[^0-9.\-]/g,'');
+    return parseFloat(s)||0;
+  };
+  const extractQty=name=>{
+    const m=String(name).match(/[x×*X]\s*(\d+)\s*$/);
+    return m?parseInt(m[1]):1;
+  };
+  const rawLines=input.split('\n').map(l=>l.split('\t'));
+  const lines=rawLines.filter(r=>r.length>=10 && (r[COL.업체]||'').trim() && (r[COL.상품]||'').trim());
+  if(lines.length===0){sl('파싱된 행이 없음. 정제된 발주서 데이터인지(컬럼 A=원번 ~ J=상품명) 확인하세요.','warn');return;}
+
+  const clientMap={},productMap={};
+  for(const r of lines){
+    const 업체=(r[COL.업체]||'').trim();
+    const 상품=(r[COL.상품]||'').trim();
+    const 원가=num(r[COL.원가면세])+num(r[COL.원가과세]);
+    const 공급가=num(r[COL.공급가면세])+num(r[COL.공급가과세]);
+    const 수량=extractQty(상품);
+    const 매출=공급가;
+    const 매입=원가;
+    const 마진=매출-매입;
+    const ck=업체+'||'+상품;
+    if(!clientMap[ck])clientMap[ck]={업체,상품,수량:0,매출:0,매입:0,마진:0};
+    clientMap[ck].수량+=수량; clientMap[ck].매출+=매출; clientMap[ck].매입+=매입; clientMap[ck].마진+=마진;
+    if(!productMap[상품])productMap[상품]={상품,수량:0,매출:0,매입:0,마진:0};
+    productMap[상품].수량+=수량; productMap[상품].매출+=매출; productMap[상품].매입+=매입; productMap[상품].마진+=마진;
+  }
+
   try{
     const token=await getAccessToken();
-    const clientMap={},productMap={};
-    for(const h of dayHistory){
-      const ck=h.client+'||'+h.product;
-      if(!clientMap[ck])clientMap[ck]={client:h.client,product:h.product,qty:0};
-      clientMap[ck].qty+=h.qty;
-      if(!productMap[h.product])productMap[h.product]=0;
-      productMap[h.product]+=h.qty;
-    }
     const metaRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}?fields=sheets.properties.title`,{headers:{'Authorization':`Bearer ${token}`}});
     const meta=await metaRes.json();
-    if(meta.error){sl('분석 스프레드시트 접근 실패: '+meta.error.message+' (서비스 계정에 편집자 권한 공유 확인)','warn');return;}
+    if(meta.error){sl('분석 스프레드시트 접근 실패: '+meta.error.message+' (편집자 권한 공유 확인)','warn');return;}
     const titles=(meta.sheets||[]).map(s=>s.properties.title);
     const addReqs=[];
     if(!titles.includes('업체별판매'))addReqs.push({addSheet:{properties:{title:'업체별판매'}}});
     if(!titles.includes('전체판매'))addReqs.push({addSheet:{properties:{title:'전체판매'}}});
     if(addReqs.length){await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:addReqs})});}
-    const productData={};
-    for(const[p,q] of Object.entries(productMap))productData[p]=q;
-    const okP=await mergeDateColumn(token,'전체판매',dateLabel,productData,['상품명']);
-    if(!okP)return;
-    const clientData={};
-    for(const v of Object.values(clientMap))clientData[v.client+'||'+v.product]=v.qty;
-    const okC=await mergeDateColumn(token,'업체별판매',dateLabel,clientData,['업체명','상품명']);
+    const okC=await mergeAnalysis(token,'업체별판매',dateLabel,Object.values(clientMap),['업체명','상품명'],it=>[it.업체,it.상품]);
     if(!okC)return;
-    sl('판매 분석 완료! '+dateLabel+' 데이터 추가됨','ok');
+    const okP=await mergeAnalysis(token,'전체판매',dateLabel,Object.values(productMap),['상품명'],it=>[it.상품]);
+    if(!okP)return;
+    sl('판매 분석 완료! '+dateLabel+' ('+lines.length+'행 처리)','ok');
   }catch(e){sl('분석 오류: '+e.message,'warn');}
 }
-async function mergeDateColumn(token,sheetName,dateLabel,dataMap,keyCols){
-  // 분석 전용 스프레드시트(ANALYSIS_SPREADSHEET_ID)에 기록
-  const readRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ10000`,{headers:{'Authorization':`Bearer ${token}`}});
+// 분석 시트 누적 병합
+// 헤더: [...keyCols, "5/1 수량","5/1 매출","5/1 마진", "5/2 수량",..., "합계 수량","합계 매출","합계 마진","합계 마진율"]
+// 정렬: 합계 매출 → 합계 마진 → 합계 마진율 → 합계 수량 (전부 내림차순)
+async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
+  const readRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ20000`,{headers:{'Authorization':`Bearer ${token}`}});
   const readData=await readRes.json();
   const existing=readData.values||[];
-  let header=existing[0]||keyCols.slice();
-  let rows=existing.slice(1);
-  if(header.length<keyCols.length){header=keyCols.slice();rows=[];}
-  let allDateCols=header.slice(keyCols.length);
-  const validP=/^\d{1,2}\/\d{1,2}$/;
-  const keepIdxMap=[];
-  const newAllDateCols=[];
-  allDateCols.forEach((c,i)=>{if(validP.test(c)){keepIdxMap.push(i);newAllDateCols.push(c);}});
-  rows=rows.map(r=>{
-    const kp=keyCols.map((_,i)=>r[i]||'');
-    const dp=keepIdxMap.map(oi=>r[keyCols.length+oi]||'');
-    return [...kp,...dp];
-  });
-  allDateCols=newAllDateCols;
-  const metaWords=['기준일','업체명','상품명','수량','품목','거래처','품명'];
-  rows=rows.filter(r=>!metaWords.includes((r[0]||'').toString().trim()));
-  let dateCols=allDateCols;
-  let isNewCol=false;
-  let dateColIdx=dateCols.indexOf(dateLabel);
-  if(dateColIdx>=0){
-    if(!confirm(sheetName+': '+dateLabel+' 데이터가 이미 있습니다. 덮어쓸까요?'))return false;
-  }else{
-    dateCols.push(dateLabel);
-    dateColIdx=dateCols.length-1;
-    isNewCol=true;
+  const header=existing[0]||[];
+  const rows=existing.slice(1);
+
+  // 합계 4컬럼 분리
+  const summaryHeaders=['합계 수량','합계 매출','합계 마진','합계 마진율'];
+  let dataHeaders=header.slice(keyCols.length);
+  if(dataHeaders.length>=4 && dataHeaders.slice(-4).join('||')===summaryHeaders.join('||')){
+    dataHeaders=dataHeaders.slice(0,dataHeaders.length-4);
   }
-  const rowMap={};
-  for(let i=0;i<rows.length;i++){
-    const r=rows[i];
-    const k=keyCols.map((_,j)=>r[j]||'').join('||');
-    rowMap[k]=i;
-    if(isNewCol)r.push('');
-  }
-  for(const[dk,dv] of Object.entries(dataMap)){
-    const ri=rowMap[dk];
-    if(ri!==undefined){
-      while(rows[ri].length<keyCols.length+dateCols.length)rows[ri].push('');
-      rows[ri][keyCols.length+dateColIdx]=dv;
-    }else{
-      const newRow=dk.split('||');
-      while(newRow.length<keyCols.length+dateCols.length)newRow.push('');
-      newRow[keyCols.length+dateColIdx]=dv;
-      rows.push(newRow);
+
+  // 기존 날짜 컬럼 → 위치 매핑
+  const dateMap={}; // dateLabel → {수량:idx, 매출:idx, 마진:idx} (dataHeaders 기준)
+  for(let i=0;i<dataHeaders.length;i++){
+    const m=dataHeaders[i].match(/^(\d{1,2}\/\d{1,2})\s+(수량|매출|마진)$/);
+    if(m){
+      if(!dateMap[m[1]])dateMap[m[1]]={};
+      dateMap[m[1]][m[2]]=i;
     }
   }
-  const dateColOrder=dateCols.map((label,idx)=>{
-    const m=label.match(/^(\d{1,2})\/(\d{1,2})$/);
-    let sk=0;
-    if(m)sk=parseInt(m[1])*100+parseInt(m[2]);
-    return {label,idx,sk};
-  }).sort((a,b)=>a.sk-b.sk); // 오름차순: 왼쪽=과거, 오른쪽=최신 (추이 보기 좋게)
-  const newHeader=[...keyCols,...dateColOrder.map(d=>d.label),'합계'];
-  const newRows=rows.map(r=>{
-    const kp=keyCols.map((_,i)=>r[i]||'');
-    const dp=dateColOrder.map(d=>r[keyCols.length+d.idx]||'');
-    const sum=dp.reduce((s,v)=>s+(parseInt(v)||0),0);
-    return [...kp,...dp,sum];
+
+  // 기존 행 → rowMap
+  const rowMap={};
+  const num=v=>{const s=(v||'').toString().replace(/[^0-9.\-]/g,'');return parseFloat(s)||0;};
+  for(const row of rows){
+    const keyVals=keyCols.map((_,i)=>(row[i]||'').toString());
+    if(keyVals.every(v=>!v.trim()))continue;
+    const k=keyVals.join('||');
+    const dates={};
+    for(const [d,mIdx] of Object.entries(dateMap)){
+      const obj={};
+      for(const [metric,idx] of Object.entries(mIdx)){
+        const cell=row[keyCols.length+idx];
+        const n=num(cell);
+        if(n!==0)obj[metric]=n;
+      }
+      if(Object.keys(obj).length)dates[d]=obj;
+    }
+    rowMap[k]={keyVals,dates};
+  }
+
+  // 같은 날짜 데이터 존재 시 덮어쓰기 확인
+  let hasDate=false;
+  for(const v of Object.values(rowMap))if(v.dates[dateLabel]){hasDate=true;break;}
+  if(hasDate){
+    if(!confirm(sheetName+': '+dateLabel+' 데이터가 이미 있습니다. 덮어쓸까요?'))return false;
+    for(const v of Object.values(rowMap))delete v.dates[dateLabel];
+  }
+
+  // 신규 데이터 병합
+  for(const item of items){
+    const keyVals=getKey(item);
+    const k=keyVals.join('||');
+    if(!rowMap[k])rowMap[k]={keyVals,dates:{}};
+    rowMap[k].dates[dateLabel]={수량:item.수량||0,매출:item.매출||0,마진:item.마진||0};
+  }
+
+  // 모든 날짜 수집 + 오름차순(왼쪽=과거)
+  const allDates=new Set();
+  for(const v of Object.values(rowMap))for(const d of Object.keys(v.dates))allDates.add(d);
+  const sortedDates=Array.from(allDates).sort((a,b)=>{
+    const am=a.match(/^(\d+)\/(\d+)$/),bm=b.match(/^(\d+)\/(\d+)$/);
+    return (am?parseInt(am[1])*100+parseInt(am[2]):0)-(bm?parseInt(bm[1])*100+parseInt(bm[2]):0);
   });
-  newRows.sort((a,b)=>(a[0]||'').toString().localeCompare((b[0]||'').toString()));
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ10000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
+
+  // 새 헤더
+  const newHeader=[...keyCols];
+  for(const d of sortedDates)newHeader.push(d+' 수량',d+' 매출',d+' 마진');
+  newHeader.push(...summaryHeaders);
+
+  // 행 빌드 + 합계
+  const newRows=[];
+  for(const v of Object.values(rowMap)){
+    const r=v.keyVals.slice();
+    let sQ=0,sR=0,sM=0;
+    for(const d of sortedDates){
+      const dat=v.dates[d]||{};
+      const q=dat.수량||0,R=dat.매출||0,M=dat.마진||0;
+      r.push(q||'',R||'',M||'');
+      sQ+=q; sR+=R; sM+=M;
+    }
+    const rate=sR>0?Math.round((sM/sR)*10000)/100:0;
+    r.push(sQ||'',sR||'',sM||'',sR>0?(rate+'%'):'');
+    // 정렬용 메타
+    r._sR=sR; r._sM=sM; r._sRate=rate; r._sQ=sQ;
+    // 모든 합계 0이면 제외
+    if(sQ===0 && sR===0 && sM===0)continue;
+    newRows.push(r);
+  }
+
+  // 정렬: 매출 → 마진 → 마진율 → 수량 (모두 내림차순)
+  newRows.sort((a,b)=>{
+    if(b._sR!==a._sR)return b._sR-a._sR;
+    if(b._sM!==a._sM)return b._sM-a._sM;
+    if(b._sRate!==a._sRate)return b._sRate-a._sRate;
+    return b._sQ-a._sQ;
+  });
+
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ20000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
   const finalData=[newHeader,...newRows];
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:finalData})});
   return true;
