@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.72</title>
+<title>발주서 변환기 v22.73</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.72</span>
+  <span class="ver">v22.73</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -138,11 +138,17 @@ async function analyzeDay(){
     const s=String(v).replace(/[^0-9.\-]/g,'');
     return parseFloat(s)||0;
   };
-  // 상품명에서 "x N" / "× N" / "* N" 끝부분 제거 + 수량 추출 → 같은 상품 묶이게
+  // 상품명 정규화 + 수량 추출
+  // 1) 괄호 이후는 요청사항이므로 잘라냄 (예: "민물장어 1kg x 2 (생강 많이)" → "민물장어 1kg x 2")
+  // 2) 끝의 "x N" / "× N" / "* N" 패턴에서 수량 추출 + 깨끗한 상품명 반환
   const parseProduct=name=>{
-    const m=String(name).match(/^(.*?)\s*[x×*X]\s*(\d+)\s*$/);
+    let s=String(name);
+    const pi=s.search(/[\(（]/);
+    if(pi>=0)s=s.slice(0,pi);
+    s=s.replace(/\s+/g,' ').trim();
+    const m=s.match(/^(.*?)\s*[x×*X]\s*(\d+)\s*$/);
     if(m)return{clean:m[1].trim(),qty:parseInt(m[2])};
-    return{clean:String(name).trim(),qty:1};
+    return{clean:s,qty:1};
   };
   // 헤더 행 판별: 첫 셀에 한글(원가, 공급가 등) 들어있으면 헤더
   const isHeader=r=>{
@@ -220,6 +226,8 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
   for(const row of rows){
     const keyVals=keyCols.map((_,i)=>(row[i]||'').toString());
     if(keyVals.every(v=>!v.trim()))continue;
+    // 요약 행(상품명="총합") 스킵 — 다시 누적되지 않게
+    if(keyVals[keyVals.length-1].trim()==='총합')continue;
     const k=keyVals.join('||');
     const dates={};
     for(const [d,mIdx] of Object.entries(dateMap)){
@@ -285,7 +293,7 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
     if(b._sRate!==a._sRate)return b._sRate-a._sRate;
     return b._sQ-a._sQ;
   };
-  // 업체별판매: 업체끼리 묶고 → 업체 합계 순위로 그룹 정렬 → 그룹 안에서 상품별 정렬
+  // 업체별판매: 업체끼리 묶고 → 업체 합계 순위로 그룹 정렬 → 그룹 안에서 상품별 정렬 → 그룹 끝에 "총합" 행 추가
   if(keyCols[0]==='업체명'){
     const groups={};
     for(const r of newRows){
@@ -300,7 +308,25 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
     const sortedGroups=Object.values(groups).sort(cmp);
     for(const g of sortedGroups)g.rows.sort(cmp);
     newRows.length=0;
-    for(const g of sortedGroups)for(const r of g.rows)newRows.push(r);
+    for(const g of sortedGroups){
+      const company=g.rows[0][0];
+      for(const r of g.rows)newRows.push(r);
+      // 업체 총합 행 (수량 비우고 매출/마진/마진율만)
+      const sumRow=[company,'총합'];
+      let totalR=0,totalM=0;
+      for(let d=0;d<sortedDates.length;d++){
+        let dR=0,dM=0;
+        for(const gr of g.rows){
+          dR+=parseFloat(gr[keyCols.length+d*3+1])||0;
+          dM+=parseFloat(gr[keyCols.length+d*3+2])||0;
+        }
+        sumRow.push('', dR||'', dM||''); // 수량 빈칸
+        totalR+=dR; totalM+=dM;
+      }
+      const rate=totalR>0?Math.round((totalM/totalR)*10000)/100:0;
+      sumRow.push(totalR>0?rate:'');
+      newRows.push(sumRow);
+    }
   }else{
     newRows.sort(cmp);
   }
