@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.67</title>
+<title>발주서 변환기 v22.68</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.67</span>
+  <span class="ver">v22.68</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -95,6 +95,8 @@ textarea::placeholder{color:var(--text3)}
 const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
 const SPREADSHEET_ID='17viDOAi5RRvG4gYhzBApONy5XzAYlXHifaJrHiX_2Y0';
+// 판매 분석 전용 별도 스프레드시트 (마찬과 분리, 5월부터 누적)
+const ANALYSIS_SPREADSHEET_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
 const SHEET_NAME='당일';
 let pendingHistory=[];
 let dayHistory=[];
@@ -135,13 +137,14 @@ async function analyzeDay(){
       if(!productMap[h.product])productMap[h.product]=0;
       productMap[h.product]+=h.qty;
     }
-    const metaRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties.title`,{headers:{'Authorization':`Bearer ${token}`}});
+    const metaRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}?fields=sheets.properties.title`,{headers:{'Authorization':`Bearer ${token}`}});
     const meta=await metaRes.json();
+    if(meta.error){sl('분석 스프레드시트 접근 실패: '+meta.error.message+' (서비스 계정에 편집자 권한 공유 확인)','warn');return;}
     const titles=(meta.sheets||[]).map(s=>s.properties.title);
     const addReqs=[];
     if(!titles.includes('업체별판매'))addReqs.push({addSheet:{properties:{title:'업체별판매'}}});
     if(!titles.includes('전체판매'))addReqs.push({addSheet:{properties:{title:'전체판매'}}});
-    if(addReqs.length){await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:addReqs})});}
+    if(addReqs.length){await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:addReqs})});}
     const productData={};
     for(const[p,q] of Object.entries(productMap))productData[p]=q;
     const okP=await mergeDateColumn(token,'전체판매',dateLabel,productData,['상품명']);
@@ -154,7 +157,8 @@ async function analyzeDay(){
   }catch(e){sl('분석 오류: '+e.message,'warn');}
 }
 async function mergeDateColumn(token,sheetName,dateLabel,dataMap,keyCols){
-  const readRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ10000`,{headers:{'Authorization':`Bearer ${token}`}});
+  // 분석 전용 스프레드시트(ANALYSIS_SPREADSHEET_ID)에 기록
+  const readRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ10000`,{headers:{'Authorization':`Bearer ${token}`}});
   const readData=await readRes.json();
   const existing=readData.values||[];
   let header=existing[0]||keyCols.slice();
@@ -207,7 +211,7 @@ async function mergeDateColumn(token,sheetName,dateLabel,dataMap,keyCols){
     let sk=0;
     if(m)sk=parseInt(m[1])*100+parseInt(m[2]);
     return {label,idx,sk};
-  }).sort((a,b)=>b.sk-a.sk);
+  }).sort((a,b)=>a.sk-b.sk); // 오름차순: 왼쪽=과거, 오른쪽=최신 (추이 보기 좋게)
   const newHeader=[...keyCols,...dateColOrder.map(d=>d.label),'합계'];
   const newRows=rows.map(r=>{
     const kp=keyCols.map((_,i)=>r[i]||'');
@@ -216,9 +220,9 @@ async function mergeDateColumn(token,sheetName,dateLabel,dataMap,keyCols){
     return [...kp,...dp,sum];
   });
   newRows.sort((a,b)=>(a[0]||'').toString().localeCompare((b[0]||'').toString()));
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ10000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ10000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
   const finalData=[newHeader,...newRows];
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:finalData})});
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:finalData})});
   return true;
 }
 async function getAccessToken(){
