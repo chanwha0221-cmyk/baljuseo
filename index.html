@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.66</title>
+<title>발주서 변환기 v22.67</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.66</span>
+  <span class="ver">v22.67</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -685,6 +685,20 @@ function preprocessSikbom(raw){
       }else if(/^\d{5,}$/.test(c0)&&!address){
         const raw2=(cols[2]||'').trim();
         if(raw2&&/[가-힣]/.test(raw2)&&!raw2.includes('동해시')){const r=extractAddrPhone(raw2);address=r.addr;msg=r.msg;}
+        if(!address){
+          for(let j=1;j<cols.length;j++){
+            const c=(cols[j]||'').trim();
+            if(c&&/[가-힣]/.test(c)&&!c.includes('동해시')&&/(시|도|군|구|면|읍|로|길)/.test(c)){
+              const r=extractAddrPhone(c);address=r.addr;
+              if(r.msg){msg=r.msg;}
+              else if(j+1<cols.length){
+                const nxt=(cols[j+1]||'').trim();
+                if(nxt&&nxt!=='-'&&!nxt.includes('동해시')&&!nxt.startsWith('['))msg=nxt;
+              }
+              break;
+            }
+          }
+        }
       }
     }
     if(prodName&&address&&custPhone){output.push(['식봄','','010-2455-4156','',prodName+' x '+qty,custName,address,custPhone,msg].join('\t'));}
