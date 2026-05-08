@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.70</title>
+<title>발주서 변환기 v22.71</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.70</span>
+  <span class="ver">v22.71</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -232,13 +232,8 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
     rowMap[k]={keyVals,dates};
   }
 
-  // 같은 날짜 데이터 존재 시 덮어쓰기 확인
-  let hasDate=false;
-  for(const v of Object.values(rowMap))if(v.dates[dateLabel]){hasDate=true;break;}
-  if(hasDate){
-    if(!confirm(sheetName+': '+dateLabel+' 데이터가 이미 있습니다. 덮어쓸까요?'))return false;
-    for(const v of Object.values(rowMap))delete v.dates[dateLabel];
-  }
+  // 같은 날짜 데이터 자동 교체 (확인창 없이 그 날짜 데이터 다 지우고 새로 넣음)
+  for(const v of Object.values(rowMap))delete v.dates[dateLabel];
 
   // 신규 데이터 병합
   for(const item of items){
@@ -282,12 +277,31 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
   }
 
   // 정렬: 매출 → 마진 → 마진율 → 수량 (모두 내림차순)
-  newRows.sort((a,b)=>{
+  const cmp=(a,b)=>{
     if(b._sR!==a._sR)return b._sR-a._sR;
     if(b._sM!==a._sM)return b._sM-a._sM;
     if(b._sRate!==a._sRate)return b._sRate-a._sRate;
     return b._sQ-a._sQ;
-  });
+  };
+  // 업체별판매: 업체끼리 묶고 → 업체 합계 순위로 그룹 정렬 → 그룹 안에서 상품별 정렬
+  if(keyCols[0]==='업체명'){
+    const groups={};
+    for(const r of newRows){
+      const c=r[0];
+      if(!groups[c])groups[c]={rows:[],_sR:0,_sM:0,_sQ:0};
+      groups[c].rows.push(r);
+      groups[c]._sR+=r._sR; groups[c]._sM+=r._sM; groups[c]._sQ+=r._sQ;
+    }
+    for(const g of Object.values(groups)){
+      g._sRate=g._sR>0?Math.round((g._sM/g._sR)*10000)/100:0;
+    }
+    const sortedGroups=Object.values(groups).sort(cmp);
+    for(const g of sortedGroups)g.rows.sort(cmp);
+    newRows.length=0;
+    for(const g of sortedGroups)for(const r of g.rows)newRows.push(r);
+  }else{
+    newRows.sort(cmp);
+  }
 
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ20000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
   const finalData=[newHeader,...newRows];
