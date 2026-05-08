@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.69</title>
+<title>발주서 변환기 v22.70</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.69</span>
+  <span class="ver">v22.70</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -116,11 +116,12 @@ function loadToHistory(){
   sl('분석데이터 입력 완료 — 히스토리 '+count+'건 등록됨','ok');
 }
 // 판매 분석: 정제된 발주서(원가·공급가 채워진) 데이터를 입력란에 붙여넣고 실행
-// 컬럼 위치 (마찬 기준): A=원번 B=원가(면세) C=원가(과세) D=공급가/면세 E=공급가/과세 F=업체명 ... J=상품명
+// 입력 컬럼 (B~J만, 9칸): 원가(면세) | 원가(과세) | 공급가/면세 | 공급가/과세 | 업체명 | 주문처 주소 | 주문처 연락처 | 창고명 | 상품명
+// 헤더 행(원가(면세)... 으로 시작)이 있어도 자동 건너뜀
 // 수량은 상품명 끝의 "x N" 패턴에서 추출
 async function analyzeDay(){
   const input=document.getElementById('inp').value.trim();
-  if(!input){sl('입력란에 발주서 데이터가 없습니다. (정제된 발주서 — 원가·공급가까지 채워진 행을 붙여넣으세요)','warn');return;}
+  if(!input){sl('입력란에 발주서 데이터가 없습니다. (B~J열 — 원가(면세)부터 상품명까지 9칸을 붙여넣으세요)','warn');return;}
   const dateInput=prompt('이번 분석은 어느 날짜 데이터인가요?\n(M/D 형식, 예: 5/8)','');
   if(dateInput===null)return;
   const dm=dateInput.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
@@ -130,8 +131,8 @@ async function analyzeDay(){
   const dateLabel=mon+'/'+day;
   sl('판매 분석 중...');
 
-  // 입력 파싱
-  const COL={원가면세:1,원가과세:2,공급가면세:3,공급가과세:4,업체:5,상품:9};
+  // 입력 파싱 (B~J 9칸 기준 — A열 원번 제외)
+  const COL={원가면세:0,원가과세:1,공급가면세:2,공급가과세:3,업체:4,상품:8};
   const num=v=>{
     if(v===null||v===undefined||v==='')return 0;
     const s=String(v).replace(/[^0-9.\-]/g,'');
@@ -141,9 +142,14 @@ async function analyzeDay(){
     const m=String(name).match(/[x×*X]\s*(\d+)\s*$/);
     return m?parseInt(m[1]):1;
   };
+  // 헤더 행 판별: 첫 셀에 한글(원가, 공급가 등) 들어있으면 헤더
+  const isHeader=r=>{
+    const c0=(r[COL.원가면세]||'').toString().trim();
+    return /[가-힣]/.test(c0);
+  };
   const rawLines=input.split('\n').map(l=>l.split('\t'));
-  const lines=rawLines.filter(r=>r.length>=10 && (r[COL.업체]||'').trim() && (r[COL.상품]||'').trim());
-  if(lines.length===0){sl('파싱된 행이 없음. 정제된 발주서 데이터인지(컬럼 A=원번 ~ J=상품명) 확인하세요.','warn');return;}
+  const lines=rawLines.filter(r=>r.length>=9 && !isHeader(r) && (r[COL.업체]||'').trim() && (r[COL.상품]||'').trim());
+  if(lines.length===0){sl('파싱된 행이 없음. B~J열 9칸(원가(면세)~상품명)을 붙여넣었는지 확인하세요.','warn');return;}
 
   const clientMap={},productMap={};
   for(const r of lines){
