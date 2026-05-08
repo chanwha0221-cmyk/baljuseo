@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.71</title>
+<title>발주서 변환기 v22.72</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.71</span>
+  <span class="ver">v22.72</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -138,9 +138,11 @@ async function analyzeDay(){
     const s=String(v).replace(/[^0-9.\-]/g,'');
     return parseFloat(s)||0;
   };
-  const extractQty=name=>{
-    const m=String(name).match(/[x×*X]\s*(\d+)\s*$/);
-    return m?parseInt(m[1]):1;
+  // 상품명에서 "x N" / "× N" / "* N" 끝부분 제거 + 수량 추출 → 같은 상품 묶이게
+  const parseProduct=name=>{
+    const m=String(name).match(/^(.*?)\s*[x×*X]\s*(\d+)\s*$/);
+    if(m)return{clean:m[1].trim(),qty:parseInt(m[2])};
+    return{clean:String(name).trim(),qty:1};
   };
   // 헤더 행 판별: 첫 셀에 한글(원가, 공급가 등) 들어있으면 헤더
   const isHeader=r=>{
@@ -154,10 +156,10 @@ async function analyzeDay(){
   const clientMap={},productMap={};
   for(const r of lines){
     const 업체=(r[COL.업체]||'').trim();
-    const 상품=(r[COL.상품]||'').trim();
+    const 상품Raw=(r[COL.상품]||'').trim();
+    const {clean:상품,qty:수량}=parseProduct(상품Raw);
     const 원가=num(r[COL.원가면세])+num(r[COL.원가과세]);
     const 공급가=num(r[COL.공급가면세])+num(r[COL.공급가과세]);
-    const 수량=extractQty(상품);
     const 매출=공급가;
     const 매입=원가;
     const 마진=매출-매입;
@@ -186,8 +188,8 @@ async function analyzeDay(){
   }catch(e){sl('분석 오류: '+e.message,'warn');}
 }
 // 분석 시트 누적 병합
-// 헤더: [...keyCols, "5/1 수량","5/1 매출","5/1 마진", "5/2 수량",..., "합계 수량","합계 매출","합계 마진","합계 마진율"]
-// 정렬: 합계 매출 → 합계 마진 → 합계 마진율 → 합계 수량 (전부 내림차순)
+// 헤더: [...keyCols, "5/1 수량","5/1 매출","5/1 마진", "5/2 수량",..., "합계 마진율"]
+// 정렬: 합계 매출 → 합계 마진 → 합계 마진율 → 합계 수량 (전부 내림차순, 내부 계산값으로 정렬)
 async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
   const readRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ20000`,{headers:{'Authorization':`Bearer ${token}`}});
   const readData=await readRes.json();
@@ -195,11 +197,11 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
   const header=existing[0]||[];
   const rows=existing.slice(1);
 
-  // 합계 4컬럼 분리
-  const summaryHeaders=['합계 수량','합계 매출','합계 마진','합계 마진율'];
+  // 끝의 합계 컬럼들 분리 (구버전: 합계 수량/매출/마진/마진율 4개, 신버전: 합계 마진율 1개)
   let dataHeaders=header.slice(keyCols.length);
-  if(dataHeaders.length>=4 && dataHeaders.slice(-4).join('||')===summaryHeaders.join('||')){
-    dataHeaders=dataHeaders.slice(0,dataHeaders.length-4);
+  // 신버전: 마지막이 "합계 마진율"
+  while(dataHeaders.length>0 && /^합계\s/.test(dataHeaders[dataHeaders.length-1])){
+    dataHeaders=dataHeaders.slice(0,dataHeaders.length-1);
   }
 
   // 기존 날짜 컬럼 → 위치 매핑
@@ -251,12 +253,12 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
     return (am?parseInt(am[1])*100+parseInt(am[2]):0)-(bm?parseInt(bm[1])*100+parseInt(bm[2]):0);
   });
 
-  // 새 헤더
+  // 새 헤더 (합계 마진율만 유지)
   const newHeader=[...keyCols];
   for(const d of sortedDates)newHeader.push(d+' 수량',d+' 매출',d+' 마진');
-  newHeader.push(...summaryHeaders);
+  newHeader.push('합계 마진율');
 
-  // 행 빌드 + 합계
+  // 행 빌드 + 합계 (마진율은 숫자로 저장, % 포맷은 시트 쪽에서 적용)
   const newRows=[];
   for(const v of Object.values(rowMap)){
     const r=v.keyVals.slice();
@@ -268,7 +270,7 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
       sQ+=q; sR+=R; sM+=M;
     }
     const rate=sR>0?Math.round((sM/sR)*10000)/100:0;
-    r.push(sQ||'',sR||'',sM||'',sR>0?(rate+'%'):'');
+    r.push(sR>0?rate:'');
     // 정렬용 메타
     r._sR=sR; r._sM=sM; r._sRate=rate; r._sQ=sQ;
     // 모든 합계 0이면 제외
@@ -306,6 +308,77 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ20000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
   const finalData=[newHeader,...newRows];
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:finalData})});
+
+  // === 포맷팅 ===
+  try{
+    // 시트 ID 조회
+    const meta2Res=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}?fields=sheets.properties`,{headers:{'Authorization':`Bearer ${token}`}});
+    const meta2=await meta2Res.json();
+    const sheetInfo=(meta2.sheets||[]).find(s=>s.properties.title===sheetName);
+    if(!sheetInfo)return true;
+    const sheetId=sheetInfo.properties.sheetId;
+    const numCols=newHeader.length;
+    const numRowsTotal=finalData.length; // 헤더 포함
+    const dateCount=sortedDates.length;
+    const firstNumColIdx=keyCols.length;
+    const lastNumColIdx=firstNumColIdx+dateCount*3; // 날짜 컬럼 끝 (exclusive)
+    const rateColIdx=numCols-1; // 합계 마진율
+
+    const reqs=[];
+    // 1) 기존 셀 병합 해제 + 포맷 리셋 (큰 범위로)
+    reqs.push({unmergeCells:{range:{sheetId,startRowIndex:0,endRowIndex:5000,startColumnIndex:0,endColumnIndex:50}}});
+    reqs.push({updateBorders:{range:{sheetId,startRowIndex:0,endRowIndex:numRowsTotal+5,startColumnIndex:0,endColumnIndex:numCols},top:{style:'NONE'},bottom:{style:'NONE'},left:{style:'NONE'},right:{style:'NONE'},innerHorizontal:{style:'NONE'},innerVertical:{style:'NONE'}}});
+
+    // 2) 첫 행 고정
+    reqs.push({updateSheetProperties:{properties:{sheetId,gridProperties:{frozenRowCount:1}},fields:'gridProperties.frozenRowCount'}});
+
+    // 3) 헤더 행: 굵게 + 가운데 정렬 + 연회색 배경
+    reqs.push({repeatCell:{range:{sheetId,startRowIndex:0,endRowIndex:1,startColumnIndex:0,endColumnIndex:numCols},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE',textFormat:{bold:true},backgroundColor:{red:0.93,green:0.93,blue:0.93}}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat,backgroundColor)'}});
+
+    // 4) 키 컬럼 (업체명/상품명) 데이터 영역: 가운데 정렬
+    if(numRowsTotal>1){
+      reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:0,endColumnIndex:keyCols.length},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment)'}});
+    }
+
+    // 5) 날짜 수량/매출/마진 컬럼: 천 단위 콤마 + 가운데
+    if(numRowsTotal>1 && dateCount>0){
+      reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:firstNumColIdx,endColumnIndex:lastNumColIdx},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(numberFormat,horizontalAlignment,verticalAlignment)'}});
+    }
+
+    // 6) 합계 마진율 컬럼: "30.77%" 형식 + 가운데
+    if(numRowsTotal>1){
+      reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:rateColIdx,endColumnIndex:rateColIdx+1},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'0.00"%"'},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(numberFormat,horizontalAlignment,verticalAlignment)'}});
+    }
+
+    // 7) 컬럼 너비 자동 조정
+    reqs.push({autoResizeDimensions:{dimensions:{sheetId,dimension:'COLUMNS',startIndex:0,endIndex:numCols}}});
+
+    // 8) 업체별판매: 업체별로 묶고 → 업체명 셀 병합 + 그룹 외곽 테두리
+    if(keyCols[0]==='업체명' && newRows.length>0){
+      let s=0;
+      for(let i=1;i<=newRows.length;i++){
+        const reachedEnd=(i===newRows.length);
+        const isBoundary=reachedEnd||(newRows[i][0]!==newRows[s][0]);
+        if(isBoundary){
+          const sheetStartRow=s+1; // 헤더가 0행, 데이터는 1행부터
+          const sheetEndRow=i+1;   // exclusive
+          const grpSize=i-s;
+          // 그룹이 2행 이상일 때만 셀 병합
+          if(grpSize>=2){
+            reqs.push({mergeCells:{range:{sheetId,startRowIndex:sheetStartRow,endRowIndex:sheetEndRow,startColumnIndex:0,endColumnIndex:1},mergeType:'MERGE_ALL'}});
+          }
+          // 그룹 외곽 테두리
+          const border={style:'SOLID',width:1,color:{red:0.4,green:0.4,blue:0.4}};
+          reqs.push({updateBorders:{range:{sheetId,startRowIndex:sheetStartRow,endRowIndex:sheetEndRow,startColumnIndex:0,endColumnIndex:numCols},top:border,bottom:border,left:border,right:border}});
+          s=i;
+        }
+      }
+    }
+
+    if(reqs.length>0){
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:reqs})});
+    }
+  }catch(e){console.warn('포맷 적용 실패(데이터는 정상 저장됨):',e);}
   return true;
 }
 async function getAccessToken(){
