@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.81</title>
+<title>발주서 변환기 v22.82</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.81</span>
+  <span class="ver">v22.82</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -138,19 +138,23 @@ async function analyzeDay(){
     const s=String(v).replace(/[^0-9.\-]/g,'');
     return parseFloat(s)||0;
   };
-  // 보이지 않는 공백류(NBSP, 유니코드 공백 등) 정리 헬퍼
-  const cleanCell=v=>(v==null?'':String(v)).replace(/[ ​ -   　﻿]/g,'').trim();
+  // 보이지 않는 공백류(NBSP, 유니코드 공백 등) 정리 헬퍼 — 일반 공백(U+0020)은 보존
+  const cleanCell=v=>(v==null?'':String(v)).replace(/[ ​-‏ - 　﻿]/g,'').trim();
   // 상품명 정규화 + 수량 추출
-  // 1) 괄호 안/이후는 요청사항이므로 모두 무시 — 마지막에 닫는 괄호 없을 수도 있어서 첫 ( 부터 끝까지 절단
-  // 2) 끝의 "x N" / "× N" / "* N" 패턴에서 수량 추출 + 깨끗한 상품명 반환
-  // 3) 정규화 후 빈 상품명이면 원본 사용 (방어)
+  // 1) 괄호 안 내용 모두 제거 — 위치 무관 ("(제주)연안굴비" 의 (제주) prefix도 떼고, "민물장어 (생강 많이)" 의 suffix도 뗌)
+  // 2) 닫는 괄호 없는 미완성 괄호는 첫 ( 부터 끝까지 절단
+  // 3) 끝의 "x N" / "× N" / "* N" 패턴에서 수량 추출
+  // 4) 정규화 후 빈 상품명이면 원본 사용 (방어)
   const parseProduct=name=>{
     const orig=cleanCell(name);
     let s=orig;
+    // 정상 닫힌 (...) 그룹 모두 제거 (위치 무관)
+    s=s.replace(/\s*[\(（][^\(（\)）]*[\)）]\s*/g,' ');
+    // 미완성 괄호(닫힘 없음) — 첫 ( 부터 끝까지 잘라냄
     const pi=s.search(/[\(（]/);
     if(pi>=0)s=s.slice(0,pi);
     s=s.replace(/\s+/g,' ').trim();
-    if(!s)s=orig; // 괄호 자르고 빈 결과면 원본 사용
+    if(!s)s=orig; // 다 잘려서 빈 결과면 원본 사용
     const m=s.match(/^(.*?)\s*[x×*X]\s*(\d+)\s*$/);
     if(m){
       const clean=m[1].trim();
@@ -173,18 +177,26 @@ async function analyzeDay(){
     const 업체=cleanCell(r[COL.업체]);
     const 상품Raw=cleanCell(r[COL.상품]);
     if(!업체){skippedNoCompany++;continue;}
-    const {clean:상품,qty:수량}=parseProduct(상품Raw);
-    if(!상품)continue;
-    const 원가=num(r[COL.원가면세])+num(r[COL.원가과세]);
-    const 공급가=num(r[COL.공급가면세])+num(r[COL.공급가과세]);
-    const 매출=공급가;
-    const 매입=원가;
-    const 마진=매출-매입;
-    const ck=업체+'||'+상품;
-    if(!clientMap[ck])clientMap[ck]={업체,상품,수량:0,매출:0,매입:0,마진:0};
-    clientMap[ck].수량+=수량; clientMap[ck].매출+=매출; clientMap[ck].매입+=매입; clientMap[ck].마진+=마진;
-    if(!productMap[상품])productMap[상품]={상품,수량:0,매출:0,매입:0,마진:0};
-    productMap[상품].수량+=수량; productMap[상품].매출+=매출; productMap[상품].매입+=매입; productMap[상품].마진+=마진;
+    const 원가행=num(r[COL.원가면세])+num(r[COL.원가과세]);
+    const 공급가행=num(r[COL.공급가면세])+num(r[COL.공급가과세]);
+    // 합포장 (/ 구분) — 각 상품을 별도 행으로 분리, 원가·공급가는 N등분
+    const parts=상품Raw.split('/').map(p=>p.trim()).filter(Boolean);
+    if(parts.length===0)continue;
+    const N=parts.length;
+    const 원가분배=원가행/N;
+    const 공급가분배=공급가행/N;
+    for(const part of parts){
+      const {clean:상품,qty:수량}=parseProduct(part);
+      if(!상품)continue;
+      const 매출=공급가분배;
+      const 매입=원가분배;
+      const 마진=매출-매입;
+      const ck=업체+'||'+상품;
+      if(!clientMap[ck])clientMap[ck]={업체,상품,수량:0,매출:0,매입:0,마진:0};
+      clientMap[ck].수량+=수량; clientMap[ck].매출+=매출; clientMap[ck].매입+=매입; clientMap[ck].마진+=마진;
+      if(!productMap[상품])productMap[상품]={상품,수량:0,매출:0,매입:0,마진:0};
+      productMap[상품].수량+=수량; productMap[상품].매출+=매출; productMap[상품].매입+=매입; productMap[상품].마진+=마진;
+    }
   }
 
   try{
@@ -254,7 +266,7 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
   // 기존 행 → rowMap
   const rowMap={};
   const num=v=>{const s=(v||'').toString().replace(/[^0-9.\-]/g,'');return parseFloat(s)||0;};
-  // 보이지 않는 공백류(NBSP, 영문공백 외 유니코드 공백 등)까지 다 정리
+  // 보이지 않는 공백류(NBSP, 0폭 공백 등) 정리 — 일반 공백(U+0020)은 보존
   const cleanCell=v=>(v==null?'':String(v)).replace(/[ ​ -   　﻿]/g,'').trim();
   let lastFirstKey=''; // 셀 병합으로 인해 빈 업체명이 나오면 위쪽 행에서 채우기 위함
   for(const row of rows){
