@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.80</title>
+<title>발주서 변환기 v22.81</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.80</span>
+  <span class="ver">v22.81</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -471,7 +471,9 @@ async function getAccessToken(){
   const d=await res.json();return d.access_token;
 }
 async function saveToSheet(){
-  const val=document.getElementById('out').value.trim();
+  // .trim()을 쓰면 마지막 행 끝 탭(빈 셀)이 잘려나가 칸이 안 맞춰지므로,
+  // 줄바꿈만 양끝에서 제거하고 탭은 보존
+  const val=document.getElementById('out').value.replace(/^[\r\n]+|[\r\n]+$/g,'');
   if(!val){sl('출력 데이터가 없습니다.','warn');return;}
   sl('시트에 저장 중...');
   try{
@@ -508,7 +510,7 @@ async function saveToSheet(){
 const CC={
   "장씨네":{phone:"010-2458-1788",insert:"더본초",showInsert:true},
   "강씨네밥상":{phone:"010-4883-8092"},
-  "지구식품":{phone:"070-4800-1166",insert:"동글지구"},
+  "지구식품":{phone:"070-4800-1166",insert:"동글지구",showInsert:true},
   "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일",showInsert:true},
   "청년어부":{phone:"010-2614-6813",insert:"마우셀"},
   "청년수산":{phone:"010-2614-6813",insert:"마우셀",showInsert:true},
