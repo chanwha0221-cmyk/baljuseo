@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.85</title>
+<title>발주서 변환기 v22.86</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.85</span>
+  <span class="ver">v22.86</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -198,11 +198,13 @@ async function analyzeDay(){
       const 매출=공급가분배;
       const 매입=원가분배;
       const 마진=매출-매입;
-      const ck=업체+'||'+상품;
+      // 공백 차이로 분리되는 상품 통합 — key는 공백 제거 정규화, 표시명은 원본(처음 본 버전 유지)
+      const 상품키=상품.replace(/\s+/g,'');
+      const ck=업체+'||'+상품키;
       if(!clientMap[ck])clientMap[ck]={업체,상품,수량:0,매출:0,매입:0,마진:0};
       clientMap[ck].수량+=수량; clientMap[ck].매출+=매출; clientMap[ck].매입+=매입; clientMap[ck].마진+=마진;
-      if(!productMap[상품])productMap[상품]={상품,수량:0,매출:0,매입:0,마진:0};
-      productMap[상품].수량+=수량; productMap[상품].매출+=매출; productMap[상품].매입+=매입; productMap[상품].마진+=마진;
+      if(!productMap[상품키])productMap[상품키]={상품,수량:0,매출:0,매입:0,마진:0};
+      productMap[상품키].수량+=수량; productMap[상품키].매출+=매출; productMap[상품키].매입+=매입; productMap[상품키].마진+=마진;
     }
   }
 
@@ -296,7 +298,8 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
     if(keyVals[keyVals.length-1]==='총합')continue;
     // 상품명 비어있어도 스킵
     if(!keyVals[keyVals.length-1])continue;
-    const k=keyVals.join('||');
+    // 공백 차이로 분리되는 상품을 묶기 위해 키는 공백 제거 정규화 사용
+    const k=keyVals.map(v=>v.replace(/\s+/g,'')).join('||');
     const dates={};
     for(const [d,mIdx] of Object.entries(dateMap)){
       const obj={};
@@ -307,18 +310,31 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
       }
       if(Object.keys(obj).length)dates[d]=obj;
     }
-    rowMap[k]={keyVals,dates};
+    // 같은 정규화 키 중복 시 (시트에 공백만 다른 행 여러 개) → dates 합산 병합
+    if(!rowMap[k]){
+      rowMap[k]={keyVals,dates};
+    }else{
+      for(const [d,obj] of Object.entries(dates)){
+        if(!rowMap[k].dates[d])rowMap[k].dates[d]={};
+        for(const [metric,val] of Object.entries(obj)){
+          rowMap[k].dates[d][metric]=(rowMap[k].dates[d][metric]||0)+val;
+        }
+      }
+    }
   }
 
   // 같은 날짜 데이터 자동 교체 (확인창 없이 그 날짜 데이터 다 지우고 새로 넣음)
   for(const v of Object.values(rowMap))delete v.dates[dateLabel];
 
-  // 신규 데이터 병합
+  // 신규 데이터 병합 (공백 정규화 키 사용 + 같은 키일 경우 가산 병합)
   for(const item of items){
     const keyVals=getKey(item);
-    const k=keyVals.join('||');
+    const k=keyVals.map(v=>(v||'').replace(/\s+/g,'')).join('||');
     if(!rowMap[k])rowMap[k]={keyVals,dates:{}};
-    rowMap[k].dates[dateLabel]={수량:item.수량||0,매출:item.매출||0,마진:item.마진||0};
+    if(!rowMap[k].dates[dateLabel])rowMap[k].dates[dateLabel]={수량:0,매출:0,마진:0};
+    rowMap[k].dates[dateLabel].수량+=item.수량||0;
+    rowMap[k].dates[dateLabel].매출+=item.매출||0;
+    rowMap[k].dates[dateLabel].마진+=item.마진||0;
   }
 
   // 모든 날짜 수집 + 오름차순(왼쪽=과거)
