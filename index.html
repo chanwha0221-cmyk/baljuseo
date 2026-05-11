@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.78</title>
+<title>발주서 변환기 v22.79</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.78</span>
+  <span class="ver">v22.79</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -618,6 +618,11 @@ function pp(cl,pr,qty){
     if(_actual.includes('양미리'))return{name:'양미리 1kg',qty,maxB:999};
   }
   let r=pr.replace(/\*/g,'x');
+  // 괄호 안 요청사항/부가설명 제거 (예: "...400g x 2 (총 800g)" → "...400g x 2")
+  // 닫는 괄호 없을 수도 있어서 첫 ( 또는 （ 부터 끝까지 통째로 절단
+  // 단, 괄호로 시작하는 경우(예: "(주)명진수산 갈치") 잘라서 비어버리면 원본 유지
+  const pi=r.search(/[\(（]/);
+  if(pi>0){const cut=r.slice(0,pi).trim();if(cut)r=cut;}
   // 끝에 'N개' 형태 수량 표기는 'N'으로 정리 (예: '2kg x 4개' → '2kg x 4')
   r=r.replace(/(\d+)\s*개\s*$/,'$1');
   // 한우 등급 표기(1++, 1+, 2+ 등)는 + 분기에서 제외
