@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.79</title>
+<title>발주서 변환기 v22.80</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.79</span>
+  <span class="ver">v22.80</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -676,7 +676,9 @@ function br(cl,cfg,nq,nr,ord,iv){
   const ph=fp(cfg.phone||ord.cp);
   const sa='address' in cfg?(cfg.address||''):ca(ord.ca||'');
   const cua=ca(ord.address||'');const cup=fp(ord.custPhone||'');const msg=ord.msg||'';
-  if(iv&&cfg.showInsert)return['','','','',iv,cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
+  // insert 행: 10칸 (E~N). 삽입 업체명(E) + 주문처(F) + 주소(G) + 연락처(H) + 창고명(I,빈칸) + 상품명+수량(J) + 상품명raw(K) + 고객주소(L) + 고객연락처(M) + 배송메시지(N)
+  if(iv&&cfg.showInsert)return[iv,cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
+  // 일반 행: 9칸 (F~N). 주문처(F) + 주소(G) + 연락처(H) + 창고명(I,빈칸) + 상품명+수량(J) + 상품명raw(K) + 고객주소(L) + 고객연락처(M) + 배송메시지(N)
   return[cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
 }
 function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));}
