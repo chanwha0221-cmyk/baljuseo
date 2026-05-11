@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.75</title>
+<title>발주서 변환기 v22.76</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.75</span>
+  <span class="ver">v22.76</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -87,6 +87,7 @@ textarea::placeholder{color:var(--text3)}
   <button class="btn" onclick="saveToSheet()" style="background:#1a73e8;color:#fff;border-color:#1a73e8;font-weight:700;">시트 저장</button>
   <button class="btn" onclick="clearAll()">초기화</button>
   <button class="btn" onclick="analyzeDay()" style="background:#7b2d8b;color:#fff;border-color:#7b2d8b;font-weight:700;">판매 분석</button>
+  <button class="btn" onclick="rollbackDate()" style="background:#dc2626;color:#fff;border-color:#dc2626;font-weight:600;">날짜 롤백</button>
   <div class="log-pill" id="log">대기 중...</div>
 </div>
 <script>
@@ -204,6 +205,25 @@ async function analyzeDay(){
     const skipMsg=skippedNoCompany>0?(', 업체명 누락 '+skippedNoCompany+'행 스킵'):'';
     sl('판매 분석 완료! '+dateLabel+' ('+lines.length+'행 처리'+skipMsg+')','ok');
   }catch(e){sl('분석 오류: '+e.message,'warn');}
+}
+// 날짜 롤백: 분석 시트에서 특정 날짜의 수량/매출/마진 컬럼을 통째로 제거 + 그 날짜에만 데이터 있던 행은 자동 삭제
+async function rollbackDate(){
+  const dateInput=prompt('어느 날짜 데이터를 롤백(삭제)할까요?\n(M/D 형식, 예: 5/8)\n\n해당 날짜의 수량/매출/마진 컬럼이 두 분석 시트에서 모두 제거됩니다.','');
+  if(dateInput===null)return;
+  const dm=dateInput.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+  if(!dm){sl('날짜 형식이 잘못됨. M/D 형식 (예: 5/8)','warn');return;}
+  const dateLabel=parseInt(dm[1])+'/'+parseInt(dm[2]);
+  if(!confirm(dateLabel+' 데이터를 업체별판매·전체판매 두 시트에서 모두 삭제합니다.\n계속할까요? (되돌릴 수 없음)'))return;
+  sl(dateLabel+' 롤백 중...');
+  try{
+    const token=await getAccessToken();
+    // 빈 items로 mergeAnalysis 호출 → 그 날짜 데이터만 제거하고 새로 추가는 없음
+    const okC=await mergeAnalysis(token,'업체별판매',dateLabel,[],['업체명','상품명'],it=>[]);
+    if(!okC)return;
+    const okP=await mergeAnalysis(token,'전체판매',dateLabel,[],['상품명'],it=>[]);
+    if(!okP)return;
+    sl(dateLabel+' 데이터 롤백 완료! (그 날짜에만 데이터 있던 상품 행은 자동 삭제됨)','ok');
+  }catch(e){sl('롤백 오류: '+e.message,'warn');}
 }
 // 분석 시트 누적 병합
 // 헤더: [...keyCols, "5/1 수량","5/1 매출","5/1 마진", "5/2 수량",..., "합계 마진율"]
