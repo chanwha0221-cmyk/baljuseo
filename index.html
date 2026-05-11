@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.83</title>
+<title>발주서 변환기 v22.84</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.83</span>
+  <span class="ver">v22.84</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -138,8 +138,15 @@ async function analyzeDay(){
     const s=String(v).replace(/[^0-9.\-]/g,'');
     return parseFloat(s)||0;
   };
+  // 보이지 않는 공백류 안전 버전 (명시적 유니코드)
+  const cleanCellSafe=v=>{if(v==null)return'';const s=String(v);let r='';for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c===0xA0||(c>=0x200B&&c<=0x200F)||(c>=0x2028&&c<=0x202F)||c===0x3000||c===0xFEFF)continue;r+=s[i];}return r.trim();};
+  /* OLD_BROKEN_REGEX_BEGIN
+  const _x=v=>(v==null?'':String(v)).replace(/[ ​‌‍‎‏   　﻿]/g,'').trim();
   // 보이지 않는 공백류(NBSP, 유니코드 공백 등) 정리 헬퍼 — 일반 공백(U+0020)은 보존
   const cleanCell=v=>(v==null?'':String(v)).replace(/[ ​-‏ - 　﻿]/g,'').trim();
+  */
+  // cleanCell — 안전 버전(cleanCellSafe) 위임 (구 정규식 버전 깨졌었음)
+  const cleanCell=cleanCellSafe;
   // 상품명 정규화 + 수량 추출
   // 1) 괄호 안 내용 모두 제거 — 위치 무관 ("(제주)연안굴비" 의 (제주) prefix도 떼고, "민물장어 (생강 많이)" 의 suffix도 뗌)
   // 2) 닫는 괄호 없는 미완성 괄호는 첫 ( 부터 끝까지 절단
@@ -266,8 +273,11 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
   // 기존 행 → rowMap
   const rowMap={};
   const num=v=>{const s=(v||'').toString().replace(/[^0-9.\-]/g,'');return parseFloat(s)||0;};
-  // 보이지 않는 공백류(NBSP, 0폭 공백 등) 정리 — 일반 공백(U+0020)은 보존
-  const cleanCell=v=>(v==null?'':String(v)).replace(/[ ​ -   　﻿]/g,'').trim();
+  // 보이지 않는 공백류 안전 — 정규식 대신 charCode 비교
+  const cleanCell=v=>{if(v==null)return'';const s=String(v);let r='';for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c===0xA0||(c>=0x200B&&c<=0x200F)||(c>=0x2028&&c<=0x202F)||c===0x3000||c===0xFEFF)continue;r+=s[i];}return r.trim();};
+  /* OLD_BROKEN_REGEX_2:
+  const _y=v=>(v==null?'':String(v)).replace(/[ ​ -   　﻿]/g,'').trim();
+  */
   let lastFirstKey=''; // 셀 병합으로 인해 빈 업체명이 나오면 위쪽 행에서 채우기 위함
   for(const row of rows){
     const keyVals=keyCols.map((_,i)=>(row[i]||'').toString());
