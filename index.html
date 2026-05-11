@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.77</title>
+<title>발주서 변환기 v22.78</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -46,7 +46,7 @@ textarea::placeholder{color:var(--text3)}
 .btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
 .btn.copy-btn{color:var(--accent);border-color:#b7ddc8;background:var(--accent-light)}
 .btn.copy-btn:hover{background:#d4ecdf}
-.log-pill{margin-left:auto;font-size:11px;padding:4px 12px;border-radius:20px;background:var(--surface2);color:var(--text3);font-family:'JetBrains Mono',monospace;border:1px solid var(--border);max-width:400px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-pill{flex:1;margin:0 12px;font-size:11px;padding:4px 12px;border-radius:20px;background:var(--surface2);color:var(--text3);font-family:'JetBrains Mono',monospace;border:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
 .log-pill.warn{background:var(--warn-bg);color:var(--warn);border-color:#fcd34d}
 .log-pill.ok{background:var(--ok-bg);color:var(--ok);border-color:#b7ddc8}
 .rules-bar{background:var(--surface2);border-top:1px solid var(--border);padding:6px 20px;display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.77</span>
+  <span class="ver">v22.78</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -73,7 +73,7 @@ textarea::placeholder{color:var(--text3)}
     <textarea id="inp" placeholder="업체 발주 데이터를 여기에 붙여넣으세요.&#10;탭으로 구분된 데이터를 그대로 붙여넣으면 됩니다.&#10;헤더행 자동 제거 / 줄바꿈 자동 병합 지원"></textarea>
   </div>
   <div class="panel">
-    <div class="panel-head"><span class="panel-label">출력</span><span class="panel-count" id="out-count">0 행</span></div>
+    <div class="panel-head"><span class="panel-label">출력</span><div class="log-pill" id="log">대기 중...</div><span class="panel-count" id="out-count">0 행</span></div>
     <textarea id="out" readonly placeholder="변환 결과가 여기에 나타납니다.&#10;엑셀에 그대로 붙여넣으세요."></textarea>
   </div>
 </div>
@@ -88,7 +88,6 @@ textarea::placeholder{color:var(--text3)}
   <button class="btn" onclick="clearAll()">초기화</button>
   <button class="btn" onclick="analyzeDay()" style="background:#7b2d8b;color:#fff;border-color:#7b2d8b;font-weight:700;">판매 분석</button>
   <button class="btn" onclick="rollbackDate()" style="background:#dc2626;color:#fff;border-color:#dc2626;font-weight:600;">날짜 롤백</button>
-  <div class="log-pill" id="log">대기 중...</div>
 </div>
 <script>
 const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
@@ -651,6 +650,7 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('꼼장어'))return{name:'생물 꼼장어 1kg',qty,maxB:999};
   if(norm(pn).includes('염소탕'))return{name:'김대헌 장수 염소탕 1팩',qty,maxB:999};
   if(norm(pn).includes('자반')&&norm(pn).includes('고등어'))return{name:'국내산 자반 고등어 가정용 10미',qty,maxB:999};
+  if(norm(pn).includes('밥도둑')&&norm(pn).includes('건갈치'))return{name:'밥도둑 건갈치 1kg',qty,maxB:999};
   if(norm(pn).includes('삼배체')&&norm(pn).includes('굴'))return{name:'통통 삼배체 굴 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
   if(norm(pn).includes('도다리회')){const units=Math.max(1,Math.round(qty*wi*1000/250));return{name:'통통 활 도다리회 250g',qty:units,maxB:999};}
   if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
@@ -1004,7 +1004,14 @@ function clearAll(){
   autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
   wc=0;sl('초기화됨');
 }
-function autoResize(el){el.style.height='auto';el.style.height=Math.max(200,el.scrollHeight)+'px';}
+function autoResize(el){
+  el.style.height='auto';
+  const maxH=Math.max(240,window.innerHeight*0.55); // 화면 55%까지만 자동 확장
+  const needH=Math.max(200,el.scrollHeight);
+  if(needH>maxH){el.style.height=maxH+'px';el.style.overflowY='auto';}
+  else{el.style.height=needH+'px';el.style.overflowY='hidden';}
+}
+window.addEventListener('resize',function(){const i=document.getElementById('inp'),o=document.getElementById('out');if(i)autoResize(i);if(o)autoResize(o);});
 document.addEventListener('DOMContentLoaded',function(){
   const inp=document.getElementById('inp');
   inp.addEventListener('input',function(){autoResize(inp);});
