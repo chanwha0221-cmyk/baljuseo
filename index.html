@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.87</title>
+<title>발주서 변환기 v22.88</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.87</span>
+  <span class="ver">v22.88</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -139,7 +139,7 @@ async function analyzeDay(){
     return parseFloat(s)||0;
   };
   // 보이지 않는 공백류 안전 버전 (명시적 유니코드)
-  const cleanCellSafe=v=>{if(v==null)return'';const s=String(v);let r='';for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c===0xA0||(c>=0x200B&&c<=0x200F)||(c>=0x2028&&c<=0x202F)||c===0x3000||c===0xFEFF)continue;r+=s[i];}return r.trim();};
+  const cleanCellSafe=v=>{if(v==null)return'';const s=String(v);let r='';for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c===0xA0||c===0x034F||c===0x061C||c===0x180E||c===0x3000||c===0xFEFF||(c>=0x200B&&c<=0x200F)||(c>=0x202A&&c<=0x202F)||(c>=0x205F&&c<=0x206F)||(c>=0xFE00&&c<=0xFE0F))continue;r+=s[i];}return r.trim();};
   /* OLD_BROKEN_REGEX_BEGIN
   const _x=v=>(v==null?'':String(v)).replace(/[ ​‌‍‎‏   　﻿]/g,'').trim();
   // 보이지 않는 공백류(NBSP, 유니코드 공백 등) 정리 헬퍼 — 일반 공백(U+0020)은 보존
@@ -276,7 +276,7 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
   const rowMap={};
   const num=v=>{const s=(v||'').toString().replace(/[^0-9.\-]/g,'');return parseFloat(s)||0;};
   // 보이지 않는 공백류 안전 — 정규식 대신 charCode 비교
-  const cleanCell=v=>{if(v==null)return'';const s=String(v);let r='';for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c===0xA0||(c>=0x200B&&c<=0x200F)||(c>=0x2028&&c<=0x202F)||c===0x3000||c===0xFEFF)continue;r+=s[i];}return r.trim();};
+  const cleanCell=v=>{if(v==null)return'';const s=String(v);let r='';for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c===0xA0||c===0x034F||c===0x061C||c===0x180E||c===0x3000||c===0xFEFF||(c>=0x200B&&c<=0x200F)||(c>=0x202A&&c<=0x202F)||(c>=0x205F&&c<=0x206F)||(c>=0xFE00&&c<=0xFE0F))continue;r+=s[i];}return r.trim();};
   /* OLD_BROKEN_REGEX_2:
   const _y=v=>(v==null?'':String(v)).replace(/[ ​ -   　﻿]/g,'').trim();
   */
