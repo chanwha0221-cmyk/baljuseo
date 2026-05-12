@@ -34,6 +34,10 @@ if %errorlevel% neq 0 (
 )
 echo.
 
+echo [ Pulling latest from GitHub... ]
+git pull
+echo.
+
 echo [ Changed Files ]
 git status -s
 echo.
