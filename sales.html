@@ -194,10 +194,6 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
     newRows.length=0;
     for(const g of sortedGroups){const company=g.rows[0][0];for(const r of g.rows)newRows.push(r);const sumRow=[company,'총합'];let totalQ=0,totalR=0,totalM=0;for(let d=0;d<sortedDates.length;d++){let dQ=0,dR=0,dM=0;for(const gr of g.rows){dQ+=parseFloat(gr[keyCols.length+d*3])||0;dR+=parseFloat(gr[keyCols.length+d*3+1])||0;dM+=parseFloat(gr[keyCols.length+d*3+2])||0;}sumRow.push('',dR||'',dM||'');totalQ+=dQ;totalR+=dR;totalM+=dM;}const rate=totalR>0?Math.round((totalM/totalR)*10000)/100:0;sumRow.push(totalQ||'',totalR||'',totalR>0?rate:'');newRows.push(sumRow);}
   }else{newRows.sort(cmp);}
-<<<<<<< HEAD
-
-=======
->>>>>>> 17c1fc9572575726b9318241a918f03636d6ec23
   const meta2Res=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}?fields=sheets.properties`,{headers:{'Authorization':`Bearer ${token}`}});
   const meta2=await meta2Res.json();
   const sheetInfo=(meta2.sheets||[]).find(s=>s.properties.title===sheetName);
@@ -208,17 +204,7 @@ async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
   const finalData=[newHeader,...newRows];
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:finalData})});
   try{
-<<<<<<< HEAD
-    const numCols=newHeader.length;
-    const numRowsTotal=finalData.length;
-    const dateCount=sortedDates.length;
-    const firstNumColIdx=keyCols.length;
-    const lastNumColIdx=firstNumColIdx+dateCount*3;
-    const rateColIdx=numCols-1;
-    const reqs=[];
-=======
     const numCols=newHeader.length;const numRowsTotal=finalData.length;const dateCount=sortedDates.length;const firstNumColIdx=keyCols.length;const lastNumColIdx=firstNumColIdx+dateCount*3;const rateColIdx=numCols-1;const reqs=[];
->>>>>>> 17c1fc9572575726b9318241a918f03636d6ec23
     reqs.push({updateBorders:{range:{sheetId,startRowIndex:0,endRowIndex:numRowsTotal+5,startColumnIndex:0,endColumnIndex:numCols},top:{style:'NONE'},bottom:{style:'NONE'},left:{style:'NONE'},right:{style:'NONE'},innerHorizontal:{style:'NONE'},innerVertical:{style:'NONE'}}});
     reqs.push({repeatCell:{range:{sheetId,startRowIndex:0,endRowIndex:5000,startColumnIndex:0,endColumnIndex:50},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'}}},fields:'userEnteredFormat.numberFormat'}});
     reqs.push({updateSheetProperties:{properties:{sheetId,gridProperties:{frozenRowCount:1}},fields:'gridProperties.frozenRowCount'}});
