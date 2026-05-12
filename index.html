@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.90</title>
+<title>발주서 변환기 v22.91</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.90</span>
+  <span class="ver">v22.91</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -621,21 +621,30 @@ function mergeLines(raw){
     if(balbol){merged.push(balbol);lastClient='김융환';lastKnownClient='김융환';continue;}
     const hyein=preprocessHyein(preprocessed);
     if(hyein){merged.push(hyein);lastClient='혜인건강';lastKnownClient='혜인건강';continue;}
-    const firstCol=preprocessed.split('\t')[0].trim().replace(/\s+/g,'');
-    const isFullRow=preprocessed.split('\t').length>=4;
+    // 세로형 입력 전처리
+    if(/^배송메모$/.test(preprocessed.trim()))continue;  // 레이블 행 스킵
+    if(/^[xX×]\d+$/.test(preprocessed.trim())&&merged.length>0){  // 독립 수량 행 → 직전 상품명에 붙임
+      const parts=merged[merged.length-1].split('\t');
+      parts[parts.length-1]=parts[parts.length-1]+' '+preprocessed.trim();
+      merged[merged.length-1]=parts.join('\t');
+      continue;
+    }
+    const pp2=preprocessed.replace(/^연락처/,'').replace(/^\(\d{5}\)\s*/,'');  // 연락처·우편번호 접두어 제거
+    const firstCol=pp2.split('\t')[0].trim().replace(/\s+/g,'');
+    const isFullRow=pp2.split('\t').length>=4;
     const unitPat=/\d+(kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판)/i;
     const firstColIsProduct=!isKnownClient(firstCol)&&unitPat.test(firstCol);
     const isNew=isKnownClient(firstCol)||firstCol===lastClient||isFullRow;
     if(merged.length===0||isNew){
-      let toPush=preprocessed;
+      let toPush=pp2;
       if((isFullRow||firstColIsProduct)&&!isKnownClient(firstCol)&&firstCol!==lastClient&&lastKnownClient){
-        toPush=lastKnownClient+'\t'+preprocessed;
+        toPush=lastKnownClient+'\t'+pp2;
       }
       merged.push(toPush);
       if(firstCol)lastClient=firstCol;
       if(firstCol&&!unitPat.test(firstCol))lastKnownClient=firstCol;
     }
-    else{merged[merged.length-1]=merged[merged.length-1]+'\t'+preprocessed;}
+    else{merged[merged.length-1]=merged[merged.length-1]+'\t'+pp2;}
   }
   return merged;
 }
