@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.98</title>
+<title>발주서 변환기 v22.99</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.98</span>
+  <span class="ver">v22.99</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -668,11 +668,12 @@ function pp(cl,pr,qty){
   // 한우 등급 표기(1++, 1+, 2+ 등)는 + 분기에서 제외
   const hasMeatGrade=/\d\+\+?/.test(r);
   if(r.includes('+')&&!hasMeatGrade){const it=r.split('+').map(i=>i.trim());return{name:it.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};}
-  if(r.includes('/')){const pt=r.split('/').map(s=>s.trim()).filter(Boolean);if(pt.length>1)return{name:pt.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};r=pt[0];}
+  if(r.includes('/')){const pt=r.split('/').map(s=>s.trim()).filter(Boolean);const hasDescriptor=pt.slice(1).some(s=>/~|내외|정도|이상|이하/.test(s));if(pt.length>1&&!hasDescriptor)return{name:pt.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};if(pt.length>1&&hasDescriptor){const xm=pt.slice(1).join(' ').match(/[xX×]\s*(\d+)/);r=xm?pt[0]+' x'+xm[1]:pt[0];}else{r=pt[0];}}
   const qm=r.match(/\s*[xX×]\s*(\d+)$/);let cn=r;
   if(qm){qty=parseInt(qm[1]);cn=r.slice(0,qm.index).trim();}
   cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace('난간','난각').replace(/(\d+(?:\.\d+)?)\s*(KG|MG|ML|G|L)\b/gi,(m,n,u)=>n+u.toLowerCase()).replace(/(\d+)[kK]\b/g,'$1kg').trim();
   if(cn.includes('자연산 급냉 대구'))cn='급냉 국내산 대구 1.5kg';
+  if(cn.includes('급냉 국내산 대구 1.5kg'))return{name:'급냉 국내산 대구 1.5kg',qty,maxB:6};
   if(norm(cn).includes('참치오마카세'))cn='참치 오마카세 한판';
   if(cl==='신선한아침'&&cn.includes('노르웨이 생연어'))cn='연안 생연어';
   if(cn.includes('유정란')){const em=cn.match(/(\d+)\s*[구알]/);const en=em?em[1]:'';if(cn.includes('1번'))return{name:'자연방사 난각 1번 유정란 '+en+'구',qty,maxB:999};if(cn.includes('2번'))return{name:'동물복지 난각 2번 유정란 '+en+'구',qty,maxB:999};}
