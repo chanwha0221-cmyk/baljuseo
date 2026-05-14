@@ -608,4 +608,8 @@ function showToast(msg, color, duration) {
   el.textContent = msg;
   el.style.background = color || 'var(--accent)';
   document.body.appendChild(el);
-  setTimeout(()
+  setTimeout(() => el.remove(), duration || 3500);
+}
+</script>
+</body>
+</html>
