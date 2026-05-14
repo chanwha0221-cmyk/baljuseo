@@ -930,10 +930,13 @@ async function _parseSettlement(file){
   const companies = {}; // colIndex → companyName
   let curName = '';
   const maxCol = ws.columnCount;
-  for(let c=3; c<=maxCol; c++){
-    const v = (ws.getRow(companyRow).getCell(c).value||'').toString().trim();
-    if(v) curName = v;
-    if(curName) companies[c] = curName;
+  // companyRow가 1 미만이면 유효하지 않은 행 → 읽기 건너뜀
+  if(companyRow >= 1){
+    for(let c=3; c<=maxCol; c++){
+      const v = (ws.getRow(companyRow).getCell(c).value||'').toString().trim();
+      if(v) curName = v;
+      if(curName) companies[c] = curName;
+    }
   }
   // 일자 행들 수집
   const dateRows = []; // {row, date}
@@ -1044,9 +1047,9 @@ async function runSettlementMatch(){
     for(const [name, cols] of Object.entries(meta.companyCols)){
       cellsByCompany[name] = [];
       meta.dateRows.forEach(d=>{
-        const vat = parseInt((meta.ws.getCell(d.row, cols.vat).value||'0').toString().replace(/[^0-9-]/g,''))||0;
-        const tax = parseInt((meta.ws.getCell(d.row, cols.tax).value||'0').toString().replace(/[^0-9-]/g,''))||0;
-        cellsByCompany[name].push({ row:d.row, date:d.date, key:d.key, vatCol:cols.vat, taxCol:cols.tax, vat, tax, sum: vat+tax });
+        const vat = cols.vat ? (parseInt((meta.ws.getCell(d.row, cols.vat).value||'0').toString().replace(/[^0-9-]/g,''))||0) : 0;
+        const tax = cols.tax ? (parseInt((meta.ws.getCell(d.row, cols.tax).value||'0').toString().replace(/[^0-9-]/g,''))||0) : 0;
+        cellsByCompany[name].push({ row:d.row, date:d.date, key:d.key, vatCol:cols.vat||null, taxCol:cols.tax||null, vat, tax, sum: vat+tax });
       });
     }
 
@@ -1086,8 +1089,8 @@ async function runSettlementMatch(){
         const target = exact[0];
         const diff = target.sum - tx.amount;
         const note = `${tx.dateKey} 입금 ${tx.amount.toLocaleString()}원 (${tx.name})` + (diff!==0 ? ` ⚠ 정산:${target.sum.toLocaleString()} / 입금:${tx.amount.toLocaleString()} (${diff>0?'+':''}${diff})` : '');
-        const r1 = _paintAndComment(meta.ws, target.row, target.vatCol, note);
-        const r2 = _paintAndComment(meta.ws, target.row, target.taxCol, note);
+        const r1 = target.vatCol ? _paintAndComment(meta.ws, target.row, target.vatCol, note) : {painted:false};
+        const r2 = target.taxCol ? _paintAndComment(meta.ws, target.row, target.taxCol, note) : {painted:false};
         if(r1.painted||r2.painted){ paintedCount += (r1.painted?1:0)+(r2.painted?1:0); matchedCount++; _logLine(`✓ ${matchedCompany} ${target.key} ${tx.amount.toLocaleString()}원 매칭`); }
         else { protectedCount++; _logLine(`⊘ ${matchedCompany} ${target.key} 이미 색칠된 셀 (보존)`); }
         tx.used = true;
@@ -1120,8 +1123,8 @@ async function runSettlementMatch(){
           let anyPainted = false;
           bestRange.forEach(c=>{
             if(c.sum<=0) return;
-            const r1 = _paintAndComment(meta.ws, c.row, c.vatCol, note);
-            const r2 = _paintAndComment(meta.ws, c.row, c.taxCol, note);
+            const r1 = c.vatCol ? _paintAndComment(meta.ws, c.row, c.vatCol, note) : {painted:false};
+            const r2 = c.taxCol ? _paintAndComment(meta.ws, c.row, c.taxCol, note) : {painted:false};
             if(r1.painted) paintedCount++; if(r2.painted) paintedCount++;
             if(r1.painted||r2.painted) anyPainted = true;
           });
@@ -1140,7 +1143,9 @@ async function runSettlementMatch(){
         const diff = c.sum - tx.amount;
         const note = `${tx.dateKey} 입금 ${tx.amount.toLocaleString()} (${tx.name}) ⚠ 정산:${c.sum.toLocaleString()} / 입금:${tx.amount.toLocaleString()} (차액 ${diff>0?'+':''}${diff})`;
         // 메모만 (색칠 X — 정확 매칭 아님)
-        const cell = meta.ws.getCell(c.row, c.vatCol);
+        const noteCol = c.vatCol || c.taxCol;
+        if(!noteCol) continue;
+        const cell = meta.ws.getCell(c.row, noteCol);
         const existing = cell.note ? (cell.note.texts ? cell.note.texts.map(t=>t.text).join('') : cell.note.toString()) : '';
         cell.note = existing ? existing+'\n'+note : note;
         partialCount++;
