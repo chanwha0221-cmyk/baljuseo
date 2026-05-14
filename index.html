@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.101</title>
+<title>발주서 변환기 v22.102</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.101</span>
+  <span class="ver">v22.102</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -759,20 +759,34 @@ function br(cl,cfg,nq,nr,ord,iv){
 }
 function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));}
 function preprocessHyein(line){
-  if(!line.includes('[마스터]'))return null;
-  const maIdx=line.indexOf('[마스터]');const beforeMa=line.slice(0,maIdx).trim();
-  const firstWord=beforeMa.split(/\s+/)[0].replace(/\s+/g,'');
-  if(isKnownClient(firstWord))return null;
-  const preMaPhoneM=beforeMa.match(/(0\d{1,2}-\d{3,4}-\d{4})/);
-  const preMaPhone=preMaPhoneM?preMaPhoneM[1]:'';
-  const after=line.slice(maIdx+'[마스터]'.length).trim();
-  const m=after.match(/^(.*?[xX×]\s*\d+)\s+([가-힣]{2,6})\(\d+\)\s+(.+)$/);
-  if(!m)return null;
-  const product=m[1].trim();const custName=m[2].trim();const rest=m[3].trim();
-  const pm=rest.match(/(0\d{1,2}-\d{3,4}-\d{4})/);
-  let addr=rest,custPhone=preMaPhone,msg='';
-  if(pm){const idx=rest.indexOf(pm[1]);addr=rest.slice(0,idx).trim();msg=rest.slice(idx+pm[1].length).trim();custPhone=pm[1];}
-  return`혜인건강\t\t\t\t${product}\t${custName}\t${addr}\t${custPhone}\t${msg}`;
+  // 형식 1: [마스터] 포함 형식
+  if(line.includes('[마스터]')){
+    const maIdx=line.indexOf('[마스터]');const beforeMa=line.slice(0,maIdx).trim();
+    const firstWord=beforeMa.split(/\s+/)[0].replace(/\s+/g,'');
+    if(isKnownClient(firstWord))return null;
+    const preMaPhoneM=beforeMa.match(/(0\d{1,2}-\d{3,4}-\d{4})/);
+    const preMaPhone=preMaPhoneM?preMaPhoneM[1]:'';
+    const after=line.slice(maIdx+'[마스터]'.length).trim();
+    const m=after.match(/^(.*?[xX×]\s*\d+)\s+([가-힣]{2,6})\(\d+\)\s+(.+)$/);
+    if(!m)return null;
+    const product=m[1].trim();const custName=m[2].trim();const rest=m[3].trim();
+    const pm=rest.match(/(0\d{1,2}-\d{3,4}-\d{4})/);
+    let addr=rest,custPhone=preMaPhone,msg='';
+    if(pm){const idx=rest.indexOf(pm[1]);addr=rest.slice(0,idx).trim();msg=rest.slice(idx+pm[1].length).trim();custPhone=pm[1];}
+    return`혜인건강\t\t\t\t${product}\t${custName}\t${addr}\t${custPhone}\t${msg}`;
+  }
+  // 형식 2: 이름 전화번호 상품명 x N 이름(N) 주소 전화번호 (탭 없는 공백 구분)
+  const m2=line.match(/^([가-힣]{2,6})\s+(0\d{1,2}-\d{3,4}-\d{4})\s+(.*?[xX×]\s*\d+)\s+([가-힣]{2,6})\(\d+\)\s+(.+)$/);
+  if(m2){
+    const firstWord=m2[1].replace(/\s+/g,'');
+    if(isKnownClient(firstWord))return null;
+    const product=m2[3].trim();const custName=m2[4].trim();const rest=m2[5].trim();
+    const pm=rest.match(/(0\d{1,2}-\d{3,4}-\d{4})/);
+    let addr=rest,custPhone=m2[2],msg='';
+    if(pm){const idx=rest.lastIndexOf(pm[0]);addr=rest.slice(0,idx).trim();custPhone=pm[0];msg=rest.slice(idx+pm[0].length).trim();}
+    return`혜인건강\t\t\t\t${product}\t${custName}\t${addr}\t${custPhone}\t${msg}`;
+  }
+  return null;
 }
 function isPureNum(s){return !!(s.match(/^\d{1,6}$/))}
 function extractPhoneFromAddr(addr){
