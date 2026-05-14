@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>판매 분석</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --bg:#f5f4f0;--surface:#ffffff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;
+  --text:#1a1816;--text2:#6b6760;--text3:#a8a49e;
+  --accent:#7b2d8b;--accent-light:#f5eaf7;--accent-hover:#5c1f69;
+  --warn:#b45309;--warn-bg:#fef3c7;--ok:#2d6a4f;--ok-bg:#e8f4ee;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column;}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.logo{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.03em}
+.logo span{color:var(--accent)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.back-btn{font-size:12px;color:var(--text3);text-decoration:none;padding:5px 12px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);}
+.back-btn:hover{background:var(--surface2);color:var(--text)}
+.workspace{flex:1;display:flex;flex-direction:column;padding:20px 24px;gap:16px;max-width:900px;width:100%;}
+.desc{font-size:12px;color:var(--text3);line-height:1.6;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;}
+.desc strong{color:var(--text2);}
+label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);display:block;margin-bottom:6px;}
+textarea{width:100%;border:1px solid var(--border2);border-radius:8px;outline:none;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.75;resize:vertical;color:var(--text);background:var(--surface);min-height:260px;}
+textarea::placeholder{color:var(--text3)}
+.bottom{background:var(--surface);border-top:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.btn{padding:7px 16px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .1s}
+.btn:hover{background:var(--surface2);color:var(--text)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;padding:7px 22px}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn.danger{background:#dc2626;color:#fff;border-color:#dc2626;font-weight:600;}
+.btn.danger:hover{background:#b91c1c;border-color:#b91c1c;}
+.log-pill{flex:1;margin:0 12px;font-size:11px;padding:4px 12px;border-radius:20px;background:var(--surface2);color:var(--text3);font-family:'JetBrains Mono',monospace;border:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.log-pill.warn{background:var(--warn-bg);color:var(--warn);border-color:#fcd34d}
+.log-pill.ok{background:var(--ok-bg);color:var(--ok);border-color:#b7ddc8}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">판매 <span>분석</span></span><span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-left:6px;font-weight:400;">v1.1</span>
+  <div class="header-right">
+    <a class="back-btn" href="index.html">← 발주서 변환기</a>
+  </div>
+</header>
+<div class="workspace">
+  <div class="desc">
+    <strong>사용법:</strong> 마찬 발주 시트에서 <strong>B~J열(원가(면세) ~ 상품명, 9칸)</strong>을 복사해서 붙여넣고 <strong>판매 분석</strong> 실행.<br>
+    날짜 입력(M/D 형식) → 업체별판매·전체판매 시트에 누적 저장됩니다. 같은 날짜 재실행 시 자동 덮어씁니다.
+  </div>
+  <div>
+    <label>발주 데이터 (B~J열 9칸)</label>
+    <textarea id="inp" placeholder="마찬 발주 시트 B~J열을 붙여넣으세요.&#10;헤더행 자동 제거, 수량은 상품명 끝 'x N' 패턴에서 추출"></textarea>
+  </div>
+</div>
+<div class="bottom">
+  <button class="btn primary" onclick="analyzeDay()">판매 분석</button>
+  <button class="btn danger" onclick="rollbackDate()">날짜 롤백</button>
+  <div class="log-pill" id="log">대기 중...</div>
+</div>
+<script>
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
+const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+const ANALYSIS_SPREADSHEET_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
+
+function sl(m,t){const e=document.getElementById('log');e.textContent=m;e.className='log-pill'+(t?' '+t:'');}
+
+async function getAccessToken(){
+  const header={alg:'RS256',typ:'JWT'};
+  const now=Math.floor(Date.now()/1000);
+  const claim={iss:CLIENT_EMAIL,scope:'https://www.googleapis.com/auth/spreadsheets',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now};
+  const enc=(obj)=>btoa(JSON.stringify(obj)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const toSign=enc(header)+'.'+enc(claim);
+  const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(toSign));
+  const jwt=toSign+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const res=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`});
+  const d=await res.json();return d.access_token;
+}
+
+async function analyzeDay(){
+  const input=document.getElementById('inp').value.trim();
+  if(!input){sl('입력란에 발주서 데이터가 없습니다. (B~J열 — 원가(면세)부터 상품명까지 9칸을 붙여넣으세요)','warn');return;}
+  const dateInput=prompt('이번 분석은 어느 날짜 데이터인가요?\n(M/D 형식, 예: 5/8)','');
+  if(dateInput===null)return;
+  const dm=dateInput.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+  if(!dm){sl('날짜 형식이 잘못됨. M/D 형식으로 입력 (예: 5/8)','warn');return;}
+  const mon=parseInt(dm[1]),day=parseInt(dm[2]);
+  if(mon<1||mon>12||day<1||day>31){sl('잘못된 월/일','warn');return;}
+  const dateLabel=mon+'/'+day;
+  sl('판매 분석 중...');
+  const COL={원가면세:0,원가과세:1,공급가면세:2,공급가과세:3,업체:4,상품:8};
+  const num=v=>{if(v===null||v===undefined||v==='')return 0;const s=String(v).replace(/[^0-9.\-]/g,'');return parseFloat(s)||0;};
+  const cleanCellSafe=v=>{if(v==null)return'';const s=String(v);let r='';for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c===0xA0||c===0x034F||c===0x061C||c===0x180E||c===0x3000||c===0xFEFF||(c>=0x200B&&c<=0x200F)||(c>=0x202A&&c<=0x202F)||(c>=0x205F&&c<=0x206F)||(c>=0xFE00&&c<=0xFE0F))continue;r+=s[i];}return r.trim();};
+  const cleanCell=cleanCellSafe;
+  const parseProduct=name=>{const orig=cleanCell(name);let s=orig;s=s.replace(/\s*[\(（][^\(（\)）]*[\)）]\s*/g,' ');const pi=s.search(/[\(（]/);if(pi>=0)s=s.slice(0,pi);s=s.replace(/\s+/g,' ').trim();if(!s)s=orig;const m=s.match(/^(.*?)\s*[x×*X]\s*(\d+)\s*$/);if(m){const clean=m[1].trim();return{clean:clean||s,qty:parseInt(m[2])};}return{clean:s,qty:1};};
+  const isHeader=r=>{const c0=(r[COL.원가면세]||'').toString().trim();return /[가-힣]/.test(c0);};
+  const rawLines=input.split(/\r?\n/).map(l=>l.split('\t'));
+  const lines=rawLines.filter(r=>r.length>=9 && !isHeader(r) && cleanCell(r[COL.업체]) && cleanCell(r[COL.상품]));
+  if(lines.length===0){sl('파싱된 행이 없음. B~J열 9칸(원가(면세)~상품명)을 붙여넣었는지 확인하세요.','warn');return;}
+  const clientMap={},productMap={};
+  let skippedNoCompany=0;
+  for(const r of lines){
+    const 업체=cleanCell(r[COL.업체]);const 상품Raw=cleanCell(r[COL.상품]);
+    if(!업체){skippedNoCompany++;continue;}
+    const 원가행=num(r[COL.원가면세])+num(r[COL.원가과세]);const 공급가행=num(r[COL.공급가면세])+num(r[COL.공급가과세]);
+    const parts=상품Raw.split('/').map(p=>p.trim()).filter(Boolean);if(parts.length===0)continue;
+    const N=parts.length;const 원가분배=원가행/N;const 공급가분배=공급가행/N;
+    for(const part of parts){
+      const {clean:상품,qty:수량}=parseProduct(part);if(!상품)continue;
+      const 매출=공급가분배;const 매입=원가분배;const 마진=매출-매입;
+      const 상품키=상품.replace(/\s+/g,'');const ck=업체+'||'+상품키;
+      if(!clientMap[ck])clientMap[ck]={업체,상품,수량:0,매출:0,매입:0,마진:0};
+      clientMap[ck].수량+=수량;clientMap[ck].매출+=매출;clientMap[ck].매입+=매입;clientMap[ck].마진+=마진;
+      if(!productMap[상품키])productMap[상품키]={상품,수량:0,매출:0,매입:0,마진:0};
+      productMap[상품키].수량+=수량;productMap[상품키].매출+=매출;productMap[상품키].매입+=매입;productMap[상품키].마진+=마진;
+    }
+  }
+  try{
+    const token=await getAccessToken();
+    const metaRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}?fields=sheets.properties.title`,{headers:{'Authorization':`Bearer ${token}`}});
+    const meta=await metaRes.json();
+    if(meta.error){sl('분석 스프레드시트 접근 실패: '+meta.error.message+' (편집자 권한 공유 확인)','warn');return;}
+    const titles=(meta.sheets||[]).map(s=>s.properties.title);
+    const addReqs=[];
+    if(!titles.includes('업체별판매'))addReqs.push({addSheet:{properties:{title:'업체별판매'}}});
+    if(!titles.includes('전체판매'))addReqs.push({addSheet:{properties:{title:'전체판매'}}});
+    if(addReqs.length){await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:addReqs})});}
+    const okC=await mergeAnalysis(token,'업체별판매',dateLabel,Object.values(clientMap),['업체명','상품명'],it=>[it.업체,it.상품]);
+    if(!okC)return;
+    const okP=await mergeAnalysis(token,'전체판매',dateLabel,Object.values(productMap),['상품명'],it=>[it.상품]);
+    if(!okP)return;
+    const skipMsg=skippedNoCompany>0?(', 업체명 누락 '+skippedNoCompany+'행 스킵'):'';
+    sl('판매 분석 완료! '+dateLabel+' ('+lines.length+'행 처리'+skipMsg+')','ok');
+  }catch(e){sl('분석 오류: '+e.message,'warn');}
+}
+
+async function rollbackDate(){
+  const dateInput=prompt('어느 날짜 데이터를 롤백(삭제)할까요?\n(M/D 형식, 예: 5/8)\n\n해당 날짜의 수량/매출/마진 컬럼이 두 분석 시트에서 모두 제거됩니다.','');
+  if(dateInput===null)return;
+  const dm=dateInput.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+  if(!dm){sl('날짜 형식이 잘못됨. M/D 형식 (예: 5/8)','warn');return;}
+  const dateLabel=parseInt(dm[1])+'/'+parseInt(dm[2]);
+  if(!confirm(dateLabel+' 데이터를 업체별판매·전체판매 두 시트에서 모두 삭제합니다.\n계속할까요? (되돌릴 수 없음)'))return;
+  sl(dateLabel+' 롤백 중...');
+  try{
+    const token=await getAccessToken();
+    const okC=await mergeAnalysis(token,'업체별판매',dateLabel,[],['업체명','상품명'],it=>[]);if(!okC)return;
+    const okP=await mergeAnalysis(token,'전체판매',dateLabel,[],['상품명'],it=>[]);if(!okP)return;
+    sl(dateLabel+' 데이터 롤백 완료! (그 날짜에만 데이터 있던 상품 행은 자동 삭제됨)','ok');
+  }catch(e){sl('롤백 오류: '+e.message,'warn');}
+}
+
+async function mergeAnalysis(token,sheetName,dateLabel,items,keyCols,getKey){
+  const readRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ20000`,{headers:{'Authorization':`Bearer ${token}`}});
+  const readData=await readRes.json();
+  const existing=readData.values||[];const header=existing[0]||[];const rows=existing.slice(1);
+  let dataHeaders=header.slice(keyCols.length);
+  while(dataHeaders.length>0 && /^합계\s/.test(dataHeaders[dataHeaders.length-1])){dataHeaders=dataHeaders.slice(0,dataHeaders.length-1);}
+  const dateMap={};
+  for(let i=0;i<dataHeaders.length;i++){const m=dataHeaders[i].match(/^(\d{1,2}\/\d{1,2})\s+(수량|매출|마진)$/);if(m){if(!dateMap[m[1]])dateMap[m[1]]={};dateMap[m[1]][m[2]]=i;}}
+  const rowMap={};
+  const num=v=>{const s=(v||'').toString().replace(/[^0-9.\-]/g,'');return parseFloat(s)||0;};
+  const cleanCell=v=>{if(v==null)return'';const s=String(v);let r='';for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c===0xA0||c===0x034F||c===0x061C||c===0x180E||c===0x3000||c===0xFEFF||(c>=0x200B&&c<=0x200F)||(c>=0x202A&&c<=0x202F)||(c>=0x205F&&c<=0x206F)||(c>=0xFE00&&c<=0xFE0F))continue;r+=s[i];}return r.trim();};
+  let lastFirstKey='';
+  for(const row of rows){
+    const keyVals=keyCols.map((_,i)=>(row[i]||'').toString());
+    if(keyVals.every(v=>!cleanCell(v)))continue;
+    if(keyCols[0]==='업체명'){const c0=cleanCell(keyVals[0]);if(c0){lastFirstKey=c0;keyVals[0]=c0;}else if(lastFirstKey){keyVals[0]=lastFirstKey;}if(!cleanCell(keyVals[0]))continue;}
+    for(let i=0;i<keyVals.length;i++)keyVals[i]=cleanCell(keyVals[i]);
+    if(keyVals[keyVals.length-1]==='총합')continue;if(!keyVals[keyVals.length-1])continue;
+    const k=keyVals.map(v=>v.replace(/\s+/g,'')).join('||');
+    const dates={};
+    for(const [d,mIdx] of Object.entries(dateMap)){const obj={};for(const [metric,idx] of Object.entries(mIdx)){const cell=row[keyCols.length+idx];const n=num(cell);if(n!==0)obj[metric]=n;}if(Object.keys(obj).length)dates[d]=obj;}
+    if(!rowMap[k]){rowMap[k]={keyVals,dates};}else{for(const [d,obj] of Object.entries(dates)){if(!rowMap[k].dates[d])rowMap[k].dates[d]={};for(const [metric,val] of Object.entries(obj)){rowMap[k].dates[d][metric]=(rowMap[k].dates[d][metric]||0)+val;}}}
+  }
+  for(const v of Object.values(rowMap))delete v.dates[dateLabel];
+  for(const item of items){const keyVals=getKey(item);const k=keyVals.map(v=>(v||'').replace(/\s+/g,'')).join('||');if(!rowMap[k])rowMap[k]={keyVals,dates:{}};if(!rowMap[k].dates[dateLabel])rowMap[k].dates[dateLabel]={수량:0,매출:0,마진:0};rowMap[k].dates[dateLabel].수량+=item.수량||0;rowMap[k].dates[dateLabel].매출+=item.매출||0;rowMap[k].dates[dateLabel].마진+=item.마진||0;}
+  const allDates=new Set();for(const v of Object.values(rowMap))for(const d of Object.keys(v.dates))allDates.add(d);
+  const sortedDates=Array.from(allDates).sort((a,b)=>{const am=a.match(/^(\d+)\/(\d+)$/),bm=b.match(/^(\d+)\/(\d+)$/);return (am?parseInt(am[1])*100+parseInt(am[2]):0)-(bm?parseInt(bm[1])*100+parseInt(bm[2]):0);});
+  const newHeader=[...keyCols];for(const d of sortedDates)newHeader.push(d+' 수량',d+' 매출',d+' 마진');newHeader.push('합계 수량','합계 매출','합계 마진율');
+  const newRows=[];
+  for(const v of Object.values(rowMap)){const r=v.keyVals.slice();let sQ=0,sR=0,sM=0;for(const d of sortedDates){const dat=v.dates[d]||{};const q=dat.수량||0,R=dat.매출||0,M=dat.마진||0;r.push(q||'',R||'',M||'');sQ+=q;sR+=R;sM+=M;}const rate=sR>0?Math.round((sM/sR)*10000)/100:0;r.push(sQ||'',sR||'',sR>0?rate:'');r._sR=sR;r._sM=sM;r._sRate=rate;r._sQ=sQ;if(sQ===0&&sR===0&&sM===0)continue;newRows.push(r);}
+  const cmp=(a,b)=>{if(b._sR!==a._sR)return b._sR-a._sR;if(b._sM!==a._sM)return b._sM-a._sM;if(b._sRate!==a._sRate)return b._sRate-a._sRate;return b._sQ-a._sQ;};
+  if(keyCols[0]==='업체명'){
+    const groups={};for(const r of newRows){const c=r[0];if(!groups[c])groups[c]={rows:[],_sR:0,_sM:0,_sQ:0};groups[c].rows.push(r);groups[c]._sR+=r._sR;groups[c]._sM+=r._sM;groups[c]._sQ+=r._sQ;}
+    for(const g of Object.values(groups)){g._sRate=g._sR>0?Math.round((g._sM/g._sR)*10000)/100:0;}
+    const sortedGroups=Object.values(groups).sort(cmp);for(const g of sortedGroups)g.rows.sort(cmp);
+    newRows.length=0;
+    for(const g of sortedGroups){const company=g.rows[0][0];for(const r of g.rows)newRows.push(r);const sumRow=[company,'총합'];let totalQ=0,totalR=0,totalM=0;for(let d=0;d<sortedDates.length;d++){let dQ=0,dR=0,dM=0;for(const gr of g.rows){dQ+=parseFloat(gr[keyCols.length+d*3])||0;dR+=parseFloat(gr[keyCols.length+d*3+1])||0;dM+=parseFloat(gr[keyCols.length+d*3+2])||0;}sumRow.push('',dR||'',dM||'');totalQ+=dQ;totalR+=dR;totalM+=dM;}const rate=totalR>0?Math.round((totalM/totalR)*10000)/100:0;sumRow.push(totalQ||'',totalR||'',totalR>0?rate:'');newRows.push(sumRow);}
+  }else{newRows.sort(cmp);}
+  const meta2Res=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}?fields=sheets.properties`,{headers:{'Authorization':`Bearer ${token}`}});
+  const meta2=await meta2Res.json();
+  const sheetInfo=(meta2.sheets||[]).find(s=>s.properties.title===sheetName);
+  if(!sheetInfo)return true;
+  const sheetId=sheetInfo.properties.sheetId;
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ20000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{unmergeCells:{range:{sheetId,startRowIndex:0,endRowIndex:5000,startColumnIndex:0,endColumnIndex:50}}}]})});
+  const finalData=[newHeader,...newRows];
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:finalData})});
+  try{
+    const numCols=newHeader.length;const numRowsTotal=finalData.length;const dateCount=sortedDates.length;const firstNumColIdx=keyCols.length;const lastNumColIdx=firstNumColIdx+dateCount*3;const rateColIdx=numCols-1;const reqs=[];
+    reqs.push({updateBorders:{range:{sheetId,startRowIndex:0,endRowIndex:numRowsTotal+5,startColumnIndex:0,endColumnIndex:numCols},top:{style:'NONE'},bottom:{style:'NONE'},left:{style:'NONE'},right:{style:'NONE'},innerHorizontal:{style:'NONE'},innerVertical:{style:'NONE'}}});
+    reqs.push({repeatCell:{range:{sheetId,startRowIndex:0,endRowIndex:5000,startColumnIndex:0,endColumnIndex:50},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'}}},fields:'userEnteredFormat.numberFormat'}});
+    reqs.push({updateSheetProperties:{properties:{sheetId,gridProperties:{frozenRowCount:1}},fields:'gridProperties.frozenRowCount'}});
+    reqs.push({repeatCell:{range:{sheetId,startRowIndex:0,endRowIndex:1,startColumnIndex:0,endColumnIndex:numCols},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE',textFormat:{bold:true},backgroundColor:{red:0.93,green:0.93,blue:0.93}}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat,backgroundColor)'}});
+    if(numRowsTotal>1){reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:0,endColumnIndex:keyCols.length},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment)'}});}
+    if(numRowsTotal>1&&rateColIdx>firstNumColIdx){reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:firstNumColIdx,endColumnIndex:rateColIdx},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(numberFormat,horizontalAlignment,verticalAlignment)'}});}
+    if(numRowsTotal>1){reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:rateColIdx,endColumnIndex:rateColIdx+1},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'0.00"%"'},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(numberFormat,horizontalAlignment,verticalAlignment)'}});}
+    reqs.push({autoResizeDimensions:{dimensions:{sheetId,dimension:'COLUMNS',startIndex:0,endIndex:numCols}}});
+    if(keyCols[0]==='업체명'&&newRows.length>0){let s=0;for(let i=1;i<=newRows.length;i++){const reachedEnd=(i===newRows.length);const isBoundary=reachedEnd||(newRows[i][0]!==newRows[s][0]);if(isBoundary){const sheetStartRow=s+1;const sheetEndRow=i+1;const grpSize=i-s;if(grpSize>=2){reqs.push({mergeCells:{range:{sheetId,startRowIndex:sheetStartRow,endRowIndex:sheetEndRow,startColumnIndex:0,endColumnIndex:1},mergeType:'MERGE_ALL'}});}const border={style:'SOLID',width:1,color:{red:0.4,green:0.4,blue:0.4}};reqs.push({updateBorders:{range:{sheetId,startRowIndex:sheetStartRow,endRowIndex:sheetEndRow,startColumnIndex:0,endColumnIndex:numCols},top:border,bottom:border,left:border,right:border}});s=i;}}}
+    if(reqs.length>0){await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:reqs})});}
+  }catch(e){console.warn('포맷 적용 실패(데이터는 정상 저장됨):',e);}
+  return true;
+}
+</script>
+</body>
+</html>
