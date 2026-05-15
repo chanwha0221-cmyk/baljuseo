@@ -2,7 +2,7 @@
 chcp 65001 > nul
 title GitHub Auto Update
 
-cd /d "G:\내 드라이브\claude\Projects\baljuseo"
+cd /d "%~dp0"
 
 echo.
 echo ============================================

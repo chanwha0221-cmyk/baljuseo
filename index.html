@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.112</title>
+<title>발주서 변환기 v22.114</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.112</span>
+  <span class="ver">v22.114</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -811,8 +811,10 @@ function pr2(line){
   let trailingQty=null;
   const lastCol=(cols[cols.length-1]||'').trim();
   if(lastCol.match(/^\d{1,3}$/)&&parseInt(lastCol)>0&&parseInt(lastCol)<1000){trailingQty=parseInt(lastCol);cols.pop();}
-  // 단위 패턴: 숫자+단위 OR 단위 없는 "숫자 x 숫자" (예: 500 x 2) OR 문자열 끝의 "x N"
-  const unitPattern=/\d+(kg|g|ea|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판|대|장|줄|관|단|마|모|벌)|\d+\s*[xX×]\s*\d+|[xX×]\s*\d+\s*$/i;
+  // 단위 패턴: 숫자+단위 (단위 뒤에 한글이 더 붙으면 매치 안 함 — "1단지" 같은 주소 오인식 방지)
+  //          OR "숫자 x 숫자" (예: 500 x 2)
+  //          OR 문자열 끝의 "x N" (예: ...x 1)
+  const unitPattern=/\d+(kg|g|ea|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판|대|장|줄|관|단|마|모|벌)(?![가-힣])|\d+\s*[xX×]\s*\d+|[xX×]\s*\d+\s*$/i;
   let pi=-1;
   for(let i=1;i<cols.length;i++){if(unitPattern.test((cols[i]||'').trim())){pi=i;break;}}
   if(pi===-1){for(let i=1;i<cols.length;i++){const c=(cols[i]||'').trim();if(c&&!isPhone(c)&&!isPureNum(c)&&c.length>3){pi=i;break;}}}
@@ -1048,9 +1050,73 @@ function preprocessSikbom(raw){
   }
   return output.join('\n');
 }
+// 직접발주 (채팅 형식: [제품]...[수취인]...) 파싱
+function parseDirectOrders(input){
+  const orders=[];
+  const parts=input.split(/\[제품\]/);
+  for(let i=1;i<parts.length;i++){
+    const block=parts[i];
+    const recipIdx=block.indexOf('[수취인]');
+    if(recipIdx===-1)continue;
+    const prodSection=block.substring(0,recipIdx);
+    let recSection=block.substring(recipIdx+'[수취인]'.length);
+    const nextProdIdx=recSection.search(/\[제품\]/);
+    if(nextProdIdx>=0)recSection=recSection.substring(0,nextProdIdx);
+    // 상품 파싱: "상품명 N개 / 가격원" 패턴, 배송비/총합/별표 라인 스킵
+    // 상품명 앞의 "하남 " 접두어는 자동 제거
+    const products=[];
+    const prodLines=prodSection.split('\n').map(l=>l.trim()).filter(Boolean);
+    for(const line of prodLines){
+      if(/^(\*+\s*)?(배송비|총합|합계|결제금액|합산)/.test(line))continue;
+      const m=line.match(/^(.+?)\s+(\d+)\s*개\b/);
+      if(m){
+        let nm=m[1].trim().replace(/^하남\s+/,'');
+        products.push({name:nm,qty:parseInt(m[2])});
+      }
+    }
+    // 수취인 파싱: "이름 / 전화" 형태, 주소 라인
+    const recLines=recSection.split('\n').map(l=>l.trim()).filter(Boolean);
+    let name='',phone='',addr='';
+    for(const line of recLines){
+      const slashIdx=line.indexOf('/');
+      if(slashIdx>0){
+        const before=line.substring(0,slashIdx).trim();
+        const after=line.substring(slashIdx+1).trim();
+        const afterDigits=after.replace(/[^0-9]/g,'');
+        if(afterDigits.length>=9){name=before;phone=fp(after);continue;}
+      }
+      const lineDigits=line.replace(/[^0-9]/g,'');
+      if(/^[\d\s\-]+$/.test(line)&&lineDigits.length>=9){phone=fp(line);continue;}
+      if(line.length>5){addr=(addr?addr+' ':'')+line;}
+      else if(!name){name=line;}
+    }
+    if(products.length>0)orders.push({products,name,phone,addr});
+  }
+  return orders;
+}
 function run(){
   wc=0;let input=document.getElementById('inp').value.trim();
   if(!input){sl('입력 데이터가 없습니다.','warn');return;}
+  // 직접발주(채팅) 형식 자동 인식 — [제품] + [수취인] 마커
+  if(input.includes('[제품]')&&input.includes('[수취인]')){
+    const orders=parseDirectOrders(input);
+    if(orders.length===0){sl('직접발주 파싱 실패 — [제품]/[수취인] 포맷 확인','warn');return;}
+    const out=[];
+    for(const ord of orders){
+      // 합포장 — 한 수취인의 모든 상품을 한 줄로 슬래시 합침
+      const combinedName=ord.products.map(p=>p.name+' x '+p.qty).join(' / ');
+      // E=직접발주, F=수취인 이름, G=빈칸, H=수취인 전화, I=빈칸(창고명), J=합포장 상품, K=이름, L=주소, M=전화, N=빈칸
+      out.push(['직접발주',ord.name||'','',ord.phone||'','',combinedName,ord.name,ord.addr,ord.phone,''].join('\t'));
+    }
+    document.getElementById('out').value=out.join('\n');
+    document.getElementById('s-in').textContent=orders.length;
+    document.getElementById('s-out').textContent=out.length;
+    document.getElementById('in-count').textContent=orders.length+' 건';
+    document.getElementById('out-count').textContent=out.length+' 행';
+    autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
+    sl('직접발주 '+orders.length+'건 / '+out.length+'행 출력','ok');
+    return;
+  }
   if(is365BagenFormat(input)){
     input=preprocess365Bagen(input);
     if(!input){sl('365바겐 형식 파싱 실패','warn');return;}
