@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.132</title>
+<title>발주서 변환기 v22.133</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.132</span>
+  <span class="ver">v22.133</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -669,6 +669,8 @@ function mergeLines(raw){
 }
 function norm(s){return s.replace(/\s+/g,'');}
 function pp(cl,pr,qty){
+  // 공통 규칙 (2026-05-15): 시작 부분의 [업체명] 접두사 자동 제거 (굿수산/신선한아침/빅피쉬마켓 등)
+  pr = pr.replace(/^\s*\[[^\]]+\]\s*/, '');
   const FREE_SHIP_KEYWORDS=['동치미'];
   for(const kw of FREE_SHIP_KEYWORDS){
     if(norm(pr).includes(kw)){
