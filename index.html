@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.131</title>
+<title>발주서 변환기 v22.132</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.131</span>
+  <span class="ver">v22.132</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -686,6 +686,13 @@ function pp(cl,pr,qty){
     const colonIdx=pr.indexOf(':');const _actual=norm(colonIdx>=0?pr.slice(colonIdx+1):pr);
     if(_actual.includes('알도루묵'))return{name:'알도루묵 1팩',qty,maxB:999};
     if(_actual.includes('양미리'))return{name:'양미리 1kg',qty,maxB:999};
+  }
+  // 신선한아침 단독 규칙 (2026-05-15)
+  if(cl==='신선한아침'){
+    const _np = norm(pr).replace(/\[신선한아침\]/g,'');
+    if(_np.includes('왕바지락'))return{name:'왕 바지락 1kg',qty,maxB:999};
+    if(_np.includes('임금님')&&_np.includes('전복'))return{name:'임금님 5-6미 전복 2kg',qty,maxB:999};
+    if(_np.includes('멍게'))return{name:'통통 깐멍게 500g',qty,maxB:999};
   }
   let r=pr.replace(/\*/g,'x');
   // 숙성도/등급 괄호 보존 (중수·고수·저수 등 숙성 단계, 냉동·냉장·생물 등 보관 상태)
