@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.143</title>
+<title>발주서 변환기 v22.145</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -623,6 +623,35 @@ function csvParseRows(input){
   // 셀 안의 잔여 줄바꿈을 슬래시(/)로 변환 — 합포장으로 인식되게
   return rows.map(r=>r.map(c=>c.replace(/[\r\n]+/g,' / ')));
 }
+// 게시판 텍스트 형식 fallback: "업체명  주소  전화  상품 x N  수령인  주소  전화  [메모]"
+// 공백 개수 상관없이 전화번호 2개를 앵커로 분해 (1칸 공백이든 3칸이든 무관)
+function parseLooseBoardRow(line){
+  const phoneRe=/0\d{1,2}-\d{3,4}-\d{4}/g;
+  const phones=[...line.matchAll(phoneRe)];
+  if(phones.length<2)return null;
+  if(!/[xX×]\s*\d+/.test(line))return null;
+  const p1=phones[0],p2=phones[phones.length-1];
+  if(p1.index===p2.index)return null;
+  const orderPhone=p1[0],custPhone=p2[0];
+  const before=line.slice(0,p1.index).trim();
+  const middle=line.slice(p1.index+orderPhone.length,p2.index).trim();
+  const after=line.slice(p2.index+custPhone.length).trim();
+  // before = "업체명 [주소]" — 2공백+ 우선, 안되면 첫 단어
+  let orderClient='',orderAddr='';
+  const bp=before.split(/\s{2,}/);
+  if(bp.length>=2){orderClient=bp[0].trim();orderAddr=bp.slice(1).join(' ').trim();}
+  else{const bw=before.split(/\s+/);orderClient=bw[0]||'';orderAddr=bw.slice(1).join(' ');}
+  // middle = "상품명 ... x N  수령인  주소"
+  const xm=middle.match(/^(.+?[xX×]\s*\d+)\s+(.+)$/);
+  if(!xm)return null;
+  const product=xm[1].trim();const rest=xm[2].trim();
+  // rest = "수령인  주소" — 2공백+ 우선, 안되면 첫 한글이름(2-6자)
+  let custName='',custAddr='';
+  const rp=rest.split(/\s{2,}/);
+  if(rp.length>=2){custName=rp[0].trim();custAddr=rp.slice(1).join(' ').trim();}
+  else{const nm=rest.match(/^([가-힣]{2,6})\s+(.+)$/);if(nm){custName=nm[1];custAddr=nm[2];}else{custName=rest;custAddr='';}}
+  return[orderClient,orderAddr,orderPhone,'',product,custName,custAddr,custPhone,after].join('\t');
+}
 function mergeLines(raw){
   // CSV 스타일로 파싱 (멀티라인 따옴표 셀 처리) → 각 행을 탭 조인한 문자열로 변환
   const csvRows=csvParseRows(raw);
@@ -640,6 +669,16 @@ function mergeLines(raw){
     if(balbol){merged.push(balbol);lastClient='김융환';lastKnownClient='김융환';continue;}
     const hyein=preprocessHyein(preprocessed);
     if(hyein){merged.push(hyein);lastClient='혜인건강';lastKnownClient='혜인건강';continue;}
+    // 게시판 텍스트 fallback: 한 셀로 통째 들어온 한 줄 (3공백이 깨졌거나 1공백만 있는 경우)
+    if(preprocessed.split('\t').length<4){
+      const loose=parseLooseBoardRow(preprocessed.replace(/\t/g,' '));
+      if(loose){
+        const firstW=loose.split('\t')[0].replace(/\s+/g,'');
+        merged.push(loose);
+        lastClient=firstW;if(firstW)lastKnownClient=firstW;
+        continue;
+      }
+    }
     // 세로형 입력 전처리
     if(/^배송메모$/.test(preprocessed.trim()))continue;  // 레이블 행 스킵
     if(/^[xX×]\d+$/.test(preprocessed.trim())&&merged.length>0){  // 독립 수량 행 → 직전 상품명에 붙임
@@ -686,8 +725,10 @@ function pp(cl,pr,qty){
   }
   if(cl==='빅피쉬마켓'){
     const colonIdx=pr.indexOf(':');const _actual=norm(colonIdx>=0?pr.slice(colonIdx+1):pr);
+    const _all=norm(pr);
     if(_actual.includes('알도루묵'))return{name:'알도루묵 1팩',qty,maxB:999};
     if(_actual.includes('양미리'))return{name:'양미리 1kg',qty,maxB:999};
+    if(_all.includes('갑오징어'))return{name:'생물 갑오징어 1kg',qty,maxB:999};
   }
   // 신선한아침 단독 규칙 (2026-05-15)
   if(cl==='신선한아침'){
