@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.145</title>
+<title>발주서 변환기 v22.146</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -750,7 +750,9 @@ function pp(cl,pr,qty){
   if(piOpen>0){const cut=r.slice(0,piOpen).trim();if(cut)r=cut;}
   r=r.replace(/\s+/g,' ').trim();
   // 끝에 'N개' 형태 수량 표기는 'N'으로 정리 (예: '2kg x 4개' → '2kg x 4')
-  r=r.replace(/(\d+)\s*개\s*$/,'$1');
+  // 단, 떡·인절미·만두 등 N개가 상품 단위인 카테고리는 보존 (예: '오디 인절미 12개')
+  const _PRESERVE_GAE = /인절미|떡|만두|꿀떡|쌀과자|호두과자|개입|박스|팩입/.test(norm(r));
+  if(!_PRESERVE_GAE) r=r.replace(/(\d+)\s*개\s*$/,'$1');
   // 한우 등급 표기(1++, 1+, 2+ 등)는 + 분기에서 제외
   const hasMeatGrade=/\d\+\+?/.test(r);
   if(r.includes('+')&&!hasMeatGrade){const it=r.split('+').map(i=>i.trim());return{name:it.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};}
