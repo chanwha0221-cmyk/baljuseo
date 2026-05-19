@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.151</title>
+<title>발주서 변환기 v22.153</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.151</span>
+  <span class="ver">v22.153</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -570,6 +570,7 @@ const CC={
   "토리팜":{address:"경남 합천군 용주면 고품용덕길 38-1",phone:"010-5758-0367"},
   "푸른결":{address:"",phone:"070-3177-8080"},
   "더세븐홀딩스":{address:"",phone:"1577-0926"},
+  "엄자씨마켓":{address:"",phone:"1577-0926",insert:"더세븐홀딩스",showInsert:true},
   "팍스리테일":{address:"대구시 남구 대명로 124KT&G 7층",phone:"053-942-5551"},
   "팡베베":{phone:"010-7153-3917"}
 };
@@ -1011,6 +1012,61 @@ function preprocessKakaoOrder(raw){
   }
   return output.join('\n');
 }
+// ===== 세로형 카톡 발주 (안심번호/배송주소/배송메모 라벨 포맷) =====
+// 형식 예시:
+//   업체명
+//   업체전화
+//   상품명 (여러 줄 가능)
+//   X1 또는 x1 (수량, 별도 줄)
+//   받는사람
+//   연락처(안심번호)
+//   고객전화
+//   배송주소
+//   (12345) 주소
+//   배송메모
+//   메모
+// 여러 주문은 구분선(— 또는 -, =, _ 3개 이상) 또는 빈 줄로 분리
+function isVerticalKakaoFormat(raw){
+  return /연락처\s*\(\s*안심번호\s*\)/.test(raw) && /배송\s*주소/.test(raw);
+}
+function preprocessVerticalKakao(raw){
+  // 블록 분리: 구분선(— - = _ 3개 이상) 또는 2줄 이상의 빈 줄
+  const blocks = raw.split(/\n\s*(?:[—\-=_–]{3,}|\n\s*\n)\s*/).map(b=>b.trim()).filter(Boolean);
+  const rows = [];
+  for(const block of blocks){
+    const lines = block.split('\n').map(l=>l.trim()).filter(Boolean);
+    if(lines.length<4) continue;
+    let phoneLabelIdx=-1, addrLabelIdx=-1, memoLabelIdx=-1;
+    lines.forEach((l,i)=>{
+      if(phoneLabelIdx<0 && /^연락처\s*\(\s*안심번호\s*\)\s*$/.test(l)) phoneLabelIdx=i;
+      else if(addrLabelIdx<0 && /^배송\s*주소\s*$/.test(l)) addrLabelIdx=i;
+      else if(memoLabelIdx<0 && /^배송\s*메모\s*$/.test(l)) memoLabelIdx=i;
+    });
+    if(phoneLabelIdx<0 || addrLabelIdx<0) continue;
+    const client = lines[0].replace(/\s+/g,'');
+    const orderPhone = fp(lines[1]||'');
+    // 받는사람 = 안심번호 라벨 바로 윗줄
+    const recipientName = lines[phoneLabelIdx-1] || '';
+    // 상품 + 수량: line 2 ~ recipientName 직전
+    let product='';let qty=1;
+    for(let i=2;i<phoneLabelIdx-1;i++){
+      const p=lines[i].trim();
+      const qm=p.match(/^[xX×]\s*(\d+)\s*$/);
+      if(qm){qty=parseInt(qm[1]);}
+      else if(p) product = product? product+' '+p : p;
+    }
+    // 상품 끝에 "x N" 형태가 같은 줄에 붙어있는 경우도 처리
+    const inlineQm = product.match(/[xX×]\s*(\d+)\s*$/);
+    if(inlineQm && qty===1){qty=parseInt(inlineQm[1]);product=product.slice(0,inlineQm.index).trim();}
+    const custPhone = fp(lines[phoneLabelIdx+1]||'');
+    let addr = lines[addrLabelIdx+1]||'';
+    addr = addr.replace(/^\s*\(\d{5}\)\s*/,'').trim();  // (우편번호) 제거
+    const memo = (memoLabelIdx>=0 && lines[memoLabelIdx+1]) ? lines[memoLabelIdx+1] : '';
+    const productLine = product + ' x ' + qty;
+    rows.push([client,'',orderPhone,'',productLine,recipientName,addr,custPhone,memo].join('\t'));
+  }
+  return rows.join('\n');
+}
 // ===== 365바겐 전용 파서 =====
 function is365BagenFormat(raw){
   return raw.includes('보내는 사람')&&raw.replace(/\s/g,'').includes('365바겐');
@@ -1201,6 +1257,11 @@ function run(){
     input=preprocessKakaoOrder(input);
     if(!input){sl('카톡 발주 형식 파싱 실패','warn');return;}
     sl('카톡 발주 형식 감지 — 자동 변환 중...');
+  }
+  if(isVerticalKakaoFormat(input)){
+    input=preprocessVerticalKakao(input);
+    if(!input){sl('세로형 카톡 발주 파싱 실패','warn');return;}
+    sl('세로형 카톡 발주 감지 — 자동 변환 중...');
   }
   const rules=parseRules();const lines=mergeLines(input);
   document.getElementById('s-in').textContent=lines.length;
