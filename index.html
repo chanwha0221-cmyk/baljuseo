@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.149</title>
+<title>발주서 변환기 v22.151</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.143</span>
+  <span class="ver">v22.151</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -609,7 +609,8 @@ function csvParseRows(input){
         else{inQuotes=false;}
       }else{cell+=c;}
     }else{
-      if(c==='"'){inQuotes=true;}
+      // 따옴표는 '셀 시작 위치'에서만 quote-opener로 인식 (mid-cell stray " 보호)
+      if(c==='"'&&cell===''){inQuotes=true;}
       else if(c==='\t'){row.push(cell);cell='';}
       else if(c==='\n'||c==='\r'){
         if(c==='\r'&&input[i+1]==='\n')i++;
@@ -620,8 +621,19 @@ function csvParseRows(input){
     }
   }
   if(cell||row.length>0){row.push(cell);if(row.some(x=>x.trim()))rows.push(row);}
-  // 셀 안의 잔여 줄바꿈을 슬래시(/)로 변환 — 합포장으로 인식되게
-  return rows.map(r=>r.map(c=>c.replace(/[\r\n]+/g,' / ')));
+  // 셀 안의 잔여 줄바꿈을 슬래시(/)로 변환 + 셀 전체를 감싸는 따옴표는 방어적으로 제거
+  return rows.map(r=>r.map(c=>{
+    let t=c.replace(/[\r\n]+/g,' / ');
+    // 양 끝을 감싸는 " 또는 " (스마트따옴표 포함) 제거
+    const trimmed=t.trim();
+    if(trimmed.length>=2){
+      const f=trimmed[0],l=trimmed[trimmed.length-1];
+      if((f==='"'||f==='“'||f==='”')&&(l==='"'||l==='“'||l==='”')){
+        t=trimmed.slice(1,-1);
+      }
+    }
+    return t;
+  }));
 }
 // 게시판 텍스트 형식 fallback: "업체명  주소  전화  상품 x N  수령인  주소  전화  [메모]"
 // 공백 개수 상관없이 전화번호 2개를 앵커로 분해 (1칸 공백이든 3칸이든 무관)
