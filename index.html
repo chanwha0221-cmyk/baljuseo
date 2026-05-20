@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.158</title>
+<title>발주서 변환기 v22.159</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.158</span>
+  <span class="ver">v22.159</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1162,11 +1162,14 @@ function parseSikbomSingleLine(line){
       if(pm&&parseInt(pm[1])>0){qty=parseInt(pm[1]);break;}
     }
   }
-  // 배송 주소: 한글 + 시/도/군/구/로/길 포함, 식봄 본사주소(동해시 대학로 16) 제외
+  // 배송 주소: 한글 행정구역 단위 포함, 식봄 본사주소(동해시 대학로 16) 제외
+  // 정규식 [가-힣](시|도|군|구|면|읍|로|길) — 한글 다음에 행정단위 와야 매칭
+  // → "면세"(면이 첫글자, 한글 선행 없음)는 제외, "동구"/"동해시"/"대학로" 등은 매칭
   for(const c of cols){
     if(!c||!/[가-힣]/.test(c))continue;
-    if(!/(시|도|군|구|면|읍|로|길)/.test(c))continue;
+    if(!/[가-힣](시|도|군|구|면|읍|로|길)/.test(c))continue;
     if(c.includes('동해시 대학로 16'))continue;
+    if(c.length<6)continue;  // 짧은 문자열 안전망 (예: 단순 "남구")
     let cleaned=c.replace(/^\[\d{5}\]\s*/,'').trim();
     if(!cleaned)continue;
     const r=extractAddrPhone(cleaned);
