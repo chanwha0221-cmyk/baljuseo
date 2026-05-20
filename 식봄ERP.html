@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>마찬ERP — 식봄 등록기</title>
+<link rel="icon" href="data:,">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{color-scheme:light}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:13px;min-height:100vh}
+.nav{display:flex;background:#fff;border-bottom:2px solid #e0dbd4;position:sticky;top:0;z-index:100}
+.nav-btn{flex:1;padding:14px 8px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:#6b6760;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;font-family:inherit}
+.nav-btn.active{color:#7b2d8b;border-bottom-color:#7b2d8b}
+.tab{display:none;padding:16px;max-width:1400px;margin:0 auto}
+.tab.active{display:block}
+.title-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e0dbd4}
+.title-bar h1{font-size:20px;color:#1a1816}
+.title-bar .sub{font-size:11px;color:#a8a49e;margin-top:3px}
+.btn{padding:8px 16px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;transition:all .12s}
+.btn-purple{background:#7b2d8b;color:#fff}
+.btn-purple:hover{background:#5c1f69}
+.btn-green{background:#27ae60;color:#fff}
+.btn-green:hover{background:#1e8449}
+.btn-sm{padding:4px 10px;font-size:11px;border-radius:5px;border:1px solid #ccc8c0;background:#fff;cursor:pointer;color:#6b6760;font-family:inherit}
+.btn-sm:hover{background:#f0ede8}
+.btn-sm.danger{border-color:#fca5a5;color:#dc2626}
+.btn-sm.danger:hover{background:#fee2e2}
+.status{padding:30px;text-align:center;color:#a8a49e;font-size:13px}
+/* ── 대량등록 탭 ── */
+.actions-row{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.actions-row input[type=text]{padding:7px 12px;border:1px solid #ccc8c0;border-radius:6px;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:200px}
+.actions-row input[type=text]:focus{border-color:#7b2d8b}
+.pill{font-size:11px;background:#f0e6f5;color:#7b2d8b;border-radius:11px;padding:3px 10px;font-weight:700}
+.master-list{background:#fff;border:1px solid #e0dbd4;border-radius:10px;max-height:300px;overflow-y:auto;margin-bottom:14px}
+.master-row{padding:8px 14px;border-bottom:1px solid #f0ede8;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px}
+.master-row:hover{background:#fafafa}
+.master-row:last-child{border-bottom:none}
+.master-row .meta{font-size:10px;color:#a8a49e}
+.master-row.selected{background:#f0e6f5}
+.selected-card{background:#fff;border:1px solid #e0dbd4;border-radius:10px;padding:14px 18px;margin-bottom:10px}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.card-name{font-weight:700;font-size:14px;flex:1;min-width:200px}
+.card-price{font-size:12px;color:#6b6760}
+.card-price b{color:#7b2d8b;font-size:14px}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:6px}
+.f{display:flex;flex-direction:column;gap:3px}
+.f label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#a8a49e}
+.f label .req{color:#dc2626;margin-left:3px}
+.f input,.f select,.f textarea{border:1px solid #ccc8c0;border-radius:5px;padding:6px 9px;font-size:12px;font-family:inherit;color:#1a1816;background:#fff;outline:none}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:#7b2d8b}
+.f input.error,.f select.error{border-color:#dc2626;background:#fff5f5}
+.cat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.auto-hint{font-size:10px;color:#27ae60;background:#e8f5e9;border-radius:4px;padding:3px 8px;display:inline-block;margin-top:4px}
+.card-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed #e0dbd4}
+.empty{padding:50px;text-align:center;color:#a8a49e;font-size:13px;background:#fff;border:1px dashed #e0dbd4;border-radius:10px}
+.download-bar{position:sticky;bottom:0;background:#fff;border-top:2px solid #e0dbd4;padding:14px;margin:14px -16px -16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.download-bar .info{font-size:12px;color:#6b6760}
+.download-bar .info b{color:#7b2d8b}
+/* ── 상세페이지 변환기 탭 ── */
+.conv-wrap{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.conv-section{background:#fff;border:1px solid #e0dbd4;border-radius:10px;padding:14px}
+.conv-section h3{font-size:13px;color:#7b2d8b;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.conv-textarea{width:100%;min-height:400px;border:1px solid #ccc8c0;border-radius:6px;padding:10px;font-size:11px;font-family:'JetBrains Mono','Consolas',monospace;line-height:1.5;outline:none;resize:vertical}
+.conv-textarea:focus{border-color:#7b2d8b}
+.conv-preview{min-height:400px;border:1px solid #e0dbd4;border-radius:6px;padding:14px;background:#fafafa;overflow-y:auto;max-height:600px}
+.conv-preview img{max-width:100%;height:auto}
+.conv-actions{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.conv-stats{font-size:11px;color:#6b6760;background:#f0ede8;border-radius:5px;padding:6px 10px;margin-top:8px}
+.conv-stats b{color:#27ae60}
+.conv-stats .removed{color:#dc2626}
+@media(max-width:900px){.conv-wrap{grid-template-columns:1fr}}
+/* 토스트 */
+.toast{position:fixed;bottom:20px;right:20px;background:#1a1816;color:#fff;padding:12px 20px;border-radius:8px;font-size:12px;z-index:500;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+/* 로딩 스피너 */
+.spin{display:inline-block;animation:spin 1.2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <button class="nav-btn active" id="nav-bulk" onclick="switchTab('bulk',this)">📦 상품 대량등록</button>
+  <button class="nav-btn" id="nav-detail" onclick="switchTab('detail',this)">📝 상세페이지 변환기</button>
+</div>
+
+<!-- ═══════════════ 탭 1: 상품 대량등록 ═══════════════ -->
+<div id="tab-bulk" class="tab active">
+  <div class="title-bar">
+    <div>
+      <h1>📦 식봄 상품 대량등록 엑셀 생성기</h1>
+      <div class="sub">마스터 시트 → 자동 채움 → 카테고리·중량 입력 → 식봄 양식 엑셀 다운로드</div>
+    </div>
+    <button class="btn btn-purple" onclick="loadMasterProducts()" id="loadBtn">🔄 마스터 시트 가져오기</button>
+  </div>
+
+  <div class="actions-row">
+    <input type="text" id="search-input" placeholder="🔍 마스터 상품 검색 (공급상품명)" oninput="renderMasterList()">
+    <span class="pill" id="master-count">상품 0개</span>
+    <span class="pill" id="selected-count">선택 0개</span>
+  </div>
+
+  <div id="master-list-wrap">
+    <div class="empty" id="master-empty">위 버튼으로 마스터 시트를 먼저 가져와줘 (전체상품원가 시트)</div>
+    <div class="master-list" id="master-list" style="display:none"></div>
+  </div>
+
+  <h2 style="font-size:14px;color:#7b2d8b;margin:18px 0 8px">✅ 선택된 상품 — 식봄 등록 대기</h2>
+  <div id="selected-root">
+    <div class="empty">위 목록에서 식봄에 등록할 상품을 클릭해서 추가해줘</div>
+  </div>
+
+  <div class="download-bar">
+    <div class="info">
+      ⏱️ 식봄 등록 대기 <b id="dl-count">0</b>개 | 자동 채움 <b style="color:#27ae60">21</b>필드 | 입력 필요 <b style="color:#dc2626">필수 5개</b>
+    </div>
+    <button class="btn btn-green" onclick="downloadXlsx()" id="dl-btn" disabled>📥 식봄 양식 엑셀 다운로드</button>
+  </div>
+</div>
+
+<!-- ═══════════════ 탭 2: 상세페이지 변환기 ═══════════════ -->
+<div id="tab-detail" class="tab">
+  <div class="title-bar">
+    <div>
+      <h1>📝 상세페이지 HTML 변환기</h1>
+      <div class="sub">masterc.co.kr 본사 HTML → 식봄용 HTML 자동 정리 (Q&A·다운로드링크 제거, 본문+이미지 유지)</div>
+    </div>
+  </div>
+
+  <div class="conv-actions">
+    <button class="btn btn-purple" onclick="convertHtml()">⚙️ 변환 실행</button>
+    <button class="btn-sm" onclick="copyConverted()">📋 변환 결과 복사</button>
+    <button class="btn-sm" onclick="downloadConverted()">💾 .txt 다운로드</button>
+    <button class="btn-sm" onclick="downloadPreviewHtml()">👀 미리보기 .html 다운로드</button>
+    <button class="btn-sm danger" onclick="clearConverter()">초기화</button>
+  </div>
+
+  <div class="conv-wrap">
+    <div class="conv-section">
+      <h3>① 입력 — 본사 HTML 전문 붙여넣기</h3>
+      <textarea class="conv-textarea" id="conv-input" placeholder="여기에 masterc.co.kr 상품 페이지의 HTML 전문을 붙여넣기..."></textarea>
+    </div>
+    <div class="conv-section">
+      <h3>② 출력 — 식봄용 HTML <span style="font-size:10px;color:#a8a49e">(좌측 미리보기, 우측 raw HTML)</span></h3>
+      <div class="conv-preview" id="conv-preview"><div class="status">변환 실행 후 여기에 미리보기가 나타나요</div></div>
+      <textarea class="conv-textarea" id="conv-output" style="margin-top:10px;min-height:200px" placeholder="변환된 raw HTML이 여기에 출력됩니다 (복사해서 식봄 글쓰기 창에 붙여넣기)" readonly></textarea>
+      <div class="conv-stats" id="conv-stats" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// OAuth + Sheets API (secretary.html 패턴 재활용)
+// service account: sheets-writer@baljuseo-sheets.iam.gserviceaccount.com
+// ════════════════════════════════════════════════════════════════
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
+const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+const SHEET_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
+const OAUTH_SCOPE='https://www.googleapis.com/auth/spreadsheets';
+
+let _cachedToken=null, _tokenExp=0;
+async function getAccessToken(){
+  const now=Math.floor(Date.now()/1000);
+  if(_cachedToken && _tokenExp - now > 300) return _cachedToken;
+  const header={alg:'RS256',typ:'JWT'};
+  const claim={iss:CLIENT_EMAIL,scope:OAUTH_SCOPE,aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now};
+  const enc=(obj)=>btoa(JSON.stringify(obj)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const toSign=enc(header)+'.'+enc(claim);
+  const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(toSign));
+  const jwt=toSign+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const res=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`});
+  const d=await res.json();
+  _cachedToken=d.access_token;
+  _tokenExp=now+3600;
+  return _cachedToken;
+}
+
+async function sheetGet(sheetName, range='A:Z'){
+  const token=await getAccessToken();
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!${range}`;
+  const r=await fetch(url,{headers:{'Authorization':`Bearer ${token}`}});
+  const d=await r.json();
+  return d.values || [];
+}
+
+// ════════════════════════════════════════════════════════════════
+// 식봄 카테고리 트리 (1차 > 2차 > 3차)
+// ════════════════════════════════════════════════════════════════
+const CATEGORIES = {
+  "채소.과일": {
+    "신선채소": ["쌈채소","열매채소","잎줄기채소","뿌리채소","마늘.생강","콩나물.새싹"],
+    "냉동채소.건조채소": ["냉동채소","건조채소","삶은채소","염장채소"],
+    "버섯류": ["표고버섯","목이버섯","석이버섯","영지버섯","느타리버섯","팽이버섯","송이버섯"],
+    "신선과일": ["사과.배","토마토","제철과일","외국과일"],
+    "냉동과일.건조과일": ["냉동과일","건조과일"]
+  },
+  "쌀.잡곡.견과": {
+    "국내쌀.수입쌀": ["국내쌀","수입쌀"],
+    "잡곡류": ["콩","팥","찹쌀","현미","흑미","보리","참깨","들깨","기타"],
+    "견과류": ["땅콩","아몬드","호두","잣","밤","기타"]
+  },
+  "축산.계란류": {
+    "돼지고기": ["국내산","수입산"],
+    "소고기": ["한우","육우","수입산"],
+    "닭고기.오리고기": ["국산닭","수입닭"],
+    "양고기": ["수입산"],
+    "계란.알류": ["계란","알류"]
+  },
+  "생선.해산물.건어물": {
+    "생선류": ["고등어","동태","삼치","갈치","꽁치","조기","코다리","장어","기타"],
+    "오징어.낙지.초밥용": ["오징어","낙지","문어","쭈꾸미","한치","초밥용"],
+    "조개류": ["전복","소라","바지락","홍합","기타"],
+    "새우.게.해산물": ["새우","게","기타 해산물"],
+    "날치알.명란알.기타알류": ["날치알","명란알","기타 알류"],
+    "멸치.어포.건어물": ["멸치","건새우","건오징어","쥐포","어포","기타 건어물"],
+    "미역.다시마.파래": ["미역","다시마","파래"]
+  },
+  "냉장.냉동.간편식": {
+    "볶음밥.샐러드": ["볶음밥","샐러드"],
+    "찌개.국.탕류": ["찌개","국","탕"],
+    "햄.소시지.어묵.맛살": ["햄","소시지","어묵","맛살"],
+    "돈까스.만두.치킨": ["돈까스","생선까스","만두","치킨"],
+    "튀김류.냉동식품": ["감자튀김","고로케","새우튀김","오징어튀김","동그랑땡","기타 튀김"],
+    "분식류": ["떡볶이","떡국","순대","수제비","유부","기타"],
+    "치즈.유가공품": ["치즈","크림치즈","유가공품"],
+    "훈제.식육가공류": ["훈제","베이컨","꼬치","식육가공"]
+  },
+  "반찬류": {
+    "김치": ["국내산 김치","수입산 김치"],
+    "젓갈류": ["오징어젓","낙지젓","꼴뚜기젓","창란젓","조개젓"],
+    "조림류": ["조림"],
+    "무침류": ["채소무침","수산무침"],
+    "절임류": ["고추","깻잎","마늘","생강","무","단무지","피클","기타"]
+  },
+  "소스.양념.육수": {
+    "우동.국수.냉면.기타육수": ["우동용","국수용","냉면용","가쓰오부시","기타 육수"],
+    "케찹.스파게티.피자소스": ["케찹","스파게티","피자소스"],
+    "마요네즈.드레싱": ["마요네즈","드레싱"],
+    "머스타드.칠리.데리야끼": ["머스타드","칠리","살사","핫소스","데리야끼"],
+    "불고기.스테이크.바비큐": ["불고기","갈비","스테이크","바비큐"],
+    "돈까스.닭소스": ["돈까스","닭소스"],
+    "기타소스류": ["기타 소스류"]
+  },
+  "장류.조미료.식용유": {
+    "간장.고추장.초고추장": ["간장","고추장","초고추장"],
+    "된장.쌈장.청국장.춘장": ["된장","쌈장","청국장","춘장"],
+    "식용유.참기름.들기름.고추기름": ["식용유","참기름","들기름","고추기름"],
+    "식초.요리술.액젓": ["식초","요리술","액젓"],
+    "설탕.물엿.올리고당": ["설탕","물엿","올리고당"],
+    "소금.다시다.미원": ["소금","다시다","미원","기타 조미료"],
+    "고춧가루.후추.와사비.겨자.향신료": ["고춧가루","후추","와사비","겨자","향신료"],
+    "기타분말": ["기타 분말"]
+  },
+  "캔.통조림": {
+    "참치.닭가슴살": ["참치","닭가슴살"],
+    "수산물.골뱅이.번데기": ["고등어","꽁치","골뱅이","번데기","기타"],
+    "돈육통조림.스팸": ["국내산","수입산"],
+    "과일통조림": ["파인애플","오렌지.밀감","황도","후르츠","올리브","농축액","체리","기타"],
+    "농산통조림": ["피클","옥수수","콩","죽순","버섯","기타"]
+  },
+  "면류.가공식품": {
+    "봉지라면.컵라면": ["봉지라면","컵라면","라면스프"],
+    "국수.냉면.우동류": ["국수","냉면","우동류"],
+    "파스타.당면.쫄면.기타": ["파스타","당면","쫄면","기타"],
+    "밀가루.요리가루.전분": ["밀가루","부침가루","튀김가루","빵가루","요리가루","전분","콩가루","기타 분말"],
+    "즉석밥.카레.짜장.스프": ["즉석밥","누룽지","카레","하이라이스","짜장","스프","죽"],
+    "두부.묵.곤약": ["두부","묵","곤약"],
+    "김.돌자반.부각.튀각": ["조미김","생김","김가루","돌자반","부각","튀각"],
+    "잼.꿀.버터.시럽": ["잼","꿀","버터","시럽"],
+    "빵.떡": ["빵","떡"]
+  },
+  "스낵.안주류": {
+    "일반스낵.강냉이.씨리얼": ["일반스낵","강냉이","씨리얼"],
+    "안주스낵류.너트.육포": ["안주 스낵","안주 견과","안주 건어물"],
+    "캔디.젤리.초코렛.껌": ["캔디","젤리","초코렛","껌"]
+  },
+  "커피.차.음료.생수": {
+    "커피": ["캔커피","커피믹스","원두커피","분말커피","프리마"],
+    "보리차.옥수수차": ["보리차","옥수수차"],
+    "녹차.홍차.둥글레차": ["녹차","홍차","둥글레차","메밀차"],
+    "율무차.유자차.허브티": ["율무차","유자차","허브티"],
+    "핫초코.아이스티.분말음료": ["핫초코","아이스티","분말음료"],
+    "전통차.한방재": ["전통차","한방재"],
+    "기타차": ["기타 차"],
+    "생수": ["생수"],
+    "탄산음료.이온음료": ["콜라","사이다","환타","기타 탄산","이온음료"],
+    "과일음료": ["오렌지","사과","배","포도","매실","스무디","기타"],
+    "우유.라떼류.요구르트.두유": ["우유","라떼류","요구르트","두유"],
+    "식혜.알로에.홍초.기타음료": ["식혜","알로에","홍초","비타민","숙취해소","기타 음료"]
+  },
+  "일반용품": {
+    "휴지.티슈.키친타올.냅킨": ["화장지","점보롤","미용티슈","물티슈","키친타올","냅킨"],
+    "욕실용품": ["구강용품","욕실비품"],
+    "세탁세제.청소세제": ["세탁세제","청소세제"],
+    "방향.탈취.살충제": ["방향제","탈취제","살충제"],
+    "부탄가스.탄류.가스점화기": ["부탄가스","탄류","가스점화기"],
+    "문구류": ["가위.칼","건전지","테이프","멀티탭","기타 문구류"],
+    "기타일반용품": ["기타 일반용품"]
+  },
+  "주방용품": {
+    "주방세제": ["소용량","대용량"],
+    "지퍼백.랩.호일.비닐장갑": ["지퍼백","크린백","롤백","랩","호일","비닐장갑"],
+    "고무장갑.수세미.행주": ["고무장갑","수세미","행주"],
+    "주방위생용품": ["앞치마","장화","주방모자","기타"],
+    "조리기구.보조도구": ["칼","가위","집게","오프너","뒤집개","기타"],
+    "식기.보관용기": ["식기","보관용기"]
+  },
+  "포장용기.일회용품": {
+    "일회용용기.컵": ["일회용 그릇","일회용 접시","일회용 도시락","일회용 컵","일회용 병","기타 포장용기"],
+    "숟가락.젓가락.꼬지.빨대": ["숟가락","젓가락","포크","꼬지","이쑤시개","빨대"],
+    "봉투.박스.종이": ["비닐봉투","김장봉투","종이봉투","박스","종이","기타"],
+    "면장갑.특수장갑": ["면장갑","특수장갑"],
+    "일회용품케이스": ["휴지케이스"],
+    "기타일회용품": ["기타 일회용품"]
+  }
+};
+
+// ════════════════════════════════════════════════════════════════
+// 상태
+// ════════════════════════════════════════════════════════════════
+let masterProducts = [];   // [{name, supplyPrice, supplyTax, supplyShip, cost, costTax, costShip, warehouse, type, expire, regDate, idx}]
+let selectedItems = [];    // 선택된 상품 폼 데이터 (selectedCard 객체)
+const FIXED_SHIPPING_NAME = '신선택배비 4000원';
+const DEFAULT_MANUFACTURER = '(주)마스터';
+
+// ════════════════════════════════════════════════════════════════
+// 탭 전환
+// ════════════════════════════════════════════════════════════════
+function switchTab(name, btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ════════════════════════════════════════════════════════════════
+// 토스트
+// ════════════════════════════════════════════════════════════════
+function toast(msg, ms=2500){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.classList.remove('show'),ms);
+}
+
+// ════════════════════════════════════════════════════════════════
+// 마스터 시트 가져오기
+// ════════════════════════════════════════════════════════════════
+async function loadMasterProducts(){
+  const btn=document.getElementById('loadBtn');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spin">⏳</span> 가져오는 중...';
+  try{
+    // 전체상품원가 시트 컬럼: A공급상품명 B공급가 C공급가과세 D공급가택배 E원가 F원가과세 G원가택배 H창고 I상시,당일 J유통기한 K등록일시
+    const rows = await sheetGet('전체상품원가', 'A2:K');
+    masterProducts = rows.filter(r=>r[0] && String(r[0]).trim().length>0).map((r,i)=>({
+      idx: i,
+      name: String(r[0]||'').trim(),
+      supplyPrice: parseInt(String(r[1]||'').replace(/[^0-9]/g,''))||0,
+      supplyTax: String(r[2]||'').trim(),     // 과세/면세
+      supplyShip: parseInt(String(r[3]||'').replace(/[^0-9]/g,''))||0,
+      cost: parseInt(String(r[4]||'').replace(/[^0-9]/g,''))||0,
+      costTax: String(r[5]||'').trim(),       // 과세/면세
+      costShip: parseInt(String(r[6]||'').replace(/[^0-9]/g,''))||0,
+      warehouse: String(r[7]||'').trim(),
+      type: String(r[8]||'').trim(),          // 상시 / 당일
+      expire: String(r[9]||'').trim(),
+      regDate: String(r[10]||'').trim()
+    }));
+    document.getElementById('master-count').textContent = `상품 ${masterProducts.length}개`;
+    document.getElementById('master-empty').style.display='none';
+    document.getElementById('master-list').style.display='block';
+    renderMasterList();
+    toast(`✓ 마스터 시트 ${masterProducts.length}개 상품 로드 완료`);
+  } catch(e){
+    console.error(e);
+    toast('❌ 마스터 시트 로드 실패: '+e.message, 4000);
+  } finally {
+    btn.disabled=false;
+    btn.innerHTML='🔄 마스터 시트 가져오기';
+  }
+}
+
+function renderMasterList(){
+  const q=(document.getElementById('search-input').value||'').replace(/\s+/g,'').toLowerCase();
+  const filtered = masterProducts.filter(p=>{
+    if(!q) return true;
+    return p.name.replace(/\s+/g,'').toLowerCase().includes(q);
+  });
+  const sel = new Set(selectedItems.map(s=>s.masterIdx));
+  document.getElementById('master-list').innerHTML = filtered.length===0
+    ? '<div class="status">검색 결과 없음</div>'
+    : filtered.slice(0,200).map(p=>{
+        const sellPrice = calcSellPrice(p.cost);
+        return `<div class="master-row ${sel.has(p.idx)?'selected':''}" onclick="addToSelected(${p.idx})">
+          <div>
+            <div><b>${escapeHtml(p.name)}</b> ${sel.has(p.idx)?'<span style="color:#27ae60;font-size:11px">✓ 추가됨</span>':''}</div>
+            <div class="meta">원가 ${fmt(p.cost)}원 → 판매 ${fmt(sellPrice)}원 · ${p.costTax||'-'} · ${p.warehouse||'-'} · ${p.type||'-'}</div>
+          </div>
+          <span class="btn-sm">+ 추가</span>
+        </div>`;
+      }).join('');
+  if(filtered.length>200){
+    document.getElementById('master-list').innerHTML += '<div class="status">상위 200개만 표시 — 검색으로 좁혀줘</div>';
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// 가격 계산: 원가 × 1.15, 100원 단위 올림
+// ════════════════════════════════════════════════════════════════
+function calcSellPrice(cost){
+  if(!cost || cost<=0) return 0;
+  return Math.ceil(cost * 1.15 / 100) * 100;
+}
+function fmt(n){ return Number(n||0).toLocaleString('ko-KR'); }
+function escapeHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ════════════════════════════════════════════════════════════════
+// 선택된 상품 관리
+// ════════════════════════════════════════════════════════════════
+function addToSelected(masterIdx){
+  if(selectedItems.find(s=>s.masterIdx===masterIdx)){
+    toast('이미 추가된 상품이야');
+    return;
+  }
+  const p = masterProducts.find(x=>x.idx===masterIdx);
+  if(!p){ toast('상품 못 찾음'); return; }
+  // 새 선택 항목 추가
+  selectedItems.push({
+    masterIdx,
+    name: p.name,
+    cost: p.cost,
+    sellPrice: calcSellPrice(p.cost),
+    taxType: p.costTax.includes('과세')?'y':'n',  // y=과세, n=면세
+    // 자기야가 입력할 필드
+    cat1: '생선.해산물.건어물',  // 기본값 — 수산물 위주
+    cat2: '',
+    cat3: '',
+    salesSpec: '',          // F 판매규격 (예: 1kg)
+    salesUnit: '1팩',       // G 판매단위 (기본값)
+    weightG: '',            // H 판매중량
+    manufacturer: DEFAULT_MANUFACTURER,
+    origin: '',             // K 원산지
+    barcode: '',            // AB
+    keywords: ''            // AC
+  });
+  renderMasterList();
+  renderSelected();
+}
+
+function removeSelected(masterIdx){
+  selectedItems = selectedItems.filter(s=>s.masterIdx!==masterIdx);
+  renderMasterList();
+  renderSelected();
+}
+
+function updateField(masterIdx, field, value){
+  const s = selectedItems.find(x=>x.masterIdx===masterIdx);
+  if(!s) return;
+  s[field] = value;
+  // 카테고리 1차/2차 변경 시 하위 초기화 + 드롭다운 새로 그리기
+  if(field==='cat1'){ s.cat2=''; s.cat3=''; renderSelected(); }
+  else if(field==='cat2'){ s.cat3=''; renderSelected(); }
+}
+
+function renderSelected(){
+  document.getElementById('selected-count').textContent = `선택 ${selectedItems.length}개`;
+  document.getElementById('dl-count').textContent = selectedItems.length;
+  document.getElementById('dl-btn').disabled = selectedItems.length===0;
+  if(selectedItems.length===0){
+    document.getElementById('selected-root').innerHTML = '<div class="empty">위 목록에서 식봄에 등록할 상품을 클릭해서 추가해줘</div>';
+    return;
+  }
+  document.getElementById('selected-root').innerHTML = selectedItems.map(s=>{
+    const cat1Opts = Object.keys(CATEGORIES);
+    const cat2Opts = s.cat1 && CATEGORIES[s.cat1] ? Object.keys(CATEGORIES[s.cat1]) : [];
+    const cat3Opts = s.cat1 && s.cat2 && CATEGORIES[s.cat1] && CATEGORIES[s.cat1][s.cat2] ? CATEGORIES[s.cat1][s.cat2] : [];
+    const isComplete = s.cat1 && s.cat2 && s.cat3 && s.salesSpec && s.salesUnit && s.weightG && s.origin;
+    return `<div class="selected-card" style="${isComplete?'':'border-left:3px solid #dc2626'}">
+      <div class="card-header">
+        <div class="card-name">${escapeHtml(s.name)} ${isComplete?'<span style="color:#27ae60;font-size:11px;margin-left:6px">✓ 등록 준비됨</span>':'<span style="color:#dc2626;font-size:11px;margin-left:6px">⚠ 필수 미입력</span>'}</div>
+        <div class="card-price">원가 <b>${fmt(s.cost)}</b>원 → 식봄 판매가 <b>${fmt(s.sellPrice)}</b>원 (마진 15%)</div>
+      </div>
+      <div class="cat-row">
+        <div class="f">
+          <label>1차 카테고리<span class="req">*</span></label>
+          <select class="${!s.cat1?'error':''}" onchange="updateField(${s.masterIdx},'cat1',this.value)">
+            <option value="">-- 선택 --</option>
+            ${cat1Opts.map(c=>`<option value="${escapeHtml(c)}" ${s.cat1===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="f">
+          <label>2차 카테고리<span class="req">*</span></label>
+          <select class="${!s.cat2?'error':''}" onchange="updateField(${s.masterIdx},'cat2',this.value)" ${!s.cat1?'disabled':''}>
+            <option value="">-- 선택 --</option>
+            ${cat2Opts.map(c=>`<option value="${escapeHtml(c)}" ${s.cat2===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="f">
+          <label>3차 카테고리<span class="req">*</span></label>
+          <select class="${!s.cat3?'error':''}" onchange="updateField(${s.masterIdx},'cat3',this.value)" ${!s.cat2?'disabled':''}>
+            <option value="">-- 선택 --</option>
+            ${cat3Opts.map(c=>`<option value="${escapeHtml(c)}" ${s.cat3===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="field-grid" style="margin-top:10px">
+        <div class="f">
+          <label>판매규격<span class="req">*</span> (F)</label>
+          <input type="text" class="${!s.salesSpec?'error':''}" value="${escapeHtml(s.salesSpec)}" placeholder="예: 1kg" oninput="updateField(${s.masterIdx},'salesSpec',this.value)">
+        </div>
+        <div class="f">
+          <label>판매단위<span class="req">*</span> (G)</label>
+          <input type="text" class="${!s.salesUnit?'error':''}" value="${escapeHtml(s.salesUnit)}" placeholder="예: 1팩" oninput="updateField(${s.masterIdx},'salesUnit',this.value)">
+        </div>
+        <div class="f">
+          <label>판매중량 g<span class="req">*</span> (H)</label>
+          <input type="number" class="${!s.weightG?'error':''}" value="${s.weightG}" placeholder="예: 1000" oninput="updateField(${s.masterIdx},'weightG',this.value)">
+        </div>
+        <div class="f">
+          <label>원산지<span class="req">*</span> (K)</label>
+          <input type="text" class="${!s.origin?'error':''}" value="${escapeHtml(s.origin)}" placeholder="예: 국내산(부산 자갈치)" oninput="updateField(${s.masterIdx},'origin',this.value)">
+        </div>
+        <div class="f">
+          <label>제조사 (J, 선택)</label>
+          <input type="text" value="${escapeHtml(s.manufacturer)}" oninput="updateField(${s.masterIdx},'manufacturer',this.value)">
+        </div>
+        <div class="f">
+          <label>바코드 (AB, 선택)</label>
+          <input type="text" value="${escapeHtml(s.barcode)}" placeholder="예: 8801123123" oninput="updateField(${s.masterIdx},'barcode',this.value)">
+        </div>
+        <div class="f" style="grid-column:span 2">
+          <label>키워드 (AC, 선택 — 콤마로 구분, 최대 10개, 각 15자)</label>
+          <input type="text" value="${escapeHtml(s.keywords)}" placeholder="예: 한치, 생물, 자갈치, 산지직송" oninput="updateField(${s.masterIdx},'keywords',this.value)">
+        </div>
+      </div>
+      <div class="auto-hint">
+        🤖 자동 채움 — 상품명: ${escapeHtml(s.name)} / 매입단가: ${fmt(s.cost)} / 정가·판매단가: ${fmt(s.sellPrice)} / 배송비명: ${FIXED_SHIPPING_NAME} / 묶음배송: n / 과세: ${s.taxType==='y'?'과세':'면세'} / 기초재고: 9999
+      </div>
+      <div class="card-actions">
+        <button class="btn-sm danger" onclick="removeSelected(${s.masterIdx})">─ 제거</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════
+// 식봄 양식 엑셀 생성 (SheetJS)
+// ════════════════════════════════════════════════════════════════
+// 행 1: 유의사항 / ver
+// 행 2: "1. 양식에 맞춰 ..."
+// 행 3: "2. 8번 행부터 ..."
+// 행 4: "3. 이미지 등록 방법..."
+// 행 5: 필수/조건부/선택 라벨 (29컬럼)
+// 행 6: 컬럼명 (29컬럼)
+// 행 7: 가이드 텍스트
+// 행 8~: 실제 상품 데이터
+function buildXlsxRows(){
+  const header1 = ['유의사항','ver. 2026-02-26','','','','','','','','','','','','','','','','','','','','','','','','','','',''];
+  const header2 = ['1. 양식에 맞춰 내용을 입력해주세요. 양식 임의 변경(열 추가 등)시 상품 업로드가 불가합니다.','','','','','','','','','','','','','','','','','','','','','','','','','','','',''];
+  const header3 = ['2. 8번 행부터 상품이 등록됩니다. 기존 예시는 참고만 하고 삭제해주세요.','','','','','','','','','','','','','','','','','','','','','','','','','','','',''];
+  const header4 = ['3. 상품이미지 대량 등록에 대한 방법은 우측의 \'상품이미지대량등록 방법(8페이지)를 참고해주세요.','','','☞ 상품이미지대량등록 방법(8페이지)','','','','','','','','','','','','','','','','','','','','','','','','',''];
+  const labelRow = ['선택항목','필수항목','필수항목','필수항목','필수항목','필수항목','필수항목','조건부 필수항목','조건부 필수항목','선택항목','조건부 필수항목','조건부 필수항목','조건부 필수항목','선택항목','필수항목','필수항목','필수항목','필수항목','필수항목','조건부 필수항목','필수항목','조건부 필수항목','필수항목','조건부 필수항목','필수항목','필수항목','필수항목','선택항목','선택항목'];
+  const colNames = ['상품코드','1차 카테고리','2차 카테고리','3차 카테고리','상품명','판매규격','판매단위','판매중량','상품부피','제조사','원산지','택배 배송비명','묶음 배송여부','매입단가','정가','수량별 판매가 설정','판매단가','미성년자 구매가능 여부','최소 주문수량 설정','최소 주문수량','1회 최대구매수량 설정','1회 최대구매수량','1일 최대구매수량 설정','1일 최대구매수량','구매단위','과세여부','기초재고량','상품바코드','상품키워드'];
+  const guideRow = [
+    '사용중인 ERP 상품코드를 입력해주세요.\n*상품이미지를 대량 등록할 경우, 필수로 입력해주세요.',
+    '아래 셀을 선택하여 상품에 적합한 카테고리명을 선택해주세요.',
+    '아래 셀을 선택하여 상품에 적합한 카테고리명을 선택해주세요.',
+    '아래 셀을 선택하여 상품에 적합한 카테고리명을 선택해주세요.',
+    '상품명을 입력해주세요.',
+    '판매규격을 정확히 입력해주세요.',
+    '포장단위가 아닌, 판매가에 맞는 실제 판매 단위를 입력해주세요.',
+    '택배배송비 유형이 \'중량별 배송비\'인 경우 필수 입력 항목입니다. 입력된 값을 기준으로 배송비가 부과됩니다.',
+    '택배배송비 유형이 \'부피별 배송비\'인 경우 필수 입력 항목입니다. *0을 제외한 숫자만 입력해주세요.',
+    '제조사를 입력해주세요.',
+    '일반용품·주방용품·포장용기.일회용품을 제외한 카테고리 상품의 경우, 필수 입력 항목입니다.',
+    '식봄 판매자센터 [상품관리>택배 배송비 설정]에서 등록하신 배송비 명을 그대로 입력해주세요.',
+    'y: 묶음상품 / n: 묶음상품 아님 *y/n 중 택1.',
+    '0을 제외한 숫자만 입력해주세요.',
+    '숫자만 입력해주세요. *10원단위 이상 입력해주세요.',
+    'y: 설정 / n: 비설정 *y/n 중 택1.',
+    '판매단가를 입력해주세요. *판매단가는 정가보다 높을 수 없습니다.',
+    'y: 불가 / n: 가능 *y/n 중 택1.',
+    'y: 설정 / n: 비설정 *y/n 중 택1.',
+    '최소 주문수량 설정이 y인 경우 필수 입력항목입니다.',
+    'y: 설정 / n: 비설정 *y/n 중 택1.',
+    '1회 최대구매수량이 y인 경우 필수 입력항목입니다.',
+    'y: 설정 / n: 비설정 *y/n 중 택1.',
+    '1일 최대구매수량 설정이 y인 경우 필수 입력항목입니다.',
+    '0을 제외한 숫자만 입력해주세요.',
+    'y: 과세 / n: 면세 *y/n 중 택1.',
+    '0을 제외한 숫자만 입력해주세요.',
+    '상품바코드를 입력해주세요.',
+    '상품키워드를 입력해주세요. 최대 10개, 각 키워드 15자 이내, 한글/영어/숫자만 입력 가능'
+  ];
+  const allRows = [header1, header2, header3, header4, labelRow, colNames, guideRow];
+
+  // 8행부터 실제 데이터
+  for(const s of selectedItems){
+    const codePrefix = 'MASTER_' + Date.now().toString(36) + '_' + s.masterIdx;
+    allRows.push([
+      codePrefix,                         // A 상품코드
+      s.cat1,                             // B 1차
+      s.cat2,                             // C 2차
+      s.cat3,                             // D 3차
+      s.name,                             // E 상품명
+      s.salesSpec,                        // F 판매규격
+      s.salesUnit,                        // G 판매단위
+      parseInt(s.weightG)||'',            // H 판매중량
+      '',                                  // I 부피
+      s.manufacturer,                     // J 제조사
+      s.origin,                           // K 원산지
+      FIXED_SHIPPING_NAME,                // L 배송비명
+      'n',                                // M 묶음배송 (합포장 불가)
+      s.cost,                             // N 매입단가
+      s.sellPrice,                        // O 정가
+      'n',                                // P 수량별판매가 설정
+      s.sellPrice,                        // Q 판매단가 (P=n이라 단일가)
+      'n',                                // R 미성년자 (n=가능)
+      'n',                                // S 최소수량 설정
+      '',                                  // T 최소수량
+      'n',                                // U 1회최대 설정
+      '',                                  // V 1회최대
+      'n',                                // W 1일최대 설정
+      '',                                  // X 1일최대
+      1,                                  // Y 구매단위
+      s.taxType,                          // Z 과세 (y/n)
+      9999,                               // AA 기초재고
+      s.barcode,                          // AB 바코드
+      s.keywords                          // AC 키워드
+    ]);
+  }
+  return allRows;
+}
+
+function downloadXlsx(){
+  if(selectedItems.length===0){ toast('등록할 상품이 없어'); return; }
+  // 필수값 검증
+  const missing = selectedItems.filter(s=>!s.cat1||!s.cat2||!s.cat3||!s.salesSpec||!s.salesUnit||!s.weightG||!s.origin);
+  if(missing.length>0){
+    if(!confirm(`⚠️ 필수 항목 미입력 상품 ${missing.length}개 있어 (빨강 테두리 카드). 그래도 다운로드할까? (식봄 업로드 시 오류 가능)`)) return;
+  }
+  try{
+    const rows = buildXlsxRows();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    // 컬럼 너비 적당히
+    ws['!cols'] = Array(29).fill({wch:14});
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '상품 대량 등록');
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+    const fname = `식봄_상품대량등록_${dateStr}_${selectedItems.length}건.xlsx`;
+    XLSX.writeFile(wb, fname);
+    toast(`✓ ${fname} 다운로드 완료`);
+  } catch(e){
+    console.error(e);
+    toast('❌ 엑셀 생성 실패: '+e.message, 4000);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// 상세페이지 HTML 변환기
+// ════════════════════════════════════════════════════════════════
+// 제거 대상 섹션 — 식봄 형님들한테는 필요없는 마케팅/소비자용 콘텐츠
+const SECTIONS_TO_REMOVE = [
+  '어떻게 먹어야 맛나나요',
+  '상품의 확실한 매리트',
+  '알고 먹으면 더 맛있어요'
+];
+
+function convertHtml(){
+  const input = document.getElementById('conv-input').value.trim();
+  if(!input){ toast('변환할 HTML을 붙여넣어줘'); return; }
+
+  // DOMParser로 파싱
+  const parser = new DOMParser();
+  // body로 감싸서 파싱
+  const doc = parser.parseFromString('<!DOCTYPE html><html><body>' + input + '</body></html>', 'text/html');
+  const body = doc.body;
+
+  // 1) 텍스트 노드 기준으로 섹션 헤더 찾기 (○ 어떻게 먹어야 맛나나요 등)
+  // 각 섹션은 헤더 <strong>○ XXX</strong> 부터 시작해서 다음 <strong>○ YYY</strong> 또는 <hr> 직전까지
+  const allElements = Array.from(body.children);
+
+  // 섹션 헤더 위치 찾기 — innerText에 "○ XXX" 포함하면 헤더로 간주
+  function isSectionHeader(el, sectionName){
+    const txt = el.textContent.replace(/\s+/g,'');
+    return txt.includes('○'+sectionName.replace(/\s+/g,'')) || txt.includes('○ '+sectionName.replace(/\s+/g,''));
+  }
+  function isAnySectionHeader(el){
+    const txt = el.textContent.replace(/\s+/g,'');
+    return /○[^<\n]{2,20}/.test(el.textContent) && /<strong>|<b>/i.test(el.outerHTML);
+  }
+  function isHr(el){
+    return el.tagName === 'HR' || el.querySelector('hr');
+  }
+
+  // 각 자식 element를 순회하며 제거 대상 섹션 안에 있는지 판단
+  let removeMode = false;
+  let removedCount = 0;
+  const toRemove = [];
+  for(let i=0; i<allElements.length; i++){
+    const el = allElements[i];
+    // 현재 요소가 제거 대상 섹션 헤더인지
+    let isRemoveHeader = false;
+    for(const section of SECTIONS_TO_REMOVE){
+      if(isSectionHeader(el, section)){
+        isRemoveHeader = true;
+        break;
+      }
+    }
+    if(isRemoveHeader){
+      removeMode = true;
+      toRemove.push(el);
+      continue;
+    }
+    // 현재 요소가 다른 섹션 헤더거나 <hr>이면 제거 모드 종료
+    if(removeMode){
+      // 다음 섹션 헤더 또는 <hr> 만나면 종료
+      if(isAnySectionHeader(el) || isHr(el)){
+        removeMode = false;
+        // 이 요소는 제거 안 함 (다음 섹션의 시작)
+        continue;
+      }
+      toRemove.push(el);
+    }
+  }
+  toRemove.forEach(el=>{ el.remove(); removedCount++; });
+
+  // 2) 다운로드 링크 제거
+  const allLinks = Array.from(body.querySelectorAll('a'));
+  let linkRemoved = 0;
+  for(const a of allLinks){
+    const text = a.textContent.replace(/\s+/g,'');
+    if(text.includes('전체사진다운로드') || text.includes('전체사진다운') || text.includes('▶ 전체')){
+      // 부모 <p> 자체를 제거
+      let parent = a.closest('p,div');
+      if(parent) parent.remove();
+      else a.remove();
+      linkRemoved++;
+    }
+  }
+
+  // 3) 결과 HTML
+  const result = body.innerHTML.replace(/^\s+|\s+$/g,'');
+
+  // 통계: 이미지 개수, 제거된 요소
+  const imgCount = (result.match(/<img\b/g) || []).length;
+  const inputLen = input.length;
+  const outputLen = result.length;
+  const reduction = inputLen > 0 ? Math.round((1 - outputLen/inputLen) * 100) : 0;
+
+  document.getElementById('conv-output').value = result;
+  document.getElementById('conv-preview').innerHTML = result || '<div class="status">변환 결과가 비어있음</div>';
+  document.getElementById('conv-stats').style.display='block';
+  document.getElementById('conv-stats').innerHTML = `
+    🤖 변환 완료 — 입력 <b>${fmt(inputLen)}</b>자 → 출력 <b>${fmt(outputLen)}</b>자 (<span class="removed">${reduction}% 축소</span>) ·
+    제거된 섹션 요소 <span class="removed">${removedCount}개</span> ·
+    제거된 다운로드 링크 <span class="removed">${linkRemoved}개</span> ·
+    유지된 이미지 <b>${imgCount}장</b>
+  `;
+  toast(`✓ 변환 완료 (${reduction}% 축소, 이미지 ${imgCount}장 유지)`);
+}
+
+async function copyConverted(){
+  const out = document.getElementById('conv-output').value;
+  if(!out){ toast('먼저 변환 실행해줘'); return; }
+  try{
+    await navigator.clipboard.writeText(out);
+    toast('✓ 클립보드에 복사됨 — 식봄 글쓰기 창에 붙여넣기');
+  } catch(e){
+    // fallback
+    const ta = document.getElementById('conv-output');
+    ta.select(); document.execCommand('copy');
+    toast('✓ 복사됨 (fallback)');
+  }
+}
+
+function downloadConverted(){
+  const out = document.getElementById('conv-output').value;
+  if(!out){ toast('먼저 변환 실행해줘'); return; }
+  // 파일명 추출 시도 — 결과 HTML에서 첫 <strong> 텍스트
+  const m = out.match(/<strong[^>]*>([^<]+)<\/strong>/);
+  const base = m ? m[1].trim().replace(/[\\/:*?"<>|]/g,'_').slice(0,40) : '식봄상품';
+  const blob = new Blob([out], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `식봄_${base}_본문.txt`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast('✓ 다운로드 완료');
+}
+
+function downloadPreviewHtml(){
+  const out = document.getElementById('conv-output').value;
+  if(!out){ toast('먼저 변환 실행해줘'); return; }
+  const m = out.match(/<strong[^>]*>([^<]+)<\/strong>/);
+  const base = m ? m[1].trim().replace(/[\\/:*?"<>|]/g,'_').slice(0,40) : '식봄상품';
+  const fullHtml = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(base)} — 식봄 미리보기</title>
+<style>body{max-width:800px;margin:0 auto;padding:20px;font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif}.copy-hint{background:#fff3cd;border:2px dashed #b45309;padding:12px;margin:20px 0;text-align:center;font-weight:700;color:#b45309}</style>
+</head>
+<body>
+<div class="copy-hint">📋 식봄에 붙여넣을 본문은 같은 폴더의 _본문.txt 파일을 사용하세요</div>
+${out}
+</body>
+</html>`;
+  const blob = new Blob([fullHtml], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `식봄_${base}_미리보기.html`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast('✓ 미리보기 HTML 다운로드 완료');
+}
+
+function clearConverter(){
+  if(!confirm('입력과 출력을 모두 비울까?')) return;
+  document.getElementById('conv-input').value='';
+  document.getElementById('conv-output').value='';
+  document.getElementById('conv-preview').innerHTML='<div class="status">변환 실행 후 여기에 미리보기가 나타나요</div>';
+  document.getElementById('conv-stats').style.display='none';
+}
+
+// ════════════════════════════════════════════════════════════════
+// 초기화
+// ════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', ()=>{
+  renderSelected();
+  // 자동 로드는 안 함 — 자기야가 버튼 누르면 시작
+});
+</script>
+
+</body>
+</html>
