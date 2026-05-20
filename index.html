@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.156</title>
+<title>발주서 변환기 v22.158</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.156</span>
+  <span class="ver">v22.158</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1127,9 +1127,69 @@ function extractAddrPhone(a){
   const ix=a.indexOf(m[1]);
   return{addr:a.slice(0,ix).trim(),msg:a.slice(ix+m[1].length).trim()};
 }
+// 식봄 단일라인 파서 — 한 주문이 한 줄에 40여개 컬럼으로 들어오는 신형식 (2026-05+ 신규)
+function parseSikbomSingleLine(line){
+  const cols=line.split('\t').map(c=>(c||'').trim());
+  if(cols.length<20)return null;
+  if(!isOrderHdr(line))return null;
+  let custName='',custPhone='',prodName='',qty=1,address='',msg='';
+  // 받는사람: "발주대기" 다음 셀
+  const bi=cols.findIndex(c=>c==='발주대기');
+  if(bi>=0&&cols[bi+1])custName=cols[bi+1];
+  // 고객 연락처: 010/011 패턴
+  for(const c of cols){
+    if(/^01\d{8,9}$/.test(c)){custPhone=fp(c);break;}
+  }
+  // 상품명: "버피 " 또는 "연안 " 시작 + g/kg 포함
+  for(const c of cols){
+    if(/^(버피|연안)\s+/.test(c)&&/\d+(g|kg)/i.test(c)){prodName=normSikbomProd(c);break;}
+  }
+  // 수량: EA 마커 다음 첫 정수 (1-3자리, 1000 미만 — 단가 4-5자리와 구분)
+  const eaIdx=cols.findIndex(c=>c==='EA');
+  if(eaIdx>=0){
+    for(let j=eaIdx+1;j<Math.min(eaIdx+8,cols.length);j++){
+      const c=cols[j];
+      if(/^\d{1,3}$/.test(c)){
+        const n=parseInt(c);
+        if(n>0&&n<1000){qty=n;break;}
+      }
+    }
+  }
+  // 폴백: "N팩"/"N개" 패턴 (EA 못 찾았을 때만)
+  if(qty===1&&eaIdx<0){
+    for(const c of cols){
+      const pm=c.match(/(\d+)\s*(팩|개)/);
+      if(pm&&parseInt(pm[1])>0){qty=parseInt(pm[1]);break;}
+    }
+  }
+  // 배송 주소: 한글 + 시/도/군/구/로/길 포함, 식봄 본사주소(동해시 대학로 16) 제외
+  for(const c of cols){
+    if(!c||!/[가-힣]/.test(c))continue;
+    if(!/(시|도|군|구|면|읍|로|길)/.test(c))continue;
+    if(c.includes('동해시 대학로 16'))continue;
+    let cleaned=c.replace(/^\[\d{5}\]\s*/,'').trim();
+    if(!cleaned)continue;
+    const r=extractAddrPhone(cleaned);
+    address=r.addr;msg=r.msg||'';
+    break;
+  }
+  if(prodName&&address&&custPhone){
+    return ['식봄','','010-2455-4156','',prodName+' x '+qty,custName,address,custPhone,msg].join('\t');
+  }
+  return null;
+}
 function preprocessSikbom(raw){
   const lines=raw.trim().split('\n').map(normLine).filter(Boolean);
-  const output=[];let i=0;
+  const output=[];
+  // 1) 단일라인 형식 우선 시도 (한 줄에 모든 정보 들어오는 신형식)
+  for(const ln of lines){
+    if(!isOrderHdr(ln))continue;
+    const parsed=parseSikbomSingleLine(ln);
+    if(parsed)output.push(parsed);
+  }
+  if(output.length>0)return output.join('\n');
+  // 2) 폴백: 멀티라인 형식 (헤더 + 블록 구조의 구형식)
+  let i=0;
   while(i<lines.length){
     if(!isOrderHdr(lines[i])){i++;continue;}
     const h1=lines[i].split('\t');let custName='';
