@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.180</title>
+<title>발주서 변환기 v22.182</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.180</span>
+  <span class="ver">v22.182</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -901,12 +901,14 @@ function pr2(line){
   const hasQtyCol=isPureNum(nextCol)&&parseInt(nextCol)>0&&parseInt(nextCol)<1000;
   const qtyColOffset=hasQtyCol?1:0;
   const nr=(cols[pi+1+qtyColOffset]||'').trim();
-  const rawAddr=(cols[pi+2+qtyColOffset]||'').trim();
+  // 시트에서 복사 시 칸 사이에 끼는 빈 스페이서 칸 건너뛰기: 이름 다음 칸이 비면 다음 비지 않은 칸을 주소로
+  let ai=pi+2+qtyColOffset;
+  while(ai<cols.length-1&&(cols[ai]||'').trim()==='')ai++;
+  const rawAddr=(cols[ai]||'').trim();
   const extracted=extractPhoneFromAddr(rawAddr);
   let addr=extracted.addr;const addrPhone=extracted.phone;
-  const p1=(cols[pi+3+qtyColOffset]||'').trim();
-  const p2=(cols[pi+4+qtyColOffset]||'').trim();
-  const p3=(cols[pi+5+qtyColOffset]||'').trim();
+  const rest=cols.slice(ai+1).map(c=>(c||'').trim()).filter(Boolean);
+  const p1=rest[0]||'';const p2=rest[1]||'';const p3=rest[2]||'';
   let custPhone='',msg='';
   if(isPhone(p1)){custPhone=p1;msg=p2+(p3?' '+p3:'');}
   else if(isPhone(p2)){custPhone=p2;msg=p3;}
