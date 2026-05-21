@@ -153,11 +153,16 @@
   <div class="modal">
     <div class="modal-head">✏️ 순위·수량 수정 — <span id="editTitle"></span></div>
     <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <div style="width:110px"><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">창고명</label><input id="editWh" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px"></div>
+        <div style="flex:1"><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">품목명</label><input id="editIt" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px"></div>
+      </div>
       <div style="font-size:12px;color:#888;margin-bottom:8px">▲▼로 순위를 바꾸고, 수량을 고치고, 팀을 추가·삭제할 수 있어요. 맨 위가 1순위.</div>
       <div id="editListBox"></div>
       <button class="btn-ghost add-team" onclick="addEditRow()">＋ 팀 추가</button>
     </div>
     <div class="modal-foot">
+      <button class="btn-danger" style="margin-right:auto" onclick="deleteItem()">🗑 이 품목 삭제</button>
       <button class="btn-ghost" onclick="document.getElementById('editOverlay').classList.remove('show')">취소</button>
       <button class="btn btn-primary" onclick="saveEdit()">저장</button>
     </div>
@@ -204,7 +209,8 @@ function parsePaste(text){
     } else if(cur){
       const m = line.match(/(\d+)\s*개?\s*$/);
       if(m){
-        const rest = line.replace(m[0],"").trim().split(/\s+/);
+        // 수량은 줄 끝에서만 잘라냄 (replace는 첫 매칭을 지워서 '200g 20'의 200을 손상시키는 버그가 있었음)
+        const rest = line.slice(0, m.index).trim().split(/\s+/);
         const wh = rest[0];
         const it = rest.slice(1).join(" ").replace(/[\s\-\/\:\_]+$/,"").trim();
         if(wh && it) map[cur][wh+"||"+it] = Number(m[1]);
@@ -332,6 +338,8 @@ function openEdit(uKey){
   q.forEach(x=>{ if(m.length>0 && m[m.length-1].team===x.team) m[m.length-1].qty += x.qty; else m.push({team:x.team, qty:x.qty}); });
   editList = m;
   document.getElementById('editTitle').textContent = `[${wh}] ${it}`;
+  document.getElementById('editWh').value = wh;
+  document.getElementById('editIt').value = it;
   renderEditList();
   document.getElementById('editOverlay').classList.add('show');
 }
@@ -352,14 +360,30 @@ function moveEdit(i,dir){ const j=i+dir; if(j<0||j>=editList.length) return; con
 function delEdit(i){ editList.splice(i,1); renderEditList(); }
 function addEditRow(){ editList.push({team:TEAMS[0]+'팀', qty:1}); renderEditList(); }
 function saveEdit(){
-  const [wh,it] = editKey.split("||");
-  entries = entries.filter(e=>!(e.wh===wh && e.it===it));   // 이 품목 기존 항목 제거
+  const [oldWh,oldIt] = editKey.split("||");
+  const wh = document.getElementById('editWh').value.trim();
+  const it = document.getElementById('editIt').value.trim();
+  if(!wh || !it){ toast('창고명·품목명을 입력해주세요','warn'); return; }
+  entries = entries.filter(e=>!(e.wh===oldWh && e.it===oldIt));   // 기존(원래 이름) 항목 제거
   const base = Date.now();
   editList.forEach(r=>{ if(r.qty>0) entries.push({seq:nextSeq++, time:base, team:r.team, wh, it, qty:r.qty}); });
+  // 이름이 바뀌면 수량보유팀 메모도 새 키로 이전
+  const oldKey = oldWh+"||"+oldIt, newKey = wh+"||"+it;
+  if(oldKey!==newKey && holdingMap[oldKey]){ holdingMap[newKey] = holdingMap[oldKey]; delete holdingMap[oldKey]; }
   document.getElementById('editOverlay').classList.remove('show');
   save();
   render();
   toast('✏️ 수정 완료');
+}
+function deleteItem(){
+  const [wh,it] = editKey.split("||");
+  if(!confirm(`[${wh}] ${it} 품목을 통째로 삭제할까요?`)) return;
+  entries = entries.filter(e=>!(e.wh===wh && e.it===it));
+  delete holdingMap[wh+"||"+it];
+  document.getElementById('editOverlay').classList.remove('show');
+  save();
+  render();
+  toast('🗑 품목 삭제됨');
 }
 
 //=================== 제출 흐름 (안 멈추는 확인) ===================
