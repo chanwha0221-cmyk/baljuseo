@@ -4,6 +4,8 @@ title GitHub Auto Update
 
 cd /d "%~dp0"
 
+if exist ".git\index.lock" del /f /q ".git\index.lock"
+
 echo.
 echo ============================================
 echo    GitHub Auto Update - Baljuseo Repo

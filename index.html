@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.182</title>
+<title>발주서 변환기 v22.184</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.182</span>
+  <span class="ver">v22.184</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -786,6 +786,7 @@ function pp(cl,pr,qty){
   const wm=cn.match(/([\d.]+)kg/);const gm=!wm&&cn.match(/(\d+)g\b/);const wi=wm?parseFloat(wm[1]):gm?parseInt(gm[1])/1000:1;
   const pn=qm?cn:cn.replace(/[xX×]\s*[\d.]+/g,'').trim();
   if(cl==='대상수산'){
+    if(norm(pn).includes('대구'))return{name:'초대왕 생대구 5kg급',qty,maxB:999};
     if(norm(pn).includes('호래기'))return{name:'횟감 대짜 호래기 500g',qty:Math.round(qty*wi*2),maxB:999};
     if(norm(pn).includes('참소라'))return{name:'연안 주먹참소라 1kg',qty:Math.round(qty*wi),maxB:999};
     if(norm(pn).includes('주꾸미')||norm(pn).includes('쭈꾸미'))return{name:'연안 활 주꾸미 1kg',qty:Math.round(qty*wi),maxB:999};
@@ -884,7 +885,7 @@ function pr2(line){
   // 단위 패턴: 숫자+단위 (단위 뒤에 한글이 더 붙으면 매치 안 함 — "1단지" 같은 주소 오인식 방지)
   //          OR "숫자 x 숫자" (예: 500 x 2)
   //          OR 문자열 끝의 "x N" (예: ...x 1)
-  const unitPattern=/\d+(kg|g|ea|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판|대|장|줄|관|단|마|모|벌)(?![가-힣])|\d+\s*[xX×]\s*\d+|[xX×]\s*\d+\s*$/i;
+  const unitPattern=/\d+(kg|g|ea|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판|대|장|줄|관|단|마|모|벌)(?:급|짜리)?(?![가-힣])|\d+\s*[xX×]\s*\d+|[xX×]\s*\d+\s*$/i;
   let pi=-1;
   for(let i=1;i<cols.length;i++){if(unitPattern.test((cols[i]||'').trim())){pi=i;break;}}
   if(pi===-1){for(let i=1;i<cols.length;i++){const c=(cols[i]||'').trim();if(c&&!isPhone(c)&&!isPureNum(c)&&c.length>3){pi=i;break;}}}
