@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.165</title>
+<title>발주서 변환기 v22.166</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.165</span>
+  <span class="ver">v22.166</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -766,6 +766,8 @@ function pp(cl,pr,qty){
   // 단, 떡·인절미·만두 등 N개가 상품 단위인 카테고리는 보존 (예: '오디 인절미 12개')
   const _PRESERVE_GAE = /인절미|떡|만두|꿀떡|쌀과자|호두과자|개입|박스|팩입/.test(norm(r));
   if(!_PRESERVE_GAE) r=r.replace(/(\d+)\s*개\s*$/,'$1');
+  // 산청 흑돼지 불고기: 팍스리테일이 '1kg+1kg'로 발주하지만 실제는 단일상품 '1+1' (+분기로 쪼개지면 안 됨)
+  if(norm(r).includes('흑돼지불고기')){const _hm=r.match(/[xX×]\s*(\d+)\s*$/);return{name:'산청 흑돼지 불고기 1+1',qty:_hm?parseInt(_hm[1]):qty,maxB:999};}
   // 한우 등급 표기(1++, 1+, 2+ 등)는 + 분기에서 제외
   const hasMeatGrade=/\d\+\+?/.test(r);
   if(r.includes('+')&&!hasMeatGrade){const it=r.split('+').map(i=>i.trim());return{name:it.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};}
