@@ -794,7 +794,8 @@ function addToSelected(masterIdx){
     cat3: '',
     salesSpec: '',          // F 판매규격 (예: 1kg)
     salesUnit: '1팩',       // G 판매단위 (기본값)
-    weightG: '',            // H 판매중량
+    weightG: '',            // H 판매중량 (숫자)
+    weightUnit: 'g',        // H 단위 (g/kg)
     manufacturer: DEFAULT_MANUFACTURER,
     origin: '',             // K 원산지
     barcode: '',            // AB
@@ -875,8 +876,14 @@ function renderSelected(){
           <input type="text" class="${!s.salesUnit?'error':''}" value="${escapeHtml(s.salesUnit)}" placeholder="예: 1팩" oninput="updateField(${s.masterIdx},'salesUnit',this.value)">
         </div>
         <div class="f">
-          <label>판매중량 g<span class="req">*</span> (H)</label>
-          <input type="number" class="${!s.weightG?'error':''}" value="${s.weightG}" placeholder="예: 1000" oninput="updateField(${s.masterIdx},'weightG',this.value)">
+          <label>판매중량<span class="req">*</span> (H)</label>
+          <div style="display:flex;gap:6px">
+            <input type="number" style="flex:1;min-width:0" class="${!s.weightG?'error':''}" value="${s.weightG}" placeholder="예: 3" oninput="updateField(${s.masterIdx},'weightG',this.value)">
+            <select style="flex:0 0 56px" onchange="updateField(${s.masterIdx},'weightUnit',this.value)">
+              <option value="g" ${(s.weightUnit||'g')==='g'?'selected':''}>g</option>
+              <option value="kg" ${s.weightUnit==='kg'?'selected':''}>kg</option>
+            </select>
+          </div>
         </div>
         <div class="f">
           <label>원산지<span class="req">*</span> (K)</label>
@@ -967,7 +974,7 @@ function buildXlsxRows(){
       s.name,                             // E 상품명
       s.salesSpec,                        // F 판매규격
       s.salesUnit,                        // G 판매단위
-      parseInt(s.weightG)||'',            // H 판매중량
+      s.weightG!=='' && s.weightG!=null ? `${(''+s.weightG).trim()}${s.weightUnit||'g'}` : '',  // H 판매중량 (단위 포함)
       '',                                  // I 부피
       s.manufacturer,                     // J 제조사
       s.origin,                           // K 원산지
