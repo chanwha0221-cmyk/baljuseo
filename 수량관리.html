@@ -34,6 +34,19 @@
   tbody td{border:1px solid #d7dbe0;padding:7px 8px;text-align:center;vertical-align:middle;height:38px;}
   tbody tr:nth-child(even){background:#fafbfc;}
   td.item{text-align:left;font-weight:600;padding-left:12px;}
+  td.item{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .edit-btn{border:none;background:#eef1f4;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;opacity:.55;transition:opacity .1s;flex-shrink:0;}
+  tr:hover .edit-btn{opacity:1;}
+  .edit-btn:hover{background:#dce3ea;}
+  /* 편집 모달 */
+  .edit-row{display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px dashed #eee;}
+  .edit-row .erank{width:54px;font-weight:700;color:var(--navy);font-size:13px;}
+  .edit-row select{flex:1;padding:6px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;}
+  .edit-row input{width:70px;padding:6px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;text-align:center;}
+  .edit-row .mv,.edit-row .del{border:1px solid var(--border);background:#fff;border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:13px;}
+  .edit-row .mv:disabled{opacity:.3;cursor:not-allowed;}
+  .edit-row .del{color:var(--red);border-color:#f3c2c2;}
+  .add-team{margin-top:12px;}
   td.wh{font-weight:700;color:var(--navy);}
   td.total{font-weight:800;background:#eef3f8;}
   .rank1{color:#0a7d2c;font-weight:700;}
@@ -131,6 +144,22 @@
     <div class="modal-body" id="logBody"></div>
     <div class="modal-foot">
       <button class="btn btn-primary" onclick="document.getElementById('logOverlay').classList.remove('show')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 품목 직접 편집 모달 -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <div class="modal-head">✏️ 순위·수량 수정 — <span id="editTitle"></span></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:#888;margin-bottom:8px">▲▼로 순위를 바꾸고, 수량을 고치고, 팀을 추가·삭제할 수 있어요. 맨 위가 1순위.</div>
+      <div id="editListBox"></div>
+      <button class="btn-ghost add-team" onclick="addEditRow()">＋ 팀 추가</button>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" onclick="document.getElementById('editOverlay').classList.remove('show')">취소</button>
+      <button class="btn btn-primary" onclick="saveEdit()">저장</button>
     </div>
   </div>
 </div>
@@ -263,7 +292,7 @@ function render(){
       const ek = uKey.replace(/"/g,'&quot;');
       return `<tr>
         <td class="wh">${esc(wh)}</td>
-        <td class="item">${esc(it)}</td>
+        <td class="item"><span>${esc(it)}</span><button class="edit-btn" data-key="${ek}" onclick="openEditFromBtn(this)" title="순위·수량 직접 수정">✏️</button></td>
         <td><input class="hold-input" placeholder="-" value="${hold}" data-key="${ek}" onchange="updateHold(this)"></td>
         ${cells}
         <td class="total">${total}</td>
@@ -288,6 +317,49 @@ function updateHold(input){
   const val = input.value.trim();
   if(val) holdingMap[key] = val; else delete holdingMap[key];
   save();
+}
+
+//=================== 품목 직접 편집 (순위/수량) ===================
+let editKey = null;
+let editList = [];   // [{team, qty}]
+
+function openEditFromBtn(btn){ openEdit(btn.getAttribute('data-key')); }
+function openEdit(uKey){
+  editKey = uKey;
+  const [wh,it] = uKey.split("||");
+  const q = entries.filter(e=>e.wh===wh && e.it===it).sort((a,b)=>a.seq-b.seq);
+  const m = [];
+  q.forEach(x=>{ if(m.length>0 && m[m.length-1].team===x.team) m[m.length-1].qty += x.qty; else m.push({team:x.team, qty:x.qty}); });
+  editList = m;
+  document.getElementById('editTitle').textContent = `[${wh}] ${it}`;
+  renderEditList();
+  document.getElementById('editOverlay').classList.add('show');
+}
+function renderEditList(){
+  const box = document.getElementById('editListBox');
+  if(editList.length===0){ box.innerHTML = `<div style="color:#aaa;padding:14px 0">팀이 없습니다. 아래 ＋팀 추가로 넣어주세요.</div>`; return; }
+  box.innerHTML = editList.map((r,i)=>`
+    <div class="edit-row">
+      <span class="erank">${i+1}순위</span>
+      <select onchange="editList[${i}].team=this.value">${TEAMS.map(t=>`<option value="${t}팀" ${r.team===t+'팀'?'selected':''}>${t}팀</option>`).join('')}</select>
+      <input type="number" min="1" value="${r.qty}" onchange="editList[${i}].qty=Math.max(1,parseInt(this.value)||1)">
+      <button class="mv" onclick="moveEdit(${i},-1)" ${i===0?'disabled':''}>▲</button>
+      <button class="mv" onclick="moveEdit(${i},1)" ${i===editList.length-1?'disabled':''}>▼</button>
+      <button class="del" onclick="delEdit(${i})">✕</button>
+    </div>`).join('');
+}
+function moveEdit(i,dir){ const j=i+dir; if(j<0||j>=editList.length) return; const t=editList[i]; editList[i]=editList[j]; editList[j]=t; renderEditList(); }
+function delEdit(i){ editList.splice(i,1); renderEditList(); }
+function addEditRow(){ editList.push({team:TEAMS[0]+'팀', qty:1}); renderEditList(); }
+function saveEdit(){
+  const [wh,it] = editKey.split("||");
+  entries = entries.filter(e=>!(e.wh===wh && e.it===it));   // 이 품목 기존 항목 제거
+  const base = Date.now();
+  editList.forEach(r=>{ if(r.qty>0) entries.push({seq:nextSeq++, time:base, team:r.team, wh, it, qty:r.qty}); });
+  document.getElementById('editOverlay').classList.remove('show');
+  save();
+  render();
+  toast('✏️ 수정 완료');
 }
 
 //=================== 제출 흐름 (안 멈추는 확인) ===================
@@ -365,6 +437,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // 오버레이 바깥 클릭 시 닫기 (삭제 모달은 취소 처리)
   document.getElementById('delOverlay').addEventListener('click', e=>{ if(e.target.id==='delOverlay') resolveDel(false); });
   document.getElementById('logOverlay').addEventListener('click', e=>{ if(e.target.id==='logOverlay') e.currentTarget.classList.remove('show'); });
+  document.getElementById('editOverlay').addEventListener('click', e=>{ if(e.target.id==='editOverlay') e.currentTarget.classList.remove('show'); });
 });
 
 //=================== 토스트 ===================
