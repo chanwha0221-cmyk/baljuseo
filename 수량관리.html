@@ -57,6 +57,20 @@
   .tbl-scroll{overflow-x:auto;}
   .count-pill{font-size:12px;color:#666;font-weight:500;}
 
+  /* 좁은 화면용 고정 컬럼: 창고명·품목명(왼쪽) / 합계(오른쪽) 고정, 가운데(수량보유팀~10순위) 가로 스크롤 */
+  #statusTable th.col-wh,   #statusTable td.col-wh   { position:sticky; left:0;    z-index:3; }
+  #statusTable th.col-item, #statusTable td.col-item { position:sticky; left:90px; z-index:3;
+    box-shadow:2px 0 5px -2px rgba(0,0,0,.18); }   /* 스크롤 시 경계 그림자 */
+  #statusTable th.col-total,#statusTable td.col-total{ position:sticky; right:0;   z-index:3;
+    box-shadow:-2px 0 5px -2px rgba(0,0,0,.18); }
+  /* 헤더 고정셀은 본문 고정셀 위로 */
+  #statusTable thead th.col-wh, #statusTable thead th.col-item, #statusTable thead th.col-total{ z-index:5; }
+  /* 본문 고정셀은 불투명 배경이어야 스크롤되는 가운데 칸이 비쳐 보이지 않음 */
+  #statusTable tbody td.col-wh, #statusTable tbody td.col-item{ background:#fff; }
+  #statusTable tbody tr:nth-child(even) td.col-wh,
+  #statusTable tbody tr:nth-child(even) td.col-item{ background:#fafbfc; }
+  #statusTable tbody td.col-total{ background:#eef3f8; }
+
   /* toast */
   #toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:#2c3e50;color:#fff;padding:12px 24px;border-radius:30px;font-size:14px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s, bottom .2s;z-index:200;}
   #toast.show{opacity:1;bottom:36px;}
@@ -73,12 +87,26 @@
   .modal-foot{padding:14px 20px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #eee;}
   .log-table{font-size:12px;}
   .log-table td{text-align:left;padding:5px 8px;}
+
+  /* update bar (non-sticky, sits at very top of document) */
+  #updateBar{display:none;align-items:center;gap:12px;
+    padding:11px 20px;background:#fff3cd;color:#7a5a00;border-bottom:2px solid #ffd24d;
+    font-size:14px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.08);}
+  #updateBar.show{display:flex;}
+  #updateBar .ub-msg{flex:1;line-height:1.45;}
+  #updateBar .ub-reload{background:var(--blue);color:#fff;border:none;border-radius:7px;
+    padding:9px 20px;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer;flex-shrink:0;}
+  #updateBar .ub-reload:hover{filter:brightness(.93);}
 </style>
 </head>
 <body>
+<div id="updateBar">
+  <span class="ub-msg">🔄 새 버전이 배포됐어요. 작성 중인 내용을 <b>확인(반영)</b>하거나 비운 뒤 새로고침하시면 최신 화면으로 바뀝니다.</span>
+  <button class="ub-reload" onclick="location.reload()">지금 새로고침</button>
+</div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v2.0</span>
+  <span class="ver">v2.1</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
@@ -107,13 +135,13 @@
       <table id="statusTable">
         <thead>
           <tr>
-            <th style="width:90px">창고명</th>
-            <th style="width:280px">품목명</th>
+            <th class="col-wh" style="width:90px">창고명</th>
+            <th class="col-item" style="width:280px">품목명</th>
             <th style="width:130px">수량 보유팀</th>
             <th style="width:130px">1순위</th><th style="width:130px">2순위</th><th style="width:130px">3순위</th>
             <th style="width:130px">4순위</th><th style="width:130px">5순위</th><th style="width:130px">6순위</th>
             <th style="width:130px">7순위</th><th style="width:130px">8순위</th><th style="width:130px">9순위</th>
-            <th style="width:130px">10순위</th><th style="width:70px">합계</th>
+            <th style="width:130px">10순위</th><th class="col-total" style="width:70px">합계</th>
           </tr>
         </thead>
         <tbody id="statusBody"></tbody>
@@ -401,11 +429,11 @@ function render(){
       }
       const ek = s.uKey.replace(/"/g,'&quot;');
       return `<tr>
-        <td class="wh">${esc(s.wh)}</td>
-        <td class="item"><span>${esc(s.it)}</span><button class="edit-btn" data-key="${ek}" onclick="openEditFromBtn(this)" title="순위·수량 직접 수정">✏️</button></td>
+        <td class="wh col-wh">${esc(s.wh)}</td>
+        <td class="item col-item"><span>${esc(s.it)}</span><button class="edit-btn" data-key="${ek}" onclick="openEditFromBtn(this)" title="순위·수량 직접 수정">✏️</button></td>
         <td><input class="hold-input" placeholder="-" value="${hold}" data-key="${ek}" onchange="updateHold(this)"></td>
         ${cells}
-        <td class="total">${s.total}</td>
+        <td class="total col-total">${s.total}</td>
       </tr>`;
     }).join('');
   }
@@ -524,6 +552,8 @@ async function handleSubmit(){
   } finally {
     btn.disabled = false;
   }
+  // 반영 끝나 입력창이 비었으니, 대기 중인 업데이트가 있으면 이제 새로고침
+  applyUpdateIfReady();
 }
 
 //=================== 전체 초기화 (백업 후) ===================
@@ -570,7 +600,59 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const ok = await loadFromSheet();
   render();
   if(!ok) toast('⚠️ 시트 연결 실패 — 로컬 캐시 표시 중 (변경분 시트 반영 안 됨)','warn');
+
+  // 업데이트 감지 시작 (현재 배포본 해시를 기준으로 잡아둠)
+  initUpdateWatcher();
 });
+
+//=================== 업데이트 감지 (스마트 자동 새로고침) ===================
+// 배포되면 GitHub Pages의 이 파일 내용이 바뀜 → 로드 시 잡아둔 해시와 비교.
+// 입력창 비어있으면 자동 새로고침, 작성 중이면 배너로 안내.
+let _baseHash=null, _updatePending=false, _checking=false;
+function _hashStr(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; } return h+'_'+s.length; }
+async function _fetchSelfHash(){
+  // 쿼리스트링으로 캐시 우회 (응답 본문은 파일 내용 그대로라 해시에 영향 없음)
+  const url = location.pathname + '?_uc=' + Date.now();
+  const r = await fetch(url, {cache:'no-store'});
+  if(!r.ok) throw new Error('fetch '+r.status);
+  return _hashStr(await r.text());
+}
+function _hasUnsavedInput(){
+  const el = document.getElementById('chatText');
+  return !!(el && el.value.trim().length>0);
+}
+function showUpdateBanner(){
+  const bar=document.getElementById('updateBar');
+  if(bar && !bar.classList.contains('show')){
+    bar.classList.add('show');
+    window.scrollTo({top:0, behavior:'smooth'}); // 스크롤 내려가 있어도 보이게
+  }
+}
+// 업데이트가 잡혀있으면: 입력 없으면 즉시 새로고침 / 있으면 배너
+function applyUpdateIfReady(){
+  if(!_updatePending) return;
+  if(_hasUnsavedInput()) showUpdateBanner();
+  else location.reload();
+}
+async function checkForUpdate(){
+  if(_checking) return;
+  if(_updatePending){ applyUpdateIfReady(); return; }
+  if(!_baseHash) return;
+  _checking=true;
+  try{
+    const h=await _fetchSelfHash();
+    if(h && h!==_baseHash){ _updatePending=true; applyUpdateIfReady(); }
+  }catch(e){ /* 오프라인 등 — 조용히 무시 */ }
+  finally{ _checking=false; }
+}
+async function initUpdateWatcher(){
+  try{ _baseHash=await _fetchSelfHash(); }catch(e){ _baseHash=null; }
+  // 탭으로 돌아올 때 / 창 포커스 시 체크
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') checkForUpdate(); });
+  window.addEventListener('focus', checkForUpdate);
+  // 백그라운드 주기 체크 (5분)
+  setInterval(checkForUpdate, 5*60*1000);
+}
 
 //=================== 토스트 ===================
 let _toastT=null;
