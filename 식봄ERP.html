@@ -180,6 +180,37 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <div class="conv-stats" id="conv-stats" style="display:none"></div>
     </div>
   </div>
+
+  <!-- ③ 썸네일 추출 (위 ① 입력 HTML 그대로 사용) -->
+  <style>
+    .th-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:7px;margin-top:6px;}
+    .th-thumb{position:relative;border:3px solid transparent;border-radius:8px;overflow:hidden;cursor:pointer;background:#eef1f4;aspect-ratio:1/1;}
+    .th-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+    .th-thumb .th-idx{position:absolute;top:3px;left:3px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;padding:1px 5px;border-radius:6px;}
+    .th-thumb.th-sel{border-color:#27ae60;}
+    .th-thumb .th-pick{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#27ae60;color:#fff;font-size:12px;font-weight:800;display:none;align-items:center;justify-content:center;}
+    .th-thumb.th-sel .th-pick{display:flex;}
+    .th-picks{display:flex;gap:14px;flex-wrap:wrap;}
+    .th-card{border:1px solid #e3e6ea;border-radius:10px;padding:10px;width:190px;text-align:center;background:#fff;}
+    .th-card .th-pv{width:168px;height:168px;border-radius:8px;background:#eef1f4;object-fit:cover;display:block;}
+    .th-card .th-role{font-size:12px;font-weight:700;color:#2c3e50;margin:8px 0 6px;}
+  </style>
+  <div class="conv-section" style="margin-top:18px">
+    <h3>③ 썸네일 추출 — 위 ① 입력 HTML에서 450×450 4장 뽑기 (식봄 썸네일용)</h3>
+    <div style="font-size:12px;color:#6b6760;margin-bottom:10px">앞 2장(상품 컷) + 맨 뒤 2장(저울·포장) 자동 선택. 썸네일 클릭해서 바꿀 수 있어요(총 4장). masterc 이미지는 weserv 프록시로 가운데 크롭.</div>
+    <div class="conv-actions" style="margin-bottom:10px">
+      <button class="btn btn-purple" onclick="thExtract()">🖼️ 썸네일 추출</button>
+      <label style="font-size:12px;color:#6b6760">파일명 접두어</label>
+      <input type="text" id="th-prefix" placeholder="예: 특가 한돈 등뼈 3kg" style="padding:8px 10px;border:1px solid #ced4da;border-radius:7px;font-family:inherit;font-size:13px;min-width:220px">
+      <span id="th-sel-count" style="font-size:12px;color:#6b6760"></span>
+    </div>
+    <div class="th-grid" id="th-grid"></div>
+    <div class="th-picks" id="th-picks" style="margin-top:12px"></div>
+    <div id="th-dlrow" style="display:none;margin-top:10px">
+      <button class="btn btn-green" onclick="thDownloadAll()">⬇️ 4장 모두 다운로드 (450×450)</button>
+      <span style="font-size:12px;color:#6b6760;margin-left:8px">한 번에 안 받아지면 카드별 ⬇️로 하나씩.</span>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════ 탭 3: 마진 체크 ═══════════════ -->
@@ -1089,6 +1120,56 @@ const SECTIONS_TO_REMOVE = [
   '상품의 확실한 매리트',
   '알고 먹으면 더 맛있어요'
 ];
+
+// ════════════════════════════════════════════════════════════════
+// 썸네일 추출 — 상세페이지 변환기 입력(#conv-input) HTML 공유
+//   masterc 이미지는 CORS 막혀서 images.weserv.nl 프록시로 450x450 가운데 크롭
+// ════════════════════════════════════════════════════════════════
+const TH_SIZE = 450;
+let thAllImgs = [], thSelected = [];
+function thNormUrl(u){ let s=(u||'').trim(); s=s.replace(/\/\.\//g,'/'); if(s.startsWith('//'))s='https:'+s; if(s.startsWith('/'))s='https://masterc.co.kr'+s; return s; }
+function thWeserv(url, size){ const px=size||TH_SIZE; return 'https://images.weserv.nl/?url='+encodeURIComponent(url)+'&w='+px+'&h='+px+'&fit=cover&a=center&output=jpg&q=90'; }
+function thExtract(){
+  const html=document.getElementById('conv-input').value;
+  if(!html.trim()){ toast('① 입력란에 상품 HTML을 먼저 붙여넣어줘'); return; }
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  const imgs=[...doc.querySelectorAll('img')].map(im=>thNormUrl(im.getAttribute('src'))).filter(Boolean);
+  thAllImgs=[...new Set(imgs)];
+  if(thAllImgs.length===0){ toast('이미지를 못 찾았어'); return; }
+  const pf=document.getElementById('th-prefix');
+  if(!pf.value.trim()){ const t=(doc.body.textContent||'').trim().split('\n').map(s=>s.trim()).filter(s=>s.length>=3)[0]||''; pf.value=t.slice(0,40); }
+  const n=thAllImgs.length;
+  thSelected = n>=4 ? [0,1,n-2,n-1] : thAllImgs.map((_,i)=>i);
+  thRenderGrid(); thRenderPicks();
+  toast(`✓ 이미지 ${n}개 — 앞2 + 뒤2 자동 선택`);
+}
+function thRenderGrid(){
+  const g=document.getElementById('th-grid');
+  g.innerHTML=thAllImgs.map((url,i)=>{ const pos=thSelected.indexOf(i); return `<div class="th-thumb ${pos>=0?'th-sel':''}" onclick="thToggle(${i})" title="${url}"><span class="th-idx">${i+1}</span><span class="th-pick">${pos>=0?pos+1:''}</span><img src="${thWeserv(url,150)}" loading="lazy"></div>`; }).join('');
+  document.getElementById('th-sel-count').textContent=`${thSelected.length}/4 선택`;
+}
+function thToggle(i){
+  const pos=thSelected.indexOf(i);
+  if(pos>=0)thSelected.splice(pos,1);
+  else { if(thSelected.length>=4){ toast('4장까지만. 하나 빼고 다시 선택해'); return; } thSelected.push(i); }
+  thRenderGrid(); thRenderPicks();
+}
+function thRenderPicks(){
+  const p=document.getElementById('th-picks');
+  document.getElementById('th-dlrow').style.display=thSelected.length?'block':'none';
+  p.innerHTML=thSelected.map((idx,k)=>`<div class="th-card"><img class="th-pv" src="${thWeserv(thAllImgs[idx])}"><div class="th-role">${k+1}. 원본 #${idx+1}</div><button class="btn-sm" onclick="thDownloadOne(${idx},${k})">⬇️ 이 장 받기</button></div>`).join('');
+}
+function thFileName(k){ let pf=(document.getElementById('th-prefix').value||'thumb').trim().replace(/[\\/:*?"<>|]/g,'').slice(0,40)||'thumb'; return `${pf}_${k+1}.jpg`; }
+async function thDownloadOne(idx,k){
+  const url=thWeserv(thAllImgs[idx]);
+  try{ const r=await fetch(url); if(!r.ok)throw new Error('HTTP '+r.status); const b=await r.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=thFileName(k); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast(`✓ ${thFileName(k)}`); }
+  catch(e){ console.error(e); toast('다운로드 실패 — 새 탭으로 열게(우클릭 저장)'); window.open(url,'_blank'); }
+}
+async function thDownloadAll(){
+  if(!thSelected.length){ toast('선택된 게 없어'); return; }
+  for(let k=0;k<thSelected.length;k++){ await thDownloadOne(thSelected[k],k); await new Promise(r=>setTimeout(r,600)); }
+  toast(`✓ ${thSelected.length}장 다운로드 완료`);
+}
 
 function convertHtml(){
   const input = document.getElementById('conv-input').value.trim();
