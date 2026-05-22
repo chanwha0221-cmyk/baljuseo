@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📊 수량 관리 시스템 v2.5</title>
+<title>📊 수량 관리 시스템 v2.6</title>
 <style>
   :root{ --navy:#2c3e50; --blue:#007bff; --red:#e74c3c; --border:#ced4da; --bg:#f8f9fa; }
   *{box-sizing:border-box;}
@@ -112,7 +112,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v2.5</span>
+  <span class="ver">v2.6</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
@@ -657,28 +657,30 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('logOverlay').addEventListener('click', e=>{ if(e.target.id==='logOverlay') e.currentTarget.classList.remove('show'); });
   document.getElementById('editOverlay').addEventListener('click', e=>{ if(e.target.id==='editOverlay') e.currentTarget.classList.remove('show'); });
 
-  // 1) 캐시로 즉시 첫 화면
+  // 1) 캐시로 즉시 첫 화면 (네트워크 기다리는 동안 임시 표시용)
   loadCache(); render();
-  // 직전 세션에서 시트 저장이 끝나기 전에 새로고침/종료됐는지 확인 (롤백 방지)
-  const wasDirty = localStorage.getItem(K_DIRTY)==='1';
-  const localSnap = wasDirty ? {
-    e: JSON.parse(JSON.stringify(entries)),
-    h: JSON.parse(JSON.stringify(holdingMap)),
-    l: JSON.parse(JSON.stringify(deleteLog)),
-    seq: nextSeq
-  } : null;
-  // 2) 시트(=truth)에서 불러와 갱신
+  // 2) 시트(=truth)에서 불러와 갱신 — 여러 명이 같이 쓰므로 "시트가 항상 정답".
+  //    예전 복구 로직(오래된 로컬을 시트에 다시 밀어넣기)은 지운 항목을 부활시켜서 제거함.
   const ok = await loadFromSheet();
   render();
-  if(!ok){
-    toast('⚠️ 시트 연결 실패 — 로컬 캐시 표시 중 (변경분 시트 반영 안 됨)','warn');
-  } else if(localSnap){
-    // 저장이 끝나지 않은 로컬 변경분이 있었음 → 시트(옛 상태)로 덮이지 않게 로컬 복원 후 재저장
-    entries = localSnap.e; holdingMap = localSnap.h; deleteLog = localSnap.l; nextSeq = localSnap.seq;
-    render();
-    commit();
-    toast('💾 저장이 끝나지 않은 변경을 복구해 다시 저장했어요');
-  }
+  if(!ok) toast('⚠️ 시트 연결 실패 — 로컬 캐시 표시 중 (변경분 시트 반영 안 됨)','warn');
+
+  // 저장(시트 반영)이 끝나기 전에 창 닫기/새로고침하면 경고 (그 변경만 날아갈 수 있음)
+  window.addEventListener('beforeunload', e=>{ if(localStorage.getItem(K_DIRTY)==='1'){ e.preventDefault(); e.returnValue=''; } });
+
+  // 다른 사람이 시트를 바꾸면 자동으로 따라오기 — 유휴 상태일 때 15초마다 시트 재동기화.
+  //   오래된 데이터를 들고 있다가 저장해서 "남이 지운 항목이 부활"하는 사고 방지.
+  setInterval(async ()=>{
+    if(document.visibilityState!=='visible') return;            // 다른 탭/창 보는 중
+    if(document.querySelector('.overlay.show')) return;         // 모달(편집/삭제확인) 열림
+    const ct=document.getElementById('chatText');
+    if(ct && ct.value.trim()) return;                           // 채팅 입력 중
+    if(localStorage.getItem(K_DIRTY)==='1') return;             // 내 저장 아직 대기 중
+    try{ await _chain; }catch(e){}
+    if(localStorage.getItem(K_DIRTY)==='1') return;
+    const fresh = await loadFromSheet();
+    if(fresh) render();
+  }, 15000);
 
   // 업데이트 감지 시작 (현재 배포본 해시를 기준으로 잡아둠)
   initUpdateWatcher();
