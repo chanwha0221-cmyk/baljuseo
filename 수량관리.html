@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📊 수량 관리 시스템 v2.0</title>
+<title>📊 수량 관리 시스템 v2.2</title>
 <style>
   :root{ --navy:#2c3e50; --blue:#007bff; --red:#e74c3c; --border:#ced4da; --bg:#f8f9fa; }
   *{box-sizing:border-box;}
@@ -70,6 +70,12 @@
   #statusTable tbody tr:nth-child(even) td.col-wh,
   #statusTable tbody tr:nth-child(even) td.col-item{ background:#fafbfc; }
   #statusTable tbody td.col-total{ background:#eef3f8; }
+  /* 표 너비를 칸 합계로 고정 → 좁은 창에선 줄어들지 않고 가로 스크롤이 생김 */
+  #statusTable{ min-width:1870px; table-layout:fixed; }
+  /* 글자 한 줄 유지 (2줄로 접히지 않게) */
+  #statusTable td, #statusTable th{ white-space:nowrap; }
+  /* 품목명이 아주 길면 줄바꿈/겹침 대신 …로 (칸 너비는 그대로 280px 유지) */
+  #statusTable td.item span{ overflow:hidden; text-overflow:ellipsis; min-width:0; }
 
   /* toast */
   #toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:#2c3e50;color:#fff;padding:12px 24px;border-radius:30px;font-size:14px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s, bottom .2s;z-index:200;}
@@ -106,7 +112,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v2.1</span>
+  <span class="ver">v2.2</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
