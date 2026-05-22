@@ -141,7 +141,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 
   <div class="download-bar">
     <div class="info">
-      ⏱️ 식봄 등록 대기 <b id="dl-count">0</b>개 | 자동 채움 <b style="color:#27ae60">21</b>필드 | 입력 필요 <b style="color:#dc2626">필수 5개</b>
+      ⏱️ 식봄 등록 대기 <b id="dl-count">0</b>개 | 자동 채움 <b style="color:#27ae60">21</b>필드 | 입력 필요 <b id="req-count" style="color:#dc2626">필수 5개</b>
       <span style="font-size:10px;color:#a8a49e;margin-left:8px">💾 자동 저장됨 (페이지 닫아도 유지)</span>
     </div>
     <div style="display:flex;gap:8px">
@@ -813,14 +813,46 @@ function removeSelected(masterIdx){
   renderSelected();
 }
 
-function updateField(masterIdx, field, value){
+function updateField(masterIdx, field, value, el){
   const s = selectedItems.find(x=>x.masterIdx===masterIdx);
   if(!s) return;
   s[field] = value;
   saveToStorage();
-  // 카테고리 1차/2차 변경 시 하위 초기화 + 드롭다운 새로 그리기
-  if(field==='cat1'){ s.cat2=''; s.cat3=''; renderSelected(); }
-  else if(field==='cat2'){ s.cat3=''; renderSelected(); }
+  // 카테고리 1차/2차 변경 시 하위 초기화 + 드롭다운 새로 그리기 (전체 재렌더)
+  if(field==='cat1'){ s.cat2=''; s.cat3=''; renderSelected(); return; }
+  if(field==='cat2'){ s.cat3=''; renderSelected(); return; }
+  // 그 외(cat3·텍스트 칸): 포커스 유지하며 검증 표시만 즉시 갱신
+  const REQUIRED = {cat3:1, salesSpec:1, salesUnit:1, weightG:1, origin:1};
+  if(el && REQUIRED[field]){
+    if(value!=='' && value!=null && String(value).trim()!=='') el.classList.remove('error');
+    else el.classList.add('error');
+  }
+  refreshCardStatus(s);
+}
+
+// 필수 입력 7종이 모두 채워졌는지
+function isCardComplete(s){
+  return !!(s.cat1 && s.cat2 && s.cat3 && s.salesSpec && s.salesUnit && s.weightG && s.origin);
+}
+// 카드 1장의 테두리·뱃지 + 하단 카운터를 in-place 갱신 (입력칸은 다시 안 그림 → 포커스 유지)
+function refreshCardStatus(s){
+  const complete = isCardComplete(s);
+  const card = document.getElementById('card-'+s.masterIdx);
+  if(card) card.style.borderLeft = complete ? '' : '3px solid #dc2626';
+  const badge = document.getElementById('badge-'+s.masterIdx);
+  if(badge){
+    badge.textContent = complete ? '✓ 등록 준비됨' : '⚠ 필수 미입력';
+    badge.style.color = complete ? '#27ae60' : '#dc2626';
+  }
+  updateReqCount();
+}
+// 하단 "입력 필요 ..." 카운터 (미완료 카드 수)
+function updateReqCount(){
+  const el = document.getElementById('req-count');
+  if(!el) return;
+  const n = selectedItems.filter(x=>!isCardComplete(x)).length;
+  el.textContent = n>0 ? ('필수 '+n+'개') : '없음 ✓';
+  el.style.color = n>0 ? '#dc2626' : '#27ae60';
 }
 
 function renderSelected(){
@@ -829,6 +861,7 @@ function renderSelected(){
   document.getElementById('dl-btn').disabled = selectedItems.length===0;
   const clrBtn = document.getElementById('clear-btn');
   if(clrBtn) clrBtn.disabled = selectedItems.length===0;
+  updateReqCount();
   if(selectedItems.length===0){
     document.getElementById('selected-root').innerHTML = '<div class="empty">위 목록에서 식봄에 등록할 상품을 클릭해서 추가해줘<br><span style="font-size:11px;margin-top:4px;display:inline-block">💾 한 번 추가한 카드는 자동 저장됨 — 페이지 닫고 내일 다시 와도 그대로 있음</span></div>';
     return;
@@ -837,10 +870,10 @@ function renderSelected(){
     const cat1Opts = Object.keys(CATEGORIES);
     const cat2Opts = s.cat1 && CATEGORIES[s.cat1] ? Object.keys(CATEGORIES[s.cat1]) : [];
     const cat3Opts = s.cat1 && s.cat2 && CATEGORIES[s.cat1] && CATEGORIES[s.cat1][s.cat2] ? CATEGORIES[s.cat1][s.cat2] : [];
-    const isComplete = s.cat1 && s.cat2 && s.cat3 && s.salesSpec && s.salesUnit && s.weightG && s.origin;
-    return `<div class="selected-card" style="${isComplete?'':'border-left:3px solid #dc2626'}">
+    const isComplete = isCardComplete(s);
+    return `<div class="selected-card" id="card-${s.masterIdx}" style="${isComplete?'':'border-left:3px solid #dc2626'}">
       <div class="card-header">
-        <div class="card-name">${escapeHtml(s.name)} ${isComplete?'<span style="color:#27ae60;font-size:11px;margin-left:6px">✓ 등록 준비됨</span>':'<span style="color:#dc2626;font-size:11px;margin-left:6px">⚠ 필수 미입력</span>'}</div>
+        <div class="card-name">${escapeHtml(s.name)} <span id="badge-${s.masterIdx}" style="color:${isComplete?'#27ae60':'#dc2626'};font-size:11px;margin-left:6px">${isComplete?'✓ 등록 준비됨':'⚠ 필수 미입력'}</span></div>
         <div class="card-price">원가 <b>${fmt(s.cost)}</b>원 → 식봄 판매가 <b>${fmt(s.sellPrice)}</b>원 (마진 15%)</div>
       </div>
       <div class="cat-row">
@@ -860,7 +893,7 @@ function renderSelected(){
         </div>
         <div class="f">
           <label>3차 카테고리<span class="req">*</span></label>
-          <select class="${!s.cat3?'error':''}" onchange="updateField(${s.masterIdx},'cat3',this.value)" ${!s.cat2?'disabled':''}>
+          <select class="${!s.cat3?'error':''}" onchange="updateField(${s.masterIdx},'cat3',this.value,this)" ${!s.cat2?'disabled':''}>
             <option value="">-- 선택 --</option>
             ${cat3Opts.map(c=>`<option value="${escapeHtml(c)}" ${s.cat3===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}
           </select>
@@ -869,16 +902,16 @@ function renderSelected(){
       <div class="field-grid" style="margin-top:10px">
         <div class="f">
           <label>판매규격<span class="req">*</span> (F)</label>
-          <input type="text" class="${!s.salesSpec?'error':''}" value="${escapeHtml(s.salesSpec)}" placeholder="예: 1kg" oninput="updateField(${s.masterIdx},'salesSpec',this.value)">
+          <input type="text" class="${!s.salesSpec?'error':''}" value="${escapeHtml(s.salesSpec)}" placeholder="예: 1kg" oninput="updateField(${s.masterIdx},'salesSpec',this.value,this)">
         </div>
         <div class="f">
           <label>판매단위<span class="req">*</span> (G)</label>
-          <input type="text" class="${!s.salesUnit?'error':''}" value="${escapeHtml(s.salesUnit)}" placeholder="예: 1팩" oninput="updateField(${s.masterIdx},'salesUnit',this.value)">
+          <input type="text" class="${!s.salesUnit?'error':''}" value="${escapeHtml(s.salesUnit)}" placeholder="예: 1팩" oninput="updateField(${s.masterIdx},'salesUnit',this.value,this)">
         </div>
         <div class="f">
           <label>판매중량<span class="req">*</span> (H)</label>
           <div style="display:flex;gap:6px">
-            <input type="number" style="flex:1;min-width:0" class="${!s.weightG?'error':''}" value="${s.weightG}" placeholder="예: 3" oninput="updateField(${s.masterIdx},'weightG',this.value)">
+            <input type="number" style="flex:1;min-width:0" class="${!s.weightG?'error':''}" value="${s.weightG}" placeholder="예: 3" oninput="updateField(${s.masterIdx},'weightG',this.value,this)">
             <select style="flex:0 0 56px" onchange="updateField(${s.masterIdx},'weightUnit',this.value)">
               <option value="g" ${(s.weightUnit||'g')==='g'?'selected':''}>g</option>
               <option value="kg" ${s.weightUnit==='kg'?'selected':''}>kg</option>
@@ -887,7 +920,7 @@ function renderSelected(){
         </div>
         <div class="f">
           <label>원산지<span class="req">*</span> (K)</label>
-          <input type="text" class="${!s.origin?'error':''}" value="${escapeHtml(s.origin)}" placeholder="예: 국내산(부산 자갈치)" oninput="updateField(${s.masterIdx},'origin',this.value)">
+          <input type="text" class="${!s.origin?'error':''}" value="${escapeHtml(s.origin)}" placeholder="예: 국내산(부산 자갈치)" oninput="updateField(${s.masterIdx},'origin',this.value,this)">
         </div>
         <div class="f">
           <label>제조사 (J, 선택)</label>
