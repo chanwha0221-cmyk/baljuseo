@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📊 수량 관리 시스템 v2.2</title>
+<title>📊 수량 관리 시스템 v2.3</title>
 <style>
   :root{ --navy:#2c3e50; --blue:#007bff; --red:#e74c3c; --border:#ced4da; --bg:#f8f9fa; }
   *{box-sizing:border-box;}
@@ -112,7 +112,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v2.2</span>
+  <span class="ver">v2.3</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
@@ -210,6 +210,7 @@
 //=================== 설정 ===================
 const TEAMS = ["토끼","거북","기린","여우","하마","고양","늑대"];
 const K_ENTRIES='sqm_entries_v1', K_HOLD='sqm_holding_v1', K_LOG='sqm_deletelog_v1', K_SEQ='sqm_seq_v1';
+const K_DIRTY='sqm_dirty_v1';   // 시트 저장 완료 전이면 '1' (새로고침 롤백 방지용)
 
 // ── 구글 시트(수량 리더 시트) 직접 연동 — secretary/식봄ERP와 동일 서비스계정 ──
 const SHEET_ID='1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI';
@@ -305,7 +306,7 @@ async function loadFromSheet(){
 }
 // 변경분을 시트에 반영 (입력 시트 + 현황판 + 삭제 로그 덮어쓰기)
 let _chain=Promise.resolve();
-function commit(){ save(); _chain=_chain.then(()=>writeToSheet()).catch(()=>{}); return _chain; }
+function commit(){ save(); localStorage.setItem(K_DIRTY,'1'); _chain=_chain.then(()=>writeToSheet()).catch(()=>{}); return _chain; }
 async function writeToSheet(){
   if(!sheetOnline){ setSync('offline'); toast('⚠️ 시트 미연결 — 로컬에만 저장됨','warn'); return; }
   setSync('saving');
@@ -324,6 +325,7 @@ async function writeToSheet(){
     if(logRows.length) data.push({range:`${SH_LOG}!A2`,values:logRows});
     if(data.length) await sheetValuesUpdate(data);
     setSync('ok');
+    localStorage.setItem(K_DIRTY,'0');   // 시트 저장 성공 → 깨끗 (이제 새로고침해도 안전)
   }catch(e){ setSync('error'); console.error('시트 저장 실패:',e); toast('⚠️ 시트 저장 실패: '+e.message,'warn'); }
 }
 
@@ -601,11 +603,28 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('logOverlay').addEventListener('click', e=>{ if(e.target.id==='logOverlay') e.currentTarget.classList.remove('show'); });
   document.getElementById('editOverlay').addEventListener('click', e=>{ if(e.target.id==='editOverlay') e.currentTarget.classList.remove('show'); });
 
-  // 1) 캐시로 즉시 첫 화면 → 2) 시트(=truth)에서 불러와 갱신
+  // 1) 캐시로 즉시 첫 화면
   loadCache(); render();
+  // 직전 세션에서 시트 저장이 끝나기 전에 새로고침/종료됐는지 확인 (롤백 방지)
+  const wasDirty = localStorage.getItem(K_DIRTY)==='1';
+  const localSnap = wasDirty ? {
+    e: JSON.parse(JSON.stringify(entries)),
+    h: JSON.parse(JSON.stringify(holdingMap)),
+    l: JSON.parse(JSON.stringify(deleteLog)),
+    seq: nextSeq
+  } : null;
+  // 2) 시트(=truth)에서 불러와 갱신
   const ok = await loadFromSheet();
   render();
-  if(!ok) toast('⚠️ 시트 연결 실패 — 로컬 캐시 표시 중 (변경분 시트 반영 안 됨)','warn');
+  if(!ok){
+    toast('⚠️ 시트 연결 실패 — 로컬 캐시 표시 중 (변경분 시트 반영 안 됨)','warn');
+  } else if(localSnap){
+    // 저장이 끝나지 않은 로컬 변경분이 있었음 → 시트(옛 상태)로 덮이지 않게 로컬 복원 후 재저장
+    entries = localSnap.e; holdingMap = localSnap.h; deleteLog = localSnap.l; nextSeq = localSnap.seq;
+    render();
+    commit();
+    toast('💾 저장이 끝나지 않은 변경을 복구해 다시 저장했어요');
+  }
 
   // 업데이트 감지 시작 (현재 배포본 해시를 기준으로 잡아둠)
   initUpdateWatcher();
@@ -634,11 +653,12 @@ function showUpdateBanner(){
     window.scrollTo({top:0, behavior:'smooth'}); // 스크롤 내려가 있어도 보이게
   }
 }
-// 업데이트가 잡혀있으면: 입력 없으면 즉시 새로고침 / 있으면 배너
-function applyUpdateIfReady(){
+// 업데이트가 잡혀있으면: 입력 없으면 (저장 끝낸 뒤) 새로고침 / 있으면 배너
+async function applyUpdateIfReady(){
   if(!_updatePending) return;
-  if(_hasUnsavedInput()) showUpdateBanner();
-  else location.reload();
+  if(_hasUnsavedInput()){ showUpdateBanner(); return; }
+  try{ await _chain; }catch(e){}   // 진행 중인 시트 저장을 먼저 끝냄 (자동 새로고침 롤백 방지)
+  location.reload();
 }
 async function checkForUpdate(){
   if(_checking) return;
