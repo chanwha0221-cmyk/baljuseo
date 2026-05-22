@@ -745,11 +745,12 @@ function renderMasterList(){
   document.getElementById('master-list').innerHTML = filtered.length===0
     ? '<div class="status">검색 결과 없음</div>'
     : filtered.slice(0,200).map(p=>{
-        const sellPrice = calcSellPrice(p.cost);
+        const sellPrice = calcSellPrice(p.cost, p.supplyPrice);
+        const extApplied = p.cost>0 && sellPrice > Math.ceil(p.cost*1.15/100)*100;
         return `<div class="master-row ${sel.has(p.idx)?'selected':''}" onclick="addToSelected(${p.idx})">
           <div>
             <div><b>${escapeHtml(p.name)}</b> ${sel.has(p.idx)?'<span style="color:#27ae60;font-size:11px">✓ 추가됨</span>':''}</div>
-            <div class="meta">원가 ${fmt(p.cost)}원 → 판매 ${fmt(sellPrice)}원 · ${p.costTax||'-'} · ${p.warehouse||'-'} · ${p.type||'-'}</div>
+            <div class="meta">원가 ${fmt(p.cost)}원 → 판매 ${fmt(sellPrice)}원${extApplied?' <span style="color:#b45309">(외부가)</span>':''} · ${p.costTax||'-'} · ${p.warehouse||'-'} · ${p.type||'-'}</div>
           </div>
           <span class="btn-sm">+ 추가</span>
         </div>`;
@@ -760,11 +761,13 @@ function renderMasterList(){
 }
 
 // ════════════════════════════════════════════════════════════════
-// 가격 계산: 원가 × 1.15, 100원 단위 올림
+// 가격 계산: 원가 × 1.15(100원 단위 올림). 단, 그 값이 외부 공급가보다 낮으면 공급가 사용
 // ════════════════════════════════════════════════════════════════
-function calcSellPrice(cost){
-  if(!cost || cost<=0) return 0;
-  return Math.ceil(cost * 1.15 / 100) * 100;
+function calcSellPrice(cost, supplyPrice){
+  const base = (!cost || cost<=0) ? 0 : Math.ceil(cost * 1.15 / 100) * 100;  // 15% 마진가
+  const ext = (supplyPrice && supplyPrice>0) ? supplyPrice : 0;              // 외부 공급가(판매가)
+  // 15% 마진가가 외부 공급가보다 낮으면 → 외부 공급가를 식봄 판매가로
+  return Math.max(base, ext);
 }
 function fmt(n){ return Number(n||0).toLocaleString('ko-KR'); }
 function escapeHtml(s){
@@ -786,7 +789,8 @@ function addToSelected(masterIdx){
     masterIdx,
     name: p.name,
     cost: p.cost,
-    sellPrice: calcSellPrice(p.cost),
+    supplyPrice: p.supplyPrice,
+    sellPrice: calcSellPrice(p.cost, p.supplyPrice),
     taxType: p.costTax.includes('과세')?'y':'n',  // y=과세, n=면세
     // 자기야가 입력할 필드
     cat1: '생선.해산물.건어물',  // 기본값 — 수산물 위주
@@ -874,7 +878,7 @@ function renderSelected(){
     return `<div class="selected-card" id="card-${s.masterIdx}" style="${isComplete?'':'border-left:3px solid #dc2626'}">
       <div class="card-header">
         <div class="card-name">${escapeHtml(s.name)} <span id="badge-${s.masterIdx}" style="color:${isComplete?'#27ae60':'#dc2626'};font-size:11px;margin-left:6px">${isComplete?'✓ 등록 준비됨':'⚠ 필수 미입력'}</span></div>
-        <div class="card-price">원가 <b>${fmt(s.cost)}</b>원 → 식봄 판매가 <b>${fmt(s.sellPrice)}</b>원 (마진 15%)</div>
+        <div class="card-price">원가 <b>${fmt(s.cost)}</b>원 → 식봄 판매가 <b>${fmt(s.sellPrice)}</b>원 ${s.cost>0 && s.sellPrice > Math.ceil(s.cost*1.15/100)*100 ? '<span style="color:#b45309">(외부 판매가 적용)</span>' : '(마진 15%)'}</div>
       </div>
       <div class="cat-row">
         <div class="f">
