@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📊 수량 관리 시스템 v2.4</title>
+<title>📊 수량 관리 시스템 v2.5</title>
 <style>
   :root{ --navy:#2c3e50; --blue:#007bff; --red:#e74c3c; --border:#ced4da; --bg:#f8f9fa; }
   *{box-sizing:border-box;}
@@ -112,7 +112,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v2.4</span>
+  <span class="ver">v2.5</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
@@ -264,6 +264,44 @@ async function sheetValuesUpdate(data){
   const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
   const d=await r.json(); if(d.error) throw new Error(d.error.message);
 }
+// ── 탭 gid 조회 (테두리 서식용, 1회 캐시) ──
+let _sheetIds=null;
+async function getSheetIds(){
+  if(_sheetIds) return _sheetIds;
+  const token=await getAccessToken();
+  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets(properties(sheetId,title))`,{headers:{'Authorization':'Bearer '+token}});
+  const d=await r.json(); if(d.error) throw new Error(d.error.message);
+  _sheetIds={}; (d.sheets||[]).forEach(s=>{ _sheetIds[s.properties.title]=s.properties.sheetId; });
+  return _sheetIds;
+}
+// ── 데이터 범위에 격자 테두리 그리기 + 그 아래 잔여 테두리 제거 ──
+function _borderReqs(sheetId, totalRows, totalCols){
+  const LINE={style:'SOLID', color:{red:0.843,green:0.859,blue:0.878}}; // 앱 표 테두리색(#d7dbe0)
+  const NONE={style:'NONE'};
+  const reqs=[{updateBorders:{
+    range:{sheetId, startRowIndex:0, endRowIndex:totalRows, startColumnIndex:0, endColumnIndex:totalCols},
+    top:LINE, bottom:LINE, left:LINE, right:LINE, innerHorizontal:LINE, innerVertical:LINE
+  }}];
+  // 데이터가 줄었을 때 아래에 빈 테두리 칸이 남지 않게 제거 (최대 1000행)
+  if(totalRows<1000) reqs.push({updateBorders:{
+    range:{sheetId, startRowIndex:totalRows, endRowIndex:1000, startColumnIndex:0, endColumnIndex:totalCols},
+    top:NONE, bottom:NONE, left:NONE, right:NONE, innerHorizontal:NONE, innerVertical:NONE
+  }});
+  return reqs;
+}
+// 값 저장 직후 호출. 실패해도 데이터 저장에는 영향 없음(조용히 무시).
+async function applySheetBorders(inputRows, statusRows, logRows){
+  try{
+    const ids=await getSheetIds();
+    let reqs=[];
+    if(ids[SH_INPUT]!=null)  reqs=reqs.concat(_borderReqs(ids[SH_INPUT],  1+inputRows,  5));
+    if(ids[SH_STATUS]!=null) reqs=reqs.concat(_borderReqs(ids[SH_STATUS], 1+statusRows, 14));
+    if(ids[SH_LOG]!=null)    reqs=reqs.concat(_borderReqs(ids[SH_LOG],    1+logRows,    6));
+    if(!reqs.length) return;
+    const token=await getAccessToken();
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({requests:reqs})});
+  }catch(e){ console.warn('테두리 적용 실패(무시):',e); }
+}
 
 function nowStr(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
 function setSync(state){
@@ -326,6 +364,7 @@ async function writeToSheet(){
     if(data.length) await sheetValuesUpdate(data);
     setSync('ok');
     localStorage.setItem(K_DIRTY,'0');   // 시트 저장 성공 → 깨끗 (이제 새로고침해도 안전)
+    applySheetBorders(inputRows.length, statusRows.length, logRows.length); // 새 행에도 칸 테두리 자동 (비동기·실패 무방)
   }catch(e){ setSync('error'); console.error('시트 저장 실패:',e); toast('⚠️ 시트 저장 실패: '+e.message,'warn'); }
 }
 
