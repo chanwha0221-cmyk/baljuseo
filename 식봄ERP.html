@@ -1143,9 +1143,23 @@ function thExtract(){
   thRenderGrid(); thRenderPicks();
   toast(`✓ 이미지 ${n}개 — 앞2 + 뒤2 자동 선택`);
 }
+// 그리드는 앞 10 + 뒤 10만 표시 (이미지가 100장 넘는 상품도 가볍게, 모바일·weserv 부하 ↓)
+function thGridIndices(){
+  const n=thAllImgs.length;
+  if(n<=20) return thAllImgs.map((_,i)=>i);
+  const out=[];
+  for(let i=0;i<10;i++) out.push(i);
+  out.push('gap');
+  for(let i=n-10;i<n;i++) out.push(i);
+  return out;
+}
 function thRenderGrid(){
   const g=document.getElementById('th-grid');
-  g.innerHTML=thAllImgs.map((url,i)=>{ const pos=thSelected.indexOf(i); return `<div class="th-thumb ${pos>=0?'th-sel':''}" onclick="thToggle(${i})" title="${url}"><span class="th-idx">${i+1}</span><span class="th-pick">${pos>=0?pos+1:''}</span><img src="${thWeserv(url,150)}" loading="lazy"></div>`; }).join('');
+  g.innerHTML=thGridIndices().map(i=>{
+    if(i==='gap') return `<div style="grid-column:1/-1;text-align:center;color:#a8a49e;font-size:11px;padding:6px 0">··· 가운데 ${thAllImgs.length-20}장 생략 (앞 10 + 뒤 10만 표시) ···</div>`;
+    const url=thAllImgs[i]; const pos=thSelected.indexOf(i);
+    return `<div class="th-thumb ${pos>=0?'th-sel':''}" onclick="thToggle(${i})" title="${url}"><span class="th-idx">${i+1}</span><span class="th-pick">${pos>=0?pos+1:''}</span><img src="${thWeserv(url,150)}" loading="lazy"></div>`;
+  }).join('');
   document.getElementById('th-sel-count').textContent=`${thSelected.length}/4 선택`;
 }
 function thToggle(i){
