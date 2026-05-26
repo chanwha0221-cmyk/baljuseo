@@ -74,24 +74,71 @@
     <button class="btn ghost sm" onclick="loadAll()">새로고침</button>
   </div>
 
-  <!-- ✉️ 신규 메일 작성 -->
+  <!-- ① 보낸 업체 기록 (맨 위) — 채널 선택 시 아래 작성 폼이 바뀜 -->
   <div class="card">
-    <h2>✉️ 신규 영업 메일 작성</h2>
+    <h2>＋ 보낸 업체 기록</h2>
+    <div class="form-grid">
+      <div><label>업체명 <span class="muted">(선택)</span></label><input id="f-name" placeholder="모르면 비워도 됨"></div>
+      <div><label>연락 채널 <span class="muted">(선택 → 아래 폼 바뀜)</span></label>
+        <select id="f-chan" onchange="chanHint()">
+          <option value="이메일">이메일</option>
+          <option value="네이버쪽지">네이버쪽지</option>
+          <option value="카톡전화">카톡/전화</option>
+        </select>
+      </div>
+      <div><label id="f-contact-lbl">메일주소 *</label><input id="f-contact" placeholder="buyer@xxx.co.kr"></div>
+      <div><label>보낸 날짜</label><input id="f-date" type="date"></div>
+      <div><label>상태</label>
+        <select id="f-stat"><option>진행중</option><option>회신</option><option>보류</option><option>종료</option></select>
+      </div>
+      <div style="grid-column:span 2"><label>메모 <span class="muted">(본문 작성 후 [메모 취합] 누르면 AI가 보낸 내용 한 줄 요약)</span></label>
+        <div style="display:flex;gap:6px">
+          <input id="f-memo" placeholder="자유 메모" style="flex:1">
+          <button class="btn ghost" type="button" onclick="summarizeMemo()" style="white-space:nowrap">🧠 메모 취합</button>
+        </div>
+      </div>
+      <div style="align-self:end"><button class="btn brand" onclick="addRow()">추가</button></div>
+    </div>
+  </div>
+
+  <!-- ② 채널별 메시지 작성 (위에서 고른 채널의 폼만 표시) -->
+  <div class="card">
+    <h2 id="compose-title">✉️ 이메일 작성</h2>
     <div class="compose-grid">
       <div>
-        <div class="fld">
-          <label>메일 본문 템플릿 <span class="muted">(편집하면 저장돼요 · <b>[당일 공급 시트 이미지]</b> 자리에 시트 이미지 붙여넣기)</span></label>
-          <textarea id="tpl" style="min-height:330px;line-height:1.7"></textarea>
+        <!-- 이메일 -->
+        <div id="form-email" class="fld">
+          <label>메일 본문 템플릿 <span class="muted">(편집하면 저장돼요 · <b>[당일 공급 시트 이미지]</b> = 시트가 들어갈 위치 표시)</span></label>
+          <textarea id="tpl" style="min-height:300px;line-height:1.7"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn brand" onclick="copyText('tpl')">📋 본문 복사</button>
+            <button class="btn ghost" onclick="saveTemplate()">템플릿 저장</button>
+            <button class="btn ghost" onclick="resetTemplate()">기본값 복원</button>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn brand" onclick="copyForGmail()">📧 Gmail용 전체 복사 (본문+이미지)</button>
-          <button class="btn" onclick="copyText('tpl')">📋 본문만 복사</button>
-          <button class="btn ghost" onclick="saveTemplate()">템플릿 저장</button>
-          <button class="btn ghost" onclick="resetTemplate()">기본값 복원</button>
+        <!-- 네이버쪽지 -->
+        <div id="form-note" class="fld" style="display:none">
+          <label>📨 네이버쪽지 본문 <span class="muted">(제목 없이 짧게)</span></label>
+          <textarea id="tpl-note" style="min-height:230px;line-height:1.6"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn brand" onclick="copyText('tpl-note')">📋 복사</button>
+            <button class="btn ghost" onclick="saveTpl('note')">저장</button>
+            <button class="btn ghost" onclick="resetTpl('note')">기본값</button>
+          </div>
         </div>
-        <div class="hint"><b>Gmail은 이렇게:</b> 오른쪽에 공급시트·명함 이미지 올린 뒤 → <b>📧 Gmail용 전체 복사</b> 누르고 → Gmail 본문에서 한 번 <b>Ctrl+V</b>. 본문+이미지가 한 번에 들어가요. (이미지가 안 들어가면 본문에 <b>[당일 공급 시트 이미지]</b>·<b>[명함 이미지]</b> 위치 표시가 남으니 거기에 직접 첨부) · 이미지 올리기: <b>이미지 가져오기</b>(파일) 또는 캡처 후 슬롯 클릭 → <b>Ctrl+V</b> / <b>📋 붙여넣기</b> 버튼</div>
+        <!-- 카톡 -->
+        <div id="form-kakao" class="fld" style="display:none">
+          <label>📱 카톡 메시지 <span class="muted">(더 짧고 친근하게)</span></label>
+          <textarea id="tpl-kakao" style="min-height:230px;line-height:1.6"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn brand" onclick="copyText('tpl-kakao')">📋 복사</button>
+            <button class="btn ghost" onclick="saveTpl('kakao')">저장</button>
+            <button class="btn ghost" onclick="resetTpl('kakao')">기본값</button>
+          </div>
+        </div>
+        <div class="hint" id="compose-hint"></div>
       </div>
-      <div>
+      <div id="img-col">
         <div class="img-slot">
           <label style="font-weight:700;font-size:12.5px">📋 당일 공급 시트 이미지 <span class="muted">(매일 교체)</span></label>
           <img id="daily-img"><div class="ph" id="daily-ph">오늘 시트 이미지를 올려주세요</div>
@@ -116,28 +163,6 @@
           <div class="muted" id="card-save" style="display:none;margin-top:4px">새 명함 — <a href="#" onclick="saveCard();return false">고정으로 저장</a></div>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- ＋ 업체 추가 -->
-  <div class="card">
-    <h2>＋ 보낸 업체 기록</h2>
-    <div class="form-grid">
-      <div><label>업체명 <span class="muted">(선택)</span></label><input id="f-name" placeholder="모르면 비워도 됨"></div>
-      <div><label>연락 채널</label>
-        <select id="f-chan" onchange="chanHint()">
-          <option value="이메일">이메일</option>
-          <option value="네이버쪽지">네이버쪽지</option>
-          <option value="카톡전화">카톡/전화</option>
-        </select>
-      </div>
-      <div><label id="f-contact-lbl">메일주소 *</label><input id="f-contact" placeholder="buyer@xxx.co.kr"></div>
-      <div><label>보낸 날짜</label><input id="f-date" type="date"></div>
-      <div><label>상태</label>
-        <select id="f-stat"><option>진행중</option><option>회신</option><option>보류</option><option>종료</option></select>
-      </div>
-      <div><label>메모</label><input id="f-memo" placeholder="자유 메모"></div>
-      <div><button class="btn brand" onclick="addRow()">추가</button></div>
     </div>
   </div>
 
@@ -213,6 +238,17 @@ const DEFAULT_TEMPLATE=`안녕하세요, 대표님.
 
 혹시 필요하실 때가 생기시면 명함 보관해두셨다가 전화나 카카오톡으로 편하게 연락 주세요.
 빠르고 정확하게 응대드리겠습니다.`;
+
+const DEFAULT_NOTE=`안녕하세요, 대표님.
+주식회사 마스터 홍찬화 팀장입니다.
+
+전국 산지에서 직접 수매해 상시 300~500종 농·축·수산물을 운영하는 수산물 전문 유통사입니다. 소량 한 건도 택배로 즉시 납품 가능합니다.
+
+필요하실 때 빠르고 정확하게 대응해 드리겠습니다. 관심 있으시면 편하게 답 주세요. 감사합니다.`;
+
+const DEFAULT_KAKAO=`안녕하세요 대표님! 주식회사 마스터 홍찬화입니다.
+전국 산지 직수매로 상시 300~500종 농·축·수산물 운영하고, 소량도 택배로 바로 보내드려요.
+당일 공급 가능한 상품시트랑 명함 보내드릴게요. 필요하실 때 편하게 연락 주세요!`;
 
 let _tok=null,_exp=0;
 async function getToken(){
@@ -301,6 +337,8 @@ async function loadAll(){
     // 템플릿
     $('tpl').value = SET.template || DEFAULT_TEMPLATE;
     if(!SET.template) await setSetting('template',DEFAULT_TEMPLATE);
+    $('tpl-note').value = SET.template_note || DEFAULT_NOTE;
+    $('tpl-kakao').value = SET.template_kakao || DEFAULT_KAKAO;
     // 명함
     if(SET.card_fileId){ try{ const u=await driveBlobURL(SET.card_fileId); showImg('card',u,false);}catch(e){console.warn('명함 로드 실패',e);} }
     // 데이터
@@ -315,6 +353,33 @@ function chanHint(){
   const c=$('f-chan').value;
   $('f-contact-lbl').innerHTML = c==='이메일'?'메일주소 *':c==='네이버쪽지'?'네이버/사이트 아이디 *':'전화번호(카톡) *';
   $('f-contact').placeholder = c==='이메일'?'buyer@xxx.co.kr':c==='네이버쪽지'?'naver_id 또는 카페아이디':'010-0000-0000';
+  // 채널별 작성 폼 토글
+  const isEmail=c==='이메일', isNote=c==='네이버쪽지', isKakao=!isEmail&&!isNote;
+  const fe=$('form-email'), fn=$('form-note'), fk=$('form-kakao'), ic=$('img-col'), ct=$('compose-title'), ch=$('compose-hint');
+  if(fe) fe.style.display = isEmail?'':'none';
+  if(fn) fn.style.display = isNote?'':'none';
+  if(fk) fk.style.display = isKakao?'':'none';
+  if(ic) ic.style.display = isNote?'none':'';   // 네이버쪽지는 이미지 없음
+  if(ct) ct.textContent = isEmail?'✉️ 이메일 작성':isNote?'📨 네이버쪽지 작성':'📱 카톡 작성';
+  if(ch) ch.innerHTML = isEmail
+    ? '<b>Gmail:</b> [본문 복사]해서 Gmail 본문에 붙여넣고 → 오른쪽 이미지는 <b>[이미지 복사]</b> 눌러 Gmail 본문에 <b>Ctrl+V</b>(인라인) 또는 <b>[저장]</b>으로 받아서 첨부. ⚠️ Gmail은 본문+이미지 한방 붙여넣기가 막혀 있어서 <b>이미지는 따로</b> 넣어야 해요.'
+    : isKakao
+    ? '카톡: [복사]해서 붙여넣고 → <b>명함·상품시트는 [이미지 복사]</b> 눌러 카톡에 직접 <b>Ctrl+V</b>로 붙여넣기.'
+    : '네이버쪽지: [복사]해서 쪽지 본문에 붙여넣기 (이미지 첨부 없음).';
+}
+// 🧠 작성한 본문을 AI가 한 줄로 축약해서 메모에 채움
+async function summarizeMemo(){
+  const c=$('f-chan').value;
+  const body = (c==='이메일'?$('tpl').value : c==='네이버쪽지'?$('tpl-note').value : $('tpl-kakao').value)||'';
+  if(!body.trim()){ toast('먼저 본문을 작성해 주세요'); return; }
+  const name=$('f-name').value.trim();
+  setStatus('메모 취합 중…');
+  try{
+    const prompt=`아래는 신규 거래처에게 ${chanLabel(c)}(으)로 보낸 영업 메시지야. "무엇을 보냈는지"를 한국어 한 줄(최대 35자)로 축약해줘. 부가 설명/따옴표 없이 요약문 한 줄만 출력. 예시: 회사소개+당일공급시트+명함 발송 / 신규 거래 제안 + 상품리스트 안내\n[대상] ${name||'(미상)'}\n[채널] ${chanLabel(c)}\n[본문]\n${body.slice(0,1200)}`;
+    let r=(await callAI(prompt)).trim().split('\n')[0].replace(/^["'\s\-·]+|["'\s]+$/g,'');
+    $('f-memo').value = r.slice(0,60);
+    setStatus('취합됨'); toast('메모 취합 완료 — 필요하면 수정하세요');
+  }catch(e){ setStatus('오류'); toast('메모 취합 실패: '+(e.message||e)); }
 }
 
 function render(){
@@ -390,6 +455,9 @@ function editRow(i){
 // ─── 템플릿 ───
 async function saveTemplate(){ setStatus('저장 중…'); await setSetting('template',$('tpl').value); setStatus('저장됨'); toast('템플릿 저장됨'); }
 function resetTemplate(){ if(confirm('기본 템플릿으로 되돌릴까요?')){ $('tpl').value=DEFAULT_TEMPLATE; toast('기본값 — 저장하려면 [템플릿 저장]'); } }
+// 쪽지/카톡 템플릿 저장·복원 (which: 'note' | 'kakao')
+async function saveTpl(which){ setStatus('저장 중…'); await setSetting('template_'+which, $('tpl-'+which).value); setStatus('저장됨'); toast((which==='note'?'쪽지':'카톡')+' 템플릿 저장됨'); }
+function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:DEFAULT_KAKAO; $('tpl-'+which).value=def; toast('기본값 — 저장하려면 [저장]'); }
 function copyText(id){ navigator.clipboard.writeText($(id).value).then(()=>toast('복사됨')); }
 
 // ─── 이미지 ───
