@@ -184,8 +184,8 @@
 
   <!-- 🔔 추가연락 대상 -->
   <div class="card" id="overdue-card" style="display:none">
-    <h2>🔔 추가연락 대상 <span class="badge red" id="overdue-count">0</span>
-      <span class="muted" style="font-weight:400">— 마지막 연락 14일 이상 + 진행중/보류</span></h2>
+    <h2>📮 20일+ 추가연락 대상 <span class="badge red" id="overdue-count">0</span>
+      <span class="muted" style="font-weight:400">— 마지막 연락 20일 이상 + 진행중/보류 · 채널별</span></h2>
     <div id="overdue-list"></div>
   </div>
 
@@ -232,6 +232,7 @@ const OAUTH_SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.goog
 const DATA_TAB='신규업체메일링', SET_TAB='메일설정';
 const HEADER=['업체명','연락방식','연락처','보낸날짜','마지막연락','상태','메모'];
 const OVERDUE_DAYS=14;
+const FOLLOWUP_DAYS=20;  // 20일+ 추가연락 대상 (채널별 그룹 뷰)
 const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
 const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
 
@@ -426,17 +427,52 @@ function render(){
   });
   $('empty').style.display=DATA.length?'none':'block';
   $('total-count').textContent=DATA.length;
+  // 📮 20일+ 추가연락 대상 — 채널별 그룹
   const oc=$('overdue-card');
-  if(overdue.length){
-    oc.style.display='block'; $('overdue-count').textContent=overdue.length;
-    $('overdue-list').innerHTML=overdue.map(i=>{const r=DATA[i],ds=daysSince(r[4]);
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
-        <b style="min-width:120px">${esc(r[0])||'(이름없음)'}</b>
-        <span class="chan ${r[1]==='카톡전화'?'카톡전화':esc(r[1])}">${esc(chanLabel(r[1]))}</span>
-        <span class="muted" style="flex:1">${esc(r[2])} · 마지막연락 ${esc(r[4])||'?'} (<b class="days hot">${ds}일</b> 경과)</span>
-        <button class="btn brand sm" onclick="draft(${i})">${followWord(r[1])} 초안</button>
-      </div>`;}).join('');
+  const fups=DATA.map((r,i)=>({r,i,ds:daysSince(r[4])}))
+    .filter(x=>x.ds!==null && x.ds>=FOLLOWUP_DAYS && !(x.r[5]==='종료'||x.r[5]==='회신'));
+  if(fups.length){
+    oc.style.display='block'; $('overdue-count').textContent=fups.length;
+    const groups={}; fups.forEach(x=>{ (groups[x.r[1]]||(groups[x.r[1]]=[])).push(x); });
+    let html='';
+    [['이메일','📧 이메일'],['네이버쪽지','📨 네이버쪽지'],['카톡전화','📱 카톡/전화']].forEach(([key,label])=>{
+      const arr=groups[key]||[]; if(!arr.length) return;
+      html+=`<div style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+          <b style="font-size:13px">${label} <span class="badge red">${arr.length}</span></b>`;
+      if(key==='이메일'){
+        html+=`<button class="btn brand sm" onclick="sendEmailFollowupBatch()">📧 메일 한번에 보내기 (BCC)</button>
+               <button class="btn ghost sm" onclick="copyFollowupEmails()">📋 메일주소 ${arr.length}개 복사</button>`;
+      }
+      html+=`</div>`;
+      html+=arr.map(x=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+        <b style="min-width:110px">${esc(x.r[0])||'(이름없음)'}</b>
+        <span class="muted" style="flex:1">${esc(x.r[2])} · 마지막 ${esc(x.r[4])||'?'} (<b class="days hot">${x.ds}일</b>)</span>
+        <button class="btn sm" onclick="draft(${x.i})">${followWord(x.r[1])} 초안</button>
+      </div>`).join('');
+      html+=`</div>`;
+    });
+    $('overdue-list').innerHTML=html;
   } else oc.style.display='none';
+}
+// 20일+ 이메일 업체 주소만 추출
+function followupEmails(){
+  return DATA.filter(r=>r[1]==='이메일' && !(r[5]==='종료'||r[5]==='회신') && daysSince(r[4])!==null && daysSince(r[4])>=FOLLOWUP_DAYS)
+    .map(r=>(r[2]||'').trim()).filter(Boolean);
+}
+function copyFollowupEmails(){
+  const em=followupEmails(); if(!em.length){ toast('20일 지난 이메일 업체가 없어요'); return; }
+  navigator.clipboard.writeText(em.join(', ')).then(()=>toast(em.length+'개 메일주소 복사됨 — 받는사람/BCC에 붙여넣기'));
+}
+// 📧 20일+ 이메일 업체 전체에게 BCC로 한번에 — 본문+시트 복사 + 썬더버드 BCC 열기 (각자한테 따로 감)
+async function sendEmailFollowupBatch(){
+  const em=followupEmails(); if(!em.length){ toast('20일 지난 이메일 업체가 없어요'); return; }
+  const {html,hasDaily}=buildMailHTML();
+  $('mail-preview').innerHTML=html; $('mail-preview-wrap').style.display='block';
+  try{ await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([$('tpl').value],{type:'text/plain'})})]); }catch(e){}
+  const subj=encodeURIComponent(($('tpl-subject').value||'').trim());
+  window.location.href='mailto:?bcc='+encodeURIComponent(em.join(','))+'&subject='+subj;
+  toast(em.length+'곳 BCC로 썬더버드 열림 — 본문 클릭 후 Ctrl+V! (각자한테 따로 발송돼요)'+(hasDaily?'':' ⚠️시트이미지 확인'));
 }
 
 async function addRow(){
