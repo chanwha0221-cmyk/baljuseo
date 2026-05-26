@@ -32,6 +32,7 @@
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand)}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  td.memo{white-space:normal;word-break:keep-all;min-width:130px;line-height:1.45}
   th{font-size:11.5px;color:var(--sub);font-weight:700}
   tr.overdue td{background:var(--redbg)}
   tr.done td{opacity:.5}
@@ -152,9 +153,9 @@
     <h2>전체 업체 <span class="badge green" id="total-count">0</span></h2>
     <table>
       <thead><tr>
-        <th style="width:15%">업체명</th><th style="width:9%">채널</th><th style="width:18%">연락처</th>
-        <th style="width:10%">보낸날짜</th><th style="width:10%">마지막연락</th>
-        <th style="width:6%">경과</th><th style="width:8%">상태</th><th>메모</th><th style="width:210px"></th>
+        <th style="width:13%">업체명</th><th style="width:8%">채널</th><th style="width:14%">연락처</th>
+        <th style="width:9%">보낸날짜</th><th style="width:9%">마지막연락</th>
+        <th style="width:5%">경과</th><th style="width:7%">상태</th><th style="width:17%">메모</th><th style="width:200px"></th>
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
@@ -198,9 +199,9 @@ const DEFAULT_TEMPLATE=`안녕하세요, 대표님.
 
 전국 산지 어판장에서 직접 수매하고, 창고를 자체 운영하며 빠르게 유통 대응하고 있는 수산물 전문 유통사입니다.
 
-이미 많은 거래처를 관리하고 계시겠지만, 현지에서 직접 움직이는 저희 같은 업체가 필요하실 때 더 빠르게 대응해드릴 수 있을 거라 생각합니다.
+상시 300~500여 가지 이상의 농·축·수산물을 꾸준히 운영 중이며, 소량 한 건도 택배로 즉시 납품 가능합니다.
 
-저희는 전국 산지 상품을 중심으로 상시 300~500여 가지 이상의 농·축·수산물을 꾸준히 운영 중이며, 소량 한 건도 택배로 즉시 납품 가능합니다.
+이미 많은 거래처를 관리하고 계시겠지만, 현지에서 직접 움직이는 저희 같은 업체가 필요하실 때 더 빠르게 대응해드릴 수 있을 거라 생각합니다.
 
 ────────────────
 금일 공급 가능한 당일 상품 리스트입니다.
@@ -208,7 +209,6 @@ const DEFAULT_TEMPLATE=`안녕하세요, 대표님.
 [당일 공급 시트 이미지]
 
 해당 이미지는 마스터에서 공급 가능한 상품 일부입니다.
-가격은 수매 시점에 따라 달라질 수 있으니 편하게 연락 주시면 바로 안내드리겠습니다.
 ────────────────
 
 혹시 필요하실 때가 생기시면 명함 보관해두셨다가 전화나 카카오톡으로 편하게 연락 주세요.
@@ -331,7 +331,7 @@ function render(){
       <td>${esc(sent)||'—'}</td><td>${esc(last)||'—'}</td>
       <td class="days ${isOver?'hot':''}">${ds===null?'—':ds+'일'}</td>
       <td><span class="pill ${esc(stat)}">${esc(stat)||'—'}</span></td>
-      <td class="muted">${esc(memo)}</td>
+      <td class="muted memo">${esc(memo)}</td>
       <td><div class="row-actions">
         ${(!isDone)?`<button class="btn brand sm" onclick="draft(${i})">${followWord(chan)} 초안</button>`:''}
         <button class="btn sm" onclick="markContact(${i})">연락함</button>
@@ -358,8 +358,16 @@ function render(){
 async function addRow(){
   const contact=$('f-contact').value.trim();
   if(!contact){ toast('연락처는 필수예요 (메일/아이디/번호)'); return; }
+  const name=$('f-name').value.trim();
+  // ⚠️ 중복 체크 — 같은 연락처(또는 업체명)로 최근 2주(14일) 내 보낸 기록 있으면 경고
+  const normC=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+  const dup=DATA.find(r=> (normC(r[2])===normC(contact) || (name && normC(r[0])===normC(name))) && daysSince(r[4])!==null && daysSince(r[4])<=OVERDUE_DAYS);
+  if(dup){
+    const d=daysSince(dup[4]);
+    if(!confirm('⚠️ 이미 보낸 업체예요!\n\n['+(dup[0]||'(이름없음)')+'] '+dup[2]+'\n채널: '+chanLabel(dup[1])+' · 마지막연락 '+dup[4]+' ('+d+'일 전)\n\n2주('+OVERDUE_DAYS+'일) 안에 또 연락하는 거예요. 그래도 추가할까요?')) return;
+  }
   const date=$('f-date').value||todayKST();
-  DATA.push([$('f-name').value.trim(),$('f-chan').value,contact,date,date,$('f-stat').value,$('f-memo').value.trim()]);
+  DATA.push([name,$('f-chan').value,contact,date,date,$('f-stat').value,$('f-memo').value.trim()]);
   setStatus('저장 중…'); await save();
   $('f-name').value=$('f-contact').value=$('f-memo').value=''; $('f-date').value=todayKST();
   render(); setStatus('저장됨'); toast('추가 완료');
