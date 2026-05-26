@@ -111,7 +111,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <button class="nav-btn active" id="nav-bulk" onclick="switchTab('bulk',this)">📦 상품 대량등록</button>
   <button class="nav-btn" id="nav-detail" onclick="switchTab('detail',this)">📝 상세페이지 변환기</button>
   <button class="nav-btn" id="nav-margin" onclick="switchTab('margin',this)">📊 마진 체크 <span id="margin-alert-badge" style="display:none;background:#dc2626;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px"></span></button>
-  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v2.0 · 간격압축</span>
+  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v2.1 · 판매가기준마진</span>
 </div>
 
 <!-- ═══════════════ 탭 1: 상품 대량등록 ═══════════════ -->
@@ -219,7 +219,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <div class="title-bar">
     <div>
       <h1>📊 마진 체크 — 역마진/마진감소 추적</h1>
-      <div class="sub">식봄에 등록한 판매가는 박혀있고, 마스터 시트 원가는 시장가 변동에 따라 바뀜 — 마이너스 나는 상품 자동 감지 <b style="color:#7b2d8b">(몰 수수료 6.6% 차감 후 실마진 기준)</b></div>
+      <div class="sub">식봄에 등록한 판매가는 박혀있고, 마스터 시트 원가는 시장가 변동에 따라 바뀜 — 마이너스 나는 상품 자동 감지 <b style="color:#7b2d8b">(마진율 = 판매가 기준, 몰 수수료 6.6% 제외한 실수령 기준)</b></div>
     </div>
     <button class="btn btn-purple" onclick="refreshMarginCheck()" id="marginRefreshBtn">🔄 마스터 시트 원가 새로고침</button>
   </div>
@@ -248,7 +248,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
           <th class="num">판매가</th>
           <th class="num">현재 원가</th>
           <th class="num">원가 변동</th>
-          <th class="num">현재 마진</th>
+          <th class="num">현재 마진<br><span style="font-size:10px;font-weight:400;color:#a8a49e">판매가 기준 / 수수료 제외 금액</span></th>
           <th>상태</th>
           <th></th>
         </tr>
@@ -586,10 +586,14 @@ async function refreshMarginCheck(){
 }
 
 const MALL_FEE = 0.066;  // 식봄 몰 수수료 = 판매가의 6.6% (VAT 포함). 실수령 = 판매가 × (1-0.066)
-function calcMargin(sellPrice, currentCost){
-  if(!currentCost || currentCost<=0) return null;
-  const net = sellPrice * (1 - MALL_FEE);          // 몰 수수료 6.6% 차감 후 실수령액
-  return (net - currentCost) / currentCost * 100;  // 원가 대비 실마진
+function netRevenue(sellPrice){ return sellPrice * (1 - MALL_FEE); }   // 수수료 제외 실수령액
+function marginAmt(sellPrice, currentCost){                            // 마진 금액(원) = 실수령 - 원가
+  if(currentCost == null) return null;
+  return Math.round(netRevenue(sellPrice) - currentCost);
+}
+function calcMargin(sellPrice, currentCost){                           // 판매가 기준 마진율(%) = (실수령-원가)/판매가
+  if(!currentCost || currentCost<=0 || !sellPrice) return null;
+  return (netRevenue(sellPrice) - currentCost) / sellPrice * 100;
 }
 
 function marginStatus(marginPct){
@@ -684,7 +688,7 @@ function renderMarginTable(){
       <td class="num" style="color:${diffColor}">
         ${costDiff==null ? '-' : (costDiff>0?'+':'') + fmt(costDiff) + (costDiffPct!=null ? ` (${costDiffPct>0?'+':''}${costDiffPct.toFixed(1)}%)` : '')}
       </td>
-      <td class="num"><b>${m===null ? '<span style="color:#a8a49e">-</span>' : (m>=0?'+':'')+m.toFixed(1)+'%'}</b></td>
+      <td class="num"><b>${m===null ? '<span style="color:#a8a49e">-</span>' : (m>=0?'+':'')+m.toFixed(1)+'%'}</b>${m===null?'':`<div style="font-size:11px;color:#6b6760">${(marginAmt(h.sellPrice,h.currentCost)>=0?'+':'')}${fmt(marginAmt(h.sellPrice,h.currentCost))}원</div>`}</td>
       <td><span class="margin-bar ${status}">${info.emoji} ${info.label}</span></td>
       <td>
         <button class="btn-sm danger" onclick="deleteHistoryRow('${h.id}')" title="이력에서 제거">✕</button>
