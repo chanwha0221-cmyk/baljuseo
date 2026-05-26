@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>신규업체 메일링 관리</title>
+<style>
+  :root{ --bg:#f4f6f9; --card:#fff; --line:#e3e7ee; --ink:#1f2733; --sub:#6b7686;
+         --brand:#e8742c; --brand-d:#cc5f1c; --red:#e23b3b; --redbg:#fde8e8;
+         --green:#1f9d57; --greenbg:#e7f6ee; --amber:#b9820b; --amberbg:#fdf3dd;
+         --blue:#2b63d9; --bluebg:#e8f0fe; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+       background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
+  .wrap{max-width:1100px;margin:0 auto;padding:18px 16px 70px}
+  h1{font-size:19px;margin:0 0 2px;display:flex;align-items:center;gap:8px}
+  .muted{color:var(--sub);font-size:12.5px}
+  .status{font-size:12px;color:var(--sub);margin-left:auto}
+  .topbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .btn{border:0;border-radius:8px;padding:8px 13px;font-size:13px;font-weight:600;cursor:pointer;background:#eef1f5;color:#333}
+  .btn:hover{filter:brightness(.97)}
+  .btn.brand{background:var(--brand);color:#fff}.btn.brand:hover{background:var(--brand-d)}
+  .btn.sm{padding:4px 9px;font-size:12px;border-radius:6px}
+  .btn.ghost{background:transparent;color:var(--sub);border:1px solid var(--line)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 1px 2px rgba(20,30,50,.04)}
+  .card h2{font-size:14px;margin:0 0 12px;display:flex;align-items:center;gap:7px}
+  .badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+  .badge.red{background:var(--redbg);color:var(--red)}.badge.green{background:var(--greenbg);color:var(--green)}
+  .form-grid{display:grid;grid-template-columns:1.3fr 1fr 1.8fr 1fr 1fr 1.4fr auto;gap:8px;align-items:end}
+  .form-grid label,.fld label{display:block;font-size:11.5px;color:var(--sub);margin-bottom:3px;font-weight:600}
+  input,select,textarea{width:100%;padding:8px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;background:#fff}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{font-size:11.5px;color:var(--sub);font-weight:700}
+  tr.overdue td{background:var(--redbg)}
+  tr.done td{opacity:.5}
+  .days{font-weight:700}.days.hot{color:var(--red)}
+  .row-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+  .empty{text-align:center;color:var(--sub);padding:26px 0}
+  .pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:20px;background:#eef1f5;color:#555;white-space:nowrap}
+  .pill.진행중{background:var(--bluebg);color:var(--blue)}
+  .pill.회신{background:var(--greenbg);color:var(--green)}
+  .pill.보류{background:var(--amberbg);color:var(--amber)}
+  .pill.종료{background:#eceef1;color:#888}
+  .chan{display:inline-block;font-size:11px;padding:1px 8px;border-radius:6px;background:#eef1f5;color:#444;white-space:nowrap}
+  .chan.이메일{background:#eaf3ff;color:#2b63d9}.chan.네이버쪽지{background:#e7f6ec;color:#13a04a}
+  .chan.카톡전화{background:#fff4d6;color:#9a7400}
+  .compose-grid{display:grid;grid-template-columns:1fr 320px;gap:18px}
+  @media(max-width:820px){ .compose-grid{grid-template-columns:1fr} }
+  .img-slot{border:1.5px dashed var(--line);border-radius:10px;padding:10px;text-align:center;background:#fafbfd;margin-bottom:12px}
+  .img-slot img{max-width:100%;max-height:170px;border-radius:6px;display:none;margin:8px auto 6px}
+  .img-slot .ph{color:var(--sub);font-size:12px;padding:14px 0}
+  .img-btns{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+  .modal-bg{position:fixed;inset:0;background:rgba(15,22,35,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modal-bg.on{display:flex}
+  .modal{background:#fff;border-radius:14px;max-width:660px;width:100%;max-height:88vh;overflow:auto;padding:20px}
+  .modal h3{margin:0 0 4px;font-size:16px}.modal textarea{min-height:240px;margin-top:10px;line-height:1.6}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1f2733;color:#fff;padding:10px 18px;border-radius:9px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:80}
+  .toast.on{opacity:1}
+  .hint{background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--sub);margin-top:8px;line-height:1.7}
+  details summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--brand-d)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>📮 신규업체 메일링 관리</h1>
+      <div class="muted">신규 영업 메일 작성 + 보낸 곳 추적 · 2주 경과 시 추가연락 알림</div>
+    </div>
+    <span class="status" id="status">불러오는 중…</span>
+    <button class="btn ghost sm" onclick="loadAll()">새로고침</button>
+  </div>
+
+  <!-- ✉️ 신규 메일 작성 -->
+  <div class="card">
+    <h2>✉️ 신규 영업 메일 작성</h2>
+    <div class="compose-grid">
+      <div>
+        <div class="fld">
+          <label>메일 본문 템플릿 <span class="muted">(편집하면 저장돼요 · <b>[당일 공급 시트 이미지]</b> 자리에 시트 이미지 붙여넣기)</span></label>
+          <textarea id="tpl" style="min-height:330px;line-height:1.7"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn brand" onclick="saveTemplate()">템플릿 저장</button>
+          <button class="btn" onclick="copyText('tpl')">📋 본문 복사</button>
+          <button class="btn ghost" onclick="resetTemplate()">기본값 복원</button>
+        </div>
+        <div class="hint">메일 보내는 순서: ① <b>본문 복사</b> → 메일에 붙여넣기 ② <b>당일 공급 시트 이미지</b> 복사 → [당일 공급 시트 이미지] 자리에 붙여넣기 ③ <b>명함</b> 복사 → 맨 아래 붙여넣기. (이 도구는 자동 발송은 안 하고 본문·이미지 준비까지 도와줘요)</div>
+      </div>
+      <div>
+        <div class="img-slot">
+          <label style="font-weight:700;font-size:12.5px">📋 당일 공급 시트 이미지 <span class="muted">(매일 교체)</span></label>
+          <img id="daily-img"><div class="ph" id="daily-ph">오늘 시트 이미지를 올려주세요</div>
+          <div class="img-btns">
+            <input type="file" id="daily-file" accept="image/*" style="display:none" onchange="pickImg(this,'daily')">
+            <button class="btn sm" onclick="document.getElementById('daily-file').click()">이미지 가져오기</button>
+            <button class="btn sm" id="daily-copy" style="display:none" onclick="copyImg('daily')">이미지 복사</button>
+            <button class="btn ghost sm" id="daily-dl" style="display:none" onclick="dlImg('daily','당일공급시트')">저장</button>
+          </div>
+        </div>
+        <div class="img-slot">
+          <label style="font-weight:700;font-size:12.5px">💳 명함 <span class="muted">(고정 · 한번 올리면 유지)</span></label>
+          <img id="card-img"><div class="ph" id="card-ph">명함 이미지를 올려주세요</div>
+          <div class="img-btns">
+            <input type="file" id="card-file" accept="image/*" style="display:none" onchange="pickImg(this,'card')">
+            <button class="btn sm" onclick="document.getElementById('card-file').click()">이미지 가져오기</button>
+            <button class="btn sm" id="card-copy" style="display:none" onclick="copyImg('card')">이미지 복사</button>
+            <button class="btn ghost sm" id="card-dl" style="display:none" onclick="dlImg('card','명함')">저장</button>
+          </div>
+          <div class="muted" id="card-save" style="display:none;margin-top:4px">새 명함 — <a href="#" onclick="saveCard();return false">고정으로 저장</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ＋ 업체 추가 -->
+  <div class="card">
+    <h2>＋ 보낸 업체 기록</h2>
+    <div class="form-grid">
+      <div><label>업체명 <span class="muted">(선택)</span></label><input id="f-name" placeholder="모르면 비워도 됨"></div>
+      <div><label>연락 채널</label>
+        <select id="f-chan" onchange="chanHint()">
+          <option value="이메일">이메일</option>
+          <option value="네이버쪽지">네이버쪽지</option>
+          <option value="카톡전화">카톡/전화</option>
+        </select>
+      </div>
+      <div><label id="f-contact-lbl">메일주소 *</label><input id="f-contact" placeholder="buyer@xxx.co.kr"></div>
+      <div><label>보낸 날짜</label><input id="f-date" type="date"></div>
+      <div><label>상태</label>
+        <select id="f-stat"><option>진행중</option><option>회신</option><option>보류</option><option>종료</option></select>
+      </div>
+      <div><label>메모</label><input id="f-memo" placeholder="자유 메모"></div>
+      <div><button class="btn brand" onclick="addRow()">추가</button></div>
+    </div>
+  </div>
+
+  <!-- 🔔 추가연락 대상 -->
+  <div class="card" id="overdue-card" style="display:none">
+    <h2>🔔 추가연락 대상 <span class="badge red" id="overdue-count">0</span>
+      <span class="muted" style="font-weight:400">— 마지막 연락 14일 이상 + 진행중/보류</span></h2>
+    <div id="overdue-list"></div>
+  </div>
+
+  <!-- 전체 리스트 -->
+  <div class="card">
+    <h2>전체 업체 <span class="badge green" id="total-count">0</span></h2>
+    <table>
+      <thead><tr>
+        <th style="width:15%">업체명</th><th style="width:9%">채널</th><th style="width:18%">연락처</th>
+        <th style="width:10%">보낸날짜</th><th style="width:10%">마지막연락</th>
+        <th style="width:6%">경과</th><th style="width:8%">상태</th><th>메모</th><th style="width:210px"></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none">아직 등록된 업체가 없어요.</div>
+  </div>
+</div>
+
+<!-- 추가연락 초안 모달 -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3 id="m-title">추가연락 초안</h3>
+    <div class="muted" id="m-sub"></div>
+    <textarea id="m-text"></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button class="btn ghost" onclick="closeModal()">닫기</button>
+      <button class="btn" onclick="copyText('m-text')">📋 복사</button>
+      <button class="btn brand" onclick="markSent()">보냄 처리 (마지막연락 오늘로)</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ───────────────────────────────────────────────────────────
+//  인증 / 시트 / 드라이브 / AI  — 마찬 비서(secretary.html) 패턴 재활용
+//  service account: sheets-writer@baljuseo-sheets.iam.gserviceaccount.com
+//  저장소: 비서 시트의 탭 2개 — 데이터 "신규업체메일링" / 설정 "메일설정"
+// ───────────────────────────────────────────────────────────
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
+const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+const SHEET_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
+const OAUTH_SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+const DATA_TAB='신규업체메일링', SET_TAB='메일설정';
+const HEADER=['업체명','연락방식','연락처','보낸날짜','마지막연락','상태','메모'];
+const OVERDUE_DAYS=14;
+const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
+const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
+
+const DEFAULT_TEMPLATE=`안녕하세요, 대표님.
+주식회사 마스터 홍찬화 팀장입니다. 처음 인사드립니다.
+
+전국 산지 어판장에서 직접 수매하고, 창고를 자체 운영하며 빠르게 유통 대응하고 있는 수산물 전문 유통사입니다.
+
+이미 많은 거래처를 관리하고 계시겠지만, 현지에서 직접 움직이는 저희 같은 업체가 필요하실 때 더 빠르게 대응해드릴 수 있을 거라 생각합니다.
+
+저희는 전국 산지 상품을 중심으로 상시 300~500여 가지 이상의 농·축·수산물을 꾸준히 운영 중이며, 소량 한 건도 택배로 즉시 납품 가능합니다.
+
+────────────────
+금일 공급 가능한 당일 상품 리스트입니다.
+
+[당일 공급 시트 이미지]
+
+해당 이미지는 마스터에서 공급 가능한 상품 일부입니다.
+가격은 수매 시점에 따라 달라질 수 있으니 편하게 연락 주시면 바로 안내드리겠습니다.
+────────────────
+
+혹시 필요하실 때가 생기시면 명함 보관해두셨다가 전화나 카카오톡으로 편하게 연락 주세요.
+빠르고 정확하게 응대드리겠습니다.`;
+
+let _tok=null,_exp=0;
+async function getToken(){
+  const now=Math.floor(Date.now()/1000);
+  if(_tok && _exp-now>300) return _tok;
+  const enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const toSign=enc({alg:'RS256',typ:'JWT'})+'.'+enc({iss:CLIENT_EMAIL,scope:OAUTH_SCOPE,aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now});
+  const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(toSign));
+  const jwt=toSign+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`});
+  const d=await r.json(); _tok=d.access_token; _exp=now+3600; return _tok;
+}
+async function listTabs(){
+  const t=await getToken();
+  const m=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,{headers:{Authorization:`Bearer ${t}`}});
+  return ((await m.json()).sheets||[]).map(s=>s.properties.title);
+}
+async function addTab(name,header){
+  const t=await getToken();
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:name}}}]})});
+  if(header) await sheetPut(name,'A1',[header]);
+}
+async function sheetGet(tab,range){
+  const t=await getToken();
+  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab)}!${range}`,{headers:{Authorization:`Bearer ${t}`}});
+  return (await r.json()).values||[];
+}
+async function sheetPut(tab,cell,values){
+  const t=await getToken();
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab)}!${cell}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values})});
+}
+async function dataReplace(values){
+  const t=await getToken();
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB)}!A2:G100000:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+  if(values.length) await sheetPut(DATA_TAB,'A2',values);
+}
+// 설정: 메일설정 탭 A:B key/value
+let SET={};
+async function loadSettings(){ const rows=await sheetGet(SET_TAB,'A1:B100'); SET={}; rows.forEach(r=>{if(r[0])SET[r[0]]=r[1]||'';}); }
+async function setSetting(k,v){ SET[k]=v; const rows=Object.entries(SET).map(([a,b])=>[a,b]); await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SET_TAB)}!A1:B100:clear`,{method:'POST',headers:{Authorization:`Bearer ${await getToken()}`}}); await sheetPut(SET_TAB,'A1',rows); }
+
+// 드라이브 (명함 고정 저장용)
+async function driveUpload(blob,name){
+  const t=await getToken();
+  const fd=new FormData();
+  fd.append('metadata',new Blob([JSON.stringify({name})],{type:'application/json'}));
+  fd.append('file',blob);
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{Authorization:`Bearer ${t}`},body:fd});
+  return (await r.json()).id;
+}
+async function driveBlobURL(id){
+  const t=await getToken();
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`,{headers:{Authorization:`Bearer ${t}`}});
+  return URL.createObjectURL(await r.blob());
+}
+async function callAI(prompt,retry=0){
+  try{
+    const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[]}),redirect:'follow'});
+    const d=await r.json();
+    if(d.error){ if(/high demand|overload|quota|rate limit|too many|503|429/i.test(d.error)&&retry<2){await new Promise(s=>setTimeout(s,3000));return callAI(prompt,retry+1);} throw new Error(d.error); }
+    return d.text||'';
+  }catch(e){ throw e; }
+}
+
+// ─── 상태/데이터 ───
+let DATA=[], modalIdx=-1, imgBlobs={daily:null,card:null};
+const $=id=>document.getElementById(id);
+function todayKST(){ return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'}); }
+function daysSince(d){ if(!d)return null; const a=new Date(d+'T00:00:00+09:00'),b=new Date(todayKST()+'T00:00:00+09:00'); return Math.floor((b-a)/86400000); }
+function setStatus(s){ $('status').textContent=s; }
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),1900); }
+function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function chanLabel(c){ return c==='카톡전화'?'카톡/전화':c; }
+function followWord(c){ return c==='이메일'?'추가 메일':c==='네이버쪽지'?'쪽지':'카톡'; }
+
+async function loadAll(){
+  try{
+    setStatus('동기화 중…');
+    const tabs=await listTabs();
+    if(!tabs.includes(DATA_TAB)) await addTab(DATA_TAB,HEADER); else await sheetPut(DATA_TAB,'A1',[HEADER]);
+    if(!tabs.includes(SET_TAB)) await addTab(SET_TAB,null);
+    await loadSettings();
+    // 템플릿
+    $('tpl').value = SET.template || DEFAULT_TEMPLATE;
+    if(!SET.template) await setSetting('template',DEFAULT_TEMPLATE);
+    // 명함
+    if(SET.card_fileId){ try{ const u=await driveBlobURL(SET.card_fileId); showImg('card',u,false);}catch(e){console.warn('명함 로드 실패',e);} }
+    // 데이터
+    DATA=(await sheetGet(DATA_TAB,'A2:G100000')).map(r=>{const x=r.slice(0,7);while(x.length<7)x.push('');return x.map(v=>(v||'').toString().trim());}).filter(r=>r[2]||r[0]);
+    render();
+    setStatus('동기화됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
+  }catch(e){ setStatus('오류: '+e.message); console.error(e); toast('동기화 실패 — 콘솔 확인'); }
+}
+async function save(){ await dataReplace(DATA); }
+
+function chanHint(){
+  const c=$('f-chan').value;
+  $('f-contact-lbl').innerHTML = c==='이메일'?'메일주소 *':c==='네이버쪽지'?'네이버/사이트 아이디 *':'전화번호(카톡) *';
+  $('f-contact').placeholder = c==='이메일'?'buyer@xxx.co.kr':c==='네이버쪽지'?'naver_id 또는 카페아이디':'010-0000-0000';
+}
+
+function render(){
+  const tb=$('tbody'); tb.innerHTML=''; const overdue=[];
+  DATA.forEach((r,i)=>{
+    const [name,chan,contact,sent,last,stat,memo]=r;
+    const ds=daysSince(last), isDone=(stat==='종료'||stat==='회신');
+    const isOver=(ds!==null&&ds>=OVERDUE_DAYS&&!isDone); if(isOver)overdue.push(i);
+    const tr=document.createElement('tr'); tr.className=isOver?'overdue':(isDone?'done':'');
+    tr.innerHTML=`
+      <td><b>${esc(name)||'<span class="muted">(이름없음)</span>'}</b></td>
+      <td><span class="chan ${chan==='카톡전화'?'카톡전화':esc(chan)}">${esc(chanLabel(chan))||'—'}</span></td>
+      <td>${esc(contact)||'—'}</td>
+      <td>${esc(sent)||'—'}</td><td>${esc(last)||'—'}</td>
+      <td class="days ${isOver?'hot':''}">${ds===null?'—':ds+'일'}</td>
+      <td><span class="pill ${esc(stat)}">${esc(stat)||'—'}</span></td>
+      <td class="muted">${esc(memo)}</td>
+      <td><div class="row-actions">
+        ${(!isDone)?`<button class="btn brand sm" onclick="draft(${i})">${followWord(chan)} 초안</button>`:''}
+        <button class="btn sm" onclick="markContact(${i})">연락함</button>
+        <button class="btn ghost sm" onclick="editRow(${i})">수정</button>
+        <button class="btn ghost sm" onclick="delRow(${i})">삭제</button>
+      </div></td>`;
+    tb.appendChild(tr);
+  });
+  $('empty').style.display=DATA.length?'none':'block';
+  $('total-count').textContent=DATA.length;
+  const oc=$('overdue-card');
+  if(overdue.length){
+    oc.style.display='block'; $('overdue-count').textContent=overdue.length;
+    $('overdue-list').innerHTML=overdue.map(i=>{const r=DATA[i],ds=daysSince(r[4]);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
+        <b style="min-width:120px">${esc(r[0])||'(이름없음)'}</b>
+        <span class="chan ${r[1]==='카톡전화'?'카톡전화':esc(r[1])}">${esc(chanLabel(r[1]))}</span>
+        <span class="muted" style="flex:1">${esc(r[2])} · 마지막연락 ${esc(r[4])||'?'} (<b class="days hot">${ds}일</b> 경과)</span>
+        <button class="btn brand sm" onclick="draft(${i})">${followWord(r[1])} 초안</button>
+      </div>`;}).join('');
+  } else oc.style.display='none';
+}
+
+async function addRow(){
+  const contact=$('f-contact').value.trim();
+  if(!contact){ toast('연락처는 필수예요 (메일/아이디/번호)'); return; }
+  const date=$('f-date').value||todayKST();
+  DATA.push([$('f-name').value.trim(),$('f-chan').value,contact,date,date,$('f-stat').value,$('f-memo').value.trim()]);
+  setStatus('저장 중…'); await save();
+  $('f-name').value=$('f-contact').value=$('f-memo').value=''; $('f-date').value=todayKST();
+  render(); setStatus('저장됨'); toast('추가 완료');
+}
+async function markContact(i){ DATA[i][4]=todayKST(); render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('마지막 연락일 → 오늘'); }
+async function delRow(i){ if(!confirm(`'${DATA[i][0]||DATA[i][2]}' 삭제할까요?`))return; DATA.splice(i,1); render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('삭제됨'); }
+function editRow(i){
+  const r=DATA[i], q=(t,v)=>{const x=prompt(t,v);return x;};
+  const name=q('업체명(선택)',r[0]); if(name===null)return;
+  const chan=q('연락방식 (이메일/네이버쪽지/카톡전화)',r[1]); if(chan===null)return;
+  const contact=q('연락처',r[2]); if(contact===null)return;
+  const sent=q('보낸 날짜 (YYYY-MM-DD)',r[3]); if(sent===null)return;
+  const last=q('마지막 연락 (YYYY-MM-DD)',r[4]); if(last===null)return;
+  const stat=q('상태 (진행중/회신/보류/종료)',r[5]); if(stat===null)return;
+  const memo=q('메모',r[6]); if(memo===null)return;
+  DATA[i]=[name.trim(),chan.trim(),contact.trim(),sent.trim(),last.trim(),stat.trim(),memo.trim()];
+  render(); setStatus('저장 중…'); save().then(()=>{setStatus('저장됨');toast('수정됨');});
+}
+
+// ─── 템플릿 ───
+async function saveTemplate(){ setStatus('저장 중…'); await setSetting('template',$('tpl').value); setStatus('저장됨'); toast('템플릿 저장됨'); }
+function resetTemplate(){ if(confirm('기본 템플릿으로 되돌릴까요?')){ $('tpl').value=DEFAULT_TEMPLATE; toast('기본값 — 저장하려면 [템플릿 저장]'); } }
+function copyText(id){ navigator.clipboard.writeText($(id).value).then(()=>toast('복사됨')); }
+
+// ─── 이미지 ───
+function showImg(which,url,isNew){
+  const img=$(which+'-img'); img.src=url; img.style.display='block';
+  $(which+'-ph').style.display='none';
+  $(which+'-copy').style.display=''; $(which+'-dl').style.display='';
+  if(which==='card') $('card-save').style.display = isNew?'block':'none';
+}
+function pickImg(input,which){
+  const f=input.files[0]; if(!f)return;
+  imgBlobs[which]=f; showImg(which,URL.createObjectURL(f),which==='card');
+}
+async function toPngBlob(img){
+  return new Promise(res=>{ const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
+    c.getContext('2d').drawImage(img,0,0); c.toBlob(res,'image/png'); });
+}
+async function copyImg(which){
+  try{ const blob=await toPngBlob($(which+'-img')); await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); toast('이미지 복사됨 — 메일에 붙여넣기'); }
+  catch(e){ toast('이미지 복사 미지원 브라우저 — [저장]으로 받아서 첨부'); }
+}
+function dlImg(which,name){ const a=document.createElement('a'); a.href=$(which+'-img').src; a.download=name+'_'+todayKST()+'.png'; a.click(); }
+async function saveCard(){
+  if(!imgBlobs.card){ toast('먼저 이미지를 올려주세요'); return; }
+  setStatus('명함 저장 중…'); try{ const id=await driveUpload(imgBlobs.card,'masterc_명함.png'); await setSetting('card_fileId',id); $('card-save').style.display='none'; setStatus('저장됨'); toast('명함 고정 저장됨 — 다음에도 자동으로 떠요'); }
+  catch(e){ setStatus('오류'); toast('명함 저장 실패: '+e.message); }
+}
+
+// ─── 추가연락 초안 (채널별 톤) ───
+async function draft(i){
+  modalIdx=i; const r=DATA[i], ds=daysSince(r[4]), chan=r[1];
+  $('m-title').textContent=`${followWord(chan)} 초안 — ${r[0]||r[2]}`;
+  $('m-sub').textContent=`${chanLabel(chan)} · ${r[2]} · 마지막연락 ${r[4]||'?'} (${ds}일 경과)`;
+  $('m-text').value='초안 생성 중…'; $('modal').classList.add('on');
+  const tone = chan==='이메일'
+      ? '정중한 이메일. 첫 줄 "제목: ..." 그다음 빈 줄, 본문 6~9문장.'
+      : chan==='네이버쪽지'
+      ? '네이버 카페 쪽지. 제목 없이, 짧고 정중하게 3~5문장.'
+      : '카카오톡 메시지. 짧고 친근하지만 정중하게 3~5문장, 너무 딱딱하지 않게.';
+  const prompt=`너는 B2B 수산·식자재 도매업체 '주식회사 마스터'의 영업담당 홍찬화 팀장이야. 아래 신규 거래처 후보에게 보낼 '추가 안부+재안내' 메시지를 한국어로 써줘.
+- 대상: ${r[0]||'(상호 미상)'} / 연락 채널: ${chanLabel(chan)}
+- 이전 연락 후 ${ds}일 경과, 아직 회신/거래 진전 없음. 가볍게 안부 + "필요하시면 언제든" 톤. 부담 X, 과장 영업멘트 X.
+- 우리 강점: 전국 산지 직수매, 자체 창고 운영, 상시 300~500종 농축수산물, 소량도 택배 즉시 납품.
+- 형식/톤: ${tone}`;
+  try{ $('m-text').value=(await callAI(prompt)).trim(); }
+  catch(e){ $('m-text').value='[AI 초안 실패] '+e.message+'\n\n직접 작성하거나 다시 시도해 주세요.'; }
+}
+function closeModal(){ $('modal').classList.remove('on'); modalIdx=-1; }
+async function markSent(){ if(modalIdx<0)return; DATA[modalIdx][4]=todayKST(); render(); await save(); toast('보냄 처리 — 마지막연락 오늘로'); closeModal(); }
+
+// init
+$('f-date').value=todayKST(); chanHint(); loadAll();
+</script>
+</body>
+</html>
