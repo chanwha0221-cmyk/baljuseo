@@ -182,6 +182,17 @@
     </div>
   </div>
 
+  <!-- 🔑 시트 권한 요청 회신 -->
+  <div class="card">
+    <h2>🔑 시트 권한 요청 회신 <span class="muted" style="font-size:12px;font-weight:400">(누가 시트 권한 신청했을 때 누군지 확인 회신용)</span></h2>
+    <textarea id="tpl-perm" style="min-height:140px;line-height:1.6"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn brand" onclick="copyText('tpl-perm')">📋 복사</button>
+      <button class="btn ghost" onclick="saveTpl('perm')">저장</button>
+      <button class="btn ghost" onclick="resetTpl('perm')">기본값</button>
+    </div>
+  </div>
+
   <!-- 🔔 추가연락 대상 -->
   <div class="card" id="overdue-card" style="display:none">
     <h2>📮 20일+ 추가연락 대상 <span class="badge red" id="overdue-count">0</span>
@@ -264,6 +275,14 @@ const DEFAULT_NOTE=`안녕하세요, 대표님.
 전국 산지에서 직접 수매해 상시 300~500종 농·축·수산물을 운영하는 수산물 전문 유통사입니다. 소량 한 건도 택배로 즉시 납품 가능합니다.
 
 필요하실 때 빠르고 정확하게 대응해 드리겠습니다. 관심 있으시면 편하게 답 주세요. 감사합니다.`;
+
+const DEFAULT_PERM=`안녕하세요. 주식회사 마스터 홍찬화 팀장입니다.
+
+저희 시트가 권한이 있어야 확인이 가능한 구조인데, 시트 권한 요청을 주셔서 메일 드립니다.
+
+혹시 업체명 / 담당자 성함이 어떻게 되실까요?
+
+회신 주시면 확인해서 답변 드리겠습니다.`;
 
 const DEFAULT_KAKAO=`안녕하세요 대표님! 주식회사 마스터 홍찬화입니다.
 전국 산지 직수매로 상시 300~500종 농·축·수산물 운영하고, 소량도 택배로 바로 보내드려요.
@@ -358,6 +377,7 @@ async function loadAll(){
     if(!SET.template) await setSetting('template',DEFAULT_TEMPLATE);
     $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT;
     $('tpl-note').value = SET.template_note || DEFAULT_NOTE;
+    $('tpl-perm').value = SET.template_perm || DEFAULT_PERM;
     $('tpl-kakao').value = SET.template_kakao || DEFAULT_KAKAO;
     // 명함
     if(SET.card_fileId){ try{ const u=await driveBlobURL(SET.card_fileId); showImg('card',u,false);}catch(e){console.warn('명함 로드 실패',e);} }
@@ -512,7 +532,7 @@ async function saveTemplate(){ setStatus('저장 중…'); SET.subject=$('tpl-su
 function resetTemplate(){ if(confirm('기본 제목·템플릿으로 되돌릴까요?')){ $('tpl-subject').value=DEFAULT_SUBJECT; $('tpl').value=DEFAULT_TEMPLATE; toast('기본값 — 저장하려면 [템플릿 저장]'); } }
 // 쪽지/카톡 템플릿 저장·복원 (which: 'note' | 'kakao')
 async function saveTpl(which){ setStatus('저장 중…'); await setSetting('template_'+which, $('tpl-'+which).value); setStatus('저장됨'); toast((which==='note'?'쪽지':'카톡')+' 템플릿 저장됨'); }
-function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:DEFAULT_KAKAO; $('tpl-'+which).value=def; toast('기본값 — 저장하려면 [저장]'); }
+function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:which==='kakao'?DEFAULT_KAKAO:DEFAULT_PERM; $('tpl-'+which).value=def; toast('기본값 — 저장하려면 [저장]'); }
 function copyText(id){ navigator.clipboard.writeText($(id).value).then(()=>toast('복사됨')); }
 
 // ─── 이미지 ───
