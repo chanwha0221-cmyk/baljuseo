@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.210</title>
+<title>발주서 변환기 v22.211</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.210</span>
+  <span class="ver">v22.211</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -783,6 +783,7 @@ function pp(cl,pr,qty){
   if(cl==='신선한아침'&&cn.includes('노르웨이 생연어')){const _sw=cn.match(/(\d+(?:\.\d+)?)\s*(kg|g)\b/i);cn='연안 생연어'+(_sw?' '+_sw[1]+_sw[2].toLowerCase():'');}
   if(cn.includes('유정란')){const em=cn.match(/(\d+)\s*[구알]/);const en=em?em[1]:'';if(cn.includes('1번'))return{name:'자연방사 난각 1번 유정란 '+en+'구',qty,maxB:999};if(cn.includes('2번'))return{name:'동물복지 난각 2번 유정란 '+en+'구',qty,maxB:999};}
   if(cl==='아크미소프트'&&cn.includes('홍어'))cn='아 '+cn;
+  if(cl==='서율컴퍼니'&&norm(cn).includes('거북손')&&!norm(cn).includes('1kg'))cn='연안 거북손 500g';
   if(cl==='팡베베'&&norm(cn).includes('총알한치')){const wm=cn.match(/([\d.]+)\s*kg/i);if(wm){return{name:'총알한치 500g',qty:qty*Math.round(parseFloat(wm[1])/0.5),maxB:999};}}
   const wm=cn.match(/([\d.]+)kg/);const gm=!wm&&cn.match(/(\d+)g\b/);const wi=wm?parseFloat(wm[1]):gm?parseInt(gm[1])/1000:1;
   const pn=qm?cn:cn.replace(/[xX×]\s*[\d.]+/g,'').trim();
