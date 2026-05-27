@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>마스터 소식글 생성 · 히스토리</title>
+<title>마스터 소식글 저장</title>
 <style>
   :root{ --bg:#f4f6f9; --card:#fff; --line:#e3e7ee; --ink:#1f2733; --sub:#6b7686;
          --brand:#e8742c; --brand-d:#cc5f1c; --red:#e23b3b; --redbg:#fde8e8;
@@ -66,7 +66,7 @@
 </head>
 <body>
 <div class="top">
-  <h1>📨 마스터 소식글</h1>
+  <h1>📨 마스터 소식글 저장</h1>
   <span class="status" id="status">초기화 중…</span>
   <button class="btn ghost sm" id="seedBtn">📥 과거기록 가져오기</button>
   <button class="btn ghost sm" id="reloadBtn">↻ 새로고침</button>
@@ -80,7 +80,7 @@
 </div>
 
 <div class="card">
-  <h2 id="formTitle">✨ 소식글 생성 / 저장</h2>
+  <h2 id="formTitle">➕ 소식글 저장</h2>
   <div class="grid">
     <div class="fld"><label>날짜</label><input type="date" id="f_date"></div>
     <div class="fld"><label>시간대</label>
@@ -90,16 +90,8 @@
     <div class="fld"><label>출처</label>
       <select id="f_src"><option>발송</option><option>학습자료</option></select></div>
 
-    <div class="fld full"><label>러프 원문 / 메모 — 그냥 편하게 던지세요 (상품·단가·왜 팔아야 하는지 등)</label>
-      <textarea id="f_raw" class="big" placeholder="예: 오늘 군산 박대 둘. 초대왕박대 2미 4800, 대박대 5미 6400, 배송 CJ 4000. 곧 인상이라 지금 잡아야 함. 링크 masterc.kr/board_eJGl96/584579"></textarea></div>
-
-    <div class="fld full genbar">
-      <button class="btn brand" id="genBtn">✨ 소식글 생성</button>
-      <span class="muted" id="genHint">러프하게 주시면 톤·길이 맞춰 실제 보낼 글로 완성합니다</span>
-    </div>
-
-    <div class="fld full"><label>생성된 소식글 — 그대로 보내도 되게 (직접 수정 가능)</label>
-      <textarea id="f_out" class="big" placeholder="여기에 생성 결과가 나옵니다. 마음에 안 드는 부분은 직접 고치셔도 돼요."></textarea></div>
+    <div class="fld full"><label>소식글 본문 — 클로드랑 다듬은 최종본을 붙여넣으세요</label>
+      <textarea id="f_out" class="big" placeholder="완성된 소식글을 여기 붙여넣고 💾 저장하세요."></textarea></div>
 
     <div class="fld full"><label>상세보기 링크 (선택)</label><input id="f_link" placeholder="https://masterc.kr/..."></div>
   </div>
@@ -137,56 +129,6 @@ const USER_EMAIL='chanwha0221@gmail.com';
 const SHEET_TITLE='마스터 소식글 히스토리';
 const DATA_TAB='소식글';
 const HEADER=['id','날짜','시간대','형식','상품키워드','태그','본문','상세링크','출처','등록일시'];
-const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
-const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
-
-// 톤 규칙 — WORKFLOW.md §2 '아침 거래처 소식글' 공식을 distill. 규칙 바뀌면 여기 갱신 후 재배포.
-const PROMPT=`당신은 수산물·농축산물 유통사 '주식회사 마스터'의 영업 담당입니다.
-거래처 사장님들에게 카카오톡으로 보내는 '소식글'(= 상품추천 = "우리 물건 좀 팔아주세요")을 씁니다.
-목표: 받는 사장님이 꽂혀서 그 상품을 자기 채널에 등록·판매하게 만드는 것. 길면 안 읽힘. 핵심을 박아라.
-
-[박히는 순서 공식]
-1) 첫 줄 고정 헤더: "마스터 {DATE} 소식글"
-2) 시간대 인사:
-   - 아침: "좋은 아침입니다 대표님!!" / 마무리 "오늘도 활기찬 하루 되세요!!! 대표님 화이팅입니다!"
-   - 저녁: "안녕하세요 대표님!" / 마무리 "오늘 하루도 고생 많으셨습니다!!! 남은 하루 마무리 잘 하세요"
-   - 점심/기타: 자연스러운 인사
-3) 상품마다 블록:
-   N. [태그] 상품명 (중량/수량)
-   단가 / 배송비 / 합포장 수량   (아는 값만, 없으면 생략)
-   (빈 줄)
-   코멘트: 첫 문장 = "지금 이걸 선택해야 하는 이유" 딱 하나를 강하게. 뒤에 짧은 부연(활용/타이밍/산지/물량).
-4) 마지막: 행동 유도 한 줄 (예: "얼른 세팅해 두세요!", "인상 전 가격으로 풀어드려요!")
-5) 상세보기 링크 있으면 맨 아래 "[상세보기] URL"
-
-[태그]
-- 좋은 태그: [단가 추천] [인상 직전 한정] [횟감 시즌] [희귀템] [강추] [2주 한정] [과일 시즌 시작] — 박힐 이유를 드러냄
-- 금지 태그: [강력 추천] [같이 추천] [추가 안내] 같은 무난·일반 표현
-- 단가 인하가 포인트면 "이전가 → 현재가" 화살표 표기 (예: 19,500 → 16,000원)
-
-[톤]
-- 호칭 "대표님", 권유형(명령형 금지)
-- 호흡 중간형: 너무 구어체도 너무 압축도 아니게. "추천드릴게요~ / 한번 잡아보세요" 같은 표현 반복 금지
-- 강조부호 !!! ?? ~~ ㅎㅎ 적절히 (남발 금지)
-- 솔직 화법 OK: 단점 인정 후 가성비·명분으로 ("중국산? 맞아요!!!", "갑자기 박대??")
-- ⚠️ 회사 정중 마지노선: "박아드립니다 / 꽂아드립니다" 같은 거친 표현 금지. "소개해 드려요~" 수준 유지
-- ⚠️ 업계 내부 어휘 금지(마진 챙기기 / 눈치 싸움 등) — 받는 사장님이 헷갈리면 안 됨
-- ⚠️ "올린다/내린다"는 주체 명시 ("다른 판매처가 단가 올릴 때도 저희는 원가 유지" 식)
-
-[길이] 카톡 한 화면: 약 450자 / 20줄 이내. 600자 절대 금지. 빠듯하면 마무리 인사 생략 가능.
-[시황] 봄→여름 전환기(5월~): 메인 어종 꽃게→오징어. 여름은 수산물 전반 약세(택배 신선도 한계) → 과일 등 단거 다변화 타이밍.
-
-아래는 실제로 보냈던 과거 소식글 샘플이다. 톤·길이·구조를 이 샘플 기준으로 맞춰라:
-=== 과거 샘플 ===
-{SAMPLES}
-=== 샘플 끝 ===
-
-오늘 작성 조건 — 날짜: {DATE}, 시간대: {TIME}
-아래 사장님이 던진 러프 원문/메모를 위 공식과 톤으로 '바로 카톡에 보낼 수 있는 소식글'로 완성해라.
-설명·머리말·코드블록 없이 소식글 본문만 출력해라.
-=== 러프 원문 ===
-{RAW}
-=== 끝 ===`;
 
 let SHEET_ID='';
 let DATA=[];
@@ -264,14 +206,6 @@ async function saveAll(){
   }
 }
 
-// AI 프록시 (비서와 동일 — Gemini)
-async function callAI(prompt,retry=0){
-  const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[]}),redirect:'follow'});
-  const d=await r.json();
-  if(d.error){ if(/high demand|overload|quota|rate limit|too many|503|429/i.test(d.error)&&retry<2){await new Promise(s=>setTimeout(s,3000));return callAI(prompt,retry+1);} throw new Error(d.error); }
-  return d.text||'';
-}
-
 async function load(){
   setStatus('불러오는 중…');
   const rows=await sheetGet(`${DATA_TAB}!A2:J100000`);
@@ -329,36 +263,17 @@ function render(){
 function resetForm(){
   editingId=null;
   $('f_date').value=todayKST(); $('f_time').value='아침'; $('f_type').value='소식글'; $('f_src').value='발송';
-  $('f_raw').value=''; $('f_out').value=''; $('f_link').value='';
-  $('formTitle').textContent='✨ 소식글 생성 / 저장';
+  $('f_out').value=''; $('f_link').value='';
+  $('formTitle').textContent='➕ 소식글 저장';
   $('cancelBtn').style.display='none'; $('formHint').textContent='';
 }
 function loadForm(d){
   editingId=d.id;
   $('f_date').value=d.date; $('f_time').value=d.time; $('f_type').value=d.type||'소식글'; $('f_src').value=d.src;
-  $('f_raw').value=''; $('f_out').value=d.body; $('f_link').value=d.link;
+  $('f_out').value=d.body; $('f_link').value=d.link;
   $('formTitle').textContent='✏️ 기록 수정';
-  $('cancelBtn').style.display='inline-block'; $('formHint').textContent=`수정 중 (${d.date}) — 아래 '생성된 소식글' 칸을 고치고 저장`;
+  $('cancelBtn').style.display='inline-block'; $('formHint').textContent=`수정 중 (${d.date}) — 본문 칸을 고치고 저장`;
   window.scrollTo({top:0,behavior:'smooth'});
-}
-
-async function generate(){
-  const raw=$('f_raw').value.trim();
-  if(!raw){ toast('러프 원문을 먼저 입력하세요'); return; }
-  $('genBtn').disabled=true; setStatus('생성 중… (10~20초)');
-  const date=$('f_date').value||todayKST();
-  const time=$('f_time').value||'아침';
-  const samples=DATA.filter(d=>d.src==='발송' && d.body && !d.body.startsWith('[요약 백필')).sort(sortDesc).slice(0,4);
-  const shots=samples.length ? samples.map(s=>`[${s.date} ${s.time||''}]\n${s.body}`).join('\n\n---\n\n') : '(아직 실제 본문 샘플 없음 — 위 규칙만으로 작성)';
-  const prompt=PROMPT.split('{DATE}').join(fmtMD(date)).split('{TIME}').join(time).split('{SAMPLES}').join(shots).split('{RAW}').join(raw);
-  try{
-    let out=(await callAI(prompt)).trim();
-    out=out.replace(/^```[a-z]*\n?/i,'').replace(/\n?```$/,'').trim();
-    $('f_out').value=out;
-    toast('생성 완료 — 검토 후 저장하세요'); setStatus(`연결됨 · ${DATA.length}건`);
-    $('f_out').scrollIntoView({behavior:'smooth',block:'center'});
-  }catch(e){ toast('생성 실패: '+e.message); setStatus('오류'); }
-  $('genBtn').disabled=false;
 }
 
 async function save(){
@@ -408,7 +323,6 @@ document.addEventListener('click',e=>{
   if(act.dataset.act==='edit'){ loadForm(d); }
   if(act.dataset.act==='del'){ if(confirm('이 기록을 삭제할까요?')){ DATA=DATA.filter(x=>x.id!==d.id); saveAll().then(()=>{render();toast('삭제됨');setStatus(`연결됨 · ${DATA.length}건`);}); } }
 });
-$('genBtn').onclick=generate;
 $('saveBtn').onclick=save;
 $('copyOutBtn').onclick=()=>{ const v=$('f_out').value.trim(); if(!v){toast('복사할 내용이 없습니다');return;} navigator.clipboard.writeText(v).then(()=>toast('복사됨 — 카톡에 붙여넣기')); };
 $('cancelBtn').onclick=resetForm;
