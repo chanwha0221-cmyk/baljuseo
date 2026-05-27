@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>마스터 소식글 히스토리</title>
+<title>마스터 소식글 생성 · 히스토리</title>
 <style>
   :root{ --bg:#f4f6f9; --card:#fff; --line:#e3e7ee; --ink:#1f2733; --sub:#6b7686;
          --brand:#e8742c; --brand-d:#cc5f1c; --red:#e23b3b; --redbg:#fde8e8;
@@ -28,13 +28,15 @@
   .last .meta{font-size:13px}
   .last .gap{font-weight:700}
   .last .gap.warn{color:var(--red)}
-  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
   .fld label{display:block;font-size:11.5px;color:var(--sub);margin-bottom:3px;font-weight:600}
   .fld.full{grid-column:1/-1}
   input,select,textarea{width:100%;padding:8px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;background:#fff}
-  textarea{min-height:120px;resize:vertical;line-height:1.55}
+  textarea{min-height:90px;resize:vertical;line-height:1.6}
+  textarea.big{min-height:210px;font-size:14px}
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand)}
   .row-actions{display:flex;gap:7px;margin-top:12px;align-items:center;flex-wrap:wrap}
+  .genbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
   th{font-size:11.5px;color:var(--sub);font-weight:700}
@@ -45,13 +47,13 @@
   .pill.점심{background:var(--bluebg);color:var(--blue)}
   .pill.저녁{background:var(--purplebg);color:var(--purple)}
   .pill.소식글{background:var(--greenbg);color:var(--green)}
-  .pill.상품추천{background:var(--bluebg);color:var(--blue)}
+  .pill.상품추천{background:var(--greenbg);color:var(--green)}
   .pill.배송공지{background:var(--amberbg);color:var(--amber)}
+  .pill.기타{background:#eceef1;color:#888}
   .pill.학습{background:#eceef1;color:#888}
   .pill.발송{background:var(--greenbg);color:var(--green)}
-  .body-cell{white-space:pre-wrap;background:#fafbfd;border:1px solid var(--line);border-radius:8px;padding:11px;margin:4px 0;font-size:13px;line-height:1.6}
-  .kw{font-weight:600}
-  .tag{color:var(--brand);font-weight:700;font-size:12px}
+  .body-cell{white-space:pre-wrap;background:#fafbfd;border:1px solid var(--line);border-radius:8px;padding:11px;margin:4px 0;font-size:13px;line-height:1.65}
+  .snip{color:var(--ink)}
   .empty{text-align:center;color:var(--sub);padding:26px 0}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#1f2733;color:#fff;padding:10px 18px;border-radius:24px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:80}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -59,11 +61,12 @@
   .filterbar input{flex:1;min-width:140px}
   .count{font-size:12px;color:var(--sub)}
   .warnbox{background:var(--amberbg);color:var(--amber);border-radius:8px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;display:none}
+  @media(max-width:600px){ .grid{grid-template-columns:repeat(2,1fr)} }
 </style>
 </head>
 <body>
 <div class="top">
-  <h1>📨 마스터 소식글 히스토리</h1>
+  <h1>📨 마스터 소식글</h1>
   <span class="status" id="status">초기화 중…</span>
   <button class="btn ghost sm" id="seedBtn">📥 과거기록 가져오기</button>
   <button class="btn ghost sm" id="reloadBtn">↻ 새로고침</button>
@@ -77,22 +80,32 @@
 </div>
 
 <div class="card">
-  <h2 id="formTitle">➕ 새 글 기록 / 학습자료 추가</h2>
+  <h2 id="formTitle">✨ 소식글 생성 / 저장</h2>
   <div class="grid">
     <div class="fld"><label>날짜</label><input type="date" id="f_date"></div>
     <div class="fld"><label>시간대</label>
       <select id="f_time"><option>아침</option><option>점심</option><option>저녁</option><option value="">-</option></select></div>
     <div class="fld"><label>형식</label>
-      <select id="f_type"><option>소식글</option><option>상품추천</option><option>배송공지</option><option>기타</option></select></div>
+      <select id="f_type"><option>소식글</option><option>배송공지</option><option>기타</option></select></div>
     <div class="fld"><label>출처</label>
       <select id="f_src"><option>발송</option><option>학습자료</option></select></div>
-    <div class="fld full"><label>상품 키워드 (쉼표로 여러 개)</label><input id="f_kw" placeholder="예: 군산 박대, 활 갑오징어"></div>
-    <div class="fld full"><label>태그 (선택)</label><input id="f_tag" placeholder="예: [인상 직전 한정] [횟감 시즌]"></div>
-    <div class="fld full"><label>본문</label><textarea id="f_body" placeholder="소식글 전문을 붙여넣으세요"></textarea></div>
+
+    <div class="fld full"><label>러프 원문 / 메모 — 그냥 편하게 던지세요 (상품·단가·왜 팔아야 하는지 등)</label>
+      <textarea id="f_raw" class="big" placeholder="예: 오늘 군산 박대 둘. 초대왕박대 2미 4800, 대박대 5미 6400, 배송 CJ 4000. 곧 인상이라 지금 잡아야 함. 링크 masterc.kr/board_eJGl96/584579"></textarea></div>
+
+    <div class="fld full genbar">
+      <button class="btn brand" id="genBtn">✨ 소식글 생성</button>
+      <span class="muted" id="genHint">러프하게 주시면 톤·길이 맞춰 실제 보낼 글로 완성합니다</span>
+    </div>
+
+    <div class="fld full"><label>생성된 소식글 — 그대로 보내도 되게 (직접 수정 가능)</label>
+      <textarea id="f_out" class="big" placeholder="여기에 생성 결과가 나옵니다. 마음에 안 드는 부분은 직접 고치셔도 돼요."></textarea></div>
+
     <div class="fld full"><label>상세보기 링크 (선택)</label><input id="f_link" placeholder="https://masterc.kr/..."></div>
   </div>
   <div class="row-actions">
-    <button class="btn brand" id="saveBtn">저장</button>
+    <button class="btn brand" id="saveBtn">💾 최종본 저장</button>
+    <button class="btn" id="copyOutBtn">📋 복사</button>
     <button class="btn ghost" id="cancelBtn" style="display:none">취소</button>
     <span class="muted" id="formHint"></span>
   </div>
@@ -101,14 +114,14 @@
 <div class="card">
   <h2>📚 기록 <span class="count" id="cnt"></span></h2>
   <div class="filterbar">
-    <input id="q" placeholder="상품·본문·형식 검색">
+    <input id="q" placeholder="본문·형식 검색">
     <select id="fType" class="btn ghost" style="font-weight:600">
       <option value="">전체 형식</option><option>소식글</option><option>상품추천</option><option>배송공지</option><option>기타</option></select>
     <select id="fSrc" class="btn ghost" style="font-weight:600">
       <option value="">전체 출처</option><option>발송</option><option>학습자료</option></select>
   </div>
   <table>
-    <thead><tr><th style="width:78px">날짜</th><th style="width:52px">시간</th><th style="width:74px">형식</th><th>상품</th><th style="width:56px">출처</th></tr></thead>
+    <thead><tr><th style="width:78px">날짜</th><th style="width:52px">시간</th><th style="width:70px">형식</th><th>내용</th><th style="width:52px">출처</th></tr></thead>
     <tbody id="rows"><tr><td colspan="5" class="empty">불러오는 중…</td></tr></tbody>
   </table>
 </div>
@@ -124,16 +137,57 @@ const USER_EMAIL='chanwha0221@gmail.com';
 const SHEET_TITLE='마스터 소식글 히스토리';
 const DATA_TAB='소식글';
 const HEADER=['id','날짜','시간대','형식','상품키워드','태그','본문','상세링크','출처','등록일시'];
-// 워크플로우 히스토리(§4) 기반 과거 발송 요약 — 전문 미보유, 추후 실제 본문으로 수정 가능
-const SEED=[
-  {date:'2026-05-18',time:'아침',type:'소식글',kw:'통통 급냉 대병어, 찐 초대왕박대',tag:'',link:'',body:'[요약 백필 · 전문 미보유] "박히는 순서 먼저" 공식을 확립한 기준 샘플.'},
-  {date:'2026-05-18',time:'저녁',type:'소식글',kw:'활 갑오징어 (대왕 1kg / 초대왕 2미)',tag:'',link:'',body:'[요약 백필 · 전문 미보유] 단가 화살표 표기 + 저녁 톤 + 동반자 어필 첫 적용.'},
-  {date:'2026-05-19',time:'아침',type:'소식글',kw:'베트남 바나나(3kg/6kg), 인천 활 꽃게 3종 단가 인하',tag:'[과일 시즌 시작]',link:'',body:'[요약 백필 · 전문 미보유] 과일 시즌 시작 시그널.'},
-  {date:'2026-05-20',time:'점심',type:'소식글',kw:'갑오징어 라인업 4종, 생물 고등어(2주 한정), 한치/멍게',tag:'[2주 한정]',link:'',body:'[요약 백필 · 전문 미보유] 길이 마지노선 검증(~450자/20줄), 마무리 인사 생략 패턴 정착.'},
-  {date:'2026-05-21',time:'저녁',type:'상품추천',kw:'박달대게, 생대구, 한돈 등뼈 + 6월 배송공지 합본',tag:'',link:'',body:'[요약 백필 · 전문 미보유] 상품추천글 카테고리 신설, 합본 길이 실측(~430자 본문 OK).'},
-  {date:'2026-05-22',time:'아침',type:'소식글',kw:'남해 맛조개(500g/8,500/배송4,000/합포장5개)',tag:'',link:'',body:'[요약 백필 · 전문 미보유] 산소포장+빙장 출고. 매니아 매년 찾는 상품.'},
-  {date:'2026-05-26',time:'아침',type:'소식글',kw:'군산 박대 2스펙(초대왕박대 2미/4,800, 대박대 5미/6,400)',tag:'[인상 직전 한정]',link:'https://masterc.kr/board_eJGl96/584579',body:'[요약 백필 · 전문 미보유] 배송 CJ 4,000. 상시상품인데 인상 예고 이슈 앵글. 원물 감비아·세네갈산, 전쟁으로 입항 직격탄. 이 2스펙만 비축분 있어 단가 픽스.'},
-];
+const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
+const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
+
+// 톤 규칙 — WORKFLOW.md §2 '아침 거래처 소식글' 공식을 distill. 규칙 바뀌면 여기 갱신 후 재배포.
+const PROMPT=`당신은 수산물·농축산물 유통사 '주식회사 마스터'의 영업 담당입니다.
+거래처 사장님들에게 카카오톡으로 보내는 '소식글'(= 상품추천 = "우리 물건 좀 팔아주세요")을 씁니다.
+목표: 받는 사장님이 꽂혀서 그 상품을 자기 채널에 등록·판매하게 만드는 것. 길면 안 읽힘. 핵심을 박아라.
+
+[박히는 순서 공식]
+1) 첫 줄 고정 헤더: "마스터 {DATE} 소식글"
+2) 시간대 인사:
+   - 아침: "좋은 아침입니다 대표님!!" / 마무리 "오늘도 활기찬 하루 되세요!!! 대표님 화이팅입니다!"
+   - 저녁: "안녕하세요 대표님!" / 마무리 "오늘 하루도 고생 많으셨습니다!!! 남은 하루 마무리 잘 하세요"
+   - 점심/기타: 자연스러운 인사
+3) 상품마다 블록:
+   N. [태그] 상품명 (중량/수량)
+   단가 / 배송비 / 합포장 수량   (아는 값만, 없으면 생략)
+   (빈 줄)
+   코멘트: 첫 문장 = "지금 이걸 선택해야 하는 이유" 딱 하나를 강하게. 뒤에 짧은 부연(활용/타이밍/산지/물량).
+4) 마지막: 행동 유도 한 줄 (예: "얼른 세팅해 두세요!", "인상 전 가격으로 풀어드려요!")
+5) 상세보기 링크 있으면 맨 아래 "[상세보기] URL"
+
+[태그]
+- 좋은 태그: [단가 추천] [인상 직전 한정] [횟감 시즌] [희귀템] [강추] [2주 한정] [과일 시즌 시작] — 박힐 이유를 드러냄
+- 금지 태그: [강력 추천] [같이 추천] [추가 안내] 같은 무난·일반 표현
+- 단가 인하가 포인트면 "이전가 → 현재가" 화살표 표기 (예: 19,500 → 16,000원)
+
+[톤]
+- 호칭 "대표님", 권유형(명령형 금지)
+- 호흡 중간형: 너무 구어체도 너무 압축도 아니게. "추천드릴게요~ / 한번 잡아보세요" 같은 표현 반복 금지
+- 강조부호 !!! ?? ~~ ㅎㅎ 적절히 (남발 금지)
+- 솔직 화법 OK: 단점 인정 후 가성비·명분으로 ("중국산? 맞아요!!!", "갑자기 박대??")
+- ⚠️ 회사 정중 마지노선: "박아드립니다 / 꽂아드립니다" 같은 거친 표현 금지. "소개해 드려요~" 수준 유지
+- ⚠️ 업계 내부 어휘 금지(마진 챙기기 / 눈치 싸움 등) — 받는 사장님이 헷갈리면 안 됨
+- ⚠️ "올린다/내린다"는 주체 명시 ("다른 판매처가 단가 올릴 때도 저희는 원가 유지" 식)
+
+[길이] 카톡 한 화면: 약 450자 / 20줄 이내. 600자 절대 금지. 빠듯하면 마무리 인사 생략 가능.
+[시황] 봄→여름 전환기(5월~): 메인 어종 꽃게→오징어. 여름은 수산물 전반 약세(택배 신선도 한계) → 과일 등 단거 다변화 타이밍.
+
+아래는 실제로 보냈던 과거 소식글 샘플이다. 톤·길이·구조를 이 샘플 기준으로 맞춰라:
+=== 과거 샘플 ===
+{SAMPLES}
+=== 샘플 끝 ===
+
+오늘 작성 조건 — 날짜: {DATE}, 시간대: {TIME}
+아래 사장님이 던진 러프 원문/메모를 위 공식과 톤으로 '바로 카톡에 보낼 수 있는 소식글'로 완성해라.
+설명·머리말·코드블록 없이 소식글 본문만 출력해라.
+=== 러프 원문 ===
+{RAW}
+=== 끝 ===`;
+
 let SHEET_ID='';
 let DATA=[];
 let editingId=null;
@@ -145,6 +199,16 @@ function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>
 function todayKST(){ return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'}); }
 function nowKST(){ return new Date().toLocaleString('sv-SE',{timeZone:'Asia/Seoul'}).replace(' ','T'); }
 function daysSince(d){ if(!d)return null; const a=new Date(d+'T00:00:00+09:00'),b=new Date(todayKST()+'T00:00:00+09:00'); return Math.round((b-a)/86400000); }
+function fmtMD(d){ const m=(d||todayKST()).split('-'); return m.length===3?`${+m[1]}월 ${+m[2]}일`:d; }
+// 본문에서 리스트 표시용 짧은 요약 자동 추출
+function deriveSnip(body){
+  if(!body) return '';
+  const lines=body.split('\n').map(s=>s.trim()).filter(Boolean)
+    .filter(l=>!/^마스터 .*소식글/.test(l) && !/^좋은 아침|^안녕하세요|^오늘도|^오늘 하루/.test(l));
+  let l=lines[0]||body.trim();
+  l=l.replace(/^\d+\.\s*/,'').replace(/^\[[^\]]*\]\s*/,'');
+  return l.length>46?l.slice(0,46)+'…':l;
+}
 
 let _tok=null,_exp=0;
 async function getToken(){
@@ -200,6 +264,14 @@ async function saveAll(){
   }
 }
 
+// AI 프록시 (비서와 동일 — Gemini)
+async function callAI(prompt,retry=0){
+  const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[]}),redirect:'follow'});
+  const d=await r.json();
+  if(d.error){ if(/high demand|overload|quota|rate limit|too many|503|429/i.test(d.error)&&retry<2){await new Promise(s=>setTimeout(s,3000));return callAI(prompt,retry+1);} throw new Error(d.error); }
+  return d.text||'';
+}
+
 async function load(){
   setStatus('불러오는 중…');
   const rows=await sheetGet(`${DATA_TAB}!A2:J100000`);
@@ -220,7 +292,7 @@ function renderLast(){
   const warn = g>=2?'warn':'';
   box.innerHTML=`<span class="big">${esc(l.date)}</span>
     <span class="meta">${l.time?`<span class="pill ${l.time}">${l.time}</span> `:''}<span class="pill ${l.type}">${esc(l.type)}</span><br>
-    <span class="kw">${esc(l.kw||'(상품 미기재)')}</span></span>
+    <span class="snip">${esc(l.kw||deriveSnip(l.body)||'(내용 없음)')}</span></span>
     <span class="gap ${warn}" style="margin-left:auto">${gtxt}${g>=2?' · 루틴 점검!':''}</span>`;
 }
 function render(){
@@ -230,17 +302,18 @@ function render(){
   let list=DATA.slice().sort(sortDesc);
   if(ft) list=list.filter(d=>d.type===ft);
   if(fs) list=list.filter(d=>d.src===fs);
-  if(q) list=list.filter(d=>(d.kw+' '+d.body+' '+d.type+' '+d.tag).toLowerCase().includes(q));
+  if(q) list=list.filter(d=>(d.kw+' '+d.body+' '+d.type).toLowerCase().includes(q));
   $('cnt').textContent=`· ${list.length}/${DATA.length}건`;
   const tb=$('rows');
   if(!list.length){ tb.innerHTML='<tr><td colspan="5" class="empty">기록이 없습니다.</td></tr>'; return; }
   tb.innerHTML=list.map(d=>{
     const srcPill=d.src==='학습자료'?'<span class="pill 학습">학습</span>':'<span class="pill 발송">발송</span>';
+    const snip=d.kw||deriveSnip(d.body);
     return `<tr class="head-row" data-id="${d.id}">
       <td>${esc(d.date)}</td>
       <td>${d.time?`<span class="pill ${d.time}">${d.time}</span>`:'-'}</td>
       <td><span class="pill ${d.type}">${esc(d.type)}</span></td>
-      <td><span class="kw">${esc(d.kw||'-')}</span>${d.tag?`<br><span class="tag">${esc(d.tag)}</span>`:''}</td>
+      <td><span class="snip">${esc(snip)}</span></td>
       <td>${srcPill}</td></tr>
       <tr id="exp-${d.id}" style="display:none"><td colspan="5">
         <div class="body-cell">${esc(d.body)||'<span class="muted">(본문 없음)</span>'}</div>
@@ -256,43 +329,69 @@ function render(){
 function resetForm(){
   editingId=null;
   $('f_date').value=todayKST(); $('f_time').value='아침'; $('f_type').value='소식글'; $('f_src').value='발송';
-  $('f_kw').value=''; $('f_tag').value=''; $('f_body').value=''; $('f_link').value='';
-  $('formTitle').textContent='➕ 새 글 기록 / 학습자료 추가';
+  $('f_raw').value=''; $('f_out').value=''; $('f_link').value='';
+  $('formTitle').textContent='✨ 소식글 생성 / 저장';
   $('cancelBtn').style.display='none'; $('formHint').textContent='';
 }
 function loadForm(d){
   editingId=d.id;
-  $('f_date').value=d.date; $('f_time').value=d.time; $('f_type').value=d.type; $('f_src').value=d.src;
-  $('f_kw').value=d.kw; $('f_tag').value=d.tag; $('f_body').value=d.body; $('f_link').value=d.link;
+  $('f_date').value=d.date; $('f_time').value=d.time; $('f_type').value=d.type||'소식글'; $('f_src').value=d.src;
+  $('f_raw').value=''; $('f_out').value=d.body; $('f_link').value=d.link;
   $('formTitle').textContent='✏️ 기록 수정';
-  $('cancelBtn').style.display='inline-block'; $('formHint').textContent=`수정 중 (${d.date})`;
+  $('cancelBtn').style.display='inline-block'; $('formHint').textContent=`수정 중 (${d.date}) — 아래 '생성된 소식글' 칸을 고치고 저장`;
   window.scrollTo({top:0,behavior:'smooth'});
 }
+
+async function generate(){
+  const raw=$('f_raw').value.trim();
+  if(!raw){ toast('러프 원문을 먼저 입력하세요'); return; }
+  $('genBtn').disabled=true; setStatus('생성 중… (10~20초)');
+  const date=$('f_date').value||todayKST();
+  const time=$('f_time').value||'아침';
+  const samples=DATA.filter(d=>d.src==='발송' && d.body && !d.body.startsWith('[요약 백필')).sort(sortDesc).slice(0,4);
+  const shots=samples.length ? samples.map(s=>`[${s.date} ${s.time||''}]\n${s.body}`).join('\n\n---\n\n') : '(아직 실제 본문 샘플 없음 — 위 규칙만으로 작성)';
+  const prompt=PROMPT.split('{DATE}').join(fmtMD(date)).split('{TIME}').join(time).split('{SAMPLES}').join(shots).split('{RAW}').join(raw);
+  try{
+    let out=(await callAI(prompt)).trim();
+    out=out.replace(/^```[a-z]*\n?/i,'').replace(/\n?```$/,'').trim();
+    $('f_out').value=out;
+    toast('생성 완료 — 검토 후 저장하세요'); setStatus(`연결됨 · ${DATA.length}건`);
+    $('f_out').scrollIntoView({behavior:'smooth',block:'center'});
+  }catch(e){ toast('생성 실패: '+e.message); setStatus('오류'); }
+  $('genBtn').disabled=false;
+}
+
 async function save(){
-  const body=$('f_body').value.trim(); const kw=$('f_kw').value.trim();
-  if(!body && !kw){ toast('상품 키워드나 본문 중 하나는 입력하세요'); return; }
+  const body=$('f_out').value.trim();
+  if(!body){ toast('저장할 소식글이 없습니다 (생성하거나 직접 입력)'); return; }
   $('saveBtn').disabled=true; setStatus('저장 중…');
   const rec={ date:$('f_date').value||todayKST(), time:$('f_time').value, type:$('f_type').value, src:$('f_src').value,
-    kw, tag:$('f_tag').value.trim(), body, link:$('f_link').value.trim() };
+    kw:deriveSnip(body), tag:'', body, link:$('f_link').value.trim() };
   try{
-    if(editingId){
-      const i=DATA.findIndex(d=>d.id===editingId);
-      DATA[i]={...DATA[i],...rec};
-    }else{
-      DATA.push({id:String(Date.now()),reg:nowKST(),...rec});
-    }
+    if(editingId){ const i=DATA.findIndex(d=>d.id===editingId); DATA[i]={...DATA[i],...rec}; }
+    else{ DATA.push({id:String(Date.now()),reg:nowKST(),...rec}); }
     await saveAll();
     render(); resetForm(); toast('저장 완료'); setStatus(`연결됨 · ${DATA.length}건`);
   }catch(e){ toast('저장 실패: '+e.message); setStatus('오류'); }
   $('saveBtn').disabled=false;
 }
+
 async function importSeed(){
-  const add=SEED.filter(s=>!DATA.some(d=>d.date===s.date && d.kw===s.kw));
+  const SEED=[
+    {date:'2026-05-18',time:'아침',type:'소식글',kw:'통통 급냉 대병어, 찐 초대왕박대',body:'[요약 백필 · 전문 미보유] "박히는 순서 먼저" 공식을 확립한 기준 샘플.'},
+    {date:'2026-05-18',time:'저녁',type:'소식글',kw:'활 갑오징어(대왕 1kg/초대왕 2미)',body:'[요약 백필 · 전문 미보유] 단가 화살표 표기 + 저녁 톤 + 동반자 어필 첫 적용.'},
+    {date:'2026-05-19',time:'아침',type:'소식글',kw:'베트남 바나나(3kg/6kg), 인천 활 꽃게 3종 인하',body:'[요약 백필 · 전문 미보유] 과일 시즌 시작 시그널.'},
+    {date:'2026-05-20',time:'점심',type:'소식글',kw:'갑오징어 라인업 4종, 생물 고등어(2주 한정), 한치/멍게',body:'[요약 백필 · 전문 미보유] 길이 마지노선 검증(~450자/20줄), 마무리 인사 생략 패턴.'},
+    {date:'2026-05-21',time:'저녁',type:'소식글',kw:'박달대게, 생대구, 한돈 등뼈 + 6월 배송공지 합본',body:'[요약 백필 · 전문 미보유] 상품추천 카테고리(=소식글), 합본 길이 실측.'},
+    {date:'2026-05-22',time:'아침',type:'소식글',kw:'남해 맛조개(500g/8,500/배송4,000/합포장5개)',body:'[요약 백필 · 전문 미보유] 산소포장+빙장 출고. 매니아 매년 찾는 상품.'},
+    {date:'2026-05-26',time:'아침',type:'소식글',kw:'군산 박대 2스펙(초대왕 2미/4,800, 대박대 5미/6,400)',link:'https://masterc.kr/board_eJGl96/584579',body:'[요약 백필 · 전문 미보유] 배송 CJ 4,000. 상시상품 인상 예고 앵글. 원물 감비아·세네갈산, 전쟁으로 입항 직격탄. 이 2스펙만 비축분 단가 픽스.'},
+  ];
+  const add=SEED.filter(s=>!DATA.some(d=>d.date===s.date && (d.kw===s.kw)));
   if(!add.length){ toast('이미 모두 들어있습니다'); return; }
   if(!confirm(`과거 발송 요약 ${add.length}건을 가져올까요? (전문 미보유 요약, 나중에 수정 가능)`)) return;
   $('seedBtn').disabled=true; setStatus('가져오는 중…');
   let n=0;
-  add.forEach(s=>{ DATA.push({id:String(Date.now()+n++),reg:nowKST(),src:'발송',...s}); });
+  add.forEach(s=>{ DATA.push({id:String(Date.now()+n++),reg:nowKST(),src:'발송',tag:'',link:'',...s}); });
   try{ await saveAll(); render(); toast(`${add.length}건 가져옴`); setStatus(`연결됨 · ${DATA.length}건`); }
   catch(e){ toast('실패: '+e.message); setStatus('오류'); }
   $('seedBtn').disabled=false;
@@ -309,7 +408,9 @@ document.addEventListener('click',e=>{
   if(act.dataset.act==='edit'){ loadForm(d); }
   if(act.dataset.act==='del'){ if(confirm('이 기록을 삭제할까요?')){ DATA=DATA.filter(x=>x.id!==d.id); saveAll().then(()=>{render();toast('삭제됨');setStatus(`연결됨 · ${DATA.length}건`);}); } }
 });
+$('genBtn').onclick=generate;
 $('saveBtn').onclick=save;
+$('copyOutBtn').onclick=()=>{ const v=$('f_out').value.trim(); if(!v){toast('복사할 내용이 없습니다');return;} navigator.clipboard.writeText(v).then(()=>toast('복사됨 — 카톡에 붙여넣기')); };
 $('cancelBtn').onclick=resetForm;
 $('seedBtn').onclick=importSeed;
 $('reloadBtn').onclick=load;
