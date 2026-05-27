@@ -194,6 +194,7 @@
   <!-- 전체 리스트 -->
   <div class="card">
     <h2>전체 업체 <span class="badge green" id="total-count">0</span></h2>
+    <div style="margin-bottom:10px"><button class="btn brand sm" onclick="pushToSecretary()">🤝 오늘 영업 비서에 반영</button> <span class="muted" style="font-size:11.5px">오늘 보낸/연락한 업체를 비서 '신규영업'에 한 번에 기록 (중복 제외)</span></div>
     <table>
       <thead><tr>
         <th style="width:13%">업체명</th><th style="width:8%">채널</th><th style="width:14%">연락처</th>
@@ -216,6 +217,24 @@
       <button class="btn ghost" onclick="closeModal()">닫기</button>
       <button class="btn" onclick="copyText('m-text')">📋 복사</button>
       <button class="btn brand" onclick="markSent()">보냄 처리 (마지막연락 오늘로)</button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="edit-modal">
+  <div class="modal">
+    <h3>✏️ 업체 정보 수정</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <div class="fld"><label>업체명</label><input id="e-name"></div>
+      <div class="fld"><label>연락방식</label><select id="e-chan"><option>이메일</option><option>네이버쪽지</option><option>카톡전화</option></select></div>
+      <div class="fld" style="grid-column:1/-1"><label>연락처</label><input id="e-contact"></div>
+      <div class="fld"><label>보낸 날짜</label><input id="e-sent" type="date"></div>
+      <div class="fld"><label>마지막 연락</label><input id="e-last" type="date"></div>
+      <div class="fld" style="grid-column:1/-1"><label>상태</label><select id="e-stat"><option>진행중</option><option>회신</option><option>보류</option><option>종료</option></select></div>
+      <div class="fld" style="grid-column:1/-1"><label>메모</label><textarea id="e-memo" style="min-height:70px"></textarea></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+      <button class="btn ghost" onclick="$('edit-modal').classList.remove('on')">취소</button>
+      <button class="btn brand" onclick="saveEdit()">저장</button>
     </div>
   </div>
 </div>
@@ -346,7 +365,7 @@ async function callAI(prompt,retry=0){
 }
 
 // ─── 상태/데이터 ───
-let DATA=[], modalIdx=-1, imgBlobs={daily:null,card:null};
+let DATA=[], modalIdx=-1, editIdx=-1, imgBlobs={daily:null,card:null};
 const $=id=>document.getElementById(id);
 function todayKST(){ return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'}); }
 function daysSince(d){ if(!d)return null; const a=new Date(d+'T00:00:00+09:00'),b=new Date(todayKST()+'T00:00:00+09:00'); return Math.floor((b-a)/86400000); }
@@ -505,16 +524,40 @@ async function addRow(){
 async function markContact(i){ DATA[i][4]=todayKST(); render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('마지막 연락일 → 오늘'); }
 async function delRow(i){ if(!confirm(`'${DATA[i][0]||DATA[i][2]}' 삭제할까요?`))return; DATA.splice(i,1); render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('삭제됨'); }
 function editRow(i){
-  const r=DATA[i], q=(t,v)=>{const x=prompt(t,v);return x;};
-  const name=q('업체명(선택)',r[0]); if(name===null)return;
-  const chan=q('연락방식 (이메일/네이버쪽지/카톡전화)',r[1]); if(chan===null)return;
-  const contact=q('연락처',r[2]); if(contact===null)return;
-  const sent=q('보낸 날짜 (YYYY-MM-DD)',r[3]); if(sent===null)return;
-  const last=q('마지막 연락 (YYYY-MM-DD)',r[4]); if(last===null)return;
-  const stat=q('상태 (진행중/회신/보류/종료)',r[5]); if(stat===null)return;
-  const memo=q('메모',r[6]); if(memo===null)return;
-  DATA[i]=[name.trim(),chan.trim(),contact.trim(),sent.trim(),last.trim(),stat.trim(),memo.trim()];
+  const r=DATA[i]; editIdx=i;
+  $('e-name').value=r[0]||''; $('e-chan').value=r[1]||'이메일'; $('e-contact').value=r[2]||'';
+  $('e-sent').value=r[3]||''; $('e-last').value=r[4]||''; $('e-stat').value=r[5]||'진행중'; $('e-memo').value=r[6]||'';
+  $('edit-modal').classList.add('on');
+}
+function saveEdit(){
+  if(editIdx<0)return;
+  DATA[editIdx]=[$('e-name').value.trim(),$('e-chan').value,$('e-contact').value.trim(),$('e-sent').value.trim(),$('e-last').value.trim(),$('e-stat').value,$('e-memo').value.trim()];
+  $('edit-modal').classList.remove('on'); editIdx=-1;
   render(); setStatus('저장 중…'); save().then(()=>{setStatus('저장됨');toast('수정됨');});
+}
+// 🤝 오늘 영업한 업체를 비서 '신규영업'(업무관리 탭)에 한 번에 반영 (같은 비서 시트라 append만)
+const PROSPECT_PREFIX='🤝 신규영업';
+async function pushToSecretary(){
+  const today=todayKST();
+  const mine=DATA.filter(r=> r[3]===today || r[4]===today);
+  if(!mine.length){ toast('오늘 보낸/연락한 업체가 없어요'); return; }
+  if(!confirm(`오늘 영업 ${mine.length}곳을 비서 '신규영업'에 반영할까요? (중복 제외)`)) return;
+  setStatus('비서 반영 중…');
+  try{
+    const rows=await sheetGet('업무관리','A2:J');
+    const has=new Set(rows.filter(r=>r[0] && String(r[4]||'').startsWith(PROSPECT_PREFIX) && r[2]===today && String(r[8]||'').toUpperCase()!=='TRUE').map(r=>String(r[1]||'').trim()));
+    const ts=new Date().toISOString(); let n=0; const add=[];
+    mine.forEach(r=>{
+      const client=String(r[0]||r[2]||'').trim(); if(!client||has.has(client)) return;
+      const content=String(r[6]||'신규 영업 메일 발송').trim();
+      add.push([Date.now()+(n++), client, today, '2', `${PROSPECT_PREFIX}: ${content}`, 'TRUE', JSON.stringify([{text:'🤝 신규영업 (메일링)',ts}]), '메모', 'FALSE', ts]);
+      has.add(client);
+    });
+    if(!add.length){ toast('이미 비서에 다 반영돼 있어요'); setStatus('완료'); return; }
+    const t=await getToken();
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('업무관리!A:J')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:add})});
+    toast(`비서에 ${add.length}곳 반영됨 — 비서 새로고침하면 '오늘 영업'에 떠요`); setStatus('완료');
+  }catch(e){ toast('반영 실패: '+e.message); setStatus('오류'); }
 }
 
 // ─── 템플릿 ───
