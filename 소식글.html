@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>마스터 소식글 히스토리</title>
+<style>
+  :root{ --bg:#f4f6f9; --card:#fff; --line:#e3e7ee; --ink:#1f2733; --sub:#6b7686;
+         --brand:#e8742c; --brand-d:#cc5f1c; --red:#e23b3b; --redbg:#fde8e8;
+         --green:#1f9d57; --greenbg:#e7f6ee; --amber:#b9820b; --amberbg:#fdf3dd;
+         --blue:#2b63d9; --bluebg:#e8f0fe; --purple:#7a3fd0; --purplebg:#f0e9fb; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+       background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;padding:14px;max-width:880px;margin:0 auto}
+  h1{font-size:19px;margin:0 0 2px;display:flex;align-items:center;gap:8px}
+  .top{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .muted{color:var(--sub);font-size:12.5px}
+  .status{font-size:12px;color:var(--sub);margin-left:auto}
+  .btn{border:0;border-radius:8px;padding:8px 13px;font-size:13px;font-weight:600;cursor:pointer;background:#eef1f5;color:#333}
+  .btn.brand{background:var(--brand);color:#fff}.btn.brand:hover{background:var(--brand-d)}
+  .btn.sm{padding:4px 9px;font-size:12px;border-radius:6px}
+  .btn.ghost{background:transparent;color:var(--sub);border:1px solid var(--line)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 1px 2px rgba(20,30,50,.04)}
+  .card h2{font-size:14px;margin:0 0 12px;display:flex;align-items:center;gap:7px}
+  .last{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .last .big{font-size:26px;font-weight:800;color:var(--brand)}
+  .last .meta{font-size:13px}
+  .last .gap{font-weight:700}
+  .last .gap.warn{color:var(--red)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .fld label{display:block;font-size:11.5px;color:var(--sub);margin-bottom:3px;font-weight:600}
+  .fld.full{grid-column:1/-1}
+  input,select,textarea{width:100%;padding:8px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;background:#fff}
+  textarea{min-height:120px;resize:vertical;line-height:1.55}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand)}
+  .row-actions{display:flex;gap:7px;margin-top:12px;align-items:center;flex-wrap:wrap}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11.5px;color:var(--sub);font-weight:700}
+  tr.head-row{cursor:pointer}
+  tr.head-row:hover td{background:#fafbfd}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:20px;background:#eef1f5;color:#555;white-space:nowrap}
+  .pill.아침{background:var(--amberbg);color:var(--amber)}
+  .pill.점심{background:var(--bluebg);color:var(--blue)}
+  .pill.저녁{background:var(--purplebg);color:var(--purple)}
+  .pill.소식글{background:var(--greenbg);color:var(--green)}
+  .pill.상품추천{background:var(--bluebg);color:var(--blue)}
+  .pill.배송공지{background:var(--amberbg);color:var(--amber)}
+  .pill.학습{background:#eceef1;color:#888}
+  .pill.발송{background:var(--greenbg);color:var(--green)}
+  .body-cell{white-space:pre-wrap;background:#fafbfd;border:1px solid var(--line);border-radius:8px;padding:11px;margin:4px 0;font-size:13px;line-height:1.6}
+  .kw{font-weight:600}
+  .tag{color:var(--brand);font-weight:700;font-size:12px}
+  .empty{text-align:center;color:var(--sub);padding:26px 0}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#1f2733;color:#fff;padding:10px 18px;border-radius:24px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:80}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .filterbar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .filterbar input{flex:1;min-width:140px}
+  .count{font-size:12px;color:var(--sub)}
+  .warnbox{background:var(--amberbg);color:var(--amber);border-radius:8px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;display:none}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>📨 마스터 소식글 히스토리</h1>
+  <span class="status" id="status">초기화 중…</span>
+  <button class="btn ghost sm" id="seedBtn">📥 과거기록 가져오기</button>
+  <button class="btn ghost sm" id="reloadBtn">↻ 새로고침</button>
+</div>
+
+<div class="warnbox" id="httpsWarn">⚠️ 이 브라우저에서 보안 기능(서명)이 비활성화되어 시트 연결이 안 됩니다. <b>배포된 https 주소</b>로 열어주세요 (로컬 파일 직접 열기는 일부 브라우저에서 제한됨).</div>
+
+<div class="card" id="lastCard">
+  <h2>🕒 마지막 발송</h2>
+  <div class="last" id="lastBox"><span class="muted">불러오는 중…</span></div>
+</div>
+
+<div class="card">
+  <h2 id="formTitle">➕ 새 글 기록 / 학습자료 추가</h2>
+  <div class="grid">
+    <div class="fld"><label>날짜</label><input type="date" id="f_date"></div>
+    <div class="fld"><label>시간대</label>
+      <select id="f_time"><option>아침</option><option>점심</option><option>저녁</option><option value="">-</option></select></div>
+    <div class="fld"><label>형식</label>
+      <select id="f_type"><option>소식글</option><option>상품추천</option><option>배송공지</option><option>기타</option></select></div>
+    <div class="fld"><label>출처</label>
+      <select id="f_src"><option>발송</option><option>학습자료</option></select></div>
+    <div class="fld full"><label>상품 키워드 (쉼표로 여러 개)</label><input id="f_kw" placeholder="예: 군산 박대, 활 갑오징어"></div>
+    <div class="fld full"><label>태그 (선택)</label><input id="f_tag" placeholder="예: [인상 직전 한정] [횟감 시즌]"></div>
+    <div class="fld full"><label>본문</label><textarea id="f_body" placeholder="소식글 전문을 붙여넣으세요"></textarea></div>
+    <div class="fld full"><label>상세보기 링크 (선택)</label><input id="f_link" placeholder="https://masterc.kr/..."></div>
+  </div>
+  <div class="row-actions">
+    <button class="btn brand" id="saveBtn">저장</button>
+    <button class="btn ghost" id="cancelBtn" style="display:none">취소</button>
+    <span class="muted" id="formHint"></span>
+  </div>
+</div>
+
+<div class="card">
+  <h2>📚 기록 <span class="count" id="cnt"></span></h2>
+  <div class="filterbar">
+    <input id="q" placeholder="상품·본문·형식 검색">
+    <select id="fType" class="btn ghost" style="font-weight:600">
+      <option value="">전체 형식</option><option>소식글</option><option>상품추천</option><option>배송공지</option><option>기타</option></select>
+    <select id="fSrc" class="btn ghost" style="font-weight:600">
+      <option value="">전체 출처</option><option>발송</option><option>학습자료</option></select>
+  </div>
+  <table>
+    <thead><tr><th style="width:78px">날짜</th><th style="width:52px">시간</th><th style="width:74px">형식</th><th>상품</th><th style="width:56px">출처</th></tr></thead>
+    <tbody id="rows"><tr><td colspan="5" class="empty">불러오는 중…</td></tr></tbody>
+  </table>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// 서비스계정 인증 (비서/신규업체메일링 도구와 동일 패턴)
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
+const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+const OAUTH_SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+const USER_EMAIL='chanwha0221@gmail.com';
+const SHEET_TITLE='마스터 소식글 히스토리';
+const DATA_TAB='소식글';
+const HEADER=['id','날짜','시간대','형식','상품키워드','태그','본문','상세링크','출처','등록일시'];
+// 워크플로우 히스토리(§4) 기반 과거 발송 요약 — 전문 미보유, 추후 실제 본문으로 수정 가능
+const SEED=[
+  {date:'2026-05-18',time:'아침',type:'소식글',kw:'통통 급냉 대병어, 찐 초대왕박대',tag:'',link:'',body:'[요약 백필 · 전문 미보유] "박히는 순서 먼저" 공식을 확립한 기준 샘플.'},
+  {date:'2026-05-18',time:'저녁',type:'소식글',kw:'활 갑오징어 (대왕 1kg / 초대왕 2미)',tag:'',link:'',body:'[요약 백필 · 전문 미보유] 단가 화살표 표기 + 저녁 톤 + 동반자 어필 첫 적용.'},
+  {date:'2026-05-19',time:'아침',type:'소식글',kw:'베트남 바나나(3kg/6kg), 인천 활 꽃게 3종 단가 인하',tag:'[과일 시즌 시작]',link:'',body:'[요약 백필 · 전문 미보유] 과일 시즌 시작 시그널.'},
+  {date:'2026-05-20',time:'점심',type:'소식글',kw:'갑오징어 라인업 4종, 생물 고등어(2주 한정), 한치/멍게',tag:'[2주 한정]',link:'',body:'[요약 백필 · 전문 미보유] 길이 마지노선 검증(~450자/20줄), 마무리 인사 생략 패턴 정착.'},
+  {date:'2026-05-21',time:'저녁',type:'상품추천',kw:'박달대게, 생대구, 한돈 등뼈 + 6월 배송공지 합본',tag:'',link:'',body:'[요약 백필 · 전문 미보유] 상품추천글 카테고리 신설, 합본 길이 실측(~430자 본문 OK).'},
+  {date:'2026-05-22',time:'아침',type:'소식글',kw:'남해 맛조개(500g/8,500/배송4,000/합포장5개)',tag:'',link:'',body:'[요약 백필 · 전문 미보유] 산소포장+빙장 출고. 매니아 매년 찾는 상품.'},
+  {date:'2026-05-26',time:'아침',type:'소식글',kw:'군산 박대 2스펙(초대왕박대 2미/4,800, 대박대 5미/6,400)',tag:'[인상 직전 한정]',link:'https://masterc.kr/board_eJGl96/584579',body:'[요약 백필 · 전문 미보유] 배송 CJ 4,000. 상시상품인데 인상 예고 이슈 앵글. 원물 감비아·세네갈산, 전쟁으로 입항 직격탄. 이 2스펙만 비축분 있어 단가 픽스.'},
+];
+let SHEET_ID='';
+let DATA=[];
+let editingId=null;
+
+const $=id=>document.getElementById(id);
+function setStatus(s){ $('status').textContent=s; }
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),1900); }
+function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function todayKST(){ return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'}); }
+function nowKST(){ return new Date().toLocaleString('sv-SE',{timeZone:'Asia/Seoul'}).replace(' ','T'); }
+function daysSince(d){ if(!d)return null; const a=new Date(d+'T00:00:00+09:00'),b=new Date(todayKST()+'T00:00:00+09:00'); return Math.round((b-a)/86400000); }
+
+let _tok=null,_exp=0;
+async function getToken(){
+  const now=Math.floor(Date.now()/1000);
+  if(_tok && _exp-now>300) return _tok;
+  const enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const toSign=enc({alg:'RS256',typ:'JWT'})+'.'+enc({iss:CLIENT_EMAIL,scope:OAUTH_SCOPE,aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now});
+  const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(toSign));
+  const jwt=toSign+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`});
+  const d=await r.json(); _tok=d.access_token; _exp=now+3600; return _tok;
+}
+
+// 시트 찾기 or 생성 (중복 방지: 이름으로 먼저 검색)
+async function findOrCreateSheet(){
+  const t=await getToken();
+  const q=`name='${SHEET_TITLE}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`,{headers:{Authorization:`Bearer ${t}`}});
+  const files=((await r.json()).files)||[];
+  if(files.length){ SHEET_ID=files[0].id; await ensureHeader(); return; }
+  const cr=await fetch('https://sheets.googleapis.com/v4/spreadsheets',{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},
+    body:JSON.stringify({properties:{title:SHEET_TITLE},sheets:[{properties:{title:DATA_TAB}}]})});
+  SHEET_ID=(await cr.json()).spreadsheetId;
+  await sheetPut(`${DATA_TAB}!A1`,[HEADER]);
+  await fetch(`https://www.googleapis.com/drive/v3/files/${SHEET_ID}/permissions?sendNotificationEmail=false`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},
+    body:JSON.stringify({role:'writer',type:'user',emailAddress:USER_EMAIL})});
+}
+async function ensureHeader(){
+  const rows=await sheetGet(`${DATA_TAB}!A1:J1`);
+  if(!rows.length || !rows[0] || rows[0][0]!=='id') await sheetPut(`${DATA_TAB}!A1`,[HEADER]);
+}
+async function sheetGet(range){
+  const t=await getToken();
+  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`,{headers:{Authorization:`Bearer ${t}`}});
+  return (await r.json()).values||[];
+}
+async function sheetPut(range,values){
+  const t=await getToken();
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values})});
+}
+async function clearData(){
+  const t=await getToken();
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A2:J100000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+}
+async function saveAll(){
+  await clearData();
+  if(DATA.length){
+    const rows=DATA.map(d=>[d.id,d.date,d.time,d.type,d.kw,d.tag,d.body,d.link,d.src,d.reg]);
+    await sheetPut(`${DATA_TAB}!A2`,rows);
+  }
+}
+
+async function load(){
+  setStatus('불러오는 중…');
+  const rows=await sheetGet(`${DATA_TAB}!A2:J100000`);
+  DATA=rows.filter(r=>r&&(r[0]||r[6])).map(r=>({
+    id:r[0]||String(Date.now()), date:r[1]||'', time:r[2]||'', type:r[3]||'소식글',
+    kw:r[4]||'', tag:r[5]||'', body:r[6]||'', link:r[7]||'', src:r[8]||'발송', reg:r[9]||''
+  }));
+  render();
+  setStatus(`연결됨 · ${DATA.length}건`);
+}
+function sortDesc(a,b){ return (b.date+b.reg).localeCompare(a.date+a.reg); }
+function renderLast(){
+  const sent=DATA.filter(d=>d.src==='발송').sort(sortDesc);
+  const box=$('lastBox');
+  if(!sent.length){ box.innerHTML='<span class="muted">아직 발송 기록이 없습니다.</span>'; return; }
+  const l=sent[0]; const g=daysSince(l.date);
+  const gtxt = g===0?'오늘':g===1?'어제':`${g}일 전`;
+  const warn = g>=2?'warn':'';
+  box.innerHTML=`<span class="big">${esc(l.date)}</span>
+    <span class="meta">${l.time?`<span class="pill ${l.time}">${l.time}</span> `:''}<span class="pill ${l.type}">${esc(l.type)}</span><br>
+    <span class="kw">${esc(l.kw||'(상품 미기재)')}</span></span>
+    <span class="gap ${warn}" style="margin-left:auto">${gtxt}${g>=2?' · 루틴 점검!':''}</span>`;
+}
+function render(){
+  renderLast();
+  const q=$('q').value.trim().toLowerCase();
+  const ft=$('fType').value, fs=$('fSrc').value;
+  let list=DATA.slice().sort(sortDesc);
+  if(ft) list=list.filter(d=>d.type===ft);
+  if(fs) list=list.filter(d=>d.src===fs);
+  if(q) list=list.filter(d=>(d.kw+' '+d.body+' '+d.type+' '+d.tag).toLowerCase().includes(q));
+  $('cnt').textContent=`· ${list.length}/${DATA.length}건`;
+  const tb=$('rows');
+  if(!list.length){ tb.innerHTML='<tr><td colspan="5" class="empty">기록이 없습니다.</td></tr>'; return; }
+  tb.innerHTML=list.map(d=>{
+    const srcPill=d.src==='학습자료'?'<span class="pill 학습">학습</span>':'<span class="pill 발송">발송</span>';
+    return `<tr class="head-row" data-id="${d.id}">
+      <td>${esc(d.date)}</td>
+      <td>${d.time?`<span class="pill ${d.time}">${d.time}</span>`:'-'}</td>
+      <td><span class="pill ${d.type}">${esc(d.type)}</span></td>
+      <td><span class="kw">${esc(d.kw||'-')}</span>${d.tag?`<br><span class="tag">${esc(d.tag)}</span>`:''}</td>
+      <td>${srcPill}</td></tr>
+      <tr id="exp-${d.id}" style="display:none"><td colspan="5">
+        <div class="body-cell">${esc(d.body)||'<span class="muted">(본문 없음)</span>'}</div>
+        ${d.link?`<a href="${esc(d.link)}" target="_blank" class="muted">🔗 ${esc(d.link)}</a><br>`:''}
+        <div class="row-actions">
+          <button class="btn sm" data-act="copy" data-id="${d.id}">📋 본문 복사</button>
+          <button class="btn sm ghost" data-act="edit" data-id="${d.id}">✏️ 수정</button>
+          <button class="btn sm ghost" data-act="del" data-id="${d.id}">🗑 삭제</button>
+        </div></td></tr>`;
+  }).join('');
+}
+
+function resetForm(){
+  editingId=null;
+  $('f_date').value=todayKST(); $('f_time').value='아침'; $('f_type').value='소식글'; $('f_src').value='발송';
+  $('f_kw').value=''; $('f_tag').value=''; $('f_body').value=''; $('f_link').value='';
+  $('formTitle').textContent='➕ 새 글 기록 / 학습자료 추가';
+  $('cancelBtn').style.display='none'; $('formHint').textContent='';
+}
+function loadForm(d){
+  editingId=d.id;
+  $('f_date').value=d.date; $('f_time').value=d.time; $('f_type').value=d.type; $('f_src').value=d.src;
+  $('f_kw').value=d.kw; $('f_tag').value=d.tag; $('f_body').value=d.body; $('f_link').value=d.link;
+  $('formTitle').textContent='✏️ 기록 수정';
+  $('cancelBtn').style.display='inline-block'; $('formHint').textContent=`수정 중 (${d.date})`;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+async function save(){
+  const body=$('f_body').value.trim(); const kw=$('f_kw').value.trim();
+  if(!body && !kw){ toast('상품 키워드나 본문 중 하나는 입력하세요'); return; }
+  $('saveBtn').disabled=true; setStatus('저장 중…');
+  const rec={ date:$('f_date').value||todayKST(), time:$('f_time').value, type:$('f_type').value, src:$('f_src').value,
+    kw, tag:$('f_tag').value.trim(), body, link:$('f_link').value.trim() };
+  try{
+    if(editingId){
+      const i=DATA.findIndex(d=>d.id===editingId);
+      DATA[i]={...DATA[i],...rec};
+    }else{
+      DATA.push({id:String(Date.now()),reg:nowKST(),...rec});
+    }
+    await saveAll();
+    render(); resetForm(); toast('저장 완료'); setStatus(`연결됨 · ${DATA.length}건`);
+  }catch(e){ toast('저장 실패: '+e.message); setStatus('오류'); }
+  $('saveBtn').disabled=false;
+}
+async function importSeed(){
+  const add=SEED.filter(s=>!DATA.some(d=>d.date===s.date && d.kw===s.kw));
+  if(!add.length){ toast('이미 모두 들어있습니다'); return; }
+  if(!confirm(`과거 발송 요약 ${add.length}건을 가져올까요? (전문 미보유 요약, 나중에 수정 가능)`)) return;
+  $('seedBtn').disabled=true; setStatus('가져오는 중…');
+  let n=0;
+  add.forEach(s=>{ DATA.push({id:String(Date.now()+n++),reg:nowKST(),src:'발송',...s}); });
+  try{ await saveAll(); render(); toast(`${add.length}건 가져옴`); setStatus(`연결됨 · ${DATA.length}건`); }
+  catch(e){ toast('실패: '+e.message); setStatus('오류'); }
+  $('seedBtn').disabled=false;
+}
+
+document.addEventListener('click',e=>{
+  const hr=e.target.closest('tr.head-row');
+  if(hr && !e.target.closest('[data-act]')){
+    const ex=$('exp-'+hr.dataset.id); if(ex) ex.style.display=ex.style.display==='none'?'':'none'; return;
+  }
+  const act=e.target.closest('[data-act]'); if(!act) return;
+  const d=DATA.find(x=>x.id===act.dataset.id); if(!d) return;
+  if(act.dataset.act==='copy'){ navigator.clipboard.writeText(d.body).then(()=>toast('본문 복사됨')); }
+  if(act.dataset.act==='edit'){ loadForm(d); }
+  if(act.dataset.act==='del'){ if(confirm('이 기록을 삭제할까요?')){ DATA=DATA.filter(x=>x.id!==d.id); saveAll().then(()=>{render();toast('삭제됨');setStatus(`연결됨 · ${DATA.length}건`);}); } }
+});
+$('saveBtn').onclick=save;
+$('cancelBtn').onclick=resetForm;
+$('seedBtn').onclick=importSeed;
+$('reloadBtn').onclick=load;
+['q','fType','fSrc'].forEach(id=>$(id).addEventListener('input',render));
+
+(async()=>{
+  if(!window.crypto||!window.crypto.subtle){ $('httpsWarn').style.display='block'; setStatus('보안 컨텍스트 필요'); return; }
+  resetForm();
+  try{ await findOrCreateSheet(); await load(); }
+  catch(e){ setStatus('연결 오류'); toast('연결 실패: '+e.message); console.error(e); }
+})();
+</script>
+</body>
+</html>

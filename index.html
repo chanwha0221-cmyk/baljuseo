@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.222</title>
+<title>발주서 변환기 v22.223</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.222</span>
+  <span class="ver">v22.223</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1287,6 +1287,9 @@ function parseDirectOrders(input){
   }
   return orders;
 }
+// 주문처명 별칭 — 출력 시 주문처 표기 치환 (CC조회·연락처는 그대로, 표기만 정리)
+const CLIENT_ALIAS={'(주)에보아르코리아':'에보아르코리아'};
+function applyClientAlias(s){ let r=s; for(const k in CLIENT_ALIAS){ r=r.split(k).join(CLIENT_ALIAS[k]); } return r; }
 function run(){
   wc=0;let input=document.getElementById('inp').value.trim();
   if(!input){sl('입력 데이터가 없습니다.','warn');return;}
@@ -1301,7 +1304,7 @@ function run(){
       // E=직접발주, F=수취인 이름, G=빈칸, H=수취인 전화, I=빈칸(창고명), J=합포장 상품, K=이름, L=주소, M=전화, N=빈칸
       out.push(['직접발주',ord.name||'','',ord.phone||'','',combinedName,ord.name,ord.addr,ord.phone,''].join('\t'));
     }
-    document.getElementById('out').value=out.join('\n');
+    document.getElementById('out').value=applyClientAlias(out.join('\n'));
     document.getElementById('s-in').textContent=orders.length;
     document.getElementById('s-out').textContent=out.length;
     document.getElementById('in-count').textContent=orders.length+' 건';
@@ -1360,7 +1363,7 @@ function run(){
     if(name.includes(' / ')){out.push(br(client,cfg,name,nameRaw,ord,iv));}
     else{let rem=finalQty;while(rem>0){const cur=Math.min(rem,maxB);out.push(br(client,cfg,name+' x '+cur,nameRaw,ord,iv));rem-=cur;}}
   }
-  document.getElementById('out').value=out.join('\n');
+  document.getElementById('out').value=applyClientAlias(out.join('\n'));
   document.getElementById('s-out').textContent=out.length;
   document.getElementById('out-count').textContent=out.length+' 행';
   autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
