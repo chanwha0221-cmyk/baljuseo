@@ -93,7 +93,6 @@
     <div class="fld full"><label>소식글 본문 — 클로드랑 다듬은 최종본을 붙여넣으세요</label>
       <textarea id="f_out" class="big" placeholder="완성된 소식글을 여기 붙여넣고 💾 저장하세요."></textarea></div>
 
-    <div class="fld full"><label>상세보기 링크 (선택)</label><input id="f_link" placeholder="https://masterc.kr/..."></div>
   </div>
   <div class="row-actions">
     <button class="btn brand" id="saveBtn">💾 최종본 저장</button>
@@ -263,14 +262,14 @@ function render(){
 function resetForm(){
   editingId=null;
   $('f_date').value=todayKST(); $('f_time').value='아침'; $('f_type').value='소식글'; $('f_src').value='발송';
-  $('f_out').value=''; $('f_link').value='';
+  $('f_out').value='';
   $('formTitle').textContent='➕ 소식글 저장';
   $('cancelBtn').style.display='none'; $('formHint').textContent='';
 }
 function loadForm(d){
   editingId=d.id;
   $('f_date').value=d.date; $('f_time').value=d.time; $('f_type').value=d.type||'소식글'; $('f_src').value=d.src;
-  $('f_out').value=d.body; $('f_link').value=d.link;
+  $('f_out').value=d.body;
   $('formTitle').textContent='✏️ 기록 수정';
   $('cancelBtn').style.display='inline-block'; $('formHint').textContent=`수정 중 (${d.date}) — 본문 칸을 고치고 저장`;
   window.scrollTo({top:0,behavior:'smooth'});
@@ -280,8 +279,9 @@ async function save(){
   const body=$('f_out').value.trim();
   if(!body){ toast('저장할 소식글이 없습니다 (생성하거나 직접 입력)'); return; }
   $('saveBtn').disabled=true; setStatus('저장 중…');
+  const link=(body.match(/https?:\/\/[^\s)\]]+/)||[''])[0];
   const rec={ date:$('f_date').value||todayKST(), time:$('f_time').value, type:$('f_type').value, src:$('f_src').value,
-    kw:deriveSnip(body), tag:'', body, link:$('f_link').value.trim() };
+    kw:deriveSnip(body), tag:'', body, link };
   try{
     if(editingId){ const i=DATA.findIndex(d=>d.id===editingId); DATA[i]={...DATA[i],...rec}; }
     else{ DATA.push({id:String(Date.now()),reg:nowKST(),...rec}); }

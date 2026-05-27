@@ -351,9 +351,15 @@ async function writeToSheet(){
   try{
     const inputRows = [...entries].filter(e=>e.qty>0).sort((a,b)=>a.seq-b.seq)
       .map(e=>[e.time||nowStr(), e.team, e.wh, e.it, e.qty]);
-    const statusRows = computeStatus().map(s=>{
+    const _statusAll = computeStatus().map(s=>{
       const ranks=[]; for(let i=0;i<10;i++) ranks.push(s.merged[i]?`${s.merged[i].team} (${s.merged[i].qty})`:'-');
       return [s.wh, s.it, holdingMap[s.uKey]||'', ...ranks, s.total];
+    });
+    // 🛡️ 안전장치: 창고+상품명(공백 정규화) 같은 현황 줄은 1줄만 — 동시저장·잔여행으로 인한 시트 중복 방지
+    const _seenKey = new Set();
+    const statusRows = _statusAll.filter(row=>{
+      const k = String(row[0]).replace(/\s+/g,' ').trim() + '||' + String(row[1]).replace(/\s+/g,' ').trim();
+      if(_seenKey.has(k)) return false; _seenKey.add(k); return true;
     });
     const logRows = deleteLog.map(l=>[l.at,l.time,l.team,l.wh,l.it,l.qty]);
     await sheetBatchClear([`${SH_INPUT}!A2:E10000`,`${SH_STATUS}!A2:N10000`,`${SH_LOG}!A2:F10000`]);
