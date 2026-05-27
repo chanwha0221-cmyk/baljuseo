@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.228</title>
+<title>발주서 변환기 v22.229</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.228</span>
+  <span class="ver">v22.229</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1288,6 +1288,35 @@ function parseDirectOrders(input){
   return orders;
 }
 // 주문처명 별칭 — 출력 시 주문처 표기 치환 (CC조회·연락처는 그대로, 표기만 정리)
+// 배민 대용량 발주 — 헤더 탭표(주문번호…받는분 연락처…지번 주소). 주문처=배민대용량, 주문처연락처=010-2455-4156 고정
+function isBaeminLargeFormat(raw){
+  const first=(raw.trim().split('\n')[0]||'');
+  return first.includes('주문번호') && first.includes('받는분') && first.includes('지번 주소') && (first.includes('관리용상품명')||first.includes('상품명-옵션명'));
+}
+function parseBaeminLarge(raw){
+  const lines=raw.trim().split('\n').filter(l=>l.trim());
+  if(lines.length<2) return [];
+  const H=lines[0].split('\t').map(h=>h.trim());
+  const col=(n)=>H.findIndex(h=>h===n);
+  const iProd=col('관리용상품명')>=0?col('관리용상품명'):col('상품명-옵션명');
+  const iQty=col('수량'), iName=col('받는분'), iPhone=col('받는분 연락처');
+  const iJibun=col('지번 주소'), iDoro=col('도로명 주소'), iMsg=col('배송메시지');
+  const out=[];
+  for(let i=1;i<lines.length;i++){
+    const c=lines[i].split('\t'); if(c.length<3) continue;
+    let prod=(c[iProd]||'').trim(); if(!prod) continue;
+    const qty=parseInt(String(c[iQty]||'1').replace(/[^0-9]/g,''))||1;
+    const custName=(c[iName]||'').trim();
+    const phone=fp((c[iPhone]||'').trim());
+    let addr=((iJibun>=0?c[iJibun]:'')||(iDoro>=0?c[iDoro]:'')||'').trim()
+      .replace(/\s*(자택배송|직장배송|기타배송|경비실위탁|문앞|무인택배함|편의점)\s*$/,'').trim();
+    const msg=(iMsg>=0?(c[iMsg]||''):'').trim();
+    const {name:mName,qty:fq,maxB}=pp('배민대용량',prod,qty);
+    if(mName.includes(' / ')){ out.push(['배민대용량','','010-2455-4156','',mName,custName,addr,phone,msg].join('\t')); }
+    else { let rem=fq; const mb=maxB||999; while(rem>0){ const cur=Math.min(rem,mb); out.push(['배민대용량','','010-2455-4156','',mName+' x '+cur,custName,addr,phone,msg].join('\t')); rem-=cur; } }
+  }
+  return out;
+}
 const CLIENT_ALIAS={'(주)에보아르코리아':'에보아르코리아'};
 function applyClientAlias(s){ let r=s; for(const k in CLIENT_ALIAS){ r=r.split(k).join(CLIENT_ALIAS[k]); } return r; }
 function run(){
@@ -1311,6 +1340,19 @@ function run(){
     document.getElementById('out-count').textContent=out.length+' 행';
     autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
     sl('직접발주 '+orders.length+'건 / '+out.length+'행 출력','ok');
+    return;
+  }
+  if(isBaeminLargeFormat(input)){
+    const out=parseBaeminLarge(input);
+    if(out.length===0){sl('배민대용량 파싱 실패 — 헤더(주문번호/받는분/지번 주소) 확인','warn');return;}
+    document.getElementById('out').value=applyClientAlias(out.join('\n'));
+    document.getElementById('s-in').textContent=out.length;
+    document.getElementById('s-out').textContent=out.length;
+    document.getElementById('in-count').textContent=out.length+' 건';
+    document.getElementById('out-count').textContent=out.length+' 행';
+    document.getElementById('s-warn').textContent=0;
+    autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
+    sl('배민대용량 '+out.length+'행 출력','ok');
     return;
   }
   if(is365BagenFormat(input)){

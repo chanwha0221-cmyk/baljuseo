@@ -117,21 +117,12 @@
           <textarea id="tpl" style="min-height:280px;line-height:1.7"></textarea>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="btn brand" onclick="openInThunderbird()">📧 썬더버드로 보내기 (주소·제목·본문)</button>
-            <button class="btn" onclick="buildMailPreview()">🖼️ 본문+이미지 합치기</button>
             <button class="btn ghost" onclick="copyPreview()">📋 전체 복사</button>
+            <button class="btn ghost" onclick="loadSavedTemplate()">📄 표준 템플릿 불러오기</button>
             <button class="btn ghost" onclick="saveTemplate()">템플릿 저장</button>
             <button class="btn ghost" onclick="resetTemplate()">기본값 복원</button>
           </div>
-          <!-- 본문+이미지 합친 미리보기 (전체 선택 후 복사 → 썬더버드 본문에 붙여넣기) -->
-          <div id="mail-preview-wrap" style="display:none;margin-top:12px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-              <b style="font-size:12.5px">📧 완성 미리보기 <span class="muted" style="font-weight:400">(이 박스를 전체선택 Ctrl+A → Ctrl+C 또는 아래 버튼)</span></b>
-              <button class="btn brand sm" onclick="copyPreview()">📋 전체 복사</button>
-            </div>
-            <div id="mail-preview" contenteditable="true" style="border:1px solid var(--line);border-radius:8px;padding:12px;min-height:120px;max-height:420px;overflow:auto;background:#fff;font-size:14px;line-height:1.7"></div>
-            <div class="muted" style="margin-top:5px;font-size:11px">→ [전체 복사] 누른 뒤 <b>썬더버드 새 메일 본문</b>에 <b>Ctrl+V</b> 하면 본문+이미지가 그대로 들어가요.</div>
           </div>
-        </div>
         <!-- 네이버쪽지 -->
         <div id="form-note" class="fld" style="display:none">
           <label>📨 네이버쪽지 본문 <span class="muted">(제목 없이 짧게)</span></label>
@@ -488,7 +479,6 @@ function copyFollowupEmails(){
 async function sendEmailFollowupBatch(){
   const em=followupEmails(); if(!em.length){ toast('20일 지난 이메일 업체가 없어요'); return; }
   const {html,hasDaily}=buildMailHTML();
-  $('mail-preview').innerHTML=html; $('mail-preview-wrap').style.display='block';
   try{ await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([$('tpl').value],{type:'text/plain'})})]); }catch(e){}
   const subj=encodeURIComponent(($('tpl-subject').value||'').trim());
   window.location.href='mailto:?bcc='+encodeURIComponent(em.join(','))+'&subject='+subj;
@@ -530,6 +520,8 @@ function editRow(i){
 // ─── 템플릿 ───
 async function saveTemplate(){ setStatus('저장 중…'); SET.subject=$('tpl-subject').value; await setSetting('template',$('tpl').value); setStatus('저장됨'); toast('제목·본문 저장됨'); }
 function resetTemplate(){ if(confirm('기본 제목·템플릿으로 되돌릴까요?')){ $('tpl-subject').value=DEFAULT_SUBJECT; $('tpl').value=DEFAULT_TEMPLATE; toast('기본값 — 저장하려면 [템플릿 저장]'); } }
+// 저장된 '표준 템플릿' 다시 불러오기 (일회성 메일 쓴 뒤 복귀용)
+function loadSavedTemplate(){ if(SET.template){ $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT; $('tpl').value = SET.template; toast('저장된 표준 템플릿을 불러왔어요'); } else { toast('저장된 표준 템플릿이 없어요 — 먼저 [템플릿 저장]'); } }
 // 쪽지/카톡 템플릿 저장·복원 (which: 'note' | 'kakao')
 async function saveTpl(which){ setStatus('저장 중…'); await setSetting('template_'+which, $('tpl-'+which).value); setStatus('저장됨'); toast((which==='note'?'쪽지':'카톡')+' 템플릿 저장됨'); }
 function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:which==='kakao'?DEFAULT_KAKAO:DEFAULT_PERM; $('tpl-'+which).value=def; toast('기본값 — 저장하려면 [저장]'); }
@@ -590,18 +582,9 @@ function buildMailHTML(){
   html+='</div>';
   return {html, hasDaily:!!daily};
 }
-// 🖼️ 본문+이미지 합쳐 미리보기에 렌더
-function buildMailPreview(){
-  const {html,hasDaily}=buildMailHTML();
-  const el=$('mail-preview'); el.innerHTML=html;
-  $('mail-preview-wrap').style.display='block';
-  el.scrollIntoView({behavior:'smooth',block:'nearest'});
-  toast(hasDaily ? '본문+시트 합쳐졌어요 — [전체 복사] → 썬더버드 본문에 Ctrl+V (명함은 서명에서 자동)' : '⚠️ 시트 이미지부터 올려주세요 (오른쪽)');
-}
 // 📋 전체 복사 — 합치기 안 눌렀어도 본문+시트를 바로 만들어 HTML째 클립보드에 (썬더버드 인라인 유지)
 async function copyPreview(){
   const {html,hasDaily}=buildMailHTML();
-  $('mail-preview').innerHTML=html; $('mail-preview-wrap').style.display='block';  // 미리보기도 갱신
   const plain=$('tpl').value;
   try{
     await navigator.clipboard.write([new ClipboardItem({
@@ -610,18 +593,12 @@ async function copyPreview(){
     })]);
     toast(hasDaily ? '✅ 전체 복사됨 — 썬더버드 새 메일 본문에 Ctrl+V (명함은 서명 자동)' : '복사는 됐지만 시트 이미지가 없어요 — 오른쪽에서 먼저 올리세요');
   }catch(e){
-    // 폴백: 미리보기 영역 선택해서 execCommand 복사
-    const el=$('mail-preview'); const range=document.createRange(); range.selectNodeContents(el);
-    const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-    let ok=false; try{ ok=document.execCommand('copy'); }catch(_){}
-    sel.removeAllRanges();
-    toast(ok?'✅ 전체 복사됨 — 썬더버드 본문에 Ctrl+V':'복사 실패 — 미리보기 박스에서 Ctrl+A → Ctrl+C 해주세요');
+    toast('복사 실패 — 다시 시도해 주세요 (브라우저 권한 확인)');
   }
 }
 // 📧 원클릭 — 본문+시트 복사 + 받는사람·제목 채워 썬더버드(기본 메일앱) 열기. 본문은 Ctrl+V만 하면 됨
 async function openInThunderbird(){
   const {html,hasDaily}=buildMailHTML();
-  $('mail-preview').innerHTML=html; $('mail-preview-wrap').style.display='block';
   // 1) 본문+시트 클립보드에 복사
   try{ await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([$('tpl').value],{type:'text/plain'})})]); }catch(e){}
   // 2) 받는사람(연락처칸)·제목 채워 메일앱 열기 (mailto는 본문/이미지 못 실어서 본문은 붙여넣기로)

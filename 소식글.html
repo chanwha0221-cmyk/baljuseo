@@ -129,8 +129,9 @@ const SHEET_TITLE='마스터 소식글 히스토리';
 const DATA_TAB='소식글';
 const HEADER=['id','날짜','시간대','형식','상품키워드','태그','본문','상세링크','출처','등록일시'];
 
-let SHEET_ID='';
+let SHEET_ID='1JJkkWo3mKIFzdQHw73k4Wc_Dl_NHvrDgmabDFD9ktrk';
 let DATA=[];
+let loaded=false;
 let editingId=null;
 
 const $=id=>document.getElementById(id);
@@ -167,18 +168,15 @@ async function getToken(){
 }
 
 // 시트 찾기 or 생성 (중복 방지: 이름으로 먼저 검색)
-async function findOrCreateSheet(){
+// 고정 시트(사장님 소유 + 서비스계정 편집 공유). 소식글 탭 없으면 생성.
+async function ensureTab(){
   const t=await getToken();
-  const q=`name='${SHEET_TITLE}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
-  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`,{headers:{Authorization:`Bearer ${t}`}});
-  const files=((await r.json()).files)||[];
-  if(files.length){ SHEET_ID=files[0].id; await ensureHeader(); return; }
-  const cr=await fetch('https://sheets.googleapis.com/v4/spreadsheets',{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},
-    body:JSON.stringify({properties:{title:SHEET_TITLE},sheets:[{properties:{title:DATA_TAB}}]})});
-  SHEET_ID=(await cr.json()).spreadsheetId;
-  await sheetPut(`${DATA_TAB}!A1`,[HEADER]);
-  await fetch(`https://www.googleapis.com/drive/v3/files/${SHEET_ID}/permissions?sendNotificationEmail=false`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},
-    body:JSON.stringify({role:'writer',type:'user',emailAddress:USER_EMAIL})});
+  const m=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,{headers:{Authorization:`Bearer ${t}`}});
+  const titles=((await m.json()).sheets||[]).map(s=>s.properties.title);
+  if(!titles.includes(DATA_TAB)){
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:DATA_TAB}}}]})});
+  }
+  await ensureHeader();
 }
 async function ensureHeader(){
   const rows=await sheetGet(`${DATA_TAB}!A1:J1`);
@@ -197,12 +195,17 @@ async function clearData(){
   const t=await getToken();
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A2:J100000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
 }
-async function saveAll(){
+function rowOf(d){ return [d.id,d.date,d.time,d.type,d.kw,d.tag,d.body,d.link,d.src,d.reg]; }
+// 새 글: 맨 아래 append만 (기존 데이터 절대 안 건드림)
+async function appendRows(rows){
+  const t=await getToken();
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A:J')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+}
+// 수정/삭제 때만 전체 재작성 — 반드시 load 성공(loaded) 후에만 (빈 데이터 덮어쓰기 방지)
+async function rewriteAll(){
+  if(!loaded) throw new Error('데이터 미로드 — 새로고침 후 다시 시도');
   await clearData();
-  if(DATA.length){
-    const rows=DATA.map(d=>[d.id,d.date,d.time,d.type,d.kw,d.tag,d.body,d.link,d.src,d.reg]);
-    await sheetPut(`${DATA_TAB}!A2`,rows);
-  }
+  if(DATA.length) await sheetPut(`${DATA_TAB}!A2`,DATA.map(rowOf));
 }
 
 async function load(){
@@ -212,6 +215,7 @@ async function load(){
     id:r[0]||String(Date.now()), date:r[1]||'', time:r[2]||'', type:r[3]||'소식글',
     kw:r[4]||'', tag:r[5]||'', body:r[6]||'', link:r[7]||'', src:r[8]||'발송', reg:r[9]||''
   }));
+  loaded=true;
   render();
   setStatus(`연결됨 · ${DATA.length}건`);
 }
@@ -283,9 +287,13 @@ async function save(){
   const rec={ date:$('f_date').value||todayKST(), time:$('f_time').value, type:$('f_type').value, src:$('f_src').value,
     kw:deriveSnip(body), tag:'', body, link };
   try{
-    if(editingId){ const i=DATA.findIndex(d=>d.id===editingId); DATA[i]={...DATA[i],...rec}; }
-    else{ DATA.push({id:String(Date.now()),reg:nowKST(),...rec}); }
-    await saveAll();
+    if(editingId){
+      const i=DATA.findIndex(d=>d.id===editingId); DATA[i]={...DATA[i],...rec};
+      await rewriteAll();
+    } else {
+      const row={id:String(Date.now()),reg:nowKST(),...rec};
+      await appendRows([rowOf(row)]); DATA.push(row);
+    }
     render(); resetForm(); toast('저장 완료'); setStatus(`연결됨 · ${DATA.length}건`);
   }catch(e){ toast('저장 실패: '+e.message); setStatus('오류'); }
   $('saveBtn').disabled=false;
@@ -305,9 +313,9 @@ async function importSeed(){
   if(!add.length){ toast('이미 모두 들어있습니다'); return; }
   if(!confirm(`과거 발송 요약 ${add.length}건을 가져올까요? (전문 미보유 요약, 나중에 수정 가능)`)) return;
   $('seedBtn').disabled=true; setStatus('가져오는 중…');
-  let n=0;
-  add.forEach(s=>{ DATA.push({id:String(Date.now()+n++),reg:nowKST(),src:'발송',tag:'',link:'',...s}); });
-  try{ await saveAll(); render(); toast(`${add.length}건 가져옴`); setStatus(`연결됨 · ${DATA.length}건`); }
+  let n=0; const rows=[];
+  add.forEach(s=>{ const r={id:String(Date.now()+n++),reg:nowKST(),src:'발송',tag:'',link:'',...s}; rows.push(rowOf(r)); DATA.push(r); });
+  try{ await appendRows(rows); render(); toast(`${add.length}건 가져옴`); setStatus(`연결됨 · ${DATA.length}건`); }
   catch(e){ toast('실패: '+e.message); setStatus('오류'); }
   $('seedBtn').disabled=false;
 }
@@ -321,7 +329,7 @@ document.addEventListener('click',e=>{
   const d=DATA.find(x=>x.id===act.dataset.id); if(!d) return;
   if(act.dataset.act==='copy'){ navigator.clipboard.writeText(d.body).then(()=>toast('본문 복사됨')); }
   if(act.dataset.act==='edit'){ loadForm(d); }
-  if(act.dataset.act==='del'){ if(confirm('이 기록을 삭제할까요?')){ DATA=DATA.filter(x=>x.id!==d.id); saveAll().then(()=>{render();toast('삭제됨');setStatus(`연결됨 · ${DATA.length}건`);}); } }
+  if(act.dataset.act==='del'){ if(confirm('이 기록을 삭제할까요?')){ DATA=DATA.filter(x=>x.id!==d.id); rewriteAll().then(()=>{render();toast('삭제됨');setStatus(`연결됨 · ${DATA.length}건`);}).catch(e=>toast('삭제 실패: '+e.message)); } }
 });
 $('saveBtn').onclick=save;
 $('copyOutBtn').onclick=()=>{ const v=$('f_out').value.trim(); if(!v){toast('복사할 내용이 없습니다');return;} navigator.clipboard.writeText(v).then(()=>toast('복사됨 — 카톡에 붙여넣기')); };
@@ -333,7 +341,7 @@ $('reloadBtn').onclick=load;
 (async()=>{
   if(!window.crypto||!window.crypto.subtle){ $('httpsWarn').style.display='block'; setStatus('보안 컨텍스트 필요'); return; }
   resetForm();
-  try{ await findOrCreateSheet(); await load(); }
+  try{ await ensureTab(); await load(); }
   catch(e){ setStatus('연결 오류'); toast('연결 실패: '+e.message); console.error(e); }
 })();
 </script>
