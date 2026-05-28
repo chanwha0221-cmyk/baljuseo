@@ -243,6 +243,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <thead>
         <tr>
           <th>등록일</th>
+          <th style="width:120px">채널명<br><span style="font-size:10px;font-weight:400;color:#a8a49e">수수료율 계산용</span></th>
           <th>상품명</th>
           <th class="num">등록시 원가</th>
           <th class="num">판매가</th>
@@ -494,6 +495,7 @@ function addToHistory(items){
     registeredHistory.push({
       id,
       name: s.name,
+      channel: '',          // 채널명 (사용자 입력 — 수수료율 계산용, 시트 매칭 예정)
       registeredCost: s.cost,
       sellPrice: s.sellPrice,
       taxType: s.taxType,
@@ -504,6 +506,14 @@ function addToHistory(items){
   }
   saveHistory();
   updateMarginBadge();
+}
+
+function updateChannelName(id, value){
+  const h = registeredHistory.find(x=>x.id===id);
+  if(!h) return;
+  h.channel = (value||'').trim();
+  saveHistory();
+  // 입력값만 바뀐 거라 테이블 전체 재렌더는 안 함 (포커스 유지)
 }
 
 function deleteHistoryRow(id){
@@ -668,7 +678,7 @@ function renderMarginTable(){
   document.getElementById('margin-table').style.display = 'table';
 
   if(list.length === 0){
-    document.getElementById('margin-tbody').innerHTML = `<tr><td colspan="9" style="text-align:center;color:#a8a49e;padding:30px">필터에 해당하는 상품 없음</td></tr>`;
+    document.getElementById('margin-tbody').innerHTML = `<tr><td colspan="10" style="text-align:center;color:#a8a49e;padding:30px">필터에 해당하는 상품 없음</td></tr>`;
     return;
   }
 
@@ -681,6 +691,7 @@ function renderMarginTable(){
     const diffColor = costDiff > 0 ? '#dc2626' : (costDiff < 0 ? '#16a34a' : '#6b6760');
     return `<tr>
       <td>${escapeHtml(h.registeredAt)}</td>
+      <td><input type="text" value="${escapeHtml(h.channel||'')}" placeholder="채널" onchange="updateChannelName('${h.id}', this.value)" style="width:100%;padding:5px 7px;border:1px solid #e0dbd4;border-radius:5px;font-size:11px;font-family:inherit"></td>
       <td><b>${escapeHtml(h.name)}</b></td>
       <td class="num">${fmt(h.registeredCost)}</td>
       <td class="num"><b>${fmt(h.sellPrice)}</b></td>
