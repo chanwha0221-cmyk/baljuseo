@@ -20,7 +20,7 @@
 
   .guide{font-size:13px;color:var(--red);font-weight:700;background:#fff;padding:10px 12px;border-left:5px solid var(--red);border-radius:4px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);line-height:1.5;}
   textarea{width:100%;height:200px;padding:13px;border:2px solid var(--border);border-radius:8px;font-size:15px;line-height:1.55;resize:vertical;font-family:inherit;outline:none;}
-  .dl-badge{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:6px;background:#eef1f5;color:#6b7686;white-space:nowrap;vertical-align:middle}
+  .dl-badge{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:9px;margin-left:4px;background:#eef1f5;color:#6b7686;white-space:nowrap;vertical-align:middle;flex-shrink:0}
   .dl-badge.active{background:#fff3cd;color:#b45309;border:1px solid #f0d9a8}
   .dl-badge.none{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca}
   .dl-badge.unk{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
@@ -79,7 +79,7 @@
   #statusTable tbody tr:nth-child(even) td.col-item{ background:#fafbfc; }
   #statusTable tbody td.col-total{ background:#eef3f8; }
   /* 표 너비를 칸 합계로 고정 → 좁은 창에선 줄어들지 않고 가로 스크롤이 생김 */
-  #statusTable{ min-width:1870px; table-layout:fixed; }
+  #statusTable{ min-width:1950px; table-layout:fixed; }
   /* 글자 한 줄 유지 (2줄로 접히지 않게) */
   #statusTable td, #statusTable th{ white-space:nowrap; }
   /* 품목명이 아주 길면 줄바꿈/겹침 대신 …로 (칸 너비는 그대로 280px 유지) */
@@ -160,7 +160,7 @@
         <thead>
           <tr>
             <th class="col-wh" style="width:90px">창고명</th>
-            <th class="col-item" style="width:280px">품목명</th>
+            <th class="col-item" style="width:360px">품목명</th>
             <th style="width:130px">수량 보유팀</th>
             <th style="width:130px">1순위</th><th style="width:130px">2순위</th><th style="width:130px">3순위</th>
             <th style="width:130px">4순위</th><th style="width:130px">5순위</th><th style="width:130px">6순위</th>
@@ -519,7 +519,7 @@ function getActiveDeadlineHour(){
 function deadlineBadge(uKey){
   const it = uKey.split('||')[1] || uKey;   // 상품명만으로 매칭 (창고명 무시)
   const v = deadlineMap[it];
-  if(!v) return ` <span class="dl-badge none" title="마감시간 시트에 상품명(${esc(it)}) 매칭 없음 — 시트에 추가 필요">⏰ 마감시간 없음</span>`;
+  if(!v) return ` <span class="dl-badge none" title="마감시간 시트에 상품명(${esc(it)}) 매칭 없음 — 시트에 추가 필요">⏰ 없음</span>`;
   const h = getDeadlineHour(v);
   if(h===-1) return ` <span class="dl-badge unk" title="형식 인식 불가: ${esc(v)}">⏰ ?</span>`;
   const active = (h>=0) && (getActiveDeadlineHour() === h); // 익일(-2)은 시간대 매칭 X
