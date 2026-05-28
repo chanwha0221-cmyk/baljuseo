@@ -240,7 +240,7 @@ const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASC
 //=================== 상태 ===================
 let entries = [];      // {seq, time, team, wh, it, qty}
 let holdingMap = {};   // "wh||it" -> 수량보유팀 텍스트
-let deadlineMap = {};  // "wh||it" -> 마감시간 문자열 (예: "12시", "2시", "14:00")
+let deadlineMap = {};  // "it"(상품명) -> 마감시간 문자열 (창고명 무시, 상품명만 매칭)
 let deleteLog = [];    // {at, time, team, wh, it, qty}
 let nextSeq = 1;
 let sheetOnline = false;
@@ -357,11 +357,11 @@ async function loadFromSheet(){
     nextSeq = entries.length+1;
     holdingMap = {};
     stat.forEach(r=>{ if(!r) return; const wh=String(r[0]||'').trim(), it=String(r[1]||'').trim(), c=String(r[2]||'').trim(); if(wh&&it&&c) holdingMap[wh+'||'+it]=c; });
-    // 마감시간 시트 (A:창고 / B:상품 / J:발주마감시간) — 시트 없어도 무시
+    // 마감시간 시트 (A:창고 / B:상품 / J:발주마감시간) — 상품명만으로 매칭 (창고명 다를 수 있어 무시)
     deadlineMap = {};
     try{
       const dl = await sheetGet(SH_DEADLINE,'A2:J');
-      dl.forEach(r=>{ if(!r)return; const wh=String(r[0]||'').trim(), it=String(r[1]||'').trim(), t=String(r[9]||'').trim(); if(wh&&it&&t) deadlineMap[wh+'||'+it]=t; });
+      dl.forEach(r=>{ if(!r)return; const it=String(r[1]||'').trim(), t=String(r[9]||'').trim(); if(it&&t) deadlineMap[it]=t; });
     }catch(e){ console.warn('마감시간 시트 없음 — 무시',e); }
     deleteLog = log.filter(r=>r&&r[2]).map(r=>({at:String(r[0]||''),time:String(r[1]||''),team:String(r[2]||''),wh:String(r[3]||''),it:String(r[4]||''),qty:Number(r[5])||0}));
     sheetOnline=true; save(); setSync('ok'); return true;
@@ -517,8 +517,9 @@ function getActiveDeadlineHour(){
   return -1;
 }
 function deadlineBadge(uKey){
-  const v = deadlineMap[uKey];
-  if(!v) return ` <span class="dl-badge none" title="마감시간 시트에 (창고|상품) 매칭 없음 — 시트에 추가 필요">⏰ 마감시간 없음</span>`;
+  const it = uKey.split('||')[1] || uKey;   // 상품명만으로 매칭 (창고명 무시)
+  const v = deadlineMap[it];
+  if(!v) return ` <span class="dl-badge none" title="마감시간 시트에 상품명(${esc(it)}) 매칭 없음 — 시트에 추가 필요">⏰ 마감시간 없음</span>`;
   const h = getDeadlineHour(v);
   if(h===-1) return ` <span class="dl-badge unk" title="형식 인식 불가: ${esc(v)}">⏰ ?</span>`;
   const active = (h>=0) && (getActiveDeadlineHour() === h); // 익일(-2)은 시간대 매칭 X
@@ -537,14 +538,14 @@ function renderDeadlinePanel(){
   const label = active===14?'2시':'12시';
   const items = Object.entries(deadlineMap)
     .filter(([k,v])=> getDeadlineHour(v) === active)
-    .map(([k,v])=>{ const [wh,it] = k.split('||'); return {wh,it}; })
-    .sort((a,b)=> (a.wh+a.it).localeCompare(b.wh+b.it));
+    .map(([k,v])=> ({it:k}))
+    .sort((a,b)=> a.it.localeCompare(b.it));
   banner.textContent = `⏰ ${label} 마감 임박 — ${items.length}개 품목 (오늘 안 받으면 못 나감)`;
   banner.style.display = '';
   none.style.display = 'none';
   if(!items.length){ list.style.display=''; list.innerHTML='<div class="guide" style="font-size:12px;color:var(--sub)">마감시간 시트에 해당 시간대 품목이 없어요</div>'; return; }
   list.style.display = '';
-  list.innerHTML = items.map(x=>`<div class="dl-row"><span class="dl-wh">${esc(x.wh)}</span><span class="dl-it">${esc(x.it)}</span></div>`).join('');
+  list.innerHTML = items.map(x=>`<div class="dl-row"><span class="dl-it">${esc(x.it)}</span></div>`).join('');
 }
 
 function render(){
