@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📊 수량 관리 시스템 v2.6</title>
+<title>🧪 [TEST] 수량 관리 시스템 v2.6</title>
 <style>
   :root{ --navy:#2c3e50; --blue:#007bff; --red:#e74c3c; --border:#ced4da; --bg:#f8f9fa; }
   *{box-sizing:border-box;}
@@ -112,6 +112,9 @@
 </style>
 </head>
 <body>
+<div style="background:#fff3cd;border-bottom:3px solid #d97706;color:#92400e;padding:9px 14px;font-weight:800;font-size:13.5px;text-align:center;letter-spacing:.3px">
+  🧪 TEST 페이지 — 본 페이지(<code>/수량관리.html</code>)와 동일 시트를 사용. 새 기능 확인용. 안정되면 본 페이지에 반영.
+</div>
 <div id="updateBar">
   <span class="ub-msg">🔄 새 버전이 배포됐어요. 작성 중인 내용을 <b>확인(반영)</b>하거나 비운 뒤 새로고침하시면 최신 화면으로 바뀝니다.</span>
   <button class="ub-reload" onclick="location.reload()">지금 새로고침</button>
@@ -130,8 +133,8 @@
   <!-- 입력 -->
   <div class="panel">
     <div class="panel-head">📥 채팅 메시지 붙여넣기</div>
-    <div class="panel-body" style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
-      <div style="flex:1 1 380px;min-width:280px">
+    <div class="panel-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+      <div style="min-width:0">
         <div class="guide">📌 '<b>토끼팀 구합니다</b>' 처럼 팀명(동물 이름)을 먼저 쓰고, 줄마다 '<b>창고 상품명 수량</b>' 형식으로 붙여넣어 주세요. &nbsp;(예: 충무 통통 가성비 통멍게 3kg 10)</div>
         <textarea id="chatText" placeholder="토끼팀 구합니다&#10;충무 통통 가성비 통멍게 3kg 1&#10;인천 연안 꼬마 참소라 1kg 2&#10;&#10;하마팀&#10;인천 연안 연평참소라 1kg 10"></textarea>
         <div class="row">
@@ -139,7 +142,7 @@
           <span class="count-pill" id="entryCount"></span>
         </div>
       </div>
-      <div style="flex:1 1 320px;min-width:260px" id="dlPanel">
+      <div style="min-width:0" id="dlPanel">
         <div id="dlBanner" style="display:none;font-weight:700;padding:8px 12px;border-radius:8px;margin-bottom:8px;background:#fff8e1;color:#b45309;border:1px solid #f0d9a8"></div>
         <div id="dlList" style="display:none;font-size:13px;line-height:1.55;max-height:330px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px;background:#fafbfd"></div>
         <div id="dlNone" class="guide" style="font-size:12px;color:var(--sub);text-align:center">⏰ 현재 시간대는 마감 임박 표기 안 함 <br><span style="font-size:10.5px">(9–12시: 12시 마감 표시 / 12:01–14시: 2시 마감 표시)</span></div>
@@ -486,19 +489,24 @@ function computeStatus(){
 }
 
 //=================== 렌더 (현황판) ===================
-// ⏰ 마감시간 문자열을 24시간제 정수로 변환 ("12시"→12, "2시"→14, "오후 2시"→14, "14:00"→14)
+// ⏰ 마감시간 문자열 → 24시간제 정수
+//  - "익일" 포함 → -2 (특수, 라벨 "익일", 시간대 매칭 안 함)
+//  - "연장마감 : 16시" / "오후마감 : 12시" 등 "XX마감 :" 접두사 자동 제거 후 시간 추출
+//  - "12시"→12, "2시"→14(오후 추정), "오후 2시"→14, "14:00"→14
 function getDeadlineHour(value){
-  const s = String(value||'').replace(/\s+/g,'');
+  let s = String(value||'').replace(/\s+/g,'');
   if(!s) return -1;
-  let m = s.match(/(\d{1,2})\s*[:.]\s*(\d{0,2})/);
-  if(m) return parseInt(m[1]);
-  const isAM = s.includes('오전');
-  const isPM = s.includes('오후');
+  if(s.includes('익일')) return -2;                          // 익일마감 → 익일 표기
+  s = s.replace(/^[가-힣]*마감\s*[:：]?\s*/,'');              // "연장마감:", "오후마감:" 등 접두사 제거
+  let m = s.match(/(\d{1,2})\s*[:.]\s*(\d{0,2})/); if(m) return parseInt(m[1]);
+  const isAM = s.includes('오전'), isPM = s.includes('오후');
   m = s.match(/(?:오후|오전)?(\d{1,2})시/);
   if(m){ let h=parseInt(m[1]); if(isPM && h<12) h+=12; if(!isAM && !isPM && h<=8) h+=12; return h; }
   m = s.match(/^(\d{1,2})$/); if(m){ let h=parseInt(m[1]); if(h<=8) h+=12; return h; }
   return -1;
 }
+// 시간(-2/12/14/16/…) → 사용자 표기 라벨
+function deadlineLabel(h){ if(h===-2) return '익일'; if(h===14) return '2시'; if(h<0) return ''; return h+'시'; }
 // 현재 시간 기준 표기할 마감시(12 또는 14). 그 외 시간대는 -1
 function getActiveDeadlineHour(){
   const n = new Date(); const min = n.getHours()*60 + n.getMinutes();
@@ -509,9 +517,9 @@ function getActiveDeadlineHour(){
 function deadlineBadge(uKey){
   const v = deadlineMap[uKey]; if(!v) return '';
   const h = getDeadlineHour(v);
-  const active = (getActiveDeadlineHour() === h);
-  const label = (h===14?'2시':h===12?'12시':v);
-  return ` <span class="dl-badge${active?' active':''}" title="마감시간">⏰ ${label}</span>`;
+  if(h===-1) return '';                                     // 못 알아본 값은 안 보임
+  const active = (h>=0) && (getActiveDeadlineHour() === h); // 익일(-2)은 시간대 매칭 X
+  return ` <span class="dl-badge${active?' active':''}" title="마감시간">⏰ ${deadlineLabel(h)}</span>`;
 }
 function renderDeadlinePanel(){
   const active = getActiveDeadlineHour();
