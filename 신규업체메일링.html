@@ -99,6 +99,12 @@
       </div>
       <div style="align-self:end"><button class="btn brand" onclick="addRow()">추가</button></div>
     </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px">
+      <span class="muted" style="font-size:11.5px;font-weight:700">🔎 중복 확인</span>
+      <input id="dup-check" placeholder="메일주소 또는 아이디 입력" style="flex:0 0 260px" onkeydown="if(event.key==='Enter'){event.preventDefault();checkDuplicate()}">
+      <button class="btn ghost" type="button" onclick="checkDuplicate()">중복확인</button>
+      <span id="dup-result" style="font-size:12.5px;font-weight:600"></span>
+    </div>
   </div>
 
   <!-- ② 채널별 메시지 작성 (위에서 고른 채널의 폼만 표시) -->
@@ -373,6 +379,23 @@ function setStatus(s){ $('status').textContent=s; }
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),1900); }
 function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function chanLabel(c){ return c==='카톡전화'?'카톡/전화':c; }
+// 🔎 중복 확인 — 메일주소/아이디(또는 업체명)로 이미 보낸 곳인지 + 며칠 전인지 표시
+function checkDuplicate(){
+  const q=(document.getElementById('dup-check').value||'').trim();
+  const out=document.getElementById('dup-result');
+  if(!q){ out.textContent='← 메일주소나 아이디를 입력하세요'; out.style.color='var(--sub)'; return; }
+  const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+  const nq=norm(q);
+  // 정확 일치(연락처/업체명) 우선, 없으면 부분 일치
+  let list=DATA.filter(r=> norm(r[2])===nq || norm(r[0])===nq);
+  if(!list.length && nq.length>=3) list=DATA.filter(r=> norm(r[2]).includes(nq) || norm(r[0]).includes(nq));
+  if(!list.length){ out.innerHTML='✅ <b>처음 보는 곳</b> — 보낸 기록 없음 (발송 OK)'; out.style.color='var(--green)'; return; }
+  // 가장 최근 연락순
+  list.sort((a,b)=>{ const da=daysSince(a[4]), db=daysSince(b[4]); if(da==null)return 1; if(db==null)return -1; return da-db; });
+  const r=list[0], d=daysSince(r[4]);
+  out.innerHTML='⚠️ <b>이미 보낸 곳!</b> ['+esc(r[0]||'(이름없음)')+'] '+esc(chanLabel(r[1]))+' · '+esc(r[4]||'?')+' (<b>'+(d==null?'?':d+'일')+' 전</b> 발송)'+(list.length>1?' · 외 '+(list.length-1)+'건':'');
+  out.style.color='var(--red)';
+}
 function followWord(c){ return c==='이메일'?'추가 메일':c==='네이버쪽지'?'쪽지':'카톡'; }
 
 async function loadAll(){

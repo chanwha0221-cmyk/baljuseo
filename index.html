@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.248</title>
+<title>발주서 변환기 v22.249</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.248</span>
+  <span class="ver">v22.249</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -737,7 +737,7 @@ function pp(cl,pr,qty){
       return{name:_cn,qty:_qty,maxB:1};
     }
   }
-  if(cl==='빅피쉬마켓'){
+  if(cl==='빅피쉬마켓'&&!pr.includes(' / ')){
     const colonIdx=pr.indexOf(':');const _actual=norm(colonIdx>=0?pr.slice(colonIdx+1):pr);
     const _all=norm(pr);
     if(_actual.includes('알도루묵'))return{name:'알도루묵 1팩',qty,maxB:999};
@@ -1036,6 +1036,38 @@ function preprocessKakaoOrder(raw){
 //   배송메모
 //   메모
 // 여러 주문은 구분선(— 또는 -, =, _ 3개 이상) 또는 빈 줄로 분리
+function isBigfishFormat(raw){
+  return raw.includes('빅피쉬마켓') && /합배송|출고지주소|급냉/.test(raw);
+}
+function preprocessBigfish(raw){
+  // 빅피쉬마켓: 한 주문이 여러 줄/여러 상품으로 쪼개져 들어옴 → 한 행으로 합치고 상품 매핑
+  if(!isBigfishFormat(raw)) return null;
+  const cells = raw.split(/\r?\n/).flatMap(l=>l.split('\t')).map(c=>c.trim())
+    .filter(c=>c && c!=='출고지주소' && c!=='빅피쉬마켓');
+  const phoneRe=/^0\d{1,2}-?\d{3,4}-?\d{4}$/;
+  const phones = cells.filter(c=>phoneRe.test(c));
+  const sendPhone = phones[0]||'';
+  const recvPhone = phones.length>1 ? phones[phones.length-1] : '';
+  const prodCells = cells.filter(c=>/급냉|알도루묵|양미리|갑오징어/.test(c));
+  const mapProd=(c)=>{
+    const colon=c.indexOf(':'); const actual=(colon>=0?c.slice(colon+1):c).replace(/\s+/g,'');
+    const all=c.replace(/\s+/g,'');
+    const qm=c.match(/[xX×]\s*(\d+)/); const q=qm?parseInt(qm[1]):1;
+    let name;
+    if(actual.includes('알도루묵')) name='알도루묵 1팩';
+    else if(actual.includes('양미리')) name='양미리 1kg';
+    else if(all.includes('갑오징어')) name='생물 갑오징어 1kg';
+    else name=(colon>=0?c.slice(colon+1):c).replace(/\s*[\(（][^)）]*[\)）]\s*/g,' ').replace(/\s+/g,' ').trim();
+    return name+' x '+q;
+  };
+  const products = prodCells.map(mapProd);
+  if(products.length===0) return null;
+  const combined = products.join(' / ');
+  const recvName = cells.find(c=>/^[가-힣]{2,4}$/.test(c)) || '';
+  const addr = cells.find(c=>/(시|도|구|군|로|길|동|읍|면)/.test(c) && c.length>6 && !/급냉|합배송/.test(c)) || '';
+  if(!recvName || !addr) return null;
+  return `빅피쉬마켓\t\t${sendPhone}\t\t${combined}\t${recvName}\t${addr}\t${recvPhone}`;
+}
 function isVerticalKakaoFormat(raw){
   return /연락처\s*\(\s*안심번호\s*\)/.test(raw) && /배송\s*주소/.test(raw);
 }
@@ -1355,6 +1387,10 @@ function run(){
     autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
     sl('배민대용량 '+out.length+'행 출력','ok');
     return;
+  }
+  if(isBigfishFormat(input)){
+    const _bf=preprocessBigfish(input);
+    if(_bf){ input=_bf; sl('빅피쉬마켓 형식 감지 — 자동 변환 중...'); }
   }
   if(is365BagenFormat(input)){
     input=preprocess365Bagen(input);
