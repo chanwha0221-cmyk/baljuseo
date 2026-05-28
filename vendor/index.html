@@ -81,9 +81,9 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px}
 
 /* ========== 이미지 확대 패널 (왼쪽만 덮음 → 오른쪽 입력창 그대로 사용 가능) ========== */
-.img-modal{display:none;position:fixed;top:0;left:0;width:50%;height:100%;background:rgba(0,0,0,.92);z-index:99998;align-items:center;justify-content:center;flex-direction:column;gap:10px;padding:16px;overflow:hidden}
+.img-modal{display:none;position:fixed;top:0;left:0;width:40%;max-width:500px;height:100%;background:rgba(0,0,0,.92);z-index:99998;align-items:center;justify-content:center;flex-direction:column;gap:10px;padding:14px;overflow:hidden}
 .img-modal.show{display:flex}
-.img-modal img{max-width:100%;max-height:88vh;object-fit:contain;cursor:zoom-in;transition:transform .3s;box-shadow:0 8px 32px rgba(0,0,0,.7);background:#fff;border-radius:4px}
+.img-modal img{max-width:100%;max-height:82vh;object-fit:contain;cursor:zoom-in;transition:transform .3s;box-shadow:0 8px 32px rgba(0,0,0,.7);background:#fff;border-radius:4px}
 .img-modal img.zoomed{transform:scale(2);cursor:zoom-out}
 .img-modal-hint{color:#fff;font-size:11px;font-family:'JetBrains Mono',monospace;opacity:.75;text-align:center;background:rgba(0,0,0,.5);padding:6px 14px;border-radius:20px}
 .img-modal-hint b{color:#ffd166}
@@ -443,36 +443,33 @@ function parseVendorInfo(text) {
     ['userId',      /(?:가입\s*아이디|가입\s*ID|아이디|ID)/i],
     ['email',       /(?:이\s*메일\s*주소|메일|주소|이\s*메일|이메일|메일|email|e-mail|mail)/i]
   ];
-  for (const line of lines) {
-    const trimmed = line.trim();
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
     if (!trimmed) continue;
-    const colonMatch = trimmed.match(/[:：=>]/);
-    if (!colonMatch) continue;
-    const colonIdx = colonMatch.index;
-    const left = trimmed.substring(0, colonIdx).trim();
-    let v = trimmed.substring(colonIdx + 1).trim();
-    if (!left || !v) continue;
     for (const [field, kw] of patterns) {
       if (result[field]) continue;
-      const endRegex = new RegExp(kw.source + '\\s*$', kw.flags);
-      if (endRegex.test(left)) {
-        if (field === 'email') {
-          const md = v.match(/\[([^\]]+)\]/);
-          if (md) v = md[1];
-          v = v.replace(/^mailto:/i, '').trim();
-          v = fixEmailTypos(v);
-        }
-        if (field === 'bizNumber') {
-          const numM = v.match(/(\d{3})\s*[-\.\s]\s*(\d{2})\s*[-\.\s]\s*(\d{5})/);
-          if (numM) v = numM[1] + '-' + numM[2] + '-' + numM[3];
-        }
-        if (field === 'phone') {
-          const digits = v.replace(/[^0-9]/g, '');
-          v = formatPhone(digits) || v;
-        }
-        result[field] = v;
-        break;
+      // 라벨 뒤 구분자(: ： = > -) 우선, 없으면 공백으로 분리. 라벨은 줄 안 단어 끝에 위치 가능(예: "구글시트 사용할 주소 - ...")
+      let m = trimmed.match(new RegExp('^\\s*(?:.*?)' + kw.source + '\\s*[:：=>\\-]+\\s*(.+)$', kw.flags));
+      if (!m) m = trimmed.match(new RegExp('^\\s*(?:.*?)' + kw.source + '\\s+(.+)$', kw.flags));
+      if (!m) continue;
+      let v = (m[1] || '').trim().replace(/^[:：=>\-\s]+/, '').trim();
+      if (!v) continue;
+      if (field === 'email') {
+        const md = v.match(/\[([^\]]+)\]/);
+        if (md) v = md[1];
+        v = v.replace(/^mailto:/i, '').trim();
+        v = fixEmailTypos(v);
       }
+      if (field === 'bizNumber') {
+        const numM = v.match(/(\d{3})\s*[-\.\s]\s*(\d{2})\s*[-\.\s]\s*(\d{5})/);
+        if (numM) v = numM[1] + '-' + numM[2] + '-' + numM[3];
+      }
+      if (field === 'phone') {
+        const digits = v.replace(/[^0-9]/g, '');
+        v = formatPhone(digits) || v;
+      }
+      result[field] = v;
+      break;
     }
   }
   return result;
