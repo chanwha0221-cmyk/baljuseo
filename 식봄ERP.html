@@ -1218,7 +1218,34 @@ function convertHtml(){
   const parser = new DOMParser();
   // body로 감싸서 파싱
   const doc = parser.parseFromString('<!DOCTYPE html><html><body>' + input + '</body></html>', 'text/html');
-  const body = doc.body;
+  let body = doc.body;
+
+  // 0-pre) 페이지 전체 HTML 붙여넣은 경우 대비 — 본문(상품 설명) 영역만 자동 추출
+  //   게시판이 board_HmKg92 / board_tNSK50 등 어떤 주소든 동일 구조 (XE sketchbook5).
+  //   우선순위: article#mycontent → .xe_content (첫 번째) → .rd_body → 본문 못 찾으면 그대로 진행
+  let extractedFrom = null;
+  const mc = doc.getElementById('mycontent');
+  if(mc){
+    extractedFrom = '#mycontent';
+    body = doc.createElement('body');
+    body.innerHTML = mc.innerHTML;
+  } else {
+    const xc = doc.querySelector('.xe_content');
+    if(xc){
+      extractedFrom = '.xe_content';
+      body = doc.createElement('body');
+      body.innerHTML = xc.innerHTML;
+    } else {
+      const rb = doc.querySelector('.rd_body');
+      if(rb){
+        extractedFrom = '.rd_body';
+        body = doc.createElement('body');
+        body.innerHTML = rb.innerHTML;
+        // .rd_body 안의 댓글/네비/다운로드/파일 영역 같이 들어왔으면 정리
+        body.querySelectorAll('.bd_prev_next, .rd_vote, .rd_fnt, .rd_ft_nav, .fdb_lst_wrp, .rd_ft, script, style, form').forEach(n=>n.remove());
+      }
+    }
+  }
 
   // 0) <center>/래퍼로 전체가 감싸진 경우 풀어줌 — 안 그러면 최상위 요소가 래퍼 1개뿐이라
   //    그 래퍼 textContent에 제거대상 섹션명이 들어가 래퍼 통째로 삭제 → 전부 날아감 (단새우 케이스)
@@ -1341,7 +1368,7 @@ function convertHtml(){
   document.getElementById('conv-preview').innerHTML = result || '<div class="status">변환 결과가 비어있음</div>';
   document.getElementById('conv-stats').style.display='block';
   document.getElementById('conv-stats').innerHTML = `
-    🤖 변환 완료 — 입력 <b>${fmt(inputLen)}</b>자 → 출력 <b>${fmt(outputLen)}</b>자 (<span class="removed">${reduction}% 축소</span>) ·
+    🤖 변환 완료 — 입력 <b>${fmt(inputLen)}</b>자 → 출력 <b>${fmt(outputLen)}</b>자 (<span class="removed">${reduction}% 축소</span>)${extractedFrom?` · <span class="removed">본문 자동추출: <b>${extractedFrom}</b></span>`:''} ·
     제거된 섹션 요소 <span class="removed">${removedCount}개</span> ·
     제거된 다운로드 링크 <span class="removed">${linkRemoved}개</span> ·
     유지된 이미지 <b>${imgCount}장</b>${imgTrimmed>0?` · <span class="removed">본문 사진 ${imgTrimmed}장 정리(고르게 10장만)</span>`:''}
