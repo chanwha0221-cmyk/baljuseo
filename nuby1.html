@@ -1,0 +1,39 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>뉴비1 — 신규업체 가입 안내</title>
+<style>
+ body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;margin:0;background:#f4f5f7;color:#1f2329}
+ .wrap{max-width:560px;margin:0 auto;padding:18px}
+ .bar{position:sticky;top:0;background:#f4f5f7;padding:10px 0;display:flex;gap:8px;border-bottom:1px solid #e1e4e8;z-index:5}
+ button{font-family:inherit;font-size:15px;font-weight:700;border:0;border-radius:8px;padding:11px 16px;cursor:pointer;background:#FEE500;color:#3c1e1e}
+ button:active{transform:translateY(1px)}
+ .card{background:#fef9c3;border:1px solid #e1e4e8;border-radius:10px;padding:18px;margin-top:14px;line-height:1.7;white-space:pre-wrap;font-size:14px}
+ .muted{color:#6b7280;font-size:12px;margin-top:8px}
+ .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:8px;opacity:0;transition:.2s;font-size:13px}
+ .toast.on{opacity:.95}
+</style></head><body>
+<div class="wrap">
+ <div class="bar"><button onclick="copyMsg()">💬 메시지 복사</button></div>
+ <div class="card" id="render"></div>
+ <div class="muted">※ 신규업체 가입 안내 멘트 — 카톡 즐겨찾기 "뉴비1"에 박아두고 사용.</div>
+</div>
+<div class="toast" id="toast">복사됨</div>
+<script>
+const MSG = `안녕하세요~~
+저희가 운영 상품이 많다보니 상품리스트는 구글 시트를 통해 공유 드리고 있습니다.
+
+https://masterc.kr/page_LkOm07
+
+해당 사이트 가입해 주시고 (닉네임은 사업자명으로 부탁드립니다)
+
+업체명 : 
+대표명 : 
+아이디 : 
+대표님 연락처 : 
+구글시트 사용할 G메일 주소 (꼭 @gmail.com 으로 입력 부탁드립니다) : 
+
+사업자 사본 남겨 주시면 확인해서 권한 승인해드리겠습니다.`;
+document.getElementById('render').textContent=MSG;
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1300);}
+function copyMsg(){navigator.clipboard.writeText(MSG).then(()=>toast('복사됨')).catch(()=>{const ta=document.createElement('textarea');ta.value=MSG;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast('복사됨');});}
+</script></body></html>
