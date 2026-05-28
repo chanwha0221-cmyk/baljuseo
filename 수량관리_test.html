@@ -355,11 +355,11 @@ async function loadFromSheet(){
     nextSeq = entries.length+1;
     holdingMap = {};
     stat.forEach(r=>{ if(!r) return; const wh=String(r[0]||'').trim(), it=String(r[1]||'').trim(), c=String(r[2]||'').trim(); if(wh&&it&&c) holdingMap[wh+'||'+it]=c; });
-    // 마감시간 시트 (창고|상품|마감시간) — 시트 없어도 무시
+    // 마감시간 시트 (A:창고 / B:상품 / J:발주마감시간) — 시트 없어도 무시
     deadlineMap = {};
     try{
-      const dl = await sheetGet(SH_DEADLINE,'A2:C');
-      dl.forEach(r=>{ if(!r)return; const wh=String(r[0]||'').trim(), it=String(r[1]||'').trim(), t=String(r[2]||'').trim(); if(wh&&it&&t) deadlineMap[wh+'||'+it]=t; });
+      const dl = await sheetGet(SH_DEADLINE,'A2:J');
+      dl.forEach(r=>{ if(!r)return; const wh=String(r[0]||'').trim(), it=String(r[1]||'').trim(), t=String(r[9]||'').trim(); if(wh&&it&&t) deadlineMap[wh+'||'+it]=t; });
     }catch(e){ console.warn('마감시간 시트 없음 — 무시',e); }
     deleteLog = log.filter(r=>r&&r[2]).map(r=>({at:String(r[0]||''),time:String(r[1]||''),team:String(r[2]||''),wh:String(r[3]||''),it:String(r[4]||''),qty:Number(r[5])||0}));
     sheetOnline=true; save(); setSync('ok'); return true;
