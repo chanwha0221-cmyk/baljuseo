@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.270</title>
+<title>발주서 변환기 v22.271</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.270</span>
+  <span class="ver">v22.271</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1039,34 +1039,60 @@ function preprocessKakaoOrder(raw){
 function isBigfishFormat(raw){
   return raw.includes('빅피쉬마켓') && /합배송|출고지주소|급냉/.test(raw);
 }
-function preprocessBigfish(raw){
-  // 빅피쉬마켓: 한 주문이 여러 줄/여러 상품으로 쪼개져 들어옴 → 한 행으로 합치고 상품 매핑
-  if(!isBigfishFormat(raw)) return null;
-  const cells = raw.split(/\r?\n/).flatMap(l=>l.split('\t')).map(c=>c.trim())
+function _bigfishMapProd(c){
+  // 한 셀 안에 "알도루묵 양미리" 둘 다 있으면 두 상품으로 split (같은 수량)
+  const qm=c.match(/[xX×]\s*(\d+)/);
+  const q=qm?parseInt(qm[1]):1;
+  const actual=c.replace(/\s+/g,'');
+  if(actual.includes('알도루묵') && actual.includes('양미리')){
+    return ['알도루묵 1팩 x '+q, '양미리 1kg x '+q];
+  }
+  const colon=c.indexOf(':');
+  const part=(colon>=0?c.slice(colon+1):c).replace(/\s+/g,'');
+  let name;
+  if(part.includes('알도루묵') || actual.includes('알도루묵')) name='알도루묵 1팩';
+  else if(part.includes('양미리') || actual.includes('양미리')) name='양미리 1kg';
+  else if(actual.includes('갑오징어')) name='생물 갑오징어 1kg';
+  else {
+    // 임의 상품 (대게 6kg 등): 합배송/생물 prefix·괄호·수량 제거 후 그대로
+    name = (colon>=0?c.slice(colon+1):c)
+      .replace(/^\s*합배송\s*가능\s*/,'')
+      .replace(/\s*[\(（][^)）]*[\)）]\s*/g,' ')
+      .replace(/[xX×]\s*\d+/,'')
+      .replace(/\s+/g,' ').trim();
+  }
+  return [name+' x '+q];
+}
+function _preprocessBigfishLine(line){
+  const cells = line.split('\t').map(c=>c.trim())
     .filter(c=>c && c!=='출고지주소' && c!=='빅피쉬마켓');
+  if(cells.length<3) return null;
   const phoneRe=/^0\d{1,2}-?\d{3,4}-?\d{4}$/;
   const phones = cells.filter(c=>phoneRe.test(c));
-  const sendPhone = phones[0]||'';
+  if(phones.length<1) return null;
+  const sendPhone = phones[0];
   const recvPhone = phones.length>1 ? phones[phones.length-1] : '';
-  const prodCells = cells.filter(c=>/급냉|알도루묵|양미리|갑오징어/.test(c));
-  const mapProd=(c)=>{
-    const colon=c.indexOf(':'); const actual=(colon>=0?c.slice(colon+1):c).replace(/\s+/g,'');
-    const all=c.replace(/\s+/g,'');
-    const qm=c.match(/[xX×]\s*(\d+)/); const q=qm?parseInt(qm[1]):1;
-    let name;
-    if(actual.includes('알도루묵')) name='알도루묵 1팩';
-    else if(actual.includes('양미리')) name='양미리 1kg';
-    else if(all.includes('갑오징어')) name='생물 갑오징어 1kg';
-    else name=(colon>=0?c.slice(colon+1):c).replace(/\s*[\(（][^)）]*[\)）]\s*/g,' ').replace(/\s+/g,' ').trim();
-    return name+' x '+q;
-  };
-  const products = prodCells.map(mapProd);
+  const recvName = cells.find(c=>/^[가-힣]{2,4}$/.test(c)) || '';
+  const addr = cells.find(c=>/(시|도|구|군|로|길|동|읍|면|아파트|오피스텔)/.test(c) && c.length>6 && !/급냉|합배송/.test(c)) || '';
+  if(!recvName || !addr) return null;
+  // 상품 셀 = phone, recvName, addr 제외한 나머지
+  const prodCells = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr);
+  if(prodCells.length===0) return null;
+  const products = prodCells.flatMap(_bigfishMapProd);
   if(products.length===0) return null;
   const combined = products.join(' / ');
-  const recvName = cells.find(c=>/^[가-힣]{2,4}$/.test(c)) || '';
-  const addr = cells.find(c=>/(시|도|구|군|로|길|동|읍|면)/.test(c) && c.length>6 && !/급냉|합배송/.test(c)) || '';
-  if(!recvName || !addr) return null;
   return `빅피쉬마켓\t\t${sendPhone}\t\t${combined}\t${recvName}\t${addr}\t${recvPhone}`;
+}
+function preprocessBigfish(raw){
+  // 빅피쉬마켓: 줄 단위로 처리 (각 줄 = 한 수신자 주문)
+  if(!isBigfishFormat(raw)) return null;
+  const lines = raw.split(/\r?\n/).filter(l=>l.trim());
+  const rows = [];
+  for(const line of lines){
+    const r = _preprocessBigfishLine(line);
+    if(r) rows.push(r);
+  }
+  return rows.length ? rows.join('\n') : null;
 }
 function isVerticalKakaoFormat(raw){
   return /연락처\s*\(\s*안심번호\s*\)/.test(raw) && /배송\s*주소/.test(raw);

@@ -565,7 +565,7 @@ function render(){
       return `<tr>
         <td class="wh col-wh">${esc(s.wh)}</td>
         <td class="item col-item"><span>${esc(s.it)}</span>${deadlineBadge(s.uKey)}<button class="edit-btn" data-key="${ek}" onclick="openEditFromBtn(this)" title="순위·수량 직접 수정">✏️</button></td>
-        <td><input class="hold-input" placeholder="-" value="${hold}" data-key="${ek}" onchange="updateHold(this)"></td>
+        <td><input class="hold-input" placeholder="-" value="${hold}" data-key="${ek}" oninput="updateHoldDebounced(this)"></td>
         ${cells}
         <td class="total col-total">${s.total}</td>
       </tr>`;
@@ -584,7 +584,21 @@ function render(){
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 //=================== 수량 보유팀 수동 편집 ===================
+// 즉시 (blur 없이도) holdingMap 갱신 + 시트 저장은 debounce
+let _holdDebounce = null;
+function updateHoldDebounced(input){
+  // 1) holdingMap은 즉시 갱신 (페이지 떠나도 localStorage엔 즉시 남음)
+  const key = input.getAttribute('data-key');
+  const val = input.value.trim();
+  if(val) holdingMap[key] = val; else delete holdingMap[key];
+  // localStorage 즉시 저장 (사라짐 방지)
+  try{ localStorage.setItem(K_HOLD, JSON.stringify(holdingMap)); localStorage.setItem(K_DIRTY,'1'); }catch(e){}
+  // 2) 시트 저장은 debounce 400ms (연타 입력 합치기)
+  if(_holdDebounce) clearTimeout(_holdDebounce);
+  _holdDebounce = setTimeout(()=>{ commit(); _holdDebounce=null; }, 400);
+}
 function updateHold(input){
+  // legacy — 즉시 저장
   const key = input.getAttribute('data-key');
   const val = input.value.trim();
   if(val) holdingMap[key] = val; else delete holdingMap[key];
