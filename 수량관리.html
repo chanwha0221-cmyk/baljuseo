@@ -533,14 +533,16 @@ function renderDeadlinePanel(){
     return;
   }
   const label = active===14?'2시':'12시';
+  // 현황판에 등록된 (구하고 있는) 품목만 — 전체 상품 마스터에서 뽑지 말 것
+  const statusItems = new Set(computeStatus().map(s => s.it));
   const items = Object.entries(deadlineMap)
-    .filter(([k,v])=> getDeadlineHour(v) === active)
+    .filter(([k,v])=> getDeadlineHour(v) === active && statusItems.has(k))
     .map(([k,v])=> ({it:k}))
     .sort((a,b)=> a.it.localeCompare(b.it));
-  banner.textContent = `⏰ ${label} 마감 임박 — ${items.length}개 품목 (오늘 안 받으면 못 나감)`;
+  banner.textContent = `⏰ ${label} 마감 임박 — ${items.length}개 품목 (현황판 등록 중 / 오늘 안 받으면 못 나감)`;
   banner.style.display = '';
   none.style.display = 'none';
-  if(!items.length){ list.style.display=''; list.innerHTML='<div class="guide" style="font-size:12px;color:var(--sub)">마감시간 시트에 해당 시간대 품목이 없어요</div>'; return; }
+  if(!items.length){ list.style.display=''; list.innerHTML='<div class="guide" style="font-size:12px;color:var(--sub)">현황판에 등록된 품목 중 이 시간대 마감 없음 ✅</div>'; return; }
   list.style.display = '';
   list.innerHTML = items.map(x=>`<div class="dl-row"><span class="dl-it">${esc(x.it)}</span></div>`).join('');
 }
