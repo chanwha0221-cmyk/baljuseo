@@ -929,8 +929,8 @@ function addToSelected(masterIdx){
   }
   const p = masterProducts.find(x=>x.idx===masterIdx);
   if(!p){ toast('상품 못 찾음'); return; }
-  // 새 선택 항목 추가
-  selectedItems.push({
+  // 새 선택 항목
+  const newItem = {
     masterIdx,
     name: p.name,
     cost: p.cost,
@@ -949,7 +949,11 @@ function addToSelected(masterIdx){
     origin: '',             // K 원산지
     barcode: '',            // AB
     keywords: ''            // AC
-  });
+  };
+  // 새 항목 = 맨 위. 기존 완성된 카드는 맨 아래로 밀기. 입력 중인 미완성 카드는 원래 순서 유지.
+  const pending = selectedItems.filter(s => !isCardComplete(s));
+  const completed = selectedItems.filter(s => isCardComplete(s));
+  selectedItems = [newItem, ...pending, ...completed];
   saveToStorage();
   renderMasterList();
   renderSelected();
