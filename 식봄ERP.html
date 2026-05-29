@@ -234,7 +234,39 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <button data-filter="warn" onclick="setMarginFilter('warn')">🟡 주의까지 (10% 이하)</button>
     </div>
     <input type="text" id="margin-search" placeholder="🔍 상품명 검색" oninput="renderMarginTable()" style="flex:1;min-width:160px">
+    <button class="btn-sm" style="background:#92400e;color:#fff;border:none" onclick="toggleManualAdd()">+ 수동 추가</button>
     <button class="btn-sm danger" onclick="confirmClearHistory()">🗑 전체 이력 비우기</button>
+  </div>
+  <div id="manual-add-form" style="display:none;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:12px;margin-bottom:10px">
+    <div style="font-weight:700;font-size:12px;color:#92400e;margin-bottom:8px">📝 수동 등록 이력 추가 <span style="font-size:10px;color:#a8a49e;font-weight:400">(엑셀 다운로드 안 거치고 식봄에 직접 등록한 상품용 · 원가 비우면 마스터 시트에서 자동 매칭)</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:1;min-width:220px">
+        <label style="font-size:9px;color:#a8a49e;display:block">상품명 <span style="color:#dc2626">*</span></label>
+        <input type="text" id="ma-name" list="master-datalist" placeholder="마스터 시트 상품명" style="width:100%;padding:6px;border:1px solid #d4cfc7;border-radius:4px;font-size:12px">
+        <datalist id="master-datalist"></datalist>
+      </div>
+      <div style="flex:0 0 100px">
+        <label style="font-size:9px;color:#a8a49e;display:block">판매가 <span style="color:#dc2626">*</span></label>
+        <input type="number" id="ma-price" placeholder="9900" style="width:100%;padding:6px;border:1px solid #d4cfc7;border-radius:4px;font-size:12px">
+      </div>
+      <div style="flex:0 0 100px">
+        <label style="font-size:9px;color:#a8a49e;display:block">원가 (옵션)</label>
+        <input type="number" id="ma-cost" placeholder="자동매칭" style="width:100%;padding:6px;border:1px solid #d4cfc7;border-radius:4px;font-size:12px">
+      </div>
+      <div style="flex:0 0 80px">
+        <label style="font-size:9px;color:#a8a49e;display:block">세금</label>
+        <select id="ma-tax" style="width:100%;padding:6px;border:1px solid #d4cfc7;border-radius:4px;font-size:12px"><option value="면세">면세</option><option value="과세">과세</option></select>
+      </div>
+      <div style="flex:0 0 120px">
+        <label style="font-size:9px;color:#a8a49e;display:block">채널 (옵션)</label>
+        <input type="text" id="ma-channel" placeholder="식봄" style="width:100%;padding:6px;border:1px solid #d4cfc7;border-radius:4px;font-size:12px">
+      </div>
+      <div style="flex:0 0 140px">
+        <label style="font-size:9px;color:#a8a49e;display:block">등록일</label>
+        <input type="date" id="ma-date" style="width:100%;padding:6px;border:1px solid #d4cfc7;border-radius:4px;font-size:12px">
+      </div>
+      <button class="btn-sm" style="background:#92400e;color:#fff;border:none" onclick="addManualHistory()">+ 추가</button>
+    </div>
   </div>
 
   <div id="margin-table-wrap">
@@ -523,6 +555,70 @@ function deleteHistoryRow(id){
   renderMarginTable();
   renderMarginSummary();
   updateMarginBadge();
+}
+
+// ── 📝 수동 등록 이력 추가 (엑셀 다운로드 안 거친 상품용) ──
+function toggleManualAdd(){
+  const f = document.getElementById('manual-add-form');
+  const shown = f.style.display !== 'none';
+  f.style.display = shown ? 'none' : '';
+  if(!shown){
+    // datalist 채우기 (마스터 시트 로드되어 있으면)
+    if(typeof masterProducts !== 'undefined' && masterProducts && masterProducts.length){
+      document.getElementById('master-datalist').innerHTML = 
+        masterProducts.map(p => `<option value="${(p.name||'').replace(/"/g,'&quot;')}">`).join('');
+    }
+    if(!document.getElementById('ma-date').value){
+      document.getElementById('ma-date').value = new Date().toISOString().split('T')[0];
+    }
+    document.getElementById('ma-name').focus();
+  }
+}
+
+function addManualHistory(){
+  const name = (document.getElementById('ma-name').value||'').trim();
+  if(!name){ alert('상품명 입력해줘'); return; }
+  const sellPrice = parseInt(document.getElementById('ma-price').value)||0;
+  if(!sellPrice){ alert('판매가 입력해줘'); return; }
+  let cost = parseInt(document.getElementById('ma-cost').value)||0;
+  let taxType = document.getElementById('ma-tax').value || '면세';
+  const channel = (document.getElementById('ma-channel').value||'').trim();
+  const date = document.getElementById('ma-date').value || new Date().toISOString().split('T')[0];
+
+  // 원가 비어있으면 마스터에서 자동 매칭
+  let matched = false;
+  if(!cost && typeof masterProducts !== 'undefined' && masterProducts){
+    const match = masterProducts.find(p => p.name === name);
+    if(match && match.cost > 0){
+      cost = match.cost;
+      taxType = match.costTax || taxType;
+      matched = true;
+    }
+  }
+  if(!cost){
+    if(!confirm('원가가 비어있고 마스터에서도 매칭 안 됨. 원가 0으로 등록할까? (나중에 마스터 시트 원가 새로고침으로 채워짐)')) return;
+  }
+
+  const id = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+  registeredHistory.push({
+    id, name, channel,
+    registeredCost: cost,
+    sellPrice,
+    taxType,
+    registeredAt: date,
+    currentCost: null,
+    lastChecked: null
+  });
+  saveHistory();
+  renderMarginTable();
+  if(typeof renderMarginSummary === 'function') renderMarginSummary();
+  if(typeof updateMarginBadge === 'function') updateMarginBadge();
+  // 폼 일부 reset — 다음 항목 빠르게 추가
+  document.getElementById('ma-name').value='';
+  document.getElementById('ma-price').value='';
+  document.getElementById('ma-cost').value='';
+  document.getElementById('ma-name').focus();
+  toast('✓ '+name+' 이력 추가됨'+(matched?' (마스터 자동매칭)':''));
 }
 
 function confirmClearHistory(){
