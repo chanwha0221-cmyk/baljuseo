@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.273</title>
+<title>발주서 변환기 v22.274</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.273</span>
+  <span class="ver">v22.274</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -806,6 +806,7 @@ function pp(cl,pr,qty){
     if(norm(pn).includes('주꾸미')||norm(pn).includes('쭈꾸미'))return{name:'연안 활 주꾸미 1kg',qty:Math.round(qty*wi),maxB:999};
     if(norm(pn).includes('전복')){const _tk=Math.max(1,Math.round(qty*wi)); if(_tk%2===0) return{name:'임금님 5-6미 전복 2kg',qty:_tk/2,maxB:999}; return{name:'임금님 5-6미 전복 1kg',qty:_tk,maxB:999};}
     if(norm(pn).includes('키조개'))return{name:'손질 키조개 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('명주조개'))return{name:'연안 명주조개 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
     if(norm(pn).includes('소머리반두'))return{name:'푸짐 소머리 반두 세트 7kg',qty:Math.max(1,Math.round(qty*wi/7)),maxB:999};
     if(norm(pn).includes('참멍게'))return{name:'자연산 특대짜 참멍게 1kg',qty:Math.round(qty*wi),maxB:999};
     if(norm(pn).includes('멍게'))return{name:'향긋 깐 멍게 500g',qty:Math.round(qty*wi*2),maxB:999};
