@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.271</title>
+<title>발주서 변환기 v22.272</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.271</span>
+  <span class="ver">v22.272</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -81,6 +81,12 @@ textarea::placeholder{color:var(--text3)}
   <span class="rules-label">임시 규칙</span>
   <textarea id="rules" placeholder="후포리 박달홍게 4kg > 후후포리 박달홍게 4kg&#10;원래 상품명 > 바꿀 상품명  (한 줄에 하나, > 또는 →)"></textarea>
 </div>
+<div class="sheet-bar" style="background:var(--surface2);border-top:1px solid var(--border);padding:6px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+  <span style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">발주서 시트</span>
+  <input id="sheetUrl" type="text" oninput="onSheetUrlInput()" placeholder="이번 달 발주서 구글시트 주소를 붙여넣으세요 — https://docs.google.com/spreadsheets/d/..." style="flex:1;border:1px solid var(--border2);border-radius:5px;padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);background:var(--surface);outline:none">
+  <button class="btn" type="button" onclick="checkSheetAccess()" style="padding:5px 12px">접근 확인</button>
+  <span id="sheetStatus" style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;white-space:nowrap">기본값</span>
+</div>
 <div class="bottom">
   <button class="btn primary" onclick="run()">변환 실행</button>
   <button class="btn copy-btn" onclick="copyOut()">출력 복사</button>
@@ -91,8 +97,14 @@ textarea::placeholder{color:var(--text3)}
 <script>
 const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
-const SPREADSHEET_ID='17viDOAi5RRvG4gYhzBApONy5XzAYlXHifaJrHiX_2Y0';
+let SPREADSHEET_ID='17viDOAi5RRvG4gYhzBApONy5XzAYlXHifaJrHiX_2Y0';const DEFAULT_SPREADSHEET_ID=SPREADSHEET_ID;
 const SHEET_NAME='당일';
+
+function extractSheetId(s){if(!s)return'';s=String(s).trim();var m=s.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);if(m)return m[1];if(/^[a-zA-Z0-9_-]{25,}$/.test(s))return s;return'';}
+function onSheetUrlInput(){var el=document.getElementById('sheetUrl');var st=document.getElementById('sheetStatus');var id=extractSheetId(el.value);if(id){SPREADSHEET_ID=id;try{localStorage.setItem('baljuseo_sheet_id',id);localStorage.setItem('baljuseo_sheet_url',el.value.trim());}catch(e){}st.textContent='저장됨 ✓';st.style.color='var(--ok)';}else if(el.value.trim()===''){SPREADSHEET_ID=DEFAULT_SPREADSHEET_ID;try{localStorage.removeItem('baljuseo_sheet_id');localStorage.removeItem('baljuseo_sheet_url');}catch(e){}st.textContent='기본값';st.style.color='var(--text3)';}else{st.textContent='주소 인식 안됨';st.style.color='var(--warn)';}}
+function initSheetUrl(){var el=document.getElementById('sheetUrl');if(!el)return;var url='',id='';try{url=localStorage.getItem('baljuseo_sheet_url')||'';id=localStorage.getItem('baljuseo_sheet_id')||'';}catch(e){}if(id){SPREADSHEET_ID=id;el.value=url||id;var st=document.getElementById('sheetStatus');if(st){st.textContent='저장됨 ✓';st.style.color='var(--ok)';}}}
+async function checkSheetAccess(){var st=document.getElementById('sheetStatus');if(!SPREADSHEET_ID){st.textContent='주소 먼저 입력';st.style.color='var(--warn)';return;}st.textContent='확인 중...';st.style.color='var(--text3)';try{var token=await getAccessToken();var r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SPREADSHEET_ID+'?fields=sheets.properties.title',{headers:{'Authorization':'Bearer '+token}});var j=await r.json();if(j.error){st.textContent='접근 불가 — 시트 공유 권한 확인';st.style.color='var(--warn)';return;}var titles=(j.sheets||[]).map(function(s){return s.properties.title;});if(titles.indexOf(SHEET_NAME)<0){st.textContent="'"+SHEET_NAME+"' 탭 없음";st.style.color='var(--warn)';return;}st.textContent='접근 OK ✓ ('+SHEET_NAME+')';st.style.color='var(--ok)';}catch(e){st.textContent='확인 오류: '+e.message;st.style.color='var(--warn)';}}
+initSheetUrl();
 let pendingHistory=[];
 let dayHistory=[];
 function clearDayHistory(){dayHistory=[];pendingHistory=[];sl('오늘 발주 히스토리 초기화됨','ok');}
@@ -523,7 +535,7 @@ async function saveToSheet(){
     const wRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
     const wData=await wRes.json();
     if(wData.updatedCells){
-      const sheetId=1932703059;
+      let sheetId=1932703059;try{var _mr=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SPREADSHEET_ID+'?fields=sheets.properties(sheetId,title)',{headers:{'Authorization':'Bearer '+token}});var _mj=await _mr.json();var _si=(_mj.sheets||[]).find(function(s){return s.properties.title===SHEET_NAME;});if(_si)sheetId=_si.properties.sheetId;}catch(e){}
       const endRow=nextRow+rows.length;
       const startColIdx=firstCols>=10?4:5;
       const endColIdx=startColIdx+firstCols;
