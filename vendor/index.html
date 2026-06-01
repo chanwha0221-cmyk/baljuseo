@@ -499,10 +499,27 @@ document.getElementById('generateBtn').addEventListener('click', generate);
 
 function generate() {
   const company = g('companyName');
+  // 컬럼 17개 (2026-06-01 양식 변경)
+  // 외부채널명/사업자명/외부채널별칭/사업자번호/정산주기/담당자/연락처/이메일/가입아이디
+  // /담당자2/연락처2/이메일2/가입아이디2/담당자3/연락처3/이메일3/가입아이디3
   const cols = [
-    company, company, '',
-    g('bizNumber'), g('repName'), g('phone'),
-    g('email'), g('userId'), 'TRUE', '일정산'
+    company,         // 1. 외부채널명
+    company,         // 2. 사업자명
+    '',              // 3. 외부채널별칭
+    g('bizNumber'),  // 4. 사업자번호
+    '일정산',         // 5. 정산주기
+    g('repName'),    // 6. 담당자
+    g('phone'),      // 7. 연락처
+    g('email'),      // 8. 이메일
+    g('userId'),     // 9. 가입아이디
+    '',              // 10. 담당자2
+    '',              // 11. 연락처2
+    '',              // 12. 이메일2
+    '',              // 13. 가입아이디2
+    '',              // 14. 담당자3
+    '',              // 15. 연락처3
+    '',              // 16. 이메일3
+    ''               // 17. 가입아이디3
   ];
   const tsv = cols.join('\t');
   document.getElementById('tsvOutput').value = tsv;
