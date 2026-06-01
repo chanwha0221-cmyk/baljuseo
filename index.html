@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.274</title>
+<title>발주서 변환기 v22.275</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.274</span>
+  <span class="ver">v22.275</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1057,6 +1057,12 @@ function _bigfishMapProd(c){
   const qm=c.match(/[xX×]\s*(\d+)/);
   const q=qm?parseInt(qm[1]):1;
   const actual=c.replace(/\s+/g,'');
+  // [산지직송] 활꽃게 → 연안 활 숫게 1kg (박스 무게 N kg = qty N)
+  if(actual.includes('활꽃게')||(actual.includes('산지직송')&&actual.includes('꽃게'))){
+    const kgM = c.match(/(\d+)\s*kg/i);
+    const kg = kgM ? parseInt(kgM[1]) : 1;
+    return ['연안 활 숫게 1kg x '+kg];
+  }
   if(actual.includes('알도루묵') && actual.includes('양미리')){
     return ['알도루묵 1팩 x '+q, '양미리 1kg x '+q];
   }
@@ -1080,16 +1086,16 @@ function _preprocessBigfishLine(line){
   const cells = line.split('\t').map(c=>c.trim())
     .filter(c=>c && c!=='출고지주소' && c!=='빅피쉬마켓');
   if(cells.length<3) return null;
-  const phoneRe=/^0\d{1,2}-?\d{3,4}-?\d{4}$/;
+  const phoneRe=/^0\d{1,3}-?\d{3,4}-?\d{4}$/;
   const phones = cells.filter(c=>phoneRe.test(c));
   if(phones.length<1) return null;
   const sendPhone = phones[0];
   const recvPhone = phones.length>1 ? phones[phones.length-1] : '';
   const recvName = cells.find(c=>/^[가-힣]{2,4}$/.test(c)) || '';
-  const addr = cells.find(c=>/(시|도|구|군|로|길|동|읍|면|아파트|오피스텔)/.test(c) && c.length>6 && !/급냉|합배송/.test(c)) || '';
+  const addr = cells.find(c=>/(시|도|구|군|로|길|동|읍|면|아파트|오피스텔)/.test(c) && c.length>6 && !/급냉|합배송|산지직송|활꽃게|알도루묵|양미리|갑오징어|당일조업|빙장|선별|고수율/.test(c)) || '';
   if(!recvName || !addr) return null;
   // 상품 셀 = phone, recvName, addr 제외한 나머지
-  const prodCells = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr);
+  const prodCells = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr && !/^(문\s*앞|문앞|직접|경비실|부재|배송\s*전|빠른|놓아|꼭\s*연락|미리\s*문자)/.test(c) && !/보내시는|선물입니다|부탁드립니다|연락\s*부탁/.test(c));
   if(prodCells.length===0) return null;
   const products = prodCells.flatMap(_bigfishMapProd);
   if(products.length===0) return null;
@@ -1097,12 +1103,25 @@ function _preprocessBigfishLine(line){
   return `빅피쉬마켓\t\t${sendPhone}\t\t${combined}\t${recvName}\t${addr}\t${recvPhone}`;
 }
 function preprocessBigfish(raw){
-  // 빅피쉬마켓: 줄 단위로 처리 (각 줄 = 한 수신자 주문)
+  // 빅피쉬마켓: 한 주문이 2줄로 쪼개져 옴 (1줄=업체+상품+성함, 2줄=주소+연락처)
+  // 빅피쉬마켓 시작 줄 기준으로 그룹화 → 그룹마다 한 주문 처리
   if(!isBigfishFormat(raw)) return null;
   const lines = raw.split(/\r?\n/).filter(l=>l.trim());
-  const rows = [];
+  const groups = [];
+  let current = '';
   for(const line of lines){
-    const r = _preprocessBigfishLine(line);
+    if(line.includes('빅피쉬마켓')){
+      if(current) groups.push(current);
+      current = line;
+    }else{
+      // 이전 빅피쉬 라인의 후속 (주소/연락처) → 탭으로 이어붙임
+      current = current ? current + '\t' + line : line;
+    }
+  }
+  if(current) groups.push(current);
+  const rows = [];
+  for(const grp of groups){
+    const r = _preprocessBigfishLine(grp);
     if(r) rows.push(r);
   }
   return rows.length ? rows.join('\n') : null;
