@@ -241,6 +241,7 @@
       <input id="p-q" placeholder="상호·대표 검색" style="flex:1;min-width:150px">
       <select id="p-gu"><option value="">전체 자치구</option></select>
       <select id="p-grade"><option value="">전체 등급</option><option value="0">🟢 홈페이지/도메인</option><option value="2">🔵 식별가능</option><option value="3">⚪ 마켓명만</option></select>
+      <select id="p-cat"><option value="">전체 품목</option><option value="농수산">🐟 농수산 추정</option><option value="no-beauty">뷰티·건기식 빼기</option></select>
       <label class="muted" style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="p-hidedone">검토 숨기기</label>
       <label class="muted" style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="p-hidesent" checked>보낸 곳 숨기기</label>
       <span class="muted" id="p-stat" style="font-size:11.5px"></span>
@@ -851,14 +852,16 @@ $('f-date').value=todayKST(); chanHint(); loadAll();
     return h;
   }
   function apply(){
-    const q=norm($('p-q').value), gu=$('p-gu').value, gr=$('p-grade').value,
+    const q=norm($('p-q').value), gu=$('p-gu').value, gr=$('p-grade').value, ct=$('p-cat').value,
       hd=$('p-hidedone').checked, hs=$('p-hidesent').checked, sent=sentSet();
     filt=P.filter(r=>{
-      const [sang,rep,g2,email,site,pum,grade]=r;
+      const [sang,rep,g2,email,site,pum,grade,sd,cat]=r;
       if(gu&&g2!==gu)return false;
       if(gr==='0'&&grade>1)return false;
       if(gr==='2'&&grade!==2)return false;
       if(gr==='3'&&grade<3)return false;
+      if(ct==='농수산'&&cat!=='농수산')return false;
+      if(ct==='no-beauty'&&cat==='뷰티건기식')return false;
       if(hd&&rev[email])return false;
       if(hs&&sent.has(norm(email)))return false;
       if(q&&!(norm(sang).includes(q)||norm(rep).includes(q)))return false;
@@ -874,11 +877,11 @@ $('f-date').value=todayKST(); chanHint(); loadAll();
     $('p-empty').style.display=tot?'none':'block';
     $('p-stat').textContent=tot.toLocaleString()+'곳 표시 · 검토 '+Object.keys(rev).length;
     slice.forEach((r,i)=>{
-      const [sang,rep,gu,email,site,pum,g,sdate]=r;
+      const [sang,rep,gu,email,site,pum,g,sdate,cat]=r;
       const isSent=sent.has(norm(email)), isRev=rev[email];
       const tr=document.createElement('tr'); if(isRev)tr.className='done';
       tr.innerHTML='<td>'+(start+i+1)+'</td>'
-        +'<td><b>'+esc(sang)+'</b>'+(isSent?' <span class="pill" style="background:var(--redbg);color:var(--red)">이미 보냄</span>':'')+'<div class="muted" style="font-size:12px">'+esc(pum)+'</div></td>'
+        +'<td><b>'+esc(sang)+'</b>'+(isSent?' <span class="pill" style="background:var(--redbg);color:var(--red)">이미 보냄</span>':'')+(cat==='농수산'?' <span class="pill" style="background:#e7f6ec;color:#13a04a">🐟농수산</span>':cat==='뷰티건기식'?' <span class="pill" style="background:#fdeef6;color:#b83280">💄뷰티/건기</span>':'')+'<div class="muted" style="font-size:12px">'+esc(pum)+'</div></td>'
         +'<td>'+esc(rep)+'</td><td>'+esc(gu)+'</td>'
         +'<td style="white-space:nowrap;font-size:12px;color:#6b6760">'+fmtD(sdate)+'</td>'
         +'<td>'+siteCell(site,sang,rep,g)+'</td>'
@@ -914,7 +917,7 @@ $('f-date').value=todayKST(); chanHint(); loadAll();
     if(fl){ fillForm(fl.dataset.fill, fl.dataset.name); }
     if(rv){ const em=rv.dataset.rev; if(rev[em])delete rev[em]; else rev[em]=1; localStorage.setItem('prospect_reviewed',JSON.stringify(rev)); render(); }
   });
-  ['p-q','p-gu','p-grade','p-hidedone','p-hidesent'].forEach(id=>{ const el=$(id); el.addEventListener(id==='p-q'?'input':'change',apply); });
+  ['p-q','p-gu','p-grade','p-cat','p-hidedone','p-hidesent'].forEach(id=>{ const el=$(id); el.addEventListener(id==='p-q'?'input':'change',apply); });
   apply();
   // 보낸기록(DATA)이 비동기로 로드되면 '이미 보냄' 표시 갱신
   let tries=0; const iv=setInterval(()=>{ if(((typeof DATA!=='undefined')&&DATA&&DATA.length)||tries++>40){ clearInterval(iv); apply(); } },500);
