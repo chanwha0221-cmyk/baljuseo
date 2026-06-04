@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.279</title>
+<title>발주서 변환기 v22.280</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.279</span>
+  <span class="ver">v22.280</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1063,15 +1063,20 @@ function _bigfishMapProd(c){
     const kg = kgM ? parseInt(kgM[1]) : 1;
     return ['연안 활 숫게 1kg x '+kg];
   }
-  if(actual.includes('알도루묵') && actual.includes('양미리')){
-    return ['알도루묵 1팩 x '+q, '양미리 1kg x '+q];
-  }
+  // ⚠️ 상품 판정은 '콜론 뒤 실제 상품'으로만 (2026-06-04 사고).
+  //    접두 라벨 "합배송 가능 생물 알도루묵 양미리:"에 두 키워드가 다 박혀 있어서
+  //    actual(셀 전체) 기준으로 보면 ① 알도루묵만 주문해도 양미리가 붙고
+  //    ② 양미리 셀이 알도루묵으로 오인됨. 콜론 뒤만 보면 둘 다 해결.
   const colon=c.indexOf(':');
   const part=(colon>=0?c.slice(colon+1):c).replace(/\s+/g,'');
+  // 콜론 뒤 실제 상품에 알도루묵·양미리 둘 다 있을 때만 두 상품으로 split
+  if(part.includes('알도루묵') && part.includes('양미리')){
+    return ['알도루묵 1팩 x '+q, '양미리 1kg x '+q];
+  }
   let name;
-  if(part.includes('알도루묵') || actual.includes('알도루묵')) name='알도루묵 1팩';
-  else if(part.includes('양미리') || actual.includes('양미리')) name='양미리 1kg';
-  else if(actual.includes('갑오징어')) name='생물 갑오징어 1kg';
+  if(part.includes('알도루묵')) name='알도루묵 1팩';
+  else if(part.includes('양미리')) name='양미리 1kg';
+  else if(part.includes('갑오징어')||actual.includes('갑오징어')) name='생물 갑오징어 1kg';
   else {
     // 임의 상품 (대게 6kg 등): 합배송/생물 prefix·괄호·수량 제거 후 그대로
     name = (colon>=0?c.slice(colon+1):c)
