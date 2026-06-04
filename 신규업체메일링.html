@@ -61,6 +61,10 @@
   .toast.on{opacity:1}
   .hint{background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--sub);margin-top:8px;line-height:1.7}
   details summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--brand-d)}
+  .tabbar{display:flex;gap:6px;margin-bottom:16px;border-bottom:2px solid var(--line)}
+  .tab{border:0;background:transparent;font-size:15px;font-weight:700;color:var(--sub);cursor:pointer;padding:10px 16px;border-bottom:3px solid transparent;margin-bottom:-2px;border-radius:8px 8px 0 0;display:flex;align-items:center}
+  .tab:hover{color:var(--ink);background:#eef1f5}
+  .tab.active{color:var(--brand-d);border-bottom-color:var(--brand)}
 </style>
 </head>
 <body>
@@ -74,6 +78,13 @@
     <button class="btn ghost sm" onclick="loadAll()">새로고침</button>
   </div>
 
+  <!-- 📑 상단 섹션 탭 -->
+  <div class="tabbar">
+    <button class="tab active" data-tab="manage" onclick="switchTab('manage')">📮 메일링 관리</button>
+    <button class="tab" data-tab="prospect" onclick="switchTab('prospect')">🔍 신규 발굴 <span class="badge green" id="tab-p-count" style="margin-left:5px">…</span></button>
+  </div>
+
+  <div id="tab-manage">
   <!-- ① 보낸 업체 기록 (맨 위) — 채널 선택 시 아래 작성 폼이 바뀜 -->
   <div class="card">
     <h2>＋ 보낸 업체 기록</h2>
@@ -219,7 +230,9 @@
     </table>
     <div class="empty" id="empty" style="display:none">아직 등록된 업체가 없어요.</div>
   </div>
+  </div><!-- /tab-manage -->
 
+  <div id="tab-prospect" style="display:none">
   <!-- 🔍 신규 발굴 DB (서울 식품 셀러) -->
   <div class="card" id="prospect-card">
     <h2>🔍 신규 발굴 — 서울 식품 셀러 DB <span class="badge green" id="p-total">…</span>
@@ -243,6 +256,7 @@
     <div class="empty" id="p-empty" style="display:none">결과 없음</div>
     <div id="p-pg" style="display:flex;gap:6px;justify-content:center;align-items:center;margin-top:12px;flex-wrap:wrap"></div>
   </div>
+  </div><!-- /tab-prospect -->
 </div>
 
 <!-- 추가연락 초안 모달 -->
@@ -899,6 +913,18 @@ $('f-date').value=todayKST(); chanHint(); loadAll();
   // 보낸기록(DATA)이 비동기로 로드되면 '이미 보냄' 표시 갱신
   let tries=0; const iv=setInterval(()=>{ if(((typeof DATA!=='undefined')&&DATA&&DATA.length)||tries++>40){ clearInterval(iv); apply(); } },500);
 })();
+</script>
+
+<!-- 📑 상단 섹션 탭 전환 -->
+<script>
+function switchTab(t){
+  var m=document.getElementById('tab-manage'), p=document.getElementById('tab-prospect');
+  if(m)m.style.display = t==='manage'?'':'none';
+  if(p)p.style.display = t==='prospect'?'':'none';
+  document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===t); });
+  window.scrollTo({top:0});
+}
+(function(){ var c=document.getElementById('tab-p-count'); if(c&&window.PROSPECTS)c.textContent=window.PROSPECTS.length.toLocaleString(); })();
 </script>
 </body>
 </html>
