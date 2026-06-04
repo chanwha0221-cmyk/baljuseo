@@ -219,6 +219,30 @@
     </table>
     <div class="empty" id="empty" style="display:none">아직 등록된 업체가 없어요.</div>
   </div>
+
+  <!-- 🔍 신규 발굴 DB (서울 식품 셀러) -->
+  <div class="card" id="prospect-card">
+    <h2>🔍 신규 발굴 — 서울 식품 셀러 DB <span class="badge green" id="p-total">…</span>
+      <span class="muted" style="font-weight:400">— 공정위 통신판매사업자 · 사이트 투명도순(🟢홈피 → ⚪마켓명만) · 사이트 확인 후 [폼에 넣기]</span></h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <input id="p-q" placeholder="상호·대표 검색" style="flex:1;min-width:150px">
+      <select id="p-gu"><option value="">전체 자치구</option></select>
+      <select id="p-grade"><option value="">전체 등급</option><option value="0">🟢 홈페이지/도메인</option><option value="2">🔵 식별가능</option><option value="3">⚪ 마켓명만</option></select>
+      <label class="muted" style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="p-hidedone">검토 숨기기</label>
+      <label class="muted" style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="p-hidesent" checked>보낸 곳 숨기기</label>
+      <span class="muted" id="p-stat" style="font-size:11.5px"></span>
+    </div>
+    <div id="p-loading" class="muted">데이터 불러오는 중… (신규발굴_데이터.js)</div>
+    <table id="p-table" style="display:none">
+      <thead><tr>
+        <th style="width:30px">#</th><th style="width:22%">상호 / 취급품목</th><th style="width:8%">대표</th>
+        <th style="width:8%">자치구</th><th>사이트 / 검색</th><th style="width:20%">이메일</th><th style="width:210px"></th>
+      </tr></thead>
+      <tbody id="p-tbody"></tbody>
+    </table>
+    <div class="empty" id="p-empty" style="display:none">결과 없음</div>
+    <div id="p-pg" style="display:flex;gap:6px;justify-content:center;align-items:center;margin-top:12px;flex-wrap:wrap"></div>
+  </div>
 </div>
 
 <!-- 추가연락 초안 모달 -->
@@ -781,6 +805,100 @@ document.addEventListener('paste', e=>{
 
 // init
 $('f-date').value=todayKST(); chanHint(); loadAll();
+</script>
+
+<!-- 🔍 신규 발굴 DB 데이터 + 로직 -->
+<script src="신규발굴_데이터.js"></script>
+<script>
+(function(){
+  const P=window.PROSPECTS||[]; const PER=100; let page=1, filt=P;
+  const $=id=>document.getElementById(id);
+  const rev=JSON.parse(localStorage.getItem('prospect_reviewed')||'{}');
+  if(!P.length){ const l=$('p-loading'); if(l)l.textContent='데이터 파일을 찾을 수 없어요 (신규발굴_데이터.js 같은 폴더에 있어야 함)'; return; }
+  const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+  const gus=[...new Set(P.map(r=>r[2]).filter(Boolean))].sort();
+  gus.forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;$('p-gu').appendChild(o);});
+  $('p-total').textContent=P.length.toLocaleString()+'곳';
+  $('p-loading').style.display='none'; $('p-table').style.display='';
+  function sentSet(){ const s=new Set(); const D=(typeof DATA!=='undefined'&&DATA)||[]; D.forEach(r=>{ if(r[2]) s.add(norm(r[2])); }); return s; }
+  function dot(g){ const c=g<=1?'#1f9d57':(g===2?'#2b63d9':'#c4cad2'); return '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;background:'+c+'"></span>'; }
+  function siteCell(site,sang,g){
+    let h=dot(g), u=site;
+    if(g<=1 && !/^https?:\/\//i.test(site)) u='http://'+site;
+    if(g<=1) h+='<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:#2b63d9;text-decoration:none">'+esc(site.replace(/^https?:\/\//,'').slice(0,38))+'↗</a>';
+    else if(site) h+='<span>'+esc(site)+'</span>';
+    h+=' <a href="https://search.naver.com/search.naver?query='+encodeURIComponent(sang)+'" target="_blank" rel="noopener" style="color:#6b7686;font-size:12px;text-decoration:none">🔍검색</a>';
+    return h;
+  }
+  function apply(){
+    const q=norm($('p-q').value), gu=$('p-gu').value, gr=$('p-grade').value,
+      hd=$('p-hidedone').checked, hs=$('p-hidesent').checked, sent=sentSet();
+    filt=P.filter(r=>{
+      const [sang,rep,g2,email,site,pum,grade]=r;
+      if(gu&&g2!==gu)return false;
+      if(gr==='0'&&grade>1)return false;
+      if(gr==='2'&&grade!==2)return false;
+      if(gr==='3'&&grade<3)return false;
+      if(hd&&rev[email])return false;
+      if(hs&&sent.has(norm(email)))return false;
+      if(q&&!(norm(sang).includes(q)||norm(rep).includes(q)))return false;
+      return true;
+    });
+    page=1; render();
+  }
+  function render(){
+    const sent=sentSet(), tb=$('p-tbody'); tb.innerHTML='';
+    const tot=filt.length, pages=Math.max(1,Math.ceil(tot/PER));
+    if(page>pages)page=pages;
+    const start=(page-1)*PER, slice=filt.slice(start,start+PER);
+    $('p-empty').style.display=tot?'none':'block';
+    $('p-stat').textContent=tot.toLocaleString()+'곳 표시 · 검토 '+Object.keys(rev).length;
+    slice.forEach((r,i)=>{
+      const [sang,rep,gu,email,site,pum,g]=r;
+      const isSent=sent.has(norm(email)), isRev=rev[email];
+      const tr=document.createElement('tr'); if(isRev)tr.className='done';
+      tr.innerHTML='<td>'+(start+i+1)+'</td>'
+        +'<td><b>'+esc(sang)+'</b>'+(isSent?' <span class="pill" style="background:var(--redbg);color:var(--red)">이미 보냄</span>':'')+'<div class="muted" style="font-size:12px">'+esc(pum)+'</div></td>'
+        +'<td>'+esc(rep)+'</td><td>'+esc(gu)+'</td>'
+        +'<td>'+siteCell(site,sang,g)+'</td>'
+        +'<td style="font-family:ui-monospace,monospace;font-size:12px;color:#2b63d9;word-break:break-all">'+esc(email)+'</td>'
+        +'<td><div class="row-actions">'
+          +'<button class="btn sm" data-copy="'+esc(email)+'">복사</button>'
+          +'<button class="btn brand sm" data-fill="'+esc(email)+'" data-name="'+esc(sang)+'">폼에 넣기</button>'
+          +'<button class="btn ghost sm" data-rev="'+esc(email)+'">'+(isRev?'✓검토':'검토')+'</button>'
+        +'</div></td>';
+      tb.appendChild(tr);
+    });
+    renderPg(pages);
+  }
+  function renderPg(pages){
+    const pg=$('p-pg'); pg.innerHTML=''; if(pages<=1)return;
+    const mk=(t,p,dis)=>{const b=document.createElement('button');b.className='btn sm';b.textContent=t;b.disabled=!!dis;if(dis)b.style.opacity=.4;b.onclick=()=>{page=p;render();$('prospect-card').scrollIntoView({behavior:'smooth'});};return b;};
+    pg.appendChild(mk('‹',page-1,page<=1));
+    let s=Math.max(1,page-2),e=Math.min(pages,s+4);s=Math.max(1,e-4);
+    for(let p=s;p<=e;p++){const b=mk(p,p);if(p===page){b.classList.add('brand');}pg.appendChild(b);}
+    pg.appendChild(mk('›',page+1,page>=pages));
+    const inf=document.createElement('span');inf.className='muted';inf.style.cssText='font-size:12px;margin-left:8px';inf.textContent=page+' / '+pages;pg.appendChild(inf);
+  }
+  function fillForm(email,name){
+    const fn=$('f-name'), fc=$('f-contact'), fch=$('f-chan');
+    if(fch){ fch.value='이메일'; if(typeof chanHint==='function')chanHint(); }
+    if(fn)fn.value=name; if(fc)fc.value=email;
+    window.scrollTo({top:0,behavior:'smooth'});
+    if(typeof toast==='function')toast('"'+name+'" 폼에 넣었어요 — 메일 작성 후 [추가]로 기록');
+  }
+  $('p-tbody').addEventListener('click',e=>{
+    const cp=e.target.closest('[data-copy]'), fl=e.target.closest('[data-fill]'), rv=e.target.closest('[data-rev]');
+    if(cp){ const v=cp.dataset.copy; (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>{cp.textContent='✓';setTimeout(()=>cp.textContent='복사',1000);}).catch(()=>{const t=document.createElement('textarea');t.value=v;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(_){}t.remove();cp.textContent='✓';setTimeout(()=>cp.textContent='복사',1000);}); }
+    if(fl){ fillForm(fl.dataset.fill, fl.dataset.name); }
+    if(rv){ const em=rv.dataset.rev; if(rev[em])delete rev[em]; else rev[em]=1; localStorage.setItem('prospect_reviewed',JSON.stringify(rev)); render(); }
+  });
+  ['p-q','p-gu','p-grade','p-hidedone','p-hidesent'].forEach(id=>{ const el=$(id); el.addEventListener(id==='p-q'?'input':'change',apply); });
+  apply();
+  // 보낸기록(DATA)이 비동기로 로드되면 '이미 보냄' 표시 갱신
+  let tries=0; const iv=setInterval(()=>{ if(((typeof DATA!=='undefined')&&DATA&&DATA.length)||tries++>40){ clearInterval(iv); apply(); } },500);
+})();
 </script>
 </body>
 </html>
