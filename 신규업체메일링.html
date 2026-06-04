@@ -837,12 +837,16 @@ $('f-date').value=todayKST(); chanHint(); loadAll();
   $('p-loading').style.display='none'; $('p-table').style.display='';
   function sentSet(){ const s=new Set(); const D=(typeof DATA!=='undefined'&&DATA)||[]; D.forEach(r=>{ if(r[2]) s.add(norm(r[2])); }); return s; }
   function dot(g){ const c=g<=1?'#1f9d57':(g===2?'#2b63d9':'#c4cad2'); return '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;background:'+c+'"></span>'; }
-  function siteCell(site,sang,g){
+  function siteCell(site,sang,rep,g){
+    var q=encodeURIComponent((sang+' '+(rep||'')).trim());
     let h=dot(g), u=site;
     if(g<=1 && !/^https?:\/\//i.test(site)) u='http://'+site;
     if(g<=1) h+='<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:#2b63d9;text-decoration:none">'+esc(site.replace(/^https?:\/\//,'').slice(0,38))+'↗</a>';
     else if(site) h+='<span>'+esc(site)+'</span>';
-    h+=' <a href="https://search.naver.com/search.naver?query='+encodeURIComponent(sang)+'" target="_blank" rel="noopener" style="color:#6b7686;font-size:12px;text-decoration:none">🔍검색</a>';
+    h+='<div style="margin-top:3px;line-height:1.7">'
+      +'<a href="https://search.naver.com/search.naver?query='+q+'" target="_blank" rel="noopener" style="color:#188a42;font-size:12px;text-decoration:none">🔍 네이버 검색</a><br>'
+      +'<a href="https://www.google.com/search?q='+q+'" target="_blank" rel="noopener" style="color:#2b63d9;font-size:12px;text-decoration:none">🔍 구글 검색</a>'
+      +'</div>';
     return h;
   }
   function apply(){
@@ -875,7 +879,7 @@ $('f-date').value=todayKST(); chanHint(); loadAll();
       tr.innerHTML='<td>'+(start+i+1)+'</td>'
         +'<td><b>'+esc(sang)+'</b>'+(isSent?' <span class="pill" style="background:var(--redbg);color:var(--red)">이미 보냄</span>':'')+'<div class="muted" style="font-size:12px">'+esc(pum)+'</div></td>'
         +'<td>'+esc(rep)+'</td><td>'+esc(gu)+'</td>'
-        +'<td>'+siteCell(site,sang,g)+'</td>'
+        +'<td>'+siteCell(site,sang,rep,g)+'</td>'
         +'<td style="font-family:ui-monospace,monospace;font-size:12px;color:#2b63d9;word-break:break-all">'+esc(email)+'</td>'
         +'<td><div class="row-actions">'
           +'<button class="btn sm" data-copy="'+esc(email)+'">복사</button>'

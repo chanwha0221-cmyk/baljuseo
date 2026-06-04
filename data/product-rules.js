@@ -30,7 +30,7 @@ function pp(cl,pr,qty){
   if(r.includes('/')){const pt=r.split('/').map(s=>s.trim()).filter(Boolean);if(pt.length>1)return{name:pt.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};r=pt[0];}
   const qm=r.match(/\s*[xX×]\s*(\d+)$/);let cn=r;
   if(qm){qty=parseInt(qm[1]);cn=r.slice(0,qm.index).trim();}
-  cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace('난간','난각').replace(/(\d+)[kK]\b/g,'$1kg').trim();
+  cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace('난간','난각').replace(/초별/g,'초벌').replace(/(\d+)[kK]\b/g,'$1kg').trim();
   if(cn.includes('자연산 급냉 대구'))cn='급냉 국내산 대구 1.5kg';
   if(norm(cn).includes('참치오마카세'))cn='참치 오마카세 한판';
   if(cl==='신선한아침'&&cn.includes('노르웨이 생연어'))cn='연안 생연어';
@@ -61,6 +61,7 @@ function pp(cl,pr,qty){
   if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터'))return{name:'반건조오징어 1kg 5미',qty,maxB:999};
   if(cl==='대상수산'&&(norm(pn).includes('바다장어')||norm(pn).includes('바다 장어')))return{name:'비만 바다장어 1kg',qty:Math.round(qty*wi),maxB:999};
   if(cl==='대상수산'&&(norm(pn).includes('생물 풍천 민물 장어')||(norm(pn).includes('민물')&&norm(pn).includes('장어'))))return{name:'특왕 민물장어 1kg',qty:Math.round(qty*wi),maxB:999};
+  if(norm(pn).includes('풍천')&&norm(pn).includes('장어'))return{name:pn.replace(/([\d.]+)kg/,'1kg'),qty:Math.round(qty*wi),maxB:999};
   if(norm(pn).includes('풀도다리'))return{name:'연안 활 풀도다리 1kg',qty:Math.round(qty*wi),maxB:999};
   if(norm(pn).includes('골뱅이'))return{name:'동해 활 골뱅이 1kg',qty:Math.round(qty*wi),maxB:999};
   if(norm(pn).includes('거북손')&&norm(pn).includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
