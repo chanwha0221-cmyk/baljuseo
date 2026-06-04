@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.277</title>
+<title>발주서 변환기 v22.278</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.277</span>
+  <span class="ver">v22.278</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1220,7 +1220,7 @@ function preprocess365Bagen(raw){
 function isSikbomFormat(raw){const first=raw.trim().split('\n')[0].trim();return /^\d{9}[\t ]/.test(first)&&first.includes('GPG');}
 function normSikbomProd(raw){return raw.replace(/^(버피|연안)\s+/,'').trim();}
 function normLine(l){const t=l.trim();return t.includes('\t')?t:t.replace(/ {2,}/g,'\t');}
-function isOrderHdr(l){return /^\d{9}[\t ]/.test(l)&&l.includes('GPG');}
+function isOrderHdr(l){return /^\d{9}[\t ]/.test(l)&&/GP[GH]/.test(l);}
 function extractAddrPhone(a){
   const m=a.match(/(0\d{1,2}[\s]?\d{3,4}[\s]?\d{4})/);
   if(!m)return{addr:a.trim(),msg:''};
@@ -1240,12 +1240,22 @@ function parseSikbomSingleLine(line){
   for(const c of cols){
     if(/^01\d{8,9}$/.test(c)){custPhone=fp(c);break;}
   }
-  // 상품명: "버피 " 또는 "연안 " 시작 + g/kg 포함
+  // 상품명: 한글 포함 + g/kg 단위 + 길이 5자+ (행정구역/영문ID/날짜 제외)
   for(const c of cols){
-    if(/^(버피|연안)\s+/.test(c)&&/\d+(g|kg)/i.test(c)){prodName=normSikbomProd(c);break;}
+    if(!c||!/[가-힣]/.test(c))continue;
+    if(!/\d+\s*(g|kg)\b/i.test(c))continue;
+    if(c.length<5)continue;
+    // 행정구역 키워드 (시/도/구/군/면/읍/로/길/동/특별시/광역시) 있으면 주소일 가능성 → 제외
+    if(/[가-힣](시|도|군|구|면|읍|로|길)/.test(c))continue;
+    if(/특별시|광역시|특별자치|동\s*\d/.test(c))continue;
+    // 영문 ID 시작 제외 (예: MASTER_mpm...)
+    if(/^[A-Za-z]/.test(c))continue;
+    // 날짜 포맷 제외
+    if(/^\d{4}[-/.]\d{2}/.test(c))continue;
+    prodName=normSikbomProd(c);break;
   }
   // 수량: EA 마커 다음 첫 정수 (1-3자리, 1000 미만 — 단가 4-5자리와 구분)
-  const eaIdx=cols.findIndex(c=>c==='EA');
+  const eaIdx=cols.findIndex(c=>/^\d*EA$/i.test(c));
   if(eaIdx>=0){
     for(let j=eaIdx+1;j<Math.min(eaIdx+8,cols.length);j++){
       const c=cols[j];
@@ -1275,6 +1285,15 @@ function parseSikbomSingleLine(line){
     const r=extractAddrPhone(cleaned);
     address=r.addr;msg=r.msg||'';
     break;
+  }
+  // msg 폴백: cols 전체에서 배송메시지 키워드 찾기 (주소 셀과 별도 셀에 있는 케이스)
+  if(!msg){
+    for(const c of cols){
+      if(!c||c===address)continue;
+      if(/부탁|놓아|문\s*앞|연락주세요|매장안|매장 안|건물|경비실|입구|벨\s*누르|보안/.test(c) && c.length>5){
+        msg=c;break;
+      }
+    }
   }
   if(prodName&&address&&custPhone){
     return ['식봄','','010-2455-4156','',prodName+' x '+qty,custName,address,custPhone,msg].join('\t');
