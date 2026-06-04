@@ -236,7 +236,7 @@
   <!-- 🔍 신규 발굴 DB (서울 식품 셀러) -->
   <div class="card" id="prospect-card">
     <h2>🔍 신규 발굴 — 서울 식품 셀러 DB <span class="badge green" id="p-total">…</span>
-      <span class="muted" style="font-weight:400">— 공정위 통신판매사업자 · 사이트 투명도순(🟢홈피 → ⚪마켓명만) · 사이트 확인 후 [폼에 넣기]</span></h2>
+      <span class="muted" style="font-weight:400">— 공정위 통신판매사업자 · <b>최근 2년 내 신고한 신규 셀러</b> · 사이트 투명도순(🟢홈피 → ⚪마켓명만) · 사이트 확인 후 [폼에 넣기]</span></h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <input id="p-q" placeholder="상호·대표 검색" style="flex:1;min-width:150px">
       <select id="p-gu"><option value="">전체 자치구</option></select>
@@ -249,7 +249,7 @@
     <table id="p-table" style="display:none">
       <thead><tr>
         <th style="width:30px">#</th><th style="width:22%">상호 / 취급품목</th><th style="width:8%">대표</th>
-        <th style="width:8%">자치구</th><th>사이트 / 검색</th><th style="width:20%">이메일</th><th style="width:210px"></th>
+        <th style="width:8%">자치구</th><th style="width:74px">신고일</th><th>사이트 / 검색</th><th style="width:20%">이메일</th><th style="width:210px"></th>
       </tr></thead>
       <tbody id="p-tbody"></tbody>
     </table>
@@ -831,6 +831,7 @@ $('f-date').value=todayKST(); chanHint(); loadAll();
   if(!P.length){ const l=$('p-loading'); if(l)l.textContent='데이터 파일을 찾을 수 없어요 (신규발굴_데이터.js 같은 폴더에 있어야 함)'; return; }
   const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+  const fmtD=d=>(d&&d.length===8)?d.slice(0,4)+'.'+d.slice(4,6)+'.'+d.slice(6,8):(d||'');
   const gus=[...new Set(P.map(r=>r[2]).filter(Boolean))].sort();
   gus.forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;$('p-gu').appendChild(o);});
   $('p-total').textContent=P.length.toLocaleString()+'곳';
@@ -873,12 +874,13 @@ $('f-date').value=todayKST(); chanHint(); loadAll();
     $('p-empty').style.display=tot?'none':'block';
     $('p-stat').textContent=tot.toLocaleString()+'곳 표시 · 검토 '+Object.keys(rev).length;
     slice.forEach((r,i)=>{
-      const [sang,rep,gu,email,site,pum,g]=r;
+      const [sang,rep,gu,email,site,pum,g,sdate]=r;
       const isSent=sent.has(norm(email)), isRev=rev[email];
       const tr=document.createElement('tr'); if(isRev)tr.className='done';
       tr.innerHTML='<td>'+(start+i+1)+'</td>'
         +'<td><b>'+esc(sang)+'</b>'+(isSent?' <span class="pill" style="background:var(--redbg);color:var(--red)">이미 보냄</span>':'')+'<div class="muted" style="font-size:12px">'+esc(pum)+'</div></td>'
         +'<td>'+esc(rep)+'</td><td>'+esc(gu)+'</td>'
+        +'<td style="white-space:nowrap;font-size:12px;color:#6b6760">'+fmtD(sdate)+'</td>'
         +'<td>'+siteCell(site,sang,rep,g)+'</td>'
         +'<td style="font-family:ui-monospace,monospace;font-size:12px;color:#2b63d9;word-break:break-all">'+esc(email)+'</td>'
         +'<td><div class="row-actions">'
