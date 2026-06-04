@@ -91,6 +91,7 @@
       <div><label>상태</label>
         <select id="f-stat"><option>진행중</option><option>회신</option><option>보류</option><option>종료</option></select>
       </div>
+      <div><label>🔑 검색키워드 <span class="muted">(어느 카페 키워드로 찾았나)</span></label><input id="f-kw" list="kw-list" placeholder="예: 수산물 위탁"><datalist id="kw-list"></datalist></div>
       <div style="grid-column:span 2"><label>메모 <span class="muted">(본문 작성 후 [메모 취합] 누르면 AI가 보낸 내용 한 줄 요약)</span></label>
         <div style="display:flex;gap:6px">
           <input id="f-memo" placeholder="자유 메모" style="flex:1">
@@ -197,15 +198,22 @@
     <div id="overdue-list"></div>
   </div>
 
+  <!-- 🔑 키워드별 성과 -->
+  <div class="card" id="kw-card" style="display:none">
+    <h2>🔑 키워드별 성과 <span class="muted" style="font-weight:400">— 어느 카페 키워드가 신규 업체를 데려왔나</span></h2>
+    <div id="kw-stats"></div>
+  </div>
+
   <!-- 전체 리스트 -->
   <div class="card">
     <h2>전체 업체 <span class="badge green" id="total-count">0</span></h2>
     <div style="margin-bottom:10px"><button class="btn brand sm" onclick="pushToSecretary()">🤝 오늘 영업 비서에 반영</button> <span class="muted" style="font-size:11.5px">오늘 보낸/연락한 업체를 비서 '신규영업'에 한 번에 기록 (중복 제외)</span></div>
+    <div style="margin-bottom:10px"><button class="btn brand sm" onclick="pushKeywordResults()">🔑 오늘 키워드 결과 반영</button> <span class="muted" style="font-size:11.5px">오늘 등록 업체를 검색키워드별로 묶어 '키워드이력' 시트에 기록 (어느 키워드가 몇 곳 데려왔나)</span></div>
     <table>
       <thead><tr>
         <th style="width:13%">업체명</th><th style="width:8%">채널</th><th style="width:14%">연락처</th>
-        <th style="width:9%">보낸날짜</th><th style="width:9%">마지막연락</th>
-        <th style="width:5%">경과</th><th style="width:7%">상태</th><th style="width:17%">메모</th><th style="width:200px"></th>
+        <th style="width:8%">보낸날짜</th><th style="width:8%">마지막연락</th>
+        <th style="width:5%">경과</th><th style="width:6%">상태</th><th style="width:14%">메모</th><th style="width:10%">🔑 키워드</th><th style="width:190px"></th>
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
@@ -235,7 +243,8 @@
       <div class="fld" style="grid-column:1/-1"><label>연락처</label><input id="e-contact"></div>
       <div class="fld"><label>보낸 날짜</label><input id="e-sent" type="date"></div>
       <div class="fld"><label>마지막 연락</label><input id="e-last" type="date"></div>
-      <div class="fld" style="grid-column:1/-1"><label>상태</label><select id="e-stat"><option>진행중</option><option>회신</option><option>보류</option><option>종료</option></select></div>
+      <div class="fld"><label>상태</label><select id="e-stat"><option>진행중</option><option>회신</option><option>보류</option><option>종료</option></select></div>
+      <div class="fld"><label>🔑 검색키워드</label><input id="e-kw" list="kw-list"></div>
       <div class="fld" style="grid-column:1/-1"><label>메모</label><textarea id="e-memo" style="min-height:70px"></textarea></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
@@ -257,7 +266,11 @@ const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
 const SHEET_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
 const OAUTH_SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
 const DATA_TAB='신규업체메일링', SET_TAB='메일설정';
-const HEADER=['업체명','연락방식','연락처','보낸날짜','마지막연락','상태','메모'];
+const HEADER=['업체명','연락방식','연락처','보낸날짜','마지막연락','상태','메모','검색키워드'];
+const KW_TAB='키워드이력';
+const KW_HEADER=['날짜','키워드','찾은수','업체명들','반영일시'];
+// datalist 시드 — 키워드 뱅크 자주 쓰는 것 (위탁/무재고 계열 우선) + 과거 입력값 자동 추가
+const KW_SEED=['수산물 위탁','위탁판매 수산물','무재고 위탁','위탁 셀러','위탁 상품 구합니다','수산물 공급처 구합니다','수산물 납품 구합니다','횟감 도매 구합니다','수산물 공구','소량 도매'];
 const OVERDUE_DAYS=14;
 const FOLLOWUP_DAYS=20;  // 20일+ 추가연락 대상 (채널별 그룹 뷰)
 const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
@@ -339,7 +352,7 @@ async function sheetPut(tab,cell,values){
 }
 async function dataReplace(values){
   const t=await getToken();
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB)}!A2:G100000:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB)}!A2:H100000:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
   if(values.length) await sheetPut(DATA_TAB,'A2',values);
 }
 // 설정: 메일설정 탭 A:B key/value
@@ -415,7 +428,7 @@ async function loadAll(){
     // 명함
     if(SET.card_fileId){ try{ const u=await driveBlobURL(SET.card_fileId); showImg('card',u,false);}catch(e){console.warn('명함 로드 실패',e);} }
     // 데이터
-    DATA=(await sheetGet(DATA_TAB,'A2:G100000')).map(r=>{const x=r.slice(0,7);while(x.length<7)x.push('');return x.map(v=>(v||'').toString().trim());}).filter(r=>r[2]||r[0]);
+    DATA=(await sheetGet(DATA_TAB,'A2:H100000')).map(r=>{const x=r.slice(0,8);while(x.length<8)x.push('');return x.map(v=>(v||'').toString().trim());}).filter(r=>r[2]||r[0]);
     render();
     setStatus('동기화됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){ setStatus('오류: '+e.message); console.error(e); toast('동기화 실패 — 콘솔 확인'); }
@@ -458,7 +471,7 @@ async function summarizeMemo(){
 function render(){
   const tb=$('tbody'); tb.innerHTML=''; const overdue=[];
   DATA.forEach((r,i)=>{
-    const [name,chan,contact,sent,last,stat,memo]=r;
+    const [name,chan,contact,sent,last,stat,memo,kw]=r;
     const ds=daysSince(last), isDone=(stat==='종료'||stat==='회신');
     const isOver=(ds!==null&&ds>=OVERDUE_DAYS&&!isDone); if(isOver)overdue.push(i);
     const tr=document.createElement('tr'); tr.className=isOver?'overdue':(isDone?'done':'');
@@ -470,6 +483,7 @@ function render(){
       <td class="days ${isOver?'hot':''}">${ds===null?'—':ds+'일'}</td>
       <td><span class="pill ${esc(stat)}">${esc(stat)||'—'}</span></td>
       <td class="muted memo">${esc(memo)}</td>
+      <td class="muted">${esc(kw)||'—'}</td>
       <td><div class="row-actions">
         ${(!isDone)?`<button class="btn brand sm" onclick="draft(${i})">${followWord(chan)} 초안</button>`:''}
         <button class="btn sm" onclick="markContact(${i})">연락함</button>
@@ -480,6 +494,7 @@ function render(){
   });
   $('empty').style.display=DATA.length?'none':'block';
   $('total-count').textContent=DATA.length;
+  renderKwStats(); seedKwList();
   // 📮 20일+ 추가연락 대상 — 채널별 그룹
   const oc=$('overdue-card');
   const fups=DATA.map((r,i)=>({r,i,ds:daysSince(r[4])}))
@@ -539,9 +554,9 @@ async function addRow(){
     if(!confirm('⚠️ 이미 보낸 업체예요!\n\n['+(dup[0]||'(이름없음)')+'] '+dup[2]+'\n채널: '+chanLabel(dup[1])+' · 마지막연락 '+dup[4]+' ('+d+'일 전)\n\n2주('+OVERDUE_DAYS+'일) 안에 또 연락하는 거예요. 그래도 추가할까요?')) return;
   }
   const date=$('f-date').value||todayKST();
-  DATA.push([name,$('f-chan').value,contact,date,date,$('f-stat').value,$('f-memo').value.trim()]);
+  DATA.push([name,$('f-chan').value,contact,date,date,$('f-stat').value,$('f-memo').value.trim(),$('f-kw').value.trim()]);
   setStatus('저장 중…'); await save();
-  $('f-name').value=$('f-contact').value=$('f-memo').value=''; $('f-date').value=todayKST();
+  $('f-name').value=$('f-contact').value=$('f-memo').value=$('f-kw').value=''; $('f-date').value=todayKST();
   render(); setStatus('저장됨'); toast('추가 완료');
 }
 async function markContact(i){ DATA[i][4]=todayKST(); render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('마지막 연락일 → 오늘'); }
@@ -549,12 +564,12 @@ async function delRow(i){ if(!confirm(`'${DATA[i][0]||DATA[i][2]}' 삭제할까�
 function editRow(i){
   const r=DATA[i]; editIdx=i;
   $('e-name').value=r[0]||''; $('e-chan').value=r[1]||'이메일'; $('e-contact').value=r[2]||'';
-  $('e-sent').value=r[3]||''; $('e-last').value=r[4]||''; $('e-stat').value=r[5]||'진행중'; $('e-memo').value=r[6]||'';
+  $('e-sent').value=r[3]||''; $('e-last').value=r[4]||''; $('e-stat').value=r[5]||'진행중'; $('e-memo').value=r[6]||''; $('e-kw').value=r[7]||'';
   $('edit-modal').classList.add('on');
 }
 function saveEdit(){
   if(editIdx<0)return;
-  DATA[editIdx]=[$('e-name').value.trim(),$('e-chan').value,$('e-contact').value.trim(),$('e-sent').value.trim(),$('e-last').value.trim(),$('e-stat').value,$('e-memo').value.trim()];
+  DATA[editIdx]=[$('e-name').value.trim(),$('e-chan').value,$('e-contact').value.trim(),$('e-sent').value.trim(),$('e-last').value.trim(),$('e-stat').value,$('e-memo').value.trim(),$('e-kw').value.trim()];
   $('edit-modal').classList.remove('on'); editIdx=-1;
   render(); setStatus('저장 중…'); save().then(()=>{setStatus('저장됨');toast('수정됨');});
 }
@@ -581,6 +596,55 @@ async function pushToSecretary(){
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('업무관리!A:J')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:add})});
     toast(`비서에 ${add.length}곳 반영됨 — 비서 새로고침하면 '오늘 영업'에 떠요`); setStatus('완료');
   }catch(e){ toast('반영 실패: '+e.message); setStatus('오류'); }
+}
+
+// 🔑 오늘 등록 업체를 검색키워드별로 묶어 '키워드이력' 시트에 기록 (같은 날·같은 키워드면 덮어쓰기)
+async function pushKeywordResults(){
+  const today=todayKST();
+  const mine=DATA.filter(r=> (r[3]===today||r[4]===today) && (r[7]||'').trim());
+  if(!mine.length){ toast('오늘 등록 업체 중 검색키워드 적힌 게 없어요'); return; }
+  const byKw={};
+  mine.forEach(r=>{ const k=(r[7]||'').trim(); (byKw[k]||(byKw[k]=[])).push((r[0]||r[2]||'').trim()); });
+  const kws=Object.keys(byKw);
+  if(!confirm("오늘 키워드 결과를 '키워드이력' 시트에 반영할까요?\n\n"+kws.map(k=>`· ${k} — ${byKw[k].length}곳`).join('\n'))) return;
+  setStatus('키워드 결과 반영 중…');
+  try{
+    const tabs=await listTabs();
+    if(!tabs.includes(KW_TAB)) await addTab(KW_TAB,KW_HEADER);
+    const all=(await sheetGet(KW_TAB,'A2:E100000'))||[];
+    // 오늘 + 이번에 미는 키워드와 겹치는 기존 행은 제외(=덮어쓰기), 나머지는 보존
+    const kept=all.filter(r=> !(String(r[0]||'').trim()===today && byKw[String(r[1]||'').trim()]));
+    const ts=new Date().toISOString();
+    const add=kws.map(k=>[today,k,String(byKw[k].length),byKw[k].filter(Boolean).join(', '),ts]);
+    const t=await getToken();
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(KW_TAB)}!A2:E100000:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+    const out=kept.concat(add);
+    if(out.length) await sheetPut(KW_TAB,'A2',out);
+    toast(`키워드이력에 ${kws.length}개 키워드 / ${mine.length}곳 반영됨`); setStatus('완료');
+  }catch(e){ toast('반영 실패: '+e.message); setStatus('오류'); console.error(e); }
+}
+
+// 🔑 키워드별 성과 집계 (현재 DATA 기준 — 키워드별 업체수 + 상태 분포)
+function renderKwStats(){
+  const card=$('kw-card'), box=$('kw-stats'); if(!card||!box) return;
+  const agg={};
+  DATA.forEach(r=>{ const k=(r[7]||'').trim(); if(!k) return; const a=agg[k]||(agg[k]={n:0,reply:0,prog:0,closed:0}); a.n++; const s=r[5]; if(s==='회신')a.reply++; else if(s==='종료')a.closed++; else a.prog++; });
+  const keys=Object.keys(agg).sort((x,y)=>agg[y].n-agg[x].n);
+  if(!keys.length){ card.style.display='none'; return; }
+  card.style.display='block';
+  box.innerHTML=keys.map(k=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+    <b style="min-width:160px">${esc(k)}</b>
+    <span class="badge green">${agg[k].n}곳</span>
+    <span class="muted" style="flex:1">회신 ${agg[k].reply} · 진행중 ${agg[k].prog} · 종료 ${agg[k].closed}</span>
+  </div>`).join('');
+}
+
+// 검색키워드 입력 자동완성 — 과거 입력값 + 키워드 뱅크 시드
+function seedKwList(){
+  const dl=$('kw-list'); if(!dl) return;
+  const used=[...new Set(DATA.map(r=>(r[7]||'').trim()).filter(Boolean))];
+  const all=[...new Set([...used,...KW_SEED])];
+  dl.innerHTML=all.map(k=>`<option value="${esc(k)}"></option>`).join('');
 }
 
 // ─── 템플릿 ───
