@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.287</title>
+<title>발주서 변환기 v22.288</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.287</span>
+  <span class="ver">v22.288</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1264,6 +1264,16 @@ function parseSikbomSingleLine(line){
     // 날짜 포맷 제외
     if(/^\d{4}[-/.]\d{2}/.test(c))continue;
     prodName=normSikbomProd(c);break;
+  }
+  // 수량: 과세구분(면세/과세) 앵커 → 뒤로 [단가][수량][배송비][합계]. 단가*수량+배송비==합계로 검증
+  // (2026-06-05 식봄 신export. "1팩"은 판매단위라 수량 아님 — 팩개 폴백이 오인하던 것 차단)
+  const taxIdx=cols.findIndex(c=>c==='면세'||c==='과세');
+  if(taxIdx>=0){
+    const unit=parseInt(cols[taxIdx+1]),q=parseInt(cols[taxIdx+2]),ship=parseInt(cols[taxIdx+3]),tot=parseInt(cols[taxIdx+4]);
+    if(q>0){
+      if(Number.isFinite(unit)&&Number.isFinite(tot)&&unit*q+(Number.isFinite(ship)?ship:0)===tot)qty=q;
+      else if(q<1000)qty=q;
+    }
   }
   // 수량: EA 마커 다음 첫 정수 (1-3자리, 1000 미만 — 단가 4-5자리와 구분)
   const eaIdx=cols.findIndex(c=>/^\d*EA$/i.test(c));
