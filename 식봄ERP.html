@@ -282,6 +282,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
           <th class="num">현재 원가</th>
           <th class="num">원가 변동</th>
           <th class="num">현재 마진<br><span style="font-size:10px;font-weight:400;color:#a8a49e">판매가 기준 / 수수료 제외 금액</span></th>
+          <th class="num">15% 권장가<br><span style="font-size:10px;font-weight:400;color:#a8a49e">현재 원가 기준 / 식봄 수정용</span></th>
           <th>상태</th>
           <th></th>
         </tr>
@@ -665,16 +666,23 @@ async function refreshMarginCheck(){
     // 매칭: 등록 이력 각 항목의 name으로 현재 원가 찾기
     const now = new Date().toISOString();
     const masterByName = {};
+    const masterSupplyByName = {};
     for(const p of masterProducts){
       masterByName[p.name] = p.cost;
+      masterSupplyByName[p.name] = p.supplyPrice;
       // 공백 무시 정규화 매칭 추가
       const norm = p.name.replace(/\s+/g,'').toLowerCase();
       if(!masterByName[norm]) masterByName[norm] = p.cost;
+      if(masterSupplyByName[norm]===undefined) masterSupplyByName[norm] = p.supplyPrice;
     }
     for(const h of registeredHistory){
       const directMatch = masterByName[h.name];
       const normMatch = masterByName[h.name.replace(/\s+/g,'').toLowerCase()];
       h.currentCost = directMatch ?? normMatch ?? null;
+      // 현재 외부공급가도 같이 잡아둠 — 15% 권장가의 max(공급가) 규칙용
+      const dS = masterSupplyByName[h.name];
+      const nS = masterSupplyByName[h.name.replace(/\s+/g,'').toLowerCase()];
+      h.supplyPriceNow = dS ?? nS ?? 0;
       h.lastChecked = now;
     }
     saveHistory();
@@ -692,6 +700,7 @@ async function refreshMarginCheck(){
 }
 
 const MALL_FEE = 0.066;  // 식봄 몰 수수료 = 판매가의 6.6% (VAT 포함). 실수령 = 판매가 × (1-0.066)
+const TARGET_MARGIN = 0.15;  // 식봄 등록가 목표 마진 (판매가 기준, 수수료 차감 후). 등록 공식과 마진체크 기준 동일
 function netRevenue(sellPrice){ return sellPrice * (1 - MALL_FEE); }   // 수수료 제외 실수령액
 function marginAmt(sellPrice, currentCost){                            // 마진 금액(원) = 실수령 - 원가
   if(currentCost == null) return null;
@@ -774,7 +783,7 @@ function renderMarginTable(){
   document.getElementById('margin-table').style.display = 'table';
 
   if(list.length === 0){
-    document.getElementById('margin-tbody').innerHTML = `<tr><td colspan="10" style="text-align:center;color:#a8a49e;padding:30px">필터에 해당하는 상품 없음</td></tr>`;
+    document.getElementById('margin-tbody').innerHTML = `<tr><td colspan="11" style="text-align:center;color:#a8a49e;padding:30px">필터에 해당하는 상품 없음</td></tr>`;
     return;
   }
 
@@ -785,6 +794,9 @@ function renderMarginTable(){
     const costDiff = (h.currentCost!=null && h.registeredCost) ? (h.currentCost - h.registeredCost) : null;
     const costDiffPct = (costDiff!=null && h.registeredCost) ? ((costDiff/h.registeredCost)*100) : null;
     const diffColor = costDiff > 0 ? '#dc2626' : (costDiff < 0 ? '#16a34a' : '#6b6760');
+    // 15% 권장 판매가 = 현재 원가 기준 마진가, 외부 공급가보다 낮으면 공급가
+    const reco = (h.currentCost!=null) ? Math.max(marginBasePrice(h.currentCost), h.supplyPriceNow||0) : null;
+    const recoGap = (reco!=null) ? reco - h.sellPrice : null;
     return `<tr>
       <td>${escapeHtml(h.registeredAt)}</td>
       <td><input type="text" value="${escapeHtml(h.channel||'')}" placeholder="채널" onchange="updateChannelName('${h.id}', this.value)" style="width:100%;padding:5px 7px;border:1px solid #e0dbd4;border-radius:5px;font-size:11px;font-family:inherit"></td>
@@ -796,6 +808,7 @@ function renderMarginTable(){
         ${costDiff==null ? '-' : (costDiff>0?'+':'') + fmt(costDiff) + (costDiffPct!=null ? ` (${costDiffPct>0?'+':''}${costDiffPct.toFixed(1)}%)` : '')}
       </td>
       <td class="num"><b>${m===null ? '<span style="color:#a8a49e">-</span>' : (m>=0?'+':'')+m.toFixed(1)+'%'}</b>${m===null?'':`<div style="font-size:11px;color:#6b6760">${(marginAmt(h.sellPrice,h.currentCost)>=0?'+':'')}${fmt(marginAmt(h.sellPrice,h.currentCost))}원</div>`}</td>
+      <td class="num">${reco==null ? '<span style="color:#a8a49e">-</span>' : '<b style="color:#7b2d8b">'+fmt(reco)+'</b>' + (recoGap>0 ? `<div style="font-size:11px;color:#b45309">▲ ${fmt(recoGap)}원 올려야</div>` : `<div style="font-size:11px;color:#16a34a">현재가 OK</div>`)}</td>
       <td><span class="margin-bar ${status}">${info.emoji} ${info.label}</span></td>
       <td>
         <button class="btn-sm danger" onclick="deleteHistoryRow('${h.id}')" title="이력에서 제거">✕</button>
@@ -891,7 +904,7 @@ function renderMasterList(){
     ? '<div class="status">검색 결과 없음</div>'
     : filtered.slice(0,200).map(p=>{
         const sellPrice = calcSellPrice(p.cost, p.supplyPrice);
-        const extApplied = p.cost>0 && sellPrice > Math.ceil(p.cost*1.15/100)*100;
+        const extApplied = p.cost>0 && sellPrice > marginBasePrice(p.cost);
         return `<div class="master-row ${sel.has(p.idx)?'selected':''}" onclick="addToSelected(${p.idx})">
           <div>
             <div><b>${escapeHtml(p.name)}</b> ${sel.has(p.idx)?'<span style="color:#27ae60;font-size:11px">✓ 추가됨</span>':''}</div>
@@ -906,11 +919,17 @@ function renderMasterList(){
 }
 
 // ════════════════════════════════════════════════════════════════
-// 가격 계산: 원가 × 1.15(100원 단위 올림). 단, 그 값이 외부 공급가보다 낮으면 공급가 사용
+// 가격 계산: 판매가 기준 마진 15%(수수료 6.6% 차감 후). (판매가×0.934 − 원가)/판매가 = 0.15
+//   → 판매가 = 원가 / (0.934 − 0.15). 100원 단위 올림. 외부 공급가보다 낮으면 공급가 사용.
+//   (2026-06-05 변경: 기존 원가×1.15는 수수료 미반영이라 마진체크에서 ~6%로 떠 위험 표시되던 문제 해결)
 // ════════════════════════════════════════════════════════════════
+function marginBasePrice(cost){  // 판매가 기준 15% 마진가 (수수료 반영, 100원 올림)
+  if(!cost || cost<=0) return 0;
+  return Math.ceil(cost / (1 - MALL_FEE - TARGET_MARGIN) / 100) * 100;
+}
 function calcSellPrice(cost, supplyPrice){
-  const base = (!cost || cost<=0) ? 0 : Math.ceil(cost * 1.15 / 100) * 100;  // 15% 마진가
-  const ext = (supplyPrice && supplyPrice>0) ? supplyPrice : 0;              // 외부 공급가(판매가)
+  const base = marginBasePrice(cost);                                       // 15% 마진가(수수료 반영)
+  const ext = (supplyPrice && supplyPrice>0) ? supplyPrice : 0;             // 외부 공급가(판매가)
   // 15% 마진가가 외부 공급가보다 낮으면 → 외부 공급가를 식봄 판매가로
   return Math.max(base, ext);
 }
@@ -1027,7 +1046,7 @@ function renderSelected(){
     return `<div class="selected-card" id="card-${s.masterIdx}" style="${isComplete?'':'border-left:3px solid #dc2626'}">
       <div class="card-header">
         <div class="card-name">${escapeHtml(s.name)} <span id="badge-${s.masterIdx}" style="color:${isComplete?'#27ae60':'#dc2626'};font-size:11px;margin-left:6px">${isComplete?'✓ 등록 준비됨':'⚠ 필수 미입력'}</span></div>
-        <div class="card-price">원가 <b>${fmt(s.cost)}</b>원 → 식봄 판매가 <b>${fmt(s.sellPrice)}</b>원 ${s.cost>0 && s.sellPrice > Math.ceil(s.cost*1.15/100)*100 ? '<span style="color:#b45309">(외부 판매가 적용)</span>' : '(마진 15%)'}</div>
+        <div class="card-price">원가 <b>${fmt(s.cost)}</b>원 → 식봄 판매가 <b>${fmt(s.sellPrice)}</b>원 ${s.cost>0 && s.sellPrice > marginBasePrice(s.cost) ? '<span style="color:#b45309">(외부 판매가 적용)</span>' : '(마진 15%)'}</div>
       </div>
       <div class="cat-row">
         <div class="f">
