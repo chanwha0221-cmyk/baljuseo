@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.291</title>
+<title>발주서 변환기 v22.292</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.291</span>
+  <span class="ver">v22.292</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -767,6 +767,8 @@ function pp(cl,pr,qty){
   // 숙성도/등급 괄호 보존 (중수·고수·저수 등 숙성 단계, 냉동·냉장·생물 등 보관 상태)
   const _parenPreserved=[];
   r=r.replace(/\((중수|고수|저수|특수|생물|냉동|냉장|반건조|건조|훈제)\)/g,(m)=>{const k=`__P${_parenPreserved.length}__`;_parenPreserved.push(m);return k;});
+  // 🐟 홍어 삭힘정도 괄호 보존 — '삭힘/숙성' 단어가 든 괄호는 무조건 유지 (2026-06-08 사장님 지시: 삭힘정도 없으면 홍어 발주 불가. 멋대로 지우지 말 것)
+  r=r.replace(/[\(（][^\(（\)）]*(?:삭힘|숙성)[^\(（\)）]*[\)）]/g,(m)=>{const k=`__P${_parenPreserved.length}__`;_parenPreserved.push(m);return k;});
   // 괄호 처리 — 닫힌 (...) 그룹은 위치 무관 모두 제거 (멀티 상품에서 첫 괄호에서 잘리던 버그 fix)
   // 단 닫힘 없는 미완성 괄호는 첫 ( 부터 끝까지 절단 (단 괄호로 시작하면 원본 유지)
   r=r.replace(/\s*[\(（][^\(（\)）]*[\)）]\s*/g,' ');

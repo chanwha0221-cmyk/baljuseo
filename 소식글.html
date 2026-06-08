@@ -95,6 +95,7 @@
 
   </div>
   <div class="row-actions">
+    <button class="btn" id="pasteBtn">📥 붙여넣기</button>
     <button class="btn brand" id="saveBtn">💾 최종본 저장</button>
     <button class="btn" id="copyOutBtn">📋 복사</button>
     <button class="btn ghost" id="cancelBtn" style="display:none">취소</button>
@@ -331,6 +332,7 @@ document.addEventListener('click',e=>{
   if(act.dataset.act==='edit'){ loadForm(d); }
   if(act.dataset.act==='del'){ if(confirm('이 기록을 삭제할까요?')){ DATA=DATA.filter(x=>x.id!==d.id); rewriteAll().then(()=>{render();toast('삭제됨');setStatus(`연결됨 · ${DATA.length}건`);}).catch(e=>toast('삭제 실패: '+e.message)); } }
 });
+$('pasteBtn').onclick=async()=>{ try{ const t=await navigator.clipboard.readText(); if(!t||!t.trim()){toast('클립보드가 비어있어요');return;} $('f_out').value=t.trim(); $('f_out').focus(); toast('붙여넣기 완료 — 💾 저장 누르세요'); }catch(e){ $('f_out').focus(); toast('브라우저가 클립보드를 막았어요 — 칸에 Ctrl+V 해주세요'); } };
 $('saveBtn').onclick=save;
 $('copyOutBtn').onclick=()=>{ const v=$('f_out').value.trim(); if(!v){toast('복사할 내용이 없습니다');return;} navigator.clipboard.writeText(v).then(()=>toast('복사됨 — 카톡에 붙여넣기')); };
 $('cancelBtn').onclick=resetForm;
