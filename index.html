@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.301</title>
+<title>발주서 변환기 v22.302</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.301</span>
+  <span class="ver">v22.302</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1105,11 +1105,24 @@ function _preprocessBigfishLine(line){
   if(phones.length<1) return null;
   const sendPhone = phones[0];
   const recvPhone = phones.length>1 ? phones[phones.length-1] : '';
-  const recvName = cells.find(c=>/^[가-힣]{2,4}$/.test(c)) || '';
-  const addr = cells.find(c=>/(시|도|구|군|로|길|동|읍|면|아파트|오피스텔)/.test(c) && c.length>6 && !/급냉|합배송|산지직송|활꽃게|알도루묵|양미리|갑오징어|당일조업|빙장|선별|고수율/.test(c)) || '';
+  const addrRe=/(시|도|구|군|로|길|동|읍|면|아파트|오피스텔)/;
+  const prodKw=/급냉|합배송|산지직송|활꽃게|꽃게|알도루묵|양미리|갑오징어|당일조업|빙장|선별|고수율|홍새우/;
+  // 배송메모 판정 — 한글 + 영문(Doorstep delivery 등) 둘 다 거름 (2026-06-09)
+  const isMemo=c=>/^(문\s*앞|문앞|직접|경비실|부재|배송\s*전|빠른|놓아|꼭\s*연락|미리\s*문자)/.test(c)
+    || /보내시는|선물입니다|부탁드립니다|연락\s*부탁/.test(c)
+    || /doorstep|leave|front\s*of|at\s*the\s*door|please|deliver|ring|door\b/i.test(c);
+  const addr = cells.find(c=>addrRe.test(c) && c.length>6 && !prodKw.test(c)) || '';
+  // 받는분 이름: ① 한글 2~4자 우선 ② 없으면 전화·주소·상품·메모 아닌 셀 (영문/공백 이름 'Keo soksommang' 등 — 2026-06-09 누락 fix)
+  let recvName = cells.find(c=>/^[가-힣]{2,4}$/.test(c)) || '';
+  if(!recvName){
+    recvName = cells.find(c=>
+      !phoneRe.test(c) && c!==addr && c.length<=25
+      && !addrRe.test(c) && !prodKw.test(c) && !isMemo(c) && !/^\d/.test(c)
+    ) || '';
+  }
   if(!recvName || !addr) return null;
-  // 상품 셀 = phone, recvName, addr 제외한 나머지
-  const prodCells = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr && !/^(문\s*앞|문앞|직접|경비실|부재|배송\s*전|빠른|놓아|꼭\s*연락|미리\s*문자)/.test(c) && !/보내시는|선물입니다|부탁드립니다|연락\s*부탁/.test(c));
+  // 상품 셀 = phone, recvName, addr, 메모 제외한 나머지
+  const prodCells = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr && !isMemo(c));
   if(prodCells.length===0) return null;
   const products = prodCells.flatMap(_bigfishMapProd);
   if(products.length===0) return null;
