@@ -58,9 +58,10 @@
 #dm-page .spec td{padding:15px 16px;border-bottom:1px solid #e0d8c8;text-align:center}
 #dm-page .spec td.k{width:38%;font-weight:500;color:var(--red);background:var(--cream)}
 #dm-page .grid{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
-#dm-page .grid img{width:calc(50% - 5px);border-radius:10px;display:block;filter:contrast(1.04) saturate(1.1)}
-#dm-page .grid.g3 img{width:calc(33.333% - 6px)}
-#dm-page .grid.g1 img{width:100%}
+#dm-page .grid .gimg{position:relative;width:calc(50% - 5px);background-size:cover;background-position:center;border-radius:10px;filter:contrast(1.04) saturate(1.1)}
+#dm-page .grid .gimg::before{content:"";display:block;padding-top:100%}
+#dm-page .grid.g3 .gimg{width:calc(33.333% - 6px)}
+#dm-page .grid.g1 .gimg{width:100%}
 #dm-page .steps{margin-top:18px}
 #dm-page .step{display:flex;gap:14px;align-items:flex-start;justify-content:center;padding:12px 0;border-bottom:1px dashed #ddd;text-align:left}
 #dm-page .step .no{flex:0 0 34px;height:34px;border-radius:50%;background:var(--red);color:#fff;font-weight:700;text-align:center;line-height:34px}
@@ -188,7 +189,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <button class="nav-btn active" id="nav-bulk" onclick="switchTab('bulk',this)">📦 상품 대량등록</button>
   <button class="nav-btn" id="nav-maker" onclick="switchTab('maker',this)">🎨 상세 메이커</button>
   <button class="nav-btn" id="nav-margin" onclick="switchTab('margin',this)">📊 마진 체크 <span id="margin-alert-badge" style="display:none;background:#dc2626;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px"></span></button>
-  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v2.5 · 상세 텍스트 중앙정렬</span>
+  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v2.6 · 주식회사마스터·정사각·스펙원본</span>
 </div>
 
 <!-- ═══════════════ 탭 1: 상품 대량등록 ═══════════════ -->
@@ -1685,25 +1686,25 @@ const DM=(function(){
     return 'MASTER';
   }
   function selImgs(){return PHOTOS.filter(p=>p.on).map(p=>p.url);}
-  function grid(g,cls){if(!g.length)return'';const c=cls||(g.length===1?'g1':'');return`<div class="grid ${c}">${g.map(u=>`<img src="${esc(u)}" referrerpolicy="no-referrer">`).join('')}</div>`;}
+  function grid(g,cls){if(!g.length)return'';const c=cls||(g.length===1?'g1':'');return`<div class="grid ${c}">${g.map(u=>`<div class="gimg" style="background-image:url('${esc(u)}')"></div>`).join('')}</div>`;}
   function buildHtml(){
     if(!DATA)return'<div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
-    const ph=selImgs();let pi=1;const brand=(MODE==='master'?'MASTER':'새벽소리');let h='';
-    h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}"><div class="brand">${brand.split('').join(' ')}</div><h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
+    const ph=selImgs();let pi=1;const brand=(MODE==='master'?'주식회사 마스터':'새벽소리');let h='';
+    h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}"><div class="brand">${esc(brand)}</div><h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
     let badges=[];const sp=DATA.sections.find(s=>s.block.type==='spec');
     if(sp)sp.block.rows.forEach(([k,v])=>{if(/원산지|생물|중량|사이즈|구성/.test(k)&&v)badges.push(v.split('/')[0].trim());});
     badges=[...new Set(badges)].slice(0,4);
     if(badges.length)h+=`<div class="badges">${badges.map(b=>`<span class="badge">${esc(b)}</span>`).join('')}</div>`;
     DATA.sections.forEach((s,si)=>{const b=s.block,alt=si%2===1?'alt':'';h+=`<div class="sec ${alt}">`;
       if(s.header)h+=`<span class="tag">${esc(label(s.header))}</span><h2>${esc(s.header)}</h2><div class="ln"></div>`;
-      if(b.type==='spec')h+=`<table class="spec">${b.rows.map(([k,v])=>`<tr><td class="k">${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</table>`;
+      if(b.type==='spec')h+=`<p>${s.items.map(esc).join('<br>')}</p>`;   /* 원본 ※ 줄 그대로 (가공·누락 없이 전부) */
       else if(b.type==='steps'){if(b.intro.length)h+=`<p>${b.intro.map(esc).join('<br>')}</p>`;h+=`<div class="steps">${b.steps.map((t,n)=>`<div class="step"><span class="no">${n+1}</span><span class="tx">${esc(t)}</span></div>`).join('')}</div>`;}
       else if(b.type==='qa')h+=b.items.map(([q,a])=>`<div class="qa"><div class="q">Q. ${esc(q)}</div><div class="a">${esc(a)}</div></div>`).join('');
       else h+=`<p>${b.items.map(esc).join('<br>')}</p>`;
       if(pi<ph.length){h+=grid(ph.slice(pi,pi+2));pi+=2;}h+=`</div>`;});
     if(pi<ph.length)h+=`<div class="sec ${DATA.sections.length%2===1?'alt':''}">${grid(ph.slice(pi),'')}</div>`;
     const foot=($('dm-foot').value||'').trim()||brand;
-    h+=`<div class="foot">${esc(foot).split('').join(' ')}</div>`;
+    h+=`<div class="foot">${esc(foot)}</div>`;
     return h;
   }
   function render(){const p=$('dm-page');if(!p)return;p.dataset.mode=MODE;p.innerHTML=buildHtml();}
@@ -1711,7 +1712,23 @@ const DM=(function(){
     $('dm-thumbs').innerHTML=PHOTOS.map((p,i)=>{const up=p.url.startsWith('data:');const thumb=up?p.url:weserv(p.url)+'&w=160&h=120&fit=cover';return `<div class="dm-th ${p.on?'':'off'} ${i===firstOn?'hero':''}" draggable="true" onclick="DM.toggle(${i})" ondragstart="DM.drag(${i})" ondragover="event.preventDefault()" ondrop="DM.drop(${i})"><img src="${thumb}" referrerpolicy="no-referrer"><span class="n">${i+1}</span>${up?'<span style="position:absolute;top:1px;right:2px;background:rgba(13,110,253,.9);color:#fff;font-size:8px;font-weight:700;padding:0 3px;border-radius:5px">내</span>':''}${i===firstOn?'<span class="tg">히어로</span>':''}</div>`;}).join('');
     $('dm-photohint').textContent=`선택 ${onC}장 / 전체 ${PHOTOS.length}장`;
   }
-  function generate(){const src=$('dm-src').value.trim();if(!src){alert('페이지 소스를 붙여넣으세요.');return;}DATA=parse(src);if(!DATA.images.length&&!DATA.title){alert('인식 실패 — masterc 상품 페이지 소스가 맞는지 확인하세요.');return;}PHOTOS=DATA.images.map((u,i)=>({url:u,on:i<10}));drawThumbs();render();}
+  function generate(){
+    const src=$('dm-src').value.trim();
+    if(!src){alert('페이지 소스를 붙여넣으세요.');return;}
+    DATA=parse(src);
+    if(!DATA.images.length&&!DATA.title){alert('인식 실패 — masterc 상품 페이지 소스가 맞는지 확인하세요.');return;}
+    // 최대 30장(중복은 parse에서 이미 URL 제거). 100장 넘으면 고르게 추리되 끝 3장(중량·포장)은 무조건 포함
+    let imgs=DATA.images.slice();
+    const MAX=30;
+    if(imgs.length>MAX){
+      const tailN=3, tail=imgs.slice(-tailN), head=imgs.slice(0,imgs.length-tailN), pickN=MAX-tailN, picked=[];
+      for(let i=0;i<pickN;i++) picked.push(head[Math.round(i*(head.length-1)/(pickN-1))]);
+      imgs=[...new Set([...picked,...tail])];
+    }
+    const n=imgs.length;
+    PHOTOS=imgs.map((u,i)=>({url:u, on:(i<10 || i>=n-2)}));   // 기본: 앞10 + 끝2(중량·포장)
+    drawThumbs(); render();
+  }
   function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));render();}
   function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
   function drag(i){dragI=i;}
@@ -1724,12 +1741,13 @@ const DM=(function(){
     const clone=$('dm-page').cloneNode(true);
     clone.style.cssText='position:fixed;left:-9999px;top:0;width:860px';
     document.body.appendChild(clone);
-    clone.querySelectorAll('img').forEach(im=>{const o=im.getAttribute('src')||'';if(o.startsWith('data:'))return;im.crossOrigin='anonymous';im.src=weserv(o);});
-    // 히어로 배경 (내 사진=data URL은 그대로, masterc URL만 weserv)
-    const hero=clone.querySelector('.hero');
-    if(hero&&hero.style.backgroundImage){const u=hero.style.backgroundImage.slice(5,-2);if(!u.startsWith('data:'))hero.style.backgroundImage=`url('${weserv(u)}')`;}
-    await Promise.all([...clone.querySelectorAll('img')].map(im=>im.complete?1:new Promise(r=>{im.onload=im.onerror=r;})));
-    await new Promise(r=>setTimeout(r,300));
+    // 모든 배경이미지(.hero + .gimg) — masterc URL만 weserv 경유(CORS), 내 사진(data:)은 그대로
+    clone.querySelectorAll('.hero, .gimg').forEach(el=>{
+      const bg=el.style.backgroundImage; if(!bg||bg==='none')return;
+      const m=bg.match(/url\(["']?(.*?)["']?\)/); const u=m?m[1]:'';
+      if(u && !u.startsWith('data:')) el.style.backgroundImage=`url('${weserv(u)}')`;
+    });
+    await new Promise(r=>setTimeout(r,600));
     if(document.fonts&&document.fonts.ready)await document.fonts.ready;
     try{
       const c=await html2canvas(clone,{scale:2,backgroundColor:'#ffffff',width:860,windowWidth:860,useCORS:true});
