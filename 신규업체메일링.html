@@ -204,8 +204,8 @@
 
   <!-- 🔔 추가연락 대상 -->
   <div class="card" id="overdue-card" style="display:none">
-    <h2>📮 20일+ 추가연락 대상 <span class="badge red" id="overdue-count">0</span>
-      <span class="muted" style="font-weight:400">— 마지막 연락 20일 이상 + 진행중/보류 · 채널별</span></h2>
+    <h2>📮 14일+ 2차 메일 대상 <span class="badge red" id="overdue-count">0</span>
+      <span class="muted" style="font-weight:400">— 마지막 연락 14일 이상 + 진행중/보류 = 2차 메일 보낼 업체 · 채널별</span></h2>
     <div id="overdue-list"></div>
   </div>
 
@@ -311,7 +311,7 @@ const KW_HEADER=['날짜','키워드','찾은수','업체명들','반영일시']
 // datalist 시드 — 키워드 뱅크 자주 쓰는 것 (위탁/무재고 계열 우선) + 과거 입력값 자동 추가
 const KW_SEED=['수산물 위탁','위탁판매 수산물','무재고 위탁','위탁 셀러','위탁 상품 구합니다','수산물 공급처 구합니다','수산물 납품 구합니다','횟감 도매 구합니다','수산물 공구','소량 도매'];
 const OVERDUE_DAYS=14;
-const FOLLOWUP_DAYS=20;  // 20일+ 추가연락 대상 (채널별 그룹 뷰)
+const FOLLOWUP_DAYS=14;  // 14일+ 2차 메일 대상 (채널별 그룹 뷰) — 2026-06-09 14일로 변경
 const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
 const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
 
@@ -509,7 +509,10 @@ async function summarizeMemo(){
 
 function render(){
   const tb=$('tbody'); tb.innerHTML=''; const overdue=[];
-  DATA.forEach((r,i)=>{
+  // 날짜수 적은(최근 연락) 업체부터 위로 — 표시 순서만 정렬, onclick은 원본 DATA 인덱스 유지 (2026-06-09 사장님 지시)
+  const _view=DATA.map((r,i)=>({r,i,ds:daysSince(r[4])}));
+  _view.sort((a,b)=>{ if(a.ds===null) return 1; if(b.ds===null) return -1; return a.ds-b.ds; });
+  _view.forEach(({r,i})=>{
     const [name,chan,contact,sent,last,stat,memo,kw]=r;
     const ds=daysSince(last), isDone=(stat==='종료'||stat==='회신');
     const isOver=(ds!==null&&ds>=OVERDUE_DAYS&&!isDone); if(isOver)overdue.push(i);
@@ -568,16 +571,16 @@ function followupEmails(){
     .map(r=>(r[2]||'').trim()).filter(Boolean);
 }
 function copyFollowupEmails(){
-  const em=followupEmails(); if(!em.length){ toast('20일 지난 이메일 업체가 없어요'); return; }
+  const em=followupEmails(); if(!em.length){ toast('14일 지난 이메일 업체가 없어요'); return; }
   navigator.clipboard.writeText(em.join(', ')).then(()=>toast(em.length+'개 메일주소 복사됨 — 받는사람/BCC에 붙여넣기'));
 }
 // 📧 20일+ 이메일 업체 전체에게 BCC로 한번에 — 본문+시트 복사 + 썬더버드 BCC 열기 (각자한테 따로 감)
 async function sendEmailFollowupBatch(){
-  const em=followupEmails(); if(!em.length){ toast('20일 지난 이메일 업체가 없어요'); return; }
+  const em=followupEmails(); if(!em.length){ toast('14일 지난 이메일 업체가 없어요'); return; }
   const {html,hasDaily}=buildMailHTML();
   try{ await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([$('tpl').value],{type:'text/plain'})})]); }catch(e){}
   const subj=encodeURIComponent(($('tpl-subject').value||'').trim());
-  window.location.href='mailto:?bcc='+encodeURIComponent(em.join(','))+'&subject='+subj;
+  window.location.href='mailto:?bcc='+encodeURIComponent(em.join(','))+'&reply-to='+encodeURIComponent('chanwha0221@gmail.com,feellost1@gmail.com')+'&subject='+subj;
   toast(em.length+'곳 BCC로 썬더버드 열림 — 본문 클릭 후 Ctrl+V! (각자한테 따로 발송돼요)'+(hasDaily?'':' ⚠️시트이미지 확인'));
 }
 
@@ -773,7 +776,9 @@ async function openInThunderbird(){
   // 2) 받는사람(연락처칸)·제목 채워 메일앱 열기 (mailto는 본문/이미지 못 실어서 본문은 붙여넣기로)
   const to=encodeURIComponent(($('f-contact').value||'').trim());
   const subj=encodeURIComponent(($('tpl-subject').value||'').trim());
-  window.location.href='mailto:'+to+'?subject='+subj;
+  // 회신이 두 사람에게 모두 가도록 Reply-To에 두 주소 (2026-06-09 사장님 지시)
+  const replyto=encodeURIComponent('chanwha0221@gmail.com,feellost1@gmail.com');
+  window.location.href='mailto:'+to+'?reply-to='+replyto+'&subject='+subj;
   toast('썬더버드 열림 (받는사람·제목 채워짐) — 본문 클릭하고 Ctrl+V! (본문+시트 이미 복사됨)');
 }
 async function saveCard(){
