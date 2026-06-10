@@ -11,9 +11,9 @@
 @font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFLight.ttf') format('truetype');font-weight:300;font-display:swap}
 @font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFMedium.ttf') format('truetype');font-weight:500;font-display:swap}
 @font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFBold.ttf') format('truetype');font-weight:700;font-display:swap}
-#dm{display:flex;gap:16px}
-#dm .dm-left{width:380px;flex:0 0 380px}
-#dm .dm-bar{display:flex;align-items:center;gap:10px;background:#161616;color:#fff;padding:10px 14px;border-radius:10px;margin-bottom:12px;flex-wrap:wrap}
+#dm{display:flex;gap:16px;align-items:flex-start}
+#dm .dm-left{width:380px;flex:0 0 380px;position:sticky;top:50px;align-self:flex-start;max-height:calc(100vh - 64px);overflow-y:auto}
+#dm .dm-bar{display:flex;align-items:center;gap:10px;background:#161616;color:#fff;padding:10px 14px;border-radius:10px;margin-bottom:12px;flex-wrap:wrap;position:sticky;top:50px;z-index:40}
 #dm .dm-modes{display:flex;gap:6px}
 #dm .dm-mb{padding:6px 14px;border-radius:18px;border:1.5px solid #555;background:transparent;color:#ccc;font-family:inherit;font-weight:700;font-size:12px;cursor:pointer}
 #dm .dm-mb.on{background:#fff;color:#161616;border-color:#fff}
@@ -29,7 +29,7 @@
 #dm .dm-th img{width:100%;height:100%;object-fit:cover}
 #dm .dm-th .n{position:absolute;top:1px;left:2px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;font-weight:700;padding:0 4px;border-radius:6px}
 #dm .dm-th .tg{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:#fff;background:rgba(192,57,43,.85)}
-#dm .dm-right{flex:1;background:#d7d4ce;border-radius:10px;overflow:auto;max-height:78vh;display:flex;justify-content:center;padding:18px}
+#dm .dm-right{flex:1;background:#d7d4ce;border-radius:10px;display:flex;justify-content:center;padding:18px}
 #dm .dm-stage{width:860px;flex:0 0 860px}
 #dm-page{width:860px;background:#fff;overflow:hidden;min-height:160px}
 #dm-page .dm-empty{color:#999;text-align:center;padding:90px 20px;font-weight:700;font-family:'Apple SD Gothic Neo',sans-serif}
@@ -177,7 +177,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <button class="nav-btn" id="nav-detail" onclick="switchTab('detail',this)">📝 상세페이지 변환기</button>
   <button class="nav-btn" id="nav-maker" onclick="switchTab('maker',this)">🎨 상세 메이커</button>
   <button class="nav-btn" id="nav-margin" onclick="switchTab('margin',this)">📊 마진 체크 <span id="margin-alert-badge" style="display:none;background:#dc2626;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px"></span></button>
-  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v2.1 · 판매가기준마진</span>
+  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v2.3 · 상세메이커 썸네일·내사진</span>
 </div>
 
 <!-- ═══════════════ 탭 1: 상품 대량등록 ═══════════════ -->
@@ -294,9 +294,18 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <textarea id="dm-src" placeholder="masterc 게시글 [복사] 또는 페이지 소스(Ctrl+U) 통째로 붙여넣기"></textarea>
       <button class="dm-gen" onclick="DM.generate()">⚡ 상세페이지 생성</button>
       <div class="dm-h3">② 사진 선택 <span style="font-weight:400;color:#aaa;font-size:11px">(클릭 on/off · 드래그 순서 · 첫장 히어로)</span></div>
+      <button class="dm-mb" style="border-color:#0d6efd;color:#0d6efd;margin-bottom:6px" onclick="document.getElementById('dm-file').click()">＋ 내 사진 추가 (당일·최근 사진)</button>
+      <input type="file" id="dm-file" accept="image/*" multiple style="display:none" onchange="DM.addFiles(this.files); this.value='';">
       <div id="dm-thumbs" class="dm-thumbs"></div>
       <div style="font-size:11px;color:#aaa;margin-top:6px" id="dm-photohint"></div>
-      <div class="dm-h3">③ 푸터 브랜드</div>
+      <div class="dm-h3">③ 썸네일 추출 <span style="font-weight:400;color:#aaa;font-size:11px">(450×450 · 식봄 썸네일용)</span></div>
+      <button class="dm-gen" style="background:#0d6efd" onclick="DM.thExtract()">🖼️ 썸네일 추출 (앞2 + 뒤2 자동)</button>
+      <input id="dm-th-prefix" placeholder="파일명 접두어 (예: 친친스토어 생합)" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit;margin-top:6px;font-size:12px">
+      <div id="dm-th-grid" class="th-grid" style="margin-top:8px"></div>
+      <div id="dm-th-picks" class="th-picks" style="margin-top:10px"></div>
+      <div id="dm-th-dlrow" style="display:none;margin-top:8px"><button class="dm-gen" style="background:#2C7A4B" onclick="DM.thDownloadAll()">⬇️ 선택 4장 모두 다운로드</button></div>
+
+      <div class="dm-h3">④ 푸터 브랜드</div>
       <input id="dm-foot" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="(비우면 모드명)" oninput="DM.render()">
     </div>
     <div style="flex:1;min-width:0">
@@ -1748,7 +1757,7 @@ const DM=(function(){
   }
   function render(){const p=$('dm-page');if(!p)return;p.dataset.mode=MODE;p.innerHTML=buildHtml();}
   function drawThumbs(){const firstOn=PHOTOS.findIndex(p=>p.on),onC=PHOTOS.filter(p=>p.on).length;
-    $('dm-thumbs').innerHTML=PHOTOS.map((p,i)=>`<div class="dm-th ${p.on?'':'off'} ${i===firstOn?'hero':''}" draggable="true" onclick="DM.toggle(${i})" ondragstart="DM.drag(${i})" ondragover="event.preventDefault()" ondrop="DM.drop(${i})"><img src="${weserv(p.url)+'&w=160&h=120&fit=cover'}" referrerpolicy="no-referrer"><span class="n">${i+1}</span>${i===firstOn?'<span class="tg">히어로</span>':''}</div>`).join('');
+    $('dm-thumbs').innerHTML=PHOTOS.map((p,i)=>{const up=p.url.startsWith('data:');const thumb=up?p.url:weserv(p.url)+'&w=160&h=120&fit=cover';return `<div class="dm-th ${p.on?'':'off'} ${i===firstOn?'hero':''}" draggable="true" onclick="DM.toggle(${i})" ondragstart="DM.drag(${i})" ondragover="event.preventDefault()" ondrop="DM.drop(${i})"><img src="${thumb}" referrerpolicy="no-referrer"><span class="n">${i+1}</span>${up?'<span style="position:absolute;top:1px;right:2px;background:rgba(13,110,253,.9);color:#fff;font-size:8px;font-weight:700;padding:0 3px;border-radius:5px">내</span>':''}${i===firstOn?'<span class="tg">히어로</span>':''}</div>`;}).join('');
     $('dm-photohint').textContent=`선택 ${onC}장 / 전체 ${PHOTOS.length}장`;
   }
   function generate(){const src=$('dm-src').value.trim();if(!src){alert('페이지 소스를 붙여넣으세요.');return;}DATA=parse(src);if(!DATA.images.length&&!DATA.title){alert('인식 실패 — masterc 상품 페이지 소스가 맞는지 확인하세요.');return;}PHOTOS=DATA.images.map((u,i)=>({url:u,on:i<10}));drawThumbs();render();}
@@ -1764,10 +1773,10 @@ const DM=(function(){
     const clone=$('dm-page').cloneNode(true);
     clone.style.cssText='position:fixed;left:-9999px;top:0;width:860px';
     document.body.appendChild(clone);
-    clone.querySelectorAll('img').forEach(im=>{im.crossOrigin='anonymous';im.src=weserv(im.getAttribute('src')||'');});
-    // 히어로 배경
+    clone.querySelectorAll('img').forEach(im=>{const o=im.getAttribute('src')||'';if(o.startsWith('data:'))return;im.crossOrigin='anonymous';im.src=weserv(o);});
+    // 히어로 배경 (내 사진=data URL은 그대로, masterc URL만 weserv)
     const hero=clone.querySelector('.hero');
-    if(hero&&hero.style.backgroundImage){const u=hero.style.backgroundImage.slice(5,-2);hero.style.backgroundImage=`url('${weserv(u)}')`;}
+    if(hero&&hero.style.backgroundImage){const u=hero.style.backgroundImage.slice(5,-2);if(!u.startsWith('data:'))hero.style.backgroundImage=`url('${weserv(u)}')`;}
     await Promise.all([...clone.querySelectorAll('img')].map(im=>im.complete?1:new Promise(r=>{im.onload=im.onerror=r;})));
     await new Promise(r=>setTimeout(r,300));
     if(document.fonts&&document.fonts.ready)await document.fonts.ready;
@@ -1789,7 +1798,45 @@ const DM=(function(){
 /* 상세 테마${css}</style></head><body><div id="page" data-mode="${MODE}">${buildHtml()}</div></body></html>`;
     navigator.clipboard.writeText(full).then(()=>{if(typeof toast==='function')toast('HTML 복사됨 — 식봄/몰에 붙여넣기');},()=>alert('복사 실패'));
   }
-  return {generate,setMode,render,toggle,drag,drop,toggleEdit,saveJpg,copyHtml};
+  // ===== 썸네일 추출 (450x450, weserv 크롭 — 식봄 썸네일용) =====
+  let thAll=[], thSel=[];
+  function thW(u,size){ return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w='+(size||450)+'&h='+(size||450)+'&fit=cover&a=center&output=jpg&q=90'; }
+  function thExtract(){
+    if(!DATA||!DATA.images.length){ alert('먼저 ⚡ 상세페이지 생성을 눌러주세요 (이미지가 없습니다).'); return; }
+    let imgs=DATA.images.slice();
+    if(imgs.length>10){ const pick=new Set(); for(let i=0;i<10;i++) pick.add(Math.round(i*(imgs.length-1)/9)); imgs=[...pick].map(i=>DATA.images[i]); }
+    thAll=imgs;
+    const n=thAll.length;
+    thSel = n>=4 ? [0,1,n-2,n-1] : thAll.map((_,i)=>i);
+    const pf=$('dm-th-prefix'); if(pf&&!pf.value.trim()) pf.value=(DATA.title||'').replace(/\n/g,' ').slice(0,40);
+    thGrid(); thPicks();
+  }
+  function thGrid(){
+    $('dm-th-grid').innerHTML=thAll.map((url,i)=>{ const pos=thSel.indexOf(i); return '<div class="th-thumb '+(pos>=0?'th-sel':'')+'" onclick="DM.thToggle('+i+')" title="'+esc(url)+'"><span class="th-idx">'+(i+1)+'</span><span class="th-pick">'+(pos>=0?pos+1:'')+'</span><img src="'+thW(url,150)+'" loading="lazy"></div>'; }).join('');
+  }
+  function thToggle(i){ const p=thSel.indexOf(i); if(p>=0)thSel.splice(p,1); else { if(thSel.length>=4){ alert('썸네일은 4장까지만 — 하나 빼고 다시 선택하세요'); return; } thSel.push(i); } thGrid(); thPicks(); }
+  function thPicks(){
+    $('dm-th-dlrow').style.display=thSel.length?'block':'none';
+    $('dm-th-picks').innerHTML=thSel.map((idx,k)=>'<div class="th-card"><img class="th-pv" src="'+thW(thAll[idx])+'"><div class="th-role">'+(k+1)+'. 원본 #'+(idx+1)+'</div><button class="dm-mb" style="border-color:#bbb;color:#333;margin-top:4px" onclick="DM.thDownloadOne('+k+')">⬇️ 받기</button></div>').join('');
+  }
+  function thFileName(k){ let pf=(($('dm-th-prefix')||{}).value||'thumb').trim().replace(/[\\/:*?"<>|]/g,'').slice(0,40)||'thumb'; return pf+'_'+(k+1)+'.jpg'; }
+  async function thDownloadOne(k){
+    const url=thW(thAll[thSel[k]]);
+    try{ const r=await fetch(url); if(!r.ok)throw 0; const b=await r.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=thFileName(k); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+    catch(e){ window.open(url,'_blank'); }
+  }
+  async function thDownloadAll(){ if(!thSel.length){ alert('선택된 썸네일이 없어요'); return; } for(let k=0;k<thSel.length;k++){ await thDownloadOne(k); await new Promise(r=>setTimeout(r,600)); } }
+
+  // ===== 내 사진 추가 (당일·최근 사진 업로드 → base64로 사진 선택에 합류) =====
+  function addFiles(files){
+    if(!files||!files.length)return;
+    [...files].filter(f=>f.type.startsWith('image/')).forEach(f=>{
+      const r=new FileReader();
+      r.onload=()=>{ PHOTOS.push({url:r.result, on:true}); drawThumbs(); render(); };
+      r.readAsDataURL(f);
+    });
+  }
+  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll};
 })();
 </script>
 
