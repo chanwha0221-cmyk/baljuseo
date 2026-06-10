@@ -70,6 +70,18 @@
 #dm-page .qa .q{font-size:21px;font-weight:700;color:var(--red);margin-bottom:8px}
 #dm-page .qa .a{font-size:18px;line-height:1.75;color:#2b2b2b}
 #dm-page .foot{background:var(--dark);color:var(--gold);text-align:center;padding:46px;font-size:21px;font-weight:500;letter-spacing:6px}
+/* 썸네일 그리드 (상세 메이커 ③ — 구 변환기 탭에서 이전) */
+.th-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:7px;margin-top:6px;}
+.th-thumb{position:relative;border:3px solid transparent;border-radius:8px;overflow:hidden;cursor:pointer;background:#eef1f4;aspect-ratio:1/1;}
+.th-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.th-thumb .th-idx{position:absolute;top:3px;left:3px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;padding:1px 5px;border-radius:6px;}
+.th-thumb.th-sel{border-color:#27ae60;}
+.th-thumb .th-pick{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#27ae60;color:#fff;font-size:12px;font-weight:800;display:none;align-items:center;justify-content:center;}
+.th-thumb.th-sel .th-pick{display:flex;}
+.th-picks{display:flex;gap:14px;flex-wrap:wrap;}
+.th-card{border:1px solid #e3e6ea;border-radius:10px;padding:10px;width:190px;text-align:center;background:#fff;}
+.th-card .th-pv{width:168px;height:168px;border-radius:8px;background:#eef1f4;object-fit:cover;display:block;}
+.th-card .th-role{font-size:12px;font-weight:700;color:#2c3e50;margin:8px 0 6px;}
 </style>
 <style>
 :root{color-scheme:light}
@@ -174,10 +186,9 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 
 <div class="nav">
   <button class="nav-btn active" id="nav-bulk" onclick="switchTab('bulk',this)">📦 상품 대량등록</button>
-  <button class="nav-btn" id="nav-detail" onclick="switchTab('detail',this)">📝 상세페이지 변환기</button>
   <button class="nav-btn" id="nav-maker" onclick="switchTab('maker',this)">🎨 상세 메이커</button>
   <button class="nav-btn" id="nav-margin" onclick="switchTab('margin',this)">📊 마진 체크 <span id="margin-alert-badge" style="display:none;background:#dc2626;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px"></span></button>
-  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v2.3 · 상세메이커 썸네일·내사진</span>
+  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v2.4 · 메이커 통일·썸네일1000</span>
 </div>
 
 <!-- ═══════════════ 탭 1: 상품 대량등록 ═══════════════ -->
@@ -218,67 +229,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   </div>
 </div>
 
-<!-- ═══════════════ 탭 2: 상세페이지 변환기 ═══════════════ -->
-<div id="tab-detail" class="tab">
-  <div class="title-bar">
-    <div>
-      <h1>📝 상세페이지 HTML 변환기</h1>
-      <div class="sub">masterc.co.kr 본사 HTML → 식봄용 HTML 자동 정리 (Q&A·다운로드링크 제거, 본문+이미지 유지)</div>
-    </div>
-  </div>
-
-  <div class="conv-actions">
-    <button class="btn btn-purple" onclick="convertHtml()">⚙️ 변환 실행</button>
-    <button class="btn-sm" onclick="copyConverted()">📋 변환 결과 복사</button>
-    <button class="btn-sm" onclick="downloadConverted()">💾 .txt 다운로드</button>
-    <button class="btn-sm" onclick="downloadPreviewHtml()">👀 미리보기 .html 다운로드</button>
-    <button class="btn-sm danger" onclick="clearConverter()">초기화</button>
-  </div>
-
-  <div class="conv-wrap">
-    <div class="conv-section">
-      <h3>① 입력 — 본사 HTML 전문 붙여넣기</h3>
-      <textarea class="conv-textarea" id="conv-input" placeholder="여기에 masterc.co.kr 상품 페이지의 HTML 전문을 붙여넣기..."></textarea>
-    </div>
-    <div class="conv-section">
-      <h3>② 출력 — 식봄용 HTML <span style="font-size:10px;color:#a8a49e">(좌측 미리보기, 우측 raw HTML)</span></h3>
-      <div class="conv-preview" id="conv-preview"><div class="status">변환 실행 후 여기에 미리보기가 나타나요</div></div>
-      <textarea class="conv-textarea" id="conv-output" style="margin-top:10px;min-height:200px" placeholder="변환된 raw HTML이 여기에 출력됩니다 (복사해서 식봄 글쓰기 창에 붙여넣기)" readonly></textarea>
-      <div class="conv-stats" id="conv-stats" style="display:none"></div>
-    </div>
-  </div>
-
-  <!-- ③ 썸네일 추출 (위 ① 입력 HTML 그대로 사용) -->
-  <style>
-    .th-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:7px;margin-top:6px;}
-    .th-thumb{position:relative;border:3px solid transparent;border-radius:8px;overflow:hidden;cursor:pointer;background:#eef1f4;aspect-ratio:1/1;}
-    .th-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
-    .th-thumb .th-idx{position:absolute;top:3px;left:3px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;padding:1px 5px;border-radius:6px;}
-    .th-thumb.th-sel{border-color:#27ae60;}
-    .th-thumb .th-pick{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#27ae60;color:#fff;font-size:12px;font-weight:800;display:none;align-items:center;justify-content:center;}
-    .th-thumb.th-sel .th-pick{display:flex;}
-    .th-picks{display:flex;gap:14px;flex-wrap:wrap;}
-    .th-card{border:1px solid #e3e6ea;border-radius:10px;padding:10px;width:190px;text-align:center;background:#fff;}
-    .th-card .th-pv{width:168px;height:168px;border-radius:8px;background:#eef1f4;object-fit:cover;display:block;}
-    .th-card .th-role{font-size:12px;font-weight:700;color:#2c3e50;margin:8px 0 6px;}
-  </style>
-  <div class="conv-section" style="margin-top:18px">
-    <h3>③ 썸네일 추출 — 위 ① 입력 HTML에서 450×450 4장 뽑기 (식봄 썸네일용)</h3>
-    <div style="font-size:12px;color:#6b6760;margin-bottom:10px">앞 2장(상품 컷) + 맨 뒤 2장(저울·포장) 자동 선택. 썸네일 클릭해서 바꿀 수 있어요(총 4장). masterc 이미지는 weserv 프록시로 가운데 크롭.</div>
-    <div class="conv-actions" style="margin-bottom:10px">
-      <button class="btn btn-purple" onclick="thExtract()">🖼️ 썸네일 추출</button>
-      <label style="font-size:12px;color:#6b6760">파일명 접두어</label>
-      <input type="text" id="th-prefix" placeholder="예: 특가 한돈 등뼈 3kg" style="padding:8px 10px;border:1px solid #ced4da;border-radius:7px;font-family:inherit;font-size:13px;min-width:220px">
-      <span id="th-sel-count" style="font-size:12px;color:#6b6760"></span>
-    </div>
-    <div class="th-grid" id="th-grid"></div>
-    <div class="th-picks" id="th-picks" style="margin-top:12px"></div>
-    <div id="th-dlrow" style="display:none;margin-top:10px">
-      <button class="btn btn-green" onclick="thDownloadAll()">⬇️ 4장 모두 다운로드 (450×450)</button>
-      <span style="font-size:12px;color:#6b6760;margin-left:8px">한 번에 안 받아지면 카드별 ⬇️로 하나씩.</span>
-    </div>
-  </div>
-</div>
+<!-- 탭 2: 상세페이지 변환기 — 2026-06-10 제거 (상세 메이커로 통일). 썸네일 .th-* CSS는 head dm-style로 이전됨 -->
 
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab">
@@ -298,7 +249,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <input type="file" id="dm-file" accept="image/*" multiple style="display:none" onchange="DM.addFiles(this.files); this.value='';">
       <div id="dm-thumbs" class="dm-thumbs"></div>
       <div style="font-size:11px;color:#aaa;margin-top:6px" id="dm-photohint"></div>
-      <div class="dm-h3">③ 썸네일 추출 <span style="font-weight:400;color:#aaa;font-size:11px">(450×450 · 식봄 썸네일용)</span></div>
+      <div class="dm-h3">③ 썸네일 추출 <span style="font-weight:400;color:#aaa;font-size:11px">(1000×1000 · 어디든 공용)</span></div>
       <button class="dm-gen" style="background:#0d6efd" onclick="DM.thExtract()">🖼️ 썸네일 추출 (앞2 + 뒤2 자동)</button>
       <input id="dm-th-prefix" placeholder="파일명 접두어 (예: 친친스토어 생합)" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit;margin-top:6px;font-size:12px">
       <div id="dm-th-grid" class="th-grid" style="margin-top:8px"></div>
@@ -1800,7 +1751,7 @@ const DM=(function(){
   }
   // ===== 썸네일 추출 (450x450, weserv 크롭 — 식봄 썸네일용) =====
   let thAll=[], thSel=[];
-  function thW(u,size){ return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w='+(size||450)+'&h='+(size||450)+'&fit=cover&a=center&output=jpg&q=90'; }
+  function thW(u,size){ return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w='+(size||1000)+'&h='+(size||1000)+'&fit=cover&a=center&output=jpg&q=90'; }
   function thExtract(){
     if(!DATA||!DATA.images.length){ alert('먼저 ⚡ 상세페이지 생성을 눌러주세요 (이미지가 없습니다).'); return; }
     let imgs=DATA.images.slice();
