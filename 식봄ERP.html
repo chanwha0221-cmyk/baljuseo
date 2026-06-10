@@ -189,7 +189,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <button class="nav-btn active" id="nav-bulk" onclick="switchTab('bulk',this)">📦 상품 대량등록</button>
   <button class="nav-btn" id="nav-maker" onclick="switchTab('maker',this)">🎨 상세 메이커</button>
   <button class="nav-btn" id="nav-margin" onclick="switchTab('margin',this)">📊 마진 체크 <span id="margin-alert-badge" style="display:none;background:#dc2626;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px"></span></button>
-  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v2.6 · 주식회사마스터·정사각·스펙원본</span>
+  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v2.7 · 브랜드명 상단입력(헤더·푸터)</span>
 </div>
 
 <!-- ═══════════════ 탭 1: 상품 대량등록 ═══════════════ -->
@@ -245,20 +245,20 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <div class="dm-h3">① 페이지 소스 붙여넣기</div>
       <textarea id="dm-src" placeholder="masterc 게시글 [복사] 또는 페이지 소스(Ctrl+U) 통째로 붙여넣기"></textarea>
       <button class="dm-gen" onclick="DM.generate()">⚡ 상세페이지 생성</button>
-      <div class="dm-h3">② 사진 선택 <span style="font-weight:400;color:#aaa;font-size:11px">(클릭 on/off · 드래그 순서 · 첫장 히어로)</span></div>
+      <div class="dm-h3">② 브랜드명 <span style="font-weight:400;color:#aaa;font-size:11px">(헤더·푸터 공통)</span></div>
+      <input id="dm-brand" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="예: 주식회사 마스터" oninput="DM.render()">
+      <div class="dm-h3">③ 사진 선택 <span style="font-weight:400;color:#aaa;font-size:11px">(클릭 on/off · 드래그 순서 · 첫장 히어로)</span></div>
       <button class="dm-mb" style="border-color:#0d6efd;color:#0d6efd;margin-bottom:6px" onclick="document.getElementById('dm-file').click()">＋ 내 사진 추가 (당일·최근 사진)</button>
       <input type="file" id="dm-file" accept="image/*" multiple style="display:none" onchange="DM.addFiles(this.files); this.value='';">
       <div id="dm-thumbs" class="dm-thumbs"></div>
       <div style="font-size:11px;color:#aaa;margin-top:6px" id="dm-photohint"></div>
-      <div class="dm-h3">③ 썸네일 추출 <span style="font-weight:400;color:#aaa;font-size:11px">(1000×1000 · 어디든 공용)</span></div>
+      <div class="dm-h3">④ 썸네일 추출 <span style="font-weight:400;color:#aaa;font-size:11px">(1000×1000 · 어디든 공용)</span></div>
       <button class="dm-gen" style="background:#0d6efd" onclick="DM.thExtract()">🖼️ 썸네일 추출 (앞2 + 뒤2 자동)</button>
       <input id="dm-th-prefix" placeholder="파일명 접두어 (예: 친친스토어 생합)" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit;margin-top:6px;font-size:12px">
       <div id="dm-th-grid" class="th-grid" style="margin-top:8px"></div>
       <div id="dm-th-picks" class="th-picks" style="margin-top:10px"></div>
       <div id="dm-th-dlrow" style="display:none;margin-top:8px"><button class="dm-gen" style="background:#2C7A4B" onclick="DM.thDownloadAll()">⬇️ 선택 4장 모두 다운로드</button></div>
 
-      <div class="dm-h3">④ 푸터 브랜드</div>
-      <input id="dm-foot" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="(비우면 모드명)" oninput="DM.render()">
     </div>
     <div style="flex:1;min-width:0">
       <div class="dm-bar">
@@ -1689,7 +1689,7 @@ const DM=(function(){
   function grid(g,cls){if(!g.length)return'';const c=cls||(g.length===1?'g1':'');return`<div class="grid ${c}">${g.map(u=>`<div class="gimg" style="background-image:url('${esc(u)}')"></div>`).join('')}</div>`;}
   function buildHtml(){
     if(!DATA)return'<div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
-    const ph=selImgs();let pi=1;const brand=(MODE==='master'?'주식회사 마스터':'새벽소리');let h='';
+    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':'새벽소리'));let h='';
     h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}"><div class="brand">${esc(brand)}</div><h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
     let badges=[];const sp=DATA.sections.find(s=>s.block.type==='spec');
     if(sp)sp.block.rows.forEach(([k,v])=>{if(/원산지|생물|중량|사이즈|구성/.test(k)&&v)badges.push(v.split('/')[0].trim());});
@@ -1703,8 +1703,7 @@ const DM=(function(){
       else h+=`<p>${b.items.map(esc).join('<br>')}</p>`;
       if(pi<ph.length){h+=grid(ph.slice(pi,pi+2));pi+=2;}h+=`</div>`;});
     if(pi<ph.length)h+=`<div class="sec ${DATA.sections.length%2===1?'alt':''}">${grid(ph.slice(pi),'')}</div>`;
-    const foot=($('dm-foot').value||'').trim()||brand;
-    h+=`<div class="foot">${esc(foot)}</div>`;
+    h+=`<div class="foot">${esc(brand)}</div>`;
     return h;
   }
   function render(){const p=$('dm-page');if(!p)return;p.dataset.mode=MODE;p.innerHTML=buildHtml();}
@@ -1729,7 +1728,7 @@ const DM=(function(){
     PHOTOS=imgs.map((u,i)=>({url:u, on:(i<10 || i>=n-2)}));   // 기본: 앞10 + 끝2(중량·포장)
     drawThumbs(); render();
   }
-  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));render();}
+  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':'예: 새벽소리');render();}
   function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
   function drag(i){dragI=i;}
   function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
