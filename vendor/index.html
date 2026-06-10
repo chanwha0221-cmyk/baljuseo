@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v1.9</title>
+<title>외부 업체 등록 도구 v2.0</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -94,7 +94,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v1.9</span>
+  <span class="ver">v2.0</span>
   <span class="subtitle">사업자번호 OCR · 자동 양식 파싱 · 그룹웨어 연동</span>
 </header>
 <div class="main">
@@ -499,27 +499,28 @@ document.getElementById('generateBtn').addEventListener('click', generate);
 
 function generate() {
   const company = g('companyName');
-  // 컬럼 17개 (2026-06-01 양식 변경)
-  // 외부채널명/사업자명/외부채널별칭/사업자번호/정산주기/담당자/연락처/이메일/가입아이디
+  // 컬럼 18개 (2026-06-10: 활성여부 TRUE 누락 복구 — v1.8엔 있었는데 v1.9에서 빠져 붙여넣기가 한 칸씩 밀린 사고)
+  // 외부채널명/사업자명/외부채널별칭/사업자번호/활성여부/정산주기/담당자/연락처/이메일/가입아이디
   // /담당자2/연락처2/이메일2/가입아이디2/담당자3/연락처3/이메일3/가입아이디3
   const cols = [
     company,         // 1. 외부채널명
     company,         // 2. 사업자명
     '',              // 3. 외부채널별칭
     g('bizNumber'),  // 4. 사업자번호
-    '일정산',         // 5. 정산주기
-    g('repName'),    // 6. 담당자
-    g('phone'),      // 7. 연락처
-    g('email'),      // 8. 이메일
-    g('userId'),     // 9. 가입아이디
-    '',              // 10. 담당자2
-    '',              // 11. 연락처2
-    '',              // 12. 이메일2
-    '',              // 13. 가입아이디2
-    '',              // 14. 담당자3
-    '',              // 15. 연락처3
-    '',              // 16. 이메일3
-    ''               // 17. 가입아이디3
+    'TRUE',          // 5. 활성여부 (붙여넣기가 체크박스 칸도 한 칸 소비 — 빼면 뒤 칸 전부 한 칸씩 밀림)
+    '일정산',         // 6. 정산주기
+    g('repName'),    // 7. 담당자
+    g('phone'),      // 8. 연락처
+    g('email'),      // 9. 이메일
+    g('userId'),     // 10. 가입아이디
+    '',              // 11. 담당자2
+    '',              // 12. 연락처2
+    '',              // 13. 이메일2
+    '',              // 14. 가입아이디2
+    '',              // 15. 담당자3
+    '',              // 16. 연락처3
+    '',              // 17. 이메일3
+    ''               // 18. 가입아이디3
   ];
   const tsv = cols.join('\t');
   document.getElementById('tsvOutput').value = tsv;

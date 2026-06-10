@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.312</title>
+<title>발주서 변환기 v22.313</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.312</span>
+  <span class="ver">v22.313</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -795,7 +795,7 @@ function pp(cl,pr,qty){
   // 수량 추출 — x/X/× 패턴 우선, 못 잡으면 " - N" 패턴 (카톡 발주 "1k - 26" 같은 케이스, 2026-05-15 버그픽스)
   const qm=r.match(/\s*[xX×]\s*(\d+)$/) || r.match(/\s+-\s+(\d+)$/);let cn=r;
   if(qm){qty=parseInt(qm[1]);cn=r.slice(0,qm.index).trim();}
-  cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace('난간','난각').replace(/알가\s+생물\s+호래기/g,'생물 호래기').replace(/(\d+(?:\.\d+)?)\s*(KG|MG|ML|G|L)\b/gi,(m,n,u)=>n+u.toLowerCase()).replace(/(\d+)[kK]\b/g,'$1kg').trim();
+  cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace('난간','난각').replace(/건갈지/g,'건갈치').replace(/알가\s+생물\s+호래기/g,'생물 호래기').replace(/(\d+(?:\.\d+)?)\s*(KG|MG|ML|G|L)\b/gi,(m,n,u)=>n+u.toLowerCase()).replace(/(\d+)[kK]\b/g,'$1kg').trim();
   if(cn.includes('자연산 급냉 대구'))cn='급냉 국내산 대구 1.5kg';
   if(cn.includes('급냉 국내산 대구 1.5kg'))return{name:'급냉 국내산 대구 1.5kg',qty,maxB:6};
   if(norm(cn).includes('참치오마카세'))cn='참치 오마카세 한판';
@@ -1169,7 +1169,7 @@ function isVerticalKakaoFormat(raw){
 }
 function preprocessVerticalKakao(raw){
   // 블록 분리: 구분선(— - = _ 3개 이상) 또는 2줄 이상의 빈 줄
-  const blocks = raw.split(/\n\s*(?:[—\-=_–]{3,}|\n\s*\n)\s*/).map(b=>b.trim()).filter(Boolean);
+  const blocks = raw.split(/\n\s*(?:[—\-=_–ㅡ]{3,}|\n\s*\n)\s*/).map(b=>b.trim()).filter(Boolean);  // ㅡ(한글 U+3161) 구분선 추가 2026-06-09
   const rows = [];
   for(const block of blocks){
     const lines = block.split('\n').map(l=>l.trim()).filter(Boolean);
