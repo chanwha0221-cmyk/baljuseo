@@ -223,7 +223,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <button class="nav-btn active" id="nav-bulk" onclick="switchTab('bulk',this)">📦 상품 대량등록</button>
   <button class="nav-btn" id="nav-maker" onclick="switchTab('maker',this)">🎨 상세 메이커</button>
   <button class="nav-btn" id="nav-margin" onclick="switchTab('margin',this)">📊 마진 체크 <span id="margin-alert-badge" style="display:none;background:#dc2626;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px"></span></button>
-  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v3.0 · 강경준 전용 레이아웃</span>
+  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v3.1 · 강경준 수산물 모드</span>
 </div>
 
 <!-- ═══════════════ 탭 1: 상품 대량등록 ═══════════════ -->
@@ -299,7 +299,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
         <div class="dm-modes">
           <button class="dm-mb on" data-m="master" onclick="DM.setMode('master')">🐟 마스터</button>
           <button class="dm-mb" data-m="dawn" onclick="DM.setMode('dawn')">🌅 새벽소리</button>
-          <button class="dm-mb" data-m="gkj" onclick="DM.setMode('gkj')">🦀 강경준</button>
+          <button class="dm-mb" data-m="gkj" onclick="DM.setMode('gkj')">🦀 강경준 수산물</button>
         </div>
         <span class="dm-sp"></span>
         <button class="dm-ab" style="background:#555" id="dm-edb" onclick="DM.toggleEdit()">✏️ 수정</button>
@@ -1684,6 +1684,8 @@ const DM=(function(){
     'https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260506/copy-1778050172-003.jpg',
     'https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260506/copy-1778050172-004.jpg'
   ];
+  // 🦀 강경준 모드 고정 아웃트로 배너 (맨 아래)
+  const GKJ_OUTRO='https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260506/copy-1778050172-014.jpg';
   let MODE='master',DATA=null,PHOTOS=[],dragI=null,editing=false;
   const $=id=>document.getElementById(id);
   const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1754,12 +1756,12 @@ const DM=(function(){
       if(pi<ph.length){h+=gkPhotos(ph.slice(pi,pi+2));pi+=2;}
     });
     if(pi<ph.length)h+=gkPhotos(ph.slice(pi));
-    h+='<div class="gk-foot">'+esc(brand)+'</div>';
+    h+='<div class="gk-banner"><img src="'+esc(GKJ_OUTRO)+'" referrerpolicy="no-referrer"></div>';
     return h;
   }
   function buildHtml(){
     if(!DATA)return'<div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
-    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'게구쟁이':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);let h='';
+    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'강경준 수산물':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);let h='';
     h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}"><div class="brand">${esc(brand)}</div><h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
     let badges=[];const sp=DATA.sections.find(s=>s.block.type==='spec');
     if(sp)sp.block.rows.forEach(([k,v])=>{if(/원산지|생물|중량|사이즈|구성/.test(k)&&v)badges.push(v.split('/')[0].trim());});
@@ -1798,7 +1800,7 @@ const DM=(function(){
     PHOTOS=imgs.map((u,i)=>({url:u, on:(i<10 || i>=n-2)}));   // 기본: 앞10 + 끝2(중량·포장)
     drawThumbs(); render();
   }
-  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 게구쟁이':'예: 새벽소리');render();}
+  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':'예: 새벽소리');render();}
   function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
   function drag(i){dragI=i;}
   function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
