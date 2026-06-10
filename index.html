@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.304</title>
+<title>발주서 변환기 v22.305</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.304</span>
+  <span class="ver">v22.305</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -765,18 +765,21 @@ function pp(cl,pr,qty){
     if(_np.includes('멍게'))return{name:'통통 깐멍게 500g',qty,maxB:999};
   }
   let r=pr.replace(/\*/g,'x');
+  // 합포장 멀티상품을 업체가 콤마(,)로 구분해 줄 때 → 우리 합포장 구분자 '/'로 변환 (천단위 1,000 은 보존). 2026-06-09 사장님 요청
+  r=r.replace(/\s*,\s*/g,(m,off,str)=>{const pv=str[off-1]||'',nx=str[off+m.length]||'';return (/\d/.test(pv)&&/\d/.test(nx))?m:' / ';});
   // 숙성도/등급 괄호 보존 (중수·고수·저수 등 숙성 단계, 냉동·냉장·생물 등 보관 상태)
   const _parenPreserved=[];
-  r=r.replace(/\((중수|고수|저수|특수|생물|냉동|냉장|반건조|건조|훈제)\)/g,(m)=>{const k=`__P${_parenPreserved.length}__`;_parenPreserved.push(m);return k;});
+  r=r.replace(/\((초고수|초수|중수|고수|저수|특수|생물|냉동|냉장|반건조|건조|훈제)\)/g,(m)=>{const k=`__P${_parenPreserved.length}__`;_parenPreserved.push(m);return k;});
   // 🐟 홍어 삭힘정도 괄호 보존 — '삭힘/숙성' 단어가 든 괄호는 무조건 유지 (2026-06-08 사장님 지시: 삭힘정도 없으면 홍어 발주 불가. 멋대로 지우지 말 것)
   r=r.replace(/[\(（][^\(（\)）]*(?:삭힘|숙성)[^\(（\)）]*[\)）]/g,(m)=>{const k=`__P${_parenPreserved.length}__`;_parenPreserved.push(m);return k;});
   // 괄호 처리 — 닫힌 (...) 그룹은 위치 무관 모두 제거 (멀티 상품에서 첫 괄호에서 잘리던 버그 fix)
   // 단 닫힘 없는 미완성 괄호는 첫 ( 부터 끝까지 절단 (단 괄호로 시작하면 원본 유지)
   r=r.replace(/\s*[\(（][^\(（\)）]*[\)）]\s*/g,' ');
-  // 보존했던 숙성도 괄호 복원
-  _parenPreserved.forEach((p,i)=>{r=r.replace(`__P${i}__`,p);});
+  // 미완성(닫힘 없는) 괄호만 절단 — 보존 플레이스홀더(__P__)엔 괄호가 없어 안전. 반드시 복원 '전'에 실행(홍어 삭힘정도 괄호가 piOpen에 잘리던 버그 fix 2026-06-09)
   const piOpen=r.search(/[\(（]/);
   if(piOpen>0){const cut=r.slice(0,piOpen).trim();if(cut)r=cut;}
+  // 보존했던 숙성도/삭힘정도 괄호 복원
+  _parenPreserved.forEach((p,i)=>{r=r.replace(`__P${i}__`,p);});
   r=r.replace(/\s+/g,' ').trim();
   // 끝에 'N개' 형태 수량 표기는 'N'으로 정리 (예: '2kg x 4개' → '2kg x 4')
   // 단, 떡·인절미·만두 등 N개가 상품 단위인 카테고리는 보존 (예: '오디 인절미 12개')
