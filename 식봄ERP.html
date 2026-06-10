@@ -33,7 +33,7 @@
 #dm .dm-stage{width:860px;flex:0 0 860px}
 #dm-page{width:860px;background:#fff;overflow:hidden;min-height:160px}
 #dm-page .dm-empty{color:#999;text-align:center;padding:90px 20px;font-weight:700;font-family:'Apple SD Gothic Neo',sans-serif}
-#dm.editing #dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge):hover{outline:1px dashed #C0392B;cursor:text}
+#dm.editing #dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a):hover{outline:1px dashed #C0392B;cursor:text}
 #dm-page [contenteditable]:focus{outline:2px solid #C0392B;background:rgba(255,200,180,.18)}
 /* 상세 테마 (모두 #dm-page 스코프) */
 #dm-page{--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00}
@@ -72,6 +72,27 @@
 #dm-page .gk-q{font-size:21px;font-weight:700;color:#2E5E9E}
 #dm-page .gk-a{font-size:18px;color:#444;line-height:1.7;margin-top:4px}
 #dm-page .gk-foot{background:#1A3A6B;color:#fff;text-align:center;padding:46px;font-size:22px;font-weight:700;letter-spacing:2px}
+/* === 강경준 고기(고기24시) 전용 레이아웃 — 레드/코랄·피치 === */
+#dm-page .go-head{background:#E23B2E;color:#fff;text-align:center;padding:42px 30px}
+#dm-page .go-head h1{font-size:42px;font-weight:700;color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.18);white-space:pre-line;line-height:1.25}
+#dm-page .go-hsub{font-size:20px;color:#FFE3D8;margin-top:14px;font-weight:500}
+#dm-page .go-photos{display:flex;flex-wrap:wrap;gap:4px;background:#fff;font-size:0}
+#dm-page .go-photo{position:relative;width:calc(50% - 2px);background-size:cover;background-position:center}
+#dm-page .go-photo::before{content:"";display:block;padding-top:100%}
+#dm-page .go-photos .go-photo:only-child{width:100%}
+#dm-page .go-pbadge{position:absolute;top:0;left:0;background:rgba(40,40,40,.78);color:#fff;font-size:18px;font-weight:700;padding:8px 18px;z-index:2}
+#dm-page .go-bar{background:#E23B2E;color:#fff;font-size:34px;font-weight:700;text-align:center;padding:22px;text-shadow:1px 1px 0 rgba(0,0,0,.2)}
+#dm-page .go-peach{background:#FDF0EC;text-align:center;padding:48px 36px}
+#dm-page .go-spec{font-size:23px;line-height:1.9;color:#222;font-weight:700}
+#dm-page .go-sline{margin:6px 0}
+#dm-page .go-rtitle{font-size:34px;font-weight:700;color:#E8402F;margin-bottom:24px}
+#dm-page .go-gtitle{display:inline-block;font-size:34px;font-weight:700;color:#8E8E8E;border-bottom:4px solid #8E8E8E;padding-bottom:6px;margin-bottom:26px}
+#dm-page .go-body{font-size:19px;line-height:1.95;color:#333;white-space:pre-line}
+#dm-page .go-steps{margin-top:20px;font-size:19px;line-height:1.95;color:#222}
+#dm-page .go-step{margin:5px 0}
+#dm-page .go-qa{margin:14px auto;max-width:92%}
+#dm-page .go-q{font-size:21px;font-weight:700;color:#E23B2E}
+#dm-page .go-a{font-size:18px;color:#444;line-height:1.7;margin-top:4px}
 #dm-page,#dm-page *{font-family:'Gmarket','Malgun Gothic',sans-serif}
 #dm-page .hero{position:relative;padding:90px 40px;text-align:center;color:#fff;background-size:cover;background-position:center}
 #dm-page .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(0,0,0,.74),rgba(0,0,0,.45))}
@@ -223,7 +244,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <button class="nav-btn active" id="nav-bulk" onclick="switchTab('bulk',this)">📦 상품 대량등록</button>
   <button class="nav-btn" id="nav-maker" onclick="switchTab('maker',this)">🎨 상세 메이커</button>
   <button class="nav-btn" id="nav-margin" onclick="switchTab('margin',this)">📊 마진 체크 <span id="margin-alert-badge" style="display:none;background:#dc2626;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px"></span></button>
-  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v3.1 · 강경준 수산물 모드</span>
+  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v3.3 · 강경준 모드 인라인수정 fix</span>
 </div>
 
 <!-- ═══════════════ 탭 1: 상품 대량등록 ═══════════════ -->
@@ -300,6 +321,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
           <button class="dm-mb on" data-m="master" onclick="DM.setMode('master')">🐟 마스터</button>
           <button class="dm-mb" data-m="dawn" onclick="DM.setMode('dawn')">🌅 새벽소리</button>
           <button class="dm-mb" data-m="gkj" onclick="DM.setMode('gkj')">🦀 강경준 수산물</button>
+          <button class="dm-mb" data-m="gogi" onclick="DM.setMode('gogi')">🥩 강경준 고기</button>
         </div>
         <span class="dm-sp"></span>
         <button class="dm-ab" style="background:#555" id="dm-edb" onclick="DM.toggleEdit()">✏️ 수정</button>
@@ -1686,6 +1708,17 @@ const DM=(function(){
   ];
   // 🦀 강경준 모드 고정 아웃트로 배너 (맨 아래)
   const GKJ_OUTRO='https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260506/copy-1778050172-014.jpg';
+  // 🥩 강경준 고기(고기24시) 모드 고정 상단 배너 6장 (항상 맨 위)
+  const GOGI_BANNERS=[
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/001.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/002.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/003.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/004.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/005.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/006.jpg'
+  ];
+  // 🥩 강경준 고기 모드 고정 아웃트로 배너 (맨 아래)
+  const GOGI_OUTRO='https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/014.jpg';
   let MODE='master',DATA=null,PHOTOS=[],dragI=null,editing=false;
   const $=id=>document.getElementById(id);
   const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1759,9 +1792,36 @@ const DM=(function(){
     h+='<div class="gk-banner"><img src="'+esc(GKJ_OUTRO)+'" referrerpolicy="no-referrer"></div>';
     return h;
   }
+  // ===== 강경준 고기(고기24시) 전용 콘텐츠 빌드 =====
+  function goPhotos(g,badge){if(!g.length)return'';return '<div class="go-photos">'+g.map((u,i)=>'<div class="go-photo" style="background-image:url(\''+esc(u)+'\')">'+((badge&&i===0)?'<span class="go-pbadge">실제 사진</span>':'')+'</div>').join('')+'</div>';}
+  function buildGogi(brand){
+    const ph=selImgs();let pi=0;let h='';
+    h+=GOGI_BANNERS.map(u=>'<div class="gk-banner"><img src="'+esc(u)+'" referrerpolicy="no-referrer"></div>').join('');
+    h+='<div class="go-head"><h1>'+esc(DATA.title)+'</h1>'+(DATA.subtitle?'<p class="go-hsub">'+esc(DATA.subtitle)+'</p>':'')+'</div>';
+    if(ph.length){h+=goPhotos([ph[0]],true);pi=1;}
+    DATA.sections.forEach(s=>{
+      const b=s.block;
+      if(b.type==='spec'){
+        h+='<div class="go-bar">'+esc(s.header)+'</div><div class="go-peach"><div class="go-spec">'+
+          s.items.map(it=>'<div class="go-sline">'+esc(it.trim())+'</div>').join('')+'</div></div>';
+      }else if(b.type==='steps'){
+        h+='<div class="go-peach"><div class="go-rtitle">'+esc(s.header)+'</div>';
+        if(b.intro.length)h+='<p class="go-body">'+b.intro.map(esc).join('<br>')+'</p>';
+        h+='<div class="go-steps">'+b.steps.map((t,n)=>'<div class="go-step"><b>'+(n+1)+'.</b> '+esc(t)+'</div>').join('')+'</div></div>';
+      }else if(b.type==='qa'){
+        h+='<div class="go-peach"><div class="go-gtitle">'+esc(s.header)+'</div>'+b.items.map(([q,a])=>'<div class="go-qa"><div class="go-q">Q. '+esc(q)+'</div><div class="go-a">'+esc(a)+'</div></div>').join('')+'</div>';
+      }else{
+        h+='<div class="go-peach"><div class="go-gtitle">'+esc(s.header)+'</div><p class="go-body">'+b.items.map(esc).join('<br>')+'</p></div>';
+      }
+      if(pi<ph.length){h+=goPhotos(ph.slice(pi,pi+2),false);pi+=2;}
+    });
+    if(pi<ph.length)h+=goPhotos(ph.slice(pi),false);
+    h+='<div class="gk-banner"><img src="'+esc(GOGI_OUTRO)+'" referrerpolicy="no-referrer"></div>';
+    return h;
+  }
   function buildHtml(){
     if(!DATA)return'<div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
-    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'강경준 수산물':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);let h='';
+    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);let h='';
     h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}"><div class="brand">${esc(brand)}</div><h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
     let badges=[];const sp=DATA.sections.find(s=>s.block.type==='spec');
     if(sp)sp.block.rows.forEach(([k,v])=>{if(/원산지|생물|중량|사이즈|구성/.test(k)&&v)badges.push(v.split('/')[0].trim());});
@@ -1800,11 +1860,11 @@ const DM=(function(){
     PHOTOS=imgs.map((u,i)=>({url:u, on:(i<10 || i>=n-2)}));   // 기본: 앞10 + 끝2(중량·포장)
     drawThumbs(); render();
   }
-  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':'예: 새벽소리');render();}
+  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':'예: 새벽소리');render();}
   function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
   function drag(i){dragI=i;}
   function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
-  const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge)';
+  const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a)';
   function toggleEdit(){editing=!editing;document.querySelectorAll(EDSEL).forEach(e=>e.contentEditable=editing);$('dm').classList.toggle('editing',editing);$('dm-edb').textContent=editing?'✅ 완료':'✏️ 수정';}
   async function saveJpg(){
     if(!DATA){alert('먼저 생성하세요.');return;}
@@ -1813,7 +1873,7 @@ const DM=(function(){
     clone.style.cssText='position:fixed;left:-9999px;top:0;width:860px';
     document.body.appendChild(clone);
     // 모든 배경이미지(.hero + .gimg) — masterc URL만 weserv 경유(CORS), 내 사진(data:)은 그대로
-    clone.querySelectorAll('.hero, .gimg, .gk-photo').forEach(el=>{
+    clone.querySelectorAll('.hero, .gimg, .gk-photo, .go-photo').forEach(el=>{
       const bg=el.style.backgroundImage; if(!bg||bg==='none')return;
       const m=bg.match(/url\(["']?(.*?)["']?\)/); const u=m?m[1]:'';
       if(u && !u.startsWith('data:')) el.style.backgroundImage=`url('${weserv(u)}')`;
@@ -1830,6 +1890,7 @@ const DM=(function(){
   }
   function copyHtml(){
     if(!DATA){alert('먼저 생성하세요.');return;}
+    if(editing)toggleEdit();
     const vars=MODE==='master'?'--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C':'--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00';
     const dmStyle=document.getElementById('dm-style').textContent;
     const theme=dmStyle.split('/* 상세 테마')[1]||'';
@@ -1837,7 +1898,7 @@ const DM=(function(){
     const full=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
 @font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFLight.ttf');font-weight:300}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFMedium.ttf');font-weight:500}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFBold.ttf');font-weight:700}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Gmarket','Malgun Gothic',sans-serif}#page{max-width:860px;margin:0 auto;${vars}}
-/* 상세 테마${css}</style></head><body><div id="page" data-mode="${MODE}">${buildHtml()}</div></body></html>`;
+/* 상세 테마${css}</style></head><body><div id="page" data-mode="${MODE}">${$('dm-page').innerHTML}</div></body></html>`;
     navigator.clipboard.writeText(full).then(()=>{if(typeof toast==='function')toast('HTML 복사됨 — 식봄/몰에 붙여넣기');},()=>alert('복사 실패'));
   }
   // ===== 썸네일 추출 (450x450, weserv 크롭 — 식봄 썸네일용) =====
