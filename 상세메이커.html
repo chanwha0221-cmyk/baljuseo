@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>상세메이커 — 마스터/새벽소리 v1.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+@font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFLight.ttf') format('truetype');font-weight:300;font-display:swap}
+@font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFMedium.ttf') format('truetype');font-weight:500;font-display:swap}
+@font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFBold.ttf') format('truetype');font-weight:700;font-display:swap}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Gmarket','Malgun Gothic',sans-serif;background:#e9e7e2;color:#222;font-weight:300}
+.bar{position:fixed;top:0;left:0;right:0;height:54px;background:#161616;color:#fff;display:flex;align-items:center;gap:14px;padding:0 16px;z-index:100}
+.bar .logo{font-weight:700;font-size:15px}.bar .ver{font-size:11px;color:#888}
+.modes{display:flex;gap:6px}
+.mb{padding:7px 15px;border-radius:20px;border:1.5px solid #555;background:transparent;color:#ccc;font-family:inherit;font-weight:500;font-size:13px;cursor:pointer}
+.mb.on{background:#fff;color:#161616;border-color:#fff}
+.sp{flex:1}
+.ab{padding:8px 15px;border-radius:8px;border:none;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.a1{background:#2C7A4B;color:#fff}.a2{background:#C0392B;color:#fff}
+.wrap{display:flex;margin-top:54px;height:calc(100vh - 54px)}
+.left{width:400px;flex:0 0 400px;background:#fff;border-right:1px solid #ddd;overflow-y:auto;padding:16px}
+.left h3{font-size:12px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.05em;margin:16px 0 7px}.left h3:first-child{margin-top:0}
+textarea#src{width:100%;height:150px;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit;font-size:12px;resize:vertical}
+.gen{width:100%;margin-top:8px;padding:11px;background:#161616;color:#fff;border:none;border-radius:8px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer}
+.hint{font-size:11px;color:#aaa;margin-top:6px;line-height:1.5}
+.thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.th{position:relative;width:84px;height:63px;border-radius:5px;overflow:hidden;border:2px solid #ddd;cursor:grab}
+.th.off{opacity:.32;border-color:#ccc}
+.th.hero{border-color:#C0392B}
+.th img{width:100%;height:100%;object-fit:cover}
+.th .n{position:absolute;top:1px;left:2px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;font-weight:700;padding:0 4px;border-radius:6px}
+.th .tag{position:absolute;bottom:1px;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:#fff;background:rgba(192,57,43,.85)}
+.right{flex:1;background:#d7d4ce;display:flex;justify-content:center;overflow-y:auto;padding:22px}
+.stage{width:860px;flex:0 0 860px}
+#page{width:860px;background:#fff;overflow:hidden;min-height:200px}
+.empty{color:#bbb;text-align:center;padding:130px 20px;font-weight:500}
+body.editing #page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge):hover{outline:1px dashed #C0392B;cursor:text}
+#page [contenteditable]:focus{outline:2px solid #C0392B;background:rgba(255,200,180,.18)}
+
+/* ===== 상세 테마 ===== */
+#page{--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00}
+#page[data-mode="master"]{--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C}
+#page,#page *{font-family:'Gmarket','Malgun Gothic',sans-serif}
+.hero{position:relative;padding:90px 40px;text-align:center;color:#fff;background-size:cover;background-position:center}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(0,0,0,.74),rgba(0,0,0,.45))}
+.hero>*{position:relative;z-index:2}
+.hero .brand{font-size:16px;letter-spacing:9px;font-weight:500;color:var(--goldL)}
+.hero h1{font-size:52px;font-weight:700;margin:18px 0;line-height:1.25;white-space:pre-line}
+.hero .sub{font-size:21px;font-weight:300;opacity:.95;line-height:1.5;white-space:pre-line}
+.badges{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;padding:30px 24px;background:var(--dark)}
+.badge{color:#fff;border:1.5px solid var(--gold);border-radius:40px;padding:10px 20px;font-weight:500;font-size:16px}
+.sec{padding:54px 50px}.sec.alt{background:var(--cream)}
+.tag{display:inline-block;color:var(--gold);font-weight:700;font-size:15px;letter-spacing:2px;margin-bottom:8px}
+.sec h2{font-size:32px;font-weight:700;color:var(--red);line-height:1.3}
+.sec .ln{width:50px;height:4px;background:var(--gold);margin:13px 0 24px}
+.sec p{font-size:19px;line-height:1.9;color:#2b2b2b;white-space:pre-line}
+.sec p b{font-weight:500;color:var(--dark)}
+.spec{width:100%;border-collapse:collapse;font-size:19px}
+.spec td{padding:15px 16px;border-bottom:1px solid #e0d8c8}
+.spec td.k{width:38%;font-weight:500;color:var(--red);background:var(--cream)}
+.grid{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
+.grid img{width:calc(50% - 5px);border-radius:10px;display:block;filter:contrast(1.04) saturate(1.1)}
+.grid.g3 img{width:calc(33.333% - 6px)}.grid.g1 img{width:100%}
+.steps{margin-top:18px}
+.step{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-bottom:1px dashed #ddd}
+.step .no{flex:0 0 34px;height:34px;border-radius:50%;background:var(--red);color:#fff;font-weight:700;text-align:center;line-height:34px}
+.step .tx{font-size:18px;line-height:1.6;padding-top:4px}
+.mat{background:var(--red);color:#fff;border-radius:12px;padding:20px 24px;font-size:19px;line-height:1.7;margin-top:14px}
+.qa{border:1.5px solid #e0d8c8;border-radius:12px;padding:20px 24px;margin-bottom:14px;background:#fff}
+.qa .q{font-size:21px;font-weight:700;color:var(--red);margin-bottom:8px}
+.qa .a{font-size:18px;line-height:1.75;color:#2b2b2b}
+.foot{background:var(--dark);color:var(--gold);text-align:center;padding:46px;font-size:21px;font-weight:500;letter-spacing:6px}
+</style>
+</head>
+<body>
+<div class="bar">
+  <span class="logo">상세메이커</span><span class="ver">v1.0</span>
+  <div class="modes">
+    <button class="mb on" data-m="master" onclick="setMode('master')">🐟 마스터</button>
+    <button class="mb" data-m="dawn" onclick="setMode('dawn')">🌅 새벽소리</button>
+  </div>
+  <span class="sp"></span>
+  <button class="ab" style="background:#444;color:#fff" id="edb" onclick="toggleEdit()">✏️ 수정</button>
+  <button class="ab a1" onclick="copyHtml()">📋 HTML 복사</button>
+  <button class="ab a2" onclick="saveJpg()">🖼️ JPG 저장</button>
+</div>
+
+<div class="wrap">
+  <div class="left">
+    <h3>① 페이지 소스 붙여넣기</h3>
+    <textarea id="src" placeholder="masterc 게시글에서 [복사] 또는 페이지 소스(Ctrl+U)를 통째로 붙여넣으세요."></textarea>
+    <button class="gen" onclick="generate()">⚡ 상세페이지 생성</button>
+    <div class="hint">제목·소개·스펙·레시피·Q&amp;A·이미지를 자동 추출해 비벼냅니다.</div>
+
+    <h3>② 사진 선택 <span style="font-weight:400;color:#aaa;font-size:11px">(클릭=on/off · 드래그=순서 · 첫 장=히어로)</span></h3>
+    <div id="thumbs" class="thumbs"></div>
+    <div class="hint" id="photohint"></div>
+
+    <h3>③ 푸터 브랜드</h3>
+    <input id="foot" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="(비우면 모드명)" oninput="render()">
+  </div>
+
+  <div class="right">
+    <div class="stage"><div id="page" data-mode="master"><div class="empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div></div></div>
+  </div>
+</div>
+
+<script>
+// ===== 설정 =====
+const CONFIG={
+  // Apps Script 이미지 프록시 (JPG 저장 시 외부 이미지 base64화). 배포 후 URL 입력.
+  IMG_PROXY:"",
+  FONT_BASE:"https://chanwha0221-cmyk.github.io/baljuseo/fonts/"
+};
+let MODE='master', DATA=null, PHOTOS=[]; // PHOTOS: {url,on}
+let dragI=null, editing=false;
+const $=id=>document.getElementById(id);
+
+function setMode(m){MODE=m;document.querySelectorAll('.mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));render();}
+
+// ===== 파서 =====
+function decodeEnt(s){return s.replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");}
+function cleanTitle(t){return t.replace(/^★?\s*\[[^\]]*\]\s*-?\s*/,'').replace(/^\[[^\]]*\]\s*/,'').trim();}
+function classify(items){
+  const spec=items.filter(l=>/^※/.test(l));
+  if(spec.length>=2)return{type:'spec',rows:spec.map(l=>{const m=l.replace(/^※\s*/,'').split(/\s*:\s*/);return[m[0].trim(),(m.slice(1).join(':')||'').trim()];})};
+  const qa=[];for(let k=0;k<items.length;k++){const q=items[k];if(/^Q[.\s]/.test(q)){let a='';if(items[k+1]&&/^A[.\s]/.test(items[k+1])){a=items[k+1].replace(/^A[.\s]*/,'').trim();k++;}qa.push([q.replace(/^Q[.\s]*/,'').trim(),a]);}}
+  if(qa.length)return{type:'qa',items:qa};
+  const steps=items.filter(l=>/^\d+\.\s*\S/.test(l));
+  if(steps.length>=2)return{type:'steps',intro:items.filter(l=>!/^\d+\.\s*\S/.test(l)),steps:steps.map(l=>l.replace(/^\d+\.\s*/,'').trim())};
+  return{type:'text',items};
+}
+function parseMasterc(src){
+  let m=src.match(/class="[^"]*xe_content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<!--AfterDocument/);
+  let content=m?m[1]:(src.match(/class="[^"]*xe_content[^"]*"[^>]*>([\s\S]*)/)||[,src])[1];
+  let images=[...content.matchAll(/<img[^>]+src="([^"]+)"/g)].map(x=>x[1].replace('/./','/')).filter(u=>/attach\/images/.test(u));
+  // 중복 제거(순서 유지)
+  images=[...new Set(images)];
+  let txt=content.replace(/<img[^>]*>/g,'').replace(/<\/p>|<br\s*\/?>|<\/div>|<hr[^>]*>/gi,'\n').replace(/<[^>]+>/g,'');
+  txt=decodeEnt(txt);
+  let lines=txt.split('\n').map(l=>l.replace(/ /g,' ').replace(/\s+/g,' ').trim()).filter(l=>l&&l!=='/');
+  let title=cleanTitle(lines[0]||''),subtitle='',i=1;
+  if(lines[1]&&!/^[○※]|^Q[.\s]|^A[.\s]/.test(lines[1])){subtitle=lines[1];i=2;}
+  let sections=[],cur=null;
+  for(;i<lines.length;i++){let l=lines[i];
+    if(/^○/.test(l)){cur={header:l.replace(/^○\s*/,'').replace(/[.!?]+\s*$/,''),items:[]};sections.push(cur);continue;}
+    if(!cur){cur={header:'',items:[]};sections.push(cur);}
+    cur.items.push(l);
+  }
+  sections.forEach(s=>s.block=classify(s.items));
+  return{title,subtitle,sections,images};
+}
+
+// ===== 생성 =====
+function generate(){
+  const src=$('src').value.trim();
+  if(!src){alert('페이지 소스를 붙여넣으세요.');return;}
+  DATA=parseMasterc(src);
+  PHOTOS=DATA.images.map((u,i)=>({url:u,on:i<10})); // 기본 첫 10장
+  drawThumbs();render();
+}
+function drawThumbs(){
+  let onCount=PHOTOS.filter(p=>p.on).length, firstOn=PHOTOS.findIndex(p=>p.on);
+  $('thumbs').innerHTML=PHOTOS.map((p,i)=>
+    `<div class="th ${p.on?'':'off'} ${i===firstOn?'hero':''}" draggable="true" data-i="${i}"
+      onclick="toggle(${i})" ondragstart="dragI=${i}" ondragover="event.preventDefault()" ondrop="drop(${i})">
+      <img src="${p.url}" referrerpolicy="no-referrer"><span class="n">${i+1}</span>
+      ${i===firstOn?'<span class="tag">히어로</span>':''}</div>`).join('');
+  $('photohint').textContent=`선택 ${onCount}장 / 전체 ${PHOTOS.length}장`;
+}
+function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
+function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
+
+// ===== 빌드 =====
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function sel(){return PHOTOS.filter(p=>p.on).map(p=>p.url);}
+function grid(imgs,cls){return imgs.length?`<div class="grid ${cls||(imgs.length===1?'g1':'')}">${imgs.map(u=>`<img src="${esc(u)}" referrerpolicy="no-referrer">`).join('')}</div>`:'';}
+
+function buildHtml(){
+  if(!DATA)return '<div class="empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
+  const ph=sel(); let pi=1; // 0=히어로
+  const brand=(MODE==='master'?'MASTER':'새벽소리');
+  let h='';
+  // 히어로
+  h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}">
+    <div class="brand">${brand.split('').join(' ')}</div>
+    <h1>${esc(DATA.title)}</h1>
+    ${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
+  // 뱃지: 스펙에서 추출
+  let badges=[];
+  const specSec=DATA.sections.find(s=>s.block.type==='spec');
+  if(specSec){specSec.block.rows.forEach(([k,v])=>{if(/원산지|생물|중량|사이즈|구성/.test(k)&&v)badges.push(v.split('/')[0].trim());});}
+  badges=[...new Set(badges)].slice(0,4);
+  if(badges.length)h+=`<div class="badges">${badges.map(b=>`<span class="badge">${esc(b)}</span>`).join('')}</div>`;
+  // 섹션
+  DATA.sections.forEach((s,si)=>{
+    const b=s.block; const alt=si%2===1?'alt':'';
+    h+=`<div class="sec ${alt}">`;
+    if(s.header){h+=`<span class="tag">${esc(label(s.header))}</span><h2>${esc(s.header)}</h2><div class="ln"></div>`;}
+    if(b.type==='spec'){
+      h+=`<table class="spec">${b.rows.map(([k,v])=>`<tr><td class="k">${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</table>`;
+    }else if(b.type==='steps'){
+      if(b.intro.length)h+=`<p>${b.intro.map(esc).join('<br>')}</p>`;
+      h+=`<div class="steps">${b.steps.map((t,n)=>`<div class="step"><span class="no">${n+1}</span><span class="tx">${esc(t)}</span></div>`).join('')}</div>`;
+    }else if(b.type==='qa'){
+      h+=b.items.map(([q,a])=>`<div class="qa"><div class="q">Q. ${esc(q)}</div><div class="a">${esc(a)}</div></div>`).join('');
+    }else{
+      h+=`<p>${b.items.map(esc).join('<br>')}</p>`;
+    }
+    // 섹션마다 사진 2장씩 끼움
+    if(pi<ph.length){h+=grid(ph.slice(pi,pi+2));pi+=2;}
+    h+=`</div>`;
+  });
+  // 남은 사진 갤러리
+  if(pi<ph.length)h+=`<div class="sec ${DATA.sections.length%2===1?'alt':''}">${grid(ph.slice(pi),'')}</div>`;
+  // 푸터
+  const foot=$('foot').value.trim()||brand;
+  h+=`<div class="foot">${esc(foot).split('').join(' ')}</div>`;
+  return h;
+}
+function label(header){
+  if(/알고|Q&A|문의|궁금|FAQ/.test(header))return 'Q & A';
+  if(/스펙|구성|정보/.test(header))return 'PRODUCT SPEC';
+  if(/레시피|요리|조리|먹/.test(header))return 'RECIPE';
+  if(/매리트|메리트|장점|특징|왜/.test(header))return 'WHY';
+  if(/원산지/.test(header))return 'ORIGIN';
+  if(/포장|배송/.test(header))return 'PACKAGING';
+  return 'MASTER';
+}
+function render(){const p=$('page');p.dataset.mode=MODE;p.innerHTML=buildHtml();}
+
+// ===== 편집 =====
+const EDSEL='#page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge)';
+function toggleEdit(){editing=!editing;document.querySelectorAll(EDSEL).forEach(e=>e.contentEditable=editing);document.body.classList.toggle('editing',editing);$('edb').textContent=editing?'✅ 완료':'✏️ 수정';}
+
+// ===== JPG 저장 (이미지 프록시로 base64화 후 캡처) =====
+async function proxify(node){
+  const imgs=[...node.querySelectorAll('img')], hero=node.querySelector('.hero');
+  const urls=imgs.map(i=>i.src);
+  if(hero&&hero.style.backgroundImage){const u=hero.style.backgroundImage.slice(5,-2);urls.push(u);}
+  if(!CONFIG.IMG_PROXY){return false;}
+  const cache={};
+  for(const u of [...new Set(urls)]){
+    try{const r=await fetch(CONFIG.IMG_PROXY+encodeURIComponent(u));const j=await r.json();cache[u]=j.data;}catch(e){}
+  }
+  imgs.forEach(i=>{if(cache[i.src])i.src=cache[i.src];});
+  if(hero&&hero.style.backgroundImage){const u=hero.style.backgroundImage.slice(5,-2);if(cache[u])hero.style.backgroundImage=`url('${cache[u]}')`;}
+  return true;
+}
+async function saveJpg(){
+  if(!DATA){alert('먼저 생성하세요.');return;}
+  if(editing)toggleEdit();
+  const clone=$('page').cloneNode(true);
+  clone.style.cssText='position:fixed;left:-9999px;top:0;width:860px';
+  document.body.appendChild(clone);
+  const ok=await proxify(clone);
+  if(!ok){document.body.removeChild(clone);
+    alert('JPG 저장에는 이미지 프록시(Apps Script)가 필요합니다.\n프록시 없이도 [HTML 복사]는 바로 됩니다.\n(프록시 URL은 CONFIG.IMG_PROXY에 설정)');return;}
+  await new Promise(r=>setTimeout(r,400));
+  await document.fonts.ready;
+  const c=await html2canvas(clone,{scale:2,backgroundColor:'#fff',width:860,windowWidth:860});
+  document.body.removeChild(clone);
+  c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=(DATA.title||'상세').replace(/[\\/:*?"<>|]/g,'')+'_상세.jpg';a.click();},'image/jpeg',0.92);
+}
+
+// ===== HTML 복사 (외부 이미지 URL 유지 · 폰트 호스팅) =====
+function copyHtml(){
+  if(!DATA){alert('먼저 생성하세요.');return;}
+  const vars=MODE==='master'?'--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C'
+    :'--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00';
+  const css=document.querySelector('style').textContent.split('/* ===== 상세 테마')[1];
+  const full=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@font-face{font-family:'Gmarket';src:url('${CONFIG.FONT_BASE}GmarketSansTTFLight.ttf');font-weight:300}
+@font-face{font-family:'Gmarket';src:url('${CONFIG.FONT_BASE}GmarketSansTTFMedium.ttf');font-weight:500}
+@font-face{font-family:'Gmarket';src:url('${CONFIG.FONT_BASE}GmarketSansTTFBold.ttf');font-weight:700}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Gmarket','Malgun Gothic',sans-serif}
+#page{max-width:860px;margin:0 auto;${vars}}
+/* ===== 상세 테마${css}</style></head>
+<body><div id="page" data-mode="${MODE}">${buildHtml()}</div></body></html>`;
+  navigator.clipboard.writeText(full).then(()=>{const b=document.querySelector('.a1');const o=b.textContent;b.textContent='✓ 복사됨';setTimeout(()=>b.textContent=o,1500);},()=>alert('복사 실패'));
+}
+render();
+</script>
+</body>
+</html>
