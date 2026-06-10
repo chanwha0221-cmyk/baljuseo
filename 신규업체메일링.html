@@ -580,7 +580,7 @@ async function sendEmailFollowupBatch(){
   const {html,hasDaily}=buildMailHTML();
   try{ await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([$('tpl').value],{type:'text/plain'})})]); }catch(e){}
   const subj=encodeURIComponent(($('tpl-subject').value||'').trim());
-  window.location.href='mailto:?bcc='+encodeURIComponent(em.join(','))+'&reply-to='+encodeURIComponent('chanwha0221@gmail.com,feellost1@gmail.com')+'&subject='+subj;
+  window.location.href='mailto:?bcc='+encodeURIComponent(em.join(','))+'&reply-to='+encodeURIComponent('chanwha0221@gmail.com,realionq@gmail.com')+'&subject='+subj;
   toast(em.length+'곳 BCC로 썬더버드 열림 — 본문 클릭 후 Ctrl+V! (각자한테 따로 발송돼요)'+(hasDaily?'':' ⚠️시트이미지 확인'));
 }
 
@@ -777,7 +777,7 @@ async function openInThunderbird(){
   const to=encodeURIComponent(($('f-contact').value||'').trim());
   const subj=encodeURIComponent(($('tpl-subject').value||'').trim());
   // 회신이 두 사람에게 모두 가도록 Reply-To에 두 주소 (2026-06-09 사장님 지시)
-  const replyto=encodeURIComponent('chanwha0221@gmail.com,feellost1@gmail.com');
+  const replyto=encodeURIComponent('chanwha0221@gmail.com,realionq@gmail.com');
   window.location.href='mailto:'+to+'?reply-to='+replyto+'&subject='+subj;
   toast('썬더버드 열림 (받는사람·제목 채워짐) — 본문 클릭하고 Ctrl+V! (본문+시트 이미 복사됨)');
 }
