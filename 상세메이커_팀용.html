@@ -38,6 +38,22 @@
 /* 상세 테마 (모두 #dm-page 스코프) */
 #dm-page{--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00}
 #dm-page[data-mode="master"]{--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C}
+/* 🔎 정효모드 — 마스터 색상 그대로 + 텍스트 전체 120% */
+#dm-page[data-mode="jh"]{--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C}
+#dm-page[data-mode="jh"] .hero .brand{font-size:19px}
+#dm-page[data-mode="jh"] .hero h1{font-size:62px}
+#dm-page[data-mode="jh"] .hero .sub{font-size:25px}
+#dm-page[data-mode="jh"] .badge{font-size:19px}
+#dm-page[data-mode="jh"] .tag{font-size:18px}
+#dm-page[data-mode="jh"] .sec h2{font-size:38px}
+#dm-page[data-mode="jh"] .sec p{font-size:23px}
+#dm-page[data-mode="jh"] .spec td{font-size:23px}
+#dm-page[data-mode="jh"] .step .tx{font-size:22px}
+#dm-page[data-mode="jh"] .step .no{width:41px;height:41px;line-height:41px}
+#dm-page[data-mode="jh"] .mat{font-size:23px}
+#dm-page[data-mode="jh"] .qa .q{font-size:25px}
+#dm-page[data-mode="jh"] .qa .a{font-size:22px}
+#dm-page[data-mode="jh"] .foot{font-size:25px}
 /* 🦀 강경준(게구쟁이) 스킨 — 그린 헤더 + 블루 라인·다이아 + 코랄 강조 + 하늘 패널 + 틸 */
 #dm-page[data-mode="gkj"]{--red:#2E9E57;--gold:#1E9BE0;--goldL:#cdeafa;--cream:#e9f5fb;--dark:#16544c}
 #dm-page[data-mode="gkj"] .hero::after{background:linear-gradient(160deg,rgba(20,70,64,.62),rgba(20,84,76,.40))}
@@ -276,6 +292,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
           <button class="dm-mb" data-m="gkj" onclick="DM.setMode('gkj')">🦀 강경준 수산물</button>
           <button class="dm-mb" data-m="gogi" onclick="DM.setMode('gogi')">🥩 강경준 고기</button>
           <button class="dm-mb" data-m="gsg" onclick="DM.setMode('gsg')">🐟🥩 강수에서 파는 고기</button>
+          <button class="dm-mb" data-m="jh" onclick="DM.setMode('jh')">🔎 정효모드 (마스터·글자 120%)</button>
         </div>
         <span class="dm-sp"></span>
         <button class="dm-ab" style="background:#555" id="dm-edb" onclick="DM.toggleEdit()">✏️ 수정</button>
@@ -411,7 +428,7 @@ const DM=(function(){
   }
   function buildHtml(){
     if(!DATA)return'<div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
-    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':MODE==='gsg'?'강경준 수산물':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);if(MODE==='gsg')return buildGkj(brand,GOGI_BANNERS);let h='';
+    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':MODE==='gsg'?'강경준 수산물':MODE==='jh'?'주식회사 마스터':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);if(MODE==='gsg')return buildGkj(brand,GOGI_BANNERS);let h='';
     h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}"><div class="brand">${esc(brand)}</div><h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
     let badges=[];const sp=DATA.sections.find(s=>s.block.type==='spec');
     if(sp)sp.block.rows.forEach(([k,v])=>{if(/원산지|생물|중량|사이즈|구성/.test(k)&&v)badges.push(v.split('/')[0].trim());});
@@ -450,7 +467,7 @@ const DM=(function(){
     PHOTOS=imgs.map((u,i)=>({url:u, on:(i<10 || i>=n-2)}));   // 기본: 앞10 + 끝2(중량·포장)
     drawThumbs(); render();
   }
-  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':m==='gsg'?'예: 강경준 수산물':'예: 새벽소리');render();}
+  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':m==='gsg'?'예: 강경준 수산물':m==='jh'?'예: 주식회사 마스터':'예: 새벽소리');render();}
   function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
   function drag(i){dragI=i;}
   function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
