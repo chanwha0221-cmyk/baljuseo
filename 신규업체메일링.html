@@ -556,11 +556,17 @@ function render(){
         html+=`<button class="btn brand sm" onclick="sendEmailFollowupBatch()">📧 메일 한번에 보내기 (BCC)</button>
                <button class="btn ghost sm" onclick="copyFollowupEmails()">📋 메일주소 ${arr.length}개 복사</button>`;
       }
+      // 체크 일괄 처리 — ✅ 보냄(마지막연락 오늘=0일) / 🗑 삭제(메일 거부 업체 등)
+      html+=`<label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto"><input type="checkbox" onchange="fuToggleAll('${key}',this.checked)"> 전체선택</label>
+             <button class="btn sm" onclick="fuMarkSent('${key}')">✅ 보냄 처리 (0일)</button>
+             <button class="btn ghost sm" style="color:var(--red)" onclick="fuDelete('${key}')">🗑 선택 삭제</button>`;
       html+=`</div>`;
       html+=arr.map(x=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+        <input type="checkbox" class="fu-chk" data-chan="${key}" data-i="${x.i}" style="cursor:pointer">
         <b style="min-width:110px">${esc(x.r[0])||'(이름없음)'}</b>
         <span class="muted" style="flex:1">${esc(x.r[2])} · 마지막 ${esc(x.r[4])||'?'} (<b class="days hot">${x.ds}일</b>)</span>
         <button class="btn sm" onclick="draft(${x.i})">${followWord(x.r[1])} 초안</button>
+        <button class="btn ghost sm" title="목록에서 삭제 (메일 거부 등)" onclick="delRow(${x.i})">🗑</button>
       </div>`).join('');
       html+=`</div>`;
     });
@@ -604,6 +610,22 @@ async function addRow(){
   render(); setStatus('저장됨'); toast('추가 완료');
 }
 async function markContact(i){ DATA[i][4]=todayKST(); render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('마지막 연락일 → 오늘'); }
+// 📮 2차 메일 대상 패널 — 체크 일괄 처리 (2026-06-11)
+function fuChecked(chan){ return Array.from(document.querySelectorAll('.fu-chk[data-chan="'+chan+'"]:checked')).map(c=>parseInt(c.dataset.i,10)); }
+function fuToggleAll(chan,on){ document.querySelectorAll('.fu-chk[data-chan="'+chan+'"]').forEach(c=>{c.checked=on;}); }
+async function fuMarkSent(chan){
+  const idx=fuChecked(chan); if(!idx.length){ toast('체크된 업체가 없어요'); return; }
+  if(!confirm(idx.length+'곳 보냄 처리할까요? (마지막연락 → 오늘, 0일로 초기화)')) return;
+  idx.forEach(i=>{ DATA[i][4]=todayKST(); });
+  render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast(idx.length+'곳 보냄 처리 — 0일로 초기화');
+}
+async function fuDelete(chan){
+  const idx=fuChecked(chan); if(!idx.length){ toast('체크된 업체가 없어요'); return; }
+  const names=idx.map(i=>DATA[i][0]||DATA[i][2]).slice(0,5).join(', ');
+  if(!confirm(idx.length+'곳을 메일링 목록에서 완전히 삭제할까요? (메일 거부 업체 등)\n\n'+names+(idx.length>5?' 외 '+(idx.length-5)+'곳':''))) return;
+  idx.sort((a,b)=>b-a).forEach(i=>{ DATA.splice(i,1); });  // 뒤에서부터 삭제 — 인덱스 안 밀리게
+  render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast(idx.length+'곳 삭제됨');
+}
 async function delRow(i){ if(!confirm(`'${DATA[i][0]||DATA[i][2]}' 삭제할까요?`))return; DATA.splice(i,1); render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('삭제됨'); }
 function editRow(i){
   const r=DATA[i]; editIdx=i;
