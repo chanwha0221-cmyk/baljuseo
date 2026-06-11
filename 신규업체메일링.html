@@ -557,12 +557,12 @@ function render(){
                <button class="btn ghost sm" onclick="copyFollowupEmails()">📋 메일주소 ${arr.length}개 복사</button>`;
       }
       // 체크 일괄 처리 — ✅ 보냄(마지막연락 오늘=0일) / 🗑 삭제(메일 거부 업체 등)
-      html+=`<label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto"><input type="checkbox" onchange="fuToggleAll('${key}',this.checked)"> 전체선택</label>
+      html+=`<label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto;white-space:nowrap"><input type="checkbox" style="width:15px;height:15px;padding:0;margin:0;flex:0 0 auto" onchange="fuToggleAll('${key}',this.checked)"> 전체선택</label>
              <button class="btn sm" onclick="fuMarkSent('${key}')">✅ 보냄 처리 (0일)</button>
              <button class="btn ghost sm" style="color:var(--red)" onclick="fuDelete('${key}')">🗑 선택 삭제</button>`;
       html+=`</div>`;
       html+=arr.map(x=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
-        <input type="checkbox" class="fu-chk" data-chan="${key}" data-i="${x.i}" style="cursor:pointer">
+        <input type="checkbox" class="fu-chk" data-chan="${key}" data-i="${x.i}" style="cursor:pointer;width:15px;height:15px;padding:0;margin:0;flex:0 0 auto">
         <b style="min-width:110px">${esc(x.r[0])||'(이름없음)'}</b>
         <span class="muted" style="flex:1">${esc(x.r[2])} · 마지막 ${esc(x.r[4])||'?'} (<b class="days hot">${x.ds}일</b>)</span>
         <button class="btn sm" onclick="draft(${x.i})">${followWord(x.r[1])} 초안</button>

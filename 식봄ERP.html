@@ -244,7 +244,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <button class="nav-btn active" id="nav-bulk" onclick="switchTab('bulk',this)">📦 상품 대량등록</button>
   <button class="nav-btn" id="nav-maker" onclick="switchTab('maker',this)">🎨 상세 메이커</button>
   <button class="nav-btn" id="nav-margin" onclick="switchTab('margin',this)">📊 마진 체크 <span id="margin-alert-badge" style="display:none;background:#dc2626;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px"></span></button>
-  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v3.3 · 강경준 모드 인라인수정 fix</span>
+  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v3.4 · 강수에서 파는 고기 모드</span>
 </div>
 
 <!-- ═══════════════ 탭 1: 상품 대량등록 ═══════════════ -->
@@ -322,6 +322,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
           <button class="dm-mb" data-m="dawn" onclick="DM.setMode('dawn')">🌅 새벽소리</button>
           <button class="dm-mb" data-m="gkj" onclick="DM.setMode('gkj')">🦀 강경준 수산물</button>
           <button class="dm-mb" data-m="gogi" onclick="DM.setMode('gogi')">🥩 강경준 고기</button>
+          <button class="dm-mb" data-m="gsg" onclick="DM.setMode('gsg')">🐟🥩 강수에서 파는 고기</button>
         </div>
         <span class="dm-sp"></span>
         <button class="dm-ab" style="background:#555" id="dm-edb" onclick="DM.toggleEdit()">✏️ 수정</button>
@@ -1765,9 +1766,9 @@ const DM=(function(){
   function grid(g,cls){if(!g.length)return'';const c=cls||(g.length===1?'g1':'');return`<div class="grid ${c}">${g.map(u=>`<div class="gimg" style="background-image:url('${esc(u)}')"></div>`).join('')}</div>`;}
   // ===== 강경준 전용 콘텐츠 빌드 (게구쟁이 플로우) =====
   function gkPhotos(g){if(!g.length)return'';return '<div class="gk-photos">'+g.map(u=>'<div class="gk-photo" style="background-image:url(\''+esc(u)+'\')"></div>').join('')+'</div>';}
-  function buildGkj(brand){
+  function buildGkj(brand,bnrs){
     const ph=selImgs();let pi=0;let h='';
-    h+=GKJ_BANNERS.map(u=>'<div class="gk-banner"><img src="'+esc(u)+'" referrerpolicy="no-referrer"></div>').join('');
+    h+=(bnrs||GKJ_BANNERS).map(u=>'<div class="gk-banner"><img src="'+esc(u)+'" referrerpolicy="no-referrer"></div>').join('');
     h+='<div class="gk-head"><h1>'+esc(DATA.title)+'</h1>'+(DATA.subtitle?'<p class="gk-hsub">'+esc(DATA.subtitle)+'</p>':'')+'</div>';
     if(ph.length){h+=gkPhotos([ph[0]]);pi=1;}
     DATA.sections.forEach(s=>{
@@ -1820,7 +1821,7 @@ const DM=(function(){
   }
   function buildHtml(){
     if(!DATA)return'<div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
-    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);let h='';
+    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':MODE==='gsg'?'강경준 수산물':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);if(MODE==='gsg')return buildGkj(brand,GOGI_BANNERS);let h='';
     h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}"><div class="brand">${esc(brand)}</div><h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
     let badges=[];const sp=DATA.sections.find(s=>s.block.type==='spec');
     if(sp)sp.block.rows.forEach(([k,v])=>{if(/원산지|생물|중량|사이즈|구성/.test(k)&&v)badges.push(v.split('/')[0].trim());});
@@ -1859,7 +1860,7 @@ const DM=(function(){
     PHOTOS=imgs.map((u,i)=>({url:u, on:(i<10 || i>=n-2)}));   // 기본: 앞10 + 끝2(중량·포장)
     drawThumbs(); render();
   }
-  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':'예: 새벽소리');render();}
+  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':m==='gsg'?'예: 강경준 수산물':'예: 새벽소리');render();}
   function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
   function drag(i){dragI=i;}
   function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
