@@ -236,17 +236,9 @@
   <div id="tab-prospect" style="display:none">
   <!-- 🔍 신규 발굴 DB (서울 식품 셀러) -->
   <div class="card" id="prospect-card">
-    <h2>🔍 신규 발굴 — 식품 셀러 DB <span class="badge green" id="p-total">…</span>
-      <span class="muted" style="font-weight:400">— 공정위 통신판매사업자 (서울 기본 + 직접 추가분) · 사이트 투명도순(🟢홈피 → ⚪마켓명만) · 사이트 확인 후 [폼에 넣기]</span>
-      <button class="btn brand sm" style="margin-left:auto" onclick="var p=document.getElementById('p-add');p.style.display=p.style.display==='none'?'':'none'">➕ 업체 직접 추가 (경기도 등)</button></h2>
-    <div id="p-add" style="display:none;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px">
-      <div class="muted" style="margin-bottom:6px;line-height:1.7">엑셀/시트에서 복사해 통째로 붙여넣기 — 한 줄당: <b>상호 ⇥ 대표 ⇥ 지역(시·군·구) ⇥ 이메일 ⇥ 사이트 ⇥ 품목 ⇥ 신고일(YYYYMMDD)</b><br>탭 또는 콤마 구분 · <b>상호만 필수</b>(나머진 비워도 됨) · 등급(🟢🔵⚪)·분류(🐟💄)는 자동 판별 · 저장하면 시트에 영구 보관 — 찬화·원비 둘 다 보임</div>
-      <textarea id="p-add-ta" style="min-height:110px;font-family:ui-monospace,monospace;font-size:12px" placeholder="경기상회	김대표	수원시	abc@naver.com	https://smartstore.naver.com/xxx	농수산물	20250301"></textarea>
-      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-        <button class="btn brand sm" onclick="prosAdd()">💾 추가 (시트 저장)</button>
-        <span class="muted" id="p-add-stat" style="font-size:12px"></span>
-      </div>
-    </div>
+    <h2>🔍 신규 발굴 — 식품 셀러 DB <span class="badge green" id="p-total">…</span> <span class="muted" id="p-build" style="font-weight:400;font-size:11.5px"></span>
+      <span class="muted" style="font-weight:400">— 공정위 통신판매사업자 · 사람별 전용 DB · 사이트 투명도순(🟢홈피 → ⚪마켓명만) · 사이트 확인 후 [폼에 넣기]</span>
+      <button class="btn ghost sm" style="margin-left:auto" onclick="syncRequest()">🔄 DB 동기화 (하비서)</button></h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <input id="p-q" placeholder="상호·대표 검색" style="flex:1;min-width:150px">
       <select id="p-gu"><option value="">전체 지역</option></select>
@@ -493,14 +485,6 @@ async function loadAll(){
     DATA=(await sheetGet(DATA_TAB,'A2:H100000')).map(r=>{const x=r.slice(0,8);while(x.length<8)x.push('');return x.map(v=>(v||'').toString().trim());}).filter(r=>r[2]||r[0]);
     // 상대방(2인 운영) 목록 — 업체 겹침 경고용 (읽기전용)
     try{ OTHER_DATA = tabs.includes(OTHER_TAB) ? (await sheetGet(OTHER_TAB,'A2:H100000')).map(r=>{const x=r.slice(0,8);while(x.length<8)x.push('');return x.map(v=>(v||'').toString().trim());}).filter(r=>r[2]||r[0]) : []; }catch(e){ OTHER_DATA=[]; }
-    // 🔍 발굴 DB 직접 추가분 (시트 탭 — 두 사이트 공유)
-    try{
-      if(!tabs.includes(PROS_TAB)) await addTab(PROS_TAB,PROS_HEADER);
-      else{
-        const pr=await sheetGet(PROS_TAB,'A2:J100000');
-        if(window.addProspects) window.addProspects(pr.map(r=>{const g=parseInt(r[6],10);return[r[0]||'',r[1]||'',r[2]||'',r[3]||'',r[4]||'',r[5]||'',isNaN(g)?3:g,r[7]||'',r[8]||'불명'];}));
-      }
-    }catch(e){ console.warn('발굴 추가분 로드 실패',e); }
     render();
     setStatus('동기화됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){ setStatus('오류: '+e.message); console.error(e); toast('동기화 실패 — 콘솔 확인'); }
@@ -508,43 +492,13 @@ async function loadAll(){
 async function save(){ await dataReplace(DATA); }
 
 // ───────────────────────────────────────────────────────────
-// 🔍 발굴 DB 직접 추가 (경기도 등) — 시트 탭 '신규발굴_추가'에 append 영구 저장 (2026-06-11)
-//    기본 서울 DB(신규발굴_데이터.js)는 그대로, 추가분만 시트 → 두 사이트(찬화·원비) 공유
+// 🔄 발굴 DB 동기화 (2026-06-11) — 원천자료는 구글드라이브 [신규업체메일링\{사람}] 폴더에,
+//    가공·갱신은 클로드(하비서)가 함. 이 버튼은 요청 문구 복사 + 안내.
 // ───────────────────────────────────────────────────────────
-const PROS_TAB='신규발굴_추가', PROS_HEADER=['상호','대표','지역','이메일','사이트','품목','등급','신고일','분류','추가일'];
-function prosGrade(site){ site=String(site||'').trim(); if(!site) return 3; const s=site.toLowerCase(); if(/smartstore|store\.naver|coupang|11st|gmarket|auction|interpark|wemakeprice|tmon|ohou|idus/.test(s)) return 2; if(/^https?:\/\//.test(s)||/\.[a-z]{2,}/i.test(s)) return 0; return 3; }
-function prosCat(pum){ pum=String(pum||''); if(/수산|농산|축산|식품|먹거리|반찬|청과|정육|건어물|과일|야채|채소/.test(pum)) return '농수산'; if(/화장품|뷰티|건강기능|건기식|미용/.test(pum)) return '뷰티건기식'; return '불명'; }
-async function sheetAppend(tab,values){
-  const t=await getToken();
-  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab)}!A:J:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values})});
-  if(!r.ok) throw new Error('append '+r.status);
-}
-async function prosAdd(){
-  const ta=$('p-add-ta'), st=$('p-add-stat');
-  const lines=(ta.value||'').split('\n').map(s=>s.trim()).filter(Boolean);
-  if(!lines.length){ toast('붙여넣은 내용이 없어요'); return; }
-  const nk=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
-  const exist=new Set((window.PROSPECTS||[]).map(r=>nk(r[0])+'|'+nk(r[3])));
-  const rows=[], arrs=[]; let skip=0;
-  lines.forEach(l=>{
-    const c=(l.includes('\t')?l.split('\t'):l.split(',')).map(s=>s.trim());
-    const sang=c[0]||'', rep=c[1]||'', gu=c[2]||'', email=c[3]||'', site=c[4]||'', pum=c[5]||'', sdate=(c[6]||'').replace(/[.\-\s]/g,'');
-    if(!sang){ skip++; return; }
-    const key=nk(sang)+'|'+nk(email);
-    if(exist.has(key)){ skip++; return; }
-    exist.add(key);
-    const g=prosGrade(site), cat=prosCat(pum||sang);
-    rows.push([sang,rep,gu,email,site,pum,String(g),sdate,cat,todayKST()]);
-    arrs.push([sang,rep,gu,email,site,pum,g,sdate,cat]);
-  });
-  if(!rows.length){ st.textContent='추가할 새 업체 없음 (중복/빈줄 '+skip+'건)'; return; }
-  st.textContent='저장 중…';
-  try{
-    await sheetAppend(PROS_TAB,rows);
-    if(window.addProspects) window.addProspects(arrs);
-    ta.value=''; st.textContent='✅ '+rows.length+'건 추가됨'+(skip?' · 중복/빈줄 '+skip+'건 건너뜀':'');
-    toast(rows.length+'건 발굴 DB에 추가 — 시트 저장 (모든 PC·두 사이트 공유)');
-  }catch(e){ st.textContent='저장 실패: '+e.message; }
+function syncRequest(){
+  const msg='하비서 발굴 동기화 — 신규업체메일링\\'+PERSON+' 폴더 자료 처리해서 발굴 DB 갱신해줘';
+  (navigator.clipboard?navigator.clipboard.writeText(msg):Promise.reject()).then(()=>toast('동기화 요청 문구 복사됨 — 클로드 채팅에 붙여넣으세요')).catch(()=>{});
+  alert('🔄 발굴 DB 동기화 방법\n\n1) 공정위 CSV 등 자료를 구글드라이브 [신규업체메일링\\'+PERSON+'] 폴더에 넣기\n2) 클로드(하비서) 채팅에 방금 복사된 문구 붙여넣기\n3) 하비서가 파싱·필터 후 DB 갱신 → update.bat 배포하면 반영\n\n(요청 문구는 클립보드에 복사돼 있어요)');
 }
 
 function chanHint(){
@@ -958,14 +912,15 @@ document.title='신규업체 메일링 — '+PERSON;
 loadAll();
 </script>
 
-<!-- 🔍 신규 발굴 DB 데이터 + 로직 -->
-<script src="신규발굴_데이터.js"></script>
+<!-- 🔍 신규 발굴 DB 데이터 + 로직 — 사람별 전용 파일 (2026-06-11): 찬화=신규발굴_홍찬화.js / 원비=신규발굴_원비.js -->
+<script>document.write('<script src="신규발굴_'+((new URLSearchParams(location.search).get('u')==='wonbi')?'원비':'홍찬화')+'.js"><\/script>');</script>
 <script>
 (function(){
   const P=window.PROSPECTS||[]; const PER=100; let page=1, filt=P;
   const $=id=>document.getElementById(id);
   const rev=JSON.parse(localStorage.getItem('prospect_reviewed')||'{}');
-  if(!P.length){ const l=$('p-loading'); if(l)l.textContent='데이터 파일을 찾을 수 없어요 (신규발굴_데이터.js 같은 폴더에 있어야 함)'; return; }
+  const bd=$('p-build'); if(bd&&window.PROSPECTS_BUILD) bd.textContent='('+window.PROSPECTS_BUILD+')';
+  if(!P.length){ const l=$('p-loading'); if(l)l.textContent='아직 발굴 DB가 비어있어요 (0건) — 구글드라이브 [신규업체메일링] 내 본인 폴더에 공정위 CSV를 넣고 [🔄 DB 동기화] 버튼대로 하비서에게 요청하세요.'; const t=$('p-total'); if(t)t.textContent='0곳'; return; }
   const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
   const fmtD=d=>(d&&d.length===8)?d.slice(0,4)+'.'+d.slice(4,6)+'.'+d.slice(6,8):(d||'');
@@ -1054,15 +1009,6 @@ loadAll();
     if(rv){ const em=rv.dataset.rev; if(rev[em])delete rev[em]; else rev[em]=1; localStorage.setItem('prospect_reviewed',JSON.stringify(rev)); render(); }
   });
   ['p-q','p-gu','p-grade','p-cat','p-hidedone','p-hidesent'].forEach(id=>{ const el=$(id); el.addEventListener(id==='p-q'?'input':'change',apply); });
-  // 🔍 시트 추가분(경기도 등) 주입 — prosAdd 저장 직후 + loadAll의 시트 로드에서 호출
-  window.addProspects=function(arrs){
-    (arrs||[]).forEach(a=>P.push(a));
-    const sel=$('p-gu'), cur=new Set(Array.from(sel.options).map(o=>o.value));
-    [...new Set((arrs||[]).map(r=>r[2]).filter(Boolean))].sort().forEach(g=>{ if(!cur.has(g)){ const o=document.createElement('option');o.value=g;o.textContent=g;sel.appendChild(o);cur.add(g);} });
-    $('p-total').textContent=P.length.toLocaleString()+'곳';
-    const tc=document.getElementById('tab-p-count'); if(tc) tc.textContent=P.length.toLocaleString();
-    apply();
-  };
   apply();
   // 보낸기록(DATA)이 비동기로 로드되면 '이미 보냄' 표시 갱신
   let tries=0; const iv=setInterval(()=>{ if(((typeof DATA!=='undefined')&&DATA&&DATA.length)||tries++>40){ clearInterval(iv); apply(); } },500);
