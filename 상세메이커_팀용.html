@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>상세 메이커</title>
+<link rel="icon" href="data:,">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style id="dm-style">
+@font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFLight.ttf') format('truetype');font-weight:300;font-display:swap}
+@font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFMedium.ttf') format('truetype');font-weight:500;font-display:swap}
+@font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFBold.ttf') format('truetype');font-weight:700;font-display:swap}
+#dm{display:flex;gap:16px;align-items:flex-start}
+#dm .dm-left{width:380px;flex:0 0 380px;position:sticky;top:50px;align-self:flex-start;max-height:calc(100vh - 64px);overflow-y:auto}
+#dm .dm-bar{display:flex;align-items:center;gap:10px;background:#161616;color:#fff;padding:10px 14px;border-radius:10px;margin-bottom:12px;flex-wrap:wrap;position:sticky;top:50px;z-index:40}
+#dm .dm-modes{display:flex;gap:6px}
+#dm .dm-mb{padding:6px 14px;border-radius:18px;border:1.5px solid #555;background:transparent;color:#ccc;font-family:inherit;font-weight:700;font-size:12px;cursor:pointer}
+#dm .dm-mb.on{background:#fff;color:#161616;border-color:#fff}
+#dm .dm-sp{flex:1}
+#dm .dm-ab{padding:7px 13px;border-radius:7px;border:none;font-family:inherit;font-weight:700;font-size:12px;cursor:pointer;color:#fff}
+#dm textarea#dm-src{width:100%;height:140px;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit;font-size:12px;resize:vertical}
+#dm .dm-gen{width:100%;margin-top:8px;padding:11px;background:#161616;color:#fff;border:none;border-radius:8px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer}
+#dm .dm-h3{font-size:12px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.04em;margin:16px 0 7px}
+#dm .dm-thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#dm .dm-th{position:relative;width:80px;height:60px;border-radius:5px;overflow:hidden;border:2px solid #ddd;cursor:grab}
+#dm .dm-th.off{opacity:.32}
+#dm .dm-th.hero{border-color:#C0392B}
+#dm .dm-th img{width:100%;height:100%;object-fit:cover}
+#dm .dm-th .n{position:absolute;top:1px;left:2px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;font-weight:700;padding:0 4px;border-radius:6px}
+#dm .dm-th .tg{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:#fff;background:rgba(192,57,43,.85)}
+#dm .dm-right{flex:1;background:#d7d4ce;border-radius:10px;display:flex;justify-content:center;padding:18px}
+#dm .dm-stage{width:860px;flex:0 0 860px}
+#dm-page{width:860px;background:#fff;overflow:hidden;min-height:160px}
+#dm-page .dm-empty{color:#999;text-align:center;padding:90px 20px;font-weight:700;font-family:'Apple SD Gothic Neo',sans-serif}
+#dm.editing #dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a):hover{outline:1px dashed #C0392B;cursor:text}
+#dm-page [contenteditable]:focus{outline:2px solid #C0392B;background:rgba(255,200,180,.18)}
+/* 상세 테마 (모두 #dm-page 스코프) */
+#dm-page{--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00}
+#dm-page[data-mode="master"]{--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C}
+/* 🦀 강경준(게구쟁이) 스킨 — 그린 헤더 + 블루 라인·다이아 + 코랄 강조 + 하늘 패널 + 틸 */
+#dm-page[data-mode="gkj"]{--red:#2E9E57;--gold:#1E9BE0;--goldL:#cdeafa;--cream:#e9f5fb;--dark:#16544c}
+#dm-page[data-mode="gkj"] .hero::after{background:linear-gradient(160deg,rgba(20,70,64,.62),rgba(20,84,76,.40))}
+#dm-page[data-mode="gkj"] .sec h2{display:inline-block;position:relative}
+#dm-page[data-mode="gkj"] .sec h2::before,#dm-page[data-mode="gkj"] .sec h2::after{content:"◆";color:#1E9BE0;font-size:13px;vertical-align:middle;margin:0 12px;opacity:.85}
+#dm-page[data-mode="gkj"] .mat{background:#1E9BE0;color:#fff}
+#dm-page[data-mode="gkj"] .badge{background:#fff;color:#2E9E57}
+#dm-page .gkj-banner img{width:100%;display:block}
+/* === 강경준 전용 콘텐츠 레이아웃 (게구쟁이 플로우) === */
+#dm-page .gk-banner img{width:100%;display:block}
+#dm-page .gk-head{background:#2E5E9E;color:#fff;text-align:center;padding:42px 30px}
+#dm-page .gk-head h1{font-size:42px;font-weight:700;color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.22);white-space:pre-line;line-height:1.25}
+#dm-page .gk-hsub{font-size:20px;color:#FFD84A;margin-top:14px;font-weight:500}
+#dm-page .gk-photos{display:flex;flex-wrap:wrap;gap:4px;background:#fff;font-size:0}
+#dm-page .gk-photo{position:relative;width:calc(50% - 2px);background-size:cover;background-position:center}
+#dm-page .gk-photo::before{content:"";display:block;padding-top:100%}
+#dm-page .gk-photos .gk-photo:only-child{width:100%}
+#dm-page .gk-blue{background:#2E5E9E;color:#fff;text-align:center;padding:52px 36px}
+#dm-page .gk-bt{display:inline-block;font-size:40px;font-weight:700;color:#111;text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff;border-bottom:4px solid #111;padding-bottom:6px;margin-bottom:30px}
+#dm-page .gk-spec{font-size:22px;line-height:1.9}
+#dm-page .gk-so{color:#fff;font-weight:700;font-size:25px;margin-top:16px}
+#dm-page .gk-sv{color:#FFD84A;font-weight:500;font-size:21px}
+#dm-page .gk-bar{background:#2E5E9E;color:#fff;font-size:30px;font-weight:700;padding:22px;text-align:center}
+#dm-page .gk-bar2{background:#eef1f4;color:#1A3A6B;font-size:30px;font-weight:700;padding:18px;text-align:center}
+#dm-page .gk-gray{background:#f0f0f0;text-align:center;padding:46px 36px}
+#dm-page .gk-body{font-size:19px;line-height:1.9;color:#333;white-space:pre-line}
+#dm-page .gk-steps{margin-top:22px;font-size:19px;line-height:1.9;color:#222}
+#dm-page .gk-step{margin:5px 0}
+#dm-page .gk-sec{text-align:center;padding:48px 36px}
+#dm-page .gk-bt2{display:inline-block;font-size:32px;font-weight:700;color:#1A3A6B;border-bottom:3px solid #2E5E9E;padding-bottom:6px;margin-bottom:24px}
+#dm-page .gk-qa{margin:14px auto;max-width:92%}
+#dm-page .gk-q{font-size:21px;font-weight:700;color:#2E5E9E}
+#dm-page .gk-a{font-size:18px;color:#444;line-height:1.7;margin-top:4px}
+#dm-page .gk-foot{background:#1A3A6B;color:#fff;text-align:center;padding:46px;font-size:22px;font-weight:700;letter-spacing:2px}
+/* === 강경준 고기(고기24시) 전용 레이아웃 — 레드/코랄·피치 === */
+#dm-page .go-head{background:#E23B2E;color:#fff;text-align:center;padding:42px 30px}
+#dm-page .go-head h1{font-size:42px;font-weight:700;color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.18);white-space:pre-line;line-height:1.25}
+#dm-page .go-hsub{font-size:20px;color:#FFE3D8;margin-top:14px;font-weight:500}
+#dm-page .go-photos{display:flex;flex-wrap:wrap;gap:4px;background:#fff;font-size:0}
+#dm-page .go-photo{position:relative;width:calc(50% - 2px);background-size:cover;background-position:center}
+#dm-page .go-photo::before{content:"";display:block;padding-top:100%}
+#dm-page .go-photos .go-photo:only-child{width:100%}
+#dm-page .go-pbadge{position:absolute;top:0;left:0;background:rgba(40,40,40,.78);color:#fff;font-size:18px;font-weight:700;padding:8px 18px;z-index:2}
+#dm-page .go-bar{background:#E23B2E;color:#fff;font-size:34px;font-weight:700;text-align:center;padding:22px;text-shadow:1px 1px 0 rgba(0,0,0,.2)}
+#dm-page .go-peach{background:#FDF0EC;text-align:center;padding:48px 36px}
+#dm-page .go-spec{font-size:23px;line-height:1.9;color:#222;font-weight:700}
+#dm-page .go-sline{margin:6px 0}
+#dm-page .go-rtitle{font-size:34px;font-weight:700;color:#E8402F;margin-bottom:24px}
+#dm-page .go-gtitle{display:inline-block;font-size:34px;font-weight:700;color:#8E8E8E;border-bottom:4px solid #8E8E8E;padding-bottom:6px;margin-bottom:26px}
+#dm-page .go-body{font-size:19px;line-height:1.95;color:#333;white-space:pre-line}
+#dm-page .go-steps{margin-top:20px;font-size:19px;line-height:1.95;color:#222}
+#dm-page .go-step{margin:5px 0}
+#dm-page .go-qa{margin:14px auto;max-width:92%}
+#dm-page .go-q{font-size:21px;font-weight:700;color:#E23B2E}
+#dm-page .go-a{font-size:18px;color:#444;line-height:1.7;margin-top:4px}
+#dm-page,#dm-page *{font-family:'Gmarket','Malgun Gothic',sans-serif}
+#dm-page .hero{position:relative;padding:90px 40px;text-align:center;color:#fff;background-size:cover;background-position:center}
+#dm-page .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(0,0,0,.74),rgba(0,0,0,.45))}
+#dm-page .hero>*{position:relative;z-index:2}
+#dm-page .hero .brand{font-size:16px;letter-spacing:9px;font-weight:500;color:var(--goldL)}
+#dm-page .hero h1{font-size:52px;font-weight:700;margin:18px 0;line-height:1.25;white-space:pre-line}
+#dm-page .hero .sub{font-size:21px;font-weight:300;opacity:.95;line-height:1.5;white-space:pre-line}
+#dm-page .badges{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;padding:30px 24px;background:var(--dark)}
+#dm-page .badge{color:#fff;border:1.5px solid var(--gold);border-radius:40px;padding:10px 20px;font-weight:500;font-size:16px}
+#dm-page .sec{padding:54px 50px;text-align:center}
+#dm-page .sec.alt{background:var(--cream)}
+#dm-page .tag{display:inline-block;color:var(--gold);font-weight:700;font-size:15px;letter-spacing:2px;margin-bottom:8px}
+#dm-page .sec h2{font-size:32px;font-weight:700;color:var(--red);line-height:1.3}
+#dm-page .sec .ln{width:50px;height:4px;background:var(--gold);margin:13px auto 24px}
+#dm-page .sec p{font-size:19px;line-height:1.9;color:#2b2b2b;white-space:pre-line}
+#dm-page .sec p b{font-weight:500;color:var(--dark)}
+#dm-page .spec{width:100%;border-collapse:collapse;font-size:19px}
+#dm-page .spec td{padding:15px 16px;border-bottom:1px solid #e0d8c8;text-align:center}
+#dm-page .spec td.k{width:38%;font-weight:500;color:var(--red);background:var(--cream)}
+#dm-page .grid{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
+#dm-page .grid .gimg{position:relative;width:calc(50% - 5px);background-size:cover;background-position:center;border-radius:10px;filter:contrast(1.04) saturate(1.1)}
+#dm-page .grid .gimg::before{content:"";display:block;padding-top:100%}
+#dm-page .grid.g3 .gimg{width:calc(33.333% - 6px)}
+#dm-page .grid.g1 .gimg{width:100%}
+#dm-page .steps{margin-top:18px}
+#dm-page .step{display:flex;gap:14px;align-items:flex-start;justify-content:center;padding:12px 0;border-bottom:1px dashed #ddd;text-align:left}
+#dm-page .step .no{flex:0 0 34px;height:34px;border-radius:50%;background:var(--red);color:#fff;font-weight:700;text-align:center;line-height:34px}
+#dm-page .step .tx{font-size:18px;line-height:1.6;padding-top:4px}
+#dm-page .mat{background:var(--red);color:#fff;border-radius:12px;padding:20px 24px;font-size:19px;line-height:1.7;margin-top:14px;text-align:center}
+#dm-page .qa{border:1.5px solid #e0d8c8;border-radius:12px;padding:20px 24px;margin-bottom:14px;background:#fff;text-align:center}
+#dm-page .qa .q{font-size:21px;font-weight:700;color:var(--red);margin-bottom:8px}
+#dm-page .qa .a{font-size:18px;line-height:1.75;color:#2b2b2b}
+#dm-page .foot{background:var(--dark);color:var(--gold);text-align:center;padding:46px;font-size:21px;font-weight:500;letter-spacing:6px}
+/* 썸네일 그리드 (상세 메이커 ③ — 구 변환기 탭에서 이전) */
+.th-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:7px;margin-top:6px;}
+.th-thumb{position:relative;border:3px solid transparent;border-radius:8px;overflow:hidden;cursor:pointer;background:#eef1f4;aspect-ratio:1/1;}
+.th-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.th-thumb .th-idx{position:absolute;top:3px;left:3px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;padding:1px 5px;border-radius:6px;}
+.th-thumb.th-sel{border-color:#27ae60;}
+.th-thumb .th-pick{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#27ae60;color:#fff;font-size:12px;font-weight:800;display:none;align-items:center;justify-content:center;}
+.th-thumb.th-sel .th-pick{display:flex;}
+.th-picks{display:flex;gap:14px;flex-wrap:wrap;}
+.th-card{border:1px solid #e3e6ea;border-radius:10px;padding:10px;width:190px;text-align:center;background:#fff;}
+.th-card .th-pv{width:168px;height:168px;border-radius:8px;background:#eef1f4;object-fit:cover;display:block;}
+.th-card .th-role{font-size:12px;font-weight:700;color:#2c3e50;margin:8px 0 6px;}
+</style>
+<style>
+:root{color-scheme:light}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:13px;min-height:100vh}
+.nav{display:flex;background:#fff;border-bottom:2px solid #e0dbd4;position:sticky;top:0;z-index:100}
+.nav-btn{flex:1;padding:14px 8px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:#6b6760;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;font-family:inherit}
+.nav-btn.active{color:#7b2d8b;border-bottom-color:#7b2d8b}
+.tab{display:none;padding:16px;max-width:1400px;margin:0 auto}
+.tab.active{display:block}
+.title-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e0dbd4}
+.title-bar h1{font-size:20px;color:#1a1816}
+.title-bar .sub{font-size:11px;color:#a8a49e;margin-top:3px}
+.btn{padding:8px 16px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;transition:all .12s}
+.btn-purple{background:#7b2d8b;color:#fff}
+.btn-purple:hover{background:#5c1f69}
+.btn-green{background:#27ae60;color:#fff}
+.btn-green:hover{background:#1e8449}
+.btn-sm{padding:4px 10px;font-size:11px;border-radius:5px;border:1px solid #ccc8c0;background:#fff;cursor:pointer;color:#6b6760;font-family:inherit}
+.btn-sm:hover{background:#f0ede8}
+.btn-sm.danger{border-color:#fca5a5;color:#dc2626}
+.btn-sm.danger:hover{background:#fee2e2}
+.status{padding:30px;text-align:center;color:#a8a49e;font-size:13px}
+/* ── 대량등록 탭 ── */
+.actions-row{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.actions-row input[type=text]{padding:7px 12px;border:1px solid #ccc8c0;border-radius:6px;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:200px}
+.actions-row input[type=text]:focus{border-color:#7b2d8b}
+.pill{font-size:11px;background:#f0e6f5;color:#7b2d8b;border-radius:11px;padding:3px 10px;font-weight:700}
+.master-list{background:#fff;border:1px solid #e0dbd4;border-radius:10px;max-height:300px;overflow-y:auto;margin-bottom:14px}
+.master-row{padding:8px 14px;border-bottom:1px solid #f0ede8;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px}
+.master-row:hover{background:#fafafa}
+.master-row:last-child{border-bottom:none}
+.master-row .meta{font-size:10px;color:#a8a49e}
+.master-row.selected{background:#f0e6f5}
+.selected-card{background:#fff;border:1px solid #e0dbd4;border-radius:10px;padding:14px 18px;margin-bottom:10px}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.card-name{font-weight:700;font-size:14px;flex:1;min-width:200px}
+.card-price{font-size:12px;color:#6b6760}
+.card-price b{color:#7b2d8b;font-size:14px}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:6px}
+.f{display:flex;flex-direction:column;gap:3px}
+.f label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#a8a49e}
+.f label .req{color:#dc2626;margin-left:3px}
+.f input,.f select,.f textarea{border:1px solid #ccc8c0;border-radius:5px;padding:6px 9px;font-size:12px;font-family:inherit;color:#1a1816;background:#fff;outline:none}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:#7b2d8b}
+.f input.error,.f select.error{border-color:#dc2626;background:#fff5f5}
+.cat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.auto-hint{font-size:10px;color:#27ae60;background:#e8f5e9;border-radius:4px;padding:3px 8px;display:inline-block;margin-top:4px}
+.card-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed #e0dbd4}
+.empty{padding:50px;text-align:center;color:#a8a49e;font-size:13px;background:#fff;border:1px dashed #e0dbd4;border-radius:10px}
+.download-bar{position:sticky;bottom:0;background:#fff;border-top:2px solid #e0dbd4;padding:14px;margin:14px -16px -16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.download-bar .info{font-size:12px;color:#6b6760}
+.download-bar .info b{color:#7b2d8b}
+/* ── 상세페이지 변환기 탭 ── */
+.conv-wrap{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.conv-section{background:#fff;border:1px solid #e0dbd4;border-radius:10px;padding:14px}
+.conv-section h3{font-size:13px;color:#7b2d8b;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.conv-textarea{width:100%;min-height:400px;border:1px solid #ccc8c0;border-radius:6px;padding:10px;font-size:11px;font-family:'JetBrains Mono','Consolas',monospace;line-height:1.5;outline:none;resize:vertical}
+.conv-textarea:focus{border-color:#7b2d8b}
+.conv-preview{min-height:400px;border:1px solid #e0dbd4;border-radius:6px;padding:14px;background:#fafafa;overflow-y:auto;max-height:600px}
+.conv-preview img{max-width:100%;height:auto}
+.conv-actions{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.conv-stats{font-size:11px;color:#6b6760;background:#f0ede8;border-radius:5px;padding:6px 10px;margin-top:8px}
+.conv-stats b{color:#27ae60}
+.conv-stats .removed{color:#dc2626}
+@media(max-width:900px){.conv-wrap{grid-template-columns:1fr}}
+/* 토스트 */
+.toast{position:fixed;bottom:20px;right:20px;background:#1a1816;color:#fff;padding:12px 20px;border-radius:8px;font-size:12px;z-index:500;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+/* 로딩 스피너 */
+.spin{display:inline-block;animation:spin 1.2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* 마진 체크 탭 */
+.margin-table{width:100%;background:#fff;border:1px solid #e0dbd4;border-radius:10px;overflow:hidden;border-collapse:collapse}
+.margin-table th{background:#f5f4f0;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#a8a49e;padding:10px 12px;text-align:left;border-bottom:1px solid #e0dbd4;white-space:nowrap}
+.margin-table td{padding:10px 12px;font-size:12px;border-bottom:1px solid #f0ede8;vertical-align:middle}
+.margin-table tr:last-child td{border-bottom:none}
+.margin-table tr:hover td{background:#fafafa}
+.margin-table .num{text-align:right;font-family:'JetBrains Mono',monospace}
+.margin-bar{display:inline-block;padding:3px 9px;border-radius:11px;font-size:11px;font-weight:700;white-space:nowrap}
+.margin-bar.danger{background:#fee2e2;color:#dc2626}
+.margin-bar.high{background:#ffedd5;color:#b45309}
+.margin-bar.warn{background:#fef3c7;color:#a16207}
+.margin-bar.ok{background:#dcfce7;color:#16a34a}
+.margin-bar.gone{background:#f3f4f6;color:#6b7280}
+.summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.sum-card{background:#fff;border:1px solid #e0dbd4;border-radius:10px;padding:14px;text-align:center}
+.sum-card .lbl{font-size:10px;color:#a8a49e;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.sum-card .val{font-size:22px;font-weight:700}
+.sum-card.danger .val{color:#dc2626}
+.sum-card.high .val{color:#b45309}
+.sum-card.warn .val{color:#a16207}
+.sum-card.ok .val{color:#16a34a}
+.sum-card.total .val{color:#7b2d8b}
+.filter-pill{display:inline-flex;gap:8px;flex-wrap:wrap}
+.filter-pill button{padding:5px 12px;border-radius:14px;border:1px solid #ccc8c0;background:#fff;cursor:pointer;font-size:11px;font-family:inherit;color:#6b6760;font-weight:600}
+.filter-pill button.active{background:#7b2d8b;color:#fff;border-color:#7b2d8b}
+.history-row-actions{display:flex;gap:5px}
+</style>
+</head>
+<body>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.0</span></div>
+<!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
+<div id="tab-maker" class="tab active">
+  <div class="title-bar">
+    <div>
+      <h1>🎨 상세 메이커</h1>
+      <div class="sub">masterc 소스 → 마스터/새벽소리 디자인 상세페이지 (JPG·HTML 출력)</div>
+    </div>
+  </div>
+  <div id="dm">
+    <div class="dm-left">
+      <div class="dm-h3">① 페이지 소스 붙여넣기</div>
+      <textarea id="dm-src" placeholder="masterc 게시글 [복사] 또는 페이지 소스(Ctrl+U) 통째로 붙여넣기"></textarea>
+      <button class="dm-gen" onclick="DM.generate()">⚡ 상세페이지 생성</button>
+      <div class="dm-h3">② 브랜드명 <span style="font-weight:400;color:#aaa;font-size:11px">(헤더·푸터 공통)</span></div>
+      <input id="dm-brand" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="예: 주식회사 마스터" oninput="DM.render()">
+      <div class="dm-h3">③ 사진 선택 <span style="font-weight:400;color:#aaa;font-size:11px">(클릭 on/off · 드래그 순서 · 첫장 히어로)</span></div>
+      <button class="dm-mb" style="border-color:#0d6efd;color:#0d6efd;margin-bottom:6px" onclick="document.getElementById('dm-file').click()">＋ 내 사진 추가 (당일·최근 사진)</button>
+      <input type="file" id="dm-file" accept="image/*" multiple style="display:none" onchange="DM.addFiles(this.files); this.value='';">
+      <div id="dm-thumbs" class="dm-thumbs"></div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px" id="dm-photohint"></div>
+      <div class="dm-h3">④ 썸네일 추출 <span style="font-weight:400;color:#aaa;font-size:11px">(1000×1000 · 어디든 공용)</span></div>
+      <button class="dm-gen" style="background:#0d6efd" onclick="DM.thExtract()">🖼️ 썸네일 추출 (앞2 + 뒤2 자동)</button>
+      <input id="dm-th-prefix" placeholder="파일명 접두어 (예: 친친스토어 생합)" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit;margin-top:6px;font-size:12px">
+      <div id="dm-th-grid" class="th-grid" style="margin-top:8px"></div>
+      <div id="dm-th-picks" class="th-picks" style="margin-top:10px"></div>
+      <div id="dm-th-dlrow" style="display:none;margin-top:8px"><button class="dm-gen" style="background:#2C7A4B" onclick="DM.thDownloadAll()">⬇️ 선택 4장 모두 다운로드</button></div>
+
+    </div>
+    <div style="flex:1;min-width:0">
+      <div class="dm-bar">
+        <div class="dm-modes">
+          <button class="dm-mb on" data-m="master" onclick="DM.setMode('master')">🐟 마스터</button>
+          <button class="dm-mb" data-m="dawn" onclick="DM.setMode('dawn')">🌅 새벽소리</button>
+          <button class="dm-mb" data-m="gkj" onclick="DM.setMode('gkj')">🦀 강경준 수산물</button>
+          <button class="dm-mb" data-m="gogi" onclick="DM.setMode('gogi')">🥩 강경준 고기</button>
+          <button class="dm-mb" data-m="gsg" onclick="DM.setMode('gsg')">🐟🥩 강수에서 파는 고기</button>
+        </div>
+        <span class="dm-sp"></span>
+        <button class="dm-ab" style="background:#555" id="dm-edb" onclick="DM.toggleEdit()">✏️ 수정</button>
+        <button class="dm-ab" style="background:#2C7A4B" onclick="DM.copyHtml()">📋 HTML 복사</button>
+        <button class="dm-ab" style="background:#C0392B" onclick="DM.saveJpg()">🖼️ JPG 저장</button>
+      </div>
+      <div class="dm-right"><div class="dm-stage"><div id="dm-page" data-mode="master"><div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div></div></div></div>
+    </div>
+  </div>
+</div>
+<script>
+/* ===== 🎨 상세 메이커 (DM) — masterc 소스 → 마스터/새벽소리 상세페이지 ===== */
+const DM=(function(){
+  const FONT_BASE="https://chanwha0221-cmyk.github.io/baljuseo/fonts/";
+  // 🦀 강경준 모드 고정 상단 배너 (게구쟁이 브랜드 인트로 — 항상 맨 위에 깔림)
+  const GKJ_BANNERS=[
+    'https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260506/copy-1778050172-001.jpg',
+    'https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260506/copy-1778050172-002.jpg',
+    'https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260506/copy-1778050172-003.jpg',
+    'https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260506/copy-1778050172-004.jpg'
+  ];
+  // 🦀 강경준 모드 고정 아웃트로 배너 (맨 아래)
+  const GKJ_OUTRO='https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260506/copy-1778050172-014.jpg';
+  // 🥩 강경준 고기(고기24시) 모드 고정 상단 배너 6장 (항상 맨 위)
+  const GOGI_BANNERS=[
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/001.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/002.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/003.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/004.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/005.jpg'
+  ];
+  // 🥩 강경준 고기 모드 고정 아웃트로 배너 (맨 아래)
+  const GOGI_OUTRO='https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/014.jpg';
+  let MODE='master',DATA=null,PHOTOS=[],dragI=null,editing=false;
+  const $=id=>document.getElementById(id);
+  const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  function weserv(u){return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&output=jpg&q=92';}
+  function decodeEnt(s){return s.replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");}
+  function cleanTitle(t){return t.replace(/^★?\s*\[[^\]]*\]\s*-?\s*/,'').replace(/^\[[^\]]*\]\s*/,'').trim();}
+  function classify(items){
+    const spec=items.filter(l=>/^※/.test(l));
+    if(spec.length>=2)return{type:'spec',rows:spec.map(l=>{const m=l.replace(/^※\s*/,'').split(/\s*:\s*/);return[m[0].trim(),(m.slice(1).join(':')||'').trim()];})};
+    const qa=[];for(let k=0;k<items.length;k++){const q=items[k];if(/^Q[.\s]/.test(q)){let a='';if(items[k+1]&&/^A[.\s]/.test(items[k+1])){a=items[k+1].replace(/^A[.\s]*/,'').trim();k++;}qa.push([q.replace(/^Q[.\s]*/,'').trim(),a]);}}
+    if(qa.length)return{type:'qa',items:qa};
+    const steps=items.filter(l=>/^\d+\.\s*\S/.test(l));
+    if(steps.length>=2)return{type:'steps',intro:items.filter(l=>!/^\d+\.\s*\S/.test(l)),steps:steps.map(l=>l.replace(/^\d+\.\s*/,'').trim())};
+    return{type:'text',items};
+  }
+  function parse(src){
+    let m=src.match(/class="[^"]*xe_content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<!--AfterDocument/);
+    let content=m?m[1]:(src.match(/class="[^"]*xe_content[^"]*"[^>]*>([\s\S]*)/)||[,src])[1];
+    let images=[...content.matchAll(/<img[^>]+src="([^"]+)"/g)].map(x=>x[1].replace('/./','/')).filter(u=>/attach\/images/.test(u));
+    images=[...new Set(images)];
+    let txt=content.replace(/<img[^>]*>/g,'').replace(/<\/p>|<br\s*\/?>|<\/div>|<hr[^>]*>/gi,'\n').replace(/<[^>]+>/g,'');
+    txt=decodeEnt(txt);
+    let lines=txt.split('\n').map(l=>l.replace(/ /g,' ').replace(/\s+/g,' ').trim()).filter(l=>l&&l!=='/');
+    let title=cleanTitle(lines[0]||''),subtitle='',i=1;
+    if(lines[1]&&!/^[○※]|^Q[.\s]|^A[.\s]/.test(lines[1])){subtitle=lines[1];i=2;}
+    let sections=[],cur=null;
+    for(;i<lines.length;i++){let l=lines[i];
+      if(/^○/.test(l)){cur={header:l.replace(/^○\s*/,'').replace(/[.!?]+\s*$/,''),items:[]};sections.push(cur);continue;}
+      if(!cur){cur={header:'',items:[]};sections.push(cur);}
+      cur.items.push(l);
+    }
+    sections.forEach(s=>s.block=classify(s.items));
+    return{title,subtitle,sections,images};
+  }
+  function label(h){
+    if(/알고|Q&A|문의|궁금|FAQ/.test(h))return 'Q & A';
+    if(/스펙|구성|정보/.test(h))return 'PRODUCT SPEC';
+    if(/레시피|요리|조리|먹/.test(h))return 'RECIPE';
+    if(/매리트|메리트|장점|특징|왜/.test(h))return 'WHY';
+    if(/원산지/.test(h))return 'ORIGIN';
+    if(/포장|배송/.test(h))return 'PACKAGING';
+    return 'MASTER';
+  }
+  function selImgs(){return PHOTOS.filter(p=>p.on).map(p=>p.url);}
+  function grid(g,cls){if(!g.length)return'';const c=cls||(g.length===1?'g1':'');return`<div class="grid ${c}">${g.map(u=>`<div class="gimg" style="background-image:url('${esc(u)}')"></div>`).join('')}</div>`;}
+  // ===== 강경준 전용 콘텐츠 빌드 (게구쟁이 플로우) =====
+  function gkPhotos(g){if(!g.length)return'';return '<div class="gk-photos">'+g.map(u=>'<div class="gk-photo" style="background-image:url(\''+esc(u)+'\')"></div>').join('')+'</div>';}
+  function buildGkj(brand,bnrs){
+    const ph=selImgs();let pi=0;let h='';
+    h+=(bnrs||GKJ_BANNERS).map(u=>'<div class="gk-banner"><img src="'+esc(u)+'" referrerpolicy="no-referrer"></div>').join('');
+    h+='<div class="gk-head"><h1>'+esc(DATA.title)+'</h1>'+(DATA.subtitle?'<p class="gk-hsub">'+esc(DATA.subtitle)+'</p>':'')+'</div>';
+    if(ph.length){h+=gkPhotos([ph[0]]);pi=1;}
+    DATA.sections.forEach(s=>{
+      const b=s.block;
+      if(b.type==='spec'){
+        h+='<div class="gk-blue"><div class="gk-bt">'+esc(s.header)+'</div><div class="gk-spec">'+
+          s.items.map(it=>{const t=it.trim();const cls=/^※/.test(t)?'gk-sv':'gk-so';return '<div class="'+cls+'">'+esc(t)+'</div>';}).join('')+'</div></div>';
+      }else if(b.type==='steps'){
+        h+='<div class="gk-bar">'+esc(brand)+'가 알려드립니다.</div><div class="gk-bar2">'+esc(s.header)+'</div>';
+        h+='<div class="gk-gray">';
+        if(b.intro.length)h+='<p class="gk-body">'+b.intro.map(esc).join('<br>')+'</p>';
+        h+='<div class="gk-steps">'+b.steps.map((t,n)=>'<div class="gk-step"><b>'+(n+1)+'.</b> '+esc(t)+'</div>').join('')+'</div></div>';
+      }else if(b.type==='qa'){
+        h+='<div class="gk-sec"><div class="gk-bt2">'+esc(s.header)+'</div>'+b.items.map(([q,a])=>'<div class="gk-qa"><div class="gk-q">Q. '+esc(q)+'</div><div class="gk-a">'+esc(a)+'</div></div>').join('')+'</div>';
+      }else{
+        h+='<div class="gk-sec"><div class="gk-bt2">'+esc(s.header)+'</div><p class="gk-body">'+b.items.map(esc).join('<br>')+'</p></div>';
+      }
+      if(pi<ph.length){h+=gkPhotos(ph.slice(pi,pi+2));pi+=2;}
+    });
+    if(pi<ph.length)h+=gkPhotos(ph.slice(pi));
+    h+='<div class="gk-banner"><img src="'+esc(GKJ_OUTRO)+'" referrerpolicy="no-referrer"></div>';
+    return h;
+  }
+  // ===== 강경준 고기(고기24시) 전용 콘텐츠 빌드 =====
+  function goPhotos(g,badge){if(!g.length)return'';return '<div class="go-photos">'+g.map((u,i)=>'<div class="go-photo" style="background-image:url(\''+esc(u)+'\')">'+((badge&&i===0)?'<span class="go-pbadge">실제 사진</span>':'')+'</div>').join('')+'</div>';}
+  function buildGogi(brand){
+    const ph=selImgs();let pi=0;let h='';
+    h+=GOGI_BANNERS.map(u=>'<div class="gk-banner"><img src="'+esc(u)+'" referrerpolicy="no-referrer"></div>').join('');
+    h+='<div class="go-head"><h1>'+esc(DATA.title)+'</h1>'+(DATA.subtitle?'<p class="go-hsub">'+esc(DATA.subtitle)+'</p>':'')+'</div>';
+    if(ph.length){h+=goPhotos([ph[0]],true);pi=1;}
+    DATA.sections.forEach(s=>{
+      const b=s.block;
+      if(b.type==='spec'){
+        h+='<div class="go-bar">'+esc(s.header)+'</div><div class="go-peach"><div class="go-spec">'+
+          s.items.map(it=>'<div class="go-sline">'+esc(it.trim())+'</div>').join('')+'</div></div>';
+      }else if(b.type==='steps'){
+        h+='<div class="go-peach"><div class="go-rtitle">'+esc(s.header)+'</div>';
+        if(b.intro.length)h+='<p class="go-body">'+b.intro.map(esc).join('<br>')+'</p>';
+        h+='<div class="go-steps">'+b.steps.map((t,n)=>'<div class="go-step"><b>'+(n+1)+'.</b> '+esc(t)+'</div>').join('')+'</div></div>';
+      }else if(b.type==='qa'){
+        h+='<div class="go-peach"><div class="go-gtitle">'+esc(s.header)+'</div>'+b.items.map(([q,a])=>'<div class="go-qa"><div class="go-q">Q. '+esc(q)+'</div><div class="go-a">'+esc(a)+'</div></div>').join('')+'</div>';
+      }else{
+        h+='<div class="go-peach"><div class="go-gtitle">'+esc(s.header)+'</div><p class="go-body">'+b.items.map(esc).join('<br>')+'</p></div>';
+      }
+      if(pi<ph.length){h+=goPhotos(ph.slice(pi,pi+2),false);pi+=2;}
+    });
+    if(pi<ph.length)h+=goPhotos(ph.slice(pi),false);
+    h+='<div class="gk-banner"><img src="'+esc(GOGI_OUTRO)+'" referrerpolicy="no-referrer"></div>';
+    return h;
+  }
+  function buildHtml(){
+    if(!DATA)return'<div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
+    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':MODE==='gsg'?'강경준 수산물':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);if(MODE==='gsg')return buildGkj(brand,GOGI_BANNERS);let h='';
+    h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}"><div class="brand">${esc(brand)}</div><h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
+    let badges=[];const sp=DATA.sections.find(s=>s.block.type==='spec');
+    if(sp)sp.block.rows.forEach(([k,v])=>{if(/원산지|생물|중량|사이즈|구성/.test(k)&&v)badges.push(v.split('/')[0].trim());});
+    badges=[...new Set(badges)].slice(0,4);
+    if(badges.length)h+=`<div class="badges">${badges.map(b=>`<span class="badge">${esc(b)}</span>`).join('')}</div>`;
+    DATA.sections.forEach((s,si)=>{const b=s.block,alt=si%2===1?'alt':'';h+=`<div class="sec ${alt}">`;
+      if(s.header)h+=`<span class="tag">${esc(label(s.header))}</span><h2>${esc(s.header)}</h2><div class="ln"></div>`;
+      if(b.type==='spec')h+=`<p>${s.items.map(esc).join('<br>')}</p>`;   /* 원본 ※ 줄 그대로 (가공·누락 없이 전부) */
+      else if(b.type==='steps'){if(b.intro.length)h+=`<p>${b.intro.map(esc).join('<br>')}</p>`;h+=`<div class="steps">${b.steps.map((t,n)=>`<div class="step"><span class="no">${n+1}</span><span class="tx">${esc(t)}</span></div>`).join('')}</div>`;}
+      else if(b.type==='qa')h+=b.items.map(([q,a])=>`<div class="qa"><div class="q">Q. ${esc(q)}</div><div class="a">${esc(a)}</div></div>`).join('');
+      else h+=`<p>${b.items.map(esc).join('<br>')}</p>`;
+      if(pi<ph.length){h+=grid(ph.slice(pi,pi+2));pi+=2;}h+=`</div>`;});
+    if(pi<ph.length)h+=`<div class="sec ${DATA.sections.length%2===1?'alt':''}">${grid(ph.slice(pi),'')}</div>`;
+    h+=`<div class="foot">${esc(brand)}</div>`;
+    return h;
+  }
+  function render(){const p=$('dm-page');if(!p)return;p.dataset.mode=MODE;p.innerHTML=buildHtml();}
+  function drawThumbs(){const firstOn=PHOTOS.findIndex(p=>p.on),onC=PHOTOS.filter(p=>p.on).length;
+    $('dm-thumbs').innerHTML=PHOTOS.map((p,i)=>{const up=p.url.startsWith('data:');const thumb=up?p.url:weserv(p.url)+'&w=160&h=120&fit=cover';return `<div class="dm-th ${p.on?'':'off'} ${i===firstOn?'hero':''}" draggable="true" onclick="DM.toggle(${i})" ondragstart="DM.drag(${i})" ondragover="event.preventDefault()" ondrop="DM.drop(${i})"><img src="${thumb}" referrerpolicy="no-referrer"><span class="n">${i+1}</span>${up?'<span style="position:absolute;top:1px;right:2px;background:rgba(13,110,253,.9);color:#fff;font-size:8px;font-weight:700;padding:0 3px;border-radius:5px">내</span>':''}${i===firstOn?'<span class="tg">히어로</span>':''}</div>`;}).join('');
+    $('dm-photohint').textContent=`선택 ${onC}장 / 전체 ${PHOTOS.length}장`;
+  }
+  function generate(){
+    const src=$('dm-src').value.trim();
+    if(!src){alert('페이지 소스를 붙여넣으세요.');return;}
+    DATA=parse(src);
+    if(!DATA.images.length&&!DATA.title){alert('인식 실패 — masterc 상품 페이지 소스가 맞는지 확인하세요.');return;}
+    // 최대 30장(중복은 parse에서 이미 URL 제거). 100장 넘으면 고르게 추리되 끝 3장(중량·포장)은 무조건 포함
+    let imgs=DATA.images.slice();
+    const MAX=30;
+    if(imgs.length>MAX){
+      const tailN=3, tail=imgs.slice(-tailN), head=imgs.slice(0,imgs.length-tailN), pickN=MAX-tailN, picked=[];
+      for(let i=0;i<pickN;i++) picked.push(head[Math.round(i*(head.length-1)/(pickN-1))]);
+      imgs=[...new Set([...picked,...tail])];
+    }
+    const n=imgs.length;
+    PHOTOS=imgs.map((u,i)=>({url:u, on:(i<10 || i>=n-2)}));   // 기본: 앞10 + 끝2(중량·포장)
+    drawThumbs(); render();
+  }
+  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':m==='gsg'?'예: 강경준 수산물':'예: 새벽소리');render();}
+  function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
+  function drag(i){dragI=i;}
+  function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
+  const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a)';
+  function toggleEdit(){editing=!editing;document.querySelectorAll(EDSEL).forEach(e=>e.contentEditable=editing);$('dm').classList.toggle('editing',editing);$('dm-edb').textContent=editing?'✅ 완료':'✏️ 수정';}
+  async function saveJpg(){
+    if(!DATA){alert('먼저 생성하세요.');return;}
+    if(editing)toggleEdit();
+    const clone=$('dm-page').cloneNode(true);
+    clone.style.cssText='position:fixed;left:-9999px;top:0;width:860px';
+    document.body.appendChild(clone);
+    // 모든 배경이미지(.hero + .gimg) — masterc URL만 weserv 경유(CORS), 내 사진(data:)은 그대로
+    clone.querySelectorAll('.hero, .gimg, .gk-photo, .go-photo').forEach(el=>{
+      const bg=el.style.backgroundImage; if(!bg||bg==='none')return;
+      const m=bg.match(/url\(["']?(.*?)["']?\)/); const u=m?m[1]:'';
+      if(u && !u.startsWith('data:')) el.style.backgroundImage=`url('${weserv(u)}')`;
+    });
+    // <img>(강경준 고정 배너 등) — 외부 URL은 weserv 경유
+    clone.querySelectorAll('img').forEach(im=>{const o=im.getAttribute('src')||'';if(o.startsWith('data:'))return;im.crossOrigin='anonymous';im.src=weserv(o);});
+    await new Promise(r=>setTimeout(r,800));
+    if(document.fonts&&document.fonts.ready)await document.fonts.ready;
+    try{
+      const c=await html2canvas(clone,{scale:2,backgroundColor:'#ffffff',width:860,windowWidth:860,useCORS:true});
+      c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=(DATA.title||'상세').replace(/[\\/:*?"<>|]/g,'')+'_상세.jpg';a.click();},'image/jpeg',0.92);
+    }catch(e){alert('JPG 생성 실패: '+e.message);}
+    document.body.removeChild(clone);
+  }
+  function copyHtml(){
+    if(!DATA){alert('먼저 생성하세요.');return;}
+    if(editing)toggleEdit();
+    const vars=MODE==='master'?'--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C':'--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00';
+    const dmStyle=document.getElementById('dm-style').textContent;
+    const theme=dmStyle.split('/* 상세 테마')[1]||'';
+    const css=theme.replace(/#dm-page/g,'#page');
+    const full=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFLight.ttf');font-weight:300}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFMedium.ttf');font-weight:500}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFBold.ttf');font-weight:700}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Gmarket','Malgun Gothic',sans-serif}#page{max-width:860px;margin:0 auto;${vars}}
+/* 상세 테마${css}</style></head><body><div id="page" data-mode="${MODE}">${$('dm-page').innerHTML}</div></body></html>`;
+    navigator.clipboard.writeText(full).then(()=>{if(typeof toast==='function')toast('HTML 복사됨 — 식봄/몰에 붙여넣기');},()=>alert('복사 실패'));
+  }
+  // ===== 썸네일 추출 (450x450, weserv 크롭 — 식봄 썸네일용) =====
+  let thAll=[], thSel=[];
+  function thW(u,size){ return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w='+(size||1000)+'&h='+(size||1000)+'&fit=cover&a=center&output=jpg&q=90'; }
+  function thExtract(){
+    if(!DATA||!DATA.images.length){ alert('먼저 ⚡ 상세페이지 생성을 눌러주세요 (이미지가 없습니다).'); return; }
+    let imgs=DATA.images.slice();
+    if(imgs.length>10){ const pick=new Set(); for(let i=0;i<10;i++) pick.add(Math.round(i*(imgs.length-1)/9)); imgs=[...pick].map(i=>DATA.images[i]); }
+    thAll=imgs;
+    const n=thAll.length;
+    thSel = n>=4 ? [0,1,n-2,n-1] : thAll.map((_,i)=>i);
+    const pf=$('dm-th-prefix'); if(pf&&!pf.value.trim()) pf.value=(DATA.title||'').replace(/\n/g,' ').slice(0,40);
+    thGrid(); thPicks();
+  }
+  function thGrid(){
+    $('dm-th-grid').innerHTML=thAll.map((url,i)=>{ const pos=thSel.indexOf(i); return '<div class="th-thumb '+(pos>=0?'th-sel':'')+'" onclick="DM.thToggle('+i+')" title="'+esc(url)+'"><span class="th-idx">'+(i+1)+'</span><span class="th-pick">'+(pos>=0?pos+1:'')+'</span><img src="'+thW(url,150)+'" loading="lazy"></div>'; }).join('');
+  }
+  function thToggle(i){ const p=thSel.indexOf(i); if(p>=0)thSel.splice(p,1); else { if(thSel.length>=4){ alert('썸네일은 4장까지만 — 하나 빼고 다시 선택하세요'); return; } thSel.push(i); } thGrid(); thPicks(); }
+  function thPicks(){
+    $('dm-th-dlrow').style.display=thSel.length?'block':'none';
+    $('dm-th-picks').innerHTML=thSel.map((idx,k)=>'<div class="th-card"><img class="th-pv" src="'+thW(thAll[idx])+'"><div class="th-role">'+(k+1)+'. 원본 #'+(idx+1)+'</div><button class="dm-mb" style="border-color:#bbb;color:#333;margin-top:4px" onclick="DM.thDownloadOne('+k+')">⬇️ 받기</button></div>').join('');
+  }
+  function thFileName(k){ let pf=(($('dm-th-prefix')||{}).value||'thumb').trim().replace(/[\\/:*?"<>|]/g,'').slice(0,40)||'thumb'; return pf+'_'+(k+1)+'.jpg'; }
+  async function thDownloadOne(k){
+    const url=thW(thAll[thSel[k]]);
+    try{ const r=await fetch(url); if(!r.ok)throw 0; const b=await r.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=thFileName(k); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+    catch(e){ window.open(url,'_blank'); }
+  }
+  async function thDownloadAll(){ if(!thSel.length){ alert('선택된 썸네일이 없어요'); return; } for(let k=0;k<thSel.length;k++){ await thDownloadOne(k); await new Promise(r=>setTimeout(r,600)); } }
+
+  // ===== 내 사진 추가 (당일·최근 사진 업로드 → base64로 사진 선택에 합류) =====
+  function addFiles(files){
+    if(!files||!files.length)return;
+    [...files].filter(f=>f.type.startsWith('image/')).forEach(f=>{
+      const r=new FileReader();
+      r.onload=()=>{ PHOTOS.push({url:r.result, on:true}); drawThumbs(); render(); };
+      r.readAsDataURL(f);
+    });
+  }
+  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll};
+})();
+</script>
+<script>
+function toast(m,ms){ms=ms||2200;var t=document.getElementById('_tt');if(!t){t=document.createElement('div');t.id='_tt';t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:99999;opacity:0;transition:opacity .2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity='1';clearTimeout(t._h);t._h=setTimeout(function(){t.style.opacity='0';},ms);}
+window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}catch(e){console.warn(e);}});
+</script>
+</body></html>
