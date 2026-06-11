@@ -38,6 +38,21 @@
 /* 상세 테마 (모두 #dm-page 스코프) */
 #dm-page{--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00}
 #dm-page[data-mode="master"]{--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C}
+/* 마스터 — 텍스트 전체 110% */
+#dm-page[data-mode="master"] .hero .brand{font-size:18px}
+#dm-page[data-mode="master"] .hero h1{font-size:57px}
+#dm-page[data-mode="master"] .hero .sub{font-size:23px}
+#dm-page[data-mode="master"] .badge{font-size:18px}
+#dm-page[data-mode="master"] .tag{font-size:17px}
+#dm-page[data-mode="master"] .sec h2{font-size:35px}
+#dm-page[data-mode="master"] .sec p{font-size:21px}
+#dm-page[data-mode="master"] .spec td{font-size:21px}
+#dm-page[data-mode="master"] .step .tx{font-size:20px}
+#dm-page[data-mode="master"] .step .no{width:37px;height:37px;line-height:37px}
+#dm-page[data-mode="master"] .mat{font-size:21px}
+#dm-page[data-mode="master"] .qa .q{font-size:23px}
+#dm-page[data-mode="master"] .qa .a{font-size:20px}
+#dm-page[data-mode="master"] .foot{font-size:23px}
 /* 🦀 강경준(게구쟁이) 스킨 — 그린 헤더 + 블루 라인·다이아 + 코랄 강조 + 하늘 패널 + 틸 */
 #dm-page[data-mode="gkj"]{--red:#2E9E57;--gold:#1E9BE0;--goldL:#cdeafa;--cream:#e9f5fb;--dark:#16544c}
 #dm-page[data-mode="gkj"] .hero::after{background:linear-gradient(160deg,rgba(20,70,64,.62),rgba(20,84,76,.40))}
@@ -244,7 +259,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <button class="nav-btn active" id="nav-bulk" onclick="switchTab('bulk',this)">📦 상품 대량등록</button>
   <button class="nav-btn" id="nav-maker" onclick="switchTab('maker',this)">🎨 상세 메이커</button>
   <button class="nav-btn" id="nav-margin" onclick="switchTab('margin',this)">📊 마진 체크 <span id="margin-alert-badge" style="display:none;background:#dc2626;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px"></span></button>
-  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v3.4 · 강수에서 파는 고기 모드</span>
+  <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v3.6 · 마스터 단독 + 폰트 110%</span>
 </div>
 
 <!-- ═══════════════ 탭 1: 상품 대량등록 ═══════════════ -->
@@ -319,10 +334,6 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <div class="dm-bar">
         <div class="dm-modes">
           <button class="dm-mb on" data-m="master" onclick="DM.setMode('master')">🐟 마스터</button>
-          <button class="dm-mb" data-m="dawn" onclick="DM.setMode('dawn')">🌅 새벽소리</button>
-          <button class="dm-mb" data-m="gkj" onclick="DM.setMode('gkj')">🦀 강경준 수산물</button>
-          <button class="dm-mb" data-m="gogi" onclick="DM.setMode('gogi')">🥩 강경준 고기</button>
-          <button class="dm-mb" data-m="gsg" onclick="DM.setMode('gsg')">🐟🥩 강수에서 파는 고기</button>
         </div>
         <span class="dm-sp"></span>
         <button class="dm-ab" style="background:#555" id="dm-edb" onclick="DM.toggleEdit()">✏️ 수정</button>
@@ -377,10 +388,6 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
         <label style="font-size:9px;color:#a8a49e;display:block">세금</label>
         <select id="ma-tax" style="width:100%;padding:6px;border:1px solid #d4cfc7;border-radius:4px;font-size:12px"><option value="면세">면세</option><option value="과세">과세</option></select>
       </div>
-      <div style="flex:0 0 120px">
-        <label style="font-size:9px;color:#a8a49e;display:block">채널 (옵션)</label>
-        <input type="text" id="ma-channel" placeholder="식봄" style="width:100%;padding:6px;border:1px solid #d4cfc7;border-radius:4px;font-size:12px">
-      </div>
       <div style="flex:0 0 140px">
         <label style="font-size:9px;color:#a8a49e;display:block">등록일</label>
         <input type="date" id="ma-date" style="width:100%;padding:6px;border:1px solid #d4cfc7;border-radius:4px;font-size:12px">
@@ -395,7 +402,6 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <thead>
         <tr>
           <th>등록일</th>
-          <th style="width:120px">채널명<br><span style="font-size:10px;font-weight:400;color:#a8a49e">수수료율 계산용</span></th>
           <th>상품명</th>
           <th class="num">등록시 원가</th>
           <th class="num">판매가</th>
@@ -661,12 +667,15 @@ function addToHistory(items){
   updateMarginBadge();
 }
 
-function updateChannelName(id, value){
+function updateSellPrice(id, value){
   const h = registeredHistory.find(x=>x.id===id);
   if(!h) return;
-  h.channel = (value||'').trim();
+  const v = parseInt(String(value||'').replace(/[^0-9]/g,''),10)||0;
+  if(!v){ renderMarginTable(); return; }   // 빈값이면 원복
+  h.sellPrice = v;
   saveHistory();
-  // 입력값만 바뀐 거라 테이블 전체 재렌더는 안 함 (포커스 유지)
+  renderMarginTable();        // 마진·권장가 재계산
+  if(typeof updateMarginBadge==='function') updateMarginBadge();
 }
 
 function deleteHistoryRow(id){
@@ -703,7 +712,7 @@ function addManualHistory(){
   if(!sellPrice){ alert('판매가 입력해줘'); return; }
   let cost = parseInt(document.getElementById('ma-cost').value)||0;
   let taxType = document.getElementById('ma-tax').value || '면세';
-  const channel = (document.getElementById('ma-channel').value||'').trim();
+  const channel = (document.getElementById('ma-channel')?.value||'').trim();
   const date = document.getElementById('ma-date').value || new Date().toISOString().split('T')[0];
 
   // 원가 비어있으면 마스터에서 자동 매칭
@@ -903,7 +912,7 @@ function renderMarginTable(){
   document.getElementById('margin-table').style.display = 'table';
 
   if(list.length === 0){
-    document.getElementById('margin-tbody').innerHTML = `<tr><td colspan="11" style="text-align:center;color:#a8a49e;padding:30px">필터에 해당하는 상품 없음</td></tr>`;
+    document.getElementById('margin-tbody').innerHTML = `<tr><td colspan="10" style="text-align:center;color:#a8a49e;padding:30px">필터에 해당하는 상품 없음</td></tr>`;
     return;
   }
 
@@ -919,10 +928,9 @@ function renderMarginTable(){
     const recoGap = (reco!=null) ? reco - h.sellPrice : null;
     return `<tr>
       <td>${escapeHtml(h.registeredAt)}</td>
-      <td><input type="text" value="${escapeHtml(h.channel||'')}" placeholder="채널" onchange="updateChannelName('${h.id}', this.value)" style="width:100%;padding:5px 7px;border:1px solid #e0dbd4;border-radius:5px;font-size:11px;font-family:inherit"></td>
       <td><b>${escapeHtml(h.name)}</b></td>
       <td class="num">${fmt(h.registeredCost)}</td>
-      <td class="num"><b>${fmt(h.sellPrice)}</b></td>
+      <td class="num"><input type="text" value="${fmt(h.sellPrice)}" onchange="updateSellPrice('${h.id}', this.value)" inputmode="numeric" title="판매가 변경 시 수정 — 마진 재계산" style="width:92px;text-align:right;padding:5px 7px;border:1px solid #cdb4db;border-radius:5px;font-size:12px;font-weight:700;font-family:inherit;background:#faf7fd"></td>
       <td class="num">${h.currentCost==null ? '<span style="color:#a8a49e">-</span>' : fmt(h.currentCost)}</td>
       <td class="num" style="color:${diffColor}">
         ${costDiff==null ? '-' : (costDiff>0?'+':'') + fmt(costDiff) + (costDiffPct!=null ? ` (${costDiffPct>0?'+':''}${costDiffPct.toFixed(1)}%)` : '')}
