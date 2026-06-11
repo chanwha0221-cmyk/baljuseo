@@ -137,9 +137,10 @@
             <button class="btn brand" onclick="openInThunderbird()">📧 썬더버드로 보내기 (주소·제목·본문)</button>
             <button class="btn ghost" onclick="copyPreview()">📋 전체 복사</button>
             <button class="btn ghost" onclick="loadSavedTemplate()">📄 표준 템플릿 불러오기</button>
-            <button class="btn ghost" onclick="saveTemplate()">템플릿 저장</button>
+            <button class="btn ghost" onclick="saveNamedTemplate()">💾 템플릿 저장</button>
             <button class="btn ghost" onclick="resetTemplate()">기본값 복원</button>
           </div>
+          <div id="tpl-list" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px"></div>
           </div>
         <!-- 네이버쪽지 -->
         <div id="form-note" class="fld" style="display:none">
@@ -464,6 +465,7 @@ async function loadAll(){
     $('tpl-note').value = SET.template_note || DEFAULT_NOTE;
     $('tpl-perm').value = SET.template_perm || DEFAULT_PERM;
     $('tpl-kakao').value = SET.template_kakao || DEFAULT_KAKAO;
+    renderTplButtons();
     // 명함
     if(SET.card_fileId){ try{ const u=await driveBlobURL(SET.card_fileId); showImg('card',u,false);}catch(e){console.warn('명함 로드 실패',e);} }
     // 데이터
@@ -696,6 +698,33 @@ function resetTemplate(){ if(confirm('기본 제목·템플릿으로 되돌릴�
 function loadSavedTemplate(){ if(SET.template){ $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT; $('tpl').value = SET.template; toast('저장된 표준 템플릿을 불러왔어요'); } else { toast('저장된 표준 템플릿이 없어요 — 먼저 [템플릿 저장]'); } }
 // 쪽지/카톡 템플릿 저장·복원 (which: 'note' | 'kakao')
 async function saveTpl(which){ setStatus('저장 중…'); await setSetting('template_'+which, $('tpl-'+which).value); setStatus('저장됨'); toast((which==='note'?'쪽지':'카톡')+' 템플릿 저장됨'); }
+// ─── 커스텀(이름붙인) 메일 본문 템플릿 — 14일+ 등 ───
+function tplList(){ try{ return JSON.parse(SET.tpl_list||'[]'); }catch{ return []; } }
+function escTpl(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function renderTplButtons(){
+  const box=$('tpl-list'); if(!box) return;
+  const list=tplList();
+  if(!list.length){ box.innerHTML='<span class="muted" style="font-size:12px">저장된 템플릿 없음 — 제목·본문 넣고 [💾 템플릿 저장] 누르면 이름 입력 후 버튼이 생겨요</span>'; return; }
+  box.innerHTML='<span class="muted" style="font-size:12px">내 템플릿:</span>'+list.map((t,i)=>
+    '<span style="display:inline-flex;align-items:center;border:1px solid #d7d2c8;border-radius:8px;overflow:hidden">'+
+    '<button class="btn ghost" type="button" style="border:none;border-radius:0" onclick="loadNamedTpl('+i+')">📄 '+escTpl(t.name)+'</button>'+
+    '<button class="btn ghost" type="button" title="삭제" style="border:none;border-radius:0;color:#c0392b;padding:6px 9px" onclick="deleteNamedTpl('+i+',event)">✕</button>'+
+    '</span>').join('');
+}
+function loadNamedTpl(i){ const t=tplList()[i]; if(!t)return; if(t.subject!=null)$('tpl-subject').value=t.subject; $('tpl').value=t.body||''; toast('「'+t.name+'」 템플릿 불러옴'); }
+async function saveNamedTemplate(){
+  const name=prompt('템플릿 이름을 알려주세요  (예: 14일+ 비발주)'); if(name===null) return;
+  const nm=name.trim(); if(!nm){ toast('이름을 입력해야 저장돼요'); return; }
+  const list=tplList(); const item={name:nm, subject:$('tpl-subject').value, body:$('tpl').value};
+  const i=list.findIndex(t=>t.name===nm);
+  if(i>=0){ if(!confirm('「'+nm+'」 템플릿이 이미 있어요. 덮어쓸까요?')) return; list[i]=item; } else list.push(item);
+  setStatus('저장 중…'); await setSetting('tpl_list', JSON.stringify(list)); renderTplButtons(); setStatus('저장됨'); toast('「'+nm+'」 템플릿 저장됨');
+}
+async function deleteNamedTpl(i,e){
+  if(e)e.stopPropagation(); const list=tplList(); const t=list[i]; if(!t)return;
+  if(!confirm('「'+t.name+'」 템플릿을 삭제할까요?')) return;
+  list.splice(i,1); setStatus('저장 중…'); await setSetting('tpl_list', JSON.stringify(list)); renderTplButtons(); setStatus('삭제됨'); toast('「'+t.name+'」 삭제됨');
+}
 function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:which==='kakao'?DEFAULT_KAKAO:DEFAULT_PERM; $('tpl-'+which).value=def; toast('기본값 — 저장하려면 [저장]'); }
 function copyText(id){ navigator.clipboard.writeText($(id).value).then(()=>toast('복사됨')); }
 
