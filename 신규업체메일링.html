@@ -860,7 +860,9 @@ async function openInThunderbird(){
   // 회신이 두 사람에게 모두 가도록 Reply-To에 두 주소 (2026-06-09 사장님 지시)
   const replyto=encodeURIComponent('chanwha0221@gmail.com,realionq@gmail.com');
   window.location.href='mailto:'+to+'?reply-to='+replyto+'&subject='+subj;
-  toast('썬더버드 열림 (받는사람·제목 채워짐) — 본문 클릭하고 Ctrl+V! (본문+시트 이미 복사됨)');
+  toast('썬더버드 열림 — 본문 클릭하고 Ctrl+V! (본문+시트 복사됨)');
+  // 📥 발송과 동시에 '보낸 업체 기록'에 자동 추가 (메모는 수동) — 2026-06-11 사장님 요청
+  addRow();
 }
 async function saveCard(){
   if(!imgBlobs.card){ toast('먼저 이미지를 올려주세요'); return; }

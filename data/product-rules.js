@@ -69,5 +69,17 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('새꼬막'))return{name:pn,qty,maxB:qty>=2?1:999};
   if(norm(pn).includes('박달홍게'))return{name:pn,qty,maxB:1};
   if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};
+  if(norm(pn).includes('옥돔')){const _m=pn.match(/(\d+)\s*(?:미|마리)/);return{name:'제주 반건조 옥돔 '+(_m?_m[1]:'5')+'마리',qty,maxB:999};}
+  if(norm(pn).includes('보리굴비'))return{name:pn.replace(/(\d+)\s*미/,'$1마리'),qty,maxB:999};
+  // 찐한국 시리즈 (자체제작, 상품명 미정의 → 오타 그대로 들어옴. 키워드 정규화)
+  {const _z=norm(pn).toLowerCase();
+    if(_z.includes('고무장갑')){
+      if(/퍼플|purple|보라/.test(_z))return{name:'찐한국 고무장갑 퍼플',qty,maxB:999};
+      if(/그레이|그래이|그레의|gray|grey|회색/.test(_z))return{name:'찐한국 고무장갑 그레이',qty,maxB:999};
+    }
+    if(_z.includes('주방')&&_z.includes('세'))return{name:'찐한국 주방세제 500ml',qty,maxB:999};
+    if(_z.includes('핸드')||_z.includes('손결')||_z.includes('handwash')||_z.includes('핸워'))return{name:'찐한국 손결 핸드워시 300ml',qty,maxB:999};
+    if(_z.includes('치약'))return{name:'찐한국 그냥치약 100g',qty,maxB:999};
+  }
   return{name:pn,qty,maxB:999};
 }
