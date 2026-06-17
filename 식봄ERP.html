@@ -1736,7 +1736,7 @@ const DM=(function(){
   function classify(items){
     const spec=items.filter(l=>/^※/.test(l));
     if(spec.length>=2)return{type:'spec',rows:spec.map(l=>{const m=l.replace(/^※\s*/,'').split(/\s*:\s*/);return[m[0].trim(),(m.slice(1).join(':')||'').trim()];})};
-    const qa=[];for(let k=0;k<items.length;k++){const q=items[k];if(/^Q[.\s]/.test(q)){let a='';if(items[k+1]&&/^A[.\s]/.test(items[k+1])){a=items[k+1].replace(/^A[.\s]*/,'').trim();k++;}qa.push([q.replace(/^Q[.\s]*/,'').trim(),a]);}}
+    const qa=[];for(let k=0;k<items.length;k++){if(/^Q[.\s]/.test(items[k])){const q=items[k].replace(/^Q[.\s]*/,'').trim();const aLines=[];let j=k+1;for(;j<items.length&&!/^Q[.\s]/.test(items[j]);j++){aLines.push(items[j].replace(/^A[.\s]*/,'').trim());}qa.push([q,aLines.filter(Boolean).join('\n')]);k=j-1;}}
     if(qa.length)return{type:'qa',items:qa};
     const steps=items.filter(l=>/^\d+\.\s*\S/.test(l));
     if(steps.length>=2)return{type:'steps',intro:items.filter(l=>!/^\d+\.\s*\S/.test(l)),steps:steps.map(l=>l.replace(/^\d+\.\s*/,'').trim())};
@@ -1790,7 +1790,7 @@ const DM=(function(){
         if(b.intro.length)h+='<p class="gk-body">'+b.intro.map(esc).join('<br>')+'</p>';
         h+='<div class="gk-steps">'+b.steps.map((t,n)=>'<div class="gk-step"><b>'+(n+1)+'.</b> '+esc(t)+'</div>').join('')+'</div></div>';
       }else if(b.type==='qa'){
-        h+='<div class="gk-sec"><div class="gk-bt2">'+esc(s.header)+'</div>'+b.items.map(([q,a])=>'<div class="gk-qa"><div class="gk-q">Q. '+esc(q)+'</div><div class="gk-a">'+esc(a)+'</div></div>').join('')+'</div>';
+        h+='<div class="gk-sec"><div class="gk-bt2">'+esc(s.header)+'</div>'+b.items.map(([q,a])=>'<div class="gk-qa"><div class="gk-q">Q. '+esc(q)+'</div><div class="gk-a">'+esc(a).replace(/\n/g,'<br>')+'</div></div>').join('')+'</div>';
       }else{
         h+='<div class="gk-sec"><div class="gk-bt2">'+esc(s.header)+'</div><p class="gk-body">'+b.items.map(esc).join('<br>')+'</p></div>';
       }
@@ -1817,7 +1817,7 @@ const DM=(function(){
         if(b.intro.length)h+='<p class="go-body">'+b.intro.map(esc).join('<br>')+'</p>';
         h+='<div class="go-steps">'+b.steps.map((t,n)=>'<div class="go-step"><b>'+(n+1)+'.</b> '+esc(t)+'</div>').join('')+'</div></div>';
       }else if(b.type==='qa'){
-        h+='<div class="go-peach"><div class="go-gtitle">'+esc(s.header)+'</div>'+b.items.map(([q,a])=>'<div class="go-qa"><div class="go-q">Q. '+esc(q)+'</div><div class="go-a">'+esc(a)+'</div></div>').join('')+'</div>';
+        h+='<div class="go-peach"><div class="go-gtitle">'+esc(s.header)+'</div>'+b.items.map(([q,a])=>'<div class="go-qa"><div class="go-q">Q. '+esc(q)+'</div><div class="go-a">'+esc(a).replace(/\n/g,'<br>')+'</div></div>').join('')+'</div>';
       }else{
         h+='<div class="go-peach"><div class="go-gtitle">'+esc(s.header)+'</div><p class="go-body">'+b.items.map(esc).join('<br>')+'</p></div>';
       }
@@ -1829,8 +1829,8 @@ const DM=(function(){
   }
   function buildHtml(){
     if(!DATA)return'<div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
-    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':MODE==='gsg'?'강경준 수산물':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);if(MODE==='gsg')return buildGkj(brand,GOGI_BANNERS);let h='';
-    h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}"><div class="brand">${esc(brand)}</div><h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
+    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'':MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':MODE==='gsg'?'강경준 수산물':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);if(MODE==='gsg')return buildGkj(brand,GOGI_BANNERS);let h='';
+    h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}">${brand?`<div class="brand">${esc(brand)}</div>`:''}<h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
     let badges=[];const sp=DATA.sections.find(s=>s.block.type==='spec');
     if(sp)sp.block.rows.forEach(([k,v])=>{if(/원산지|생물|중량|사이즈|구성/.test(k)&&v)badges.push(v.split('/')[0].trim());});
     badges=[...new Set(badges)].slice(0,4);
@@ -1839,11 +1839,11 @@ const DM=(function(){
       if(s.header)h+=`<span class="tag">${esc(label(s.header))}</span><h2>${esc(s.header)}</h2><div class="ln"></div>`;
       if(b.type==='spec')h+=`<p>${s.items.map(esc).join('<br>')}</p>`;   /* 원본 ※ 줄 그대로 (가공·누락 없이 전부) */
       else if(b.type==='steps'){if(b.intro.length)h+=`<p>${b.intro.map(esc).join('<br>')}</p>`;h+=`<div class="steps">${b.steps.map((t,n)=>`<div class="step"><span class="no">${n+1}</span><span class="tx">${esc(t)}</span></div>`).join('')}</div>`;}
-      else if(b.type==='qa')h+=b.items.map(([q,a])=>`<div class="qa"><div class="q">Q. ${esc(q)}</div><div class="a">${esc(a)}</div></div>`).join('');
+      else if(b.type==='qa')h+=b.items.map(([q,a])=>`<div class="qa"><div class="q">Q. ${esc(q)}</div><div class="a">${esc(a).replace(/\n/g,'<br>')}</div></div>`).join('');
       else h+=`<p>${b.items.map(esc).join('<br>')}</p>`;
       if(pi<ph.length){h+=grid(ph.slice(pi,pi+2));pi+=2;}h+=`</div>`;});
     if(pi<ph.length)h+=`<div class="sec ${DATA.sections.length%2===1?'alt':''}">${grid(ph.slice(pi),'')}</div>`;
-    h+=`<div class="foot">${esc(brand)}</div>`;
+    if(brand)h+=`<div class="foot">${esc(brand)}</div>`;
     return h;
   }
   function render(){const p=$('dm-page');if(!p)return;p.dataset.mode=MODE;p.innerHTML=buildHtml();}
