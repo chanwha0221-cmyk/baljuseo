@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.352</title>
+<title>발주서 변환기 v22.353</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.352</span>
+  <span class="ver">v22.353</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -805,6 +805,7 @@ function pp(cl,pr,qty){
   if(cl==='아크미소프트'&&cn.includes('홍어'))cn='아 '+cn;
   if(cl==='서율컴퍼니'&&norm(cn).includes('거북손')&&!norm(cn).includes('1kg'))cn='연안 거북손 500g';
   if(cl==='팡베베'&&norm(cn).includes('총알한치')){const wm=cn.match(/([\d.]+)\s*kg/i);if(wm){return{name:'총알한치 500g',qty:qty*Math.round(parseFloat(wm[1])/0.5),maxB:999};}}
+  if(cl==='팡베베'&&norm(cn).includes('통찜한치')){const wm=cn.match(/([\d.]+)\s*kg/i);const gm=!wm&&cn.match(/([\d.]+)\s*g\b/i);const w=wm?parseFloat(wm[1]):gm?parseFloat(gm[1])/1000:0.5;return{name:'통찜한치 1팩',qty:Math.max(1,qty*Math.round(w/0.5)),maxB:999};}
   const wm=cn.match(/([\d.]+)kg/);const gm=!wm&&cn.match(/(\d+)g\b/);const wi=wm?parseFloat(wm[1]):gm?parseInt(gm[1])/1000:1;
   const pn=qm?cn:cn.replace(/[xX×]\s*[\d.]+/g,'').trim();
   if(cl==='대상수산'){

@@ -1752,7 +1752,7 @@ const DM=(function(){
     images=[...new Set(images)];
     let txt=content.replace(/<img[^>]*>/g,'').replace(/<\/p>|<br\s*\/?>|<\/div>|<hr[^>]*>/gi,'\n').replace(/<[^>]+>/g,'');
     txt=decodeEnt(txt);
-    let lines=txt.split('\n').map(l=>l.replace(/ /g,' ').replace(/\s+/g,' ').trim()).filter(l=>l&&l!=='/');
+    let lines=txt.split('\n').map(l=>l.replace(/ /g,' ').replace(/\s+/g,' ').trim()).filter(l=>l&&l!=='/'&&!/전체\s*사진\s*다운|▶\s*전체사진/.test(l));
     let title=cleanTitle(lines[0]||''),subtitle='',i=1;
     if(lines[1]&&!/^[○※]|^Q[.\s]|^A[.\s]/.test(lines[1])){subtitle=lines[1];i=2;}
     let sections=[],cur=null;
