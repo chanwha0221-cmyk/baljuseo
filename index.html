@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.348</title>
+<title>발주서 변환기 v22.349</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.348</span>
+  <span class="ver">v22.349</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -849,6 +849,7 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('새꼬막'))return{name:pn,qty,maxB:qty>=2?1:999};
   if(norm(pn).includes('박달홍게'))return{name:pn,qty,maxB:1};
   if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};
+  if(norm(pn).includes('담양')&&norm(pn).includes('떡갈비')&&!norm(pn).includes('맛상'))return{name:'맛상 '+pn,qty,maxB:999};
   if(norm(pn).includes('보리굴비'))return{name:pn.replace(/(\d+)\s*미/,'$1마리'),qty,maxB:999};
   if(norm(pn).includes('옥돔')){const _m=pn.match(/(\d+)\s*(?:미|마리)/);return{name:'제주 반건조 옥돔 '+(_m?_m[1]:'5')+'마리',qty,maxB:999};}
   // 찐한국 시리즈 (자체제작, 상품명 미정의 → 오타 그대로 들어옴. 키워드 정규화)
