@@ -33,9 +33,15 @@
 #dm .dm-stage{width:860px;flex:0 0 860px}
 #dm-page{width:860px;background:#fff;overflow:hidden;min-height:160px}
 #dm-page .dm-empty{color:#999;text-align:center;padding:90px 20px;font-weight:700;font-family:'Apple SD Gothic Neo',sans-serif}
-#dm.editing #dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a):hover{outline:1px dashed #C0392B;cursor:text}
+#dm.editing #dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv):hover{outline:1px dashed #C0392B;cursor:text}
 #dm-page [contenteditable]:focus{outline:2px solid #C0392B;background:rgba(255,200,180,.18)}
 /* 상세 테마 (모두 #dm-page 스코프) */
+/* 상품정보고시(제품 상세 정보) — 페이지 맨 끝 공통 표 */
+#dm-page .dm-notice{max-width:92%;margin:40px auto 14px}
+#dm-page .dm-notice-t{text-align:center;font-size:30px;font-weight:800;color:#2e7d6b;letter-spacing:-1px;margin-bottom:22px}
+#dm-page .dm-notice table{width:100%;border-collapse:collapse;border-top:2px solid #2e7d6b}
+#dm-page .dm-notice th{width:30%;border-bottom:1px solid #e4e4e4;padding:14px 8px;font-size:15px;font-weight:700;color:#222;text-align:center;vertical-align:middle;background:#fafafa}
+#dm-page .dm-notice td{border-bottom:1px solid #e4e4e4;border-left:1px solid #efefef;padding:14px 16px;font-size:14px;color:#444;line-height:1.65;vertical-align:middle}
 #dm-page{--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00}
 #dm-page[data-mode="master"]{--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C}
 /* 마스터 — 텍스트 전체 110% */
@@ -1763,7 +1769,32 @@ const DM=(function(){
       cur.items.push(l);
     }
     sections.forEach(s=>s.block=classify(s.items));
-    return{title,subtitle,sections,images};
+    // 상품정보고시(제품 상세 정보) — 소스에 고시표가 없어도 ※스펙에서 뽑히는 것만 자동, 나머지는 빈칸(편집)
+    const spec={};
+    lines.forEach(l=>{const mm=l.match(/^※\s*([^:：]+?)\s*[:：]\s*(.+)$/); if(mm) spec[mm[1].replace(/\s+/g,'')]=mm[2].trim();});
+    const amount=[spec['구성'], spec['중량/사이즈']||spec['중량']||spec['중량사이즈']].filter(Boolean).join(' / ');
+    const CAUTION='·보관방법에 맞게 보관하시고, 개봉 후에는 가능한 빠른 시일 내에 드시기 바랍니다.\n·본 제품은 공정거래위원회 고시 소비자 분쟁해결 기준에 의거 제품에 문제가 있을시 교환 또는 보상받으실 수 있습니다. 부정·불량식품 신고는 국번없이 1399';
+    const notice=[
+      ['제품명', cleanTitle(title)],
+      ['식품유형',''],
+      ['포장재질(내면)',''],
+      ['용도',''],
+      ['내용량', amount],
+      ['보관방법',''],
+      ['도축장명','제품 별도표기'],
+      ['제조업소',''],
+      ['축산물 유통전문판매업소',''],
+      ['반품 및 교환','구입처 및 판매업소'],
+      ['주의사항', CAUTION]
+    ];
+    return{title,subtitle,sections,images,notice};
+  }
+  // 상품정보고시 표 HTML (모든 모드 공통, 페이지 맨 끝). 값 칸은 인라인 편집 대상(.nv)
+  function noticeHtml(){
+    if(!DATA||!DATA.notice||!DATA.notice.length) return '';
+    return '<div class="dm-notice"><div class="dm-notice-t">제품 상세 정보</div><table>'+
+      DATA.notice.map(function(kv){return '<tr><th>'+esc(kv[0])+'</th><td class="nv">'+esc(kv[1]).replace(/\n/g,'<br>')+'</td></tr>';}).join('')+
+      '</table></div>';
   }
   function label(h){
     if(/알고|Q&A|문의|궁금|FAQ/.test(h))return 'Q & A';
@@ -1802,6 +1833,7 @@ const DM=(function(){
     });
     if(pi<ph.length)h+=gkPhotos(ph.slice(pi));
     h+='<div class="gk-banner"><img src="'+esc(GKJ_OUTRO)+'" referrerpolicy="no-referrer"></div>';
+    h+=noticeHtml();
     return h;
   }
   // ===== 강경준 고기(고기24시) 전용 콘텐츠 빌드 =====
@@ -1829,6 +1861,7 @@ const DM=(function(){
     });
     if(pi<ph.length)h+=goPhotos(ph.slice(pi),false);
     h+='<div class="gk-banner"><img src="'+esc(GOGI_OUTRO)+'" referrerpolicy="no-referrer"></div>';
+    h+=noticeHtml();
     return h;
   }
   function buildHtml(){
@@ -1848,6 +1881,7 @@ const DM=(function(){
       if(pi<ph.length){h+=grid(ph.slice(pi,pi+2));pi+=2;}h+=`</div>`;});
     if(pi<ph.length)h+=`<div class="sec ${DATA.sections.length%2===1?'alt':''}">${grid(ph.slice(pi),'')}</div>`;
     if(brand)h+=`<div class="foot">${esc(brand)}</div>`;
+    h+=noticeHtml();
     return h;
   }
   function render(){const p=$('dm-page');if(!p)return;p.dataset.mode=MODE;p.innerHTML=buildHtml();}
@@ -1876,7 +1910,7 @@ const DM=(function(){
   function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
   function drag(i){dragI=i;}
   function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
-  const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a)';
+  const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv)';
   function toggleEdit(){editing=!editing;document.querySelectorAll(EDSEL).forEach(e=>e.contentEditable=editing);$('dm').classList.toggle('editing',editing);$('dm-edb').textContent=editing?'✅ 완료':'✏️ 수정';}
   async function saveJpg(){
     if(!DATA){alert('먼저 생성하세요.');return;}
