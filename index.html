@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.347</title>
+<title>발주서 변환기 v22.348</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.347</span>
+  <span class="ver">v22.348</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -763,7 +763,7 @@ function pp(cl,pr,qty){
   if(cl==='신선한아침'){
     const _np = norm(pr).replace(/\[신선한아침\]/g,'');
     if(_np.includes('왕바지락'))return{name:'왕 바지락 1kg',qty,maxB:999};
-    if(_np.includes('임금님')&&_np.includes('전복'))return{name:'임금님 5-6미 전복 2kg',qty,maxB:999};
+    if(_np.includes('임금님')&&_np.includes('전복')){const _wm=_np.match(/([\d.]+)\s*kg/);const _tk=Math.max(1,Math.round(qty*(_wm?parseFloat(_wm[1]):1)));if(_tk%2===0)return{name:'임금님 5-6미 전복 2kg',qty:_tk/2,maxB:999};return{name:'임금님 5-6미 전복 1kg',qty:_tk,maxB:999};}
     if(_np.includes('멍게'))return{name:'통통 깐멍게 500g',qty,maxB:999};
   }
   let r=pr.replace(/\*/g,'x');
@@ -1139,7 +1139,7 @@ function _preprocessBigfishLine(line){
     || /doorstep|leave|front\s*of|at\s*the\s*door|please|deliver|ring|door\b/i.test(c);
   const addr = cells.find(c=>addrRe.test(c) && c.length>6 && !prodKw.test(c)) || '';
   // 받는분 이름: ① 한글 2~4자 우선 ② 없으면 전화·주소·상품·메모 아닌 셀 (영문/공백 이름 'Keo soksommang' 등 — 2026-06-09 누락 fix)
-  let recvName = cells.find(c=>/^[가-힣]{2,4}$/.test(c)) || '';
+  let recvName = cells.find(c=>/^[가-힣]{2,4}$/.test(c) && !prodKw.test(c)) || '';
   if(!recvName){
     recvName = cells.find(c=>
       !phoneRe.test(c) && c!==addr && c.length<=25
@@ -1148,13 +1148,16 @@ function _preprocessBigfishLine(line){
   }
   if(!recvName || !addr) return null;
   // 상품 셀 = phone, recvName, addr, 메모 제외한 나머지
-  const prodCells = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr && !isMemo(c));
+  // 상품 셀 = 상품 키워드 있는 셀만 (배송메세지/특이사항이 상품으로 새는 것 차단 — 2026-06-16 한상혁·장석남 건)
+  let prodCells = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr && prodKw.test(c));
+  // 키워드 0건이면 옛 방식 폴백 (키워드 없는 임의 상품 대비)
+  if(prodCells.length===0) prodCells = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr && !isMemo(c));
   if(prodCells.length===0) return null;
   const products = prodCells.flatMap(_bigfishMapProd);
   if(products.length===0) return null;
   const combined = products.join(' / ');
-  // 배송메시지(9번째 칸): 출입정보/요청사항 등 메모 셀 모음 — 상품에 섞이던 현관·비번·버튼 분리 (2026-06-15 김덕철 건)
-  const memo = cells.filter(c => isMemo(c) && c!==addr && c!==recvName && !phoneRe.test(c)).join(' ');
+  // 배송메시지(9번째 칸): 전화·이름·주소·상품 아닌 나머지 셀 전부 = 배송메세지/특이사항 칸 (대문열고/성북동/문앞 등)
+  const memo = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr && prodCells.indexOf(c)<0).join(' ');
   return `빅피쉬마켓\t\t${sendPhone}\t\t${combined}\t${recvName}\t${addr}\t${recvPhone}\t${memo}`;
 }
 function preprocessBigfish(raw){
