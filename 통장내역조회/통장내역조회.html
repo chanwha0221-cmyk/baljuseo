@@ -357,18 +357,47 @@ function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,
 async function saveFile(name,buf){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put({name,buf,savedAt:new Date().toISOString()},'last');tx.oncomplete=res;tx.onerror=rej;});}
 async function loadSavedFile(){const db=await openDB();return new Promise((res,rej)=>{const r=db.transaction(STORE,'readonly').objectStore(STORE).get('last');r.onsuccess=e=>res(e.target.result||null);r.onerror=rej;});}
 async function deleteSavedFile(){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete('last');tx.oncomplete=res;tx.onerror=rej;});}
-function clearSaved(e){e.stopPropagation();if(!confirm('저장된 파일을 삭제할까요?'))return;deleteSavedFile();document.getElementById('savedFileInfo').style.display='none';document.getElementById('uploadHint').textContent='하나은행 기업자유예금 형식 지원';allData=[];document.getElementById('filterBar').style.display='none';document.getElementById('summaryRow').style.display='none';document.getElementById('tableWrap').style.display='none';dz.classList.remove('loaded');document.getElementById('uploadLabel').textContent='은행 거래내역 xlsx 파일을 끌어다 놓거나 클릭해서 업로드';document.getElementById('chatStatus').textContent='파일 업로드 후 이용 가능';}
+// ───── 병합 데이터셋(누적 거래내역) 저장/복원 ─────
+async function saveDataset(records,name){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put({records,name,savedAt:new Date().toISOString()},'dataset');tx.oncomplete=res;tx.onerror=rej;});}
+async function loadDataset(){const db=await openDB();return new Promise((res,rej)=>{const r=db.transaction(STORE,'readonly').objectStore(STORE).get('dataset');r.onsuccess=e=>res(e.target.result||null);r.onerror=rej;});}
+async function deleteDataset(){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete('dataset');tx.oncomplete=res;tx.onerror=rej;});}
+// 거래 고유키 — 거래일시(시각포함)+입금+출금+잔액+내용+예금주. 같으면 동일 거래로 보고 중복 스킵
+function recKey(d){return d.date+'|'+d.in+'|'+d.out+'|'+d.bal+'|'+d.desc+'|'+d.name;}
+function renderAll(filename){
+  if(!allData.length)return;
+  allData.sort((a,b)=>a.date.localeCompare(b.date));
+  const dates=allData.map(d=>d.dateOnly).sort();
+  document.getElementById('dateFrom').value=dates[0];
+  document.getElementById('dateTo').value=dates[dates.length-1];
+  dz.classList.add('loaded');
+  document.getElementById('uploadLabel').textContent='✅ '+filename+' ('+allData.length+'건 누적)';
+  document.getElementById('uploadHint').textContent='새 파일을 올리면 기존 데이터에 새 거래만 추가돼요';
+  document.getElementById('filterBar').style.display='flex';
+  document.getElementById('summaryRow').style.display='grid';
+  document.getElementById('tableWrap').style.display='block';
+  document.getElementById('chatStatus').textContent=allData.length+'건 로드됨';
+  applyFilter();
+}
+function clearSaved(e){e.stopPropagation();if(!confirm('저장된 데이터를 전부 삭제할까요? (누적 내역 모두 삭제)'))return;deleteSavedFile();deleteDataset();document.getElementById('savedFileInfo').style.display='none';document.getElementById('uploadHint').textContent='하나은행 기업자유예금 형식 지원';allData=[];document.getElementById('filterBar').style.display='none';document.getElementById('summaryRow').style.display='none';document.getElementById('tableWrap').style.display='none';dz.classList.remove('loaded');document.getElementById('uploadLabel').textContent='은행 거래내역 xlsx 파일을 끌어다 놓거나 클릭해서 업로드';document.getElementById('chatStatus').textContent='파일 업로드 후 이용 가능';}
 window.addEventListener('DOMContentLoaded',async()=>{
+  // 1순위: 누적 저장된 데이터셋 복원
+  const ds=await loadDataset().catch(()=>null);
+  if(ds&&ds.records&&ds.records.length){
+    allData=ds.records;
+    const d=new Date(ds.savedAt),label=(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0')+' 저장';
+    document.getElementById('savedFileName').textContent=(ds.name||'데이터')+' ('+label+', 총 '+allData.length+'건)';
+    document.getElementById('savedFileInfo').style.display='block';
+    renderAll(ds.name||'저장된 데이터');
+    addBotMsg('저장된 데이터 복원 완료! 📂 <b>'+allData.length+'건</b> 로드됨. 새 파일을 올리면 새 거래만 추가돼요.');
+    return;
+  }
+  // 마이그레이션: 구버전(파일 버퍼)만 있으면 1회 파싱해서 데이터셋으로 전환
   const saved=await loadSavedFile().catch(()=>null);
   if(!saved)return;
-  const d=new Date(saved.savedAt),label=(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0')+' 저장';
-  document.getElementById('savedFileName').textContent=saved.name+' ('+label+')';
-  document.getElementById('savedFileInfo').style.display='block';
-  document.getElementById('uploadHint').textContent='저장된 파일 자동 불러오는 중...';
+  document.getElementById('uploadHint').textContent='저장된 파일 불러오는 중...';
   const wb=XLSX.read(new Uint8Array(saved.buf),{type:'array',cellText:true,cellDates:true});
   const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''});
   parseRows(rows,saved.name,false);
-  document.getElementById('uploadHint').textContent='저장된 파일을 자동으로 불러왔어요 ✅';
 });
 // ───── 파일 업로드 ─────
 document.getElementById('fileInput').addEventListener('change',e=>{
@@ -390,16 +419,10 @@ function readFile(file){
     const ws=wb.Sheets[wb.SheetNames[0]];
     const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''});
     parseRows(rows,file.name,true);
-    // IndexedDB에 저장
-    await saveFile(file.name,buf).catch(()=>{});
-    const now=new Date(),label=(now.getMonth()+1)+'/'+now.getDate()+' '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0')+' 저장';
-    document.getElementById('savedFileName').textContent=file.name+' ('+label+')';
-    document.getElementById('savedFileInfo').style.display='block';
   };
   reader.readAsArrayBuffer(file);
 }
 function parseRows(rows,filename,showChat=true){
-  allData=[];
   let hdrIdx=rows.findIndex(r=>r.some(c=>String(c).includes('거래일시')));
   if(hdrIdx===-1)hdrIdx=2;
   const hdr=rows[hdrIdx];
@@ -413,6 +436,7 @@ function parseRows(rows,filename,showChat=true){
     name:hdr.findIndex(c=>String(c).includes('예금주명')),
   };
   if(colIdx.date===-1){Object.assign(colIdx,{date:1,out:2,in:3,bal:4,desc:5,bank:7,name:12});}
+  const parsed=[];
   for(let i=hdrIdx+1;i<rows.length;i++){
     const r=rows[i];
     const dateStr=String(r[colIdx.date]||'').trim();
@@ -421,7 +445,7 @@ function parseRows(rows,filename,showChat=true){
     const outAmt=parseNum(r[colIdx.out]);
     if(inAmt===0&&outAmt===0)continue;
     const dateOnly=dateStr.slice(0,10);
-    allData.push({
+    parsed.push({
       date:dateStr, dateOnly,
       in:inAmt, out:outAmt,
       bal:parseNum(r[colIdx.bal]),
@@ -430,20 +454,20 @@ function parseRows(rows,filename,showChat=true){
       name:String(r[colIdx.name]||'').trim(),
     });
   }
-  if(allData.length===0){alert('데이터를 읽지 못했어요.');return;}
-  const dates=allData.map(d=>d.dateOnly).sort();
-  document.getElementById('dateFrom').value=dates[0];
-  document.getElementById('dateTo').value=dates[dates.length-1];
-  dz.classList.add('loaded');
-  document.getElementById('uploadLabel').textContent='✅ '+filename+' 로드 완료 ('+allData.length+'건)';
-  document.getElementById('uploadHint').textContent='다른 파일을 클릭해서 교체할 수 있어요';
-  document.getElementById('filterBar').style.display='flex';
-  document.getElementById('summaryRow').style.display='grid';
-  document.getElementById('tableWrap').style.display='block';
-  document.getElementById('chatStatus').textContent=allData.length+'건 로드됨';
-  applyFilter();
-  if(showChat) addBotMsg('파일 로드 완료! 📊 총 <b>'+allData.length+'건</b>의 거래 내역이 있어요. 궁금한 거 물어보세요!');
-  else addBotMsg('저장된 파일 자동 복원 완료! 📂 <b>'+allData.length+'건</b> 로드됨. 궁금한 거 물어보세요!');
+  if(parsed.length===0){alert('데이터를 읽지 못했어요.');return;}
+  // 병합: 기존 누적 데이터 유지 + 새 거래만 추가 (중복은 스킵)
+  const seen=new Set(allData.map(recKey));
+  let added=0,skipped=0;
+  for(const r of parsed){const k=recKey(r);if(seen.has(k)){skipped++;continue;}seen.add(k);allData.push(r);added++;}
+  renderAll(filename);
+  saveDataset(allData,filename).catch(()=>{});
+  const now=new Date(),label=(now.getMonth()+1)+'/'+now.getDate()+' '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0')+' 저장';
+  document.getElementById('savedFileName').textContent=filename+' ('+label+', 총 '+allData.length+'건)';
+  document.getElementById('savedFileInfo').style.display='block';
+  if(showChat){
+    if(skipped===0&&added===allData.length) addBotMsg('파일 로드 완료! 📊 총 <b>'+allData.length+'건</b>의 거래 내역이 있어요. 궁금한 거 물어보세요!');
+    else addBotMsg('추가 완료! 🆕 새 거래 <b>'+added+'건</b> 추가'+(skipped?' (중복 '+skipped+'건 스킵)':'')+' · 누적 <b>'+allData.length+'건</b>. 궁금한 거 물어보세요!');
+  } else addBotMsg('저장된 데이터 복원 완료! 📂 <b>'+allData.length+'건</b> 로드됨. 궁금한 거 물어보세요!');
 }
 function parseNum(v){const s=String(v||'').replace(/,/g,'').trim();const n=parseInt(s);return isNaN(n)?0:n;}
 function fmtN(n){return n.toLocaleString('ko-KR')+'원';}

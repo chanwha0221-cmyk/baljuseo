@@ -1752,7 +1752,8 @@ const DM=(function(){
     images=[...new Set(images)];
     let txt=content.replace(/<img[^>]*>/g,'').replace(/<\/p>|<br\s*\/?>|<\/div>|<hr[^>]*>/gi,'\n').replace(/<[^>]+>/g,'');
     txt=decodeEnt(txt);
-    let lines=txt.split('\n').map(l=>l.replace(/ /g,' ').replace(/\s+/g,' ').trim()).filter(l=>l&&l!=='/'&&!/전체\s*사진\s*다운|▶\s*전체사진/.test(l));
+    txt=txt.replace(/[▶▷►]?\s*전체\s*사진\s*(일괄\s*)?다운(로드)?/g,' ');  // '전체 사진 다운로드' 링크 문구 제거(임베디드 포함)
+    let lines=txt.split('\n').map(l=>l.replace(/ /g,' ').replace(/\s+/g,' ').trim()).filter(l=>l&&l!=='/'&&!/사진\s*(일괄\s*)?다운|^[▶▷►]?\s*전체\s*사진\s*$|^[▶▷►]?\s*(일괄\s*)?다운로드\s*$|^[▶▷►]\s*전체/.test(l));
     let title=cleanTitle(lines[0]||''),subtitle='',i=1;
     if(lines[1]&&!/^[○※]|^Q[.\s]|^A[.\s]/.test(lines[1])){subtitle=lines[1];i=2;}
     let sections=[],cur=null;
