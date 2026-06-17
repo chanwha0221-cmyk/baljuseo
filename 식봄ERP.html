@@ -329,6 +329,9 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <div id="dm-th-picks" class="th-picks" style="margin-top:10px"></div>
       <div id="dm-th-dlrow" style="display:none;margin-top:8px"><button class="dm-gen" style="background:#2C7A4B" onclick="DM.thDownloadAll()">⬇️ 선택 4장 모두 다운로드</button></div>
 
+      <div class="dm-h3">⑤ 저장된 HTML <span style="font-weight:400;color:#aaa;font-size:11px">(📋 HTML 복사 누르면 자동 저장 · 상품명 검색해 재사용)</span></div>
+      <input id="dm-saved-q" placeholder="🔍 상품명으로 검색" oninput="DM.renderSaved(this.value)" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit;font-size:12px">
+      <div id="dm-saved-list" style="margin-top:8px"></div>
     </div>
     <div style="flex:1;min-width:0">
       <div class="dm-bar">
@@ -1907,8 +1910,49 @@ const DM=(function(){
 @font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFLight.ttf');font-weight:300}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFMedium.ttf');font-weight:500}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFBold.ttf');font-weight:700}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Gmarket','Malgun Gothic',sans-serif}#page{max-width:860px;margin:0 auto;${vars}}
 /* 상세 테마${css}</style></head><body><div id="page" data-mode="${MODE}">${$('dm-page').innerHTML}</div></body></html>`;
-    navigator.clipboard.writeText(full).then(()=>{if(typeof toast==='function')toast('HTML 복사됨 — 식봄/몰에 붙여넣기');},()=>alert('복사 실패'));
+    navigator.clipboard.writeText(full).then(()=>{saveCurrentHtml(DATA.title, full);if(typeof toast==='function')toast('HTML 복사+저장됨 — ⑤에서 상품명으로 재사용');},()=>alert('복사 실패'));
   }
+  // ===== 📋 HTML 복사 이력 저장 / 상품명 검색 / 재사용 (localStorage, 디바이스 로컬) =====
+  const SAVED_KEY='dm_html_saved';
+  let savedHtmls=[];
+  function loadSaved(){ try{ savedHtmls=JSON.parse(localStorage.getItem(SAVED_KEY)||'[]'); }catch(e){ savedHtmls=[]; } }
+  function persistSaved(){
+    try{ localStorage.setItem(SAVED_KEY, JSON.stringify(savedHtmls)); }
+    catch(e){ while(savedHtmls.length>1){ savedHtmls.pop(); try{ localStorage.setItem(SAVED_KEY, JSON.stringify(savedHtmls)); return; }catch(_){} } }
+  }
+  function saveCurrentHtml(title, html){
+    title=(title||'제목없음').trim();
+    savedHtmls=savedHtmls.filter(s=>s.title!==title);   // 같은 상품명은 최신본으로 갱신
+    savedHtmls.unshift({id:Date.now(), title:title, html:html, date:new Date().toISOString()});
+    if(savedHtmls.length>40) savedHtmls=savedHtmls.slice(0,40);
+    persistSaved();
+    renderSaved($('dm-saved-q')?$('dm-saved-q').value:'');
+  }
+  function renderSaved(filter){
+    const box=$('dm-saved-list'); if(!box) return;
+    const q=(filter||'').trim().toLowerCase();
+    if(!savedHtmls.length){ box.innerHTML='<div style="font-size:11px;color:#bbb;padding:6px 0">아직 저장된 HTML이 없어요. 📋 HTML 복사를 누르면 여기 쌓입니다.</div>'; return; }
+    const list=savedHtmls.filter(s=>!q || (s.title||'').toLowerCase().includes(q));
+    if(!list.length){ box.innerHTML='<div style="font-size:11px;color:#bbb;padding:6px 0">검색 결과 없음</div>'; return; }
+    box.innerHTML=list.map(s=>{
+      const d=new Date(s.date); const ds=(d.getMonth()+1)+'/'+d.getDate();
+      return '<div style="display:flex;align-items:center;gap:6px;border:1px solid #e3e3e3;border-radius:6px;padding:6px 8px;margin-bottom:5px">'
+        +'<div style="flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(s.title)+'">'+esc(s.title)+' <span style="color:#bbb;font-size:10px">'+ds+'</span></div>'
+        +'<button onclick="DM.copySaved('+s.id+')" style="background:#2C7A4B;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:inherit">📋 복사</button>'
+        +'<button onclick="DM.delSaved('+s.id+')" style="background:#bbb;color:#fff;border:none;border-radius:4px;padding:4px 7px;font-size:11px;cursor:pointer;font-family:inherit">🗑</button>'
+        +'</div>';
+    }).join('');
+  }
+  function copySaved(id){
+    const s=savedHtmls.find(x=>x.id===id); if(!s) return;
+    navigator.clipboard.writeText(s.html).then(()=>{ if(typeof toast==='function')toast('['+s.title+'] HTML 복사됨'); }, ()=>alert('복사 실패'));
+  }
+  function delSaved(id){
+    if(!confirm('이 저장본을 삭제할까요?')) return;
+    savedHtmls=savedHtmls.filter(x=>x.id!==id); persistSaved();
+    renderSaved($('dm-saved-q')?$('dm-saved-q').value:'');
+  }
+  loadSaved(); renderSaved('');
   // ===== 썸네일 추출 (450x450, weserv 크롭 — 식봄 썸네일용) =====
   let thAll=[], thSel=[];
   function thW(u,size){ return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w='+(size||1000)+'&h='+(size||1000)+'&fit=cover&a=center&output=jpg&q=90'; }
@@ -1947,7 +1991,7 @@ const DM=(function(){
       r.readAsDataURL(f);
     });
   }
-  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll};
+  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved};
 })();
 </script>
 
