@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.361</title>
+<title>발주서 변환기 v22.362</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.361</span>
+  <span class="ver">v22.362</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1311,8 +1311,15 @@ function parseSikbomSingleLine(line){
   for(const c of cols){
     if(/^01\d{8,9}$/.test(c)){custPhone=fp(c);break;}
   }
-  // 상품명: 한글 포함 + g/kg 단위 + 길이 5자+ (행정구역/영문ID/날짜 제외)
-  for(const c of cols){
+  // 상품명: 상품코드(영문_숫자 SKU, 예 MASTER_mpgn1784_1425) 바로 앞 한글 셀이 정답.
+  // 식봄 신export 칼럼 순서 = …상품명 | 상품코드 | 옵션(330g 내외) | 1팩 | 면세…
+  // 상품명에 g/kg가 없을 수 있어(중량이 옵션 칼럼에 따로 빠짐) 코드 앵커를 먼저 시도.
+  const codeIdx=cols.findIndex(c=>/^[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]+$/.test(c));
+  if(codeIdx>0&&/[가-힣]/.test(cols[codeIdx-1])&&cols[codeIdx-1].length>=2){
+    prodName=normSikbomProd(cols[codeIdx-1]);
+  }
+  // 폴백: 한글 포함 + g/kg 단위 + 길이 5자+ (행정구역/영문ID/날짜 제외) — 코드 앵커 실패 시
+  if(!prodName)for(const c of cols){
     if(!c||!/[가-힣]/.test(c))continue;
     if(!/\d+\s*(g|kg)\b/i.test(c))continue;
     if(c.length<5)continue;
