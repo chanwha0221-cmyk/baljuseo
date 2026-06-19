@@ -349,7 +349,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
         <button class="dm-ab" style="background:#2C7A4B" onclick="DM.copyHtml()">📋 HTML 복사</button>
         <button class="dm-ab" style="background:#C0392B" onclick="DM.saveJpg()">🖼️ JPG 저장</button>
       </div>
-      <div class="dm-right"><div class="dm-stage"><div id="dm-page" data-mode="master"><div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div></div></div></div>
+      <div class="dm-right"><div class="dm-stage"><div id="dm-page" data-mode="master" spellcheck="false"><div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div></div></div></div>
     </div>
   </div>
 </div>
@@ -1944,7 +1944,7 @@ const DM=(function(){
     const full=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
 @font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFLight.ttf');font-weight:300}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFMedium.ttf');font-weight:500}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFBold.ttf');font-weight:700}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Gmarket','Malgun Gothic',sans-serif}#page{max-width:860px;margin:0 auto;${vars}}
-/* 상세 테마${css}</style></head><body><div id="page" data-mode="${MODE}">${$('dm-page').innerHTML}</div></body></html>`;
+/* 상세 테마${css}</style></head><body><div id="page" data-mode="${MODE}" spellcheck="false">${$('dm-page').innerHTML}</div></body></html>`;
     navigator.clipboard.writeText(full).then(()=>{saveCurrentHtml(DATA.title, full);if(typeof toast==='function')toast('HTML 복사+저장됨 — ⑤에서 상품명으로 재사용');},()=>alert('복사 실패'));
   }
   // ===== 📋 HTML 복사 이력 저장 / 상품명 검색 / 재사용 (localStorage, 디바이스 로컬) =====
