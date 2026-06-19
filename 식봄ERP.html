@@ -345,6 +345,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
           <button class="dm-mb on" data-m="master" onclick="DM.setMode('master')">🐟 마스터</button>
         </div>
         <span class="dm-sp"></span>
+        <label style="font-size:12px;color:#444;display:flex;align-items:center;gap:4px;margin-right:6px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="dm-notice-on" onchange="DM.toggleNotice()"> 제품 상세 정보</label>
         <button class="dm-ab" style="background:#555" id="dm-edb" onclick="DM.toggleEdit()">✏️ 수정</button>
         <button class="dm-ab" style="background:#2C7A4B" onclick="DM.copyHtml()">📋 HTML 복사</button>
         <button class="dm-ab" style="background:#C0392B" onclick="DM.saveJpg()">🖼️ JPG 저장</button>
@@ -1744,7 +1745,8 @@ const DM=(function(){
   ];
   // 🥩 강경준 고기 모드 고정 아웃트로 배너 (맨 아래)
   const GOGI_OUTRO='https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/014.jpg';
-  let MODE='master',DATA=null,PHOTOS=[],dragI=null,editing=false;
+  let MODE='master',DATA=null,PHOTOS=[],dragI=null,editing=false,NOTICE_ON=false;
+  try{ NOTICE_ON=(localStorage.getItem('dm_notice_on')==='1'); }catch(e){}
   const $=id=>document.getElementById(id);
   const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   function weserv(u){return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&output=jpg&q=92';}
@@ -1799,6 +1801,7 @@ const DM=(function(){
   }
   // 상품정보고시 표 HTML (모든 모드 공통, 페이지 맨 끝). 값 칸은 인라인 편집 대상(.nv)
   function noticeHtml(){
+    if(!NOTICE_ON) return '';
     if(!DATA||!DATA.notice||!DATA.notice.length) return '';
     return '<div class="dm-notice"><div class="dm-notice-t">제품 상세 정보</div><table>'+
       DATA.notice.map(function(kv){return '<tr><th>'+esc(kv[0])+'</th><td class="nv">'+esc(kv[1]).replace(/\n/g,'<br>')+'</td></tr>';}).join('')+
@@ -1920,6 +1923,7 @@ const DM=(function(){
   function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
   const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv)';
   function toggleEdit(){editing=!editing;document.querySelectorAll(EDSEL).forEach(e=>e.contentEditable=editing);$('dm').classList.toggle('editing',editing);$('dm-edb').textContent=editing?'✅ 완료':'✏️ 수정';}
+  function toggleNotice(){ NOTICE_ON=$('dm-notice-on')?$('dm-notice-on').checked:!NOTICE_ON; try{localStorage.setItem('dm_notice_on',NOTICE_ON?'1':'0');}catch(e){} render(); }
   async function saveJpg(){
     if(!DATA){alert('먼저 생성하세요.');return;}
     if(editing)toggleEdit();
@@ -1996,6 +2000,7 @@ const DM=(function(){
     renderSaved($('dm-saved-q')?$('dm-saved-q').value:'');
   }
   loadSaved(); renderSaved('');
+  { const _nc=$('dm-notice-on'); if(_nc) _nc.checked=NOTICE_ON; }
   // ===== 썸네일 추출 (450x450, weserv 크롭 — 식봄 썸네일용) =====
   let thAll=[], thSel=[];
   function thW(u,size){ return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w='+(size||1000)+'&h='+(size||1000)+'&fit=cover&a=center&output=jpg&q=90'; }
@@ -2034,7 +2039,7 @@ const DM=(function(){
       r.readAsDataURL(f);
     });
   }
-  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved};
+  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,toggleNotice};
 })();
 </script>
 
