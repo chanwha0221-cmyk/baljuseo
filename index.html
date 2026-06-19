@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.358</title>
+<title>발주서 변환기 v22.359</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.358</span>
+  <span class="ver">v22.359</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -774,6 +774,9 @@ function pp(cl,pr,qty){
   r=r.replace(/\((초고수|초수|중수|고수|저수|특수|생물|냉동|냉장|반건조|건조|훈제)\)/g,(m)=>{const k=`__P${_parenPreserved.length}__`;_parenPreserved.push(m);return k;});
   // 🐟 홍어 삭힘정도 괄호 보존 — '삭힘/숙성' 단어가 든 괄호는 무조건 유지 (2026-06-08 사장님 지시: 삭힘정도 없으면 홍어 발주 불가. 멋대로 지우지 말 것)
   r=r.replace(/[\(（][^\(（\)）]*(?:삭힘|숙성)[^\(（\)）]*[\)）]/g,(m)=>{const k=`__P${_parenPreserved.length}__`;_parenPreserved.push(m);return k;});
+  // 🦆 양념(고추장/간장 등)은 상품 구분 기준 → 괄호에서 빼서 상품명 맨 앞 표준 접두어로 (2026-06-18 사장님 지시: "고추장 오리주물럭 300g" 형태. 멋대로 지우면 중복 발주로 잡힘)
+  let _saucePrefix='';
+  r=r.replace(/[\(（]\s*(고추장|간장|양념|된장|막장|쌈장|데리야끼|데리야키)\s*[\)）]/g,(m,s)=>{if(!_saucePrefix)_saucePrefix=s+' ';return ' ';});
   // 괄호 처리 — 닫힌 (...) 그룹은 위치 무관 모두 제거 (멀티 상품에서 첫 괄호에서 잘리던 버그 fix)
   // 단 닫힘 없는 미완성 괄호는 첫 ( 부터 끝까지 절단 (단 괄호로 시작하면 원본 유지)
   r=r.replace(/\s*[\(（][^\(（\)）]*[\)）]\s*/g,' ');
@@ -797,6 +800,8 @@ function pp(cl,pr,qty){
   const qm=r.match(/\s*[xX×]\s*(\d+)$/) || r.match(/\s+-\s+(\d+)$/);let cn=r;
   if(qm){qty=parseInt(qm[1]);cn=r.slice(0,qm.index).trim();}
   cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace('난간','난각').replace(/건갈지/g,'건갈치').replace(/알가\s+생물\s+호래기/g,'생물 호래기').replace(/(\d+(?:\.\d+)?)\s*(KG|MG|ML|G|L)\b/gi,(m,n,u)=>n+u.toLowerCase()).replace(/(\d+)[kK]\b/g,'$1kg').trim();
+  // 🦆 양념 접두어 복원 — 괄호에서 뺀 고추장/간장을 상품명 맨 앞에 붙여 표준 상품명화
+  if(_saucePrefix&&!cn.startsWith(_saucePrefix.trim()))cn=(_saucePrefix+cn).replace(/\s+/g,' ').trim();
   if(cn.includes('자연산 급냉 대구'))cn='급냉 국내산 대구 1.5kg';
   if(cn.includes('급냉 국내산 대구 1.5kg'))return{name:'급냉 국내산 대구 1.5kg',qty,maxB:6};
   if(norm(cn).includes('참치오마카세'))cn='참치 오마카세 한판';
