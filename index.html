@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.359</title>
+<title>발주서 변환기 v22.360</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.359</span>
+  <span class="ver">v22.360</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -858,6 +858,9 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('담양')&&norm(pn).includes('떡갈비')&&!norm(pn).includes('맛상'))return{name:'맛상 '+pn,qty,maxB:999};
   if(norm(pn).includes('보리굴비'))return{name:pn.replace(/(\d+)\s*미/,'$1마리'),qty,maxB:999};
   if(norm(pn).includes('옥돔')){const _m=pn.match(/(\d+)\s*(?:미|마리)/);return{name:'제주 반건조 옥돔 '+(_m?_m[1]:'5')+'마리',qty,maxB:999};}
+  // 마스터씨 자체 육류 표준 상품명 — 게시판 기준명으로 정규화 (인분/냉동 등 부가표기 제거. 2026-06-19 사장님 지시)
+  if(norm(pn).includes('도가니')&&norm(pn).includes('곰탕'))return{name:'도가니곰탕 600g',qty,maxB:999};
+  if(norm(pn).includes('흑돼지')&&norm(pn).includes('고추장'))return{name:'제주흑돼지 고추장불고기 400g',qty,maxB:999};
   // 찐한국 시리즈 (자체제작, 상품명 미정의 → 오타 그대로 들어옴. 키워드 정규화)
   {const _z=norm(pn).toLowerCase();
     if(_z.includes('고무장갑')){
