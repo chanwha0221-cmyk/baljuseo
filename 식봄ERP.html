@@ -338,6 +338,8 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <div class="dm-h3">⑤ 저장된 HTML <span style="font-weight:400;color:#aaa;font-size:11px">(📋 HTML 복사 누르면 자동 저장 · 상품명 검색해 재사용)</span></div>
       <input id="dm-saved-q" placeholder="🔍 상품명으로 검색" oninput="DM.renderSaved(this.value)" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit;font-size:12px">
       <div id="dm-saved-list" style="margin-top:8px"></div>
+
+      <div id="dm-notice-editor" style="margin-top:6px"></div>
     </div>
     <div style="flex:1;min-width:0">
       <div class="dm-bar">
@@ -1752,6 +1754,24 @@ const DM=(function(){
   function weserv(u){return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&output=jpg&q=92';}
   function decodeEnt(s){return s.replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");}
   function cleanTitle(t){return t.replace(/^★?\s*\[[^\]]*\]\s*-?\s*/,'').replace(/^\[[^\]]*\]\s*/,'').trim();}
+  const escAttr=s=>esc(s).replace(/"/g,'&quot;');
+  // 제품 상세 정보(상품정보고시) 기본 항목 — 축산 기준 템플릿. 편집기 '기본값' 복원에도 재사용
+  function mkNotice(title,amount){
+    const CAUTION='·보관방법에 맞게 보관하시고, 개봉 후에는 가능한 빠른 시일 내에 드시기 바랍니다.\n·본 제품은 공정거래위원회 고시 소비자 분쟁해결 기준에 의거 제품에 문제가 있을시 교환 또는 보상받으실 수 있습니다. 부정·불량식품 신고는 국번없이 1399';
+    return [
+      ['제품명', title||''],
+      ['식품유형',''],
+      ['포장재질(내면)',''],
+      ['용도',''],
+      ['내용량', amount||''],
+      ['보관방법',''],
+      ['도축장명','제품 별도표기'],
+      ['제조업소',''],
+      ['축산물 유통전문판매업소',''],
+      ['반품 및 교환','구입처 및 판매업소'],
+      ['주의사항', CAUTION]
+    ];
+  }
   function classify(items){
     const spec=items.filter(l=>/^※/.test(l));
     if(spec.length>=2)return{type:'spec',rows:spec.map(l=>{const m=l.replace(/^※\s*/,'').split(/\s*:\s*/);return[m[0].trim(),(m.slice(1).join(':')||'').trim()];})};
@@ -1783,20 +1803,7 @@ const DM=(function(){
     const spec={};
     lines.forEach(l=>{const mm=l.match(/^※\s*([^:：]+?)\s*[:：]\s*(.+)$/); if(mm) spec[mm[1].replace(/\s+/g,'')]=mm[2].trim();});
     const amount=[spec['구성'], spec['중량/사이즈']||spec['중량']||spec['중량사이즈']].filter(Boolean).join(' / ');
-    const CAUTION='·보관방법에 맞게 보관하시고, 개봉 후에는 가능한 빠른 시일 내에 드시기 바랍니다.\n·본 제품은 공정거래위원회 고시 소비자 분쟁해결 기준에 의거 제품에 문제가 있을시 교환 또는 보상받으실 수 있습니다. 부정·불량식품 신고는 국번없이 1399';
-    const notice=[
-      ['제품명', cleanTitle(title)],
-      ['식품유형',''],
-      ['포장재질(내면)',''],
-      ['용도',''],
-      ['내용량', amount],
-      ['보관방법',''],
-      ['도축장명','제품 별도표기'],
-      ['제조업소',''],
-      ['축산물 유통전문판매업소',''],
-      ['반품 및 교환','구입처 및 판매업소'],
-      ['주의사항', CAUTION]
-    ];
+    const notice=mkNotice(cleanTitle(title), amount);
     return{title,subtitle,sections,images,notice};
   }
   // 상품정보고시 표 HTML (모든 모드 공통, 페이지 맨 끝). 값 칸은 인라인 편집 대상(.nv)
@@ -1807,6 +1814,41 @@ const DM=(function(){
       DATA.notice.map(function(kv){return '<tr><th>'+esc(kv[0])+'</th><td class="nv">'+esc(kv[1]).replace(/\n/g,'<br>')+'</td></tr>';}).join('')+
       '</table></div>';
   }
+  // ===== 제품 상세 정보 표 편집기 (왼쪽 패널 ⑥) — 섹션명 변경 + 칸(행) 추가/삭제 =====
+  // 미리보기 표에서 인라인 수정한 값을 DATA.notice로 되돌려 담아 편집 중 유실 방지
+  function syncNoticeFromDOM(){
+    if(!DATA||!DATA.notice)return;
+    const tbl=document.querySelector('#dm-page .dm-notice table'); if(!tbl)return;
+    const rows=[...tbl.querySelectorAll('tr')];
+    if(rows.length!==DATA.notice.length)return; // 구조 불일치 시 동기화 스킵(안전)
+    rows.forEach((tr,i)=>{
+      const td=tr.querySelector('td.nv');
+      if(td) DATA.notice[i][1]=td.innerText.replace(/ /g,' ').replace(/[ \t]+\n/g,'\n').trim();
+    });
+  }
+  function renderNoticeEditor(){
+    const box=$('dm-notice-editor'); if(!box) return;
+    if(!DATA){ box.innerHTML=''; return; }
+    if(!NOTICE_ON){ box.innerHTML='<div class="dm-h3">⑥ 제품 상세 정보 표</div><div style="font-size:11px;color:#aaa;line-height:1.5">상단 <b>‘제품 상세 정보’</b> 체크를 켜면<br>섹션명·칸 수를 편집할 수 있어요.</div>'; return; }
+    if(!DATA.notice) DATA.notice=mkNotice(DATA.title,'');
+    syncNoticeFromDOM();
+    let h='<div class="dm-h3">⑥ 제품 상세 정보 표 <span style="font-weight:400;color:#aaa;font-size:11px">(섹션명·칸 수 편집)</span></div>';
+    h+='<div style="display:flex;flex-direction:column;gap:6px">';
+    DATA.notice.forEach((kv,i)=>{
+      h+='<div style="display:flex;gap:5px;align-items:flex-start">'
+        +'<input value="'+escAttr(kv[0])+'" oninput="DM.noticeEdit('+i+',0,this.value)" placeholder="섹션명" style="flex:0 0 40%;min-width:0;border:1px solid #ccc;border-radius:5px;padding:6px;font-family:inherit;font-size:11px;font-weight:700">'
+        +'<textarea oninput="DM.noticeEdit('+i+',1,this.value)" placeholder="내용" rows="1" style="flex:1;min-width:0;border:1px solid #ccc;border-radius:5px;padding:6px;font-family:inherit;font-size:11px;resize:vertical">'+esc(kv[1])+'</textarea>'
+        +'<button onclick="DM.noticeDel('+i+')" class="btn-sm danger" title="이 칸 삭제" style="flex:0 0 auto;line-height:1.2">🗑</button>'
+        +'</div>';
+    });
+    h+='</div>';
+    h+='<div style="display:flex;gap:6px;margin-top:8px"><button class="btn-sm" style="flex:1" onclick="DM.noticeAdd()">＋ 칸 추가</button><button class="btn-sm" onclick="DM.noticeReset()" title="축산 기본 항목으로 되돌리기">↺ 기본값</button></div>';
+    box.innerHTML=h;
+  }
+  function noticeEdit(i,col,val){ if(DATA&&DATA.notice&&DATA.notice[i]){ DATA.notice[i][col]=val; render(); } }
+  function noticeAdd(){ if(!DATA)return; if(!DATA.notice)DATA.notice=[]; syncNoticeFromDOM(); DATA.notice.push(['','']); renderNoticeEditor(); render(); }
+  function noticeDel(i){ if(DATA&&DATA.notice){ syncNoticeFromDOM(); DATA.notice.splice(i,1); renderNoticeEditor(); render(); } }
+  function noticeReset(){ if(!DATA)return; if(!confirm('축산 기본 항목으로 되돌릴까요? (현재 표 내용은 사라집니다)'))return; DATA.notice=mkNotice(DATA.title,''); renderNoticeEditor(); render(); }
   function label(h){
     if(/알고|Q&A|문의|궁금|FAQ/.test(h))return 'Q & A';
     if(/스펙|구성|정보/.test(h))return 'PRODUCT SPEC';
@@ -1915,7 +1957,7 @@ const DM=(function(){
     }
     const n=imgs.length;
     PHOTOS=imgs.map((u,i)=>({url:u, on:(i<10 || i>=n-2)}));   // 기본: 앞10 + 끝2(중량·포장)
-    drawThumbs(); render();
+    drawThumbs(); render(); renderNoticeEditor();
   }
   function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':m==='gsg'?'예: 강경준 수산물':'예: 새벽소리');render();}
   function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
@@ -1923,7 +1965,7 @@ const DM=(function(){
   function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
   const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv)';
   function toggleEdit(){editing=!editing;document.querySelectorAll(EDSEL).forEach(e=>e.contentEditable=editing);$('dm').classList.toggle('editing',editing);$('dm-edb').textContent=editing?'✅ 완료':'✏️ 수정';}
-  function toggleNotice(){ NOTICE_ON=$('dm-notice-on')?$('dm-notice-on').checked:!NOTICE_ON; try{localStorage.setItem('dm_notice_on',NOTICE_ON?'1':'0');}catch(e){} render(); }
+  function toggleNotice(){ NOTICE_ON=$('dm-notice-on')?$('dm-notice-on').checked:!NOTICE_ON; try{localStorage.setItem('dm_notice_on',NOTICE_ON?'1':'0');}catch(e){} render(); renderNoticeEditor(); }
   async function saveJpg(){
     if(!DATA){alert('먼저 생성하세요.');return;}
     if(editing)toggleEdit();
@@ -2039,7 +2081,7 @@ const DM=(function(){
       r.readAsDataURL(f);
     });
   }
-  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,toggleNotice};
+  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset};
 })();
 </script>
 
