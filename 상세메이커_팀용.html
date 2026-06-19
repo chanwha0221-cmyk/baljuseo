@@ -318,6 +318,14 @@ const DM=(function(){
   const GKJ_OUTRO='https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260506/copy-1778050172-014.jpg';
   // 🥩 강경준 고기(고기24시) 모드 고정 상단 배너 6장 (항상 맨 위)
   const GOGI_BANNERS=[
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/001.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/002.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/003.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/004.jpg',
+    'https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/005.jpg'
+  ];
+  // 🐟🥩 강수에서 파는 고기(gsg) 전용 인트로 배너 — 강경준 고기(gogi)와 분리 (2026-06-19)
+  const GSG_BANNERS=[
     'https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260606/copy-1780737911-001.jpg',
     'https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260606/copy-1780737911-002.jpg',
     'https://rprnwoddl.cafe24.com/web/upload/NNEditor/20260606/copy-1780737911-003.jpg',
@@ -428,7 +436,7 @@ const DM=(function(){
   }
   function buildHtml(){
     if(!DATA)return'<div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
-    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':MODE==='gsg'?'강경준 수산물':MODE==='jh'?'주식회사 마스터':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);if(MODE==='gsg')return buildGkj(brand,GOGI_BANNERS);let h='';
+    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='master'?'주식회사 마스터':MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':MODE==='gsg'?'강경준 수산물':MODE==='jh'?'주식회사 마스터':'새벽소리'));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);if(MODE==='gsg')return buildGkj(brand,GSG_BANNERS);let h='';
     h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}"><div class="brand">${esc(brand)}</div><h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
     let badges=[];const sp=DATA.sections.find(s=>s.block.type==='spec');
     if(sp)sp.block.rows.forEach(([k,v])=>{if(/원산지|생물|중량|사이즈|구성/.test(k)&&v)badges.push(v.split('/')[0].trim());});
