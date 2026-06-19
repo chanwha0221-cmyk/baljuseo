@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.362</title>
+<title>발주서 변환기 v22.363</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.362</span>
+  <span class="ver">v22.363</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1097,6 +1097,12 @@ function _bigfishMapProd(c){
   const qm=c.match(/[xX×]\s*(\d+)/);
   const q=qm?parseInt(qm[1]):1;
   const actual=c.replace(/\s+/g,'');
+  // 숫꽃게 대 사이즈 → 연안 활 대숫게 1kg (박스 N kg = qty N). 일반 숫꽃게보다 먼저 판정 (2026-06-19)
+  if(actual.includes('숫꽃게')&&actual.includes('대사이즈')){
+    const kgM=c.match(/(\d+)\s*kg/i);
+    const kg=kgM?parseInt(kgM[1]):1;
+    return ['연안 활 대숫게 1kg x '+kg];
+  }
   // [산지직송] 활꽃게·숫꽃게 → 연안 활 숫게 1kg (박스 무게 N kg = qty N) (숫꽃게 2026-06-15)
   if(actual.includes('활꽃게')||actual.includes('숫꽃게')||(actual.includes('산지직송')&&actual.includes('꽃게'))){
     const kgM = c.match(/(\d+)\s*kg/i);
@@ -1108,6 +1114,11 @@ function _bigfishMapProd(c){
     const kgM = c.match(/([\d.]+)\s*kg/i);
     const kg = kgM ? Math.round(parseFloat(kgM[1])) : 1;
     return ['횟감 단새우 1kg x '+(kg*q)];
+  }
+  // S급/A급 대게 → 러시아 대게 매핑 (빅피쉬마켓, 2026-06-19). 등급 없는 일반 '대게 Nkg'은 그대로 통과
+  if(actual.includes('대게')){
+    if(/[Ss]급/.test(actual)) return ['S급 러시아 박달대게 3kg x '+q];
+    if(/[Aa]급/.test(actual)) return ['A급 러시아 대게 3kg x '+q];
   }
   // ⚠️ 상품 판정은 '콜론 뒤 실제 상품'으로만 (2026-06-04 사고).
   //    접두 라벨 "합배송 가능 생물 알도루묵 양미리:"에 두 키워드가 다 박혀 있어서
