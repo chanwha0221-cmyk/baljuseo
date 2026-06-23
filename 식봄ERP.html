@@ -7,6 +7,7 @@
 <link rel="icon" href="data:,">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style id="dm-style">
 @font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFLight.ttf') format('truetype');font-weight:300;font-display:swap}
 @font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFMedium.ttf') format('truetype');font-weight:500;font-display:swap}
@@ -265,6 +266,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <button class="nav-btn active" id="nav-bulk" onclick="switchTab('bulk',this)">📦 상품 대량등록</button>
   <button class="nav-btn" id="nav-maker" onclick="switchTab('maker',this)">🎨 상세 메이커</button>
   <button class="nav-btn" id="nav-margin" onclick="switchTab('margin',this)">📊 마진 체크 <span id="margin-alert-badge" style="display:none;background:#dc2626;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px"></span></button>
+  <button class="nav-btn" id="nav-proposal" onclick="switchTab('proposal',this)">🤝 상품제안</button>
   <span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">ERP v3.6 · 마스터 단독 + 폰트 110%</span>
 </div>
 
@@ -431,6 +433,146 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
     </table>
   </div>
 </div>
+
+<div id="tab-proposal" class="tab">
+  <style>
+  #pp-table.pp-tb{border-collapse:collapse;width:100%;font-size:12px}
+  #pp-table.pp-tb th,#pp-table.pp-tb td{border:1px solid #e0ddd7;padding:6px;vertical-align:middle}
+  #pp-table.pp-tb th{background:#f8f7f4;font-weight:700;white-space:nowrap}
+  #pp-table.pp-tb input,#pp-table.pp-tb textarea{border:1px solid #d4cfc7;border-radius:4px;padding:4px;font-family:inherit;font-size:12px;resize:vertical}
+  </style>
+  <div class="sub" style="margin-bottom:8px"><b style="font-size:15px;color:#222">🤝 상품제안서 메이커</b><br>masterc 상품 게시글 '소스'를 붙여넣으면 → 상품명·원산지·스펙·대표사진 자동 추출 → 화면 표 + 엑셀(사진 포함). 공급가는 마스터 시트에서 매칭. 여러 상품 누적 가능.</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+    <textarea id="pp-src" placeholder="masterc 상품 게시글 '페이지 소스' 붙여넣기" style="flex:1;min-width:320px;height:70px;border:1px solid #d4cfc7;border-radius:6px;padding:8px;font-size:12px;font-family:inherit"></textarea>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <button class="btn btn-purple" onclick="PROP.add()">⚡ 추출해서 추가</button>
+      <button class="btn" style="background:#0d6efd;color:#fff" onclick="PROP.loadSupply()">🔄 마스터 시트 공급가</button>
+    </div>
+  </div>
+  <div id="pp-empty" class="empty">소스를 붙여넣고 [⚡ 추출해서 추가]를 누르면 아래에 쌓여요.</div>
+  <div id="pp-table-wrap" style="display:none;overflow:auto">
+    <table id="pp-table" class="pp-tb"><thead><tr>
+      <th>번호</th><th>사진</th><th>상품명</th><th>상품분류</th><th>원산지</th><th>공급가</th><th>상품 스펙</th><th>비고</th><th></th>
+    </tr></thead><tbody id="pp-rows"></tbody></table>
+  </div>
+  <div style="margin-top:10px;display:flex;gap:8px">
+    <button class="btn btn-purple" id="pp-xlsx" style="display:none" onclick="PROP.exportXlsx()">📥 엑셀 다운로드 (사진 포함)</button>
+    <button class="btn" id="pp-clear" style="display:none;background:#888;color:#fff" onclick="PROP.clearAll()">🗑 전체 비우기</button>
+  </div>
+  <div id="pp-thumbs-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:10px;padding:16px;max-width:90vw;max-height:85vh;overflow:auto">
+      <div style="font-weight:700;margin-bottom:8px">대표 사진 선택 <button onclick="PROP.closeThumbs()" style="float:right;border:none;background:#eee;border-radius:5px;padding:4px 10px;cursor:pointer">닫기</button></div>
+      <div id="pp-thumbs-grid" style="display:grid;grid-template-columns:repeat(auto-fill,110px);gap:8px"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PROP=(function(){
+  const $=id=>document.getElementById(id);
+  function norm(s){return (s||'').replace(/\s+/g,'').toLowerCase();}
+  function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function weserv(u){return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&output=jpg&q=90';}
+  let items=[]; let pickIdx=-1;
+  function parse(src){
+    let title=''; const tm=src.match(/<title>([^<]*)<\/title>/i); if(tm) title=tm[1].trim();
+    if(title.indexOf(' - ')>=0) title=title.split(' - ').slice(1).join(' - ').trim();
+    let cat=''; const cm=title.match(/^\s*★?\s*\[([^\]]+)\]/); if(cm){ const p=cm[1].split('/'); cat=p[p.length-1].trim(); }
+    const name=title.replace(/^\s*★?\s*\[[^\]]*\]\s*-?\s*/,'').replace(/^\[[^\]]*\]\s*/,'').trim();
+    let m=src.match(/xe_content[^>]*>([\s\S]*?)<!--AfterDocument/); let content=m?m[1]:src;
+    let images=[...content.matchAll(/<img[^>]+src="([^"]+)"/g)].map(x=>x[1].replace('/./','/')).filter(u=>/attach\/images/.test(u));
+    images=[...new Set(images)];
+    let txt=content.replace(/<img[^>]*>/g,'').replace(/<\/p>|<br\s*\/?>|<\/div>/gi,'\n').replace(/<[^>]+>/g,'');
+    txt=txt.replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"');
+    let lines=txt.split('\n').map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean);
+    let origin='', spec=[];
+    for(let i=0;i<lines.length;i++){
+      if(/원산지/.test(lines[i]) && !/^※/.test(lines[i])){
+        for(let j=i+1;j<lines.length && !/^○/.test(lines[j]); j++){ if(lines[j] && !/^※/.test(lines[j])) origin+=(origin?' ':'')+lines[j]; }
+      }
+      if(/^※/.test(lines[i])) spec.push(lines[i]);
+    }
+    return {name,cat,origin,spec:spec.join('\n'),images,img:images[0]||'',supply:'',note:''};
+  }
+  function applySupplyOne(it){
+    if(typeof masterProducts==='undefined' || !masterProducts || !masterProducts.length) return;
+    const n=norm(it.name); if(!n) return;
+    let hit=masterProducts.find(m=>norm(m.name)===n) || masterProducts.find(m=>norm(m.name).includes(n)||n.includes(norm(m.name)));
+    if(hit && hit.supplyPrice) it.supply=String(hit.supplyPrice);
+  }
+  function add(){
+    const src=$('pp-src').value.trim();
+    if(!src){ alert("masterc 소스를 붙여넣어주세요."); return; }
+    const it=parse(src);
+    if(!it.name && !it.images.length){ alert("인식 실패 — masterc 상품 게시글 소스가 맞는지 확인하세요."); return; }
+    applySupplyOne(it); items.push(it); $('pp-src').value=''; render();
+    if(typeof toast==='function') toast('✓ "'+(it.name||'상품')+'" 추가됨');
+  }
+  async function loadSupply(){
+    try{ if(typeof loadMasterProducts==='function') await loadMasterProducts(); }catch(e){ console.warn(e); }
+    items.forEach(applySupplyOne); render();
+    if(typeof toast==='function') toast('공급가 매칭 완료');
+  }
+  function fmt(n){ n=String(n==null?'':n).replace(/[^0-9]/g,''); return n? Number(n).toLocaleString():''; }
+  function render(){
+    const tb=$('pp-rows'); if(!tb) return;
+    const has=items.length>0;
+    $('pp-empty').style.display=has?'none':'block';
+    $('pp-table-wrap').style.display=has?'block':'none';
+    $('pp-xlsx').style.display=has?'inline-block':'none';
+    $('pp-clear').style.display=has?'inline-block':'none';
+    tb.innerHTML=items.map(function(it,i){
+      const thumb=it.img?('<img src="'+esc(weserv(it.img))+'&w=80&h=80&fit=cover" referrerpolicy="no-referrer" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="PROP.pickThumb('+i+')" title="클릭해서 사진 교체">'):('<button onclick="PROP.pickThumb('+i+')">사진</button>');
+      return '<tr>'
+        +'<td style="text-align:center">'+(i+1)+'</td>'
+        +'<td style="text-align:center">'+thumb+'</td>'
+        +'<td><input value="'+esc(it.name)+'" oninput="PROP.upd('+i+',\'name\',this.value)" style="width:150px"></td>'
+        +'<td><input value="'+esc(it.cat)+'" oninput="PROP.upd('+i+',\'cat\',this.value)" style="width:74px"></td>'
+        +'<td><input value="'+esc(it.origin)+'" oninput="PROP.upd('+i+',\'origin\',this.value)" style="width:110px"></td>'
+        +'<td><input value="'+esc(fmt(it.supply))+'" oninput="PROP.upd('+i+',\'supply\',this.value)" inputmode="numeric" style="width:74px;text-align:right"></td>'
+        +'<td><textarea oninput="PROP.upd('+i+',\'spec\',this.value)" style="width:230px;height:64px">'+esc(it.spec)+'</textarea></td>'
+        +'<td><textarea oninput="PROP.upd('+i+',\'note\',this.value)" placeholder="참고사항" style="width:140px;height:64px">'+esc(it.note)+'</textarea></td>'
+        +'<td><button onclick="PROP.del('+i+')" style="color:#c00;border:none;background:none;cursor:pointer">🗑</button></td>'
+        +'</tr>';
+    }).join('');
+  }
+  function upd(i,k,v){ if(items[i]){ items[i][k]=(k==='supply'? v.replace(/[^0-9]/g,'') : v); } }
+  function del(i){ items.splice(i,1); render(); }
+  function clearAll(){ if(confirm('전체 비울까요?')){ items=[]; render(); } }
+  function pickThumb(i){ pickIdx=i; const g=$('pp-thumbs-grid');
+    g.innerHTML=(items[i].images||[]).map(function(u){ return '<img src="'+esc(weserv(u))+'&w=110&h=110&fit=cover" referrerpolicy="no-referrer" style="width:110px;height:110px;object-fit:cover;border-radius:6px;cursor:pointer;border:3px solid '+(u===items[i].img?'#7b2d8b':'transparent')+'" onclick="PROP.setThumb(\''+encodeURIComponent(u)+'\')">'; }).join('');
+    $('pp-thumbs-modal').style.display='flex';
+  }
+  function setThumb(enc){ const u=decodeURIComponent(enc); if(items[pickIdx]) items[pickIdx].img=u; closeThumbs(); render(); }
+  function closeThumbs(){ $('pp-thumbs-modal').style.display='none'; }
+  async function exportXlsx(){
+    if(!items.length){ alert('추가된 상품이 없어요.'); return; }
+    if(typeof ExcelJS==='undefined'){ alert('ExcelJS 로드 안 됨 — 새로고침 후 다시 시도해주세요.'); return; }
+    const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('상품제안');
+    ws.columns=[{header:'번호',width:6},{header:'사진',width:18},{header:'상품명',width:28},{header:'상품분류',width:12},{header:'원산지',width:16},{header:'공급가',width:12},{header:'상품 스펙',width:42},{header:'비고',width:24}];
+    const h=ws.getRow(1); h.font={bold:true}; h.alignment={vertical:'middle',horizontal:'center'}; h.height=22;
+    for(let i=0;i<items.length;i++){
+      const it=items[i];
+      const r=ws.addRow([i+1,'',it.name,it.cat,it.origin,(it.supply?Number(it.supply):''),it.spec,it.note||'']);
+      r.height=86; r.alignment={vertical:'middle',wrapText:true};
+      r.getCell(1).alignment={vertical:'middle',horizontal:'center'};
+      r.getCell(6).alignment={vertical:'middle',horizontal:'right'};
+      if(it.img){ try{
+        const resp=await fetch(weserv(it.img)+'&w=160&h=160&fit=cover'); const buf=await resp.arrayBuffer();
+        const imgId=wb.addImage({buffer:buf,extension:'jpeg'});
+        ws.addImage(imgId,{tl:{col:1.12,row:(r.number-1)+0.08},ext:{width:108,height:108}});
+      }catch(e){ console.warn('이미지 실패',it.img,e); } }
+    }
+    const buf=await wb.xlsx.writeBuffer();
+    const d=new Date(); const ds=(d.getMonth()+1)+''+(d.getDate());
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    a.download='상품제안서_'+ds+'_'+items.length+'종.xlsx'; document.body.appendChild(a); a.click(); a.remove();
+    if(typeof toast==='function') toast('엑셀 다운로드 완료');
+  }
+  return {add,loadSupply,upd,del,clearAll,pickThumb,setThumb,closeThumbs,exportXlsx};
+})();
+</script>
 
 <div id="toast" class="toast"></div>
 
