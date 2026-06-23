@@ -329,6 +329,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <input id="dm-brand" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="예: 주식회사 마스터" oninput="DM.render()">
       <div class="dm-h3">③ 사진 선택 <span style="font-weight:400;color:#aaa;font-size:11px">(클릭 on/off · 드래그 순서 · 첫장 히어로)</span></div>
       <button class="dm-mb" style="border-color:#0d6efd;color:#0d6efd;margin-bottom:6px" onclick="document.getElementById('dm-file').click()">＋ 내 사진 추가 (당일·최근 사진)</button>
+      <button class="dm-mb" style="border-color:#2C7A4B;color:#2C7A4B;margin-bottom:6px" onclick="DM.dedupCurrent()">🧹 비슷한 사진 자동 거르기</button>
       <input type="file" id="dm-file" accept="image/*" multiple style="display:none" onchange="DM.addFiles(this.files); this.value='';">
       <div id="dm-thumbs" class="dm-thumbs"></div>
       <div style="font-size:11px;color:#aaa;margin-top:6px" id="dm-photohint"></div>
@@ -504,7 +505,7 @@ const PROP=(function(){
   function add(){
     const src=$('pp-src').value.trim();
     if(!src){ alert("masterc 소스를 붙여넣어주세요."); return; }
-    const it=parse(src);
+    const it=parse(src); it.src=src;
     if(!it.name && !it.images.length){ alert("인식 실패 — masterc 상품 게시글 소스가 맞는지 확인하세요."); return; }
     applySupplyOne(it); items.push(it); $('pp-src').value=''; render();
     if(typeof toast==='function') toast('✓ "'+(it.name||'상품')+'" 추가됨');
@@ -533,13 +534,14 @@ const PROP=(function(){
         +'<td><input value="'+esc(fmt(it.supply))+'" oninput="PROP.upd('+i+',\'supply\',this.value)" inputmode="numeric" style="width:74px;text-align:right"></td>'
         +'<td><textarea oninput="PROP.upd('+i+',\'spec\',this.value)" style="width:230px;height:64px">'+esc(it.spec)+'</textarea></td>'
         +'<td><textarea oninput="PROP.upd('+i+',\'note\',this.value)" placeholder="참고사항" style="width:140px;height:64px">'+esc(it.note)+'</textarea></td>'
-        +'<td><button onclick="PROP.del('+i+')" style="color:#c00;border:none;background:none;cursor:pointer">🗑</button></td>'
+        +'<td style="white-space:nowrap"><button onclick="PROP.detail('+i+')" style="background:#C0392B;color:#fff;border:none;border-radius:4px;padding:4px 7px;font-size:11px;cursor:pointer;margin-bottom:3px">🖼️ 상세</button><br><button onclick="PROP.del('+i+')" style="color:#c00;border:none;background:none;cursor:pointer">🗑</button></td>'
         +'</tr>';
     }).join('');
   }
   function upd(i,k,v){ if(items[i]){ items[i][k]=(k==='supply'? v.replace(/[^0-9]/g,'') : v); } }
   function del(i){ items.splice(i,1); render(); }
   function clearAll(){ if(confirm('전체 비울까요?')){ items=[]; render(); } }
+  function detail(i){ if(!items[i]||!items[i].src){ alert('상세 생성용 소스가 없어요. 다시 추출해 주세요.'); return; } if(typeof DM==='undefined'||!DM.makeDetail){ alert('상세메이커 모듈을 못 찾았어요.'); return; } DM.makeDetail(items[i].src); }
   function pickThumb(i){ pickIdx=i; const g=$('pp-thumbs-grid');
     g.innerHTML=(items[i].images||[]).map(function(u){ return '<img src="'+esc(weserv(u))+'&w=110&h=110&fit=cover" referrerpolicy="no-referrer" style="width:110px;height:110px;object-fit:cover;border-radius:6px;cursor:pointer;border:3px solid '+(u===items[i].img?'#7b2d8b':'transparent')+'" onclick="PROP.setThumb(\''+encodeURIComponent(u)+'\')">'; }).join('');
     $('pp-thumbs-modal').style.display='flex';
@@ -555,13 +557,19 @@ const PROP=(function(){
     for(let i=0;i<items.length;i++){
       const it=items[i];
       const r=ws.addRow([i+1,'',it.name,it.cat,it.origin,(it.supply?Number(it.supply):''),it.spec,it.note||'']);
-      r.height=86; r.alignment={vertical:'middle',wrapText:true};
+      // 행 높이 = 상품 스펙 줄 수에 맞춰 자동 (긴 스펙도 안 잘리게)
+      const cpl=22; let lns=0;
+      (it.spec||'').split('\n').forEach(function(l){ lns+=Math.max(1,Math.ceil((l.length||1)/cpl)); });
+      const hpt=Math.max(64, lns*16+10);
+      r.height=hpt; r.alignment={vertical:'middle',wrapText:true};
       r.getCell(1).alignment={vertical:'middle',horizontal:'center'};
       r.getCell(6).alignment={vertical:'middle',horizontal:'right'};
       if(it.img){ try{
-        const resp=await fetch(weserv(it.img)+'&w=160&h=160&fit=cover'); const buf=await resp.arrayBuffer();
+        const resp=await fetch(weserv(it.img)+'&w=240&h=240&fit=cover'); const buf=await resp.arrayBuffer();
         const imgId=wb.addImage({buffer:buf,extension:'jpeg'});
-        ws.addImage(imgId,{tl:{col:1.12,row:(r.number-1)+0.08},ext:{width:108,height:108}});
+        const colpx=131, rowpx=hpt*4/3;                       // 사진열 px · 행 px
+        const sz=Math.max(56, Math.min(colpx-10, rowpx-10));  // 칸에 맞춘 정사각 크기
+        ws.addImage(imgId,{tl:{col:1+((colpx-sz)/2)/colpx, row:(r.number-1)+((rowpx-sz)/2)/rowpx}, ext:{width:sz,height:sz}});
       }catch(e){ console.warn('이미지 실패',it.img,e); } }
     }
     const buf=await wb.xlsx.writeBuffer();
@@ -571,7 +579,7 @@ const PROP=(function(){
     a.download='상품제안서_'+ds+'_'+items.length+'종.xlsx'; document.body.appendChild(a); a.click(); a.remove();
     if(typeof toast==='function') toast('엑셀 다운로드 완료');
   }
-  return {add,loadSupply,upd,del,clearAll,pickThumb,setThumb,closeThumbs,exportXlsx};
+  return {add,loadSupply,upd,del,clearAll,detail,pickThumb,setThumb,closeThumbs,exportXlsx};
 })();
 </script>
 
@@ -2084,6 +2092,39 @@ const DM=(function(){
   }
   function render(){const p=$('dm-page');if(!p)return;p.dataset.mode=MODE;p.innerHTML=buildHtml();}
   function setProd(){ if(!DATA) return; const v=($('dm-prodname')?$('dm-prodname').value:'').trim(); DATA.title=v; if(DATA.notice&&DATA.notice[0]&&DATA.notice[0][0]==='제품명') DATA.notice[0][1]=v; const pf=$('dm-th-prefix'); if(pf) pf.value=v.replace(/\n/g,' ').slice(0,40); render(); }
+  // ===== 비슷한 사진 자동 거르기 (average hash) + 소스→상세 JPG 한방 (상품제안 탭용) =====
+  function _aHash(u){ return new Promise(function(res){ const img=new Image(); img.crossOrigin='anonymous';
+    img.onload=function(){ try{ const c=document.createElement('canvas'); c.width=8;c.height=8; const x=c.getContext('2d'); x.drawImage(img,0,0,8,8); const d=x.getImageData(0,0,8,8).data; const g=[]; for(let i=0;i<64;i++) g.push((d[i*4]+d[i*4+1]+d[i*4+2])/3); const avg=g.reduce(function(a,b){return a+b;},0)/64; let bits=''; for(let i=0;i<64;i++) bits+=(g[i]>=avg?'1':'0'); res(bits); }catch(e){ res(null); } };
+    img.onerror=function(){ res(null); };
+    img.src='https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w=8&h=8&fit=cover&output=jpg'; }); }
+  function _hamming(a,b){ let d=0; for(let i=0;i<a.length;i++) if(a[i]!==b[i]) d++; return d; }
+  async function dedupImages(urls, th){ const hs=[], keep=[]; for(const u of urls){ let h=null; try{ h=await _aHash(u); }catch(e){} if(h===null){ keep.push(u); hs.push(null); continue; } let dup=false; for(const hh of hs){ if(hh && _hamming(hh,h)<=th){ dup=true; break; } } if(!dup){ keep.push(u); hs.push(h); } } return keep; }
+  async function makeDetail(src){
+    DATA=parse(src);
+    if(!DATA || (!DATA.images.length && !DATA.title)){ alert('소스 인식 실패 — masterc 상품 소스가 맞는지 확인하세요.'); return; }
+    if(typeof toast==='function') toast('비슷한 사진 거르는 중…');
+    let imgs=DATA.images.slice();
+    try{ imgs=await dedupImages(imgs, 11); }catch(e){ console.warn('dedup 실패',e); }
+    if(imgs.length>30){ const tail=imgs.slice(-2); imgs=[...new Set(imgs.slice(0,28).concat(tail))]; }
+    PHOTOS=imgs.map(function(u){ return {url:u, on:true}; });
+    MODE='master';
+    const mb=document.querySelector('#dm .dm-mb[data-m="master"]'); if(mb){ document.querySelectorAll('#dm .dm-mb').forEach(function(b){ b.classList.remove('on'); }); mb.classList.add('on'); }
+    render();
+    if(typeof toast==='function') toast('상세페이지 생성 중…');
+    await saveJpg();
+  }
+  // 현재 불러온 사진 중 비슷한 컷 자동 끄기 (썸네일에서 다시 켤 수 있음)
+  async function dedupCurrent(){
+    if(!PHOTOS.length){ alert('먼저 ⚡ 상세페이지 생성을 눌러 사진을 불러와주세요.'); return; }
+    if(typeof toast==='function') toast('비슷한 사진 분석 중…');
+    const kept=[]; let off=0;
+    for(const p of PHOTOS){ let h=null; try{ h=await _aHash(p.url); }catch(e){}
+      if(h===null){ p.on=true; continue; }
+      let dup=false; for(const kh of kept){ if(_hamming(kh,h)<=11){ dup=true; break; } }
+      if(dup){ p.on=false; off++; } else { p.on=true; kept.push(h); } }
+    drawThumbs(); render();
+    if(typeof toast==='function') toast('비슷한 사진 '+off+'장 껐어요 (썸네일 클릭하면 다시 켜짐)');
+  }
   function drawThumbs(){const firstOn=PHOTOS.findIndex(p=>p.on),onC=PHOTOS.filter(p=>p.on).length;
     $('dm-thumbs').innerHTML=PHOTOS.map((p,i)=>{const up=p.url.startsWith('data:');const thumb=up?p.url:weserv(p.url)+'&w=160&h=120&fit=cover';return `<div class="dm-th ${p.on?'':'off'} ${i===firstOn?'hero':''}" draggable="true" onclick="DM.toggle(${i})" ondragstart="DM.drag(${i})" ondragover="event.preventDefault()" ondrop="DM.drop(${i})"><img src="${thumb}" referrerpolicy="no-referrer"><span class="n">${i+1}</span>${up?'<span style="position:absolute;top:1px;right:2px;background:rgba(13,110,253,.9);color:#fff;font-size:8px;font-weight:700;padding:0 3px;border-radius:5px">내</span>':''}${i===firstOn?'<span class="tg">히어로</span>':''}</div>`;}).join('');
     $('dm-photohint').textContent=`선택 ${onC}장 / 전체 ${PHOTOS.length}장`;
@@ -2229,7 +2270,7 @@ const DM=(function(){
       r.readAsDataURL(f);
     });
   }
-  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd};
+  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,makeDetail,dedupCurrent};
 })();
 </script>
 

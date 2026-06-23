@@ -280,6 +280,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <input id="dm-brand" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="예: 주식회사 마스터" oninput="DM.render()">
       <div class="dm-h3">③ 사진 선택 <span style="font-weight:400;color:#aaa;font-size:11px">(클릭 on/off · 드래그 순서 · 첫장 히어로)</span></div>
       <button class="dm-mb" style="border-color:#0d6efd;color:#0d6efd;margin-bottom:6px" onclick="document.getElementById('dm-file').click()">＋ 내 사진 추가 (당일·최근 사진)</button>
+      <button class="dm-mb" style="border-color:#2C7A4B;color:#2C7A4B;margin-bottom:6px" onclick="DM.dedupCurrent()">🧹 비슷한 사진 자동 거르기</button>
       <input type="file" id="dm-file" accept="image/*" multiple style="display:none" onchange="DM.addFiles(this.files); this.value='';">
       <div id="dm-thumbs" class="dm-thumbs"></div>
       <div style="font-size:11px;color:#aaa;margin-top:6px" id="dm-photohint"></div>
@@ -538,6 +539,23 @@ const DM=(function(){
   }
   function render(){const p=$('dm-page');if(!p)return;p.dataset.mode=MODE;p.innerHTML=buildHtml();}
   function setProd(){ if(!DATA) return; const v=($('dm-prodname')?$('dm-prodname').value:'').trim(); DATA.title=v; if(DATA.notice&&DATA.notice[0]&&DATA.notice[0][0]==='제품명') DATA.notice[0][1]=v; const pf=$('dm-th-prefix'); if(pf) pf.value=v.replace(/\n/g,' ').slice(0,40); render(); }
+  // ===== 비슷한 사진 자동 거르기 (average hash) =====
+  function _aHash(u){ return new Promise(function(res){ const img=new Image(); img.crossOrigin='anonymous';
+    img.onload=function(){ try{ const c=document.createElement('canvas'); c.width=8;c.height=8; const x=c.getContext('2d'); x.drawImage(img,0,0,8,8); const d=x.getImageData(0,0,8,8).data; const g=[]; for(let i=0;i<64;i++) g.push((d[i*4]+d[i*4+1]+d[i*4+2])/3); const avg=g.reduce(function(a,b){return a+b;},0)/64; let bits=''; for(let i=0;i<64;i++) bits+=(g[i]>=avg?'1':'0'); res(bits); }catch(e){ res(null); } };
+    img.onerror=function(){ res(null); };
+    img.src='https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w=8&h=8&fit=cover&output=jpg'; }); }
+  function _hamming(a,b){ let d=0; for(let i=0;i<a.length;i++) if(a[i]!==b[i]) d++; return d; }
+  async function dedupCurrent(){
+    if(!PHOTOS.length){ alert('먼저 ⚡ 상세페이지 생성을 눌러 사진을 불러와주세요.'); return; }
+    if(typeof toast==='function') toast('비슷한 사진 분석 중…');
+    const kept=[]; let off=0;
+    for(const p of PHOTOS){ let h=null; try{ h=await _aHash(p.url); }catch(e){}
+      if(h===null){ p.on=true; continue; }
+      let dup=false; for(const kh of kept){ if(_hamming(kh,h)<=11){ dup=true; break; } }
+      if(dup){ p.on=false; off++; } else { p.on=true; kept.push(h); } }
+    drawThumbs(); render();
+    if(typeof toast==='function') toast('비슷한 사진 '+off+'장 껐어요 (썸네일 클릭하면 다시 켜짐)');
+  }
   function drawThumbs(){const firstOn=PHOTOS.findIndex(p=>p.on),onC=PHOTOS.filter(p=>p.on).length;
     $('dm-thumbs').innerHTML=PHOTOS.map((p,i)=>{const up=p.url.startsWith('data:');const thumb=up?p.url:weserv(p.url)+'&w=160&h=120&fit=cover';return `<div class="dm-th ${p.on?'':'off'} ${i===firstOn?'hero':''}" draggable="true" onclick="DM.toggle(${i})" ondragstart="DM.drag(${i})" ondragover="event.preventDefault()" ondrop="DM.drop(${i})"><img src="${thumb}" referrerpolicy="no-referrer"><span class="n">${i+1}</span>${up?'<span style="position:absolute;top:1px;right:2px;background:rgba(13,110,253,.9);color:#fff;font-size:8px;font-weight:700;padding:0 3px;border-radius:5px">내</span>':''}${i===firstOn?'<span class="tg">히어로</span>':''}</div>`;}).join('');
     $('dm-photohint').textContent=`선택 ${onC}장 / 전체 ${PHOTOS.length}장`;
@@ -683,7 +701,7 @@ const DM=(function(){
   }
   loadSaved(); renderSaved('');
   { const _nc=$('dm-notice-on'); if(_nc) _nc.checked=NOTICE_ON; }
-  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd};
+  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
 })();
 </script>
 <script>
