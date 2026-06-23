@@ -37,6 +37,7 @@
 #dm.editing #dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv):hover{outline:1px dashed #C0392B;cursor:text}
 #dm-page [contenteditable]:focus{outline:2px solid #C0392B;background:rgba(255,200,180,.18)}
 /* 상세 테마 (모두 #dm-page 스코프) */
+#dm-page{word-break:keep-all;overflow-wrap:break-word}  /* 한 글자 고아줄 방지 — 단어 통째로 줄바꿈 */
 /* 상품정보고시(제품 상세 정보) — 페이지 맨 끝 공통 표 */
 #dm-page .dm-notice{max-width:92%;margin:40px auto 14px}
 #dm-page .dm-notice-t{text-align:center;font-size:30px;font-weight:800;color:#2e7d6b;letter-spacing:-1px;margin-bottom:22px}
@@ -572,10 +573,10 @@ const PROP=(function(){
       }catch(e){ console.warn('이미지 실패',it.img,e); } }
     }
     const buf=await wb.xlsx.writeBuffer();
-    const d=new Date(); const ds=(d.getMonth()+1)+''+(d.getDate());
+    const d=new Date(); const mm=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
     const a=document.createElement('a');
     a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
-    a.download='상품제안서_'+ds+'_'+items.length+'종.xlsx'; document.body.appendChild(a); a.click(); a.remove();
+    a.download=mm+dd+'_주식회사 마스터_상품 제안서.xlsx'; document.body.appendChild(a); a.click(); a.remove();
     if(typeof toast==='function') toast('엑셀 다운로드 완료');
   }
   return {add,loadSupply,upd,del,clearAll,detail,pickThumb,setThumb,closeThumbs,exportXlsx};
@@ -2102,13 +2103,28 @@ const DM=(function(){
     DATA=parse(src);
     if(!DATA || (!DATA.images.length && !DATA.title)){ alert('소스 인식 실패 — masterc 상품 소스가 맞는지 확인하세요.'); return; }
     if(typeof toast==='function') toast('비슷한 사진 거르는 중…');
-    let imgs=DATA.images.slice();
-    try{ imgs=await dedupImages(imgs, 11); }catch(e){ console.warn('dedup 실패',e); }
-    if(imgs.length>30){ const tail=imgs.slice(-2); imgs=[...new Set(imgs.slice(0,28).concat(tail))]; }
-    PHOTOS=imgs.map(function(u){ return {url:u, on:true}; });
+    const original=DATA.images.slice();
+    let dd=original;
+    try{ dd=await dedupImages(original, 13); }catch(e){ console.warn('dedup 실패',e); }   // 빡센 중복 제거
+    // 최하단 큰 포장사진 = 원본 맨 끝 컷 (masterc는 보통 끝이 중량·포장)
+    const bottom = original[original.length-1] || dd[dd.length-1] || '';
+    // 본문 풀: 중복제거 결과에서 bottom 제외 + 중량(끝-2) 보장
+    let pool = dd.filter(function(u){ return u!==bottom; });
+    const weigh = original[original.length-2];
+    if(weigh && weigh!==bottom && pool.indexOf(weigh)<0) pool.push(weigh);
+    const T=12;   // 본문 12장 + 최하단 1장 = 최종 13장
+    if(pool.length>T){
+      const tail=pool.slice(-2), head=pool.slice(0,pool.length-2), need=T-2; let picked=[];
+      if(head.length<=need){ picked=head.slice(); }
+      else { for(let i=0;i<need;i++) picked.push(head[Math.round(i*(head.length-1)/(need-1))]); }
+      pool=[...new Set([].concat(picked,tail))];
+    }
+    PHOTOS=pool.map(function(u){ return {url:u, on:true}; });
     MODE='master';
     const mb=document.querySelector('#dm .dm-mb[data-m="master"]'); if(mb){ document.querySelectorAll('#dm .dm-mb').forEach(function(b){ b.classList.remove('on'); }); mb.classList.add('on'); }
     render();
+    // 최하단: 포장 사진 1장 크게 가운데
+    if(bottom){ const dp=$('dm-page'); if(dp){ const w=document.createElement('div'); w.style.cssText='text-align:center;margin:30px 0 6px'; const im=document.createElement('img'); im.src=bottom; im.setAttribute('referrerpolicy','no-referrer'); im.style.cssText='width:88%;max-width:760px;border-radius:10px'; w.appendChild(im); dp.appendChild(w); } }
     if(typeof toast==='function') toast('상세페이지 생성 중…');
     await saveJpg();
   }

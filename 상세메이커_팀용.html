@@ -36,6 +36,7 @@
 #dm.editing #dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a):hover{outline:1px dashed #C0392B;cursor:text}
 #dm-page [contenteditable]:focus{outline:2px solid #C0392B;background:rgba(255,200,180,.18)}
 /* 상세 테마 (모두 #dm-page 스코프) */
+#dm-page{word-break:keep-all;overflow-wrap:break-word}  /* 한 글자 고아줄 방지 — 단어 통째로 줄바꿈 */
 #dm-page{--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00}
 #dm-page[data-mode="master"]{--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C}
 /* 🔎 정효모드 — 마스터 색상 그대로 + 텍스트 전체 120% */
