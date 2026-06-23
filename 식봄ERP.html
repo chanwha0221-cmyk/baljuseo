@@ -454,7 +454,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <div id="pp-empty" class="empty">소스를 붙여넣고 [⚡ 추출해서 추가]를 누르면 아래에 쌓여요.</div>
   <div id="pp-table-wrap" style="display:none;overflow:auto">
     <table id="pp-table" class="pp-tb"><thead><tr>
-      <th>번호</th><th>사진</th><th>상품명</th><th>상품분류</th><th>원산지</th><th>공급가</th><th>상품 스펙</th><th>비고</th><th></th>
+      <th>번호</th><th>사진</th><th>상품명</th><th>원산지</th><th>공급가</th><th>상품 스펙</th><th>비고</th><th></th>
     </tr></thead><tbody id="pp-rows"></tbody></table>
   </div>
   <div style="margin-top:10px;display:flex;gap:8px">
@@ -529,7 +529,6 @@ const PROP=(function(){
         +'<td style="text-align:center">'+(i+1)+'</td>'
         +'<td style="text-align:center">'+thumb+'</td>'
         +'<td><input value="'+esc(it.name)+'" oninput="PROP.upd('+i+',\'name\',this.value)" style="width:150px"></td>'
-        +'<td><input value="'+esc(it.cat)+'" oninput="PROP.upd('+i+',\'cat\',this.value)" style="width:74px"></td>'
         +'<td><input value="'+esc(it.origin)+'" oninput="PROP.upd('+i+',\'origin\',this.value)" style="width:110px"></td>'
         +'<td><input value="'+esc(fmt(it.supply))+'" oninput="PROP.upd('+i+',\'supply\',this.value)" inputmode="numeric" style="width:74px;text-align:right"></td>'
         +'<td><textarea oninput="PROP.upd('+i+',\'spec\',this.value)" style="width:230px;height:64px">'+esc(it.spec)+'</textarea></td>'
@@ -552,18 +551,18 @@ const PROP=(function(){
     if(!items.length){ alert('추가된 상품이 없어요.'); return; }
     if(typeof ExcelJS==='undefined'){ alert('ExcelJS 로드 안 됨 — 새로고침 후 다시 시도해주세요.'); return; }
     const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('상품제안');
-    ws.columns=[{header:'번호',width:6},{header:'사진',width:18},{header:'상품명',width:28},{header:'상품분류',width:12},{header:'원산지',width:16},{header:'공급가',width:12},{header:'상품 스펙',width:42},{header:'비고',width:24}];
+    ws.columns=[{header:'번호',width:6},{header:'사진',width:18},{header:'상품명',width:28},{header:'원산지',width:16},{header:'공급가',width:12},{header:'상품 스펙',width:42},{header:'비고',width:24}];
     const h=ws.getRow(1); h.font={bold:true}; h.alignment={vertical:'middle',horizontal:'center'}; h.height=22;
     for(let i=0;i<items.length;i++){
       const it=items[i];
-      const r=ws.addRow([i+1,'',it.name,it.cat,it.origin,(it.supply?Number(it.supply):''),it.spec,it.note||'']);
+      const r=ws.addRow([i+1,'',it.name,it.origin,(it.supply?Number(it.supply):''),it.spec,it.note||'']);
       // 행 높이 = 상품 스펙 줄 수에 맞춰 자동 (긴 스펙도 안 잘리게)
       const cpl=22; let lns=0;
       (it.spec||'').split('\n').forEach(function(l){ lns+=Math.max(1,Math.ceil((l.length||1)/cpl)); });
       const hpt=Math.max(64, lns*16+10);
       r.height=hpt; r.alignment={vertical:'middle',wrapText:true};
       r.getCell(1).alignment={vertical:'middle',horizontal:'center'};
-      r.getCell(6).alignment={vertical:'middle',horizontal:'right'};
+      r.getCell(5).alignment={vertical:'middle',horizontal:'right'};
       if(it.img){ try{
         const resp=await fetch(weserv(it.img)+'&w=240&h=240&fit=cover'); const buf=await resp.arrayBuffer();
         const imgId=wb.addImage({buffer:buf,extension:'jpeg'});
