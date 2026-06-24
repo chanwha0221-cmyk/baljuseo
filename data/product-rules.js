@@ -71,6 +71,7 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};
   if(norm(pn).includes('옥돔')){const _m=pn.match(/(\d+)\s*(?:미|마리)/);return{name:'제주 반건조 옥돔 '+(_m?_m[1]:'5')+'마리',qty,maxB:999};}
   if(norm(pn).includes('보리굴비'))return{name:pn.replace(/(\d+)\s*미/,'$1마리'),qty,maxB:999};
+  if(norm(pn).includes('미더덕'))return{name:'통통 미더덕 1kg',qty:Math.round(qty*wi),maxB:999};
   // 찐한국 시리즈 (자체제작, 상품명 미정의 → 오타 그대로 들어옴. 키워드 정규화)
   {const _z=norm(pn).toLowerCase();
     if(_z.includes('고무장갑')){
