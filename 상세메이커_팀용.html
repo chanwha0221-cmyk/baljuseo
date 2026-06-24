@@ -548,6 +548,7 @@ const DM=(function(){
   function _hamming(a,b){ let d=0; for(let i=0;i<a.length;i++) if(a[i]!==b[i]) d++; return d; }
   async function dedupCurrent(){
     if(!PHOTOS.length){ alert('먼저 ⚡ 상세페이지 생성을 눌러 사진을 불러와주세요.'); return; }
+    if(PHOTOS.length<20){ PHOTOS.forEach(function(p){ p.on=true; }); drawThumbs(); render(); if(typeof toast==='function') toast('전체 '+PHOTOS.length+'장(20장 미만) — 거르지 않고 전부 사용합니다.'); return; }
     if(typeof toast==='function') toast('비슷한 사진 분석 중…');
     const kept=[]; let off=0;
     for(const p of PHOTOS){ let h=null; try{ h=await _aHash(p.url); }catch(e){}

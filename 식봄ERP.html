@@ -2105,7 +2105,7 @@ const DM=(function(){
     if(typeof toast==='function') toast('비슷한 사진 거르는 중…');
     const original=DATA.images.slice();
     let dd=original;
-    try{ dd=await dedupImages(original, 13); }catch(e){ console.warn('dedup 실패',e); }   // 빡센 중복 제거
+    if(original.length>=20){ try{ dd=await dedupImages(original, 13); }catch(e){ console.warn('dedup 실패',e); } }   // 빡센 중복 제거 (20장 미만이면 안 거름 — 쓸 사진 남게)
     // 최하단 큰 포장사진 = 원본 맨 끝 컷 (masterc는 보통 끝이 중량·포장)
     const bottom = original[original.length-1] || dd[dd.length-1] || '';
     // 본문 풀: 중복제거 결과에서 bottom 제외 + 중량(끝-2) 보장
@@ -2131,6 +2131,7 @@ const DM=(function(){
   // 현재 불러온 사진 중 비슷한 컷 자동 끄기 (썸네일에서 다시 켤 수 있음)
   async function dedupCurrent(){
     if(!PHOTOS.length){ alert('먼저 ⚡ 상세페이지 생성을 눌러 사진을 불러와주세요.'); return; }
+    if(PHOTOS.length<20){ PHOTOS.forEach(function(p){ p.on=true; }); drawThumbs(); render(); if(typeof toast==='function') toast('전체 '+PHOTOS.length+'장(20장 미만) — 거르지 않고 전부 사용합니다.'); return; }
     if(typeof toast==='function') toast('비슷한 사진 분석 중…');
     const kept=[]; let off=0;
     for(const p of PHOTOS){ let h=null; try{ h=await _aHash(p.url); }catch(e){}
