@@ -57,6 +57,7 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('삼배체')&&norm(pn).includes('굴'))return{name:'통통 삼배체 굴 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:1};
   if(norm(pn).includes('도다리회')){const units=Math.max(1,Math.round(qty*wi*1000/250));return{name:'통통 활 도다리회 250g',qty:units,maxB:999};}
   if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
+  if(norm(pn).includes('대극천'))return{name:'프리미엄 대극천 복숭아 2kg',qty,maxB:1};
   if(norm(pn).includes('총알한치')&&norm(pn).includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
   if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터'))return{name:'반건조오징어 1kg 5미',qty,maxB:999};
   if(cl==='대상수산'&&(norm(pn).includes('바다장어')||norm(pn).includes('바다 장어')))return{name:'비만 바다장어 1kg',qty:Math.round(qty*wi),maxB:999};
