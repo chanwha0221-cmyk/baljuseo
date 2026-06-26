@@ -444,7 +444,8 @@ function parseRows(rows,filename,showChat=true){
     const inAmt=parseNum(r[colIdx.in]);
     const outAmt=parseNum(r[colIdx.out]);
     if(inAmt===0&&outAmt===0)continue;
-    const dateOnly=dateStr.slice(0,10);
+    const _dm=dateStr.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+    const dateOnly=_dm?_dm[1]+'-'+_dm[2].padStart(2,'0')+'-'+_dm[3].padStart(2,'0'):dateStr.slice(0,10);
     parsed.push({
       date:dateStr, dateOnly,
       in:inAmt, out:outAmt,
