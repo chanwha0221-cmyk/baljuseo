@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.401</title>
+<title>발주서 변환기 v22.402</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.401</span>
+  <span class="ver">v22.402</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -661,7 +661,9 @@ function parseLooseBoardRow(line){
   const phoneRe=/0\d{1,2}-\d{3,4}-\d{4}/g;
   const phones=[...line.matchAll(phoneRe)];
   if(phones.length<2)return null;
-  if(!/[xX×]\s*\d+/.test(line))return null;
+  // 상품 경계 앵커: 'x N'(명시 수량) 또는 단위 수량(5kg·500g·1팩 등). 둘 다 없으면 상품/수령인 경계를 못 잡으니 패스
+  const _unitRe=/\d+\s*(?:kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판|대|장|줄|관|단|모|벌)(?![가-힣])/i;
+  if(!/[xX×]\s*\d+/.test(line)&&!_unitRe.test(line))return null;
   const p1=phones[0],p2=phones[phones.length-1];
   if(p1.index===p2.index)return null;
   const orderPhone=p1[0],custPhone=p2[0];
@@ -673,8 +675,9 @@ function parseLooseBoardRow(line){
   const bp=before.split(/\s{2,}/);
   if(bp.length>=2){orderClient=bp[0].trim();orderAddr=bp.slice(1).join(' ').trim();}
   else{const bw=before.split(/\s+/);orderClient=bw[0]||'';orderAddr=bw.slice(1).join(' ');}
-  // middle = "상품명 ... x N  수령인  주소"
-  const xm=middle.match(/^(.+?[xX×]\s*\d+)\s+(.+)$/);
+  // middle = "상품명 ... x N  수령인  주소"  (수량이 'x N' 없이 단위만, 예: '동치미 5kg'면 첫 단위 토큰을 상품 끝 앵커로)
+  let xm=middle.match(/^(.+?[xX×]\s*\d+)\s+(.+)$/);
+  if(!xm)xm=middle.match(/^(.+?\d+\s*(?:kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판|대|장|줄|관|단|모|벌))\s+(.+)$/i);
   if(!xm)return null;
   const product=xm[1].trim();const rest=xm[2].trim();
   // rest = "수령인  주소" — 2공백+ 우선, 안되면 첫 한글이름(2-6자)
