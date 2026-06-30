@@ -7,7 +7,7 @@
 function norm(s){return s.replace(/\s+/g,'');}
 
 function pp(cl,pr,qty){
-  const FREE_SHIP_KEYWORDS=['동치미'];
+  const FREE_SHIP_KEYWORDS=['동치미','옥돔','초당옥수수'];
   for(const kw of FREE_SHIP_KEYWORDS){
     if(norm(pr).includes(kw)){
       let _r=pr.replace(/\*/g,'x');
