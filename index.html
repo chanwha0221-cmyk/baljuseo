@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.406</title>
+<title>발주서 변환기 v22.407</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.406</span>
+  <span class="ver">v22.407</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -700,6 +700,8 @@ function mergeLines(raw){
     if(!dataStart){if(isDataHeader(normalized)){dataStart=true;}continue;}
     if(isHeaderRow(normalized))continue;
     const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)[kK]\b/g,'$1kg').replace(/한판/g,'1판')).join('\t');
+    const nahaeng=preprocessNahaengJaeun(trimmed);
+    if(nahaeng){const _fw=nahaeng.split('\t')[0].replace(/\s+/g,'');merged.push(nahaeng);lastClient=_fw;lastKnownClient=_fw;continue;}
     const balbol=preprocessBalbolLine(trimmed);
     if(balbol){merged.push(balbol);lastClient='김융환';lastKnownClient='김융환';continue;}
     const hyein=preprocessHyein(preprocessed);
@@ -745,6 +747,12 @@ function norm(s){return s.replace(/\s+/g,'');}
 function pp(cl,pr,qty){
   // 공통 규칙 (2026-05-15): 시작 부분의 [업체명] 접두사 자동 제거 (굿수산/신선한아침/빅피쉬마켓 등)
   pr = pr.replace(/^\s*\[[^\]]+\]\s*/, '');
+  // 나행상회·자은엔앤피 공동 발주: 전처리(preprocessNahaengJaeun)에서 옵션판정·상품명 치환이 끝난 최종명이므로 pp 일반규칙(대극천 2kg 고정 등)을 타지 않고 무게 그대로 통과
+  if(cl==='나행상회'||cl==='자은np'||cl==='자은NP'||cl==='자은Np'||cl==='자은nP'||cl==='자은엔앤피'){
+    const _q=pr.match(/[xX×]\s*(\d+)\s*$/);
+    if(_q)return{name:pr.slice(0,_q.index).trim(),qty:parseInt(_q[1]),maxB:999};
+    return{name:pr.trim(),qty,maxB:999};
+  }
   const FREE_SHIP_KEYWORDS=['동치미','옥돔','초당옥수수'];
   for(const kw of FREE_SHIP_KEYWORDS){
     if(norm(pr).includes(kw)){
@@ -920,6 +928,32 @@ function preprocessHyein(line){
     return`혜인건강\t\t\t\t${product}\t${custName}\t${addr}\t${custPhone}\t${msg}`;
   }
   return null;
+}
+function preprocessNahaengJaeun(line){
+  // 나행상회·자은엔앤피 공동 발주서 양식 (탭 15칸). 옵션명(주문번호 다음 칸)이 있으면 옵션명, 없으면 상품명 사용.
+  const cols=line.split('\t');
+  if(cols.length<11)return null;
+  const cl0=(cols[0]||'').trim();const cl=cl0.replace(/\s+/g,'');
+  if(cl!=='나행상회'&&cl!=='자은np'&&cl!=='자은NP'&&cl!=='자은Np'&&cl!=='자은nP'&&cl!=='자은엔앤피')return null;
+  const orderPhone=(cols[2]||'').trim();
+  const prodName=(cols[3]||'').trim();
+  const custName=(cols[4]||'').trim();
+  const custAddr=(cols[5]||'').trim();
+  const custPhone=(cols[6]||'').trim();
+  const memo=(cols[7]||'').replace(/\r?\n/g,' ').trim();
+  // 옵션명 = 주문번호(8) 다음 칸(9). "중량 : 대극천 복숭아 3kg" 같은 라벨 접두어(콜론 앞)는 제거
+  let option=(cols[9]||'').trim().replace(/^[^:：]*[:：]\s*/,'').trim();
+  const qm=(cols[10]||'').trim();const qty=/^\d+$/.test(qm)?parseInt(qm):1;
+  // 옵션 있으면 옵션명, 없으면 상품명
+  let name=option||prodName;
+  // 나행상회·자은엔앤피 단독 상품명 치환 (판매상품 고정)
+  if(/대극천\s*복숭아/.test(name)){
+    const wm=name.match(/([\d.]+)\s*kg/i);
+    name='프리미엄 대극천 복숭아'+(wm?' '+wm[1]+'kg':'');
+  }else if(name.includes('등갈비')){
+    name='초특가 국내산 등갈비 1kg';
+  }
+  return `${cl0}\t\t${orderPhone}\t\t${name} x ${qty}\t${custName}\t${custAddr}\t${custPhone}\t${memo}`;
 }
 function isPureNum(s){return !!(s.match(/^\d{1,6}$/))}
 function extractPhoneFromAddr(addr){
