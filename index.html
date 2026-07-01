@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.408</title>
+<title>발주서 변환기 v22.409</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.408</span>
+  <span class="ver">v22.409</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -828,6 +828,7 @@ function pp(cl,pr,qty){
   const wm=cn.match(/([\d.]+)kg/);const gm=!wm&&cn.match(/(\d+)g\b/);const wi=wm?parseFloat(wm[1]):gm?parseInt(gm[1])/1000:1;
   const pn=qm?cn:cn.replace(/[xX×]\s*[\d.]+/g,'').trim();
   if(cl==='대상수산'){
+    if(norm(pn).includes('살고동'))return{name:'동해 살고동 대짜 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
     if(norm(pn).includes('대구'))return{name:'초대왕 생대구 5kg급',qty,maxB:999};
     if(norm(pn).includes('참다랑어'))return{name:'130kg급 생참다랑어 필렛 500g',qty:Math.max(1,Math.round(qty*wi*2)),maxB:999};
     if(norm(pn).includes('호래기'))return{name:'횟감 대짜 호래기 500g',qty:Math.round(qty*wi*2),maxB:999};
