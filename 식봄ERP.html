@@ -564,6 +564,7 @@ const PROP=(function(){
       r.height=hpt; r.alignment={vertical:'middle',wrapText:true};
       r.getCell(1).alignment={vertical:'middle',horizontal:'center'};
       r.getCell(5).alignment={vertical:'middle',horizontal:'right'};
+      r.getCell(5).numFmt='#,##0';   // 공급가 천단위 콤마
       if(it.img){ try{
         const resp=await fetch(weserv(it.img)+'&w=240&h=240&fit=cover'); const buf=await resp.arrayBuffer();
         const imgId=wb.addImage({buffer:buf,extension:'jpeg'});
@@ -2098,7 +2099,23 @@ const DM=(function(){
     img.onerror=function(){ res(null); };
     img.src='https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w=8&h=8&fit=cover&output=jpg'; }); }
   function _hamming(a,b){ let d=0; for(let i=0;i<a.length;i++) if(a[i]!==b[i]) d++; return d; }
-  async function dedupImages(urls, th){ const hs=[], keep=[]; for(const u of urls){ let h=null; try{ h=await _aHash(u); }catch(e){} if(h===null){ keep.push(u); hs.push(null); continue; } let dup=false; for(const hh of hs){ if(hh && _hamming(hh,h)<=th){ dup=true; break; } } if(!dup){ keep.push(u); hs.push(h); } } return keep; }
+  // 동시 병렬 처리(최대 limit개) — 사진 해시 로딩을 한 장씩 직렬로 안 기다리고 묶어서 처리(속도↑). 결과 순서는 입력과 동일.
+  async function _mapLimit(arr, limit, fn){
+    const out=new Array(arr.length); let idx=0;
+    async function worker(){ while(idx<arr.length){ const i=idx++; try{ out[i]=await fn(arr[i], i); }catch(e){ out[i]=null; } } }
+    const n=Math.min(limit, arr.length)||0, ws=[]; for(let w=0;w<n;w++) ws.push(worker());
+    await Promise.all(ws); return out;
+  }
+  async function dedupImages(urls, th){
+    const hashes=await _mapLimit(urls, 12, _aHash);   // 해시 계산 병렬(직렬 대기 제거)
+    const hs=[], keep=[];
+    for(let i=0;i<urls.length;i++){ const h=hashes[i];
+      if(h===null||h===undefined){ keep.push(urls[i]); hs.push(null); continue; }
+      let dup=false; for(const hh of hs){ if(hh && _hamming(hh,h)<=th){ dup=true; break; } }
+      if(!dup){ keep.push(urls[i]); hs.push(h); }
+    }
+    return keep;
+  }
   async function makeDetail(src){
     DATA=parse(src);
     if(!DATA || (!DATA.images.length && !DATA.title)){ alert('소스 인식 실패 — masterc 상품 소스가 맞는지 확인하세요.'); return; }
@@ -2133,9 +2150,10 @@ const DM=(function(){
     if(!PHOTOS.length){ alert('먼저 ⚡ 상세페이지 생성을 눌러 사진을 불러와주세요.'); return; }
     if(PHOTOS.length<20){ PHOTOS.forEach(function(p){ p.on=true; }); drawThumbs(); render(); if(typeof toast==='function') toast('전체 '+PHOTOS.length+'장(20장 미만) — 거르지 않고 전부 사용합니다.'); return; }
     if(typeof toast==='function') toast('비슷한 사진 분석 중…');
+    const hashes=await _mapLimit(PHOTOS.map(function(p){return p.url;}), 12, _aHash);   // 해시 병렬(직렬 대기 제거)
     const kept=[]; let off=0;
-    for(const p of PHOTOS){ let h=null; try{ h=await _aHash(p.url); }catch(e){}
-      if(h===null){ p.on=true; continue; }
+    for(let pi=0;pi<PHOTOS.length;pi++){ const p=PHOTOS[pi]; const h=hashes[pi];
+      if(h===null||h===undefined){ p.on=true; continue; }
       let dup=false; for(const kh of kept){ if(_hamming(kh,h)<=11){ dup=true; break; } }
       if(dup){ p.on=false; off++; } else { p.on=true; kept.push(h); } }
     drawThumbs(); render();
