@@ -151,7 +151,7 @@
 
   <!-- 현황판 -->
   <div class="panel">
-    <div class="panel-head">📋 현황판 <span class="count-pill" id="itemCount" style="margin-left:6px"></span></div>
+    <div class="panel-head">📋 현황판 <span class="count-pill" id="itemCount" style="margin-left:6px"></span><button class="btn-ghost" onclick="openDeadlineSheet()" style="margin-left:auto" title="'마감시간' 탭을 새 탭으로 열어 마감시간을 입력·수정하세요 (A:창고 / B:상품 / J:마감시간)">⏰ 마감시간 시트 열기</button></div>
     <div class="tbl-scroll">
       <table id="statusTable">
         <thead>
@@ -289,6 +289,17 @@ async function getSheetIds(){
   const d=await r.json(); if(d.error) throw new Error(d.error.message);
   _sheetIds={}; (d.sheets||[]).forEach(s=>{ _sheetIds[s.properties.title]=s.properties.sheetId; });
   return _sheetIds;
+}
+// ⏰ '마감시간' 탭을 새 탭으로 열기 (gid 조회해서 그 탭으로 바로, 실패 시 스프레드시트만 열기)
+async function openDeadlineSheet(){
+  const base=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+  try{
+    const ids=await getSheetIds();
+    const gid=ids[SH_DEADLINE];
+    window.open(gid!=null ? base+'#gid='+gid : base, '_blank');
+  }catch(e){
+    window.open(base,'_blank');
+  }
 }
 // ── 데이터 범위에 격자 테두리 그리기 + 그 아래 잔여 테두리 제거 ──
 function _borderReqs(sheetId, totalRows, totalCols){
