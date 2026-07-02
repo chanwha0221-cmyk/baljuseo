@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.410</title>
+<title>발주서 변환기 v22.411</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.410</span>
+  <span class="ver">v22.411</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -700,6 +700,8 @@ function mergeLines(raw){
     if(!dataStart){if(isDataHeader(normalized)){dataStart=true;}continue;}
     if(isHeaderRow(normalized))continue;
     const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)[kK]\b/g,'$1kg').replace(/한판/g,'1판')).join('\t');
+    const hgift=preprocessHyeinGift(trimmed);
+    if(hgift){merged.push(hgift);lastClient='혜인건강';lastKnownClient='혜인건강';continue;}
     const nahaeng=preprocessNahaengJaeun(trimmed);
     if(nahaeng){const _fw=nahaeng.split('\t')[0].replace(/\s+/g,'');merged.push(nahaeng);lastClient=_fw;lastKnownClient=_fw;continue;}
     const balbol=preprocessBalbolLine(trimmed);
@@ -900,6 +902,22 @@ function br(cl,cfg,nq,nr,ord,iv){
   return[cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
 }
 function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));}
+function isHumanName(s){return /^[가-힣]{2,6}$/.test((s||'').trim());}
+function preprocessHyeinGift(line){
+  // 혜인건강 선물 발주: 앞(주문자)·뒤(수령인)가 둘 다 사람 이름인 형식 → 혜인건강 10칸으로 인식.
+  // 사는사람(주문자)·받는사람(수령인) 이름 둘 다 보존. 내용은 그대로 두고 맨 앞에 혜인건강만 붙임.
+  const c=line.split('\t').map(x=>(x||'').trim());
+  if(c.length<6)return null;
+  const buyer=c[0];
+  if(!isHumanName(buyer)||isKnownClient(buyer)||isPhone(buyer))return null; // 첫 칸이 등록업체/전화면 제외
+  if(!isPhone(c[1]))return null;      // 주문자 연락처
+  if(!isHumanName(c[3]))return null;  // 수령인명 (뒤에도 사람 이름)
+  if(!isPhone(c[5]))return null;      // 수령인 연락처
+  const buyerPhone=c[1],product=c[2],recvName=c[3],addr=c[4],recvPhone=c[5];
+  const memo=c.slice(6).filter(Boolean).join(' ');
+  // 완성 10칸(마커 ⟪HG⟫로 표시 → run에서 pr2 안 거치고 그대로 출력): 혜인건강 · 사는사람 · 출고지'' · 주문자연락처 · 창고'' · 상품 · 받는사람 · 고객주소 · 고객연락처 · 메모
+  return '⟪HG⟫'+['혜인건강',buyer,'',buyerPhone,'',product,recvName,addr,recvPhone,memo].join('\t');
+}
 function preprocessHyein(line){
   // 형식 1: [마스터] 포함 형식
   if(line.includes('[마스터]')){
@@ -953,6 +971,9 @@ function preprocessNahaengJaeun(line){
     name='프리미엄 대극천 복숭아'+(wm?' '+wm[1]+'kg':'');
   }else if(name.includes('등갈비')){
     name='초특가 국내산 등갈비 1kg';
+  }else if(name.includes('사과')){
+    const wm=name.match(/([\d.]+)\s*kg/i);
+    if(wm&&parseFloat(wm[1])===3)name='꼬마 부사사과 3kg';
   }
   return `${cl0}\t\t${orderPhone}\t\t${name} x ${qty}\t${custName}\t${custAddr}\t${custPhone}\t${memo}`;
 }
@@ -1642,6 +1663,7 @@ function run(){
   if(pendingHistory.length>0){dayHistory=dayHistory.concat(pendingHistory.filter(p=>!dayHistory.some(h=>h.key===p.key)));}
   pendingHistory=[];const dupNames=[];let lastRunClient='';
   for(const line of lines){
+    if(line.indexOf('⟪HG⟫')===0){out.push(line.slice(4));lastRunClient='혜인건강';continue;}
     const row=pr2(line);if(!row){sl('파싱 실패: '+line.slice(0,30),'warn');continue;}
     let{client,ca:cla,cp,prod,nameRaw,address,custPhone,msg,qty,qtyColValue}=row;
     if(!client&&lastRunClient)client=lastRunClient;else if(client)lastRunClient=client;
