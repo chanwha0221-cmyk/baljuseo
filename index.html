@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.413</title>
+<title>발주서 변환기 v22.414</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.413</span>
+  <span class="ver">v22.414</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -901,7 +901,7 @@ function br(cl,cfg,nq,nr,ord,iv){
   // 일반 행: 9칸 (F~N). 주문처(F) + 주소(G) + 연락처(H) + 창고명(I,빈칸) + 상품명+수량(J) + 상품명raw(K) + 고객주소(L) + 고객연락처(M) + 배송메시지(N)
   return[cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
 }
-function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));}
+function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4,5}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));} // 끝 5자리 허용 (테오푸드 070-8028-78757, 2026-07-02)
 function isHumanName(s){return /^[가-힣]{2,6}$/.test((s||'').trim());}
 function preprocessHyeinGift(line){
   // 혜인건강 선물 발주: 앞(주문자)·뒤(수령인)가 둘 다 사람 이름인 형식 → 혜인건강 10칸으로 인식.
