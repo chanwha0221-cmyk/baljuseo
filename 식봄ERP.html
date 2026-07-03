@@ -534,12 +534,19 @@ const PROP=(function(){
         +'<td><input value="'+esc(fmt(it.supply))+'" oninput="PROP.upd('+i+',\'supply\',this.value)" inputmode="numeric" style="width:74px;text-align:right"></td>'
         +'<td><textarea oninput="PROP.upd('+i+',\'spec\',this.value)" style="width:230px;height:64px">'+esc(it.spec)+'</textarea></td>'
         +'<td><textarea oninput="PROP.upd('+i+',\'note\',this.value)" placeholder="참고사항" style="width:140px;height:64px">'+esc(it.note)+'</textarea></td>'
-        +'<td style="white-space:nowrap"><button onclick="PROP.detail('+i+')" style="background:#C0392B;color:#fff;border:none;border-radius:4px;padding:4px 7px;font-size:11px;cursor:pointer;margin-bottom:3px">🖼️ 상세</button><br><button onclick="PROP.del('+i+')" style="color:#c00;border:none;background:none;cursor:pointer">🗑</button></td>'
+        +'<td style="white-space:nowrap"><button onclick="PROP.detail('+i+')" style="background:#C0392B;color:#fff;border:none;border-radius:4px;padding:4px 7px;font-size:11px;cursor:pointer;margin-bottom:3px">🖼️ 상세</button><br>'
+        +'<button onclick="PROP.move('+i+',-1)" '+(i===0?'disabled style="opacity:.25;border:none;background:none"':'style="border:none;background:none;cursor:pointer;font-size:13px" title="위로"')+'>▲</button>'
+        +'<button onclick="PROP.move('+i+',1)" '+(i===items.length-1?'disabled style="opacity:.25;border:none;background:none"':'style="border:none;background:none;cursor:pointer;font-size:13px" title="아래로"')+'>▼</button>'
+        +'<button onclick="PROP.top('+i+')" '+(i===0?'disabled style="opacity:.25;border:none;background:none"':'style="border:none;background:none;cursor:pointer;font-size:13px" title="1번으로"')+'>⏫</button>'
+        +'<button onclick="PROP.del('+i+')" style="color:#c00;border:none;background:none;cursor:pointer">🗑</button></td>'
         +'</tr>';
     }).join('');
   }
   function upd(i,k,v){ if(items[i]){ items[i][k]=(k==='supply'? v.replace(/[^0-9]/g,'') : v); } }
   function del(i){ items.splice(i,1); render(); }
+  // 순서 바꾸기 (2026-07-03 사장님 요청): ▲▼ 한 칸 이동, ⏫ 1번으로
+  function move(i,dir){ const j=i+dir; if(!items[i]||j<0||j>=items.length) return; const t=items[i]; items[i]=items[j]; items[j]=t; render(); }
+  function top(i){ if(!items[i]||i===0) return; const t=items.splice(i,1)[0]; items.unshift(t); render(); }
   function clearAll(){ if(confirm('전체 비울까요?')){ items=[]; render(); } }
   function detail(i){ if(!items[i]||!items[i].src){ alert('상세 생성용 소스가 없어요. 다시 추출해 주세요.'); return; } if(typeof DM==='undefined'||!DM.makeDetail){ alert('상세메이커 모듈을 못 찾았어요.'); return; } DM.makeDetail(items[i].src); }
   function pickThumb(i){ pickIdx=i; const g=$('pp-thumbs-grid');
@@ -580,7 +587,7 @@ const PROP=(function(){
     a.download=mm+dd+'_주식회사 마스터_상품 제안서.xlsx'; document.body.appendChild(a); a.click(); a.remove();
     if(typeof toast==='function') toast('엑셀 다운로드 완료');
   }
-  return {add,loadSupply,upd,del,clearAll,detail,pickThumb,setThumb,closeThumbs,exportXlsx};
+  return {add,loadSupply,upd,del,move,top,clearAll,detail,pickThumb,setThumb,closeThumbs,exportXlsx};
 })();
 </script>
 
