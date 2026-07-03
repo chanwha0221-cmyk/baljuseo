@@ -159,7 +159,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
       <div class="label" id="uploadLabel">은행 거래내역 xlsx 파일을 끌어다 놓거나 클릭해서 업로드</div>
       <div class="hint" id="uploadHint">하나은행 기업자유예금 형식 지원</div>
       <div id="savedFileInfo" style="display:none;margin-top:8px;font-size:11px;color:var(--text3)">
-        💾 <span id="savedFileName"></span> · <button onclick="clearSaved(event)" style="border:none;background:none;color:var(--warn);cursor:pointer;font-size:11px;padding:0">저장 파일 삭제</button>
+        💾 <span id="savedFileName"></span> · <button onclick="openDataSheet(event)" style="border:none;background:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;text-decoration:underline">📄 시트 열기</button> · <button onclick="clearSaved(event)" style="border:none;background:none;color:var(--warn);cursor:pointer;font-size:11px;padding:0">캐시 초기화</button>
       </div>
     </div>
     <input type="file" id="fileInput" accept=".xlsx,.xls">
@@ -343,6 +343,60 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <!-- 복사 토스트 -->
 <div class="copy-toast" id="copyToast"></div>
 <script>
+// ═════ 공유 시트 백엔드 (2026-07-02) — 누가 열어도 같은 백데이터 ═════
+// 시트 = source of truth. IndexedDB는 오프라인 캐시. 업로드 시 새 거래만 시트에 append.
+const SHEET_ID='1E7arcg-texYjeYtHNLjIZZI5ytwQZDKO7S02lgosXy8'; // 전용 스프레드시트 '마스터 통장내역 데이터' (사장님 소유 + 서비스계정 편집자 공유, 2026-07-02)
+const DATA_TAB='통장내역';
+const TAB_HEADER=['거래일시','입금','출금','잔액','거래내용','상대은행','예금주명','등록일시'];
+const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+const OAUTH_SCOPE='https://www.googleapis.com/auth/spreadsheets';
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
+let _tok=null,_tokExp=0;
+async function getToken(){
+  const now=Math.floor(Date.now()/1000);
+  if(_tok && _tokExp-now>300) return _tok;
+  const enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const toSign=enc({alg:'RS256',typ:'JWT'})+'.'+enc({iss:CLIENT_EMAIL,scope:OAUTH_SCOPE,aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now});
+  const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(toSign));
+  const jwt=toSign+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`});
+  const d=await r.json(); if(!d.access_token)throw new Error('토큰 발급 실패'); _tok=d.access_token; _tokExp=now+3600; return _tok;
+}
+async function ensureTab(){
+  const t=await getToken();
+  const m=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,{headers:{Authorization:`Bearer ${t}`}});
+  if(!m.ok)throw new Error('시트 접근 실패 '+m.status);
+  const titles=((await m.json()).sheets||[]).map(s=>s.properties.title);
+  if(!titles.includes(DATA_TAB)){
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:DATA_TAB}}}]})});
+    const t2=await getToken();
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A1')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t2}`,'Content-Type':'application/json'},body:JSON.stringify({values:[TAB_HEADER]})});
+  }
+}
+async function sheetGetAll(){
+  const t=await getToken();
+  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A2:H')}`,{headers:{Authorization:`Bearer ${t}`}});
+  if(!r.ok)throw new Error('시트 읽기 실패 '+r.status);
+  return (await r.json()).values||[];
+}
+// append만 — 기존 데이터 절대 안 건드림 (소식글 도구 안전 저장 패턴)
+async function sheetAppendRows(rows){
+  const t=await getToken();
+  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A:H')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+  if(!r.ok)throw new Error('시트 저장 실패 '+r.status);
+}
+function rowFromRec(d){return [d.date,d.in,d.out,d.bal,d.desc,d.bank,d.name,new Date().toISOString()];}
+function recFromRow(r){
+  const dateStr=String(r[0]||'').trim();
+  const _dm=dateStr.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  const dateOnly=_dm?_dm[1]+'-'+_dm[2].padStart(2,'0')+'-'+_dm[3].padStart(2,'0'):dateStr.slice(0,10);
+  return {date:dateStr,dateOnly,in:parseNum(r[1]),out:parseNum(r[2]),bal:parseNum(r[3]),desc:String(r[4]||'').trim(),bank:String(r[5]||'').trim(),name:String(r[6]||'').trim()};
+}
+function openDataSheet(e){if(e)e.stopPropagation();window.open('https://docs.google.com/spreadsheets/d/'+SHEET_ID,'_blank');}
+// ═════ 공유 시트 백엔드 끝 ═════
 let allData=[];
 let currentType='all';
 let sortDir='asc'; // 'asc'=오래된순, 'desc'=최신순
@@ -378,22 +432,55 @@ function renderAll(filename){
   document.getElementById('chatStatus').textContent=allData.length+'건 로드됨';
   applyFilter();
 }
-function clearSaved(e){e.stopPropagation();if(!confirm('저장된 데이터를 전부 삭제할까요? (누적 내역 모두 삭제)'))return;deleteSavedFile();deleteDataset();document.getElementById('savedFileInfo').style.display='none';document.getElementById('uploadHint').textContent='하나은행 기업자유예금 형식 지원';allData=[];document.getElementById('filterBar').style.display='none';document.getElementById('summaryRow').style.display='none';document.getElementById('tableWrap').style.display='none';dz.classList.remove('loaded');document.getElementById('uploadLabel').textContent='은행 거래내역 xlsx 파일을 끌어다 놓거나 클릭해서 업로드';document.getElementById('chatStatus').textContent='파일 업로드 후 이용 가능';}
+function clearSaved(e){e.stopPropagation();if(!confirm('이 PC의 캐시만 초기화합니다.\n공유 시트 원본은 지워지지 않아요 (원본 수정·삭제는 [📄 시트 열기]에서 직접).\n계속할까요?'))return;deleteSavedFile();deleteDataset();location.reload();}
 window.addEventListener('DOMContentLoaded',async()=>{
-  // 1순위: 누적 저장된 데이터셋 복원
+  // ① 1순위: 공유 시트에서 로드 (누가 열어도 같은 데이터)
+  let sheetOK=false;
+  document.getElementById('uploadHint').textContent='공유 시트에서 불러오는 중...';
+  try{
+    await ensureTab();
+    const rows=await sheetGetAll();
+    allData=rows.filter(r=>String(r[0]||'').trim()).map(recFromRow);
+    sheetOK=true;
+  }catch(err){
+    addBotMsg('⚠️ 공유 시트 연결 실패('+err.message+') — 이 PC 캐시로 표시해요. 인터넷 확인 후 새로고침하면 공유 데이터가 뜹니다.');
+  }
   const ds=await loadDataset().catch(()=>null);
-  if(ds&&ds.records&&ds.records.length){
-    allData=ds.records;
-    const d=new Date(ds.savedAt),label=(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0')+' 저장';
-    document.getElementById('savedFileName').textContent=(ds.name||'데이터')+' ('+label+', 총 '+allData.length+'건)';
-    document.getElementById('savedFileInfo').style.display='block';
-    renderAll(ds.name||'저장된 데이터');
-    addBotMsg('저장된 데이터 복원 완료! 📂 <b>'+allData.length+'건</b> 로드됨. 새 파일을 올리면 새 거래만 추가돼요.');
+  const localRecs=(ds&&ds.records)?ds.records:[];
+  if(sheetOK){
+    // ② 이 PC에만 있던 기존 데이터 1회 자동 마이그레이션 (시트에 없는 거래만 append)
+    if(localRecs.length){
+      const seen=new Set(allData.map(recKey));
+      const news=localRecs.filter(r=>!seen.has(recKey(r)));
+      if(news.length){
+        try{await sheetAppendRows(news.map(rowFromRec));news.forEach(r=>allData.push(r));
+          addBotMsg('📤 이 PC에만 있던 <b>'+news.length+'건</b>을 공유 시트에 올렸어요. 이제 누가 열어도 같이 보입니다.');
+        }catch(e){addBotMsg('⚠️ 로컬 데이터 시트 업로드 실패: '+e.message);}
+      }
+    }
+    if(allData.length){
+      document.getElementById('savedFileName').textContent='☁️ 공유 시트 · 총 '+allData.length+'건';
+      document.getElementById('savedFileInfo').style.display='block';
+      renderAll('공유 시트 데이터');
+      addBotMsg('☁️ 공유 시트에서 <b>'+allData.length+'건</b> 로드 완료! 새 파일을 올리면 새 거래만 시트에 추가돼요.');
+    }else{
+      document.getElementById('uploadHint').textContent='공유 시트 연결됨 (아직 0건) — xlsx 올리면 시트에 저장돼 모두가 봅니다';
+    }
+    saveDataset(allData,'공유 시트').catch(()=>{});
     return;
   }
-  // 마이그레이션: 구버전(파일 버퍼)만 있으면 1회 파싱해서 데이터셋으로 전환
+  // ③ 오프라인 폴백: 이 PC 캐시 복원 (기존 흐름)
+  if(localRecs.length){
+    allData=localRecs;
+    const d=new Date(ds.savedAt),label=(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0')+' 저장';
+    document.getElementById('savedFileName').textContent=(ds.name||'데이터')+' ('+label+', 총 '+allData.length+'건 · 로컬 캐시)';
+    document.getElementById('savedFileInfo').style.display='block';
+    renderAll(ds.name||'저장된 데이터');
+    return;
+  }
+  // 구버전(파일 버퍼)만 있으면 1회 파싱해서 데이터셋으로 전환
   const saved=await loadSavedFile().catch(()=>null);
-  if(!saved)return;
+  if(!saved){document.getElementById('uploadHint').textContent='하나은행 기업자유예금 형식 지원';return;}
   document.getElementById('uploadHint').textContent='저장된 파일 불러오는 중...';
   const wb=XLSX.read(new Uint8Array(saved.buf),{type:'array',cellText:true,cellDates:true});
   const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''});
@@ -458,10 +545,16 @@ function parseRows(rows,filename,showChat=true){
   if(parsed.length===0){alert('데이터를 읽지 못했어요.');return;}
   // 병합: 기존 누적 데이터 유지 + 새 거래만 추가 (중복은 스킵)
   const seen=new Set(allData.map(recKey));
-  let added=0,skipped=0;
-  for(const r of parsed){const k=recKey(r);if(seen.has(k)){skipped++;continue;}seen.add(k);allData.push(r);added++;}
+  let added=0,skipped=0;const newRecs=[];
+  for(const r of parsed){const k=recKey(r);if(seen.has(k)){skipped++;continue;}seen.add(k);allData.push(r);newRecs.push(r);added++;}
   renderAll(filename);
   saveDataset(allData,filename).catch(()=>{});
+  // 새 거래만 공유 시트에 append (기존 시트 데이터 안 건드림)
+  if(newRecs.length){
+    sheetAppendRows(newRecs.map(rowFromRec))
+      .then(()=>addBotMsg('☁️ 새 거래 <b>'+newRecs.length+'건</b> 공유 시트 저장 완료 — 모두에게 보입니다.'))
+      .catch(e=>addBotMsg('⚠️ 공유 시트 저장 실패('+e.message+') — 이 PC에만 저장됐어요. 인터넷 확인 후 같은 파일을 다시 올리면 자동 재시도됩니다.'));
+  }
   const now=new Date(),label=(now.getMonth()+1)+'/'+now.getDate()+' '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0')+' 저장';
   document.getElementById('savedFileName').textContent=filename+' ('+label+', 총 '+allData.length+'건)';
   document.getElementById('savedFileInfo').style.display='block';
