@@ -458,6 +458,10 @@ function parseVendorInfo(text) {
         const md = v.match(/\[([^\]]+)\]/);
         if (md) v = md[1];
         v = v.replace(/^mailto:/i, '').trim();
+        // 라벨 안내문구("(꼭 @gmail.com 으로 입력 부탁드립니다) : 실제주소")가 섞여 들어와도 진짜 이메일 주소만 추출
+        // @gmail.com 처럼 로컬파트가 없는 안내용은 매치 안 되고, dldbstjr7676@gmail.com 같은 실제 주소만 잡힘
+        const em = v.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+        if (em) v = em[0];
         v = fixEmailTypos(v);
       }
       if (field === 'bizNumber') {
