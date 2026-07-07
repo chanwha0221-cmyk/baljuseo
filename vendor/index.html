@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v2.0</title>
+<title>외부 업체 등록 도구 v2.1</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -94,7 +94,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v2.0</span>
+  <span class="ver">v2.1</span>
   <span class="subtitle">사업자번호 OCR · 자동 양식 파싱 · 그룹웨어 연동</span>
 </header>
 <div class="main">
@@ -443,8 +443,9 @@ function parseVendorInfo(text) {
     ['userId',      /(?:가입\s*아이디|가입\s*ID|아이디|ID)/i],
     ['email',       /(?:이\s*메일\s*주소|메일|주소|이\s*메일|이메일|메일|email|e-mail|mail)/i]
   ];
-  for (const rawLine of lines) {
-    const trimmed = rawLine.trim();
+  const usedLines = new Set();
+  for (let li = 0; li < lines.length; li++) {
+    const trimmed = lines[li].trim();
     if (!trimmed) continue;
     for (const [field, kw] of patterns) {
       if (result[field]) continue;
@@ -473,9 +474,48 @@ function parseVendorInfo(text) {
         v = formatPhone(digits) || v;
       }
       result[field] = v;
+      usedLines.add(li);
       break;
     }
   }
+
+  // ===== v2.1: 라벨 없는 형식 폴백 =====
+  // 업체가 라벨 없이 "업체명/대표자/아이디/연락처/이메일" 줄만 보내는 경우:
+  // 이메일·사업자번호·연락처는 패턴으로 잡고, 남는 줄은 순서대로 업체명 -> 대표자 -> 아이디.
+  const leftovers = [];
+  for (let li = 0; li < lines.length; li++) {
+    const t = lines[li].trim();
+    if (!t || usedLines.has(li)) continue;
+    if (t.length > 30) continue;
+    if (/안녕|감사|부탁|주세요|입니다|할게요|드려요/.test(t)) continue;
+    leftovers.push(t);
+  }
+  const restLines = [];
+  for (const l of leftovers) {
+    if (!result.email && /@/.test(l)) {
+      const em = l.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+      if (em) { result.email = fixEmailTypos(em[0]); continue; }
+    }
+    const digits = l.replace(/[^0-9]/g, '');
+    const numericOnly = /^[\d\s\-\.\(\)~]+$/.test(l);
+    if (!result.bizNumber && numericOnly && digits.length === 10 && /^\d{3}\s*[-\.\s]\s*\d{2}\s*[-\.\s]\s*\d{5}$/.test(l)) {
+      result.bizNumber = digits.slice(0,3) + '-' + digits.slice(3,5) + '-' + digits.slice(5);
+      continue;
+    }
+    if (!result.phone && numericOnly && digits.length >= 9 && digits.length <= 12 && (digits.startsWith('0') || digits.startsWith('1'))) {
+      result.phone = formatPhone(digits) || l;
+      continue;
+    }
+    restLines.push(l);
+  }
+  for (const l of restLines) {
+    const idLike = /^[A-Za-z0-9._-]+$/.test(l) && /\d/.test(l);
+    if (!result.userId && idLike) { result.userId = l; continue; }
+    if (!result.companyName) { result.companyName = l; continue; }
+    if (!result.repName) { result.repName = l; continue; }
+    if (!result.userId) { result.userId = l; continue; }
+  }
+
   return result;
 }
 
