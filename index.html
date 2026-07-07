@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.421</title>
+<title>발주서 변환기 v22.422</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.421</span>
+  <span class="ver">v22.422</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -830,6 +830,7 @@ function pp(cl,pr,qty){
   const wm=cn.match(/([\d.]+)kg/);const gm=!wm&&cn.match(/(\d+)g\b/);const wi=wm?parseFloat(wm[1]):gm?parseInt(gm[1])/1000:1;
   const pn=qm?cn:cn.replace(/[xX×]\s*[\d.]+/g,'').trim();
   if(cl==='대상수산'){
+    if(norm(pn).includes('해신탕')){const _hm=pn.match(/(\d+)\s*$/);return{name:'해신탕 1세트',qty:(qty>1)?qty:(_hm?Math.max(1,parseInt(_hm[1])):1),maxB:999};}
     if(norm(pn).includes('살고동'))return{name:'동해 살고동 대짜 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
     if(norm(pn).includes('대구'))return{name:'초대왕 생대구 5kg급',qty,maxB:999};
     if(norm(pn).includes('참다랑어'))return{name:'130kg급 생참다랑어 필렛 500g',qty:Math.max(1,Math.round(qty*wi*2)),maxB:999};
@@ -997,8 +998,11 @@ function pr2(line){
   //          OR "숫자 x 숫자" (예: 500 x 2)
   //          OR 문자열 끝의 "x N" (예: ...x 1)
   const unitPattern=/\d+(kg|g|ea|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판|대|장|줄|관|단|마|모|벌)(?:급|짜리)?(?![가-힣])|\d+\s*[xX×]\s*\d+|[xX×]\s*\d+\s*$/i;
+  // 단위 없는 숫자 상품('해신탕 1' 등)은 unitPattern에 안 걸려 주소가 상품으로 오인됨(2026-07-07 해신탕 건) — 키워드 우선 매칭
+  const UNITLESS_PRODUCTS=['해신탕'];
   let pi=-1;
-  for(let i=1;i<cols.length;i++){if(unitPattern.test((cols[i]||'').trim())){pi=i;break;}}
+  for(let i=1;i<cols.length;i++){const _c=norm(cols[i]||'');if(_c&&UNITLESS_PRODUCTS.some(k=>_c.includes(k))){pi=i;break;}}
+  if(pi===-1)for(let i=1;i<cols.length;i++){if(unitPattern.test((cols[i]||'').trim())){pi=i;break;}}
   if(pi===-1){for(let i=1;i<cols.length;i++){const c=(cols[i]||'').trim();if(c&&!isPhone(c)&&!isPureNum(c)&&c.length>3){pi=i;break;}}}
   if(pi===-1)pi=1;
   let cp='';
