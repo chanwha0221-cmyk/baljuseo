@@ -149,7 +149,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body>
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v3.1</span>
+  <span class="ver">v3.2</span>
 </header>
 <div class="layout">
   <!-- 좌측: 기존 조회 패널 -->
@@ -185,6 +185,10 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
       <div class="card"><div class="title">출금 합계</div><div class="amount out" id="s-out">0</div><div class="sub" id="s-out-cnt">0건</div></div>
       <div class="card"><div class="title">순 입금</div><div class="amount" id="s-net">0</div><div class="sub">입금 - 출금</div></div>
       <div class="card"><div class="title">💰 현 잔액</div><div class="amount" id="s-bal" style="color:#0d6efd">-</div><div class="sub" id="s-bal-sub">최신 거래 기준 (기간 필터 무관)</div></div>
+      <div class="card" style="cursor:pointer" onclick="document.getElementById('settleFile').click()" title="리모컨에서 뽑은 정산달력 xlsx를 올리면 색칠 안 된(미입금) 금액을 자동 계산해요">
+        <div class="title">📋 미정산</div><div class="amount" id="s-mis" style="color:#d9480f">-</div><div class="sub" id="s-mis-sub">클릭 → 정산달력 업로드</div>
+      </div>
+      <input type="file" id="settleFile" accept=".xlsx" style="display:none" onchange="handleSettleFile(this.files[0]);this.value=''">
     </div>
     <div class="table-wrap" id="tableWrap" style="display:none">
       <div class="table-head">
@@ -434,6 +438,7 @@ function renderAll(filename){
   applyFilter();
   updateBalCard();
   saveSummary(); // ☁️ 요약(잔액 등) 시트 저장 — 비서가 자동으로 읽어감 (2026-07-08)
+  loadMisCard(); // 📋 미정산 카드 — 지난 정산달력 분석값 복원
 }
 // 💰 현 잔액 카드 — 전체 데이터 최신 거래의 잔액 (기간 필터와 무관)
 function latestRec(){ if(!allData.length) return null; return allData.reduce((m,d)=>d.date>m.date?d:m, allData[0]); }
@@ -464,6 +469,78 @@ async function saveSummary(){
     }catch(e){}
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('요약!A1:C3')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['항목','값','기준'],['계좌잔액',l.bal,l.date],['미정산',prevMis,'']]})});
   }catch(e){ console.warn('요약 저장 실패',e); }
+}
+async function ensureSummaryTab(t){
+  const m=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,{headers:{Authorization:`Bearer ${t}`}});
+  const titles=(((await m.json()).sheets)||[]).map(s=>s.properties.title);
+  if(!titles.includes('요약')){
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:'요약'}}}]})});
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('요약!A1:C1')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['항목','값','기준']]})});
+  }
+}
+// 📋 미정산 카드 — 요약 탭 저장값 복원 (열 때마다)
+async function loadMisCard(){
+  try{
+    const t=await getToken();
+    const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('요약!A2:C10')}`,{headers:{Authorization:`Bearer ${t}`}});
+    if(!r.ok) return;
+    const rows=((await r.json()).values)||[];
+    const mr=rows.find(x=>String(x[0]||'').trim()==='미정산');
+    if(mr&&String(mr[1]||'').trim()!==''){
+      document.getElementById('s-mis').textContent=fmtN(Number(mr[1]));
+      if(mr[2]) document.getElementById('s-mis-sub').textContent=String(mr[2]);
+    }
+  }catch(e){}
+}
+// 📋 정산달력(리모컨) 업로드 → 색칠 안 된(미입금) 금액 합산 = 미정산 (2026-07-08 사장님 지시)
+// 구조: 2행=업체 정식명 / 3행=별칭 / 4행=면세·과세 / 5행~=날짜별 금액. 색칠(solid fill)=입금확인, 색 없음=미정산.
+async function handleSettleFile(file){
+  if(!file) return;
+  try{
+    if(typeof JSZip==='undefined') await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';s.onload=res;s.onerror=()=>rej(new Error('JSZip 로드 실패'));document.head.appendChild(s);});
+    const zip=await JSZip.loadAsync(await file.arrayBuffer());
+    const xml=async p=>{const f=zip.file(p);if(!f)throw new Error(p+' 없음 — 정산달력 파일이 맞나요?');return new DOMParser().parseFromString(await f.async('string'),'application/xml');};
+    const stx=await xml('xl/styles.xml');
+    const fills=[...stx.getElementsByTagName('fills')[0].children].map(f=>{const pf=f.getElementsByTagName('patternFill')[0];if(!pf)return{pt:'none'};return{pt:pf.getAttribute('patternType')};});
+    const xfs=[...stx.getElementsByTagName('cellXfs')[0].children].map(x=>parseInt(x.getAttribute('fillId')||'0',10));
+    let strings=[];
+    const ssf=zip.file('xl/sharedStrings.xml');
+    if(ssf){const ssx=new DOMParser().parseFromString(await ssf.async('string'),'application/xml');strings=[...ssx.getElementsByTagName('si')].map(si=>[...si.getElementsByTagName('t')].map(t=>t.textContent).join(''));}
+    const shx=await xml('xl/worksheets/sheet1.xml');
+    const colOf=(ref,fb)=>{if(!ref)return fb;const m=ref.match(/^([A-Z]+)/);if(!m)return fb;let n=0;for(const ch of m[1])n=n*26+ch.charCodeAt(0)-64;return n;};
+    const names={},stat={};let colored=0;
+    for(const row of [...shx.getElementsByTagName('row')]){
+      const rnum=parseInt(row.getAttribute('r')||'0',10);
+      let cur=0;
+      for(const c of [...row.getElementsByTagName('c')]){
+        cur=colOf(c.getAttribute('r'),cur+1);
+        const vEl=c.getElementsByTagName('v')[0];
+        if(!vEl) continue;
+        let val=vEl.textContent;
+        if(c.getAttribute('t')==='s') val=strings[parseInt(val,10)]||'';
+        if(rnum===2||rnum===3){ if(val){names[cur]=names[cur]||{};names[cur][rnum]=val;} continue; }
+        if(rnum<5||cur<3||c.getAttribute('t')==='s') continue;
+        const amt=parseFloat(val);
+        if(!(amt>0)) continue;
+        const f=fills[xfs[parseInt(c.getAttribute('s')||'0',10)]||0]||{pt:'none'};
+        if(f.pt==='solid'){ colored+=amt; continue; }
+        const base=names[cur]?cur:cur-1;
+        const nm=(names[base]&&(names[base][3]||names[base][2]))||('col'+cur);
+        stat[nm]=(stat[nm]||0)+amt;
+      }
+    }
+    const entries=Object.entries(stat).sort((a,b)=>b[1]-a[1]);
+    const total=entries.reduce((s,e)=>s+e[1],0);
+    const basis=file.name.replace(/\.xlsx$/i,'')+' 기준';
+    document.getElementById('s-mis').textContent=fmtN(total);
+    document.getElementById('s-mis-sub').textContent=basis;
+    try{
+      const t=await getToken();
+      await ensureSummaryTab(t);
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('요약!A3:C3')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['미정산',total,basis]]})});
+    }catch(e){ console.warn('미정산 시트 저장 실패',e); }
+    if(typeof addBotMsg==='function') addBotMsg('📋 정산달력 분석 완료 — <b>미정산(색 안 칠함) '+fmtN(total)+'</b> · 입금확인(색칠) '+fmtN(colored)+'<br>'+entries.slice(0,10).map(e=>e[0]+' '+fmtN(e[1])).join('<br>')+(entries.length>10?'<br>… 외 '+(entries.length-10)+'곳':'')+'<br><small>비서 미수금 칸에 자동으로 반영됩니다</small>');
+  }catch(e){ alert('정산달력 분석 실패: '+e.message); }
 }
 function clearSaved(e){e.stopPropagation();if(!confirm('이 PC의 캐시만 초기화합니다.\n공유 시트 원본은 지워지지 않아요 (원본 수정·삭제는 [📄 시트 열기]에서 직접).\n계속할까요?'))return;deleteSavedFile();deleteDataset();location.reload();}
 window.addEventListener('DOMContentLoaded',async()=>{
