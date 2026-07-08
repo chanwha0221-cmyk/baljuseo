@@ -149,7 +149,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body>
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v3.2</span>
+  <span class="ver">v3.3</span>
 </header>
 <div class="layout">
   <!-- 좌측: 기존 조회 패널 -->
@@ -185,10 +185,22 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
       <div class="card"><div class="title">출금 합계</div><div class="amount out" id="s-out">0</div><div class="sub" id="s-out-cnt">0건</div></div>
       <div class="card"><div class="title">순 입금</div><div class="amount" id="s-net">0</div><div class="sub">입금 - 출금</div></div>
       <div class="card"><div class="title">💰 현 잔액</div><div class="amount" id="s-bal" style="color:#0d6efd">-</div><div class="sub" id="s-bal-sub">최신 거래 기준 (기간 필터 무관)</div></div>
-      <div class="card" style="cursor:pointer" onclick="document.getElementById('settleFile').click()" title="리모컨에서 뽑은 정산달력 xlsx를 올리면 색칠 안 된(미입금) 금액을 자동 계산해요">
-        <div class="title">📋 미정산</div><div class="amount" id="s-mis" style="color:#d9480f">-</div><div class="sub" id="s-mis-sub">클릭 → 정산달력 업로드</div>
+      <div class="card" style="cursor:pointer" onclick="misOpen()" title="업체별 미정산 현황 탭 열기 (정산달력 업로드는 탭 안에서)">
+        <div class="title">📋 미정산</div><div class="amount" id="s-mis" style="color:#d9480f">-</div><div class="sub" id="s-mis-sub">클릭 → 미정산 현황</div>
       </div>
       <input type="file" id="settleFile" accept=".xlsx" style="display:none" onchange="handleSettleFile(this.files[0]);this.value=''">
+    </div>
+    <div id="misPanel" style="display:none;background:#fff;border:1px solid #e0dbd4;border-radius:12px;margin-top:14px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#faf9f6;border-bottom:1px solid #eee7de;flex-wrap:wrap">
+        <span style="font-weight:800;font-size:14px">📋 업체별 미정산 현황</span>
+        <span id="misBasis" style="font-size:11px;color:#a8a49e"></span>
+        <span style="flex:1"></span>
+        <button onclick="document.getElementById('settleFile').click()" style="border:none;background:#0d6efd;color:#fff;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📂 정산달력 업로드</button>
+        <button onclick="misClose()" style="border:1px solid #ddd;background:#fff;border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit">닫기</button>
+      </div>
+      <div id="misBody" style="padding:12px 16px;overflow-x:auto">
+        <div style="font-size:12px;color:#a8a49e;padding:14px 0">아직 데이터가 없어요 — [📂 정산달력 업로드]로 리모컨에서 뽑은 xlsx를 올려주세요.</div>
+      </div>
     </div>
     <div class="table-wrap" id="tableWrap" style="display:none">
       <div class="table-head">
@@ -511,7 +523,7 @@ async function handleSettleFile(file){
     const names={},stat={};let colored=0;
     for(const row of [...shx.getElementsByTagName('row')]){
       const rnum=parseInt(row.getAttribute('r')||'0',10);
-      let cur=0;
+      let cur=0, rowDate='';
       for(const c of [...row.getElementsByTagName('c')]){
         cur=colOf(c.getAttribute('r'),cur+1);
         const vEl=c.getElementsByTagName('v')[0];
@@ -519,31 +531,114 @@ async function handleSettleFile(file){
         let val=vEl.textContent;
         if(c.getAttribute('t')==='s') val=strings[parseInt(val,10)]||'';
         if(rnum===2||rnum===3){ if(val){names[cur]=names[cur]||{};names[cur][rnum]=val;} continue; }
-        if(rnum<5||cur<3||c.getAttribute('t')==='s') continue;
+        if(rnum<5) continue;
+        if(cur===1){ // A열 = 날짜 (숫자 시리얼이면 변환)
+          let dv=String(val);
+          if(/^\d+(\.\d+)?$/.test(dv)) dv=new Date(Date.UTC(1899,11,30)+parseFloat(dv)*86400000).toISOString().slice(0,10);
+          rowDate=dv; continue;
+        }
+        if(cur<3||c.getAttribute('t')==='s') continue;
         const amt=parseFloat(val);
         if(!(amt>0)) continue;
         const f=fills[xfs[parseInt(c.getAttribute('s')||'0',10)]||0]||{pt:'none'};
         if(f.pt==='solid'){ colored+=amt; continue; }
         const base=names[cur]?cur:cur-1;
         const nm=(names[base]&&(names[base][3]||names[base][2]))||('col'+cur);
-        stat[nm]=(stat[nm]||0)+amt;
+        if(!stat[nm]) stat[nm]={amt:0,from:'',to:''};
+        stat[nm].amt+=amt;
+        if(rowDate){ if(!stat[nm].from||rowDate<stat[nm].from) stat[nm].from=rowDate; if(!stat[nm].to||rowDate>stat[nm].to) stat[nm].to=rowDate; }
       }
     }
-    const entries=Object.entries(stat).sort((a,b)=>b[1]-a[1]);
-    const total=entries.reduce((s,e)=>s+e[1],0);
-    const basis=file.name.replace(/\.xlsx$/i,'')+' 기준';
+    MIS_DATA=Object.entries(stat).map(([name,v])=>({name,amt:v.amt,from:v.from,to:v.to})).sort((a,b)=>b.amt-a.amt);
+    MIS_BASIS=file.name.replace(/\.xlsx$/i,'');
+    const total=MIS_DATA.reduce((s,e)=>s+e.amt,0);
     document.getElementById('s-mis').textContent=fmtN(total);
-    document.getElementById('s-mis-sub').textContent=basis;
+    document.getElementById('s-mis-sub').textContent=MIS_BASIS+' 기준';
+    renderMisPanel(); misOpen();
     try{
       const t=await getToken();
       await ensureSummaryTab(t);
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('요약!A3:C3')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['미정산',total,basis]]})});
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('요약!A3:C3')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['미정산',total,MIS_BASIS+' 기준']]})});
+      await saveMisDetail(t);
     }catch(e){ console.warn('미정산 시트 저장 실패',e); }
-    if(typeof addBotMsg==='function') addBotMsg('📋 정산달력 분석 완료 — <b>미정산(색 안 칠함) '+fmtN(total)+'</b> · 입금확인(색칠) '+fmtN(colored)+'<br>'+entries.slice(0,10).map(e=>e[0]+' '+fmtN(e[1])).join('<br>')+(entries.length>10?'<br>… 외 '+(entries.length-10)+'곳':'')+'<br><small>비서 미수금 칸에 자동으로 반영됩니다</small>');
+    if(typeof addBotMsg==='function') addBotMsg('📋 정산달력 분석 완료 — <b>미정산(색 안 칠함) '+fmtN(total)+'</b> · 입금확인(색칠) '+fmtN(colored)+' · '+MIS_DATA.length+'개 업체<br><small>미정산 카드 클릭하면 업체별 현황·입금요청 메시지 복사가 있어요. 비서 미수금에도 자동 반영됩니다.</small>');
   }catch(e){ alert('정산달력 분석 실패: '+e.message); }
+}
+// ── 📋 미정산 현황 탭 (2026-07-08 사장님: 업체별 기간·금액 확인 + 호칭 넣어 입금요청 메시지 복사) ──
+let MIS_DATA=[], MIS_BASIS='', HONOR={};
+function fmtKDate(d){ const m=String(d||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m?(parseInt(m[2],10)+'월 '+parseInt(m[3],10)+'일'):String(d||''); }
+function misOpen(){ const p=document.getElementById('misPanel'); if(p){p.style.display='block'; p.scrollIntoView({behavior:'smooth',block:'nearest'});} }
+function misClose(){ const p=document.getElementById('misPanel'); if(p)p.style.display='none'; }
+function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function renderMisPanel(){
+  const box=document.getElementById('misBody'); if(!box) return;
+  document.getElementById('misBasis').textContent=MIS_BASIS?('('+MIS_BASIS+' 기준)'):'';
+  if(!MIS_DATA.length){ box.innerHTML='<div style="font-size:12px;color:#a8a49e;padding:14px 0">미정산 업체가 없어요 👍 (또는 정산달력을 업로드해 주세요)</div>'; return; }
+  const total=MIS_DATA.reduce((s,e)=>s+e.amt,0);
+  box.innerHTML='<table style="border-collapse:collapse;width:100%;font-size:12px;min-width:640px">'
+    +'<thead><tr style="background:#f8f7f4">'
+    +'<th style="border:1px solid #eee;padding:7px 8px;text-align:left">업체</th>'
+    +'<th style="border:1px solid #eee;padding:7px 8px">미정산 기간</th>'
+    +'<th style="border:1px solid #eee;padding:7px 8px;text-align:right">금액</th>'
+    +'<th style="border:1px solid #eee;padding:7px 8px">호칭 (예: 김대표)</th>'
+    +'<th style="border:1px solid #eee;padding:7px 8px"></th></tr></thead><tbody>'
+    +MIS_DATA.map((e,i)=>'<tr>'
+      +'<td style="border:1px solid #eee;padding:6px 8px;font-weight:700">'+escH(e.name)+'</td>'
+      +'<td style="border:1px solid #eee;padding:6px 8px;text-align:center;color:#666">'+fmtKDate(e.from)+' ~ '+fmtKDate(e.to)+'</td>'
+      +'<td style="border:1px solid #eee;padding:6px 8px;text-align:right;color:#d9480f;font-weight:700">'+fmtN(e.amt)+'</td>'
+      +'<td style="border:1px solid #eee;padding:4px 6px"><input value="'+escH(HONOR[e.name]||'')+'" placeholder="호칭" onchange="misSetHonor('+i+',this.value)" style="width:110px;border:1px solid #ddd;border-radius:5px;padding:5px 7px;font-size:12px;font-family:inherit"></td>'
+      +'<td style="border:1px solid #eee;padding:4px 6px;text-align:center"><button onclick="copyMisMsg('+i+')" style="border:none;background:#15803d;color:#fff;border-radius:5px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 메시지 복사</button></td>'
+      +'</tr>').join('')
+    +'</tbody><tfoot><tr style="font-weight:800;background:#fdf6ef"><td style="border:1px solid #eee;padding:7px 8px">합계 '+MIS_DATA.length+'개 업체</td><td style="border:1px solid #eee"></td><td style="border:1px solid #eee;padding:7px 8px;text-align:right;color:#d9480f">'+fmtN(total)+'</td><td style="border:1px solid #eee" colspan="2"></td></tr></tfoot></table>';
+}
+function misSetHonor(i,v){ const e=MIS_DATA[i]; if(!e) return; HONOR[e.name]=v.trim(); saveHonor(); }
+async function copyMisMsg(i){
+  const e=MIS_DATA[i]; if(!e) return;
+  const h=(HONOR[e.name]||'').trim();
+  if(!h){ alert('호칭 칸을 먼저 채워주세요 (예: 김대표)'); return; }
+  const msg='안녕하세요 '+h+'님\n'+fmtKDate(e.from)+'부터 '+fmtKDate(e.to)+'까지 미정산 금액 '+fmtN(e.amt)+' 입니다.\n입금 요청 드립니다.\n정산 이상 있으시면 연락주세요.';
+  try{ await navigator.clipboard.writeText(msg); if(typeof showToast==='function')showToast('📋 '+e.name+' 입금요청 메시지 복사됨'); }
+  catch(err){ alert(msg); }
+}
+async function ensureTabNamed(t,name,header){
+  const m=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,{headers:{Authorization:`Bearer ${t}`}});
+  const titles=(((await m.json()).sheets)||[]).map(s=>s.properties.title);
+  if(!titles.includes(name)){
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:name}}}]})});
+    if(header) await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(name+'!A1')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[header]})});
+  }
+}
+async function saveMisDetail(t){
+  await ensureTabNamed(t,'미정산상세',['업체','시작일','종료일','금액','기준']);
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('미정산상세!A2:E10000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+  if(MIS_DATA.length) await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('미정산상세!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:MIS_DATA.map(e=>[e.name,e.from,e.to,e.amt,MIS_BASIS])})});
+}
+async function saveHonor(){
+  try{
+    const t=await getToken();
+    await ensureTabNamed(t,'업체호칭',['업체','호칭']);
+    const rows=Object.entries(HONOR).filter(([k,v])=>v);
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('업체호칭!A2:B10000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+    if(rows.length) await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('업체호칭!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+  }catch(e){ console.warn('호칭 저장 실패',e); }
+}
+async function loadMisDetail(){
+  try{
+    const t=await getToken();
+    const hr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('업체호칭!A2:B10000')}`,{headers:{Authorization:`Bearer ${t}`}});
+    if(hr.ok){ (((await hr.json()).values)||[]).forEach(x=>{ if(x[0])HONOR[String(x[0]).trim()]=String(x[1]||'').trim(); }); }
+    const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('미정산상세!A2:E10000')}`,{headers:{Authorization:`Bearer ${t}`}});
+    if(!r.ok) return;
+    const rows=(((await r.json()).values)||[]).filter(x=>String(x[0]||'').trim());
+    if(!rows.length) return;
+    MIS_DATA=rows.map(x=>({name:String(x[0]),from:String(x[1]||''),to:String(x[2]||''),amt:Number(x[3]||0)})).sort((a,b)=>b.amt-a.amt);
+    MIS_BASIS=String(rows[0][4]||'');
+    renderMisPanel();
+  }catch(e){}
 }
 function clearSaved(e){e.stopPropagation();if(!confirm('이 PC의 캐시만 초기화합니다.\n공유 시트 원본은 지워지지 않아요 (원본 수정·삭제는 [📄 시트 열기]에서 직접).\n계속할까요?'))return;deleteSavedFile();deleteDataset();location.reload();}
 window.addEventListener('DOMContentLoaded',async()=>{
+  loadMisDetail(); // 📋 미정산 현황·호칭 복원 (은행 데이터와 무관하게)
   // ① 1순위: 공유 시트에서 로드 (누가 열어도 같은 데이터)
   let sheetOK=false;
   document.getElementById('uploadHint').textContent='공유 시트에서 불러오는 중...';
