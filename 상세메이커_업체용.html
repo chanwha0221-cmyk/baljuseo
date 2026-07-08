@@ -340,7 +340,7 @@ const AUTHX=(function(){
   <div class="title-bar">
     <div>
       <h1>🎨 상세 메이커</h1>
-      <div class="sub">유통시트 상품 링크 → 페이지 소스 붙여넣기 → 상세페이지 자동 생성 (JPG·HTML 출력) <span style="color:#bbb;font-size:10px">v1.9 업체용</span></div>
+      <div class="sub">유통시트 상품 링크 → 페이지 소스 붙여넣기 → 상세페이지 자동 생성 (JPG·HTML 출력) <span style="color:#bbb;font-size:10px">v2.0 업체용</span></div>
     </div>
   </div>
   <div id="dm">
@@ -377,7 +377,8 @@ const AUTHX=(function(){
         <label style="font-size:12px;color:#444;display:flex;align-items:center;gap:4px;margin-right:6px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="dm-notice-on" onchange="DM.toggleNotice()"> 제품 상세 정보</label>
         <button class="dm-ab" style="background:#555" id="dm-edb" onclick="DM.toggleEdit()">✏️ 수정</button>
         <button class="dm-ab" style="background:#2C7A4B" onclick="DM.copyHtml()">📋 HTML 복사</button>
-        <button class="dm-ab" style="background:#C0392B" onclick="DM.saveJpg()">🖼️ JPG 저장</button>
+        <button class="dm-ab" style="background:#C0392B" onclick="DM.saveJpg('single')" title="전체를 JPG 한 장으로 (아주 길면 모바일에서 안 보일 수 있어요)">🖼️ JPG 한 장</button>
+        <button class="dm-ab" style="background:#B4530A" onclick="DM.saveJpg('split')" title="모바일 안전 — 세로로 잘라 여러 장, 순서대로 올리면 이어져 보여요">📱 JPG 분할 저장</button>
       </div>
       <div class="dm-right"><div class="dm-stage"><div id="dm-page" data-mode="master" spellcheck="false"><div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div></div></div></div>
     </div>
@@ -662,7 +663,8 @@ const DM=(function(){
   const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv)';
   function toggleEdit(){editing=!editing;document.querySelectorAll(EDSEL).forEach(e=>e.contentEditable=editing);$('dm').classList.toggle('editing',editing);$('dm-edb').textContent=editing?'✅ 완료':'✏️ 수정';}
   function toggleNotice(){ NOTICE_ON=$('dm-notice-on')?$('dm-notice-on').checked:!NOTICE_ON; try{localStorage.setItem('dm_notice_on',NOTICE_ON?'1':'0');}catch(e){} render(); renderNoticeEditor(); }
-  async function saveJpg(){
+  async function saveJpg(mode){
+    mode=mode||'split'; // 'single'=한 장 / 'split'=분할(모바일 안전, 2026-07-08 사장님: 모드 2개로)
     if(!DATA){alert('먼저 생성하세요.');return;}
     if(editing)toggleEdit();
     const clone=$('dm-page').cloneNode(true);
@@ -688,8 +690,14 @@ const DM=(function(){
       const SLICE=5000; // 캔버스 px (scale2 → 원본 860 기준 2500px 단위)
       const base=(DATA.title||'상세').replace(/[\\/:*?"<>|]/g,'')+'_상세';
       const saveBlob=(cv,fn)=>new Promise(res=>cv.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();setTimeout(res,400);},'image/jpeg',0.95));
-      if(c.height<=SLICE+1200){
+      if(mode==='single'){
+        if(c.height>SLICE+1200&&!confirm('이미지가 꽤 깁니다 — 한 장짜리는 모바일에서 안 보이거나 흐릿할 수 있어요.\n그래도 한 장으로 저장할까요?\n(취소 누르면 저장 안 함 → 📱 분할 저장 추천)'))
+          { document.body.removeChild(clone); return; }
         await saveBlob(c,base+'.jpg');
+        if(typeof toast==='function')toast('🖼️ JPG 한 장 저장 완료');
+      }else if(c.height<=SLICE+1200){
+        await saveBlob(c,base+'.jpg');
+        if(typeof toast==='function')toast('길이가 짧아 한 장으로 저장했어요');
       }else{
         const n=Math.ceil(c.height/SLICE);
         for(let i=0;i<n;i++){
