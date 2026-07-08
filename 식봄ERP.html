@@ -455,11 +455,12 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <div id="pp-empty" class="empty">소스를 붙여넣고 [⚡ 추출해서 추가]를 누르면 아래에 쌓여요.</div>
   <div id="pp-table-wrap" style="display:none;overflow:auto">
     <table id="pp-table" class="pp-tb"><thead><tr>
-      <th>번호</th><th>사진</th><th>상품명</th><th>원산지</th><th>공급가</th><th>상품 스펙</th><th>비고</th><th></th>
+      <th>번호</th><th>사진</th><th>상품명</th><th>원산지</th><th>공급가</th><th>상품 스펙</th><th>링크</th><th>비고</th><th></th>
     </tr></thead><tbody id="pp-rows"></tbody></table>
   </div>
   <div style="margin-top:10px;display:flex;gap:8px">
     <button class="btn btn-purple" id="pp-xlsx" style="display:none" onclick="PROP.exportXlsx()">📥 엑셀 다운로드 (사진 포함)</button>
+    <label id="pp-linkcol-wrap" style="display:none;align-items:center;gap:5px;font-size:12px;color:#555;cursor:pointer"><input type="checkbox" id="pp-linkcol" checked> 🔗 엑셀에 링크 칸 포함 <span style="color:#a8a49e">(시트 모르는 곳에 보낼 땐 체크 해제)</span></label>
     <button class="btn" id="pp-clear" style="display:none;background:#888;color:#fff" onclick="PROP.clearAll()">🗑 전체 비우기</button>
   </div>
   <div id="pp-thumbs-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
@@ -495,7 +496,11 @@ const PROP=(function(){
       }
       if(/^※/.test(lines[i])) spec.push(lines[i]);
     }
-    return {name,cat,origin,spec:spec.join('\n'),images,img:images[0]||'',supply:'',note:''};
+    // 게시글 URL 자동 추출 (og:url 또는 canonical — 있으면 링크 칸 자동 채움, 2026-07-08)
+    let link='';
+    let um=src.match(/<meta[^>]+property=["']og:url["'][^>]+content=["']([^"']+)["']/i) || src.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:url["']/i) || src.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i);
+    if(um) link=um[1];
+    return {name,cat,origin,spec:spec.join('\n'),images,img:images[0]||'',supply:'',note:'',link};
   }
   function applySupplyOne(it){
     if(typeof masterProducts==='undefined' || !masterProducts || !masterProducts.length) return;
@@ -524,6 +529,7 @@ const PROP=(function(){
     $('pp-table-wrap').style.display=has?'block':'none';
     $('pp-xlsx').style.display=has?'inline-block':'none';
     $('pp-clear').style.display=has?'inline-block':'none';
+    if($('pp-linkcol-wrap'))$('pp-linkcol-wrap').style.display=has?'inline-flex':'none';
     tb.innerHTML=items.map(function(it,i){
       const thumb=it.img?('<img src="'+esc(weserv(it.img))+'&w=80&h=80&fit=cover" referrerpolicy="no-referrer" style="width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="PROP.pickThumb('+i+')" title="클릭해서 사진 교체">'):('<button onclick="PROP.pickThumb('+i+')">사진</button>');
       return '<tr>'
@@ -533,6 +539,7 @@ const PROP=(function(){
         +'<td><input value="'+esc(it.origin)+'" oninput="PROP.upd('+i+',\'origin\',this.value)" style="width:110px"></td>'
         +'<td><input value="'+esc(fmt(it.supply))+'" oninput="PROP.upd('+i+',\'supply\',this.value)" inputmode="numeric" style="width:74px;text-align:right"></td>'
         +'<td><textarea oninput="PROP.upd('+i+',\'spec\',this.value)" style="width:230px;height:64px">'+esc(it.spec)+'</textarea></td>'
+        +'<td><input value="'+esc(it.link||'')+'" oninput="PROP.upd('+i+',\'link\',this.value)" placeholder="상세 링크(URL)" style="width:120px">'+(it.link?'<br><a href="'+esc(it.link)+'" target="_blank" style="font-size:11px;color:#0d6efd;text-decoration:none">🔗 바로가기</a>':'')+'</td>'
         +'<td><textarea oninput="PROP.upd('+i+',\'note\',this.value)" placeholder="참고사항" style="width:140px;height:64px">'+esc(it.note)+'</textarea></td>'
         +'<td style="white-space:nowrap"><button onclick="PROP.detail('+i+')" style="background:#C0392B;color:#fff;border:none;border-radius:4px;padding:4px 7px;font-size:11px;cursor:pointer;margin-bottom:3px">🖼️ 상세</button><br>'
         +'<button onclick="PROP.move('+i+',-1)" '+(i===0?'disabled style="opacity:.25;border:none;background:none"':'style="border:none;background:none;cursor:pointer;font-size:13px" title="위로"')+'>▲</button>'
@@ -559,11 +566,22 @@ const PROP=(function(){
     if(!items.length){ alert('추가된 상품이 없어요.'); return; }
     if(typeof ExcelJS==='undefined'){ alert('ExcelJS 로드 안 됨 — 새로고침 후 다시 시도해주세요.'); return; }
     const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('상품제안');
-    ws.columns=[{header:'번호',width:6},{header:'사진',width:18},{header:'상품명',width:28},{header:'원산지',width:16},{header:'공급가',width:12},{header:'상품 스펙',width:42},{header:'비고',width:24}];
+    // 🔗 링크 칸 포함 여부 (체크 해제 = 기존 7칸 그대로 — 시트 모르는 곳에 보낼 때, 2026-07-08)
+    const withLink=!!(($('pp-linkcol')||{}).checked);
+    ws.columns=withLink
+      ?[{header:'번호',width:6},{header:'사진',width:18},{header:'상품명',width:28},{header:'원산지',width:16},{header:'공급가',width:12},{header:'상품 스펙',width:42},{header:'상세 링크',width:11},{header:'비고',width:24}]
+      :[{header:'번호',width:6},{header:'사진',width:18},{header:'상품명',width:28},{header:'원산지',width:16},{header:'공급가',width:12},{header:'상품 스펙',width:42},{header:'비고',width:24}];
     const h=ws.getRow(1); h.font={bold:true}; h.alignment={vertical:'middle',horizontal:'center'}; h.height=22;
     for(let i=0;i<items.length;i++){
       const it=items[i];
-      const r=ws.addRow([i+1,'',it.name,it.origin,(it.supply?Number(it.supply):''),it.spec,it.note||'']);
+      const r=withLink
+        ?ws.addRow([i+1,'',it.name,it.origin,(it.supply?Number(it.supply):''),it.spec,'',it.note||''])
+        :ws.addRow([i+1,'',it.name,it.origin,(it.supply?Number(it.supply):''),it.spec,it.note||'']);
+      if(withLink&&(it.link||'').trim()){
+        const lc=r.getCell(7);
+        lc.value={text:'바로가기',hyperlink:it.link.trim()};
+        lc.font={color:{argb:'FF0563C1'},underline:true};
+      }
       // 행 높이 = 상품 스펙 줄 수에 맞춰 자동 (긴 스펙도 안 잘리게)
       const cpl=22; let lns=0;
       (it.spec||'').split('\n').forEach(function(l){ lns+=Math.max(1,Math.ceil((l.length||1)/cpl)); });
@@ -572,6 +590,7 @@ const PROP=(function(){
       r.getCell(1).alignment={vertical:'middle',horizontal:'center'};
       r.getCell(5).alignment={vertical:'middle',horizontal:'right'};
       r.getCell(5).numFmt='#,##0';   // 공급가 천단위 콤마
+      if(withLink) r.getCell(7).alignment={vertical:'middle',horizontal:'center'};   // 바로가기 가운데 (row.alignment 덮어쓰기 뒤에 재지정)
       if(it.img){ try{
         const resp=await fetch(weserv(it.img)+'&w=240&h=240&fit=cover'); const buf=await resp.arrayBuffer();
         const imgId=wb.addImage({buffer:buf,extension:'jpeg'});
