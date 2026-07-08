@@ -149,7 +149,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body>
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v3.0</span>
+  <span class="ver">v3.1</span>
 </header>
 <div class="layout">
   <!-- 좌측: 기존 조회 패널 -->
@@ -184,6 +184,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
       <div class="card"><div class="title">입금 합계</div><div class="amount in" id="s-in">0</div><div class="sub" id="s-in-cnt">0건</div></div>
       <div class="card"><div class="title">출금 합계</div><div class="amount out" id="s-out">0</div><div class="sub" id="s-out-cnt">0건</div></div>
       <div class="card"><div class="title">순 입금</div><div class="amount" id="s-net">0</div><div class="sub">입금 - 출금</div></div>
+      <div class="card"><div class="title">💰 현 잔액</div><div class="amount" id="s-bal" style="color:#0d6efd">-</div><div class="sub" id="s-bal-sub">최신 거래 기준 (기간 필터 무관)</div></div>
     </div>
     <div class="table-wrap" id="tableWrap" style="display:none">
       <div class="table-head">
@@ -431,6 +432,38 @@ function renderAll(filename){
   document.getElementById('tableWrap').style.display='block';
   document.getElementById('chatStatus').textContent=allData.length+'건 로드됨';
   applyFilter();
+  updateBalCard();
+  saveSummary(); // ☁️ 요약(잔액 등) 시트 저장 — 비서가 자동으로 읽어감 (2026-07-08)
+}
+// 💰 현 잔액 카드 — 전체 데이터 최신 거래의 잔액 (기간 필터와 무관)
+function latestRec(){ if(!allData.length) return null; return allData.reduce((m,d)=>d.date>m.date?d:m, allData[0]); }
+function updateBalCard(){
+  const l=latestRec(); if(!l) return;
+  const el=document.getElementById('s-bal'); if(!el) return;
+  el.textContent=fmtN(l.bal);
+  const s=document.getElementById('s-bal-sub'); if(s) s.textContent=l.date.replace('T',' ')+' 기준';
+}
+// ☁️ 요약 탭 저장 — 비서(secretary)가 계좌잔액·미정산을 자동으로 읽어가는 연결고리 (2026-07-08 사장님 지시)
+// 미정산 값은 정산내역 대조 기능 붙으면 채워짐 (현재는 빈칸 유지)
+async function saveSummary(){
+  try{
+    const l=latestRec(); if(!l) return;
+    const t=await getToken();
+    const m=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,{headers:{Authorization:`Bearer ${t}`}});
+    const titles=(((await m.json()).sheets)||[]).map(s=>s.properties.title);
+    if(!titles.includes('요약')){
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:'요약'}}}]})});
+    }
+    // 기존 미정산 값 보존 (정산 대조 기능이 쓰는 자리)
+    let prevMis='';
+    try{
+      const pr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('요약!A2:C10')}`,{headers:{Authorization:`Bearer ${t}`}});
+      const pv=((await pr.json()).values)||[];
+      const misRow=pv.find(x=>String(x[0]||'').trim()==='미정산');
+      if(misRow) prevMis=String(misRow[1]||'');
+    }catch(e){}
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('요약!A1:C3')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['항목','값','기준'],['계좌잔액',l.bal,l.date],['미정산',prevMis,'']]})});
+  }catch(e){ console.warn('요약 저장 실패',e); }
 }
 function clearSaved(e){e.stopPropagation();if(!confirm('이 PC의 캐시만 초기화합니다.\n공유 시트 원본은 지워지지 않아요 (원본 수정·삭제는 [📄 시트 열기]에서 직접).\n계속할까요?'))return;deleteSavedFile();deleteDataset();location.reload();}
 window.addEventListener('DOMContentLoaded',async()=>{
