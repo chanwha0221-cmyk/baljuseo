@@ -149,7 +149,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body>
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v3.3</span>
+  <span class="ver">v3.4</span>
 </header>
 <div class="layout">
   <!-- 좌측: 기존 조회 패널 -->
@@ -195,6 +195,8 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
         <span style="font-weight:800;font-size:14px">📋 업체별 미정산 현황</span>
         <span id="misBasis" style="font-size:11px;color:#a8a49e"></span>
         <span style="flex:1"></span>
+        <button id="misSortP" onclick="sortMis('period')" style="border:1px solid #d9480f;background:#fdf0e8;color:#d9480f;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⏳ 기간 긴순</button>
+        <button id="misSortA" onclick="sortMis('amt')" style="border:1px solid #ddd;background:#fff;color:#666;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💰 금액 큰순</button>
         <button onclick="document.getElementById('settleFile').click()" style="border:none;background:#0d6efd;color:#fff;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📂 정산달력 업로드</button>
         <button onclick="misClose()" style="border:1px solid #ddd;background:#fff;border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit">닫기</button>
       </div>
@@ -565,7 +567,8 @@ async function handleSettleFile(file){
   }catch(e){ alert('정산달력 분석 실패: '+e.message); }
 }
 // ── 📋 미정산 현황 탭 (2026-07-08 사장님: 업체별 기간·금액 확인 + 호칭 넣어 입금요청 메시지 복사) ──
-let MIS_DATA=[], MIS_BASIS='', HONOR={};
+let MIS_DATA=[], MIS_BASIS='', HONOR={}, MIS_SORT='period'; // period=기간 긴순(오래된 미정산 먼저) / amt=금액 큰순
+function sortMis(mode){ MIS_SORT=mode; renderMisPanel(); }
 function fmtKDate(d){ const m=String(d||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m?(parseInt(m[2],10)+'월 '+parseInt(m[3],10)+'일'):String(d||''); }
 function misOpen(){ const p=document.getElementById('misPanel'); if(p){p.style.display='block'; p.scrollIntoView({behavior:'smooth',block:'nearest'});} }
 function misClose(){ const p=document.getElementById('misPanel'); if(p)p.style.display='none'; }
@@ -573,7 +576,20 @@ function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'
 function renderMisPanel(){
   const box=document.getElementById('misBody'); if(!box) return;
   document.getElementById('misBasis').textContent=MIS_BASIS?('('+MIS_BASIS+' 기준)'):'';
+  // 정렬 버튼 활성 표시
+  const bp=document.getElementById('misSortP'), ba=document.getElementById('misSortA');
+  if(bp&&ba){
+    const on='border:1px solid #d9480f;background:#fdf0e8;color:#d9480f;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit';
+    const off='border:1px solid #ddd;background:#fff;color:#666;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit';
+    bp.style.cssText=MIS_SORT==='period'?on:off; ba.style.cssText=MIS_SORT==='amt'?on:off;
+  }
   if(!MIS_DATA.length){ box.innerHTML='<div style="font-size:12px;color:#a8a49e;padding:14px 0">미정산 업체가 없어요 👍 (또는 정산달력을 업로드해 주세요)</div>'; return; }
+  // 정렬: period=오래된 미정산(from 이른순, 동률이면 금액 큰순) / amt=금액 큰순
+  const arr=MIS_DATA.map((e,i)=>({e,i}));
+  if(MIS_SORT==='amt') arr.sort((a,b)=>b.e.amt-a.e.amt);
+  else arr.sort((a,b)=>{ const fa=a.e.from||'9999', fb=b.e.from||'9999'; return fa<fb?-1:fa>fb?1:(b.e.amt-a.e.amt); });
+  const today=new Date(); today.setHours(0,0,0,0);
+  const daysSince=d=>{ const m=String(d||'').match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return null; return Math.max(1,Math.round((today-new Date(m[1],m[2]-1,m[3]))/86400000)+1); };
   const total=MIS_DATA.reduce((s,e)=>s+e.amt,0);
   box.innerHTML='<table style="border-collapse:collapse;width:100%;font-size:12px;min-width:640px">'
     +'<thead><tr style="background:#f8f7f4">'
@@ -582,13 +598,15 @@ function renderMisPanel(){
     +'<th style="border:1px solid #eee;padding:7px 8px;text-align:right">금액</th>'
     +'<th style="border:1px solid #eee;padding:7px 8px">호칭 (예: 김대표)</th>'
     +'<th style="border:1px solid #eee;padding:7px 8px"></th></tr></thead><tbody>'
-    +MIS_DATA.map((e,i)=>'<tr>'
+    +arr.map(({e,i})=>{
+      const ds=daysSince(e.from);
+      return '<tr>'
       +'<td style="border:1px solid #eee;padding:6px 8px;font-weight:700">'+escH(e.name)+'</td>'
-      +'<td style="border:1px solid #eee;padding:6px 8px;text-align:center;color:#666">'+fmtKDate(e.from)+' ~ '+fmtKDate(e.to)+'</td>'
+      +'<td style="border:1px solid #eee;padding:6px 8px;text-align:center;color:#666">'+fmtKDate(e.from)+' ~ '+fmtKDate(e.to)+(ds?' <span style="color:'+(ds>=14?'#c0392b;font-weight:700':'#a8a49e')+';font-size:11px">('+ds+'일째)</span>':'')+'</td>'
       +'<td style="border:1px solid #eee;padding:6px 8px;text-align:right;color:#d9480f;font-weight:700">'+fmtN(e.amt)+'</td>'
       +'<td style="border:1px solid #eee;padding:4px 6px"><input value="'+escH(HONOR[e.name]||'')+'" placeholder="호칭" onchange="misSetHonor('+i+',this.value)" style="width:110px;border:1px solid #ddd;border-radius:5px;padding:5px 7px;font-size:12px;font-family:inherit"></td>'
       +'<td style="border:1px solid #eee;padding:4px 6px;text-align:center"><button onclick="copyMisMsg('+i+')" style="border:none;background:#15803d;color:#fff;border-radius:5px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 메시지 복사</button></td>'
-      +'</tr>').join('')
+      +'</tr>';}).join('')
     +'</tbody><tfoot><tr style="font-weight:800;background:#fdf6ef"><td style="border:1px solid #eee;padding:7px 8px">합계 '+MIS_DATA.length+'개 업체</td><td style="border:1px solid #eee"></td><td style="border:1px solid #eee;padding:7px 8px;text-align:right;color:#d9480f">'+fmtN(total)+'</td><td style="border:1px solid #eee" colspan="2"></td></tr></tfoot></table>';
 }
 function misSetHonor(i,v){ const e=MIS_DATA[i]; if(!e) return; HONOR[e.name]=v.trim(); saveHonor(); }

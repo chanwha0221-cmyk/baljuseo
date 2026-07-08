@@ -455,7 +455,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   <div id="pp-empty" class="empty">소스를 붙여넣고 [⚡ 추출해서 추가]를 누르면 아래에 쌓여요.</div>
   <div id="pp-table-wrap" style="display:none;overflow:auto">
     <table id="pp-table" class="pp-tb"><thead><tr>
-      <th>번호</th><th>사진</th><th>상품명</th><th>원산지</th><th>공급가</th><th>상품 스펙</th><th>링크</th><th>비고</th><th></th>
+      <th>번호</th><th>사진</th><th>상품명</th><th>원산지</th><th>공급가</th><th>택배비</th><th>상품 스펙</th><th>링크</th><th>비고</th><th></th>
     </tr></thead><tbody id="pp-rows"></tbody></table>
   </div>
   <div style="margin-top:10px;display:flex;gap:8px">
@@ -500,13 +500,14 @@ const PROP=(function(){
     let link='';
     let um=src.match(/<meta[^>]+property=["']og:url["'][^>]+content=["']([^"']+)["']/i) || src.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:url["']/i) || src.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i);
     if(um) link=um[1];
-    return {name,cat,origin,spec:spec.join('\n'),images,img:images[0]||'',supply:'',note:'',link};
+    return {name,cat,origin,spec:spec.join('\n'),images,img:images[0]||'',supply:'',ship:'',note:'',link};
   }
   function applySupplyOne(it){
     if(typeof masterProducts==='undefined' || !masterProducts || !masterProducts.length) return;
     const n=norm(it.name); if(!n) return;
     let hit=masterProducts.find(m=>norm(m.name)===n) || masterProducts.find(m=>norm(m.name).includes(n)||n.includes(norm(m.name)));
     if(hit && hit.supplyPrice) it.supply=String(hit.supplyPrice);
+    if(hit) it.ship=String(hit.supplyShip||0);   // 택배비 (2026-07-08 — 0이면 무료배송으로 0 표시)
   }
   function add(){
     const src=$('pp-src').value.trim();
@@ -538,6 +539,7 @@ const PROP=(function(){
         +'<td><input value="'+esc(it.name)+'" oninput="PROP.upd('+i+',\'name\',this.value)" style="width:150px"></td>'
         +'<td><input value="'+esc(it.origin)+'" oninput="PROP.upd('+i+',\'origin\',this.value)" style="width:110px"></td>'
         +'<td><input value="'+esc(fmt(it.supply))+'" oninput="PROP.upd('+i+',\'supply\',this.value)" inputmode="numeric" style="width:74px;text-align:right"></td>'
+        +'<td><input value="'+esc(fmt(it.ship))+'" oninput="PROP.upd('+i+',\'ship\',this.value)" inputmode="numeric" placeholder="택배비" style="width:60px;text-align:right"></td>'
         +'<td><textarea oninput="PROP.upd('+i+',\'spec\',this.value)" style="width:230px;height:64px">'+esc(it.spec)+'</textarea></td>'
         +'<td><input value="'+esc(it.link||'')+'" oninput="PROP.upd('+i+',\'link\',this.value)" placeholder="상세 링크(URL)" style="width:120px">'+(it.link?'<br><a href="'+esc(it.link)+'" target="_blank" style="font-size:11px;color:#0d6efd;text-decoration:none">🔗 바로가기</a>':'')+'</td>'
         +'<td><textarea oninput="PROP.upd('+i+',\'note\',this.value)" placeholder="참고사항" style="width:140px;height:64px">'+esc(it.note)+'</textarea></td>'
@@ -549,7 +551,7 @@ const PROP=(function(){
         +'</tr>';
     }).join('');
   }
-  function upd(i,k,v){ if(items[i]){ items[i][k]=(k==='supply'? v.replace(/[^0-9]/g,'') : v); } }
+  function upd(i,k,v){ if(items[i]){ items[i][k]=((k==='supply'||k==='ship')? v.replace(/[^0-9]/g,'') : v); } }
   function del(i){ items.splice(i,1); render(); }
   // 순서 바꾸기 (2026-07-03 사장님 요청): ▲▼ 한 칸 이동, ⏫ 1번으로
   function move(i,dir){ const j=i+dir; if(!items[i]||j<0||j>=items.length) return; const t=items[i]; items[i]=items[j]; items[j]=t; render(); }
@@ -569,16 +571,17 @@ const PROP=(function(){
     // 🔗 링크 칸 포함 여부 (체크 해제 = 기존 7칸 그대로 — 시트 모르는 곳에 보낼 때, 2026-07-08)
     const withLink=!!(($('pp-linkcol')||{}).checked);
     ws.columns=withLink
-      ?[{header:'번호',width:6},{header:'사진',width:18},{header:'상품명',width:28},{header:'원산지',width:16},{header:'공급가',width:12},{header:'상품 스펙',width:42},{header:'상세 링크',width:11},{header:'비고',width:24}]
-      :[{header:'번호',width:6},{header:'사진',width:18},{header:'상품명',width:28},{header:'원산지',width:16},{header:'공급가',width:12},{header:'상품 스펙',width:42},{header:'비고',width:24}];
+      ?[{header:'번호',width:6},{header:'사진',width:18},{header:'상품명',width:28},{header:'원산지',width:16},{header:'공급가',width:12},{header:'택배비',width:10},{header:'상품 스펙',width:42},{header:'상세 링크',width:11},{header:'비고',width:24}]
+      :[{header:'번호',width:6},{header:'사진',width:18},{header:'상품명',width:28},{header:'원산지',width:16},{header:'공급가',width:12},{header:'택배비',width:10},{header:'상품 스펙',width:42},{header:'비고',width:24}];
     const h=ws.getRow(1); h.font={bold:true}; h.alignment={vertical:'middle',horizontal:'center'}; h.height=22;
     for(let i=0;i<items.length;i++){
       const it=items[i];
+      const shipV=(it.ship!==''&&it.ship!=null)?(Number(String(it.ship).replace(/[^0-9]/g,''))||0):'';
       const r=withLink
-        ?ws.addRow([i+1,'',it.name,it.origin,(it.supply?Number(it.supply):''),it.spec,'',it.note||''])
-        :ws.addRow([i+1,'',it.name,it.origin,(it.supply?Number(it.supply):''),it.spec,it.note||'']);
+        ?ws.addRow([i+1,'',it.name,it.origin,(it.supply?Number(it.supply):''),shipV,it.spec,'',it.note||''])
+        :ws.addRow([i+1,'',it.name,it.origin,(it.supply?Number(it.supply):''),shipV,it.spec,it.note||'']);
       if(withLink&&(it.link||'').trim()){
-        const lc=r.getCell(7);
+        const lc=r.getCell(8);
         lc.value={text:'바로가기',hyperlink:it.link.trim()};
         lc.font={color:{argb:'FF0563C1'},underline:true};
       }
@@ -590,7 +593,9 @@ const PROP=(function(){
       r.getCell(1).alignment={vertical:'middle',horizontal:'center'};
       r.getCell(5).alignment={vertical:'middle',horizontal:'right'};
       r.getCell(5).numFmt='#,##0';   // 공급가 천단위 콤마
-      if(withLink) r.getCell(7).alignment={vertical:'middle',horizontal:'center'};   // 바로가기 가운데 (row.alignment 덮어쓰기 뒤에 재지정)
+      r.getCell(6).alignment={vertical:'middle',horizontal:'right'};
+      r.getCell(6).numFmt='#,##0';   // 택배비 천단위 콤마
+      if(withLink) r.getCell(8).alignment={vertical:'middle',horizontal:'center'};   // 바로가기 가운데 (row.alignment 덮어쓰기 뒤에 재지정)
       if(it.img){ try{
         const resp=await fetch(weserv(it.img)+'&w=240&h=240&fit=cover'); const buf=await resp.arrayBuffer();
         const imgId=wb.addImage({buffer:buf,extension:'jpeg'});
