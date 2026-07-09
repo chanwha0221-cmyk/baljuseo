@@ -349,6 +349,12 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
         <div class="msg-actions" style="flex-direction:column;gap:8px">
           <button class="btn-copy" onclick="runSettlementMatch()" style="background:var(--accent);color:#fff;border-color:var(--accent)">🎯 매칭 실행 후 다운로드</button>
         </div>
+        <div class="msg-section" id="unmatchedSection" style="display:none">
+          <div class="msg-section-title">❓ 업체 확인 필요 <span id="unmatchedCount" style="color:#d9480f;font-weight:700"></span></div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">업체명이 자동으로 안 잡힌 입금이에요. 어느 업체인지 골라 <b>[확정·기억]</b>하면 색칠목록에 넣고 그 이름을 기억합니다 (다음부터 자동 매칭).</div>
+          <datalist id="companyDL"></datalist>
+          <div id="unmatchedList" style="border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
+        </div>
         <div class="msg-section" id="toPaintSection" style="display:none">
           <div class="msg-section-title">🎨 리모콘에서 색칠할 업체 <span id="toPaintCount" style="color:var(--accent);font-weight:700"></span></div>
           <div style="font-size:11px;color:var(--text3);margin-bottom:6px">아래는 오늘 입금 확인돼 <b>아직 색 안 칠한</b> 셀이에요. 리모콘에서 이대로 색칠하면 됩니다. (이미 색칠된 건 자동 제외)</div>
@@ -651,6 +657,7 @@ async function saveHonor(){
 async function loadMisDetail(){
   try{
     const t=await getToken();
+    await loadSettleAlias();
     const hr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('업체호칭!A2:B10000')}`,{headers:{Authorization:`Bearer ${t}`}});
     if(hr.ok){ (((await hr.json()).values)||[]).forEach(x=>{ if(x[0])HONOR[String(x[0]).trim()]=String(x[1]||'').trim(); }); }
     const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('미정산상세!A2:E10000')}`,{headers:{Authorization:`Bearer ${t}`}});
@@ -1351,6 +1358,23 @@ function _buildAliasMap(memoMap){
   return aliasToCompany;
 }
 
+// 🧠 사장님 확정 학습 별칭 — 입금자명(공백제거) → 업체명. 시트 '정산별칭' A:B (멀티디바이스)
+let SETTLE_ALIAS={};
+function _normPayer(s){ return String(s||'').replace(/\s+/g,''); }
+async function loadSettleAlias(){
+  try{ const t=await getToken();
+    const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산별칭!A2:B10000')}`,{headers:{Authorization:`Bearer ${t}`}});
+    if(r.ok)(((await r.json()).values)||[]).forEach(x=>{ if(x[0]&&x[1]) SETTLE_ALIAS[_normPayer(x[0])]=String(x[1]).trim(); });
+  }catch(e){}
+}
+async function saveSettleAlias(){
+  try{ const t=await getToken(); await ensureTabNamed(t,'정산별칭',['입금자명','업체명']);
+    const rows=Object.entries(SETTLE_ALIAS).filter(([k,v])=>k&&v);
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산별칭!A2:B10000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+    if(rows.length) await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산별칭!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+  }catch(e){ console.warn('정산별칭 저장 실패',e); }
+}
+
 // 셀에 빨강 + 메모 추가 (보호색 셀은 건드리지 않음)
 function _paintAndComment(ws, row, col, comment){
   const cell = ws.getCell(row, col);
@@ -1382,6 +1406,7 @@ async function runSettlementMatch(){
   document.getElementById('matchLog').value = '';
   _logLine('▶ 매칭 시작...');
   const toPaint=[]; // 오늘 입금돼서 새로 색칠할(아직 색 안 칠한) 업체×날짜
+  const unmatched=[]; // 업체 미식별 입금건 → 사장님 수동확인 대상
   try{
     _logLine('• 거래내역 파싱 중...');
     const txs = await _parseTransactions(fTx);
@@ -1390,6 +1415,7 @@ async function runSettlementMatch(){
     const meta = await _parseSettlement(fSet);
     _logLine(`  → 업체 ${Object.keys(meta.companyCols).length}개, 일자 행 ${meta.dateRows.length}개`);
     const aliasMap = _buildAliasMap(meta.memoMap);
+    Object.assign(aliasMap, SETTLE_ALIAS); // 🧠 사장님이 전에 확정한 학습 별칭 병합
     if(Object.keys(aliasMap).length) _logLine(`  → 입금자명 별칭 ${Object.keys(aliasMap).length}개 매핑`);
 
     // 업체별로 정산 셀 인덱스 (date, vatCol, taxCol, vatVal, taxVal, sum)
@@ -1426,6 +1452,7 @@ async function runSettlementMatch(){
       }
       if(!matchedCompany){
         _logLine(`✖ 매칭 실패: ${tx.dateKey} ${tx.name} ${tx.amount.toLocaleString()}원 (업체 미식별)`);
+        unmatched.push({dateKey:tx.dateKey, name:tx.name, amount:tx.amount});
         failCount++;
         continue;
       }
@@ -1510,6 +1537,8 @@ async function runSettlementMatch(){
     _logLine('─────────────────────');
     _logLine(`완료: 매칭 ${matchedCount}건 / 부분 ${partialCount}건 / 실패 ${failCount}건 / 색칠 ${paintedCount}셀 / 보호 ${protectedCount}건`);
     renderToPaint(toPaint); // 🎨 색칠할 업체 목록 화면 출력
+    window._matchCells = cellsByCompany; window._matchCompanies = Object.keys(meta.companyCols); window._toPaintArr = toPaint;
+    renderUnmatched(unmatched); // ❓ 업체 미식별 입금 → 수동확인·학습
 
     // 다운로드
     const outBuf = await meta.wb.xlsx.writeBuffer();
@@ -1545,6 +1574,35 @@ function renderToPaint(arr){
     </div>`).join('');
 }
 function copyToPaint(){ navigator.clipboard.writeText(window._toPaintText||'').then(()=>showToast('📋 색칠할 업체 목록 복사됨')); }
+// ❓ 업체 미식별 입금 → 사장님이 업체 지정 → 색칠목록 추가 + 별칭 학습(다음부터 자동)
+function renderUnmatched(arr){
+  const sec=document.getElementById('unmatchedSection'), list=document.getElementById('unmatchedList'), cnt=document.getElementById('unmatchedCount'), dl=document.getElementById('companyDL');
+  if(!sec||!list) return;
+  window._unmatchedArr=arr||[];
+  if(!arr||!arr.length){ sec.style.display='none'; return; }
+  sec.style.display='';
+  if(cnt) cnt.textContent='('+arr.length+'건)';
+  if(dl) dl.innerHTML=(window._matchCompanies||[]).map(c=>`<option value="${c}">`).join('');
+  list.innerHTML=arr.map((x,i)=>`<div id="um-${i}" style="display:flex;gap:6px;align-items:center;padding:7px 9px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <span style="font-size:11px;min-width:135px"><b>${x.name}</b><br><span style="color:var(--text3)">${x.dateKey} · ${x.amount.toLocaleString()}원</span></span>
+      <input list="companyDL" id="um-in-${i}" placeholder="업체 선택/입력" style="flex:1;min-width:120px;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit">
+      <button class="btn-copy" style="padding:5px 10px;font-size:11px" onclick="confirmSettleAlias(${i})">✓ 확정·기억</button>
+    </div>`).join('');
+}
+async function confirmSettleAlias(i){
+  const x=(window._unmatchedArr||[])[i]; if(!x) return;
+  const inp=document.getElementById('um-in-'+i); const company=(inp&&inp.value||'').trim();
+  if(!company){ alert('업체를 골라주세요.'); return; }
+  SETTLE_ALIAS[_normPayer(x.name)]=company;
+  // 그 업체의 미색칠 셀 중 금액 일치 날짜 찾기 (없으면 입금일 + '수동')
+  const cells=(window._matchCells||{})[company]||[];
+  const hit=cells.find(c=>c.sum>0 && Math.abs(c.sum - x.amount)<=1000);
+  (window._toPaintArr=window._toPaintArr||[]).push({company, key: hit?hit.key:(x.dateKey+' (수동)'), amount:x.amount, payer:x.name});
+  renderToPaint(window._toPaintArr);
+  const row=document.getElementById('um-'+i); if(row) row.style.display='none';
+  showToast('✓ '+company+' 기억함 — 다음부터 자동 매칭');
+  try{ await saveSettleAlias(); }catch(e){}
+}
 </script>
 </body>
 </html>
