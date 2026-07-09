@@ -519,13 +519,15 @@ async function handleSettleFile(file){
   try{
     if(typeof JSZip==='undefined') await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';s.onload=res;s.onerror=()=>rej(new Error('JSZip 로드 실패'));document.head.appendChild(s);});
     const zip=await JSZip.loadAsync(await file.arrayBuffer());
-    const xml=async p=>{const f=zip.file(p);if(!f)throw new Error(p+' 없음 — 정산달력 파일이 맞나요?');return new DOMParser().parseFromString(await f.async('string'),'application/xml');};
+    const xml=async p=>{const f=zip.file(p);if(!f)throw new Error(p+' 없음 — 정산달력 파일이 맞나요?');return new DOMParser().parseFromString((await f.async('string')).replace(/^﻿/,''),'application/xml');};
     const stx=await xml('xl/styles.xml');
-    const fills=[...stx.getElementsByTagName('fills')[0].children].map(f=>{const pf=f.getElementsByTagName('patternFill')[0];if(!pf)return{pt:'none'};return{pt:pf.getAttribute('patternType')};});
-    const xfs=[...stx.getElementsByTagName('cellXfs')[0].children].map(x=>parseInt(x.getAttribute('fillId')||'0',10));
+    const _fillsRoot=stx.getElementsByTagName('fills')[0], _xfsRoot=stx.getElementsByTagName('cellXfs')[0];
+    if(!_fillsRoot||!_xfsRoot) throw new Error("스타일(색칠) 정보를 못 읽었어요 — 리모콘/구글시트에서 '엑셀(.xlsx)로 다운로드'한 원본 정산달력이 맞는지 확인해주세요. (이 도구에서 '매칭완료'로 받은 파일은 구조가 달라 안 됩니다)");
+    const fills=[..._fillsRoot.children].map(f=>{const pf=f.getElementsByTagName('patternFill')[0];if(!pf)return{pt:'none'};return{pt:pf.getAttribute('patternType')};});
+    const xfs=[..._xfsRoot.children].map(x=>parseInt(x.getAttribute('fillId')||'0',10));
     let strings=[];
     const ssf=zip.file('xl/sharedStrings.xml');
-    if(ssf){const ssx=new DOMParser().parseFromString(await ssf.async('string'),'application/xml');strings=[...ssx.getElementsByTagName('si')].map(si=>[...si.getElementsByTagName('t')].map(t=>t.textContent).join(''));}
+    if(ssf){const ssx=new DOMParser().parseFromString((await ssf.async('string')).replace(/^﻿/,''),'application/xml');strings=[...ssx.getElementsByTagName('si')].map(si=>[...si.getElementsByTagName('t')].map(t=>t.textContent).join(''));}
     const shx=await xml('xl/worksheets/sheet1.xml');
     const colOf=(ref,fb)=>{if(!ref)return fb;const m=ref.match(/^([A-Z]+)/);if(!m)return fb;let n=0;for(const ch of m[1])n=n*26+ch.charCodeAt(0)-64;return n;};
     const names={},stat={};let colored=0;
