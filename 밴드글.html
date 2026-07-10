@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v1.9</title>
+<title>밴드글 메이커 v2.0</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,11 +54,11 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v1.9a</span>
+  <span class="ver">v2.0</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
-  <div class="hint">📌 ① 밴드 글을 <b>마우스로 긁어서 복사 → 왼쪽 칸에 붙여넣기</b> (볼드·큰글씨 그대로 들어옵니다) ② 게시판 글은 오른쪽에 ③ 생성 → 수정(Ctrl+B로 볼드) → 💾 저장 = 스타일 학습 ④ [📋 서식 복사] → 밴드 글쓰기에 Ctrl+V (⚠️ 사진은 밴드 구조상 본문에 못 들어감 — 미리보기로 위치만 확인하고 밴드 사진 첨부로 올리세요)</div>
+  <div class="hint">📌 ① 밴드 글을 <b>마우스로 긁어서 복사 → 왼쪽 칸에 붙여넣기</b> (볼드·큰글씨 그대로 들어옵니다) ② 게시판 글은 오른쪽에 ③ 생성 → 수정(Ctrl+B로 볼드) → 💾 저장 = 스타일 학습 ④ [📋 서식 복사] → 밴드 글쓰기 창에서 <b>북마크릿</b> 클릭(서식째 주입) ⑤ 사진: 기존 글 <b>수정</b>이면 첨부 유지라 그대로, 새 글이면 [🖼 원문 사진 받기]로 내려받아 사진 첨부에 올리기</div>
   <div class="grid">
     <div class="panel">
       <div class="panel-head">📱 원문 1 — 기존 밴드글 (서식 유지) <span class="cnt" id="cnt-a">0자</span></div>
@@ -87,6 +87,7 @@ textarea:focus{border-color:var(--accent)}
         <button class="btn copy" onclick="copyRich()">📋 서식 복사 (밴드용)</button>
         <button class="btn" onclick="copyPlain()">텍스트만 복사</button>
         <button class="btn" onclick="generate(true)">🔁 다시 생성</button>
+        <button class="btn" id="imgDlBtn" onclick="downloadImgs()">🖼 원문 사진 받기</button>
       </div>
     </div>
   </div>
@@ -303,6 +304,23 @@ async function copyRich(){
     }catch(e){}
   }
   toast(ok?'📋 서식째 복사됨 — 밴드 글쓰기에 Ctrl+V (Ctrl+Shift+V는 서식 날아가니 금지)':'⚠️ 복사 실패 — 결과창을 마우스로 전체 드래그해서 Ctrl+C 해주세요');
+}
+// 원문 1의 사진들을 weserv 프록시 경유로 일괄 다운로드 → 밴드 사진 첨부에 올리기 (밴드 본문 인라인 불가 우회, 2026-07-10)
+async function downloadImgs(){
+  if(!IMGS.length){ toast('원문 1에서 가져온 사진이 없어요 — 밴드 글을 사진까지 포함해 긁어 붙여넣어 주세요'); return; }
+  toast('🖼 사진 '+IMGS.length+'장 다운로드 시작... (브라우저가 여러 파일 허용을 물으면 허용)');
+  let ok=0;
+  for(let i=0;i<IMGS.length;i++){
+    try{
+      const r=await fetch('https://images.weserv.nl/?url='+encodeURIComponent(IMGS[i])+'&output=jpg&q=92');
+      if(!r.ok) throw new Error(r.status);
+      const b=await r.blob();
+      const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='밴드사진_'+(i+1)+'.jpg'; a.click();
+      ok++;
+      await new Promise(s=>setTimeout(s,450));
+    }catch(e){ console.warn('사진 다운로드 실패', IMGS[i], e); }
+  }
+  toast(ok?('🖼 '+ok+'장 저장됨 — 밴드 글쓰기의 사진 첨부에 이 파일들을 올리세요'):'⚠️ 다운로드 실패 — 원문 사진을 우클릭 저장해 주세요');
 }
 function copyPlain(){ const v=plainOf(outMarked()); if(!v.trim()){toast('복사할 글이 없어요');return;} navigator.clipboard.writeText(v).then(()=>toast('📋 텍스트만 복사됨')); }
 
