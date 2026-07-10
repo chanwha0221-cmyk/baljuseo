@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v2.3</title>
+<title>밴드글 메이커 v2.4</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v2.3</span>
+  <span class="ver">v2.4</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -97,6 +97,16 @@ textarea:focus{border-color:var(--accent)}
   </div>
 </div>
 <div class="toast" id="toast"></div>
+<div id="errBar" style="display:none;position:fixed;right:14px;bottom:14px;z-index:9998;background:#7f1d1d;color:#fff;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3)" onclick="toggleErrPanel()">🚨 오류 <span id="errN">0</span>건 — 눌러서 보기</div>
+<div id="errPanel" style="display:none;position:fixed;right:14px;bottom:56px;z-index:9998;width:min(480px,92vw);background:#fff;border:2px solid #b91c1c;border-radius:10px;padding:12px;box-shadow:0 8px 24px rgba(0,0,0,.25)">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <b style="font-size:13px;color:#b91c1c">🚨 오류 기록</b>
+    <button class="btn-sm" style="margin-left:auto" onclick="copyErrs()">📋 전체 복사</button>
+    <button class="btn-sm" onclick="clearErrs()">비우기</button>
+    <button class="btn-sm" onclick="toggleErrPanel()">닫기</button>
+  </div>
+  <textarea id="errBox" readonly style="width:100%;height:180px;font-size:11px;line-height:1.5;font-family:Consolas,monospace;border:1px solid #e0dbd4;border-radius:6px;padding:8px;background:#fef2f2;resize:vertical"></textarea>
+</div>
 <script>
 const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
@@ -109,7 +119,23 @@ const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
 
 const $=id=>document.getElementById(id);
 let DATA=[], loaded=false, LOCKS=[], IMGS=[];
-function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2400);}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2400);if(/^⚠️|실패|오류|error/i.test(String(m)))logErr(String(m));}
+// ── 오류 기록 (2026-07-10): 순식간에 사라지는 에러를 저장해 복사 가능하게 ──
+const ERRS=[];
+function logErr(m){
+  const ts=new Date().toLocaleTimeString('ko-KR',{hour12:false});
+  ERRS.push('['+ts+'] '+m);
+  if(ERRS.length>50)ERRS.shift();
+  const bar=$('errBar'),box=$('errBox'),n=$('errN');
+  if(n)n.textContent=ERRS.length;
+  if(bar)bar.style.display='block';
+  if(box)box.value=ERRS.join('\n\n');
+}
+window.addEventListener('error',e=>logErr('JS오류: '+e.message+' ('+(e.filename||'').split('/').pop()+':'+e.lineno+')'));
+window.addEventListener('unhandledrejection',e=>logErr('비동기오류: '+((e.reason&&(e.reason.message||e.reason))||'알 수 없음')));
+function toggleErrPanel(){const p=$('errPanel');p.style.display=p.style.display==='none'?'block':'none';}
+function copyErrs(){const v=$('errBox').value;navigator.clipboard.writeText(v).then(()=>toast('오류 기록 복사됨 — 하비서한테 붙여넣어 주세요')).catch(()=>{$('errBox').select();document.execCommand('copy');toast('오류 기록 복사됨');});}
+function clearErrs(){ERRS.length=0;$('errBox').value='';$('errN').textContent='0';$('errBar').style.display='none';$('errPanel').style.display='none';}
 function setStatus(s){$('status').textContent=s;}
 function todayKST(){return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'});}
 function nowKST(){return new Date().toLocaleString('sv-SE',{timeZone:'Asia/Seoul'});}
@@ -344,7 +370,7 @@ function copyPlain(){ const v=plainOf(outMarked()); if(!v.trim()){toast('복사�
 async function callAI(prompt,retry=0){
   const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[]}),redirect:'follow'});
   const d=await r.json();
-  if(d.error){ if(/high demand|overload|quota|rate limit|too many|503|429/i.test(d.error)&&retry<2){await new Promise(s=>setTimeout(s,3000));return callAI(prompt,retry+1);} throw new Error(d.error); }
+  if(d.error){ if(/high demand|overload|quota|rate limit|too many|503|429/i.test(d.error)&&retry<2){await new Promise(s=>setTimeout(s,3000));return callAI(prompt,retry+1);} logErr('AI서버 응답: '+JSON.stringify(d).slice(0,500)); throw new Error(d.error); }
   return d.text||'';
 }
 function buildPrompt(aMarked,b,extra){

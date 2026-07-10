@@ -1570,10 +1570,10 @@ async function runSettlementMatch(){
 
     _logLine('─────────────────────');
     _logLine(`완료: 매칭 ${matchedCount}건 / 부분 ${partialCount}건 / 실패 ${failCount}건 / 색칠 ${paintedCount}셀 / 보호 ${protectedCount}건`);
-    renderToPaint(toPaint); // 🎨 색칠할 업체 목록 화면 출력
-    window._matchCells = cellsByCompany; window._matchCompanies = Object.keys(meta.companyCols); window._toPaintArr = toPaint;
-    renderUnmatched(unmatched); // ❓ 업체 미식별 입금 → 수동확인·학습
-    try{ if(toPaint.length||unmatched.length) document.getElementById('matchPanelWrap').classList.add('mp-full'); }catch(e){} // 결과 있으면 전체화면으로 크게
+    window._matchCells = cellsByCompany; window._matchCompanies = Object.keys(meta.companyCols||{}); window._toPaintArr = toPaint;
+    try{ renderToPaint(toPaint); }catch(e){ _logLine('⚠ 색칠목록 렌더 오류: '+e.message); console.error('renderToPaint',e); } // 🎨 색칠할 업체
+    try{ renderUnmatched(unmatched); }catch(e){ _logLine('⚠ 확인목록 렌더 오류: '+e.message); console.error('renderUnmatched',e); } // ❓ 미식별
+    try{ if((toPaint&&toPaint.length)||(unmatched&&unmatched.length)) document.getElementById('matchPanelWrap').classList.add('mp-full'); }catch(e){} // 결과 있으면 전체화면
 
     // 다운로드
     const outBuf = await meta.wb.xlsx.writeBuffer();
