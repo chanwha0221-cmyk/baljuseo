@@ -232,7 +232,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
         <span style="flex:1"></span>
         <button id="misSortP" onclick="sortMis('period')" style="border:1px solid #d9480f;background:#fdf0e8;color:#d9480f;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⏳ 기간 긴순</button>
         <button id="misSortA" onclick="sortMis('amt')" style="border:1px solid #ddd;background:#fff;color:#666;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💰 금액 큰순</button>
-        <button onclick="document.getElementById('settleFile').click()" style="border:none;background:#0d6efd;color:#fff;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📂 정산달력 업로드</button>
+        <span style="font-size:11px;color:#a8a49e">↓ 아래 [파일 업로드]에서 정산달력 넣으면 여기 자동 반영</span>
       </div>
       <div id="misBody" style="padding:12px 16px;overflow-x:auto">
         <div style="font-size:12px;color:#a8a49e;padding:14px 0">정산달력을 올리면 업체별 미정산 현황이 여기 나와요. [📂 정산달력 업로드]</div>
@@ -340,7 +340,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
           <div class="msg-fields">
             <div class="msg-field">
               <label>① 정산달력 (.xlsx)</label>
-              <input type="file" id="matchSettlementFile" accept=".xlsx">
+              <input type="file" id="matchSettlementFile" accept=".xlsx" onchange="if(this.files[0])handleSettleFile(this.files[0])">
               <div class="template-hint" id="matchSettlementInfo">정산달력_YYYYMMDD_YYYYMMDD.xlsx</div>
             </div>
             <div class="msg-field">
@@ -392,6 +392,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 // ═════ 공유 시트 백엔드 (2026-07-02) — 누가 열어도 같은 백데이터 ═════
 // 시트 = source of truth. IndexedDB는 오프라인 캐시. 업로드 시 새 거래만 시트에 append.
 const SHEET_ID='1E7arcg-texYjeYtHNLjIZZI5ytwQZDKO7S02lgosXy8'; // 전용 스프레드시트 '마스터 통장내역 데이터' (사장님 소유 + 서비스계정 편집자 공유, 2026-07-02)
+let SETTLE_ALIAS={}; // 🧠 학습 별칭(입금자명→업체) — 초기 로드(loadSettleAlias)보다 먼저 선언돼야 TDZ 에러 안 남
 const DATA_TAB='통장내역';
 const TAB_HEADER=['거래일시','입금','출금','잔액','거래내용','상대은행','예금주명','등록일시'];
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
@@ -1383,8 +1384,7 @@ function _buildAliasMap(memoMap){
   return aliasToCompany;
 }
 
-// 🧠 사장님 확정 학습 별칭 — 입금자명(공백제거) → 업체명. 시트 '정산별칭' A:B (멀티디바이스)
-let SETTLE_ALIAS={};
+// 🧠 사장님 확정 학습 별칭 — 입금자명(공백제거) → 업체명. 시트 '정산별칭' A:B. (SETTLE_ALIAS 선언은 상단 전역 — TDZ 방지)
 function _normPayer(s){ return String(s||'').replace(/\s+/g,''); }
 async function loadSettleAlias(){
   try{ const t=await getToken();
