@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v1.3</title>
+<title>밴드글 메이커 v1.4</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,11 +54,11 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v1.3</span>
+  <span class="ver">v1.4 사진포함</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
-  <div class="hint">📌 ① 밴드 글을 <b>마우스로 긁어서 복사 → 왼쪽 칸에 붙여넣기</b> (볼드·큰글씨 그대로 들어옵니다) ② 게시판 글은 오른쪽에 ③ 생성 → 수정(Ctrl+B로 볼드) → 💾 저장 = 스타일 학습 ④ [📋 서식 복사]로 밴드 에디터에 붙여넣으면 서식 유지</div>
+  <div class="hint">📌 ① 밴드 글을 <b>마우스로 긁어서 복사 → 왼쪽 칸에 붙여넣기</b> (볼드·큰글씨 그대로 들어옵니다) ② 게시판 글은 오른쪽에 ③ 생성 → 수정(Ctrl+B로 볼드) → 💾 저장 = 스타일 학습 ④ [📋 서식 복사] → 밴드 글쓰기에 붙여넣으면 서식+사진까지 (사진 자동 업로드는 밴드 에디터가 처리)</div>
   <div class="grid">
     <div class="panel">
       <div class="panel-head">📱 원문 1 — 기존 밴드글 (서식 유지) <span class="cnt" id="cnt-a">0자</span></div>
@@ -107,7 +107,7 @@ const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzF
 const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
 
 const $=id=>document.getElementById(id);
-let DATA=[], loaded=false, LOCKS=[];
+let DATA=[], loaded=false, LOCKS=[], IMGS=[];
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2400);}
 function setStatus(s){$('status').textContent=s;}
 function todayKST(){return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'});}
@@ -129,7 +129,8 @@ function htmlToMarked(root){
     if(n.nodeType!==1) return;
     const tag=n.tagName;
     if(tag==='BR'){ out+='\n'; return; }
-    if(/^(SCRIPT|STYLE|IMG|VIDEO)$/.test(tag)) return;
+    if(tag==='IMG'){ const isrc=n.getAttribute('src')||''; if(isrc&&!isrc.startsWith('data:image/gif')){ let idx=IMGS.indexOf(isrc); if(idx===-1){ IMGS.push(isrc); idx=IMGS.length-1; } out+='\n〈이미지'+(idx+1)+'〉\n'; } return; }
+    if(/^(SCRIPT|STYLE|VIDEO)$/.test(tag)) return;
     const isBlock=/^(P|DIV|H[1-6]|LI|TR|SECTION|ARTICLE)$/.test(tag);
     const b=bold(n), g=big(n), u=und(n);
     if(g) out+='《큰》';
@@ -147,14 +148,18 @@ function htmlToMarked(root){
 function markedToHtml(t){
   return t.split('\n').map(line=>{
     if(!line.trim()) return '';
+    // 사진 토큰 줄 → <img> (밴드 에디터가 붙여넣기 시 자동 업로드해주는 것 활용)
+    const im=line.trim().match(/^〈이미지(\d+)〉$/);
+    if(im){ const u=IMGS[parseInt(im[1],10)-1]; return u?'<img src="'+esc(u)+'" style="max-width:100%">':''; }
     let h=esc(line);
+    h=h.replace(/〈이미지(\d+)〉/g,(m,n2)=>{ const u=IMGS[parseInt(n2,10)-1]; return u?'<img src="'+esc(u)+'" style="max-width:100%">':''; });
     h=h.replace(/《큰》([\s\S]*?)《\/큰》/g,'<span style="font-size:22px">$1</span>');
     h=h.replace(/\*\*([^*\n][^*]*?)\*\*/g,'<b>$1</b>');
     h=h.replace(/__([^_\n][^_]*?)__/g,'<u>$1</u>');
     return '<span style="font-size:18px">'+h+'</span>';
   }).join('<br>');
 }
-function plainOf(t){ return t.replace(/《\/?큰》/g,'').replace(/\*\*/g,'').replace(/__/g,''); }
+function plainOf(t){ return t.replace(/《\/?큰》/g,'').replace(/\*\*/g,'').replace(/__/g,'').replace(/〈이미지\d+〉/g,''); }
 
 /* ===== 잠금 블록 (====== ~ ======) — AI에 토큰만 주고 생성 후 원문 복원 ===== */
 function extractLocks(marked){
@@ -294,6 +299,7 @@ function buildPrompt(aMarked,b,extra){
 - 섹션 제목·핵심 강조 줄은 **__텍스트__** (굵게+밑줄 조합 — 이 밴드의 시그니처 패턴)
 - 《큰》텍스트《/큰》 = 더크게(22px). ⚠️ 원문 1에 《큰》이 실제로 있던 자리에만 유지하고, 네가 새로 추가하는 것은 금지. 인트로 제목을 포함한 모든 제목·강조는 **__텍스트__** 가 기본이다 (크기는 자동으로 크게 18px).
 - 【잠금N】 토큰 = 절대 규칙 블록. 받은 위치 그대로, 토큰 그대로 출력할 것. 내용 수정·풀어쓰기 금지.
+- 〈이미지N〉 토큰 = 사진 자리. 원문 1에 있던 토큰을 전부, 표기 그대로 유지하고 글 흐름에 맞는 위치에 배치할 것. 새로 만들거나 빼먹지 말 것.
 ${samples?`\n[스타일 교본 — 사장님이 최종 확정한 밴드글. 말투·호흡·서식 사용 패턴을 따라갈 것]\n${samples}\n`:''}
 [원문 1 — 기존 밴드글 (서식 마커 포함)]
 ${aMarked}
@@ -326,6 +332,8 @@ async function generate(isRetry){
     out=restoreLocks(out);
     // 잠금 블록 무결성 검증 — 하나라도 유실되면 맨 위에 원본 그대로 보강
     LOCKS.forEach(blk=>{ if(out.indexOf(blk)===-1) out=blk+'\n\n'+out; });
+    // 사진 토큰 유실 보강 — AI가 빼먹은 사진은 글 끝에 순서대로 붙임
+    IMGS.forEach((u,i)=>{ const tk='〈이미지'+(i+1)+'〉'; if(out.indexOf(tk)===-1) out+='\n\n'+tk; });
     $('out').innerHTML=markedToHtml(out); upOut();
     toast('✨ 생성 완료 ('+plainOf(out).length.toLocaleString()+'자) — 수정 후 💾 저장!');
     $('out').scrollIntoView({behavior:'smooth',block:'start'});
