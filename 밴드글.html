@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v2.2</title>
+<title>밴드글 메이커 v2.3</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v2.2</span>
+  <span class="ver">v2.3</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -378,6 +378,21 @@ ${b}
 ${extra||''}
 - 출력은 밴드글 본문만.`;
 }
+// 분량 미달 시: 처음부터 다시 쓰지 않고 초안에 문단을 '추가'시킴 — 재생성보다 수렴 확실 (2026-07-10)
+function buildExpand(draft,L){
+  const need=1860-L;
+  return `아래는 밴드 판매글 초안이다. 본문이 ${L}자로 목표(1,800~1,900자)에 약 ${need}자 부족하다.
+
+[초안]
+${draft}
+
+지침:
+- 초안의 기존 문장·서식 마커(**굵게**, __밑줄__, 《큰》, 【잠금N】, 〈이미지N〉)·줄바꿈은 하나도 바꾸거나 빼지 말 것. 순서도 그대로.
+- 초안 흐름에 맞는 위치(중간~후반)에 새 문단을 추가해 본문을 약 ${need}자 늘릴 것. 손질법·조리법·보관법·맛있게 먹는 팁 등 상식 수준 보강만. 과장·허위·스펙 지어내기 금지.
+- 새 문단도 한 줄은 공백 포함 28자 이내, 짧은 줄 호흡, 빈 줄로 문단 구분.
+- '마스터 유통' 상호명 금지 — '저희'로 쓸 것.
+- 출력은 추가가 반영된 완성본 전체만.`;
+}
 async function generate(isRetry){
   const aMarkedRaw=htmlToMarked($('src-a'));
   const b=$('src-b').value.trim();
@@ -386,15 +401,19 @@ async function generate(isRetry){
   const btn=$('genBtn'); btn.disabled=true; btn.innerHTML='<span class="spin">⏳</span> 생성 중... (10~20초)';
   try{
     let out=(await callAI(buildPrompt(aMarked,b))).trim();
-    // 1,800~1,950 구간에 들어올 때까지 최대 3회 자동 교정 (1,800 미만 = 무조건 실패 처리)
-    for(let att=0; att<3; att++){
+    // 1,800~1,950 구간에 들어올 때까지 최대 5회 자동 교정
+    // 짧으면 = 초안에 문단 '추가'(buildExpand — 재생성 아님), 길면 = 압축 재생성
+    for(let att=0; att<5; att++){
       const L=bodyLen(out);
       if(L>=1800 && L<=1950) break;
-      btn.innerHTML='<span class="spin">⏳</span> '+(L<1800?'짧아서 보강':'길어서 압축')+' 중... ('+L.toLocaleString()+'자 · '+(att+1)+'/3)';
-      const extra = L<1800
-        ? `- 직전 시도가 ${L}자였다. 1,800자 미만은 실패다. 문단을 더 보태 반드시 1,800~1,900자로 쓸 것 (지금보다 약 ${1860-L}자 더 필요).`
-        : `- 직전 시도가 ${L}자로 너무 길었다. 핵심은 다 살리되 반복·군더더기를 걷어내 1,800~1,900자로 줄일 것.`;
-      out=(await callAI(buildPrompt(aMarked,b,extra))).trim();
+      btn.innerHTML='<span class="spin">⏳</span> '+(L<1800?'짧아서 문단 추가':'길어서 압축')+' 중... ('+L.toLocaleString()+'자 · '+(att+1)+'/5)';
+      if(L<1800){
+        const grown=(await callAI(buildExpand(out,L))).trim();
+        // 확장 결과가 오히려 줄었거나 잠금 토큰이 깨졌으면 버리고 기존 초안 유지 후 재시도
+        if(bodyLen(grown)>L && !/={6,}/.test(grown)) out=grown;
+      }else{
+        out=(await callAI(buildPrompt(aMarked,b,`- 직전 시도가 ${L}자로 너무 길었다. 핵심은 다 살리되 반복·군더더기를 걷어내 1,800~1,900자로 줄일 것.`))).trim();
+      }
     }
     const finalL=bodyLen(out);
     if(finalL<1800||finalL>1950){ if(typeof toast==='function') toast('⚠️ '+finalL.toLocaleString()+'자 — 기준(1,800~1,900) 미달. [🔁 다시 생성] 누르거나 직접 손봐주세요'); }
