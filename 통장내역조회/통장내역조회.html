@@ -238,13 +238,11 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
         <div style="font-size:12px;color:#a8a49e;padding:14px 0">정산달력을 올리면 업체별 미정산 현황이 여기 나와요. [📂 정산달력 업로드]</div>
       </div>
     </div>
-    <div class="chat-tabs">
-      <button class="chat-tab active" id="tab-chat" onclick="switchTab('chat')">💬 질문하기</button>
-      <button class="chat-tab" id="tab-msg" onclick="switchTab('msg')">✉️ 정산 메시지</button>
-      <button class="chat-tab" id="tab-match" onclick="switchTab('match')">🎯 정산 매칭</button>
+    <div class="chat-tabs" style="display:none">
+      <button class="chat-tab active" id="tab-match" onclick="switchTab('match')">🎯 정산 매칭</button>
     </div>
     <!-- 질문하기 패널 -->
-    <div id="chatPanelWrap" style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <div id="chatPanelWrap" style="display:none;flex-direction:column;flex:1;min-height:0">
     <div class="chat-header">
       <span>💬</span>
       <span class="ch-title">질문하기</span>
@@ -334,7 +332,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
       </div>
     </div><!-- /msgPanelWrap -->
     <!-- 정산 매칭 패널 -->
-    <div id="matchPanelWrap" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto">
+    <div id="matchPanelWrap" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto">
       <button class="mp-close" onclick="document.getElementById('matchPanelWrap').classList.remove('mp-full')">✕ 작게 보기</button>
       <div class="msg-panel">
         <div class="msg-section">
@@ -1491,6 +1489,7 @@ async function runSettlementMatch(){
         continue;
       }
       const cells = cellsByCompany[matchedCompany];
+      if(!cells || !cells.length){ _logLine(`ℹ ${matchedCompany}: 정산달력에 없는 업체명이라 색칠 대상 아님 (${tx.dateKey} ${tx.amount.toLocaleString()}원)`); tx.used=true; continue; }
 
       // 1) 단일 셀 매칭 (금액 정확)
       const exact = cells.filter(c=>c.sum>0 && Math.abs(c.sum - tx.amount) <= tolerance);
