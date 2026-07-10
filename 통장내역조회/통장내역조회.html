@@ -1225,17 +1225,19 @@ async function _parseTransactions(file){
   const ws = wb.worksheets[0];
   // 거래일시 / 출금 / 입금 / 거래내용 컬럼 찾기 (3행 헤더)
   let headerRow = -1, idxDate=-1, idxOut=-1, idxIn=-1, idxName=-1, idxMemo=-1;
-  for(let r=1; r<=Math.min(10, ws.rowCount); r++){
+  for(let r=1; r<=Math.min(30, ws.rowCount); r++){
     const row = ws.getRow(r);
-    for(let c=1; c<=20; c++){
-      const v = (row.getCell(c).value||'').toString().trim();
-      if(v==='거래일시'){ headerRow=r; idxDate=c; }
-      if(v==='출금') idxOut=c;
-      if(v==='입금') idxIn=c;
-      if(v==='거래내용') idxName=c;
-      if(v==='메모') idxMemo=c;
+    for(let c=1; c<=25; c++){
+      // 서식(rich text) 있는 헤더도 읽히게 .text 사용 + 부분일치 (메인 파서 parseRows와 동일 유연성)
+      const cell = row.getCell(c);
+      const v = ((cell.text!=null?cell.text:cell.value)||'').toString().replace(/\s+/g,'');
+      if(v.includes('거래일시')){ if(headerRow<0) headerRow=r; idxDate=c; }
+      if(v==='출금'||v.includes('출금액')) idxOut=c;
+      if(v==='입금'||v.includes('입금액')) idxIn=c;
+      if(v.includes('거래내용')||v.includes('적요')) idxName=c;
+      if(v.includes('메모')) idxMemo=c;
     }
-    if(headerRow>0) break;
+    if(headerRow>0 && idxIn>0) break;
   }
   if(headerRow<0) throw new Error('거래내역 헤더 행을 찾지 못했어요 (거래일시/입금/거래내용)');
   const txs = [];
@@ -1244,7 +1246,8 @@ async function _parseTransactions(file){
     const dateRaw = row.getCell(idxDate).value;
     const inAmt = parseInt((row.getCell(idxIn).value||'0').toString().replace(/[^0-9]/g,'')) || 0;
     if(!dateRaw || inAmt<=0) continue;
-    const name = (row.getCell(idxName).value||'').toString().trim();
+    const _nc = idxName>0 ? row.getCell(idxName) : null;
+    const name = (_nc ? ((_nc.text!=null?_nc.text:_nc.value)||'') : '').toString().trim();
     let dt;
     if(dateRaw instanceof Date) dt = dateRaw;
     else { const m = dateRaw.toString().match(/(\d{4})-(\d{2})-(\d{2})/); if(m) dt = new Date(+m[1], +m[2]-1, +m[3]); }
