@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v2.1</title>
+<title>밴드글 메이커 v2.2</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v2.1</span>
+  <span class="ver">v2.2</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -401,6 +401,7 @@ async function generate(isRetry){
     // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
     out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
     out=softWrap(out);   // 긴 줄 의미단위 미달분 안전망 래핑 (잠금·이미지 줄 제외)
+    out=out.replace(/\n{3,}/g,'\n\n');   // 연속 빈 줄 1개로 정규화 — 노출에서 간격 두 배로 벌어지던 사고 방지 (2026-07-10)
     out=restoreLocks(out);
     // 잠금 블록 무결성 검증 — 하나라도 유실되면 맨 위에 원본 그대로 보강
     LOCKS.forEach(blk=>{ if(out.indexOf(blk)===-1) out=blk+'\n\n'+out; });
