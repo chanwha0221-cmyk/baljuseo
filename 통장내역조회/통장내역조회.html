@@ -26,6 +26,12 @@
 .chat-tab{flex:1;padding:10px 8px;border:none;background:transparent;font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px}
 .chat-tab.active{color:var(--accent);border-bottom-color:var(--accent);background:var(--surface);font-weight:700}
 .chat-tab:hover:not(.active){background:var(--border)}
+.mp-full{position:fixed !important;inset:0;z-index:9999;background:var(--surface,#fff);padding:14px 20px;overflow-y:auto;max-width:none}
+.mp-close{display:none;position:sticky;top:0;z-index:2;float:right;padding:8px 16px;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.mp-full .mp-close{display:block}
+.mp-full .msg-section-title{font-size:15px}
+.mp-full #unmatchedList{max-height:60vh !important}
+.mp-full #toPaintList{max-height:55vh !important}
 /* ── 정산 메시지 패널 ── */
 .msg-panel{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
 .msg-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
@@ -319,6 +325,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
     </div><!-- /msgPanelWrap -->
     <!-- 정산 매칭 패널 -->
     <div id="matchPanelWrap" style="display:none;flex-direction:column;flex:1;min-height:0;overflow-y:auto">
+      <button class="mp-close" onclick="document.getElementById('matchPanelWrap').classList.remove('mp-full')">✕ 작게 보기</button>
       <div class="msg-panel">
         <div class="msg-section">
           <div class="msg-section-title">📂 파일 업로드</div>
@@ -1181,7 +1188,9 @@ window.addEventListener('DOMContentLoaded', ()=>{
 // 색깔 보존 룰 (이 색이 칠해진 셀은 절대 건드리지 않음 — 이미 다음 단계로 진행된 셀)
 // 참고: 하늘색(정산금 확인)은 빨강(정산금 입금)으로 변경 가능 — 다음 단계이므로
 const MATCH_COLOR_RED = 'FFFF0000';      // 빨강 (정산금 입금) — Claude가 칠하는 색
-const MATCH_PROTECT_HEX = ['FFFF0000','FFC6EFCE','FF92D050','FFFFFF00','FFFFFF99','FFA6A6A6','FFBFBFBF','FFD9D9D9','FFC9C9C9','FFFFC000','FFED7D31','FF00B050'];
+// 보호 = 이미 '입금완료' 계열 색 (후보에서 제외). 회색(계산서·입금 완료)·연두(입금확인)·빨강/노랑(입금)·진회색.
+// ⚠️ 미입금 색(하늘 BDD7EE 정산금확인 / 주황 FFC000·ED7D31 계산서선발행 / 흰색)은 여기 넣지 말 것 = 색칠 대상
+const MATCH_PROTECT_HEX = ['FFFF0000','FFFF4500','FFC6EFCE','FFC6E0B4','FF92D050','FF00B050','FFFFFF00','FFFFFF99','FFA6A6A6','FFAEAAAA','FFBFBFBF','FFD9D9D9','FFC9C9C9','FF808080','FF595959','FF757171'];
 // 빨강/연초록/노랑/회색/주황 계열 — 이미 색칠된 셀은 절대 X
 // 하늘색(LIGHT_BLUE)는 보호 대상 X — 빨강으로 덮어쓸 수 있음
 
@@ -1438,10 +1447,17 @@ async function runSettlementMatch(){
     for(const tx of txs){
       // 후보 업체명 찾기
       const keys = _nameKeys(tx.name);
+      if([...keys].some(k=>SETTLE_ALIAS[k]==='취합안함')){ _logLine(`⊘ 취합 제외(업체 정산 아님): ${tx.dateKey} ${tx.name} ${tx.amount.toLocaleString()}원`); tx.used=true; continue; }
       let matchedCompany = null;
       for(const k of keys){
         if(meta.companyCols[k]){ matchedCompany = k; break; }
         if(aliasMap[k]){ matchedCompany = aliasMap[k]; break; }
+      }
+      if(!matchedCompany){
+        // 🔁 학습 별칭 부분일치 — 이름 뒤 날짜만 바뀌는 입금(예 '서희석_6/15'→'서희석' 등록분)
+        const _np=_normPayer(tx.name);
+        for(const ak in SETTLE_ALIAS){ if(ak.length>=2 && _np.includes(ak)){ matchedCompany=SETTLE_ALIAS[ak]; break; } }
+        if(matchedCompany==='취합안함'){ _logLine(`⊘ 취합 제외: ${tx.dateKey} ${tx.name} ${tx.amount.toLocaleString()}원`); tx.used=true; continue; }
       }
       if(!matchedCompany){
         // 업체명 부분 일치 시도
@@ -1463,15 +1479,17 @@ async function runSettlementMatch(){
       // 1) 단일 셀 매칭 (금액 정확)
       const exact = cells.filter(c=>c.sum>0 && Math.abs(c.sum - tx.amount) <= tolerance);
       if(exact.length>0){
-        // 가장 가까운 날짜 선택 (입금일 기준 ±)
+        // 입금일에 가까운 순으로, 미입금(색칠 가능) 셀을 찾을 때까지 순회 — 이미 입금완료(보호색)된 날짜는 건너뜀
         exact.sort((a,b)=>Math.abs(a.date - tx.date) - Math.abs(b.date - tx.date));
-        const target = exact[0];
-        const diff = target.sum - tx.amount;
-        const note = `${tx.dateKey} 입금 ${tx.amount.toLocaleString()}원 (${tx.name})` + (diff!==0 ? ` ⚠ 정산:${target.sum.toLocaleString()} / 입금:${tx.amount.toLocaleString()} (${diff>0?'+':''}${diff})` : '');
-        const r1 = target.vatCol ? _paintAndComment(meta.ws, target.row, target.vatCol, note) : {painted:false};
-        const r2 = target.taxCol ? _paintAndComment(meta.ws, target.row, target.taxCol, note) : {painted:false};
-        if(r1.painted||r2.painted){ paintedCount += (r1.painted?1:0)+(r2.painted?1:0); matchedCount++; toPaint.push({company:matchedCompany, key:target.key, amount:tx.amount, payer:tx.name}); _logLine(`✓ ${matchedCompany} ${target.key} ${tx.amount.toLocaleString()}원 매칭`); }
-        else { protectedCount++; _logLine(`⊘ ${matchedCompany} ${target.key} 이미 색칠된 셀 (보존)`); }
+        let done=false;
+        for(const target of exact){
+          const diff = target.sum - tx.amount;
+          const note = `${tx.dateKey} 입금 ${tx.amount.toLocaleString()}원 (${tx.name})` + (diff!==0 ? ` ⚠ 정산:${target.sum.toLocaleString()} / 입금:${tx.amount.toLocaleString()} (${diff>0?'+':''}${diff})` : '');
+          const r1 = target.vatCol ? _paintAndComment(meta.ws, target.row, target.vatCol, note) : {painted:false};
+          const r2 = target.taxCol ? _paintAndComment(meta.ws, target.row, target.taxCol, note) : {painted:false};
+          if(r1.painted||r2.painted){ paintedCount += (r1.painted?1:0)+(r2.painted?1:0); matchedCount++; toPaint.push({company:matchedCompany, key:target.key, amount:tx.amount, payer:tx.name}); _logLine(`✓ ${matchedCompany} ${target.key} ${tx.amount.toLocaleString()}원 매칭`); done=true; break; }
+        }
+        if(!done){ protectedCount++; _logLine(`⊘ ${matchedCompany} ${exact[0].key} 금액 맞는 곳이 이미 다 입금완료 (보존)`); }
         tx.used = true;
         continue;
       }
@@ -1541,6 +1559,7 @@ async function runSettlementMatch(){
     renderToPaint(toPaint); // 🎨 색칠할 업체 목록 화면 출력
     window._matchCells = cellsByCompany; window._matchCompanies = Object.keys(meta.companyCols); window._toPaintArr = toPaint;
     renderUnmatched(unmatched); // ❓ 업체 미식별 입금 → 수동확인·학습
+    try{ if(toPaint.length||unmatched.length) document.getElementById('matchPanelWrap').classList.add('mp-full'); }catch(e){} // 결과 있으면 전체화면으로 크게
 
     // 다운로드
     const outBuf = await meta.wb.xlsx.writeBuffer();
@@ -1584,11 +1603,13 @@ function renderUnmatched(arr){
   if(!arr||!arr.length){ sec.style.display='none'; return; }
   sec.style.display='';
   if(cnt) cnt.textContent='('+arr.length+'건)';
-  if(dl) dl.innerHTML=(window._matchCompanies||[]).map(c=>`<option value="${c}">`).join('');
+  if(dl) dl.innerHTML='<option value="취합안함">'+(window._matchCompanies||[]).map(c=>`<option value="${c}">`).join('');
   list.innerHTML=arr.map((x,i)=>`<div id="um-${i}" style="display:flex;gap:6px;align-items:center;padding:7px 9px;border-bottom:1px solid var(--border);flex-wrap:wrap">
       <span style="font-size:11px;min-width:135px"><b>${x.name}</b><br><span style="color:var(--text3)">${x.dateKey} · ${x.amount.toLocaleString()}원</span></span>
       <input list="companyDL" id="um-in-${i}" placeholder="업체 선택/입력" style="flex:1;min-width:120px;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit">
       <button class="btn-copy" style="padding:5px 10px;font-size:11px" onclick="confirmSettleAlias(${i})">✓ 확정·기억</button>
+      <button class="btn-copy" style="padding:5px 8px;font-size:11px;color:#1971c2" onclick="rememberCore(${i})" title="이름 뒤 날짜가 바뀌어도(예: 서희석_6/15, _6/16…) 이 이름 들어가면 이 업체로 자동. 업체칸 채우고 누르세요">🔁 이름포함 기억</button>
+      <button class="btn-copy" style="padding:5px 8px;font-size:11px;color:#888" onclick="skipSettle(${i})" title="업체 정산 아님(결산·이자 등) → 취합에서 빼고 기억">🚫 취합안함</button>
     </div>`).join('');
 }
 async function confirmSettleAlias(i){
@@ -1596,13 +1617,34 @@ async function confirmSettleAlias(i){
   const inp=document.getElementById('um-in-'+i); const company=(inp&&inp.value||'').trim();
   if(!company){ alert('업체를 골라주세요.'); return; }
   SETTLE_ALIAS[_normPayer(x.name)]=company;
-  // 그 업체의 미색칠 셀 중 금액 일치 날짜 찾기 (없으면 입금일 + '수동')
-  const cells=(window._matchCells||{})[company]||[];
-  const hit=cells.find(c=>c.sum>0 && Math.abs(c.sum - x.amount)<=1000);
-  (window._toPaintArr=window._toPaintArr||[]).push({company, key: hit?hit.key:(x.dateKey+' (수동)'), amount:x.amount, payer:x.name});
-  renderToPaint(window._toPaintArr);
+  if(company!=='취합안함'){ // 취합안함이면 색칠목록에 안 넣음(업체 정산 아님)
+    const cells=(window._matchCells||{})[company]||[];
+    const hit=cells.find(c=>c.sum>0 && Math.abs(c.sum - x.amount)<=1000);
+    (window._toPaintArr=window._toPaintArr||[]).push({company, key: hit?hit.key:(x.dateKey+' (수동)'), amount:x.amount, payer:x.name});
+    renderToPaint(window._toPaintArr);
+  }
   const row=document.getElementById('um-'+i); if(row) row.style.display='none';
-  showToast('✓ '+company+' 기억함 — 다음부터 자동 매칭');
+  showToast(company==='취합안함' ? ('🚫 '+x.name+' 취합 제외로 기억함') : ('✓ '+company+' 기억함 — 다음부터 자동 매칭'));
+  try{ await saveSettleAlias(); }catch(e){}
+}
+// 🚫 취합 안 함 — 업체 정산이 아닌 입금(결산·이자 등)을 취합에서 빼고 기억
+async function skipSettle(i){ const inp=document.getElementById('um-in-'+i); if(inp) inp.value='취합안함'; await confirmSettleAlias(i); }
+// 🔁 이름 코어(날짜/언더바/숫자 뒤 제거)를 부분일치 별칭으로 학습 — '서희석_6/15'류 반복 입금 대응
+async function rememberCore(i){
+  const x=(window._unmatchedArr||[])[i]; if(!x) return;
+  const inp=document.getElementById('um-in-'+i); const company=(inp&&inp.value||'').trim();
+  if(!company){ alert('업체칸을 채워주세요 (취합에서 뺄 거면 "취합안함").'); return; }
+  const core=_normPayer(x.name).replace(/[_\-].*$/,'').replace(/\d.*$/,'').trim();
+  if(core.length<2){ alert('이름을 인식 못 했어요. 그냥 [확정·기억]을 쓰세요.'); return; }
+  SETTLE_ALIAS[core]=company;
+  if(company!=='취합안함'){
+    const cells=(window._matchCells||{})[company]||[];
+    const hit=cells.find(c=>c.sum>0 && Math.abs(c.sum-x.amount)<=1000);
+    (window._toPaintArr=window._toPaintArr||[]).push({company, key:hit?hit.key:(x.dateKey+' (수동)'), amount:x.amount, payer:x.name});
+    renderToPaint(window._toPaintArr);
+  }
+  const row=document.getElementById('um-'+i); if(row) row.style.display='none';
+  showToast(`🔁 '${core}' 들어간 입금은 앞으로 ${company==='취합안함'?'취합 제외':company}로 자동`);
   try{ await saveSettleAlias(); }catch(e){}
 }
 </script>
