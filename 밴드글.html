@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v1.6</title>
+<title>밴드글 메이커 v1.7</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v1.6</span>
+  <span class="ver">v1.7</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -326,14 +326,18 @@ async function generate(isRetry){
   const btn=$('genBtn'); btn.disabled=true; btn.innerHTML='<span class="spin">⏳</span> 생성 중... (10~20초)';
   try{
     let out=(await callAI(buildPrompt(aMarked,b))).trim();
-    if(plainOf(out).length<1750){
-      btn.innerHTML='<span class="spin">⏳</span> 짧아서 보강 중...';
-      out=(await callAI(buildPrompt(aMarked,b,`- 직전 시도가 ${plainOf(out).length}자로 짧았다. 이번엔 반드시 1,800~1,900자로 쓸 것.`))).trim();
+    // 1,800~1,950 구간에 들어올 때까지 최대 3회 자동 교정 (1,800 미만 = 무조건 실패 처리)
+    for(let att=0; att<3; att++){
+      const L=plainOf(out).length;
+      if(L>=1800 && L<=1950) break;
+      btn.innerHTML='<span class="spin">⏳</span> '+(L<1800?'짧아서 보강':'길어서 압축')+' 중... ('+L.toLocaleString()+'자 · '+(att+1)+'/3)';
+      const extra = L<1800
+        ? `- 직전 시도가 ${L}자였다. 1,800자 미만은 실패다. 문단을 더 보태 반드시 1,800~1,900자로 쓸 것 (지금보다 약 ${1860-L}자 더 필요).`
+        : `- 직전 시도가 ${L}자로 너무 길었다. 핵심은 다 살리되 반복·군더더기를 걷어내 1,800~1,900자로 줄일 것.`;
+      out=(await callAI(buildPrompt(aMarked,b,extra))).trim();
     }
-    if(plainOf(out).length>1950){
-      btn.innerHTML='<span class="spin">⏳</span> 길어서 다듬는 중...';
-      out=(await callAI(buildPrompt(aMarked,b,`- 직전 시도가 ${plainOf(out).length}자로 너무 길었다. 핵심은 다 살리되 반복·군더더기를 걷어내 1,800~1,900자로 줄일 것.`))).trim();
-    }
+    const finalL=plainOf(out).length;
+    if(finalL<1800||finalL>1950){ if(typeof toast==='function') toast('⚠️ '+finalL.toLocaleString()+'자 — 기준(1,800~1,900) 미달. [🔁 다시 생성] 누르거나 직접 손봐주세요'); }
     // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
     out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
     out=restoreLocks(out);
