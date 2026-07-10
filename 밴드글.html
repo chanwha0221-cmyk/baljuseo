@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v2.4</title>
+<title>밴드글 메이커 v2.5</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v2.4</span>
+  <span class="ver">v2.5</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -370,7 +370,18 @@ function copyPlain(){ const v=plainOf(outMarked()); if(!v.trim()){toast('복사�
 async function callAI(prompt,retry=0){
   const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[]}),redirect:'follow'});
   const d=await r.json();
-  if(d.error){ if(/high demand|overload|quota|rate limit|too many|503|429/i.test(d.error)&&retry<2){await new Promise(s=>setTimeout(s,3000));return callAI(prompt,retry+1);} logErr('AI서버 응답: '+JSON.stringify(d).slice(0,500)); throw new Error(d.error); }
+  if(d.error){
+    // 구글 무료 한도(분당 20건) — "retry in N초"를 읽어서 그만큼 기다렸다 재시도 (2026-07-10)
+    if(/high demand|overload|quota|rate limit|too many|exceeded|503|429/i.test(d.error)&&retry<3){
+      const m=String(d.error).match(/retry in ([0-9.]+)s/i);
+      const wait=Math.min(Math.ceil(m?parseFloat(m[1])+2:15),60);
+      const btn=document.getElementById('genBtn');
+      for(let s=wait;s>0;s--){ if(btn&&btn.disabled)btn.innerHTML='<span class="spin">⏳</span> AI 사용량 한도 — '+s+'초 대기 후 자동 재시도 ('+(retry+1)+'/3)'; await new Promise(x=>setTimeout(x,1000)); }
+      return callAI(prompt,retry+1);
+    }
+    logErr('AI서버 응답: '+JSON.stringify(d).slice(0,500));
+    throw new Error(d.error);
+  }
   return d.text||'';
 }
 function buildPrompt(aMarked,b,extra){
