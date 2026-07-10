@@ -64,6 +64,13 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 .logo span{color:var(--accent)}
 .ver{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:var(--accent-light);border:1px solid var(--in-border);padding:2px 7px;border-radius:20px}
 /* 레이아웃: 좌측 메인 + 우측 채팅 */
+.main-tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;flex-shrink:0}
+.main-tab{padding:13px 22px;border:none;background:transparent;font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:700;cursor:pointer;color:var(--text2);border-bottom:3px solid transparent;margin-bottom:-1px}
+.main-tab.active{color:#0d6efd;border-bottom-color:#0d6efd}
+body.mode-settle .main-panel{display:none}
+body.mode-settle .chat-panel{width:100% !important;min-width:0 !important;position:static !important;height:auto !important;flex:1;border-left:none}
+body.mode-bank .chat-panel{display:none}
+body.mode-settle #misPanel{display:block !important}
 .layout{display:flex;flex:1;min-height:0}
 .main-panel{flex:1;overflow-y:auto;padding-bottom:24px}
 .chat-panel{width:var(--chat-w);min-width:var(--chat-w);background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;height:calc(100vh - 52px);position:sticky;top:52px}
@@ -152,11 +159,15 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 .qbtn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
 </style>
 </head>
-<body>
+<body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
   <span class="ver">v3.4</span>
 </header>
+<div class="main-tabs">
+  <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
+  <button class="main-tab" id="mt-settle" onclick="switchMainTab('settle')">📋 미정산 내역 조회</button>
+</div>
 <div class="layout">
   <!-- 좌측: 기존 조회 패널 -->
   <div class="main-panel">
@@ -196,20 +207,6 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
       </div>
       <input type="file" id="settleFile" accept=".xlsx" style="display:none" onchange="handleSettleFile(this.files[0]);this.value=''">
     </div>
-    <div id="misPanel" style="display:none;background:#fff;border:1px solid #e0dbd4;border-radius:12px;margin-top:14px;overflow:hidden">
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#faf9f6;border-bottom:1px solid #eee7de;flex-wrap:wrap">
-        <span style="font-weight:800;font-size:14px">📋 업체별 미정산 현황</span>
-        <span id="misBasis" style="font-size:11px;color:#a8a49e"></span>
-        <span style="flex:1"></span>
-        <button id="misSortP" onclick="sortMis('period')" style="border:1px solid #d9480f;background:#fdf0e8;color:#d9480f;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⏳ 기간 긴순</button>
-        <button id="misSortA" onclick="sortMis('amt')" style="border:1px solid #ddd;background:#fff;color:#666;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💰 금액 큰순</button>
-        <button onclick="document.getElementById('settleFile').click()" style="border:none;background:#0d6efd;color:#fff;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📂 정산달력 업로드</button>
-        <button onclick="misClose()" style="border:1px solid #ddd;background:#fff;border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit">닫기</button>
-      </div>
-      <div id="misBody" style="padding:12px 16px;overflow-x:auto">
-        <div style="font-size:12px;color:#a8a49e;padding:14px 0">아직 데이터가 없어요 — [📂 정산달력 업로드]로 리모컨에서 뽑은 xlsx를 올려주세요.</div>
-      </div>
-    </div>
     <div class="table-wrap" id="tableWrap" style="display:none">
       <div class="table-head">
         <span class="tl">거래 내역</span>
@@ -228,6 +225,19 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
   </div>
   <!-- 우측: 채팅/메시지 패널 -->
   <div class="chat-panel">
+    <div id="misPanel" style="display:none;background:#fff;border-bottom:2px solid #e0dbd4;overflow:hidden;flex-shrink:0;max-height:42vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#faf9f6;border-bottom:1px solid #eee7de;flex-wrap:wrap;position:sticky;top:0">
+        <span style="font-weight:800;font-size:14px">📋 업체별 미정산 현황</span>
+        <span id="misBasis" style="font-size:11px;color:#a8a49e"></span>
+        <span style="flex:1"></span>
+        <button id="misSortP" onclick="sortMis('period')" style="border:1px solid #d9480f;background:#fdf0e8;color:#d9480f;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⏳ 기간 긴순</button>
+        <button id="misSortA" onclick="sortMis('amt')" style="border:1px solid #ddd;background:#fff;color:#666;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💰 금액 큰순</button>
+        <button onclick="document.getElementById('settleFile').click()" style="border:none;background:#0d6efd;color:#fff;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📂 정산달력 업로드</button>
+      </div>
+      <div id="misBody" style="padding:12px 16px;overflow-x:auto">
+        <div style="font-size:12px;color:#a8a49e;padding:14px 0">정산달력을 올리면 업체별 미정산 현황이 여기 나와요. [📂 정산달력 업로드]</div>
+      </div>
+    </div>
     <div class="chat-tabs">
       <button class="chat-tab active" id="tab-chat" onclick="switchTab('chat')">💬 질문하기</button>
       <button class="chat-tab" id="tab-msg" onclick="switchTab('msg')">✉️ 정산 메시지</button>
@@ -591,7 +601,13 @@ async function handleSettleFile(file){
 let MIS_DATA=[], MIS_BASIS='', HONOR={}, MIS_SORT='period'; // period=기간 긴순(오래된 미정산 먼저) / amt=금액 큰순
 function sortMis(mode){ MIS_SORT=mode; renderMisPanel(); }
 function fmtKDate(d){ const m=String(d||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m?(parseInt(m[2],10)+'월 '+parseInt(m[3],10)+'일'):String(d||''); }
-function misOpen(){ const p=document.getElementById('misPanel'); if(p){p.style.display='block'; p.scrollIntoView({behavior:'smooth',block:'nearest'});} }
+function switchMainTab(v){
+  document.body.classList.remove('mode-bank','mode-settle'); document.body.classList.add('mode-'+v);
+  var b=document.getElementById('mt-bank'), s=document.getElementById('mt-settle');
+  if(b) b.classList.toggle('active', v==='bank'); if(s) s.classList.toggle('active', v==='settle');
+  if(v==='settle'){ try{ switchTab('match'); }catch(e){} } // 미정산 탭 = 정산매칭 자동 활성
+}
+function misOpen(){ switchMainTab('settle'); const p=document.getElementById('misPanel'); if(p) p.style.display='block'; }
 function misClose(){ const p=document.getElementById('misPanel'); if(p)p.style.display='none'; }
 function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 function renderMisPanel(){
