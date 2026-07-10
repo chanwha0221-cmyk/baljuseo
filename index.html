@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.458</title>
+<title>발주서 변환기 v22.459</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.458</span>
+  <span class="ver">v22.459</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -741,7 +741,20 @@ function mergeLines(raw){
       if(firstCol)lastClient=firstCol;
       if(firstCol&&!unitPat.test(firstCol))lastKnownClient=firstCol;
     }
-    else{merged[merged.length-1]=merged[merged.length-1]+'\t'+pp2;}
+    else{
+      let tail=pp2.trim();
+      // 게시판 복사(fnCopyToClipboard 등)가 줄을 수령인 앞에서 잘라먹는 경우: "이름 주소… (전화)" 꼬리를 통짜 메모로 삼키지 말고
+      // [수령인][주소][전화] 셀로 분리해 살림 — PC마다 잘리는 위치가 달라 생기던 결과 차이 fix (2026-07-10 원비 PC 건)
+      const nm=tail.match(/^([가-힣]{2,4})\s+((?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충청|충북|충남|전라|전북|전남|경상|경북|경남|제주)[^\t]*)$/);
+      if(nm){
+        let rest=nm[2].trim(); const cells=[nm[1]];
+        const ph=rest.match(/\s(0\d{1,3}[- ]?\d{3,4}[- ]?\d{4,5})\s*$/);
+        if(ph){ cells.push(rest.slice(0,ph.index).trim()); cells.push(ph[1].replace(/\s/g,'')); }
+        else cells.push(rest);
+        tail=cells.join('\t');
+      }
+      merged[merged.length-1]=merged[merged.length-1]+'\t'+tail;
+    }
   }
   return merged;
 }
