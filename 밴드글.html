@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v1.7</title>
+<title>밴드글 메이커 v1.8</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v1.7</span>
+  <span class="ver">v1.8</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -160,12 +160,27 @@ function markedToHtml(t){
   }).join('<br>');
 }
 function plainOf(t){ return t.replace(/《\/?큰》/g,'').replace(/\*\*/g,'').replace(/__/g,'').replace(/〈이미지\d+〉/g,''); }
+// 순수 본문 글자수 = 잠금 블록(====박스·하단 고정부) 내용과 토큰 전부 제외 (사장님 기준: 본문만 1,800~1,900)
+function bodyLen(t){
+  let s=t;
+  LOCKS.forEach(blk=>{ s=s.split(blk).join(''); });
+  s=s.replace(/【\s*잠금\s*\d+\s*】/g,'');
+  return plainOf(s).length;
+}
 
 /* ===== 잠금 블록 (====== ~ ======) — AI에 토큰만 주고 생성 후 원문 복원 ===== */
 function extractLocks(marked){
   LOCKS=[];
   const re=/={6,}[^\n]*\n[\s\S]*?\n\s*={6,}[^\n]*/g;
-  const replaced=marked.replace(re,m=>{ LOCKS.push(m); return '【잠금'+LOCKS.length+'】'; });
+  let replaced=marked.replace(re,m=>{ LOCKS.push(m); return '【잠금'+LOCKS.length+'】'; });
+  // 하단 고정부('진짜 자신 있습니다' 또는 첫 🔽 줄부터 끝까지 = 주문안내·url·사업자 뭉치)도 통째 잠금 (2026-07-10 사장님: 이 부분 글자수 제외)
+  const lines=replaced.split('\n');
+  let ti=-1;
+  for(let i=0;i<lines.length;i++){ if(/진짜 자신 있습니다|^\s*🔽/.test(lines[i])){ ti=i; break; } }
+  if(ti>=0 && lines.slice(ti).join('').trim()){
+    LOCKS.push(lines.slice(ti).join('\n'));
+    replaced=lines.slice(0,ti).join('\n').replace(/\n+$/,'')+'\n\n【잠금'+LOCKS.length+'】';
+  }
   const info=$('lockinfo');
   if(LOCKS.length){ info.style.display='block'; info.textContent='🔒 잠금 블록 '+LOCKS.length+'개 감지 — 이 부분은 글자 하나도 안 바뀝니다'; }
   else info.style.display='none';
@@ -181,9 +196,9 @@ function onSrcA(){ const m=htmlToMarked($('src-a')); $('cnt-a').textContent=plai
 function upCnt(k){$('cnt-'+k).textContent=$('src-'+k).value.length.toLocaleString()+'자';}
 function outMarked(){ return htmlToMarked($('out')); }
 function upOut(){
-  const n=plainOf(outMarked()).length;
+  const n=bodyLen(outMarked());
   const p=$('outCnt');
-  p.textContent=n.toLocaleString()+'자 (공백포함)';
+  p.textContent='본문 '+n.toLocaleString()+'자 (고정부 제외)';
   p.className='count-pill '+((n>=1800&&n<=1950)?'ok':(n>0?'short':''));
 }
 
@@ -225,15 +240,16 @@ async function loadAll(){
 async function saveBand(){
   const marked=outMarked();
   const plain=plainOf(marked);
+  const bl=bodyLen(marked);
   if(!plain.trim()){ toast('저장할 글이 없어요'); return; }
-  if(plain.length<1000 && !confirm(plain.length.toLocaleString()+'자밖에 안 되는데 저장할까요? (목표 1,800자)')) return;
+  if(bl<1000 && !confirm('본문 '+bl.toLocaleString()+'자밖에 안 되는데 저장할까요? (목표 1,800자)')) return;
   const title=(plain.split('\n').map(s=>s.trim()).filter(Boolean)[0]||'제목없음').slice(0,40);
-  const row=[String(Date.now()), todayKST(), title, marked, String(plain.length), nowKST()];
+  const row=[String(Date.now()), todayKST(), title, marked, String(bl), nowKST()];
   try{
     await ensureTab();
     const t=await getToken();
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A:F')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
-    DATA.push({id:row[0],date:row[1],title:row[2],body:marked,len:plain.length,at:row[5]});
+    DATA.push({id:row[0],date:row[1],title:row[2],body:marked,len:bl,at:row[5]});
     renderList(); setStatus('☁️ 시트 연결됨 · 저장본 '+DATA.length+'건');
     toast('💾 저장 완료 — 다음 생성부터 이 글이 스타일 교본에 들어갑니다');
   }catch(e){ toast('⚠️ 저장 실패: '+e.message); }
@@ -310,7 +326,8 @@ ${b}
 지침:
 - 원문 1의 구성·서식 패턴(어디를 볼드/큰글씨로 쓰는지)을 유지하면서, 원문 2의 정보를 본문에 자연스럽게 녹여 확장한 새 밴드글을 쓴다.
 - "※ 구성 :", "※ 중량 :" 같은 스펙 나열 형식은 절대 그대로 쓰지 말 것 — 전부 자연스러운 문장으로 녹일 것. (예: "원물 100~150kg급 참다랑어에서 뜬 필렛 500g을 트레이에 담아 보내드립니다")
-- 분량: 공백 포함 1,800~1,900자(마커·이미지 토큰 제외 기준). 1,800자 미만도 1,950자 초과도 안 된다. 최우선 조건.
+- 분량: 【잠금N】 토큰(인트로 박스·하단 주문안내 고정부)을 뺀 **순수 본문만** 공백 포함 1,800~1,900자. 1,800자 미만도 1,950자 초과도 안 된다. 최우선 조건.
+- 쇼핑몰 결제·채팅 주문·사업자 안내 같은 하단 고정 문구를 새로 쓰지 말 것 — 그건 【잠금N】 토큰이 담당한다.
 - 가격·구성·원산지·스펙은 원문에 있는 것만. 지어내기 금지. 원문 정보는 빠짐없이.
 - 부족한 분량은 손질법·조리법·보관법·맛있게 먹는 팁 등 상식 수준 보강만. 과장·허위 금지.
 - '마스터 유통', '마스터' 같은 상호명은 절대 쓰지 말 것 — 반드시 '저희', '저희가', '저희는' 으로 표현한다. (예: "마스터 유통은 양으로 실망시키지 않습니다" ❌ → "저희는 양으로 실망시키지 않습니다" ⭕)
@@ -328,7 +345,7 @@ async function generate(isRetry){
     let out=(await callAI(buildPrompt(aMarked,b))).trim();
     // 1,800~1,950 구간에 들어올 때까지 최대 3회 자동 교정 (1,800 미만 = 무조건 실패 처리)
     for(let att=0; att<3; att++){
-      const L=plainOf(out).length;
+      const L=bodyLen(out);
       if(L>=1800 && L<=1950) break;
       btn.innerHTML='<span class="spin">⏳</span> '+(L<1800?'짧아서 보강':'길어서 압축')+' 중... ('+L.toLocaleString()+'자 · '+(att+1)+'/3)';
       const extra = L<1800
@@ -336,7 +353,7 @@ async function generate(isRetry){
         : `- 직전 시도가 ${L}자로 너무 길었다. 핵심은 다 살리되 반복·군더더기를 걷어내 1,800~1,900자로 줄일 것.`;
       out=(await callAI(buildPrompt(aMarked,b,extra))).trim();
     }
-    const finalL=plainOf(out).length;
+    const finalL=bodyLen(out);
     if(finalL<1800||finalL>1950){ if(typeof toast==='function') toast('⚠️ '+finalL.toLocaleString()+'자 — 기준(1,800~1,900) 미달. [🔁 다시 생성] 누르거나 직접 손봐주세요'); }
     // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
     out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
@@ -346,7 +363,7 @@ async function generate(isRetry){
     // 사진 토큰 유실 보강 — AI가 빼먹은 사진은 글 끝에 순서대로 붙임
     IMGS.forEach((u,i)=>{ const tk='〈이미지'+(i+1)+'〉'; if(out.indexOf(tk)===-1) out+='\n\n'+tk; });
     $('out').innerHTML=markedToHtml(out); upOut();
-    toast('✨ 생성 완료 ('+plainOf(out).length.toLocaleString()+'자) — 수정 후 💾 저장!');
+    toast('✨ 생성 완료 (본문 '+bodyLen(out).toLocaleString()+'자, 고정부 제외) — 수정 후 💾 저장!');
     $('out').scrollIntoView({behavior:'smooth',block:'start'});
   }catch(e){ toast('⚠️ 생성 실패: '+e.message); }
   btn.disabled=false; btn.textContent='✨ 뉴 밴드글 생성 (1800자)';
