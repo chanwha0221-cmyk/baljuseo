@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v1.2</title>
+<title>밴드글 메이커 v1.3</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v1.2 밴드맞춤</span>
+  <span class="ver">v1.3</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -292,7 +292,7 @@ function buildPrompt(aMarked,b,extra){
 - **텍스트** = 굵게
 - __텍스트__ = 밑줄
 - 섹션 제목·핵심 강조 줄은 **__텍스트__** (굵게+밑줄 조합 — 이 밴드의 시그니처 패턴)
-- 《큰》텍스트《/큰》 = 더크게(22px). 글 제목급에만 아껴 쓸 것 (본문은 자동으로 크게 18px 처리되니 마커 불필요)
+- 《큰》텍스트《/큰》 = 더크게(22px). ⚠️ 원문 1에 《큰》이 실제로 있던 자리에만 유지하고, 네가 새로 추가하는 것은 금지. 인트로 제목을 포함한 모든 제목·강조는 **__텍스트__** 가 기본이다 (크기는 자동으로 크게 18px).
 - 【잠금N】 토큰 = 절대 규칙 블록. 받은 위치 그대로, 토큰 그대로 출력할 것. 내용 수정·풀어쓰기 금지.
 ${samples?`\n[스타일 교본 — 사장님이 최종 확정한 밴드글. 말투·호흡·서식 사용 패턴을 따라갈 것]\n${samples}\n`:''}
 [원문 1 — 기존 밴드글 (서식 마커 포함)]
