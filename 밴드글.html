@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v2.0</title>
+<title>밴드글 메이커 v2.1</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v2.0</span>
+  <span class="ver">v2.1</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -161,6 +161,23 @@ function markedToHtml(t){
   }).join('<br>');
 }
 function plainOf(t){ return t.replace(/《\/?큰》/g,'').replace(/\*\*/g,'').replace(/__/g,'').replace(/〈이미지\d+〉/g,''); }
+// 긴 줄 자동 줄바꿈 안전망 (2026-07-10 사장님: 모바일서 어정쩡하게 잘림) — 공백 기준 28자 래핑, 마커 쌍(**·__) 깨지면 그 줄은 원본 유지
+function softWrap(t,max){
+  max=max||28;
+  return t.split('\n').map(line=>{
+    if(line.includes('【잠금')||line.includes('〈이미지')) return line;
+    if(plainOf(line).length<=max+6) return line;
+    const words=line.split(' ');
+    const outL=[]; let cur='';
+    for(const w of words){
+      if(cur && plainOf(cur).length+1+plainOf(w).length>max){ outL.push(cur); cur=w; }
+      else cur=cur? cur+' '+w : w;
+    }
+    if(cur) outL.push(cur);
+    const balanced=outL.every(l=>((l.match(/\*\*/g)||[]).length%2===0)&&((l.match(/__/g)||[]).length%2===0));
+    return balanced? outL.join('\n') : line;
+  }).join('\n');
+}
 // 순수 본문 글자수 = 잠금 블록(====박스·하단 고정부) 내용과 토큰 전부 제외 (사장님 기준: 본문만 1,800~1,900)
 function bodyLen(t){
   let s=t;
@@ -356,6 +373,7 @@ ${b}
 - 가격·구성·원산지·스펙은 원문에 있는 것만. 지어내기 금지. 원문 정보는 빠짐없이.
 - 부족한 분량은 손질법·조리법·보관법·맛있게 먹는 팁 등 상식 수준 보강만. 과장·허위 금지.
 - '마스터 유통', '마스터' 같은 상호명은 절대 쓰지 말 것 — 반드시 '저희', '저희가', '저희는' 으로 표현한다. (예: "마스터 유통은 양으로 실망시키지 않습니다" ❌ → "저희는 양으로 실망시키지 않습니다" ⭕)
+- 줄 길이: 한 줄은 공백 포함 28자 이내로 짧게. 문장이 길면 의미 단위에서 줄바꿈해 두 줄로 나눌 것 (밴드 모바일 화면에서 어정쩡한 위치에 잘리는 것 방지). 교본처럼 짧은 줄 호흡.
 - 문단 짧게, 빈 줄 구분, 모바일 가독성.
 ${extra||''}
 - 출력은 밴드글 본문만.`;
@@ -382,6 +400,7 @@ async function generate(isRetry){
     if(finalL<1800||finalL>1950){ if(typeof toast==='function') toast('⚠️ '+finalL.toLocaleString()+'자 — 기준(1,800~1,900) 미달. [🔁 다시 생성] 누르거나 직접 손봐주세요'); }
     // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
     out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
+    out=softWrap(out);   // 긴 줄 의미단위 미달분 안전망 래핑 (잠금·이미지 줄 제외)
     out=restoreLocks(out);
     // 잠금 블록 무결성 검증 — 하나라도 유실되면 맨 위에 원본 그대로 보강
     LOCKS.forEach(blk=>{ if(out.indexOf(blk)===-1) out=blk+'\n\n'+out; });
