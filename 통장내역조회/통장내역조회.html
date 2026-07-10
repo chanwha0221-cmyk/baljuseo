@@ -162,7 +162,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v3.9</span>
+  <span class="ver">v4.0</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -591,7 +591,12 @@ async function handleSettleFile(file){
         const f=fills[xfs[parseInt(c.getAttribute('s')||'0',10)]||0]||{pt:'none',color:'없음'};
         const ck=(f.pt==='solid'?(f.color||'?'):'색없음');
         byColor[ck]=(byColor[ck]||0)+amt;
-        if(f.pt==='solid'){ colored+=amt; continue; }
+        if(f.pt==='solid'){
+          // 🟡 미입금 계열 색은 칠해져 있어도 미정산 (2026-07-10 사장님 확정: 노랑 FFC000 = 미정산)
+          // 노랑/주황 FFC000·ED7D31, 하늘 BDD7EE·DDEBF7, 흰색 — 매칭 쪽 미입금색 룰과 동일
+          const cc=String(f.color||'').toUpperCase().replace(/^FF(?=[0-9A-F]{6}$)/,'');
+          if(!['FFC000','ED7D31','BDD7EE','DDEBF7','FFFFFF'].includes(cc)){ colored+=amt; continue; }
+        }
         const base=names[cur]?cur:cur-1;
         const nm=(names[base]&&(names[base][3]||names[base][2]))||('col'+cur);
         if(!stat[nm]) stat[nm]={amt:0,from:'',to:''};
