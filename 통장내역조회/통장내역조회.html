@@ -162,7 +162,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v3.5</span>
+  <span class="ver">v3.6</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -340,13 +340,22 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
           <div class="msg-fields">
             <div class="msg-field">
               <label>① 정산달력 (.xlsx)</label>
-              <input type="file" id="matchSettlementFile" accept=".xlsx" onchange="if(this.files[0])handleSettleFile(this.files[0])">
+              <input type="file" id="matchSettlementFile" accept=".xlsx" onchange="if(this.files[0]){handleSettleFile(this.files[0]);matchRangeFromName(this.files[0].name);}">
               <div class="template-hint" id="matchSettlementInfo">정산달력_YYYYMMDD_YYYYMMDD.xlsx</div>
             </div>
             <div class="msg-field">
               <label>② 거래내역 (.xlsx) — 생략 가능</label>
               <input type="file" id="matchTransactionFile" accept=".xlsx">
-              <div class="template-hint" id="matchTransactionInfo">안 올리면 [통장내역 조회] 탭에 올려둔 내역을 자동으로 씁니다</div>
+              <div class="template-hint" id="matchTransactionInfo">안 올리면 아래 ③ 기간의 통장내역을 자동으로 씁니다</div>
+            </div>
+            <div class="msg-field">
+              <label>③ 매칭 기간 (② 생략 시 이 기간의 통장내역만 사용)</label>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <input type="date" id="matchTxFrom" style="padding:6px 8px;border:1px solid var(--border2);border-radius:6px;font-family:inherit;font-size:12px">
+                <span>~</span>
+                <input type="date" id="matchTxTo" style="padding:6px 8px;border:1px solid var(--border2);border-radius:6px;font-family:inherit;font-size:12px">
+              </div>
+              <div class="template-hint">① 정산달력 파일명(…_YYYYMMDD_YYYYMMDD)을 읽어 자동 입력 — 바꿔도 됩니다</div>
             </div>
           </div>
         </div>
@@ -1240,9 +1249,17 @@ function _readFileAsArrayBuffer(file){
   });
 }
 
+// ① 정산달력 파일명(…_YYYYMMDD_YYYYMMDD.xlsx) → ③ 매칭 기간 자동 입력 (2026-07-10 사장님 지시)
+function matchRangeFromName(n){
+  const m=(n||'').match(/(\d{8})[_-](\d{8})/);
+  if(!m) return;
+  const f=s=>s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
+  const a=document.getElementById('matchTxFrom'),b=document.getElementById('matchTxTo');
+  if(a)a.value=f(m[1]); if(b)b.value=f(m[2]);
+}
 // 앞 탭(통장내역 조회) 누적 데이터 → 입금건 배열. ② 거래내역 파일 업로드 생략용 (2026-07-10 사장님 지시)
-function _txsFromDataset(){
-  return allData.filter(d=>d.in>0).map(d=>{
+function _txsFromDataset(from,to){
+  return allData.filter(d=>d.in>0 && (!from||d.dateOnly>=from) && (!to||d.dateOnly<=to)).map(d=>{
     const m=(d.dateOnly||'').match(/(\d{4})-(\d{2})-(\d{2})/);
     const dt=m?new Date(+m[1],+m[2]-1,+m[3]):null;
     return dt?{date:dt,dateKey:(dt.getMonth()+1)+'/'+dt.getDate(),name:(d.desc||'').trim(),amount:d.in,used:false}:null;
@@ -1442,8 +1459,14 @@ async function runSettlementMatch(){
   const unmatched=[]; // 업체 미식별 입금건 → 사장님 수동확인 대상
   try{
     _logLine('• 거래내역 파싱 중...');
-    const txs = fTx ? await _parseTransactions(fTx) : _txsFromDataset();
-    if(!fTx) _logLine('  → [통장내역 조회] 탭 누적 데이터 사용 (파일 업로드 생략, 2026-07-10)');
+    let txs;
+    if(fTx){ txs = await _parseTransactions(fTx); }
+    else{
+      const _f=document.getElementById('matchTxFrom').value, _t=document.getElementById('matchTxTo').value;
+      if(!_f&&!_t){ alert('③ 매칭 기간을 선택해 주세요 — ① 정산달력 파일을 넣으면 파일명에서 자동 입력됩니다. (또는 ② 거래내역 파일 업로드)'); return; }
+      txs = _txsFromDataset(_f,_t);
+      _logLine(`  → [통장내역 조회] 탭 데이터 사용 (${_f||'처음'} ~ ${_t||'끝'})`);
+    }
     _logLine(`  → 입금건 ${txs.length}건 인식`);
     _logLine('• 정산달력 파싱 중...');
     const meta = await _parseSettlement(fSet);
@@ -1585,19 +1608,26 @@ async function runSettlementMatch(){
     try{ renderUnmatched(unmatched); }catch(e){ _logLine('⚠ 확인목록 렌더 오류: '+e.message); console.error('renderUnmatched',e); } // ❓ 미식별
     try{ if((toPaint&&toPaint.length)||(unmatched&&unmatched.length)) document.getElementById('matchPanelWrap').classList.add('mp-full'); }catch(e){} // 결과 있으면 전체화면
 
-    // 다운로드
-    const outBuf = await meta.wb.xlsx.writeBuffer();
-    const blob = new Blob([outBuf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const stamp = new Date().toISOString().slice(0,10).replace(/-/g,'');
-    a.href = url; a.download = `정산달력_매칭완료_${stamp}.xlsx`;
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(url), 1000);
-    _logLine('💾 다운로드 시작됨');
-    showToast('✅ 매칭 완료! 다운로드 받으세요');
+    // 다운로드 — 실패해도 매칭 결과(색칠 목록)는 유효하므로 별도 try (2026-07-10)
+    try{
+      const outBuf = await meta.wb.xlsx.writeBuffer();
+      const blob = new Blob([outBuf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      a.href = url; a.download = `정산달력_매칭완료_${stamp}.xlsx`;
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+      _logLine('💾 다운로드 시작됨');
+      showToast('✅ 매칭 완료! 다운로드 받으세요');
+    }catch(e){
+      _logLine('⚠ 매칭완료 파일 생성 실패 (엑셀 라이브러리 한계) — 위 색칠 목록은 정상이니 그대로 리모컨에서 색칠하시면 됩니다.');
+      _logLine('   상세: '+e.message+(e.stack?'\n   '+String(e.stack).split('\n').slice(0,3).join('\n   '):''));
+      console.error('writeBuffer',e);
+      showToast('✅ 매칭 완료 — 목록 보고 색칠하세요 (파일 다운로드만 실패)');
+    }
   }catch(e){
-    _logLine('❌ 오류: ' + e.message);
+    _logLine('❌ 오류: ' + e.message+(e.stack?'\n   '+String(e.stack).split('\n').slice(0,3).join('\n   '):''));
     console.error(e);
     showToast('오류: ' + e.message);
   }
