@@ -73,7 +73,7 @@ textarea:focus{border-color:var(--accent)}
     </div>
   </div>
   <div class="bar">
-    <button class="btn primary" id="genBtn" onclick="generate()">✨ 뉴 밴드글 생성 (1800자)</button>
+    <button class="btn primary" id="genBtn" onclick="generate()">✨ 뉴 밴드글 생성 (1400자)</button>
     <span class="hint">스타일 교본 <b id="sampleCnt">0</b>건 반영 · ====== 잠금 블록은 글자 하나 안 건드립니다</span>
   </div>
   <div class="panel">
@@ -211,7 +211,7 @@ function clen(s){
   try{ if(typeof Intl!=='undefined'&&Intl.Segmenter){ let n=0; for(const _ of new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(s)) n++; return n; } }catch(e){}
   return [...s].length; // 폴백: 최소한 code point 기준(이모지 1자)
 }
-// 순수 본문 글자수 = 잠금 블록(====박스·하단 고정부) 내용과 토큰 전부 제외 (사장님 기준: 본문만 1,800~1,900)
+// 순수 본문 글자수 = 잠금 블록(====박스·하단 고정부) 내용과 토큰 전부 제외 (사장님 기준: 본문만 1,350~1,450)
 function bodyLen(t){
   let s=t;
   LOCKS.forEach(blk=>{ s=s.split(blk).join(''); });
@@ -250,7 +250,7 @@ function upOut(){
   const n=bodyLen(outMarked());
   const p=$('outCnt');
   p.textContent='본문 '+n.toLocaleString()+'자 (고정부 제외)';
-  p.className='count-pill '+((n>=1800&&n<=1950)?'ok':(n>0?'short':''));
+  p.className='count-pill '+((n>=1350&&n<=1500)?'ok':(n>0?'short':''));
 }
 
 let _tok=null,_exp=0;
@@ -293,7 +293,7 @@ async function saveBand(){
   const plain=plainOf(marked);
   const bl=bodyLen(marked);
   if(!plain.trim()){ toast('저장할 글이 없어요'); return; }
-  if(bl<1000 && !confirm('본문 '+bl.toLocaleString()+'자밖에 안 되는데 저장할까요? (목표 1,800자)')) return;
+  if(bl<800 && !confirm('본문 '+bl.toLocaleString()+'자밖에 안 되는데 저장할까요? (목표 1,400자)')) return;
   const title=(plain.split('\n').map(s=>s.trim()).filter(Boolean)[0]||'제목없음').slice(0,40);
   const row=[String(Date.now()), todayKST(), title, marked, String(bl), nowKST()];
   try{
@@ -412,7 +412,7 @@ ${b}
 지침:
 - 원문 1의 구성·서식 패턴(어디를 볼드/큰글씨로 쓰는지)을 유지하면서, 원문 2의 정보를 본문에 자연스럽게 녹여 확장한 새 밴드글을 쓴다.
 - "※ 구성 :", "※ 중량 :" 같은 스펙 나열 형식은 절대 그대로 쓰지 말 것 — 전부 자연스러운 문장으로 녹일 것. (예: "원물 100~150kg급 참다랑어에서 뜬 필렛 500g을 트레이에 담아 보내드립니다")
-- 분량: 【잠금N】 토큰(인트로 박스·하단 주문안내 고정부)을 뺀 **순수 본문만** 공백 포함 1,800~1,900자. 1,800자 미만도 1,950자 초과도 안 된다. 최우선 조건.
+- 분량: 【잠금N】 토큰(인트로 박스·하단 주문안내 고정부)을 뺀 **순수 본문만** 공백 포함 1,350~1,450자. 1,350자 미만도 1,500자 초과도 안 된다. 최우선 조건.
 - 쇼핑몰 결제·채팅 주문·사업자 안내 같은 하단 고정 문구를 새로 쓰지 말 것 — 그건 【잠금N】 토큰이 담당한다.
 - 가격·구성·원산지·스펙은 원문에 있는 것만. 지어내기 금지. 원문 정보는 빠짐없이.
 - 부족한 분량은 손질법·조리법·보관법·맛있게 먹는 팁 등 상식 수준 보강만. 과장·허위 금지.
@@ -424,8 +424,8 @@ ${extra||''}
 }
 // 분량 미달 시: 처음부터 다시 쓰지 않고 초안에 문단을 '추가'시킴 — 재생성보다 수렴 확실 (2026-07-10)
 function buildExpand(draft,L){
-  const need=1860-L;
-  return `아래는 밴드 판매글 초안이다. 본문이 ${L}자로 목표(1,800~1,900자)에 약 ${need}자 부족하다.
+  const need=1420-L;
+  return `아래는 밴드 판매글 초안이다. 본문이 ${L}자로 목표(1,350~1,450자)에 약 ${need}자 부족하다.
 
 [초안]
 ${draft}
@@ -445,22 +445,22 @@ async function generate(isRetry){
   const btn=$('genBtn'); btn.disabled=true; btn.innerHTML='<span class="spin">⏳</span> 생성 중... (10~20초)';
   try{
     let out=(await callAI(buildPrompt(aMarked,b))).trim();
-    // 1,800~1,950 구간에 들어올 때까지 최대 5회 자동 교정
+    // 1,350~1,500 구간에 들어올 때까지 최대 5회 자동 교정 (2026-07-13: 목표 1,400자로 하향 — 거래처들이 길다고 함)
     // 짧으면 = 초안에 문단 '추가'(buildExpand — 재생성 아님), 길면 = 압축 재생성
     for(let att=0; att<5; att++){
       const L=bodyLen(out);
-      if(L>=1800 && L<=1950) break;
-      btn.innerHTML='<span class="spin">⏳</span> '+(L<1800?'짧아서 문단 추가':'길어서 압축')+' 중... ('+L.toLocaleString()+'자 · '+(att+1)+'/5)';
-      if(L<1800){
+      if(L>=1350 && L<=1500) break;
+      btn.innerHTML='<span class="spin">⏳</span> '+(L<1350?'짧아서 문단 추가':'길어서 압축')+' 중... ('+L.toLocaleString()+'자 · '+(att+1)+'/5)';
+      if(L<1350){
         const grown=(await callAI(buildExpand(out,L))).trim();
         // 확장 결과가 오히려 줄었거나 잠금 토큰이 깨졌으면 버리고 기존 초안 유지 후 재시도
         if(bodyLen(grown)>L && !/={6,}/.test(grown)) out=grown;
       }else{
-        out=(await callAI(buildPrompt(aMarked,b,`- 직전 시도가 ${L}자로 너무 길었다. 핵심은 다 살리되 반복·군더더기를 걷어내 1,800~1,900자로 줄일 것.`))).trim();
+        out=(await callAI(buildPrompt(aMarked,b,`- 직전 시도가 ${L}자로 너무 길었다. 핵심은 다 살리되 반복·군더더기를 걷어내 1,350~1,450자로 줄일 것.`))).trim();
       }
     }
     const finalL=bodyLen(out);
-    if(finalL<1800||finalL>1950){ if(typeof toast==='function') toast('⚠️ '+finalL.toLocaleString()+'자 — 기준(1,800~1,900) 미달. [🔁 다시 생성] 누르거나 직접 손봐주세요'); }
+    if(finalL<1350||finalL>1500){ if(typeof toast==='function') toast('⚠️ '+finalL.toLocaleString()+'자 — 기준(1,350~1,450) 미달. [🔁 다시 생성] 누르거나 직접 손봐주세요'); }
     // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
     out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
     out=softWrap(out);   // 긴 줄 의미단위 미달분 안전망 래핑 (잠금·이미지 줄 제외)
@@ -474,7 +474,7 @@ async function generate(isRetry){
     toast('✨ 생성 완료 (본문 '+bodyLen(out).toLocaleString()+'자, 고정부 제외) — 수정 후 💾 저장!');
     $('out').scrollIntoView({behavior:'smooth',block:'start'});
   }catch(e){ toast('⚠️ 생성 실패: '+e.message); }
-  btn.disabled=false; btn.textContent='✨ 뉴 밴드글 생성 (1800자)';
+  btn.disabled=false; btn.textContent='✨ 뉴 밴드글 생성 (1400자)';
 }
 window.addEventListener('DOMContentLoaded',loadAll);
 </script>
