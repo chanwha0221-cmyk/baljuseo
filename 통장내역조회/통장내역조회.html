@@ -1626,11 +1626,25 @@ function _isCellPaintable(ws, row, col){
 function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance){
   const props=[];
   for(const company of Object.keys(leftoverByCompany)){
-    const txs=leftoverByCompany[company];
-    if(!txs || !txs.length) continue;
+    const allTxs=leftoverByCompany[company];
+    if(!allTxs || !allTxs.length) continue;
     const cells=(cellsByCompany[company]||[]).filter(c=>c.sum>0 && _isCellPaintable(ws,c.row,c.vatCol||c.taxCol));
+    if(!cells.length){ props.push({company, txs:allTxs, cells:[], status:'nocell', paid:allTxs.reduce((a,t)=>a+t.amount,0), total:0}); continue; }
+
+    /* ⏱ 시간 규칙 (2026-07-13 사장님 지적 — 핵심):
+       입금은 정산일 당일 아니면 그 이후에만 들어온다. 미입금(색칠 안 된) 정산 구간이 7/6~7/10이면
+       5/4 입금은 그 정산분일 수가 없다 — 그건 이미 색칠된 이전 정산분을 갚은 돈이다.
+       → 미입금 구간 '시작일보다 앞선' 입금은 후보에서 제외 (예전엔 이걸 끌어다 붙여 '374,900원 부족' 오보) */
+    const firstUnpaid = cells.reduce((m,c)=>(!m || c.date<m ? c.date : m), null);
+    const txs   = allTxs.filter(t=>!t.date || !firstUnpaid || t.date >= firstUnpaid);
+    const early = allTxs.filter(t=> t.date && firstUnpaid && t.date <  firstUnpaid);
+    if(early.length){
+      props.push({company, txs:early, cells:[], status:'prevpaid',
+                  paid:early.reduce((a,t)=>a+t.amount,0), total:0,
+                  span: cells.length? (cells[0].key+'~'+cells[cells.length-1].key):''});
+    }
+    if(!txs.length) continue;   // 미입금 구간 이후 입금이 하나도 없으면 = 아직 안 들어온 것. 경고 만들지 않음
     const paid=txs.reduce((a,t)=>a+t.amount,0);
-    if(!cells.length){ props.push({company, txs, cells:[], status:'nocell', paid, total:0}); continue; }
     // 입금 합계와 딱 맞는 '연속 구간' 찾기 (가장 짧은 구간 우선)
     let best=null;
     for(let i=0;i<cells.length;i++){
@@ -1677,6 +1691,12 @@ function renderSplitPay(props){
         <div style="font-weight:700">${p.company} <span style="color:#d9480f;font-size:11px">⚠ 정산보다 ${(p.paid-p.total).toLocaleString()}원 더 들어옴</span></div>
         <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} = <b>${p.paid.toLocaleString()}원</b> / 이 달력 미입금 합계 <b>${p.total.toLocaleString()}원</b> → <b style="color:#d9480f">초과 ${(p.paid-p.total).toLocaleString()}원</b><br><span style="color:var(--text3)">전월 정산까지 갚았거나, 업체가 더 보낸 경우예요. 환불·상계 처리하셨으면 아래 [특이사항 등록] 해두시면 다음부터 안 뜹니다.</span></div>
         <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="noteSplit(${i})">📝 특이사항 등록</button>
+      </div>`;
+    }
+    if(p.status==='prevpaid'){
+      return `<div style="padding:8px 10px;border-bottom:1px solid var(--border);opacity:.75">
+        <div style="font-weight:700">${p.company} <span style="color:var(--text3);font-size:11px">ℹ 이전 정산분 상환 (계산에서 제외)</span></div>
+        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} — 미입금 정산(${p.span||'-'})보다 <b>앞선 날짜</b>라 그 정산분일 수 없습니다.<br><span style="color:var(--text3)">이미 색칠된(입금완료) 이전 정산을 갚은 돈으로 보고 계산에서 뺐습니다.</span></div>
       </div>`;
     }
     return `<div style="padding:8px 10px;border-bottom:1px solid var(--border)">
@@ -1737,11 +1757,15 @@ function _mchatContext(company){
   targets.forEach(c=>{
     const cells=(cellsBy[c]||[]).filter(x=>x.sum>0);
     const unpaid=cells.filter(x=>{ try{ return _isCellPaintable(window._matchWs,x.row,x.vatCol||x.taxCol); }catch(e){ return true; } });
-    const dep=(leftBy[c]||[]);
+    const firstUnpaid=unpaid.reduce((m,x)=>(!m||x.date<m?x.date:m),null);
+    const depAll=(leftBy[c]||[]);
+    const dep=depAll.filter(x=>!x.date||!firstUnpaid||x.date>=firstUnpaid);       // 미입금 구간 이후 입금만이 후보
+    const depOld=depAll.filter(x=>x.date&&firstUnpaid&&x.date<firstUnpaid);       // 그 전 입금 = 이미 색칠된 정산분 상환
     lines.push(`[${c}]`);
-    lines.push(` 정산(전체): ${cells.map(x=>x.key+' '+x.sum.toLocaleString()).join(' / ')||'없음'}`);
-    lines.push(` 미입금(색칠 안 된 것): ${unpaid.map(x=>x.key+' '+x.sum.toLocaleString()).join(' / ')||'없음'} → 합계 ${unpaid.reduce((a,x)=>a+x.sum,0).toLocaleString()}원`);
-    lines.push(` 매칭 안 된 입금: ${dep.map(x=>x.dateKey+' '+x.amount.toLocaleString()+'('+x.name+')').join(' / ')||'없음'} → 합계 ${dep.reduce((a,x)=>a+x.amount,0).toLocaleString()}원`);
+    lines.push(` 미입금(색칠 안 된 것 = 우리가 볼 것): ${unpaid.map(x=>x.key+' '+x.sum.toLocaleString()).join(' / ')||'없음'} → 합계 ${unpaid.reduce((a,x)=>a+x.sum,0).toLocaleString()}원`);
+    lines.push(` 매칭 안 된 입금(미입금 구간 이후): ${dep.map(x=>x.dateKey+' '+x.amount.toLocaleString()+'('+x.name+')').join(' / ')||'없음'} → 합계 ${dep.reduce((a,x)=>a+x.amount,0).toLocaleString()}원`);
+    if(depOld.length) lines.push(` (참고) 미입금 구간보다 앞선 입금 = 이전 정산분 상환, 계산 제외: ${depOld.map(x=>x.dateKey+' '+x.amount.toLocaleString()).join(' / ')}`);
+    lines.push(` 이미 색칠된(입금완료) 정산은 볼 필요 없어 생략함`);
   });
   // 미정산 현황(업체별 기간·금액)도 같이 — "이번 달 미정산 큰 데 어디야?" 같은 질문 답하게
   if(MIS_DATA && MIS_DATA.length){
@@ -1772,6 +1796,8 @@ async function mchatSend(){
     try{
       const ctx=_mchatContext(company);
       const ans=await _mchatAI(`너는 수산물 유통회사 '마스터'의 정산 담당 비서다. 아래는 정산달력·통장 매칭 결과의 실제 데이터다.
+⚠️ 대전제: 입금은 정산일 당일 또는 그 이후에만 들어온다. 미입금 구간보다 '앞선 날짜'의 입금은 그 정산분일 수 없고, 이미 색칠된(입금완료) 이전 정산을 갚은 돈이다. 그런 입금을 미입금 정산과 비교해 '부족하다'고 말하지 마라.
+이미 색칠된 정산은 처리 끝난 것이라 볼 필요 없다. 우리가 보는 건 미입금(색칠 안 된) 정산뿐이다.
 사장님 질문에 이 데이터만 근거로, 한국어로 간결하게(3~6줄) 답해라. 데이터에 없는 숫자를 지어내지 말 것. 금액은 원 단위로 콤마 찍어 표기.
 답이 "이 기간 정산분이 맞다/아니다"류면 근거 숫자(입금 합계 vs 정산 합계)를 반드시 같이 보여줘라.
 업체명과 기간(예: 착한한끼 6/22~7/7)을 같이 적어주면 정확히 계산해 준다고 안내해도 좋다.
@@ -2028,6 +2054,7 @@ async function runSettlementMatch(){
         splitProps.forEach(p=>{
           const t=p.txs.map(x=>x.amount.toLocaleString()).join('+');
           if(p.status==='match') _logLine(`   ✓ ${p.company}: ${t} = ${p.paid.toLocaleString()}원 → ${p.cells[0].key}~${p.cells[p.cells.length-1].key} 정산 ${p.total.toLocaleString()}원과 일치 (나눠 낸 것)`);
+          else if(p.status==='prevpaid') _logLine(`   ℹ ${p.company}: 입금 ${t} — 미입금 정산(${p.span||'-'})보다 앞선 날짜라 이전 정산분 상환. 계산에서 제외`);
           else if(p.status==='short') _logLine(`   ⚠ ${p.company}: ${t} = ${p.paid.toLocaleString()}원 입금 / 미입금 정산 ${p.total.toLocaleString()}원 → 잔액 ${(p.total-p.paid).toLocaleString()}원 아직 안 들어옴`);
           else if(p.status==='over') _logLine(`   ⚠ ${p.company}: 입금 ${p.paid.toLocaleString()}원 > 이 달력 미입금 ${p.total.toLocaleString()}원 → 전월 정산까지 갚은 듯`);
           else _logLine(`   ℹ ${p.company}: 이 달력에 미입금 셀 없음 → 전월 상환`);
