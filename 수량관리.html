@@ -46,6 +46,10 @@
   .edit-btn{border:none;background:#eef1f4;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;opacity:.55;transition:opacity .1s;flex-shrink:0;}
   tr:hover .edit-btn{opacity:1;}
   .edit-btn:hover{background:#dce3ea;}
+  .copy-btn{border:none;background:#eef1f4;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;opacity:.55;transition:opacity .1s;flex-shrink:0;margin-left:auto;}
+  tr:hover .copy-btn{opacity:1;}
+  .copy-btn:hover{background:#dce3ea;}
+  .copy-btn.done{background:#d1fae5;opacity:1;}
   /* 편집 모달 */
   .edit-row{display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px dashed #eee;}
   .edit-row .erank{width:54px;font-weight:700;color:var(--navy);font-size:13px;}
@@ -579,7 +583,7 @@ function render(){
       const ek = s.uKey.replace(/"/g,'&quot;');
       return `<tr>
         <td class="wh col-wh">${esc(s.wh)}</td>
-        <td class="item col-item"><span>${esc(s.it)}</span>${deadlineBadge(s.uKey)}<button class="edit-btn" data-key="${ek}" onclick="openEditFromBtn(this)" title="순위·수량 직접 수정">✏️</button></td>
+        <td class="item col-item"><span>${esc(s.it)}</span>${deadlineBadge(s.uKey)}<button class="copy-btn" data-item="${esc(s.it).replace(/"/g,'&quot;')}" onclick="copyItemName(this)" title="상품명 복사">📋</button><button class="edit-btn" data-key="${ek}" onclick="openEditFromBtn(this)" title="순위·수량 직접 수정">✏️</button></td>
         <td><input class="hold-input" placeholder="-" value="${hold}" data-key="${ek}" oninput="updateHoldDebounced(this)"></td>
         ${cells}
         <td class="total col-total">${s.total}</td>
@@ -597,6 +601,26 @@ function render(){
   save();
 }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// 상품명 복사 (현황판 품목명 칸의 📋 버튼)
+function copyItemName(btn){
+  const name = btn.dataset.item || '';
+  const done = ()=>{
+    btn.textContent='✅'; btn.classList.add('done');
+    setTimeout(()=>{ btn.textContent='📋'; btn.classList.remove('done'); }, 1000);
+    toast('📋 복사됨 — '+name);
+  };
+  const fallback = ()=>{
+    const ta=document.createElement('textarea');
+    ta.value=name; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ toast('복사 실패 — 직접 선택해 복사해주세요','warn'); }
+    document.body.removeChild(ta);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(name).then(done).catch(fallback);
+  } else fallback();
+}
 
 //=================== 수량 보유팀 수동 편집 ===================
 // 즉시 (blur 없이도) holdingMap 갱신 + 시트 저장은 debounce

@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.486</title>
+<title>발주서 변환기 v22.487</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.486</span>
+  <span class="ver">v22.487</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -810,6 +810,8 @@ function pp(cl,pr,qty){
   // 단, 떡·인절미·만두 등 N개가 상품 단위인 카테고리는 보존 (예: '오디 인절미 12개')
   const _PRESERVE_GAE = /인절미|떡|만두|꿀떡|쌀과자|호두과자|개입|박스|팩입/.test(norm(r));
   if(!_PRESERVE_GAE) r=r.replace(/(\d+)\s*개\s*$/,'$1');
+  // 'x N세트/팩/봉/박스' 처럼 수량 뒤 단위가 붙으면 단위 제거 → 'x N' (2026-07-13 사고: '* 157세트'가 수량으로 안 잡힘)
+  r=r.replace(/([xX×]\s*\d+)\s*(?:세트|셋트|개|팩|봉지|봉|박스)\s*$/,'$1');
   // 산청 흑돼지 불고기: 팍스리테일이 '1kg+1kg'로 발주하지만 실제는 단일상품 '1+1' (+분기로 쪼개지면 안 됨)
   if(norm(r).includes('흑돼지불고기')){const _hm=r.match(/[xX×]\s*(\d+)\s*$/);return{name:'산청 흑돼지 불고기 1+1',qty:_hm?parseInt(_hm[1]):qty,maxB:999};}
   // 한우 등급 표기(1++, 1+, 2+ 등)는 + 분기에서 제외
@@ -876,6 +878,8 @@ function pp(cl,pr,qty){
   // 초벌 고창 풍천 장어 → 1kg 기준 (2kg 들어오면 1kg x 2). 민물·바다 장어는 위에서 이미 처리 (2026-06-19)
   if(cl==='대상수산'&&norm(pn).includes('풍천')&&norm(pn).includes('장어')&&!norm(pn).includes('민물'))return{name:'초벌 고창 풍천 장어 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
   if(norm(pn).includes('풀도다리')){const isFrozen=norm(pn).includes('급냉');return{name:isFrozen?'연안 급냉 풀도다리 1kg':'연안 활 풀도다리 1kg',qty:Math.round(qty*wi),maxB:999};}
+  // 골뱅이 어묵탕은 완전 다른 상품 — 활 골뱅이 규칙보다 먼저 처리 (2026-07-13 사고: 157세트가 활 골뱅이 1kg으로 치환됨)
+  if(norm(pn).includes('골뱅이')&&(norm(pn).includes('어묵탕')||norm(pn).includes('어묵')))return{name:'골뱅이 어묵탕 1세트',qty,maxB:999};
   if(norm(pn).includes('골뱅이'))return{name:'동해 활 골뱅이 1kg',qty:Math.round(qty*wi),maxB:999};
   if(norm(pn).includes('거북손')&&norm(pn).includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
   if(norm(pn).includes('석화')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
