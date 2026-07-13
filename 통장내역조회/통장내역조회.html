@@ -393,11 +393,6 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
           <datalist id="companyDL"></datalist>
           <div id="unmatchedList" style="border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto"></div>
         </div>
-        <div class="msg-section" id="splitSection" style="display:none">
-          <div class="msg-section-title">🧩 분할 입금 (나눠 낸 입금) <span id="splitCount" style="color:#d9480f;font-weight:700"></span></div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">단일·합산 매칭에서 떨어진 입금을 업체별로 <b>합쳐서</b> 다시 맞춰본 결과예요. 합계가 정산과 맞으면 [✓]로 색칠 목록에 넣고, 모자라면 잔액이 얼마인지 알려줍니다.</div>
-          <div id="splitList" style="border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto"></div>
-        </div>
         <div class="msg-section" id="toPaintSection" style="display:none">
           <div class="msg-section-title">🎨 리모콘에서 색칠할 업체 <span id="toPaintCount" style="color:var(--accent);font-weight:700"></span></div>
           <div style="font-size:11px;color:var(--text3);margin-bottom:6px">아래는 오늘 입금 확인돼 <b>아직 색 안 칠한</b> 셀이에요. 리모콘에서 이대로 색칠하면 됩니다. (이미 색칠된 건 자동 제외)</div>
@@ -410,7 +405,12 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
             <textarea id="matchLog" readonly style="min-height:240px;font-family:'JetBrains Mono',monospace;font-size:11px"></textarea>
           </div>
         </div>
-        <!-- 💬 정산 대화 — 맨 아래 (위 결과를 보면서 물어보게. 입력칸은 스크롤해도 하단에 고정) -->
+        <!-- 🧩 분할 입금 + 💬 정산 대화 = 맨 아래에 붙여둠 (2026-07-13 사장님: 둘이 멀면 안 보인다) -->
+        <div class="msg-section" id="splitSection" style="display:none">
+          <div class="msg-section-title">🧩 분할 입금 (나눠 낸 입금) <span id="splitCount" style="color:#d9480f;font-weight:700"></span></div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">단일·합산 매칭에서 떨어진 입금을 업체별로 <b>합쳐서</b> 다시 맞춰본 결과예요. 합계가 정산과 맞으면 [✓]로 색칠 목록에 넣고, 모자라면 잔액이 얼마인지 알려줍니다. 바로 아래 대화창에서 물어보시면 됩니다.</div>
+          <div id="splitList" style="border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto"></div>
+        </div>
         <div class="msg-section" id="mchatSection" style="display:none">
           <div class="msg-section-title">💬 정산 대화 <span style="color:var(--text3);font-weight:400;font-size:11px">— 위 결과 보면서 물어보세요</span></div>
           <div style="font-size:11px;color:var(--text3);margin-bottom:6px">아무거나 물어보세요 — 정산달력·통장 백데이터를 보고 AI가 답합니다. <b>업체명 + 기간</b>(예: <i>착한한끼 6/22~7/7 맞는지 확인</i>)을 적으면 AI 대신 <b>직접 계산해 정확한 숫자</b>로 답하고 확정 버튼까지 줍니다.</div>
