@@ -167,6 +167,20 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
   <button class="main-tab" id="mt-settle" onclick="switchMainTab('settle')">📋 미정산 내역 조회</button>
+  <button class="main-tab" id="mt-notes" onclick="switchMainTab('notes')">📌 정산 특이사항</button>
+</div>
+<!-- 📌 정산 특이사항 — 전체폭 전용 패널 (2026-07-13 사장님: 건수 많아질 거라 탭으로 빼라) -->
+<div id="notesPanel" style="display:none;flex:1;overflow-y:auto;padding:20px 24px">
+  <div class="card" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <b style="font-size:15px">📌 정산 특이사항</b>
+      <span id="notesCount" style="color:var(--text3);font-size:12px"></span>
+      <input id="notesSearch" placeholder="업체·내용 검색" oninput="renderSettleNotes()" style="margin-left:auto;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;min-width:180px">
+      <button class="btn-copy" style="padding:7px 12px;font-size:12px" onclick="addNoteManual()">＋ 직접 추가</button>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">여기 등록된 입금건은 다음 매칭부터 경고에 안 뜨고 로그에 <b>📌 처리됨</b>으로만 표시됩니다. 🗑 지우면 다시 경고로 올라옵니다.</div>
+    <div id="notesList" style="border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
+  </div>
 </div>
 <div class="layout">
   <!-- 좌측: 기존 조회 패널 -->
@@ -381,17 +395,12 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
         </div>
         <div class="msg-section" id="mchatSection" style="display:none">
           <div class="msg-section-title">💬 정산 대화 <span style="color:var(--text3);font-weight:400;font-size:11px">— 매칭 결과가 이상하면 말로 물어보세요</span></div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">예: <b>착한한끼 6/22~7/7 입금액 맞는지 확인해봐</b> / <b>대상수산 7/10 과입금 아니야</b> — 정산달력·통장 데이터로 직접 계산해서 맞는지 답합니다.</div>
-          <div id="mchatLog" style="border:1px solid var(--border);border-radius:8px;max-height:260px;overflow-y:auto;padding:8px;font-size:12px;line-height:1.6"></div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">아무거나 물어보세요 — 정산달력·통장 백데이터를 보고 AI가 답합니다. <b>업체명 + 기간</b>(예: <i>착한한끼 6/22~7/7 맞는지 확인</i>)을 적으면 AI 대신 <b>직접 계산해 정확한 숫자</b>로 답하고 확정 버튼까지 줍니다.</div>
+          <div id="mchatLog" style="border:1px solid var(--border);border-radius:8px;max-height:300px;overflow-y:auto;padding:8px;font-size:12px;line-height:1.6"></div>
           <div style="display:flex;gap:6px;margin-top:6px">
-            <input id="mchatInput" placeholder="업체명 + 기간을 적어주세요 (예: 착한한끼 6/22~7/7 맞는지 확인)" style="flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit" onkeydown="if(event.key==='Enter'){event.preventDefault();mchatSend()}">
+            <input id="mchatInput" placeholder="예: 착한한끼 과입금 아니야, 6/22~7/7 입금액이니까 확인해봐" style="flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit" onkeydown="if(event.key==='Enter'){event.preventDefault();mchatSend()}">
             <button class="btn-copy" style="padding:7px 12px;font-size:12px" onclick="mchatSend()">확인</button>
           </div>
-        </div>
-        <div class="msg-section" id="notesSection" style="display:none">
-          <div class="msg-section-title">📌 정산 특이사항 <span id="notesCount" style="color:var(--text3);font-weight:700"></span></div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">등록해둔 건은 다음 매칭부터 경고에 안 뜨고 로그에 <b>📌 처리됨</b>으로만 표시됩니다. 🗑 지우면 다시 경고로 올라옵니다.</div>
-          <div id="notesList" style="border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto"></div>
         </div>
         <div class="msg-section" id="splitSection" style="display:none">
           <div class="msg-section-title">🧩 분할 입금 (나눠 낸 입금) <span id="splitCount" style="color:#d9480f;font-weight:700"></span></div>
@@ -646,9 +655,14 @@ let MIS_DATA=[], MIS_BASIS='', HONOR={}, MIS_SORT='period'; // period=기간 긴
 function sortMis(mode){ MIS_SORT=mode; renderMisPanel(); }
 function fmtKDate(d){ const m=String(d||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m?(parseInt(m[2],10)+'월 '+parseInt(m[3],10)+'일'):String(d||''); }
 function switchMainTab(v){
-  document.body.classList.remove('mode-bank','mode-settle'); document.body.classList.add('mode-'+v);
-  var b=document.getElementById('mt-bank'), s=document.getElementById('mt-settle');
-  if(b) b.classList.toggle('active', v==='bank'); if(s) s.classList.toggle('active', v==='settle');
+  document.body.classList.remove('mode-bank','mode-settle','mode-notes'); document.body.classList.add('mode-'+v);
+  var b=document.getElementById('mt-bank'), s=document.getElementById('mt-settle'), n=document.getElementById('mt-notes');
+  if(b) b.classList.toggle('active', v==='bank'); if(s) s.classList.toggle('active', v==='settle'); if(n) n.classList.toggle('active', v==='notes');
+  // 📌 정산 특이사항 = 전체폭 전용 패널 (2026-07-13)
+  var np=document.getElementById('notesPanel'), lay=document.querySelector('.layout');
+  if(np) np.style.display = (v==='notes') ? 'block' : 'none';
+  if(lay) lay.style.display = (v==='notes') ? 'none' : '';
+  if(v==='notes'){ renderSettleNotes(); if(!SETTLE_NOTES.length) loadSettleNotes(); }
   if(v==='settle'){ try{ switchTab('match'); }catch(e){} } // 미정산 탭 = 정산매칭 자동 활성
 }
 function misOpen(){ switchMainTab('settle'); const p=document.getElementById('misPanel'); if(p) p.style.display='block'; }
@@ -1534,16 +1548,51 @@ async function delSettleNote(id){
   try{ await _writeSettleNotes(); showToast('🗑 삭제됨'); }catch(e){ showToast('⚠ 삭제 실패: '+e.message); }
   renderSettleNotes();
 }
+// 📌 정산 특이사항 — 전용 탭 표 (검색·최신순)
 function renderSettleNotes(){
-  const sec=document.getElementById('notesSection'), list=document.getElementById('notesList'), cnt=document.getElementById('notesCount');
-  if(!sec||!list) return;
-  if(!SETTLE_NOTES.length){ sec.style.display='none'; return; }
-  sec.style.display='';
-  if(cnt) cnt.textContent='('+SETTLE_NOTES.length+'건)';
-  list.innerHTML=[...SETTLE_NOTES].reverse().map(n=>`<div style="display:flex;gap:6px;align-items:center;padding:6px 9px;border-bottom:1px solid var(--border)">
-      <span style="font-size:11px;flex:1"><b>${n.company}</b> <span style="color:var(--text3)">${n.dateKey} · ${n.amount.toLocaleString()}원 · ${n.type}</span><br><span style="color:var(--text2)">${n.memo}</span></span>
-      <button class="btn-copy" style="padding:4px 8px;font-size:11px;color:#888" onclick="delSettleNote('${n.id}')">🗑</button>
-    </div>`).join('');
+  const list=document.getElementById('notesList'), cnt=document.getElementById('notesCount');
+  if(!list) return;
+  const q=((document.getElementById('notesSearch')||{}).value||'').trim().toLowerCase();
+  let rows=[...SETTLE_NOTES].reverse();
+  if(q) rows=rows.filter(n=>(n.company+' '+n.memo+' '+n.payer+' '+n.type).toLowerCase().includes(q));
+  if(cnt) cnt.textContent=SETTLE_NOTES.length+'건'+(q?` (검색 ${rows.length}건)`:'');
+  if(!rows.length){
+    list.innerHTML='<div style="padding:28px;text-align:center;color:var(--text3);font-size:13px">'+(SETTLE_NOTES.length?'검색 결과가 없어요':'등록된 특이사항이 없습니다.<br>매칭 결과에서 [📝 특이사항 등록] 하거나, 위 [＋ 직접 추가]로 넣으세요.')+'</div>';
+    return;
+  }
+  list.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="background:var(--bg2,#f1f3f5)">
+      <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)">업체</th>
+      <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);width:90px">입금일</th>
+      <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);width:120px">금액</th>
+      <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);width:90px">유형</th>
+      <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)">내용</th>
+      <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);width:130px">등록일시</th>
+      <th style="border-bottom:1px solid var(--border);width:44px"></th>
+    </tr></thead><tbody>
+    ${rows.map(n=>`<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);font-weight:700">${escH(n.company)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2)">${escH(n.dateKey)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${(n.amount||0).toLocaleString()}원</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2)">${escH(n.type)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border)">${escH(n.memo)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text3);font-size:11px">${escH(n.at)}</td>
+      <td style="padding:8px 6px;border-bottom:1px solid var(--border);text-align:center"><button class="btn-copy" style="padding:4px 8px;font-size:11px;color:#888" onclick="delSettleNote('${n.id}')">🗑</button></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+// ＋ 직접 추가 — 매칭 안 돌리고도 특이사항 기록 (예: 나중에 생각난 건)
+async function addNoteManual(){
+  const company=prompt('업체명'); if(!company||!company.trim()) return;
+  const dateKey=prompt('입금 날짜 (예: 7/10)','')||'';
+  const amount=Number(String(prompt('금액 (숫자만)','')||'').replace(/[^0-9-]/g,''))||0;
+  const memo=prompt('내용 (예: 만원 더 입금돼서 환불해줌)',''); if(memo===null||!memo.trim()) return;
+  const n={ id:'N'+Date.now()+Math.floor(Math.random()*1000), dateKey:dateKey.trim(), company:company.trim(), payer:'', amount,
+            type:'직접등록', memo:memo.trim(), at:new Date().toLocaleString('ko-KR') };
+  n.key=_noteKey(n.company,n.dateKey,n.amount);
+  SETTLE_NOTES=SETTLE_NOTES.filter(x=>x.key!==n.key); SETTLE_NOTES.push(n);
+  try{ await _writeSettleNotes(); showToast('📌 저장됨'); }catch(e){ showToast('⚠ 저장 실패: '+e.message); }
+  renderSettleNotes();
 }
 
 // 색칠 가능(=미입금) 셀인지 '칠하지 않고' 판별만 — _paintAndComment와 같은 기준 (2026-07-13 분할입금 기능용)
@@ -1659,7 +1708,41 @@ function _parseRange(t){
   return { from:_mdKey(+m[1],+m[2]), to:_mdKey(+m[3],+m[4]), fm:+m[1], fd:+m[2], tm:+m[3], td:+m[4] };
 }
 function _keyNum(k){ const p=String(k).split('/'); return (+p[0])*100+(+p[1]); }
-function mchatSend(){
+// ── AI 프록시 (비서·밴드글과 동일 Gemini 프록시 재활용) ──
+const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
+const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
+// 유료 키라 분당 한도 대기 없음 — 일시 오류(서버 과부하)만 3초 간격 2회 재시도
+async function _mchatAI(prompt,retry=0){
+  const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[]}),redirect:'follow'});
+  const d=await r.json();
+  if(d.error){
+    if(/overload|503|500|timeout|unavailable/i.test(d.error)&&retry<2){
+      await new Promise(x=>setTimeout(x,3000));
+      return _mchatAI(prompt,retry+1);
+    }
+    throw new Error(d.error);
+  }
+  return String(d.text||d.result||'').trim();
+}
+// AI에게 넘길 백데이터 요약 — 정산달력 셀·미매칭 입금·미정산 현황 (계산은 아래 규칙엔진이 먼저 하고, AI는 설명·자유질문 담당)
+function _mchatContext(company){
+  const cellsBy=window._matchCells||{}, leftBy=window._leftoverByCompany||{};
+  const lines=[];
+  const targets = company ? [company] : Object.keys(leftBy);
+  targets.slice(0,12).forEach(c=>{
+    const cells=(cellsBy[c]||[]).filter(x=>x.sum>0);
+    const unpaid=cells.filter(x=>{ try{ return _isCellPaintable(window._matchWs,x.row,x.vatCol||x.taxCol); }catch(e){ return true; } });
+    const dep=(leftBy[c]||[]);
+    lines.push(`[${c}]`);
+    lines.push(` 정산(전체): ${cells.map(x=>x.key+' '+x.sum.toLocaleString()).join(' / ')||'없음'}`);
+    lines.push(` 미입금(색칠 안 된 것): ${unpaid.map(x=>x.key+' '+x.sum.toLocaleString()).join(' / ')||'없음'} → 합계 ${unpaid.reduce((a,x)=>a+x.sum,0).toLocaleString()}원`);
+    lines.push(` 매칭 안 된 입금: ${dep.map(x=>x.dateKey+' '+x.amount.toLocaleString()+'('+x.name+')').join(' / ')||'없음'} → 합계 ${dep.reduce((a,x)=>a+x.amount,0).toLocaleString()}원`);
+  });
+  const notes=SETTLE_NOTES.slice(-10).map(n=>` ${n.company} ${n.dateKey} ${n.amount.toLocaleString()} — ${n.memo}`);
+  if(notes.length) lines.push('[이미 처리된 특이사항]', ...notes);
+  return lines.join('\n');
+}
+async function mchatSend(){
   const inp=document.getElementById('mchatInput'); const t=(inp.value||'').trim();
   if(!t) return;
   inp.value=''; _mchatAdd('me', t.replace(/</g,'&lt;'));
@@ -1670,19 +1753,35 @@ function mchatSend(){
   const norm=s=>String(s).replace(/\s+/g,'');
   const nt=norm(t);
   let company=companies.find(c=>nt.includes(norm(c)));
-  if(!company){ _mchatAdd('bot','어느 업체인지 못 찾았어요. 정산달력에 있는 <b>업체명 그대로</b> 적어주세요.'); return; }
-  const rng=_parseRange(t);
+  const rng=company?_parseRange(t):null;
+  // 업체+기간이 딱 잡히면 → 아래 규칙엔진이 정확히 계산 (돈 계산은 AI에 맡기지 않음)
+  // 그 외 자유 질문("얘 왜 안 맞아?", "이번달 미정산 큰 데 어디야?")은 → AI가 백데이터 보고 대화로 답함
+  if(!company || !rng){
+    _mchatAdd('bot','<span style="opacity:.6">생각 중…</span>');
+    const log=document.getElementById('mchatLog');
+    try{
+      const ctx=_mchatContext(company);
+      const ans=await _mchatAI(`너는 수산물 유통회사 '마스터'의 정산 담당 비서다. 아래는 정산달력·통장 매칭 결과의 실제 데이터다.
+사장님 질문에 이 데이터만 근거로, 한국어로 간결하게(3~6줄) 답해라. 데이터에 없는 숫자를 지어내지 말 것. 금액은 원 단위로 콤마 찍어 표기.
+답이 "이 기간 정산분이 맞다/아니다"류면 근거 숫자(입금 합계 vs 정산 합계)를 반드시 같이 보여줘라.
+업체명과 기간(예: 착한한끼 6/22~7/7)을 같이 적어주면 정확히 계산해 준다고 안내해도 좋다.
+
+[데이터]
+${ctx||'(매칭 결과 없음)'}
+
+[사장님 질문]
+${t}`);
+      if(log && log.lastElementChild) log.removeChild(log.lastElementChild);
+      _mchatAdd('bot', ans.replace(/</g,'&lt;').replace(/\n/g,'<br>'));
+    }catch(e){
+      if(log && log.lastElementChild) log.removeChild(log.lastElementChild);
+      _mchatAdd('bot','⚠ AI 응답 실패: '+e.message+'<br><span style="color:var(--text3)">업체명 + 기간(예: <b>착한한끼 6/22~7/7</b>)으로 물어보시면 AI 없이도 정확히 계산해 드립니다.</span>');
+    }
+    return;
+  }
   const cells=(cellsBy[company]||[]).filter(c=>c.sum>0);
   const deposits=(leftBy[company]||[]);
   const paid=deposits.reduce((a,x)=>a+x.amount,0);
-  if(!rng){
-    const unpaid=cells.filter(c=>_isCellPaintable(window._matchWs,c.row,c.vatCol||c.taxCol));
-    _mchatAdd('bot',`<b>${company}</b> — 기간을 같이 적어주시면 그 구간 정산 합계를 계산해 맞는지 봐드릴게요.<br>
-      현재 미매칭 입금 ${deposits.length}건 · 합계 <b>${paid.toLocaleString()}원</b><br>
-      미입금(색칠 안 된) 정산 ${unpaid.length}건 · 합계 <b>${unpaid.reduce((a,c)=>a+c.sum,0).toLocaleString()}원</b><br>
-      예: <i>${company} 6/22~7/7 맞는지 확인</i>`);
-    return;
-  }
   const lo=_keyNum(rng.from), hi=_keyNum(rng.to);
   const inRange=cells.filter(c=>{ const n=_keyNum(c.key); return n>=lo && n<=hi; });
   if(!inRange.length){ _mchatAdd('bot',`<b>${company}</b> — ${rng.from}~${rng.to} 구간에 정산 금액이 없어요. 기간을 다시 확인해 주세요.`); return; }
