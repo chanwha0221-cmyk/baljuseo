@@ -204,12 +204,19 @@ function softWrap(t,max){
     return balanced? outL.join('\n') : line;
   }).join('\n');
 }
+// 실제(사람이 보는) 글자수 세기 — JS 기본 .length는 이모지를 2자로 세서 부풀려짐(예: 실제 1704 → 1840).
+// grapheme 단위로 세서 이모지·기호도 1자로 카운트 (2026-07-10 사장님: 검증값과 카운터 불일치 수정)
+function clen(s){
+  s=String(s==null?'':s);
+  try{ if(typeof Intl!=='undefined'&&Intl.Segmenter){ let n=0; for(const _ of new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(s)) n++; return n; } }catch(e){}
+  return [...s].length; // 폴백: 최소한 code point 기준(이모지 1자)
+}
 // 순수 본문 글자수 = 잠금 블록(====박스·하단 고정부) 내용과 토큰 전부 제외 (사장님 기준: 본문만 1,800~1,900)
 function bodyLen(t){
   let s=t;
   LOCKS.forEach(blk=>{ s=s.split(blk).join(''); });
   s=s.replace(/【\s*잠금\s*\d+\s*】/g,'');
-  return plainOf(s).length;
+  return clen(plainOf(s));
 }
 
 /* ===== 잠금 블록 (====== ~ ======) — AI에 토큰만 주고 생성 후 원문 복원 ===== */
@@ -236,8 +243,8 @@ function restoreLocks(t){
   return out;
 }
 
-function onSrcA(){ const m=htmlToMarked($('src-a')); $('cnt-a').textContent=plainOf(m).length.toLocaleString()+'자'; extractLocks(m); }
-function upCnt(k){$('cnt-'+k).textContent=$('src-'+k).value.length.toLocaleString()+'자';}
+function onSrcA(){ const m=htmlToMarked($('src-a')); $('cnt-a').textContent=clen(plainOf(m)).toLocaleString()+'자'; extractLocks(m); }
+function upCnt(k){$('cnt-'+k).textContent=clen($('src-'+k).value).toLocaleString()+'자';}
 function outMarked(){ return htmlToMarked($('out')); }
 function upOut(){
   const n=bodyLen(outMarked());
