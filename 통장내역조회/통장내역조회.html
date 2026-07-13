@@ -379,6 +379,16 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
           <datalist id="companyDL"></datalist>
           <div id="unmatchedList" style="border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto"></div>
         </div>
+        <div class="msg-section" id="notesSection" style="display:none">
+          <div class="msg-section-title">📌 정산 특이사항 <span id="notesCount" style="color:var(--text3);font-weight:700"></span></div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">등록해둔 건은 다음 매칭부터 경고에 안 뜨고 로그에 <b>📌 처리됨</b>으로만 표시됩니다. 🗑 지우면 다시 경고로 올라옵니다.</div>
+          <div id="notesList" style="border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto"></div>
+        </div>
+        <div class="msg-section" id="splitSection" style="display:none">
+          <div class="msg-section-title">🧩 분할 입금 (나눠 낸 입금) <span id="splitCount" style="color:#d9480f;font-weight:700"></span></div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">단일·합산 매칭에서 떨어진 입금을 업체별로 <b>합쳐서</b> 다시 맞춰본 결과예요. 합계가 정산과 맞으면 [✓]로 색칠 목록에 넣고, 모자라면 잔액이 얼마인지 알려줍니다.</div>
+          <div id="splitList" style="border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto"></div>
+        </div>
         <div class="msg-section" id="toPaintSection" style="display:none">
           <div class="msg-section-title">🎨 리모콘에서 색칠할 업체 <span id="toPaintCount" style="color:var(--accent);font-weight:700"></span></div>
           <div style="font-size:11px;color:var(--text3);margin-bottom:6px">아래는 오늘 입금 확인돼 <b>아직 색 안 칠한</b> 셀이에요. 리모콘에서 이대로 색칠하면 됩니다. (이미 색칠된 건 자동 제외)</div>
@@ -704,6 +714,7 @@ async function loadMisDetail(){
   try{
     const t=await getToken();
     await loadSettleAlias();
+    await loadSettleNotes();   // 📌 정산 특이사항 (처리 완료 건 → 다시 경고 안 함)
     const hr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('업체호칭!A2:B10000')}`,{headers:{Authorization:`Bearer ${t}`}});
     if(hr.ok){ (((await hr.json()).values)||[]).forEach(x=>{ if(x[0])HONOR[String(x[0]).trim()]=String(x[1]||'').trim(); }); }
     const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('미정산상세!A2:E10000')}`,{headers:{Authorization:`Bearer ${t}`}});
@@ -1465,6 +1476,163 @@ function _paintAndComment(ws, row, col, comment){
   return { painted:true };
 }
 
+/* ===== 📌 정산 특이사항 (2026-07-13 사장님: "만원 더 입금 → 환불해줬다고 하면 기억하고 다시 말하지 마라") =====
+   시트 탭 `정산특이사항` (id/날짜/업체/입금자명/금액/유형/내용/등록일시).
+   한 번 등록한 입금건(업체+날짜+금액)은 다음 매칭부터 경고에서 빠지고 로그에 '처리됨'으로만 뜬다. */
+let SETTLE_NOTES=[];
+const _noteKey=(company,dateKey,amount)=>`${String(company||'').replace(/\s+/g,'')}|${dateKey}|${amount}`;
+function _isNoted(company,dateKey,amount){ const k=_noteKey(company,dateKey,amount); return SETTLE_NOTES.find(n=>n.key===k); }
+async function loadSettleNotes(){
+  try{ const t=await getToken();
+    const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산특이사항!A2:H10000')}`,{headers:{Authorization:`Bearer ${t}`}});
+    if(!r.ok) return;
+    SETTLE_NOTES=(((await r.json()).values)||[]).filter(x=>x[0]).map(x=>({
+      id:x[0], dateKey:x[1]||'', company:x[2]||'', payer:x[3]||'', amount:Number(String(x[4]||'0').replace(/[^0-9-]/g,''))||0,
+      type:x[5]||'', memo:x[6]||'', at:x[7]||'',
+      key:_noteKey(x[2], x[1], Number(String(x[4]||'0').replace(/[^0-9-]/g,''))||0)
+    }));
+    renderSettleNotes();
+  }catch(e){ console.warn('정산특이사항 로드 실패',e); }
+}
+async function _writeSettleNotes(){
+  const t=await getToken();
+  await ensureTabNamed(t,'정산특이사항',['id','날짜','업체','입금자명','금액','유형','내용','등록일시']);
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산특이사항!A2:H10000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+  if(SETTLE_NOTES.length) await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산특이사항!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},
+    body:JSON.stringify({values:SETTLE_NOTES.map(n=>[n.id,n.dateKey,n.company,n.payer,n.amount,n.type,n.memo,n.at])})});
+}
+// 분할입금 카드에서 [📝 특이사항 등록] — 그 업체의 떨어진 입금 전부를 한 건으로 기록
+async function noteSplit(i){
+  const p=(window._splitProps||[])[i]; if(!p) return;
+  const memo=prompt(`${p.company} — 무슨 일인지 적어주세요\n(예: 만원 더 입금돼서 환불해줌 / 전월 정산분 상환 / 반품 차감 후 입금)`,'');
+  if(memo===null || !memo.trim()) return;
+  const at=new Date().toLocaleString('ko-KR');
+  p.txs.forEach(t=>{
+    const n={ id:'N'+Date.now()+Math.floor(Math.random()*1000), dateKey:t.dateKey, company:p.company, payer:t.name, amount:t.amount,
+              type:(p.status==='over'?'과입금':p.status==='short'?'부분입금':'기타'), memo:memo.trim(), at };
+    n.key=_noteKey(n.company,n.dateKey,n.amount);
+    SETTLE_NOTES=SETTLE_NOTES.filter(x=>x.key!==n.key);
+    SETTLE_NOTES.push(n);
+  });
+  try{ await _writeSettleNotes(); showToast('📌 특이사항 저장됨 — 다음 매칭부터 이 건은 안 뜹니다'); }
+  catch(e){ showToast('⚠ 저장 실패: '+e.message); return; }
+  const el=document.getElementById('sp-'+i); if(el) el.style.display='none';
+  renderSettleNotes();
+}
+async function delSettleNote(id){
+  if(!confirm('이 특이사항을 지울까요? (지우면 그 입금건이 다시 경고로 뜹니다)')) return;
+  SETTLE_NOTES=SETTLE_NOTES.filter(n=>n.id!==id);
+  try{ await _writeSettleNotes(); showToast('🗑 삭제됨'); }catch(e){ showToast('⚠ 삭제 실패: '+e.message); }
+  renderSettleNotes();
+}
+function renderSettleNotes(){
+  const sec=document.getElementById('notesSection'), list=document.getElementById('notesList'), cnt=document.getElementById('notesCount');
+  if(!sec||!list) return;
+  if(!SETTLE_NOTES.length){ sec.style.display='none'; return; }
+  sec.style.display='';
+  if(cnt) cnt.textContent='('+SETTLE_NOTES.length+'건)';
+  list.innerHTML=[...SETTLE_NOTES].reverse().map(n=>`<div style="display:flex;gap:6px;align-items:center;padding:6px 9px;border-bottom:1px solid var(--border)">
+      <span style="font-size:11px;flex:1"><b>${n.company}</b> <span style="color:var(--text3)">${n.dateKey} · ${n.amount.toLocaleString()}원 · ${n.type}</span><br><span style="color:var(--text2)">${n.memo}</span></span>
+      <button class="btn-copy" style="padding:4px 8px;font-size:11px;color:#888" onclick="delSettleNote('${n.id}')">🗑</button>
+    </div>`).join('');
+}
+
+// 색칠 가능(=미입금) 셀인지 '칠하지 않고' 판별만 — _paintAndComment와 같은 기준 (2026-07-13 분할입금 기능용)
+function _isCellPaintable(ws, row, col){
+  if(!col) return false;
+  const cell = ws.getCell(row, col);
+  const fill = cell.fill;
+  let curArgb = '';
+  if(fill && fill.type==='pattern' && fill.fgColor){
+    curArgb = (fill.fgColor.argb||'').toString().toUpperCase();
+    if(!curArgb && (fill.fgColor.theme!==undefined || fill.fgColor.indexed!==undefined)){
+      const th=fill.fgColor.theme, tint=fill.fgColor.tint||0, idx=fill.fgColor.indexed;
+      const isWhiteTheme = th===0 && !tint;
+      const isWhiteIndexed = idx===9 || idx===64;
+      if(!isWhiteTheme && !isWhiteIndexed) return false;
+    }
+  }
+  return !_isProtectedColor(curArgb);
+}
+
+// 🧩 분할 입금 추정 (2026-07-13 사장님: "1~10일 정산 600인데 400 먼저, 200 나중에 넣는 경우")
+//   단일·합산 매칭에서 떨어진 입금들을 업체별로 모아 '합치면 어느 구간 정산과 맞는지' 계산.
+//   - 합계가 미입금 구간 합과 맞으면 → 색칠 제안 (사장님이 [✓] 누르면 색칠 목록에 들어감)
+//   - 모자라면 → "얼마 중 얼마 입금 / 잔액 얼마 미입금" 상태만 설명 (색칠 안 함)
+function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance){
+  const props=[];
+  for(const company of Object.keys(leftoverByCompany)){
+    const txs=leftoverByCompany[company];
+    if(!txs || !txs.length) continue;
+    const cells=(cellsByCompany[company]||[]).filter(c=>c.sum>0 && _isCellPaintable(ws,c.row,c.vatCol||c.taxCol));
+    const paid=txs.reduce((a,t)=>a+t.amount,0);
+    if(!cells.length){ props.push({company, txs, cells:[], status:'nocell', paid, total:0}); continue; }
+    // 입금 합계와 딱 맞는 '연속 구간' 찾기 (가장 짧은 구간 우선)
+    let best=null;
+    for(let i=0;i<cells.length;i++){
+      let sum=0;
+      for(let j=i;j<cells.length;j++){
+        sum+=cells[j].sum;
+        if(Math.abs(sum-paid)<=tolerance){ const run=cells.slice(i,j+1); if(!best||run.length<best.length) best=run; break; }
+        if(sum>paid+tolerance) break;
+      }
+    }
+    if(best){ props.push({company, txs, cells:best, status:'match', paid, total:best.reduce((a,c)=>a+c.sum,0)}); continue; }
+    const unpaid=cells.reduce((a,c)=>a+c.sum,0);
+    props.push({company, txs, cells:[], status: paid<unpaid?'short':'over', paid, total:unpaid,
+                span: cells.length? (cells[0].key+'~'+cells[cells.length-1].key) : ''});
+  }
+  return props;
+}
+function renderSplitPay(props){
+  const sec=document.getElementById('splitSection'), list=document.getElementById('splitList'), cnt=document.getElementById('splitCount');
+  if(!sec||!list) return;
+  window._splitProps=props||[];
+  if(!props || !props.length){ sec.style.display='none'; return; }
+  sec.style.display='';
+  if(cnt) cnt.textContent='('+props.length+'건)';
+  list.innerHTML=props.map((p,i)=>{
+    const txline=p.txs.map(t=>`${t.dateKey} ${t.amount.toLocaleString()}원`).join(' + ');
+    if(p.status==='match'){
+      const span=p.cells[0].key+'~'+p.cells[p.cells.length-1].key;
+      return `<div id="sp-${i}" style="padding:8px 10px;border-bottom:1px solid var(--border)">
+        <div style="font-weight:700">${p.company} <span style="color:#2f9e44;font-size:11px">✓ 나눠 낸 금액 합계가 정산과 일치</span></div>
+        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${p.txs.length}건: ${txline} = <b>${p.paid.toLocaleString()}원</b><br>정산 ${span} 합계 <b>${p.total.toLocaleString()}원</b> → 이 구간 전부 입금 완료</div>
+        <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="applySplit(${i})">✓ 색칠 목록에 추가</button>
+      </div>`;
+    }
+    if(p.status==='short'){
+      return `<div id="sp-${i}" style="padding:8px 10px;border-bottom:1px solid var(--border)">
+        <div style="font-weight:700">${p.company} <span style="color:#d9480f;font-size:11px">⚠ 부분 입금 (아직 덜 냄)</span></div>
+        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${p.txs.length}건: ${txline} = <b>${p.paid.toLocaleString()}원</b><br>미입금 정산 ${p.span} 합계 <b>${p.total.toLocaleString()}원</b> → <b style="color:#d9480f">잔액 ${(p.total-p.paid).toLocaleString()}원 미입금</b><br><span style="color:var(--text3)">어느 날짜를 갚은 건지 확정이 안 돼 색칠 안 합니다. 나머지 입금 들어온 뒤 다시 매칭하면 자동으로 잡힙니다.</span></div>
+        <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="noteSplit(${i})">📝 특이사항 등록</button>
+      </div>`;
+    }
+    if(p.status==='over'){
+      return `<div id="sp-${i}" style="padding:8px 10px;border-bottom:1px solid var(--border)">
+        <div style="font-weight:700">${p.company} <span style="color:#d9480f;font-size:11px">⚠ 정산보다 ${(p.paid-p.total).toLocaleString()}원 더 들어옴</span></div>
+        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} = <b>${p.paid.toLocaleString()}원</b> / 이 달력 미입금 합계 <b>${p.total.toLocaleString()}원</b> → <b style="color:#d9480f">초과 ${(p.paid-p.total).toLocaleString()}원</b><br><span style="color:var(--text3)">전월 정산까지 갚았거나, 업체가 더 보낸 경우예요. 환불·상계 처리하셨으면 아래 [특이사항 등록] 해두시면 다음부터 안 뜹니다.</span></div>
+        <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="noteSplit(${i})">📝 특이사항 등록</button>
+      </div>`;
+    }
+    return `<div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+      <div style="font-weight:700">${p.company} <span style="color:var(--text3);font-size:11px">이 달력에 미입금 셀 없음</span></div>
+      <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} → 전월 정산 상환으로 보입니다.</div>
+    </div>`;
+  }).join('');
+}
+// [✓ 색칠 목록에 추가] — 분할 입금이 합계로 맞는 구간을 색칠 목록(toPaint)에 넣음
+function applySplit(i){
+  const p=(window._splitProps||[])[i];
+  if(!p || p.status!=='match') return;
+  const arr=window._toPaintArr||[];
+  p.cells.forEach(c=>arr.push({company:p.company, key:c.key, amount:c.sum, payer:p.txs.map(t=>t.name).join('/')+' (분할)'}));
+  window._toPaintArr=arr;
+  renderToPaint(arr);
+  const el=document.getElementById('sp-'+i); if(el) el.style.display='none';
+  showToast('🎨 '+p.company+' — 색칠 목록에 추가됨');
+}
+
 // 메인 매칭 실행
 async function runSettlementMatch(){
   const fSet = document.getElementById('matchSettlementFile').files[0];
@@ -1479,6 +1647,7 @@ async function runSettlementMatch(){
   const toPaint=[]; // 오늘 입금돼서 새로 색칠할(아직 색 안 칠한) 업체×날짜
   const prevNeeded=[]; // ⬆ 이 달력 기간엔 맞는 정산이 없는 입금 — 이전(전월) 정산달력 확인 필요 (2026-07-10 맨도롱 케이스)
   const unmatched=[]; // 업체 미식별 입금건 → 사장님 수동확인 대상
+  const leftoverByCompany={}; // 🧩 업체는 알지만 금액이 안 맞아 떨어진 입금 → 분할 입금 추정용 (2026-07-13)
   try{
     _logLine('• 거래내역 파싱 중...');
     let txs;
@@ -1542,6 +1711,10 @@ async function runSettlementMatch(){
         failCount++;
         continue;
       }
+      // 📌 이미 특이사항으로 처리한 입금건이면 다시 경고하지 않음 (2026-07-13)
+      const _noted=_isNoted(matchedCompany, tx.dateKey, tx.amount);
+      if(_noted){ _logLine(`📌 처리됨(특이사항): ${matchedCompany} ${tx.dateKey} ${tx.amount.toLocaleString()}원 — ${_noted.memo}`); tx.used=true; continue; }
+
       const cells = cellsByCompany[matchedCompany];
       if(!cells || !cells.length){ _logLine(`ℹ ${matchedCompany}: 정산달력에 없는 업체명이라 색칠 대상 아님 (${tx.dateKey} ${tx.amount.toLocaleString()}원)`); tx.used=true; continue; }
 
@@ -1615,17 +1788,19 @@ async function runSettlementMatch(){
         const existing = cell.note ? (cell.note.texts ? cell.note.texts.map(t=>t.text).join('') : cell.note.toString()) : '';
         cell.note = existing ? existing+'\n'+note : note;
         partialCount++;
+        (leftoverByCompany[matchedCompany]=leftoverByCompany[matchedCompany]||[]).push(tx);
         _logLine(`△ ${matchedCompany} ${c.key} 비슷한 금액 (정산:${c.sum.toLocaleString()} / 입금:${tx.amount.toLocaleString()}, 차액 ${diff})`);
         continue;
       }
 
       const calTotal = cells.reduce((a,c)=>a+c.sum,0);
+      (leftoverByCompany[matchedCompany]=leftoverByCompany[matchedCompany]||[]).push(tx); // 🧩 분할 입금 후보
       if(calTotal===0){
         prevNeeded.push({company:matchedCompany, dateKey:tx.dateKey, amount:tx.amount, why:'기간 내 정산액 아예 없음'});
         _logLine(`⬆ ${matchedCompany} ${tx.dateKey} ${tx.amount.toLocaleString()}원 — 이 달력 기간엔 정산액이 없음 → 이전(전월) 정산 갚은 입금으로 보임`);
       }else{
         prevNeeded.push({company:matchedCompany, dateKey:tx.dateKey, amount:tx.amount, why:'금액 일치 없음'});
-        _logLine(`✖ 매칭 실패: ${tx.dateKey} ${matchedCompany} ${tx.amount.toLocaleString()}원 (금액 일치 없음 — 이전 기간 정산일 수도)`);
+        _logLine(`✖ 매칭 실패: ${tx.dateKey} ${matchedCompany} ${tx.amount.toLocaleString()}원 (금액 일치 없음 — 단일·합산 어느 것과도 안 맞음 → 아래 🧩 분할 입금에서 설명)`);
       }
       failCount++;
     }
@@ -1639,9 +1814,26 @@ async function runSettlementMatch(){
       _logLine('   → 이전 정산달력(예: 5월분)을 ①에 넣고, ③ 기간은 입금 있던 날짜 그대로 두고 다시 매칭하면 그 건만 자동으로 맞춰봅니다.');
     }
     window._matchCells = cellsByCompany; window._matchCompanies = Object.keys(meta.companyCols||{}); window._toPaintArr = toPaint;
+    // 🧩 분할 입금 추정 — 금액이 안 맞아 떨어진 입금들을 업체별로 합쳐 다시 맞춰봄
+    let splitProps=[];
+    try{
+      splitProps=_splitPayMatch(cellsByCompany, leftoverByCompany, meta.ws, tolerance);
+      if(splitProps.length){
+        _logLine('');
+        _logLine(`🧩 분할 입금 추정 ${splitProps.length}건:`);
+        splitProps.forEach(p=>{
+          const t=p.txs.map(x=>x.amount.toLocaleString()).join('+');
+          if(p.status==='match') _logLine(`   ✓ ${p.company}: ${t} = ${p.paid.toLocaleString()}원 → ${p.cells[0].key}~${p.cells[p.cells.length-1].key} 정산 ${p.total.toLocaleString()}원과 일치 (나눠 낸 것)`);
+          else if(p.status==='short') _logLine(`   ⚠ ${p.company}: ${t} = ${p.paid.toLocaleString()}원 입금 / 미입금 정산 ${p.total.toLocaleString()}원 → 잔액 ${(p.total-p.paid).toLocaleString()}원 아직 안 들어옴`);
+          else if(p.status==='over') _logLine(`   ⚠ ${p.company}: 입금 ${p.paid.toLocaleString()}원 > 이 달력 미입금 ${p.total.toLocaleString()}원 → 전월 정산까지 갚은 듯`);
+          else _logLine(`   ℹ ${p.company}: 이 달력에 미입금 셀 없음 → 전월 상환`);
+        });
+      }
+    }catch(e){ _logLine('⚠ 분할입금 계산 오류: '+e.message); console.error('_splitPayMatch',e); }
     try{ renderToPaint(toPaint); }catch(e){ _logLine('⚠ 색칠목록 렌더 오류: '+e.message); console.error('renderToPaint',e); } // 🎨 색칠할 업체
+    try{ renderSplitPay(splitProps); }catch(e){ _logLine('⚠ 분할입금 렌더 오류: '+e.message); console.error('renderSplitPay',e); } // 🧩 분할 입금
     try{ renderUnmatched(unmatched); }catch(e){ _logLine('⚠ 확인목록 렌더 오류: '+e.message); console.error('renderUnmatched',e); } // ❓ 미식별
-    try{ if((toPaint&&toPaint.length)||(unmatched&&unmatched.length)) document.getElementById('matchPanelWrap').classList.add('mp-full'); }catch(e){} // 결과 있으면 전체화면
+    try{ if((toPaint&&toPaint.length)||(unmatched&&unmatched.length)||(splitProps&&splitProps.length)) document.getElementById('matchPanelWrap').classList.add('mp-full'); }catch(e){} // 결과 있으면 전체화면
 
     // 다운로드 — 실패해도 매칭 결과(색칠 목록)는 유효하므로 별도 try (2026-07-10)
     try{

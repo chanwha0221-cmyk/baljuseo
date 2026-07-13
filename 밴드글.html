@@ -182,8 +182,9 @@ function markedToHtml(t){
     let h=esc(line);
     h=h.replace(/〈이미지(\d+)〉/g,(m,n2)=>{ const u=IMGS[parseInt(n2,10)-1]; return u?'<img src="'+esc(u)+'" style="max-width:100%">':''; });
     h=h.replace(/《큰》([\s\S]*?)《\/큰》/g,'<span style="font-size:22px">$1</span>');
-    h=h.replace(/\*\*([^*\n][^*]*?)\*\*/g,'<b>$1</b>');
-    h=h.replace(/__([^_\n][^_]*?)__/g,'<u>$1</u>');
+    // 안쪽에 별표 하나(*가격)·밑줄 하나가 있어도 매칭되게 — 옛 [^*]*? 는 실패해서 **가 글자로 노출됐음 (2026-07-13)
+    h=h.replace(/\*\*((?:[^*\n]|\*(?!\*))+?)\*\*/g,'<b>$1</b>');
+    h=h.replace(/__((?:[^_\n]|_(?!_))+?)__/g,'<u>$1</u>');
     return '<span style="font-size:18px">'+h+'</span>';
   }).join('<br>');
 }
@@ -247,7 +248,15 @@ function restoreLocks(t){
 
 // 원문 1을 읽을 때는 사진 목록(IMGS)을 매번 새로 만든다 —
 // 예전엔 계속 누적돼서 [🖼 원문 사진 받기]가 이전 글 사진까지 받아버렸음 (2026-07-13 사장님 지적)
-function markSrcA(){ IMGS=[]; return htmlToMarked($('src-a')); }
+// 붙여넣기 쓰레기 제거 — 밴드 페이지를 긁으면 에디터 UI(삭제·수정 버튼, 아이콘 등)까지 HTML로 딸려 옴 (2026-07-13 사장님: "밑에 삭제는 뭐냐")
+const JUNK_SEL='button,input,select,textarea,svg,form,label,[role="button"],[contenteditable="false"],.btn,[class*="delete"],[class*="remove"]';
+function scrubRich(el){
+  if(!el) return;
+  el.querySelectorAll(JUNK_SEL).forEach(n=>n.remove());
+  // 버튼이 제거된 뒤 남는 '삭제'/'수정' 단독 줄도 정리
+  el.querySelectorAll('div,p,span').forEach(n=>{ if(!n.children.length && /^(삭제|수정|편집|더보기)$/.test((n.textContent||'').trim())) n.remove(); });
+}
+function markSrcA(){ scrubRich($('src-a')); IMGS=[]; return htmlToMarked($('src-a')); }
 // 🧹 초기화 — 원문 1·2, 결과, 사진 목록, 잠금 블록 전부 비움 (저장된 교본 글은 그대로)
 function resetAll(){
   if(!confirm('원문·결과·사진을 전부 비우고 처음부터 시작할까요? (저장된 글은 그대로 유지)')) return;
@@ -516,6 +525,13 @@ async function generate(isRetry){
   }catch(e){ toast('⚠️ 생성 실패: '+e.message); }
   btn.disabled=false; btn.textContent='✨ 뉴 밴드글 생성 (1050자)';
 }
+// 원문 1·결과창에 붙여넣는 즉시 UI 쓰레기(삭제 버튼 등) 제거
+window.addEventListener('DOMContentLoaded',()=>{
+  ['src-a','out'].forEach(id=>{
+    const el=$(id); if(!el) return;
+    el.addEventListener('paste',()=>{ setTimeout(()=>{ scrubRich(el); if(id==='src-a') onSrcA(); else upOut(); },0); });
+  });
+});
 window.addEventListener('DOMContentLoaded',loadAll);
 </script>
 </body>
