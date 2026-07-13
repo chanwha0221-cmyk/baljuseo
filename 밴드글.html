@@ -118,7 +118,7 @@ const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzF
 const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
 
 const $=id=>document.getElementById(id);
-let DATA=[], loaded=false, LOCKS=[], IMGS=[];
+let DATA=[], loaded=false, LOCKS=[], IMGS=[], TAIL_LOCK=-1;   // TAIL_LOCK = 하단 고정부 잠금 인덱스(유실 시 맨 '끝'으로 복원)
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2400);if(/^⚠️|실패|오류|error/i.test(String(m)))logErr(String(m));}
 // ── 오류 기록 (2026-07-10): 순식간에 사라지는 에러를 저장해 복사 가능하게 ──
 const ERRS=[];
@@ -221,7 +221,7 @@ function bodyLen(t){
 
 /* ===== 잠금 블록 (====== ~ ======) — AI에 토큰만 주고 생성 후 원문 복원 ===== */
 function extractLocks(marked){
-  LOCKS=[];
+  LOCKS=[]; TAIL_LOCK=-1;
   const re=/={6,}[^\n]*\n[\s\S]*?\n\s*={6,}[^\n]*/g;
   let replaced=marked.replace(re,m=>{ LOCKS.push(m); return '【잠금'+LOCKS.length+'】'; });
   // 하단 고정부('진짜 자신 있습니다' 또는 첫 🔽 줄부터 끝까지 = 주문안내·url·사업자 뭉치)도 통째 잠금 (2026-07-10 사장님: 이 부분 글자수 제외)
@@ -230,6 +230,7 @@ function extractLocks(marked){
   for(let i=0;i<lines.length;i++){ if(/진짜 자신 있습니다|^\s*🔽/.test(lines[i])){ ti=i; break; } }
   if(ti>=0 && lines.slice(ti).join('').trim()){
     LOCKS.push(lines.slice(ti).join('\n'));
+    TAIL_LOCK=LOCKS.length-1;   // 이 잠금은 '글 맨 끝' 소속 — 유실돼도 위로 올리지 말 것
     replaced=lines.slice(0,ti).join('\n').replace(/\n+$/,'')+'\n\n【잠금'+LOCKS.length+'】';
   }
   const info=$('lockinfo');
@@ -431,11 +432,28 @@ function buildExpand(draft,L){
 ${draft}
 
 지침:
-- 초안의 기존 문장·서식 마커(**굵게**, __밑줄__, 《큰》, 【잠금N】, 〈이미지N〉)·줄바꿈은 하나도 바꾸거나 빼지 말 것. 순서도 그대로.
+- 초안의 기존 문장·서식 마커(**굵게**, __밑줄__, 《큰》, 〈이미지N〉)·줄바꿈은 하나도 바꾸거나 빼지 말 것. 순서도 그대로.
+- ⚠️ 【잠금1】【잠금2】… 토큰은 절대 지우거나 옮기지 말 것. 있던 자리에 그 표기 그대로 반드시 남겨라 (지우면 그 결과는 폐기된다).
 - 초안 흐름에 맞는 위치(중간~후반)에 새 문단을 추가해 본문을 약 ${need}자 늘릴 것. 손질법·조리법·보관법·맛있게 먹는 팁 등 상식 수준 보강만. 과장·허위·스펙 지어내기 금지.
 - 새 문단도 한 줄은 공백 포함 28자 이내, 짧은 줄 호흡, 빈 줄로 문단 구분.
 - '마스터 유통' 상호명 금지 — '저희'로 쓸 것.
 - 출력은 추가가 반영된 완성본 전체만.`;
+}
+// 분량 초과 시: 재생성(널뛰기 원인) 대신 그 초안을 유지한 채 군더더기만 깎음 (2026-07-13)
+function buildShrink(draft,L){
+  const cut=L-1070;
+  return `아래는 밴드 판매글 초안이다. 본문이 ${L}자로 목표(1,000~1,100자)보다 약 ${cut}자 길다.
+
+[초안]
+${draft}
+
+지침:
+- 글을 새로 쓰지 말 것. 이 초안을 그대로 두고 ${cut}자만 덜어낸다.
+- ⚠️ 【잠금1】【잠금2】… 토큰은 절대 지우거나 옮기지 말 것. 있던 자리에 그 표기 그대로 반드시 남겨라 (지우면 그 결과는 폐기된다).
+- 서식 마커(**굵게**, __밑줄__, 《큰》, 〈이미지N〉)와 문단 구조·순서는 하나도 바꾸거나 빼지 말 것.
+- 덜어낼 것: 반복되는 표현, 군더더기 수식어, 같은 말 다른 문장. 가격·구성·원산지·스펙 등 정보는 절대 지우지 말 것.
+- 결과 본문은 반드시 1,000~1,100자 사이. ${cut}자보다 많이 깎지 말 것 (짧아지면 안 됨).
+- 출력은 압축된 완성본 전체만.`;
 }
 async function generate(isRetry){
   const aMarkedRaw=htmlToMarked($('src-a'));
@@ -445,29 +463,36 @@ async function generate(isRetry){
   const btn=$('genBtn'); btn.disabled=true; btn.innerHTML='<span class="spin">⏳</span> 생성 중... (10~20초)';
   try{
     let out=(await callAI(buildPrompt(aMarked,b))).trim();
-    // 1,000~1,150 구간에 들어올 때까지 최대 5회 자동 교정 (2026-07-13: 목표 1,050자로 하향 — 거래처들이 길다고 함)
-    // 짧으면 = 초안에 문단 '추가'(buildExpand — 재생성 아님), 길면 = 압축 재생성
-    for(let att=0; att<5; att++){
+    // 950~1,200 안에 들어오면 통과. 최대 2회만 교정 (2026-07-13: 재생성 널뛰기·대기시간 사고 수정)
+    //  - 짧으면 buildExpand(초안 유지 + 문단 추가) / 길면 buildShrink(초안 유지 + 군더더기만 삭감)
+    //  - 둘 다 '초안 편집'이라 한 번이면 대개 수렴. 결과가 더 나빠지면 그 시도는 버리고 이전 초안 유지.
+    const OK_LO=950, OK_HI=1200;
+    const dist=n=>(n<OK_LO?OK_LO-n:(n>OK_HI?n-OK_HI:0));
+    for(let att=0; att<2; att++){
       const L=bodyLen(out);
-      if(L>=1000 && L<=1150) break;
-      btn.innerHTML='<span class="spin">⏳</span> '+(L<1000?'짧아서 문단 추가':'길어서 압축')+' 중... ('+L.toLocaleString()+'자 · '+(att+1)+'/5)';
-      if(L<1000){
-        const grown=(await callAI(buildExpand(out,L))).trim();
-        // 확장 결과가 오히려 줄었거나 잠금 토큰이 깨졌으면 버리고 기존 초안 유지 후 재시도
-        if(bodyLen(grown)>L && !/={6,}/.test(grown)) out=grown;
-      }else{
-        out=(await callAI(buildPrompt(aMarked,b,`- 직전 시도가 ${L}자로 너무 길었다. 핵심은 다 살리되 반복·군더더기를 걷어내 1,000~1,100자로 줄일 것.`))).trim();
-      }
+      if(L>=OK_LO && L<=OK_HI) break;
+      btn.innerHTML='<span class="spin">⏳</span> '+(L<OK_LO?'짧아서 문단 추가':'길어서 압축')+' 중... ('+L.toLocaleString()+'자 · '+(att+1)+'/2)';
+      const fixed=(await callAI(L<OK_LO?buildExpand(out,L):buildShrink(out,L))).trim();
+      const FL=bodyLen(fixed);
+      // 잠금 토큰이 깨졌거나(==== 노출) 목표에서 더 멀어졌으면 버리고 기존 초안 유지
+      if(FL>0 && !/={6,}/.test(fixed) && dist(FL)<dist(L)) out=fixed;
+      else break;
     }
     const finalL=bodyLen(out);
-    if(finalL<1000||finalL>1150){ if(typeof toast==='function') toast('⚠️ '+finalL.toLocaleString()+'자 — 기준(1,000~1,100) 벗어남. [🔁 다시 생성] 누르거나 직접 손봐주세요'); }
+    if(finalL<OK_LO||finalL>OK_HI){ if(typeof toast==='function') toast('⚠️ '+finalL.toLocaleString()+'자 — 목표(1,000~1,100) 밖입니다. 그대로 두거나 [🔁 다시 생성] 하세요'); }
     // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
     out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
     out=softWrap(out);   // 긴 줄 의미단위 미달분 안전망 래핑 (잠금·이미지 줄 제외)
     out=out.replace(/\n{3,}/g,'\n\n');   // 연속 빈 줄 1개로 정규화 — 노출에서 간격 두 배로 벌어지던 사고 방지 (2026-07-10)
     out=restoreLocks(out);
-    // 잠금 블록 무결성 검증 — 하나라도 유실되면 맨 위에 원본 그대로 보강
-    LOCKS.forEach(blk=>{ if(out.indexOf(blk)===-1) out=blk+'\n\n'+out; });
+    // 잠금 블록 무결성 검증 (2026-07-13 수정) — AI가 토큰을 지워 유실되면 '원래 있던 자리'로 복원.
+    //   상단 ====== 박스 = 글 맨 위 / 하단 고정부(🔽 주문안내·URL·사업자) = 글 맨 끝.
+    //   (이전엔 전부 맨 위로 붙여 하단 고정부가 통째로 사라진 것처럼 보이는 사고)
+    LOCKS.forEach((blk,i)=>{
+      if(out.indexOf(blk)!==-1) return;
+      if(i===TAIL_LOCK) out=out.replace(/\n+$/,'')+'\n\n'+blk;
+      else out=blk+'\n\n'+out;
+    });
     // 사진 토큰 유실 보강 — AI가 빼먹은 사진은 글 끝에 순서대로 붙임
     IMGS.forEach((u,i)=>{ const tk='〈이미지'+(i+1)+'〉'; if(out.indexOf(tk)===-1) out+='\n\n'+tk; });
     $('out').innerHTML=markedToHtml(out); upOut();
