@@ -379,6 +379,15 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
           <datalist id="companyDL"></datalist>
           <div id="unmatchedList" style="border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto"></div>
         </div>
+        <div class="msg-section" id="mchatSection" style="display:none">
+          <div class="msg-section-title">💬 정산 대화 <span style="color:var(--text3);font-weight:400;font-size:11px">— 매칭 결과가 이상하면 말로 물어보세요</span></div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">예: <b>착한한끼 6/22~7/7 입금액 맞는지 확인해봐</b> / <b>대상수산 7/10 과입금 아니야</b> — 정산달력·통장 데이터로 직접 계산해서 맞는지 답합니다.</div>
+          <div id="mchatLog" style="border:1px solid var(--border);border-radius:8px;max-height:260px;overflow-y:auto;padding:8px;font-size:12px;line-height:1.6"></div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <input id="mchatInput" placeholder="업체명 + 기간을 적어주세요 (예: 착한한끼 6/22~7/7 맞는지 확인)" style="flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit" onkeydown="if(event.key==='Enter'){event.preventDefault();mchatSend()}">
+            <button class="btn-copy" style="padding:7px 12px;font-size:12px" onclick="mchatSend()">확인</button>
+          </div>
+        </div>
         <div class="msg-section" id="notesSection" style="display:none">
           <div class="msg-section-title">📌 정산 특이사항 <span id="notesCount" style="color:var(--text3);font-weight:700"></span></div>
           <div style="font-size:11px;color:var(--text3);margin-bottom:6px">등록해둔 건은 다음 매칭부터 경고에 안 뜨고 로그에 <b>📌 처리됨</b>으로만 표시됩니다. 🗑 지우면 다시 경고로 올라옵니다.</div>
@@ -1633,6 +1642,90 @@ function applySplit(i){
   showToast('🎨 '+p.company+' — 색칠 목록에 추가됨');
 }
 
+/* ===== 💬 정산 대화 (2026-07-13 사장님: "과입금 아니라 6/22~7/7 입금액이야, 맞는지 확인해봐" 하면 검토하고 넘어가라)
+   AI 아님 — 정산달력 셀(_matchCells)과 그 업체의 미매칭 입금(_leftoverByCompany)을 실제로 더해서 답한다. */
+function _mchatAdd(who,html){
+  const log=document.getElementById('mchatLog'); if(!log) return;
+  const mine=who==='me';
+  log.innerHTML+=`<div style="margin:5px 0;text-align:${mine?'right':'left'}">
+    <span style="display:inline-block;max-width:90%;padding:6px 10px;border-radius:10px;background:${mine?'var(--accent)':'var(--bg2,#f1f3f5)'};color:${mine?'#fff':'var(--text)'};text-align:left">${html}</span></div>`;
+  log.scrollTop=log.scrollHeight;
+}
+function _mdKey(m,d){ return m+'/'+d; }
+// '6/22~7/7', '6월22일~7월7일', '6.22 - 7.7' 등에서 기간 뽑기
+function _parseRange(t){
+  const m=t.match(/(\d{1,2})\s*[월\/.]\s*(\d{1,2})\s*일?\s*[~～\-–]\s*(\d{1,2})\s*[월\/.]\s*(\d{1,2})\s*일?/);
+  if(!m) return null;
+  return { from:_mdKey(+m[1],+m[2]), to:_mdKey(+m[3],+m[4]), fm:+m[1], fd:+m[2], tm:+m[3], td:+m[4] };
+}
+function _keyNum(k){ const p=String(k).split('/'); return (+p[0])*100+(+p[1]); }
+function mchatSend(){
+  const inp=document.getElementById('mchatInput'); const t=(inp.value||'').trim();
+  if(!t) return;
+  inp.value=''; _mchatAdd('me', t.replace(/</g,'&lt;'));
+  const cellsBy=window._matchCells||{}, leftBy=window._leftoverByCompany||{};
+  const companies=Object.keys(cellsBy);
+  if(!companies.length){ _mchatAdd('bot','먼저 <b>🎯 매칭 실행</b>을 눌러주세요 — 그 결과를 가지고 확인합니다.'); return; }
+  // 업체 찾기 (공백 무시 부분일치)
+  const norm=s=>String(s).replace(/\s+/g,'');
+  const nt=norm(t);
+  let company=companies.find(c=>nt.includes(norm(c)));
+  if(!company){ _mchatAdd('bot','어느 업체인지 못 찾았어요. 정산달력에 있는 <b>업체명 그대로</b> 적어주세요.'); return; }
+  const rng=_parseRange(t);
+  const cells=(cellsBy[company]||[]).filter(c=>c.sum>0);
+  const deposits=(leftBy[company]||[]);
+  const paid=deposits.reduce((a,x)=>a+x.amount,0);
+  if(!rng){
+    const unpaid=cells.filter(c=>_isCellPaintable(window._matchWs,c.row,c.vatCol||c.taxCol));
+    _mchatAdd('bot',`<b>${company}</b> — 기간을 같이 적어주시면 그 구간 정산 합계를 계산해 맞는지 봐드릴게요.<br>
+      현재 미매칭 입금 ${deposits.length}건 · 합계 <b>${paid.toLocaleString()}원</b><br>
+      미입금(색칠 안 된) 정산 ${unpaid.length}건 · 합계 <b>${unpaid.reduce((a,c)=>a+c.sum,0).toLocaleString()}원</b><br>
+      예: <i>${company} 6/22~7/7 맞는지 확인</i>`);
+    return;
+  }
+  const lo=_keyNum(rng.from), hi=_keyNum(rng.to);
+  const inRange=cells.filter(c=>{ const n=_keyNum(c.key); return n>=lo && n<=hi; });
+  if(!inRange.length){ _mchatAdd('bot',`<b>${company}</b> — ${rng.from}~${rng.to} 구간에 정산 금액이 없어요. 기간을 다시 확인해 주세요.`); return; }
+  const sum=inRange.reduce((a,c)=>a+c.sum,0);
+  const diff=sum-paid;
+  const lines=inRange.map(c=>`${c.key} ${c.sum.toLocaleString()}`).join(' · ');
+  if(!deposits.length){
+    _mchatAdd('bot',`<b>${company}</b> ${rng.from}~${rng.to} 정산 합계 <b>${sum.toLocaleString()}원</b><br><span style="color:var(--text3)">${lines}</span><br>그런데 이 업체는 <b>미매칭 입금이 없어요</b> — 이미 매칭됐거나 입금이 안 들어온 겁니다.`);
+    return;
+  }
+  const dep=deposits.map(d=>`${d.dateKey} ${d.amount.toLocaleString()}`).join(' + ');
+  if(Math.abs(diff)<=1000){
+    window._mchatPending={company, cells:inRange, from:rng.from, to:rng.to, paid};
+    _mchatAdd('bot',`✅ <b>맞습니다.</b> 과입금 아니에요.<br>
+      입금: ${dep} = <b>${paid.toLocaleString()}원</b><br>
+      ${rng.from}~${rng.to} 정산 합계: <b>${sum.toLocaleString()}원</b> ${diff===0?'→ 정확히 일치':'→ 차이 '+diff.toLocaleString()+'원(오차 범위)'}<br>
+      <span style="color:var(--text3)">${lines}</span><br>
+      <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="mchatConfirm()">✓ 이걸로 확정 (색칠 목록 + 기록)</button>`);
+  }else if(diff>0){
+    _mchatAdd('bot',`❌ 안 맞습니다.<br>입금 <b>${paid.toLocaleString()}원</b> / ${rng.from}~${rng.to} 정산 <b>${sum.toLocaleString()}원</b> → <b style="color:#d9480f">${diff.toLocaleString()}원 부족</b> (덜 들어옴)<br><span style="color:var(--text3)">${lines}</span><br>기간이 다른 것 같으면 범위를 바꿔서 다시 물어봐 주세요.`);
+  }else{
+    _mchatAdd('bot',`❌ 이 기간으론 안 맞습니다.<br>입금 <b>${paid.toLocaleString()}원</b> / ${rng.from}~${rng.to} 정산 <b>${sum.toLocaleString()}원</b> → <b style="color:#d9480f">${(-diff).toLocaleString()}원 초과</b><br><span style="color:var(--text3)">${lines}</span><br>기간을 더 넓혀야 할 수도 있어요 (예: 시작일을 앞당겨서).`);
+  }
+}
+// 대화에서 확정 — 그 구간 셀을 색칠 목록에 넣고, 특이사항으로 기록해 다음부터 안 뜨게
+async function mchatConfirm(){
+  const p=window._mchatPending; if(!p) return;
+  const arr=window._toPaintArr||[];
+  p.cells.forEach(c=>arr.push({company:p.company, key:c.key, amount:c.sum, payer:'대화 확정 '+p.from+'~'+p.to}));
+  window._toPaintArr=arr; renderToPaint(arr);
+  const at=new Date().toLocaleString('ko-KR');
+  ((window._leftoverByCompany||{})[p.company]||[]).forEach(t=>{
+    const n={ id:'N'+Date.now()+Math.floor(Math.random()*1000), dateKey:t.dateKey, company:p.company, payer:t.name, amount:t.amount,
+              type:'기간정산', memo:`${p.from}~${p.to} 정산분 입금으로 확인 (사장님 확정)`, at };
+    n.key=_noteKey(n.company,n.dateKey,n.amount);
+    SETTLE_NOTES=SETTLE_NOTES.filter(x=>x.key!==n.key); SETTLE_NOTES.push(n);
+  });
+  try{ await _writeSettleNotes(); }catch(e){ _mchatAdd('bot','⚠ 기록 저장 실패: '+e.message); }
+  renderSettleNotes();
+  _mchatAdd('bot',`🎨 <b>${p.company}</b> ${p.from}~${p.to} — 색칠 목록에 넣고 특이사항으로 기록했습니다. 다음 매칭부터 이 건은 안 뜹니다.`);
+  window._mchatPending=null;
+}
+
 // 메인 매칭 실행
 async function runSettlementMatch(){
   const fSet = document.getElementById('matchSettlementFile').files[0];
@@ -1814,6 +1907,8 @@ async function runSettlementMatch(){
       _logLine('   → 이전 정산달력(예: 5월분)을 ①에 넣고, ③ 기간은 입금 있던 날짜 그대로 두고 다시 매칭하면 그 건만 자동으로 맞춰봅니다.');
     }
     window._matchCells = cellsByCompany; window._matchCompanies = Object.keys(meta.companyCols||{}); window._toPaintArr = toPaint;
+    window._matchWs = meta.ws; window._leftoverByCompany = leftoverByCompany;   // 💬 정산 대화가 쓰는 백데이터
+    try{ const ms=document.getElementById('mchatSection'); if(ms){ ms.style.display=''; if(!document.getElementById('mchatLog').innerHTML) _mchatAdd('bot','매칭 끝났습니다. 결과가 이상하면 말로 물어보세요 — 예: <b>착한한끼 6/22~7/7 입금액 맞는지 확인해봐</b>'); } }catch(e){}
     // 🧩 분할 입금 추정 — 금액이 안 맞아 떨어진 입금들을 업체별로 합쳐 다시 맞춰봄
     let splitProps=[];
     try{
