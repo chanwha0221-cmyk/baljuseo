@@ -88,6 +88,7 @@ textarea:focus{border-color:var(--accent)}
         <button class="btn copy" onclick="copyRich()">📋 서식 복사 (밴드용)</button>
         <button class="btn" onclick="copyPlain()">텍스트만 복사</button>
         <button class="btn" onclick="generate(true)">🔁 다시 생성</button>
+        <button class="btn" onclick="insertPhotoSlot()" title="커서 위치에 사진 넣을 빈 줄 5칸을 넣습니다 (밴드는 본문에 사진이 안 들어가서 자리만 비워둡니다)">🖼 사진 자리 넣기</button>
         <button class="btn" id="imgDlBtn" onclick="downloadImgs()">🖼 원문 사진 받기</button>
       </div>
     </div>
@@ -173,8 +174,20 @@ function htmlToMarked(root){
   for(const c of root.childNodes) walk(c);
   return out.replace(/\*\*\s*\*\*/g,'').replace(/__\s*__/g,'').replace(/\n{3,}/g,'\n\n').trim();
 }
+// 마커가 두 줄에 걸쳐 열리고 닫히면(예: **마트 매대 주꾸미와는\n결이 완전 다릅니다.**) 줄 단위 변환이 실패해
+// '**'가 글자로 노출됐음 (2026-07-13 사장님 실사례). → 변환 전에 여는·닫는 마커 사이의 줄바꿈을 자리표시자로 접었다가 복원.
+const _NL='';
+function _foldMultiline(t){
+  const fold=(s,re)=>s.replace(re,(m)=>m.split('\n').join(_NL));
+  let s=t;
+  s=fold(s,/\*\*(?:[^*]|\*(?!\*))*?\*\*/g);
+  s=fold(s,/__(?:[^_]|_(?!_))*?__/g);
+  s=fold(s,/《큰》[\s\S]*?《\/큰》/g);
+  return s;
+}
 function markedToHtml(t){
-  return t.split('\n').map(line=>{
+  return _foldMultiline(t).split('\n').map(line0=>{
+    const line=line0;
     if(!line.trim()) return '';
     // 사진 토큰 줄 → <img> (밴드 에디터가 붙여넣기 시 자동 업로드해주는 것 활용)
     const im=line.trim().match(/^〈이미지(\d+)〉$/);
@@ -185,6 +198,7 @@ function markedToHtml(t){
     // 안쪽에 별표 하나(*가격)·밑줄 하나가 있어도 매칭되게 — 옛 [^*]*? 는 실패해서 **가 글자로 노출됐음 (2026-07-13)
     h=h.replace(/\*\*((?:[^*\n]|\*(?!\*))+?)\*\*/g,'<b>$1</b>');
     h=h.replace(/__((?:[^_\n]|_(?!_))+?)__/g,'<u>$1</u>');
+    h=h.split(_NL).join('<br>');   // 접었던 줄바꿈 복원 (마커 안쪽 줄바꿈)
     return '<span style="font-size:18px">'+h+'</span>';
   }).join('<br>');
 }
@@ -252,11 +266,35 @@ function restoreLocks(t){
 const JUNK_SEL='button,input,select,textarea,svg,form,label,[role="button"],[contenteditable="false"],.btn,[class*="delete"],[class*="remove"]';
 function scrubRich(el){
   if(!el) return;
-  el.querySelectorAll(JUNK_SEL).forEach(n=>n.remove());
+  el.querySelectorAll(JUNK_SEL).forEach(n=>{
+    // ⚠️ 2026-07-13: 밴드 사진은 role="button" 컨테이너에 감싸여 온다. 통째로 지우면 <img>까지 날아가
+    //    원문 1에 사진이 안 들어오는 사고 발생 → 사진을 품은 요소는 '껍데기만' 벗기고 img는 살린다.
+    const imgs=n.querySelectorAll ? n.querySelectorAll('img') : [];
+    if(imgs.length){ imgs.forEach(im=>n.parentNode && n.parentNode.insertBefore(im, n)); }
+    n.remove();
+  });
   // 버튼이 제거된 뒤 남는 '삭제'/'수정' 단독 줄도 정리
   el.querySelectorAll('div,p,span').forEach(n=>{ if(!n.children.length && /^(삭제|수정|편집|더보기)$/.test((n.textContent||'').trim())) n.remove(); });
 }
 function markSrcA(){ scrubRich($('src-a')); IMGS=[]; return htmlToMarked($('src-a')); }
+// 🖼 사진 자리 넣기 (2026-07-13) — 밴드는 본문에 사진을 못 넣는다(사진은 별도 첨부).
+//   그래서 '원문에서 가져온 사진'이 아예 없다 → 사장님이 결과창에서 직접 자리를 찍게 함.
+//   커서 위치(또는 맨 끝)에 빈 줄 5칸 삽입 → 북마크릿이 그대로 밴드에 넣어주고, 그 자리에 사진을 올리면 됨.
+function insertPhotoSlot(){
+  const out=$('out'); if(!out) return;
+  out.focus();
+  const sel=window.getSelection();
+  const frag=document.createDocumentFragment();
+  for(let i=0;i<5;i++){ const p=document.createElement('div'); p.appendChild(document.createElement('br')); frag.appendChild(p); }
+  if(sel && sel.rangeCount && out.contains(sel.anchorNode)){
+    const r=sel.getRangeAt(0); r.collapse(false); r.insertNode(frag);
+    r.collapse(false); sel.removeAllRanges(); sel.addRange(r);
+  }else{
+    out.appendChild(frag);
+  }
+  upOut();
+  toast('🖼 사진 자리(빈 줄 5칸) 넣었습니다 — 밴드에 붙인 뒤 그 자리에 사진 올리세요');
+}
 // 🧹 초기화 — 원문 1·2, 결과, 사진 목록, 잠금 블록 전부 비움 (저장된 교본 글은 그대로)
 function resetAll(){
   if(!confirm('원문·결과·사진을 전부 비우고 처음부터 시작할까요? (저장된 글은 그대로 유지)')) return;
