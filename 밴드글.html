@@ -243,7 +243,10 @@ function extractLocks(marked){
   // 하단 고정부('진짜 자신 있습니다' 또는 첫 🔽 줄부터 끝까지 = 주문안내·url·사업자 뭉치)도 통째 잠금 (2026-07-10 사장님: 이 부분 글자수 제외)
   const lines=replaced.split('\n');
   let ti=-1;
-  for(let i=0;i<lines.length;i++){ if(/진짜 자신 있습니다|^\s*🔽/.test(lines[i])){ ti=i; break; } }
+  // ⚠️ 2026-07-13: 하단 고정부 줄이 굵게/큰글씨면 마커가 붙어(**🔽 …**) '^🔽' 감지에 실패 → 잠금이 안 걸려
+  //    AI가 주문안내 뭉치를 통째로 날리는 사고. → 마커를 벗긴 평문으로 판정한다.
+  const bare=s=>String(s).replace(/《\/?큰》/g,'').replace(/\*\*/g,'').replace(/__/g,'').trim();
+  for(let i=0;i<lines.length;i++){ const b=bare(lines[i]); if(/진짜 자신 있습니다/.test(b) || /^🔽/.test(b) || /^[^가-힣A-Za-z0-9]{0,3}쇼핑몰 간편 결제/.test(b)){ ti=i; break; } }
   if(ti>=0 && lines.slice(ti).join('').trim()){
     LOCKS.push(lines.slice(ti).join('\n'));
     TAIL_LOCK=LOCKS.length-1;   // 이 잠금은 '글 맨 끝' 소속 — 유실돼도 위로 올리지 말 것
