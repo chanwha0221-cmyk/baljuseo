@@ -1641,59 +1641,73 @@ function _findPastRun(allCells, lastPay, paid, tolerance){
 function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance){
   const props=[];
   for(const company of Object.keys(leftoverByCompany)){
-    const allTxs=leftoverByCompany[company];
-    if(!allTxs || !allTxs.length) continue;
-    const cells=(cellsByCompany[company]||[]).filter(c=>c.sum>0 && _isCellPaintable(ws,c.row,c.vatCol||c.taxCol));
-    if(!cells.length){ props.push({company, txs:allTxs, cells:[], status:'nocell', paid:allTxs.reduce((a,t)=>a+t.amount,0), total:0}); continue; }
+    const allTxs=(leftoverByCompany[company]||[]).slice().sort((a,b)=>(a.date||0)-(b.date||0));
+    if(!allTxs.length) continue;
+    const allCells=(cellsByCompany[company]||[]).filter(c=>c.sum>0);
+    const unpaid=allCells.filter(c=>_isCellPaintable(ws,c.row,c.vatCol||c.taxCol));   // 색칠 안 된 셀만 색칠 대상
+    if(!unpaid.length){ props.push({company, txs:allTxs, cells:[], status:'nocell', paid:allTxs.reduce((a,t)=>a+t.amount,0), total:0}); continue; }
 
-    /* ⏱ 시간 규칙 (2026-07-13 사장님 지적 — 핵심):
-       입금은 정산일 당일 아니면 그 이후에만 들어온다. 미입금(색칠 안 된) 정산 구간이 7/6~7/10이면
-       5/4 입금은 그 정산분일 수가 없다 — 그건 이미 색칠된 이전 정산분을 갚은 돈이다.
-       → 미입금 구간 '시작일보다 앞선' 입금은 후보에서 제외 (예전엔 이걸 끌어다 붙여 '374,900원 부족' 오보) */
-    const firstUnpaid = cells.reduce((m,c)=>(!m || c.date<m ? c.date : m), null);
-    const txs   = allTxs.filter(t=>!t.date || !firstUnpaid || t.date >= firstUnpaid);
-    const early = allTxs.filter(t=> t.date && firstUnpaid && t.date <  firstUnpaid);
-    if(early.length){
-      props.push({company, txs:early, cells:[], status:'prevpaid',
-                  paid:early.reduce((a,t)=>a+t.amount,0), total:0,
-                  span: cells.length? (cells[0].key+'~'+cells[cells.length-1].key):''});
-    }
-    if(!txs.length) continue;   // 미입금 구간 이후 입금이 하나도 없으면 = 아직 안 들어온 것. 경고 만들지 않음
-    const paid=txs.reduce((a,t)=>a+t.amount,0);
+    /* ⏱ 시간 규칙 (사장님 확립 — 2026-07-13)
+       ① 입금은 정산일 당일 또는 그 이후에만 들어온다. 입금일 이후 정산은 그때 존재하지도 않던 돈이라 갚을 수 없다.
+       ② 색칠된 셀 = 사장님이 이미 검증 완료 → 절대 다시 칠하지 않는다. 매칭 후보는 미입금 셀뿐.
+       ③ 입금이 여러 건이면 '조합(부분집합)'으로 맞춘다. 남는 입금은 과입금(환불 대상)일 수 있다.
+          (착한한끼: 6/22~7/7 정산 7,376,000 = 6/30 4,700,000 + 7/8 2,676,000, 7/9 100,000은 과입금) */
 
-    /* ⏱ 시간 규칙 ② (2026-07-13 시엘리마켓 케이스 — 사장님 재지적):
-       입금은 '그 입금일까지 이미 발생한 정산'만 갚을 수 있다. 7/5 입금이 7/6·7/8·7/10 정산분을 갚았을 리 없다.
-       → 후보 셀 = 미입금 셀 중 '마지막 입금일 이전(당일 포함)'인 것만.
-       그 합계보다 입금이 크면 = 초과분은 이 달력 밖(전월) 정산분 → '초과' 경고가 아니라 '이전 정산분 상환'으로 처리. */
-    const lastPay = txs.reduce((m,t)=>(t.date && (!m || t.date>m) ? t.date : m), null);
-    const upTo = lastPay ? cells.filter(c=>c.date <= lastPay) : cells;
-    const upToSum = upTo.reduce((a,c)=>a+c.sum,0);
-    if(paid > upToSum + tolerance){
-      // 🔎 과거 확인 (2026-07-13 사장님: "이상하면 요청한 날짜보다 위를 봐봐 — 정산금과 입금액이 맞는지")
-      //    색칠된 셀은 이미 검증 완료라 절대 다시 칠하지 않는다. 다만 '이 입금이 어느 과거 정산분이었나'를
-      //    설명하기 위해 색칠 포함 전체 셀에서 입금일 이전 구간을 합산해 일치 구간만 찾아 알려준다.
-      const past=_findPastRun(cellsByCompany[company]||[], lastPay, paid, tolerance);
-      props.push({company, txs, cells:[], status:'prevpaid', paid, total:upToSum,
-                  span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : '해당 없음',
-                  past, why:'입금일까지 발생한 미입금 정산보다 입금이 큼 → 이전(전월) 마감분 상환'});
-      continue;
-    }
-    // 입금 합계와 딱 맞는 '연속 구간' 찾기 (가장 짧은 구간 우선)
-    // ⚠️ 후보는 upTo(입금일까지 발생한 정산)로 한정 — 입금일 이후 정산은 아직 존재하지도 않는 돈이라 매칭 대상 아님
-    const scope = upTo;
-    let best=null;
-    for(let i=0;i<scope.length;i++){
-      let sum=0;
-      for(let j=i;j<scope.length;j++){
-        sum+=scope[j].sum;
-        if(Math.abs(sum-paid)<=tolerance){ const run=scope.slice(i,j+1); if(!best||run.length<best.length) best=run; break; }
-        if(sum>paid+tolerance) break;
+    const N=Math.min(allTxs.length, 12);          // 조합 탐색은 최대 12건(4,096가지)
+    const list=allTxs.slice(-N);
+    let best=null;                                 // {mask, txs, cells, sum}
+    for(let mask=1; mask<(1<<N); mask++){
+      const sel=[]; let sum=0;
+      for(let i=0;i<N;i++) if(mask&(1<<i)){ sel.push(list[i]); sum+=list[i].amount; }
+      const lastPay=sel.reduce((m,t)=>(t.date && (!m||t.date>m) ? t.date : m), null);
+      const scope=lastPay ? unpaid.filter(c=>c.date<=lastPay) : unpaid;   // 규칙①
+      if(!scope.length) continue;
+      for(let i=0;i<scope.length;i++){
+        let s=0;
+        for(let j=i;j<scope.length;j++){
+          s+=scope[j].sum;
+          if(Math.abs(s-sum)<=tolerance){
+            const run=scope.slice(i,j+1);
+            const cand={sel, run, sum:s, nTx:sel.length, nCell:run.length};
+            // 더 많은 입금·더 긴 정산 구간을 덮는 조합을 우선 (남는 잔돈이 과입금으로 드러나게)
+            if(!best || cand.nCell>best.nCell || (cand.nCell===best.nCell && cand.nTx>best.nTx)) best=cand;
+            break;
+          }
+          if(s>sum+tolerance) break;
+        }
       }
     }
-    if(best){ props.push({company, txs, cells:best, status:'match', paid, total:best.reduce((a,c)=>a+c.sum,0)}); continue; }
-    // 입금이 '입금일까지 발생한 미입금 정산'보다 작음 = 부분 입금 (초과는 위에서 prevpaid로 이미 걸러짐)
-    props.push({company, txs, cells:[], status:'short', paid, total:upToSum,
-                span: scope.length? (scope[0].key+'~'+scope[scope.length-1].key) : ''});
+
+    if(best){
+      props.push({company, txs:best.sel, cells:best.run, status:'match', paid:best.sel.reduce((a,t)=>a+t.amount,0), total:best.sum});
+      // 조합에 안 쓰인 나머지 입금 = 과입금(환불) 또는 이전 마감분 상환
+      const used=new Set(best.sel);
+      const rest=allTxs.filter(t=>!used.has(t));
+      if(rest.length){
+        const restSum=rest.reduce((a,t)=>a+t.amount,0);
+        const lastPay=rest.reduce((m,t)=>(t.date&&(!m||t.date>m)?t.date:m),null);
+        const past=_findPastRun(allCells, lastPay, restSum, tolerance);
+        props.push({company, txs:rest, cells:[], status: past?'prevpaid':'over', paid:restSum,
+                    total: past?past.sum:0, past,
+                    span: best.run[0].key+'~'+best.run[best.run.length-1].key,
+                    why: past? '이전 마감분 상환' : '정산 조합에 안 쓰인 잔여 입금 → 과입금(환불) 가능성'});
+      }
+      continue;
+    }
+
+    // 조합으로도 못 맞춤 → 입금일까지의 미입금 정산과 비교해 부족/이전상환 판정
+    const paid=allTxs.reduce((a,t)=>a+t.amount,0);
+    const lastPay=allTxs.reduce((m,t)=>(t.date&&(!m||t.date>m)?t.date:m),null);
+    const upTo=lastPay ? unpaid.filter(c=>c.date<=lastPay) : unpaid;
+    const upToSum=upTo.reduce((a,c)=>a+c.sum,0);
+    if(paid > upToSum + tolerance){
+      const past=_findPastRun(allCells, lastPay, paid, tolerance);   // 🔎 과거 확인 (색칠 포함, 칠하진 않음)
+      props.push({company, txs:allTxs, cells:[], status:'prevpaid', paid, total:upToSum, past,
+                  span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : '해당 없음'});
+    }else{
+      props.push({company, txs:allTxs, cells:[], status:'short', paid, total:upToSum,
+                  span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
+    }
   }
   return props;
 }
@@ -2030,41 +2044,4 @@ function renderUnmatched(arr){
     </div>`).join('');
 }
 async function confirmSettleAlias(i){
-  const x=(window._unmatchedArr||[])[i]; if(!x) return;
-  const inp=document.getElementById('um-in-'+i); const company=(inp&&inp.value||'').trim();
-  if(!company){ alert('업체를 골라주세요.'); return; }
-  SETTLE_ALIAS[_normPayer(x.name)]=company;
-  if(company!=='취합안함'){ // 취합안함이면 색칠목록에 안 넣음(업체 정산 아님)
-    const cells=(window._matchCells||{})[company]||[];
-    const hit=cells.find(c=>c.sum>0 && Math.abs(c.sum - x.amount)<=1000);
-    (window._toPaintArr=window._toPaintArr||[]).push({company, key: hit?hit.key:(x.dateKey+' (수동)'), amount:x.amount, payer:x.name});
-    renderToPaint(window._toPaintArr);
-  }
-  const row=document.getElementById('um-'+i); if(row) row.style.display='none';
-  showToast(company==='취합안함' ? ('🚫 '+x.name+' 취합 제외로 기억함') : ('✓ '+company+' 기억함 — 다음부터 자동 매칭'));
-  try{ await saveSettleAlias(); }catch(e){}
-}
-// 🚫 취합 안 함 — 업체 정산이 아닌 입금(결산·이자 등)을 취합에서 빼고 기억
-async function skipSettle(i){ const inp=document.getElementById('um-in-'+i); if(inp) inp.value='취합안함'; await confirmSettleAlias(i); }
-// 🔁 이름 코어(날짜/언더바/숫자 뒤 제거)를 부분일치 별칭으로 학습 — '서희석_6/15'류 반복 입금 대응
-async function rememberCore(i){
-  const x=(window._unmatchedArr||[])[i]; if(!x) return;
-  const inp=document.getElementById('um-in-'+i); const company=(inp&&inp.value||'').trim();
-  if(!company){ alert('업체칸을 채워주세요 (취합에서 뺄 거면 "취합안함").'); return; }
-  const core=_normPayer(x.name).replace(/[_\-].*$/,'').replace(/\d.*$/,'').trim();
-  if(core.length<2){ alert('이름을 인식 못 했어요. 그냥 [확정·기억]을 쓰세요.'); return; }
-  SETTLE_ALIAS[core]=company;
-  if(company!=='취합안함'){
-    const cells=(window._matchCells||{})[company]||[];
-    const hit=cells.find(c=>c.sum>0 && Math.abs(c.sum-x.amount)<=1000);
-    (window._toPaintArr=window._toPaintArr||[]).push({company, key:hit?hit.key:(x.dateKey+' (수동)'), amount:x.amount, payer:x.name});
-    renderToPaint(window._toPaintArr);
-  }
-  const row=document.getElementById('um-'+i); if(row) row.style.display='none';
-  showToast(`🔁 '${core}' 들어간 입금은 앞으로 ${company==='취합안함'?'취합 제외':company}로 자동`);
-  try{ await saveSettleAlias(); }catch(e){}
-}
-</script>
-</body>
-</html>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+  const x=(window
