@@ -411,15 +411,9 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
           <div style="font-size:11px;color:var(--text3);margin-bottom:6px">단일·합산 매칭에서 떨어진 입금을 업체별로 <b>합쳐서</b> 다시 맞춰본 결과예요. 합계가 정산과 맞으면 [✓]로 색칠 목록에 넣고, 모자라면 잔액이 얼마인지 알려줍니다. 바로 아래 대화창에서 물어보시면 됩니다.</div>
           <div id="splitList" style="border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto"></div>
         </div>
-        <div class="msg-section" id="mchatSection" style="display:none">
-          <div class="msg-section-title">💬 정산 대화 <span style="color:var(--text3);font-weight:400;font-size:11px">— 위 결과 보면서 물어보세요</span></div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">아무거나 물어보세요 — 정산달력·통장 백데이터를 보고 AI가 답합니다. <b>업체명 + 기간</b>(예: <i>착한한끼 6/22~7/7 맞는지 확인</i>)을 적으면 AI 대신 <b>직접 계산해 정확한 숫자</b>로 답하고 확정 버튼까지 줍니다.</div>
-          <div id="mchatLog" style="border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto;padding:8px;font-size:12px;line-height:1.6"></div>
-          <div style="position:sticky;bottom:0;background:var(--surface);padding:8px 0 2px;display:flex;gap:6px;border-top:1px solid var(--border);margin-top:6px">
-            <input id="mchatInput" placeholder="예: 착한한끼 과입금 아니야, 6/22~7/7 입금액이니까 확인해봐" style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit" onkeydown="if(event.key==='Enter'){event.preventDefault();mchatSend()}">
-            <button class="btn-copy" style="padding:9px 16px;font-size:13px;background:var(--accent);color:#fff;border-color:var(--accent)" onclick="mchatSend()">↑ 전송</button>
-          </div>
-        </div>
+        <!-- 💬 정산 대화 — 2026-07-13 제거. 도구 안 채팅으로는 맥락 한계가 커서, 정산 판단은 클로드와 직접 대화하고
+             결론만 '📌 정산 특이사항' 탭에 기록하는 방식으로 전환 (사장님 지시). -->
+
       </div>
     </div><!-- /matchPanelWrap -->
   </div>
@@ -1629,6 +1623,21 @@ function _isCellPaintable(ws, row, col){
 //   단일·합산 매칭에서 떨어진 입금들을 업체별로 모아 '합치면 어느 구간 정산과 맞는지' 계산.
 //   - 합계가 미입금 구간 합과 맞으면 → 색칠 제안 (사장님이 [✓] 누르면 색칠 목록에 들어감)
 //   - 모자라면 → "얼마 중 얼마 입금 / 잔액 얼마 미입금" 상태만 설명 (색칠 안 함)
+/* 🔎 과거 구간 확인 — 입금일 이전(당일 포함)의 정산 셀(색칠 포함 전부)에서 입금액과 합이 맞는 연속 구간을 찾는다.
+   목적: "이 입금은 6/22~6/29 정산분이었다"를 설명하기 위함. **색칠은 절대 하지 않는다**(색칠 = 사장님이 이미 검증 완료).
+   가장 최근 구간부터(뒤에서 앞으로) 훑어 가장 짧은 구간 우선. */
+function _findPastRun(allCells, lastPay, paid, tolerance){
+  const cells=(allCells||[]).filter(c=>c.sum>0 && (!lastPay || c.date<=lastPay));
+  for(let j=cells.length-1;j>=0;j--){
+    let sum=0;
+    for(let i=j;i>=0;i--){
+      sum+=cells[i].sum;
+      if(Math.abs(sum-paid)<=tolerance) return { from:cells[i].key, to:cells[j].key, sum, n:j-i+1 };
+      if(sum>paid+tolerance) break;
+    }
+  }
+  return null;
+}
 function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance){
   const props=[];
   for(const company of Object.keys(leftoverByCompany)){
@@ -1651,20 +1660,40 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance){
     }
     if(!txs.length) continue;   // 미입금 구간 이후 입금이 하나도 없으면 = 아직 안 들어온 것. 경고 만들지 않음
     const paid=txs.reduce((a,t)=>a+t.amount,0);
+
+    /* ⏱ 시간 규칙 ② (2026-07-13 시엘리마켓 케이스 — 사장님 재지적):
+       입금은 '그 입금일까지 이미 발생한 정산'만 갚을 수 있다. 7/5 입금이 7/6·7/8·7/10 정산분을 갚았을 리 없다.
+       → 후보 셀 = 미입금 셀 중 '마지막 입금일 이전(당일 포함)'인 것만.
+       그 합계보다 입금이 크면 = 초과분은 이 달력 밖(전월) 정산분 → '초과' 경고가 아니라 '이전 정산분 상환'으로 처리. */
+    const lastPay = txs.reduce((m,t)=>(t.date && (!m || t.date>m) ? t.date : m), null);
+    const upTo = lastPay ? cells.filter(c=>c.date <= lastPay) : cells;
+    const upToSum = upTo.reduce((a,c)=>a+c.sum,0);
+    if(paid > upToSum + tolerance){
+      // 🔎 과거 확인 (2026-07-13 사장님: "이상하면 요청한 날짜보다 위를 봐봐 — 정산금과 입금액이 맞는지")
+      //    색칠된 셀은 이미 검증 완료라 절대 다시 칠하지 않는다. 다만 '이 입금이 어느 과거 정산분이었나'를
+      //    설명하기 위해 색칠 포함 전체 셀에서 입금일 이전 구간을 합산해 일치 구간만 찾아 알려준다.
+      const past=_findPastRun(cellsByCompany[company]||[], lastPay, paid, tolerance);
+      props.push({company, txs, cells:[], status:'prevpaid', paid, total:upToSum,
+                  span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : '해당 없음',
+                  past, why:'입금일까지 발생한 미입금 정산보다 입금이 큼 → 이전(전월) 마감분 상환'});
+      continue;
+    }
     // 입금 합계와 딱 맞는 '연속 구간' 찾기 (가장 짧은 구간 우선)
+    // ⚠️ 후보는 upTo(입금일까지 발생한 정산)로 한정 — 입금일 이후 정산은 아직 존재하지도 않는 돈이라 매칭 대상 아님
+    const scope = upTo;
     let best=null;
-    for(let i=0;i<cells.length;i++){
+    for(let i=0;i<scope.length;i++){
       let sum=0;
-      for(let j=i;j<cells.length;j++){
-        sum+=cells[j].sum;
-        if(Math.abs(sum-paid)<=tolerance){ const run=cells.slice(i,j+1); if(!best||run.length<best.length) best=run; break; }
+      for(let j=i;j<scope.length;j++){
+        sum+=scope[j].sum;
+        if(Math.abs(sum-paid)<=tolerance){ const run=scope.slice(i,j+1); if(!best||run.length<best.length) best=run; break; }
         if(sum>paid+tolerance) break;
       }
     }
     if(best){ props.push({company, txs, cells:best, status:'match', paid, total:best.reduce((a,c)=>a+c.sum,0)}); continue; }
-    const unpaid=cells.reduce((a,c)=>a+c.sum,0);
-    props.push({company, txs, cells:[], status: paid<unpaid?'short':'over', paid, total:unpaid,
-                span: cells.length? (cells[0].key+'~'+cells[cells.length-1].key) : ''});
+    // 입금이 '입금일까지 발생한 미입금 정산'보다 작음 = 부분 입금 (초과는 위에서 prevpaid로 이미 걸러짐)
+    props.push({company, txs, cells:[], status:'short', paid, total:upToSum,
+                span: scope.length? (scope[0].key+'~'+scope[scope.length-1].key) : ''});
   }
   return props;
 }
@@ -1700,9 +1729,14 @@ function renderSplitPay(props){
       </div>`;
     }
     if(p.status==='prevpaid'){
-      return `<div style="padding:8px 10px;border-bottom:1px solid var(--border);opacity:.75">
-        <div style="font-weight:700">${p.company} <span style="color:var(--text3);font-size:11px">ℹ 이전 정산분 상환 (계산에서 제외)</span></div>
-        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} — 미입금 정산(${p.span||'-'})보다 <b>앞선 날짜</b>라 그 정산분일 수 없습니다.<br><span style="color:var(--text3)">이미 색칠된(입금완료) 이전 정산을 갚은 돈으로 보고 계산에서 뺐습니다.</span></div>
+      return `<div style="padding:8px 10px;border-bottom:1px solid var(--border);opacity:.8">
+        <div style="font-weight:700">${p.company} <span style="color:var(--text3);font-size:11px">ℹ 이전(전월) 마감분 상환 — 계산에서 제외</span></div>
+        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} = <b>${p.paid.toLocaleString()}원</b><br>
+        입금일까지 발생한 미입금 정산(${p.span||'해당 없음'}) 합계는 <b>${(p.total||0).toLocaleString()}원</b>뿐입니다.<br>
+        ${p.past
+          ? `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 합계 <b>${p.past.sum.toLocaleString()}원</b> = 입금액 일치 → <b>그 기간 마감분 상환</b>으로 확인됩니다. <span style="color:var(--text3)">(이미 색칠된 구간이라 다시 칠하지 않습니다)</span>`
+          : `<span style="color:var(--text3)">과거 구간에서도 딱 맞는 조합을 못 찾았습니다 — 이 달력 밖(전월) 정산일 가능성이 큽니다.</span>`}
+        </div>
       </div>`;
     }
     return `<div style="padding:8px 10px;border-bottom:1px solid var(--border)">
@@ -1723,149 +1757,7 @@ function applySplit(i){
   showToast('🎨 '+p.company+' — 색칠 목록에 추가됨');
 }
 
-/* ===== 💬 정산 대화 (2026-07-13 사장님: "과입금 아니라 6/22~7/7 입금액이야, 맞는지 확인해봐" 하면 검토하고 넘어가라)
-   AI 아님 — 정산달력 셀(_matchCells)과 그 업체의 미매칭 입금(_leftoverByCompany)을 실제로 더해서 답한다. */
-function _mchatAdd(who,html){
-  const log=document.getElementById('mchatLog'); if(!log) return;
-  const mine=who==='me';
-  log.innerHTML+=`<div style="margin:5px 0;text-align:${mine?'right':'left'}">
-    <span style="display:inline-block;max-width:90%;padding:6px 10px;border-radius:10px;background:${mine?'var(--accent)':'var(--bg2,#f1f3f5)'};color:${mine?'#fff':'var(--text)'};text-align:left">${html}</span></div>`;
-  log.scrollTop=log.scrollHeight;
-}
-function _mdKey(m,d){ return m+'/'+d; }
-// '6/22~7/7', '6월22일~7월7일', '6.22 - 7.7' 등에서 기간 뽑기
-function _parseRange(t){
-  const m=t.match(/(\d{1,2})\s*[월\/.]\s*(\d{1,2})\s*일?\s*[~～\-–]\s*(\d{1,2})\s*[월\/.]\s*(\d{1,2})\s*일?/);
-  if(!m) return null;
-  return { from:_mdKey(+m[1],+m[2]), to:_mdKey(+m[3],+m[4]), fm:+m[1], fd:+m[2], tm:+m[3], td:+m[4] };
-}
-function _keyNum(k){ const p=String(k).split('/'); return (+p[0])*100+(+p[1]); }
-// 유료 키라 분당 한도 대기 없음 — 일시 오류(서버 과부하)만 3초 간격 2회 재시도
-// ⚠️ AI_PROXY_URL/TOKEN 선언은 파일 최상단(SHEET_ID 옆). 여기 두면 TDZ로 죽음 (2026-07-13 재발)
-async function _mchatAI(prompt,retry=0){
-  const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[]}),redirect:'follow'});
-  const d=await r.json();
-  if(d.error){
-    if(/overload|503|500|timeout|unavailable/i.test(d.error)&&retry<2){
-      await new Promise(x=>setTimeout(x,3000));
-      return _mchatAI(prompt,retry+1);
-    }
-    throw new Error(d.error);
-  }
-  return String(d.text||d.result||'').trim();
-}
-// AI에게 넘길 백데이터 요약 — 정산달력 셀·미매칭 입금·미정산 현황 (계산은 아래 규칙엔진이 먼저 하고, AI는 설명·자유질문 담당)
-function _mchatContext(company){
-  const cellsBy=window._matchCells||{}, leftBy=window._leftoverByCompany||{};
-  const lines=[];
-  // 유료 키 = 컨텍스트 아끼지 말 것. 업체 지정 없으면 매칭 안 된 업체 전부 + 미정산 현황까지 통째로 넘긴다
-  const targets = company ? [company] : Object.keys(leftBy);
-  targets.forEach(c=>{
-    const cells=(cellsBy[c]||[]).filter(x=>x.sum>0);
-    const unpaid=cells.filter(x=>{ try{ return _isCellPaintable(window._matchWs,x.row,x.vatCol||x.taxCol); }catch(e){ return true; } });
-    const firstUnpaid=unpaid.reduce((m,x)=>(!m||x.date<m?x.date:m),null);
-    const depAll=(leftBy[c]||[]);
-    const dep=depAll.filter(x=>!x.date||!firstUnpaid||x.date>=firstUnpaid);       // 미입금 구간 이후 입금만이 후보
-    const depOld=depAll.filter(x=>x.date&&firstUnpaid&&x.date<firstUnpaid);       // 그 전 입금 = 이미 색칠된 정산분 상환
-    lines.push(`[${c}]`);
-    lines.push(` 미입금(색칠 안 된 것 = 우리가 볼 것): ${unpaid.map(x=>x.key+' '+x.sum.toLocaleString()).join(' / ')||'없음'} → 합계 ${unpaid.reduce((a,x)=>a+x.sum,0).toLocaleString()}원`);
-    lines.push(` 매칭 안 된 입금(미입금 구간 이후): ${dep.map(x=>x.dateKey+' '+x.amount.toLocaleString()+'('+x.name+')').join(' / ')||'없음'} → 합계 ${dep.reduce((a,x)=>a+x.amount,0).toLocaleString()}원`);
-    if(depOld.length) lines.push(` (참고) 미입금 구간보다 앞선 입금 = 이전 정산분 상환, 계산 제외: ${depOld.map(x=>x.dateKey+' '+x.amount.toLocaleString()).join(' / ')}`);
-    lines.push(` 이미 색칠된(입금완료) 정산은 볼 필요 없어 생략함`);
-  });
-  // 미정산 현황(업체별 기간·금액)도 같이 — "이번 달 미정산 큰 데 어디야?" 같은 질문 답하게
-  if(MIS_DATA && MIS_DATA.length){
-    lines.push('[업체별 미정산 현황]');
-    MIS_DATA.slice(0,60).forEach(e=>lines.push(` ${e.name} ${fmtKDate(e.from)}~${fmtKDate(e.to)} ${Number(e.amt||0).toLocaleString()}원`));
-  }
-  const notes=SETTLE_NOTES.map(n=>` ${n.company} ${n.dateKey} ${n.amount.toLocaleString()} — ${n.memo}`);
-  if(notes.length) lines.push('[이미 처리된 특이사항]', ...notes);
-  return lines.join('\n');
-}
-async function mchatSend(){
-  const inp=document.getElementById('mchatInput'); const t=(inp.value||'').trim();
-  if(!t) return;
-  inp.value=''; _mchatAdd('me', t.replace(/</g,'&lt;'));
-  const cellsBy=window._matchCells||{}, leftBy=window._leftoverByCompany||{};
-  const companies=Object.keys(cellsBy);
-  if(!companies.length){ _mchatAdd('bot','먼저 <b>🎯 매칭 실행</b>을 눌러주세요 — 그 결과를 가지고 확인합니다.'); return; }
-  // 업체 찾기 (공백 무시 부분일치)
-  const norm=s=>String(s).replace(/\s+/g,'');
-  const nt=norm(t);
-  let company=companies.find(c=>nt.includes(norm(c)));
-  const rng=company?_parseRange(t):null;
-  // 업체+기간이 딱 잡히면 → 아래 규칙엔진이 정확히 계산 (돈 계산은 AI에 맡기지 않음)
-  // 그 외 자유 질문("얘 왜 안 맞아?", "이번달 미정산 큰 데 어디야?")은 → AI가 백데이터 보고 대화로 답함
-  if(!company || !rng){
-    _mchatAdd('bot','<span style="opacity:.6">생각 중…</span>');
-    const log=document.getElementById('mchatLog');
-    try{
-      const ctx=_mchatContext(company);
-      const ans=await _mchatAI(`너는 수산물 유통회사 '마스터'의 정산 담당 비서다. 아래는 정산달력·통장 매칭 결과의 실제 데이터다.
-⚠️ 대전제: 입금은 정산일 당일 또는 그 이후에만 들어온다. 미입금 구간보다 '앞선 날짜'의 입금은 그 정산분일 수 없고, 이미 색칠된(입금완료) 이전 정산을 갚은 돈이다. 그런 입금을 미입금 정산과 비교해 '부족하다'고 말하지 마라.
-이미 색칠된 정산은 처리 끝난 것이라 볼 필요 없다. 우리가 보는 건 미입금(색칠 안 된) 정산뿐이다.
-사장님 질문에 이 데이터만 근거로, 한국어로 간결하게(3~6줄) 답해라. 데이터에 없는 숫자를 지어내지 말 것. 금액은 원 단위로 콤마 찍어 표기.
-답이 "이 기간 정산분이 맞다/아니다"류면 근거 숫자(입금 합계 vs 정산 합계)를 반드시 같이 보여줘라.
-업체명과 기간(예: 착한한끼 6/22~7/7)을 같이 적어주면 정확히 계산해 준다고 안내해도 좋다.
-
-[데이터]
-${ctx||'(매칭 결과 없음)'}
-
-[사장님 질문]
-${t}`);
-      if(log && log.lastElementChild) log.removeChild(log.lastElementChild);
-      _mchatAdd('bot', ans.replace(/</g,'&lt;').replace(/\n/g,'<br>'));
-    }catch(e){
-      if(log && log.lastElementChild) log.removeChild(log.lastElementChild);
-      _mchatAdd('bot','⚠ AI 응답 실패: '+e.message+'<br><span style="color:var(--text3)">업체명 + 기간(예: <b>착한한끼 6/22~7/7</b>)으로 물어보시면 AI 없이도 정확히 계산해 드립니다.</span>');
-    }
-    return;
-  }
-  const cells=(cellsBy[company]||[]).filter(c=>c.sum>0);
-  const deposits=(leftBy[company]||[]);
-  const paid=deposits.reduce((a,x)=>a+x.amount,0);
-  const lo=_keyNum(rng.from), hi=_keyNum(rng.to);
-  const inRange=cells.filter(c=>{ const n=_keyNum(c.key); return n>=lo && n<=hi; });
-  if(!inRange.length){ _mchatAdd('bot',`<b>${company}</b> — ${rng.from}~${rng.to} 구간에 정산 금액이 없어요. 기간을 다시 확인해 주세요.`); return; }
-  const sum=inRange.reduce((a,c)=>a+c.sum,0);
-  const diff=sum-paid;
-  const lines=inRange.map(c=>`${c.key} ${c.sum.toLocaleString()}`).join(' · ');
-  if(!deposits.length){
-    _mchatAdd('bot',`<b>${company}</b> ${rng.from}~${rng.to} 정산 합계 <b>${sum.toLocaleString()}원</b><br><span style="color:var(--text3)">${lines}</span><br>그런데 이 업체는 <b>미매칭 입금이 없어요</b> — 이미 매칭됐거나 입금이 안 들어온 겁니다.`);
-    return;
-  }
-  const dep=deposits.map(d=>`${d.dateKey} ${d.amount.toLocaleString()}`).join(' + ');
-  if(Math.abs(diff)<=1000){
-    window._mchatPending={company, cells:inRange, from:rng.from, to:rng.to, paid};
-    _mchatAdd('bot',`✅ <b>맞습니다.</b> 과입금 아니에요.<br>
-      입금: ${dep} = <b>${paid.toLocaleString()}원</b><br>
-      ${rng.from}~${rng.to} 정산 합계: <b>${sum.toLocaleString()}원</b> ${diff===0?'→ 정확히 일치':'→ 차이 '+diff.toLocaleString()+'원(오차 범위)'}<br>
-      <span style="color:var(--text3)">${lines}</span><br>
-      <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="mchatConfirm()">✓ 이걸로 확정 (색칠 목록 + 기록)</button>`);
-  }else if(diff>0){
-    _mchatAdd('bot',`❌ 안 맞습니다.<br>입금 <b>${paid.toLocaleString()}원</b> / ${rng.from}~${rng.to} 정산 <b>${sum.toLocaleString()}원</b> → <b style="color:#d9480f">${diff.toLocaleString()}원 부족</b> (덜 들어옴)<br><span style="color:var(--text3)">${lines}</span><br>기간이 다른 것 같으면 범위를 바꿔서 다시 물어봐 주세요.`);
-  }else{
-    _mchatAdd('bot',`❌ 이 기간으론 안 맞습니다.<br>입금 <b>${paid.toLocaleString()}원</b> / ${rng.from}~${rng.to} 정산 <b>${sum.toLocaleString()}원</b> → <b style="color:#d9480f">${(-diff).toLocaleString()}원 초과</b><br><span style="color:var(--text3)">${lines}</span><br>기간을 더 넓혀야 할 수도 있어요 (예: 시작일을 앞당겨서).`);
-  }
-}
-// 대화에서 확정 — 그 구간 셀을 색칠 목록에 넣고, 특이사항으로 기록해 다음부터 안 뜨게
-async function mchatConfirm(){
-  const p=window._mchatPending; if(!p) return;
-  const arr=window._toPaintArr||[];
-  p.cells.forEach(c=>arr.push({company:p.company, key:c.key, amount:c.sum, payer:'대화 확정 '+p.from+'~'+p.to}));
-  window._toPaintArr=arr; renderToPaint(arr);
-  const at=new Date().toLocaleString('ko-KR');
-  ((window._leftoverByCompany||{})[p.company]||[]).forEach(t=>{
-    const n={ id:'N'+Date.now()+Math.floor(Math.random()*1000), dateKey:t.dateKey, company:p.company, payer:t.name, amount:t.amount,
-              type:'기간정산', memo:`${p.from}~${p.to} 정산분 입금으로 확인 (사장님 확정)`, at };
-    n.key=_noteKey(n.company,n.dateKey,n.amount);
-    SETTLE_NOTES=SETTLE_NOTES.filter(x=>x.key!==n.key); SETTLE_NOTES.push(n);
-  });
-  try{ await _writeSettleNotes(); }catch(e){ _mchatAdd('bot','⚠ 기록 저장 실패: '+e.message); }
-  renderSettleNotes();
-  _mchatAdd('bot',`🎨 <b>${p.company}</b> ${p.from}~${p.to} — 색칠 목록에 넣고 특이사항으로 기록했습니다. 다음 매칭부터 이 건은 안 뜹니다.`);
-  window._mchatPending=null;
-}
+/* 💬 정산 대화 UI/AI 호출은 2026-07-13 제거 — 정산 판단은 클로드와 직접 대화, 결론은 📌 정산 특이사항 탭에 기록 */
 
 // 메인 매칭 실행
 async function runSettlementMatch(){
@@ -2048,8 +1940,7 @@ async function runSettlementMatch(){
       _logLine('   → 이전 정산달력(예: 5월분)을 ①에 넣고, ③ 기간은 입금 있던 날짜 그대로 두고 다시 매칭하면 그 건만 자동으로 맞춰봅니다.');
     }
     window._matchCells = cellsByCompany; window._matchCompanies = Object.keys(meta.companyCols||{}); window._toPaintArr = toPaint;
-    window._matchWs = meta.ws; window._leftoverByCompany = leftoverByCompany;   // 💬 정산 대화가 쓰는 백데이터
-    try{ const ms=document.getElementById('mchatSection'); if(ms){ ms.style.display=''; if(!document.getElementById('mchatLog').innerHTML) _mchatAdd('bot','매칭 끝났습니다. 결과가 이상하면 말로 물어보세요 — 예: <b>착한한끼 6/22~7/7 입금액 맞는지 확인해봐</b>'); } }catch(e){}
+    window._matchWs = meta.ws; window._leftoverByCompany = leftoverByCompany;
     // 🧩 분할 입금 추정 — 금액이 안 맞아 떨어진 입금들을 업체별로 합쳐 다시 맞춰봄
     let splitProps=[];
     try{
@@ -2060,7 +1951,8 @@ async function runSettlementMatch(){
         splitProps.forEach(p=>{
           const t=p.txs.map(x=>x.amount.toLocaleString()).join('+');
           if(p.status==='match') _logLine(`   ✓ ${p.company}: ${t} = ${p.paid.toLocaleString()}원 → ${p.cells[0].key}~${p.cells[p.cells.length-1].key} 정산 ${p.total.toLocaleString()}원과 일치 (나눠 낸 것)`);
-          else if(p.status==='prevpaid') _logLine(`   ℹ ${p.company}: 입금 ${t} — 미입금 정산(${p.span||'-'})보다 앞선 날짜라 이전 정산분 상환. 계산에서 제외`);
+          else if(p.status==='prevpaid') _logLine(`   ℹ ${p.company}: 입금 ${t} = ${p.paid.toLocaleString()}원 — 입금일까지 발생한 미입금 정산(${p.span||'없음'})은 ${(p.total||0).toLocaleString()}원뿐 → 이전 마감분 상환. 계산 제외`
+            + (p.past ? ` [🔎 과거확인: ${p.past.from}~${p.past.to} 정산 ${p.past.sum.toLocaleString()}원과 일치]` : ` [과거 구간에서도 일치 조합 못 찾음 — 전월 달력 확인]`));
           else if(p.status==='short') _logLine(`   ⚠ ${p.company}: ${t} = ${p.paid.toLocaleString()}원 입금 / 미입금 정산 ${p.total.toLocaleString()}원 → 잔액 ${(p.total-p.paid).toLocaleString()}원 아직 안 들어옴`);
           else if(p.status==='over') _logLine(`   ⚠ ${p.company}: 입금 ${p.paid.toLocaleString()}원 > 이 달력 미입금 ${p.total.toLocaleString()}원 → 전월 정산까지 갚은 듯`);
           else _logLine(`   ℹ ${p.company}: 이 달력에 미입금 셀 없음 → 전월 상환`);
@@ -2175,3 +2067,4 @@ async function rememberCore(i){
 </script>
 </body>
 </html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
