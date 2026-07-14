@@ -13,6 +13,8 @@ const CC={
   "강씨네밥상":{phone:"010-4883-8092"},
   "지구식품":{phone:"070-4800-1166",insert:"동글지구"},
   "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일",showInsert:true},
+  "DNSP":{phone:"010-7235-5195",insert:"디엔에스프로젝트",showInsert:true},
+  "디엔에스프로젝트":{phone:"010-7235-5195",insert:"디엔에스프로젝트",showInsert:true},
   "청년어부":{phone:"010-2614-6813",insert:"마우셀"},
   "청년수산":{phone:"010-2614-6813",insert:"마우셀",showInsert:true},
   "혜인건강":{phone:"070-4473-7196",insert:"HN"},
