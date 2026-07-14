@@ -514,8 +514,14 @@ function renderAll(filename){
   if(!allData.length)return;
   allData.sort((a,b)=>a.date.localeCompare(b.date));
   const dates=allData.map(d=>d.dateOnly).sort();
-  document.getElementById('dateFrom').value=dates[0];
-  document.getElementById('dateTo').value=dates[dates.length-1];
+  // 📅 기본 조회기간 = 이번 달 1일 ~ 오늘 (2026-07-13 사장님 지시). 데이터 범위를 벗어나면 데이터 범위로 보정.
+  // 필요하면 사장님이 날짜칸에서 직접 바꾸면 됨.
+  const _t=new Date(); const _p=n=>String(n).padStart(2,'0');
+  const monthStart=`${_t.getFullYear()}-${_p(_t.getMonth()+1)}-01`;
+  const today=`${_t.getFullYear()}-${_p(_t.getMonth()+1)}-${_p(_t.getDate())}`;
+  const first=dates[0], last=dates[dates.length-1];
+  document.getElementById('dateFrom').value = (monthStart>=first && monthStart<=last) ? monthStart : first;
+  document.getElementById('dateTo').value   = (today>=first) ? (today<=last?today:last) : last;
   dz.classList.add('loaded');
   document.getElementById('uploadLabel').textContent='✅ '+filename+' ('+allData.length+'건 누적)';
   document.getElementById('uploadHint').textContent='새 파일을 올리면 기존 데이터에 새 거래만 추가돼요';
