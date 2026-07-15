@@ -382,6 +382,21 @@ async function loadFromSheet(){
 // 변경분을 시트에 반영 (입력 시트 + 현황판 + 삭제 로그 덮어쓰기)
 let _chain=Promise.resolve();
 function commit(){ save(); localStorage.setItem(K_DIRTY,'1'); _chain=_chain.then(()=>writeToSheet()).catch(()=>{}); return _chain; }
+// 🛡️ 동시편집 안전 저장 (2026-07-14): 여러 팀장이 같이 쓰므로, 내 변경을 저장하기 전에
+//   반드시 시트 최신본을 먼저 불러와(남이 방금 넣은 항목 확보) 그 위에 내 변경만 얹어서 저장한다.
+//   (카톡 붙여넣기 handleSubmit이 쓰던 안전 패턴을 보유팀메모·품목수정·삭제 경로에도 통일 적용)
+async function commitSafe(applyFn){
+  try{ await _chain; }catch(e){}                 // 진행 중이던 내 저장 먼저 마무리
+  const fresh = await loadFromSheet();           // 시트=truth 최신본으로 entries/holdingMap/log 갱신
+  if(!fresh){                                    // 최신본을 못 읽으면 덮어쓰기 금지 (남의 데이터 보호)
+    toast('⚠️ 최신 시트를 못 불러와 저장을 멈췄어요 (다른 분 데이터 보호). 잠시 후 다시 시도해주세요','warn');
+    return false;
+  }
+  try{ applyFn(); }catch(e){ console.error('commitSafe applyFn 오류',e); }  // 최신본 위에 내 변경(키 기반)만 적용
+  render();
+  await commit();
+  return true;
+}
 async function writeToSheet(){
   if(!sheetOnline){ setSync('offline'); toast('⚠️ 시트 미연결 — 로컬에만 저장됨','warn'); return; }
   setSync('saving');
@@ -632,16 +647,18 @@ function updateHoldDebounced(input){
   if(val) holdingMap[key] = val; else delete holdingMap[key];
   // localStorage 즉시 저장 (사라짐 방지)
   try{ localStorage.setItem(K_HOLD, JSON.stringify(holdingMap)); localStorage.setItem(K_DIRTY,'1'); }catch(e){}
-  // 2) 시트 저장은 debounce 400ms (연타 입력 합치기)
+  // 2) 시트 저장은 debounce 400ms (연타 입력 합치기). 저장은 commitSafe로 — 최신본에 이 메모 키만 얹어 저장(남의 항목 보존)
   if(_holdDebounce) clearTimeout(_holdDebounce);
-  _holdDebounce = setTimeout(()=>{ commit(); _holdDebounce=null; }, 400);
+  _holdDebounce = setTimeout(()=>{
+    _holdDebounce=null;
+    commitSafe(()=>{ if(val) holdingMap[key] = val; else delete holdingMap[key]; });
+  }, 400);
 }
 function updateHold(input){
-  // legacy — 즉시 저장
   const key = input.getAttribute('data-key');
   const val = input.value.trim();
   if(val) holdingMap[key] = val; else delete holdingMap[key];
-  commit();
+  commitSafe(()=>{ if(val) holdingMap[key] = val; else delete holdingMap[key]; });
 }
 
 //=================== 품목 직접 편집 (순위/수량) ===================
@@ -678,31 +695,32 @@ function renderEditList(){
 function moveEdit(i,dir){ const j=i+dir; if(j<0||j>=editList.length) return; const t=editList[i]; editList[i]=editList[j]; editList[j]=t; renderEditList(); }
 function delEdit(i){ editList.splice(i,1); renderEditList(); }
 function addEditRow(){ editList.push({team:TEAMS[0]+'팀', qty:1}); renderEditList(); }
-function saveEdit(){
+async function saveEdit(){
   const [oldWh,oldIt] = editKey.split("||");
   const wh = document.getElementById('editWh').value.trim();
   const it = document.getElementById('editIt').value.trim();
   if(!wh || !it){ toast('창고명·품목명을 입력해주세요','warn'); return; }
-  entries = entries.filter(e=>!(e.wh===oldWh && e.it===oldIt));   // 기존(원래 이름) 항목 제거
-  const base = nowStr();
-  editList.forEach(r=>{ if(r.qty>0) entries.push({seq:nextSeq++, time:base, team:r.team, wh, it, qty:r.qty}); });
-  // 이름이 바뀌면 수량보유팀 메모도 새 키로 이전
-  const oldKey = oldWh+"||"+oldIt, newKey = wh+"||"+it;
-  if(oldKey!==newKey && holdingMap[oldKey]){ holdingMap[newKey] = holdingMap[oldKey]; delete holdingMap[oldKey]; }
+  const _editList = editList.slice();   // 최신본 로드 후에도 내가 편집한 내용 유지
   document.getElementById('editOverlay').classList.remove('show');
-  render();
-  commit();
-  toast('✏️ 수정 완료');
+  // 최신본 위에 이 품목(oldWh||oldIt)만 교체 → 다른 팀장이 그새 넣은 항목 보존
+  const ok = await commitSafe(()=>{
+    entries = entries.filter(e=>!(e.wh===oldWh && e.it===oldIt));   // 기존(원래 이름) 항목 제거
+    const base = nowStr();
+    _editList.forEach(r=>{ if(r.qty>0) entries.push({seq:nextSeq++, time:base, team:r.team, wh, it, qty:r.qty}); });
+    const oldKey = oldWh+"||"+oldIt, newKey = wh+"||"+it;   // 이름 바뀌면 보유팀 메모도 이전
+    if(oldKey!==newKey && holdingMap[oldKey]){ holdingMap[newKey] = holdingMap[oldKey]; delete holdingMap[oldKey]; }
+  });
+  if(ok) toast('✏️ 수정 완료');
 }
-function deleteItem(){
+async function deleteItem(){
   const [wh,it] = editKey.split("||");
   if(!confirm(`[${wh}] ${it} 품목을 통째로 삭제할까요?`)) return;
-  entries = entries.filter(e=>!(e.wh===wh && e.it===it));
-  delete holdingMap[wh+"||"+it];
   document.getElementById('editOverlay').classList.remove('show');
-  render();
-  commit();
-  toast('🗑 품목 삭제됨');
+  const ok = await commitSafe(()=>{
+    entries = entries.filter(e=>!(e.wh===wh && e.it===it));
+    delete holdingMap[wh+"||"+it];
+  });
+  if(ok) toast('🗑 품목 삭제됨');
 }
 
 //=================== 제출 흐름 (안 멈추는 확인) ===================
@@ -760,15 +778,16 @@ async function handleSubmit(){
 }
 
 //=================== 전체 초기화 (백업 후) ===================
-function clearAll(){
+async function clearAll(){
   if(entries.length===0){ toast('비울 데이터가 없어요'); return; }
   if(!confirm('현재 입력 데이터를 삭제 로그로 백업한 뒤 전체 초기화할까요?')) return;
-  const at = new Date().toLocaleString('ko-KR');
-  entries.forEach(e=>{ deleteLog.push({at, time:e.time, team:e.team, wh:e.wh, it:e.it, qty:e.qty}); });
-  entries = [];
-  render();
-  commit();
-  toast('전체 초기화 완료 (로그 백업됨)');
+  // 최신본(모든 팀장 입력 포함)을 백업 로그로 남기고 초기화
+  const ok = await commitSafe(()=>{
+    const at = new Date().toLocaleString('ko-KR');
+    entries.forEach(e=>{ deleteLog.push({at, time:e.time, team:e.team, wh:e.wh, it:e.it, qty:e.qty}); });
+    entries = [];
+  });
+  if(ok) toast('전체 초기화 완료 (로그 백업됨)');
 }
 
 //=================== 삭제 로그 보기 ===================

@@ -1628,15 +1628,18 @@ function _isCellPaintable(ws, row, col){
    가장 최근 구간부터(뒤에서 앞으로) 훑어 가장 짧은 구간 우선. */
 function _findPastRun(allCells, lastPay, paid, tolerance){
   const cells=(allCells||[]).filter(c=>c.sum>0 && (!lastPay || c.date<=lastPay));
+  let near=null;   // 딱 안 맞을 때 '가장 근접한' 구간 (2026-07-13 빅피쉬 케이스 — 업체가 금액까지 틀리게 입금)
   for(let j=cells.length-1;j>=0;j--){
     let sum=0;
     for(let i=j;i>=0;i--){
       sum+=cells[i].sum;
-      if(Math.abs(sum-paid)<=tolerance) return { from:cells[i].key, to:cells[j].key, sum, n:j-i+1 };
-      if(sum>paid+tolerance) break;
+      const d=Math.abs(sum-paid);
+      if(d<=tolerance) return { from:cells[i].key, to:cells[j].key, sum, n:j-i+1, exact:true };
+      if(!near || d<Math.abs(near.sum-paid)) near={ from:cells[i].key, to:cells[j].key, sum, n:j-i+1, exact:false, diff:sum-paid };
+      if(sum>paid*3) break;   // 너무 커지면 그만 (근접 후보는 이미 잡아둠)
     }
   }
-  return null;
+  return near;   // exact:false면 "이 구간으로 보이는데 금액이 N원 다릅니다"로 안내
 }
 function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance){
   const props=[];
@@ -1705,7 +1708,9 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance){
       props.push({company, txs:allTxs, cells:[], status:'prevpaid', paid, total:upToSum, past,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : '해당 없음'});
     }else{
-      props.push({company, txs:allTxs, cells:[], status:'short', paid, total:upToSum,
+      // 부족(short)일 때도 과거 구간을 같이 본다 — 업체가 6/22~6/30 정산분을 금액 틀리게 넣은 경우 등 (빅피쉬 케이스)
+      const past=_findPastRun(allCells, lastPay, paid, tolerance);
+      props.push({company, txs:allTxs, cells:[], status:'short', paid, total:upToSum, past,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
     }
   }
@@ -1731,7 +1736,12 @@ function renderSplitPay(props){
     if(p.status==='short'){
       return `<div id="sp-${i}" style="padding:8px 10px;border-bottom:1px solid var(--border)">
         <div style="font-weight:700">${p.company} <span style="color:#d9480f;font-size:11px">⚠ 부분 입금 (아직 덜 냄)</span></div>
-        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${p.txs.length}건: ${txline} = <b>${p.paid.toLocaleString()}원</b><br>미입금 정산 ${p.span} 합계 <b>${p.total.toLocaleString()}원</b> → <b style="color:#d9480f">잔액 ${(p.total-p.paid).toLocaleString()}원 미입금</b><br><span style="color:var(--text3)">어느 날짜를 갚은 건지 확정이 안 돼 색칠 안 합니다. 나머지 입금 들어온 뒤 다시 매칭하면 자동으로 잡힙니다.</span></div>
+        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${p.txs.length}건: ${txline} = <b>${p.paid.toLocaleString()}원</b><br>미입금 정산 ${p.span} 합계 <b>${p.total.toLocaleString()}원</b> → <b style="color:#d9480f">잔액 ${(p.total-p.paid).toLocaleString()}원 미입금</b><br>
+        ${p.past && !p.past.exact
+          ? `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 <b>${p.past.sum.toLocaleString()}원</b> 건으로 보이는데 <b style="color:#d9480f">${Math.abs(p.past.diff).toLocaleString()}원 ${p.past.diff>0?'모자랍니다':'더 들어왔습니다'}</b> — 업체가 금액을 틀리게 넣었을 수 있어요.`
+          : p.past && p.past.exact
+            ? `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 합계와 입금액이 정확히 일치합니다 → 그 기간 건일 가능성이 큽니다.`
+            : `<span style="color:var(--text3)">어느 날짜를 갚은 건지 확정이 안 돼 색칠 안 합니다.</span>`}</div>
         <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="noteSplit(${i})">📝 특이사항 등록</button>
       </div>`;
     }
@@ -1747,10 +1757,12 @@ function renderSplitPay(props){
         <div style="font-weight:700">${p.company} <span style="color:var(--text3);font-size:11px">ℹ 이전(전월) 마감분 상환 — 계산에서 제외</span></div>
         <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} = <b>${p.paid.toLocaleString()}원</b><br>
         입금일까지 발생한 미입금 정산(${p.span||'해당 없음'}) 합계는 <b>${(p.total||0).toLocaleString()}원</b>뿐입니다.<br>
-        ${p.past
-          ? `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 합계 <b>${p.past.sum.toLocaleString()}원</b> = 입금액 일치 → <b>그 기간 마감분 상환</b>으로 확인됩니다. <span style="color:var(--text3)">(이미 색칠된 구간이라 다시 칠하지 않습니다)</span>`
-          : `<span style="color:var(--text3)">과거 구간에서도 딱 맞는 조합을 못 찾았습니다 — 이 달력 밖(전월) 정산일 가능성이 큽니다.</span>`}
+        ${!p.past ? `<span style="color:var(--text3)">과거 구간에서도 맞는 조합을 못 찾았습니다 — 이 달력 밖(전월) 정산일 가능성이 큽니다.</span>`
+          : p.past.exact
+            ? `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 합계 <b>${p.past.sum.toLocaleString()}원</b> = 입금액 일치 → <b>그 기간 마감분 상환</b>으로 확인됩니다. <span style="color:var(--text3)">(이미 색칠된 구간이라 다시 칠하지 않습니다)</span>`
+            : `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 합계 <b>${p.past.sum.toLocaleString()}원</b> — 이 구간 건으로 보이는데 <b style="color:#d9480f">입금이 ${Math.abs(p.past.diff).toLocaleString()}원 ${p.past.diff>0?'모자랍니다':'더 들어왔습니다'}</b>. <span style="color:var(--text3)">업체가 금액을 틀리게 넣은 경우예요 — 맞으면 [특이사항 등록] 해두시면 다음부턴 안 뜹니다.</span>`}
         </div>
+        <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="noteSplit(${i})">📝 특이사항 등록</button>
       </div>`;
     }
     return `<div style="padding:8px 10px;border-bottom:1px solid var(--border)">
