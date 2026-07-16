@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.523</title>
+<title>발주서 변환기 v22.524</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.523</span>
+  <span class="ver">v22.524</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1057,6 +1057,25 @@ function pr2(line){
   let qty=1;
   if(qm)qty=parseInt(qm[1]);else if(trailingQty)qty=trailingQty;
   const qtyColValue=hasQtyCol?parseInt(nextCol):1;
+  // 🏷️ '이름:/성함:/받는분:' 라벨이 붙은 수령인 셀이 있으면 = 카카오 배송정보(이름이 주소 뒤·라벨로 오는) 형식.
+  //    이 형식은 [상품][주소][상세주소][이름:XXX][전화] 순서라 위 기본 파싱이 이름칸에 주소를 넣는 사고 발생(2026-07-16 자인한상 김승진 건).
+  //    라벨 기준으로 이름·주소·전화 재배치. ⚠️ 라벨 없는 기존 발주엔 전혀 영향 없음(라벨 존재 시에만 동작).
+  const _nameLabel=/^(?:이름|성함|받는분|받는사람|받으실\s*분|수령인|수취인)\s*[:：]\s*(.+)$/;
+  let _lblName='',_lblIdx=-1;
+  for(let i=pi+1;i<cols.length;i++){const _m=(cols[i]||'').trim().match(_nameLabel);if(_m){_lblName=_m[1].trim();_lblIdx=i;break;}}
+  if(_lblName){
+    const _addrParts=[];let _ph='';
+    for(let i=pi+1;i<cols.length;i++){
+      if(i===_lblIdx)continue;
+      const cv=(cols[i]||'').trim();if(!cv)continue;
+      if(i===pi+1&&isPureNum(cv)&&parseInt(cv)<1000)continue;   // 상품 뒤 수량칸 스킵
+      if(isPhone(cv)){if(!_ph)_ph=cv;continue;}
+      const _e=extractPhoneFromAddr(cv);
+      if(_e.phone&&!_ph)_ph=_e.phone;
+      if(_e.addr)_addrParts.push(_e.addr);
+    }
+    return{client:cl,ca:ca2,cp,prod,nameRaw:_lblName,address:_addrParts.join(' ').trim(),custPhone:_ph||custPhone,msg:'',qty,qtyColValue};
+  }
   return{client:cl,ca:ca2,cp,prod,nameRaw:nr,address:addr,custPhone,msg,qty,qtyColValue};
 }
 function parseRules(){
