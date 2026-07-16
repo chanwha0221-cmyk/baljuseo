@@ -655,16 +655,22 @@ const DM=(function(){
   }
   function render(){
     const p=$('dm-page');if(!p)return;
-    // ✏️ 편집 중이면(사진 교체 등으로 재렌더돼도) 직접 고친 텍스트를 보존한다.
-    //    편집 내용은 DOM에만 있고 DATA엔 없어서, 예전엔 buildHtml()이 옛 텍스트로 덮어써 편집분이 사라졌음 (2026-07-15 사장님 지적).
+    // 🔒 화면에서 직접 고친 텍스트는 '항상' 보존한다 (✏️수정 버튼을 눌렀든 안 눌렀든 무관).
+    //    편집 내용은 DOM에만 있고 DATA엔 없어서, 예전엔 사진 교체 등 재렌더 때 buildHtml()이 옛 텍스트로 덮어써 사라졌음 (2026-07-15 사장님 지적).
     let _saved=null;
-    if(editing){ try{ _saved=[].slice.call(p.querySelectorAll(EDSEL)).map(function(e){return e.innerHTML;}); }catch(e){ _saved=null; } }
+    try{
+      const before=[].slice.call(p.querySelectorAll(EDSEL));
+      if(before.length) _saved=before.map(function(e){return {html:e.innerHTML, ed:e.isContentEditable};});
+    }catch(e){ _saved=null; }
     p.dataset.mode=MODE;
     p.innerHTML=buildHtml();
-    if(editing){
+    if(_saved){
       const now=p.querySelectorAll(EDSEL);
-      if(_saved && now.length===_saved.length){ for(let i=0;i<now.length;i++){ now[i].innerHTML=_saved[i]; now[i].contentEditable=true; } }
-      else { [].forEach.call(now,function(e){ e.contentEditable=true; }); }   // 구조가 바뀌면 편집모드만 다시 켬
+      if(now.length===_saved.length){
+        for(let i=0;i<now.length;i++){ now[i].innerHTML=_saved[i].html; if(editing||_saved[i].ed) now[i].contentEditable=true; }
+      } else if(editing){
+        [].forEach.call(now,function(e){ e.contentEditable=true; });   // 구조가 바뀐 드문 경우엔 편집모드만 다시 켬
+      }
     }
   }
   function setProd(){ if(!DATA) return; const v=($('dm-prodname')?$('dm-prodname').value:'').trim(); DATA.title=v; if(DATA.notice&&DATA.notice[0]&&DATA.notice[0][0]==='제품명') DATA.notice[0][1]=v; const pf=$('dm-th-prefix'); if(pf) pf.value=v.replace(/\n/g,' ').slice(0,40); render(); }
