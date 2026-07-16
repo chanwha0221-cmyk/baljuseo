@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.519</title>
+<title>발주서 변환기 v22.520</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.519</span>
+  <span class="ver">v22.520</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -749,6 +749,19 @@ function norm(s){return s.replace(/\s+/g,'');}
 function pp(cl,pr,qty){
   // 공통 규칙 (2026-05-15): 시작 부분의 [업체명] 접두사 자동 제거 (굿수산/신선한아침/빅피쉬마켓 등)
   pr = pr.replace(/^\s*\[[^\]]+\]\s*/, '');
+  // 📦 에보아르코리아 전용 (2026-07-15 사장님 지시): 상품을 'N개 (냉동)'으로 묶어 *1로 주는 케이스.
+  //  - 상품명 안 'N개' × 발주수량(*M) = 실제 수량으로 반영(안 하면 미출고 → 재발송 택배비 손실)
+  //  - 상품명 뒤 괄호(냉동/냉장·내용물 나열 등)는 제거. 단 홍어 삭힘/숙성도 괄호는 보존.
+  //  - 예: '기력회복 추어탕 500g 2개 (냉동) *1' → 기력회복 추어탕 500g × 2
+  //        '장수 염소탕 720g 2개 (냉동) *1' → (염소탕 매핑) 김대헌 장수 염소탕 1팩 × 2
+  //        '평양냉면 10인분 (메밀면 5팩+동치미 육수 10팩) *1' → 평양냉면 10인분 × 1 (동치미 오탐 방지)
+  if(cl==='에보아르코리아'){
+    let _e=pr.replace(/\*/g,'x');
+    let _base=1; const _xm=_e.match(/[xX×]\s*(\d+)/); if(_xm){_base=parseInt(_xm[1]);_e=_e.replace(_xm[0],' ');}
+    let _mult=1; const _gm=_e.match(/(\d+)\s*개/); if(_gm){_mult=parseInt(_gm[1]);_e=_e.replace(_gm[0],' ');}
+    _e=_e.replace(/[\(（][^\(（\)）]*[\)）]/g,(m)=>/삭힘|숙성|초고수|중수|고수|저수|특수/.test(m)?m:' ');
+    pr=_e.replace(/\s+/g,' ').trim()+' x'+(_base*_mult);
+  }
   // 나행상회·자은엔앤피 공동 발주: 전처리(preprocessNahaengJaeun)에서 옵션판정·상품명 치환이 끝난 최종명이므로 pp 일반규칙(대극천 2kg 고정 등)을 타지 않고 무게 그대로 통과
   if(cl==='나행상회'||cl==='자은np'||cl==='자은NP'||cl==='자은Np'||cl==='자은nP'||cl==='자은엔앤피'){
     const _q=pr.match(/[xX×]\s*(\d+)\s*$/);
