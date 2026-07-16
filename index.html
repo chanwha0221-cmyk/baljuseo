@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.522</title>
+<title>발주서 변환기 v22.523</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.522</span>
+  <span class="ver">v22.523</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -755,7 +755,7 @@ function pp(cl,pr,qty){
   //  - 예: '기력회복 추어탕 500g 2개 (냉동) *1' → 기력회복 추어탕 500g × 2
   //        '장수 염소탕 720g 2개 (냉동) *1' → (염소탕 매핑) 김대헌 장수 염소탕 1팩 × 2
   //        '평양냉면 10인분 (메밀면 5팩+동치미 육수 10팩) *1' → 평양냉면 10인분 × 1 (동치미 오탐 방지)
-  if(cl==='에보아르코리아'){
+  if(norm(cl).includes('에보아르')){   // pp는 별칭 적용 전 원본('(주)에보아르코리아')을 받으므로 부분일치로 잡는다
     let _e=pr.replace(/\*/g,'x');
     let _base=1; const _xm=_e.match(/[xX×]\s*(\d+)/); if(_xm){_base=parseInt(_xm[1]);_e=_e.replace(_xm[0],' ');}
     let _mult=1; const _gm=_e.match(/(\d+)\s*개/); if(_gm){_mult=parseInt(_gm[1]);_e=_e.replace(_gm[0],' ');}
