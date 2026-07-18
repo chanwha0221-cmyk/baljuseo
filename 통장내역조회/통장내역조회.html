@@ -1692,12 +1692,50 @@ function _findPastRun(allCells, lastPay, paid, tolerance){
   }
   return near;   // exact:false면 "이 구간으로 보이는데 금액이 N원 다릅니다"로 안내
 }
+// 📥 입금 역산 귀속 (2026-07-16 사장님 매커니즘) — 입금 하나하나를, 입금일 이전 정산 셀을 최신→과거로 누적해
+//   금액이 딱 맞는 연속 구간을 찾는다. 그 구간이 '이미 색칠(입금완료)된 과거 구간'이면 = 확정 상환 → 조용히 확인처리.
+//   (입금은 미래 정산 못 냄 → 입금일 이전만 봄. 색칠 = 사장님 검증완료라 절대 다시 안 칠함.)
+//   반환: resolved(확정 과거상환 입금들) / remaining(못 맞춘 입금들 → 기존 조합 로직으로)
+function _attributePastPayments(allCells, txs, ws, tolerance){
+  const cells=(allCells||[]).filter(c=>c.sum>0)
+    .map(c=>({...c, _paid: !_isCellPaintable(ws, c.row, c.vatCol||c.taxCol), _claimed:false}))
+    .sort((a,b)=> a.date<b.date?-1 : a.date>b.date?1 : 0);   // 과거→최신
+  const deps=(txs||[]).slice().sort((a,b)=>(a.date||0)-(b.date||0));
+  const resolved=[], remaining=[];
+  for(const d of deps){
+    // 끝점 j(최신→과거)를 옮겨가며, j에서 과거로 '연속' 누적해 입금액과 딱 맞는 구간을 찾는다.
+    //   ⚠ 6/30 입금이 6/30셀(63,000)이 아니라 6/22~6/29 인 경우처럼, 끝점이 입금 당일 아닐 수 있음 → 끝점 이동 필수.
+    //   입금은 미래 못 냄 → j.date < 입금일(당일 정산은 아직 미발생이라 제외). 이미 청구된 셀은 경계.
+    let found=null;
+    for(let j=cells.length-1; j>=0 && !found; j--){
+      if(cells[j]._claimed || cells[j].date>d.date) continue;   // 미래 정산은 제외(당일까진 후보)
+      let sum=0, run=[];
+      for(let i=j; i>=0; i--){
+        if(cells[i]._claimed) break;                 // 다른 입금이 가져간 셀 → 연속성 끊김
+        run.push(cells[i]); sum+=cells[i].sum;
+        if(Math.abs(sum-d.amount)<=tolerance){ if(run.every(c=>c._paid)) found=run.slice(); break; }  // 딱 맞고 전부 색칠완료
+        if(sum>d.amount+tolerance) break;
+      }
+    }
+    if(found){
+      found.forEach(c=>c._claimed=true);
+      const ks=found.map(c=>c.key);
+      resolved.push({tx:d, amount:d.amount, from:ks[ks.length-1], to:ks[0], n:found.length});
+    } else { remaining.push(d); }
+  }
+  return {resolved, remaining};
+}
 function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance){
   const props=[];
   for(const company of Object.keys(leftoverByCompany)){
-    const allTxs=(leftoverByCompany[company]||[]).slice().sort((a,b)=>(a.date||0)-(b.date||0));
-    if(!allTxs.length) continue;
+    const allTxs0=(leftoverByCompany[company]||[]).slice().sort((a,b)=>(a.date||0)-(b.date||0));
+    if(!allTxs0.length) continue;
     const allCells=(cellsByCompany[company]||[]).filter(c=>c.sum>0);
+    // 📥 입금 역산 귀속 — 색칠완료 과거구간과 딱 맞는 입금은 '확정 상환'으로 빼고, 나머지만 아래 로직으로 (2026-07-16)
+    const _att=_attributePastPayments(allCells, allTxs0, ws, tolerance);
+    _att.resolved.forEach(r=> props.push({company, txs:[r.tx], cells:[], status:'resolved_past', paid:r.amount, from:r.from, to:r.to}));
+    const allTxs=_att.remaining;
+    if(!allTxs.length) continue;   // 전부 확정 상환이면 이 업체는 확인 필요 없음
     const unpaid=allCells.filter(c=>_isCellPaintable(ws,c.row,c.vatCol||c.taxCol));   // 색칠 안 된 셀만 색칠 대상
     if(!unpaid.length){ props.push({company, txs:allTxs, cells:[], status:'nocell', paid:allTxs.reduce((a,t)=>a+t.amount,0), total:0}); continue; }
 
@@ -1827,16 +1865,25 @@ function renderSplitPay(props){
     </div>`;
   };
   // 라우팅: 오른쪽 = 합산 금액 비교(부분입금 short·초과 over·합계 일치 match) / 왼쪽 = 정산달력에 맞는 금액 셀 자체가 없음(전월 상환 prevpaid·셀없음)
+  //   resolved_past = 색칠완료 과거구간과 딱 맞는 확정 상환 → 확인필요 목록에서 빼고 요약만 (2026-07-16)
+  const done=[];
   props.forEach((p,i)=>{
+    if(p.status==='resolved_past'){ done.push(p); return; }
     const html=cardHtml(p,i);
     if(p.status==='short'||p.status==='over'||p.status==='match'){ rightHtml.push(html); nR++; }
     else { leftHtml.push(html); nL++; }
   });
   const empty='<div style="padding:12px;color:var(--text3);font-size:11px;text-align:center">없음</div>';
-  listL.innerHTML = leftHtml.join('') || empty;
+  let doneNote='';
+  if(done.length){
+    const items=done.map(p=>`${p.company} ${p.from&&p.to?(p.from===p.to?p.from:p.from+'~'+p.to):''} (${p.paid.toLocaleString()}원)`).join(' · ');
+    doneNote=`<div style="padding:7px 10px;background:#eefaf3;border:1px solid #c3e6d0;border-radius:6px;margin-bottom:6px;font-size:11px;color:#2f7d52">✓ 과거 상환 자동확인 <b>${done.length}건</b> — 이미 색칠완료된 구간과 딱 맞아 조치 불필요<br><span style="color:var(--text3)">${items}</span></div>`;
+  }
+  listL.innerHTML = doneNote + (leftHtml.join('') || empty);
   listR.innerHTML = rightHtml.join('') || empty;
   if(cntL) cntL.textContent='('+nL+'건)';
   if(cntR) cntR.textContent='('+nR+'건)';
+  if(cnt) cnt.textContent='(확인 필요 '+(nL+nR)+'건'+(done.length?` · 자동확인 ${done.length}건`:'')+')';
 }
 // [✓ 색칠 목록에 추가] — 분할 입금이 합계로 맞는 구간을 색칠 목록(toPaint)에 넣음
 function applySplit(i){
@@ -2045,7 +2092,8 @@ async function runSettlementMatch(){
         _logLine(`🧩 분할 입금 추정 ${splitProps.length}건:`);
         splitProps.forEach(p=>{
           const t=p.txs.map(x=>x.amount.toLocaleString()).join('+');
-          if(p.status==='match') _logLine(`   ✓ ${p.company}: ${t} = ${p.paid.toLocaleString()}원 → ${p.cells[0].key}~${p.cells[p.cells.length-1].key} 정산 ${p.total.toLocaleString()}원과 일치 (나눠 낸 것)`);
+          if(p.status==='resolved_past') _logLine(`   ✅ ${p.company}: 입금 ${p.paid.toLocaleString()}원 = ${p.from===p.to?p.from:p.from+'~'+p.to} 정산분(이미 색칠완료)과 딱 맞음 → 확정 상환, 조치 불필요`);
+          else if(p.status==='match') _logLine(`   ✓ ${p.company}: ${t} = ${p.paid.toLocaleString()}원 → ${p.cells[0].key}~${p.cells[p.cells.length-1].key} 정산 ${p.total.toLocaleString()}원과 일치 (나눠 낸 것)`);
           else if(p.status==='prevpaid') _logLine(`   ℹ ${p.company}: 입금 ${t} = ${p.paid.toLocaleString()}원 — 입금일까지 발생한 미입금 정산(${p.span||'없음'})은 ${(p.total||0).toLocaleString()}원뿐 → 이전 마감분 상환. 계산 제외`
             + (p.past ? ` [🔎 과거확인: ${p.past.from}~${p.past.to} 정산 ${p.past.sum.toLocaleString()}원과 일치]` : ` [과거 구간에서도 일치 조합 못 찾음 — 전월 달력 확인]`));
           else if(p.status==='short') _logLine(`   ⚠ ${p.company}: ${t} = ${p.paid.toLocaleString()}원 입금 / 미입금 정산 ${p.total.toLocaleString()}원 → 잔액 ${(p.total-p.paid).toLocaleString()}원 아직 안 들어옴`);
@@ -2101,11 +2149,18 @@ function renderToPaint(arr){
   const companies=Object.keys(byC);
   if(cnt) cnt.textContent='('+companies.length+'개 업체 · '+arr.length+'건)';
   window._toPaintText = companies.map(c=>c+' — '+byC[c].map(i=>i.key+' '+i.amount.toLocaleString()+'원').join(', ')).join('\n');
-  list.innerHTML = companies.map(c=>`<div style="padding:7px 10px;border-bottom:1px solid var(--border)">
-      <span style="font-weight:700;color:var(--text)">${c}</span> <span style="color:var(--text3);font-size:11px">${byC[c].length}건</span>
-      <div style="color:var(--text2);font-size:11px;margin-top:2px">${byC[c].map(i=>`${i.key} · ${i.amount.toLocaleString()}원`).join(' / ')}</div>
-    </div>`).join('');
+  list.innerHTML = companies.map(c=>{
+    const ce=String(c).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return `<div style="padding:7px 10px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:8px">
+      <div style="flex:1;min-width:0">
+        <span style="font-weight:700;color:var(--text)">${ce}</span> <span style="color:var(--text3);font-size:11px">${byC[c].length}건</span>
+        <div style="color:var(--text2);font-size:11px;margin-top:2px">${byC[c].map(i=>`${i.key} · ${i.amount.toLocaleString()}원`).join(' / ')}</div>
+      </div>
+      <button class="btn-copy" data-co="${ce}" onclick="copyCompanyName(this)" style="flex-shrink:0;padding:4px 8px;font-size:11px" title="업체명만 복사 → 리모콘에서 찾기">📋 업체명</button>
+    </div>`;
+  }).join('');
 }
+function copyCompanyName(btn){ const n=btn.getAttribute('data-co')||''; navigator.clipboard.writeText(n).then(()=>{ const o=btn.textContent; btn.textContent='✓ 복사됨'; setTimeout(()=>{btn.textContent=o;},900); }).catch(()=>showToast('복사 실패 — 직접 선택해 복사해주세요')); }
 function copyToPaint(){ navigator.clipboard.writeText(window._toPaintText||'').then(()=>showToast('📋 색칠할 업체 목록 복사됨')); }
 // ❓ 업체 미식별 입금 → 사장님이 업체 지정 → 색칠목록 추가 + 별칭 학습(다음부터 자동)
 function renderUnmatched(arr){
