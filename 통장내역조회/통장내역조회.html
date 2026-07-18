@@ -1721,7 +1721,13 @@ function _attributePastPayments(allCells, txs, ws, tolerance){
       found.forEach(c=>c._claimed=true);
       const ks=found.map(c=>c.key);
       resolved.push({tx:d, amount:d.amount, from:ks[ks.length-1], to:ks[0], n:found.length});
-    } else { remaining.push(d); }
+    } else {
+      // 역산 구간을 못 찾아도, 입금일까지의 정산이 '전부 색칠완료'면 = 이 입금은 데이터 밖(더 이전 기간) 상환이 확실 → 확인 완료.
+      //   (입금은 미래를 못 내므로, 입금일 이하가 다 완료면 남은 미입금과는 무관. 2026-07-16 썬푸드 6/1·6/9=5월분 케이스)
+      const upto=cells.filter(c=>c.date<=d.date);
+      if(!upto.length || upto.every(c=>c._paid)) resolved.push({tx:d, amount:d.amount, from:'', to:'', n:0, priorOnly:true});
+      else remaining.push(d);
+    }
   }
   return {resolved, remaining};
 }
@@ -1733,7 +1739,7 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance){
     const allCells=(cellsByCompany[company]||[]).filter(c=>c.sum>0);
     // 📥 입금 역산 귀속 — 색칠완료 과거구간과 딱 맞는 입금은 '확정 상환'으로 빼고, 나머지만 아래 로직으로 (2026-07-16)
     const _att=_attributePastPayments(allCells, allTxs0, ws, tolerance);
-    _att.resolved.forEach(r=> props.push({company, txs:[r.tx], cells:[], status:'resolved_past', paid:r.amount, from:r.from, to:r.to}));
+    _att.resolved.forEach(r=> props.push({company, txs:[r.tx], cells:[], status:'resolved_past', paid:r.amount, from:r.from, to:r.to, priorOnly:!!r.priorOnly}));
     const allTxs=_att.remaining;
     if(!allTxs.length) continue;   // 전부 확정 상환이면 이 업체는 확인 필요 없음
     const unpaid=allCells.filter(c=>_isCellPaintable(ws,c.row,c.vatCol||c.taxCol));   // 색칠 안 된 셀만 색칠 대상
@@ -1876,7 +1882,7 @@ function renderSplitPay(props){
   const empty='<div style="padding:12px;color:var(--text3);font-size:11px;text-align:center">없음</div>';
   let doneNote='';
   if(done.length){
-    const items=done.map(p=>`${p.company} ${p.from&&p.to?(p.from===p.to?p.from:p.from+'~'+p.to):''} (${p.paid.toLocaleString()}원)`).join(' · ');
+    const items=done.map(p=>`${p.company} ${p.priorOnly?'이전 기간분':(p.from&&p.to?(p.from===p.to?p.from:p.from+'~'+p.to):'')} (${p.paid.toLocaleString()}원)`).join(' · ');
     doneNote=`<div style="padding:7px 10px;background:#eefaf3;border:1px solid #c3e6d0;border-radius:6px;margin-bottom:6px;font-size:11px;color:#2f7d52">✓ 과거 상환 자동확인 <b>${done.length}건</b> — 이미 색칠완료된 구간과 딱 맞아 조치 불필요<br><span style="color:var(--text3)">${items}</span></div>`;
   }
   listL.innerHTML = doneNote + (leftHtml.join('') || empty);
@@ -2118,7 +2124,7 @@ async function runSettlementMatch(){
         _logLine(`🧩 분할 입금 추정 ${splitProps.length}건:`);
         splitProps.forEach(p=>{
           const t=p.txs.map(x=>x.amount.toLocaleString()).join('+');
-          if(p.status==='resolved_past') _logLine(`   ✅ ${p.company}: 입금 ${p.paid.toLocaleString()}원 = ${p.from===p.to?p.from:p.from+'~'+p.to} 정산분(이미 색칠완료)과 딱 맞음 → 확정 상환, 조치 불필요`);
+          if(p.status==='resolved_past') _logLine(`   ✅ ${p.company}: 입금 ${p.paid.toLocaleString()}원 = ` + (p.priorOnly ? `입금일까지 정산이 전부 색칠완료 → 데이터 밖(이전 기간) 상환` : `${p.from===p.to?p.from:p.from+'~'+p.to} 정산분(이미 색칠완료)과 딱 맞음`) + ` → 확정 상환, 조치 불필요`);
           else if(p.status==='match') _logLine(`   ✓ ${p.company}: ${t} = ${p.paid.toLocaleString()}원 → ${p.cells[0].key}~${p.cells[p.cells.length-1].key} 정산 ${p.total.toLocaleString()}원과 일치 (나눠 낸 것)`);
           else if(p.status==='prevpaid') _logLine(`   ℹ ${p.company}: 입금 ${t} = ${p.paid.toLocaleString()}원 — 입금일까지 발생한 미입금 정산(${p.span||'없음'})은 ${(p.total||0).toLocaleString()}원뿐 → 이전 마감분 상환. 계산 제외`
             + (p.past ? ` [🔎 과거확인: ${p.past.from}~${p.past.to} 정산 ${p.past.sum.toLocaleString()}원과 일치]` : ` [과거 구간에서도 일치 조합 못 찾음 — 전월 달력 확인]`));
