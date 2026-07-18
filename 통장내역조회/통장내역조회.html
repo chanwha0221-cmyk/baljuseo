@@ -426,6 +426,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 const SHEET_ID='1E7arcg-texYjeYtHNLjIZZI5ytwQZDKO7S02lgosXy8'; // 전용 스프레드시트 '마스터 통장내역 데이터' (사장님 소유 + 서비스계정 편집자 공유, 2026-07-02)
 let SETTLE_ALIAS={}; // 🧠 학습 별칭(입금자명→업체) — 초기 로드(loadSettleAlias)보다 먼저 선언돼야 TDZ 에러 안 남
 let SETTLE_NOTES=[]; // 📌 정산 특이사항(과입금 환불 등) — 초기 로드(loadSettleNotes)가 먼저 실행되므로 반드시 여기 최상단 (2026-07-13 TDZ 사고)
+let SETTLE_HISTORY=[]; // 📚 정산내역 누적(전 기간 업체×날짜×정산금액×입금완료) — 전월 정산 대조용 (2026-07-16). 상단 선언 = TDZ 방지
 const _noteKey=(company,dateKey,amount)=>`${String(company||'').replace(/\s+/g,'')}|${dateKey}|${amount}`;
 // 🤖 AI 프록시 (비서·밴드글과 동일 Gemini 프록시 · 유료 키) — 반드시 최상단 선언 (TDZ 방지)
 const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
@@ -603,6 +604,7 @@ async function handleSettleFile(file){
     const colOf=(ref,fb)=>{if(!ref)return fb;const m=ref.match(/^([A-Z]+)/);if(!m)return fb;let n=0;for(const ch of m[1])n=n*26+ch.charCodeAt(0)-64;return n;};
     const names={},stat={};let colored=0;
     const byColor={}; // 🎨 색깔별 합계 — 리모컨 미입금액과 차이 원인 진단용 (2026-07-10)
+    const _histRecs=[]; // 📚 정산내역 누적용 — 전 셀(업체·날짜·정산금액·입금완료) 수집 (2026-07-16)
     for(const row of [...shx.getElementsByTagName('row')]){
       const rnum=parseInt(row.getAttribute('r')||'0',10);
       let cur=0, rowDate='';
@@ -625,14 +627,18 @@ async function handleSettleFile(file){
         const f=fills[xfs[parseInt(c.getAttribute('s')||'0',10)]||0]||{pt:'none',color:'없음'};
         const ck=(f.pt==='solid'?(f.color||'?'):'색없음');
         byColor[ck]=(byColor[ck]||0)+amt;
-        if(f.pt==='solid'){
-          // 🟡 미입금 계열 색은 칠해져 있어도 미정산 (2026-07-10 사장님 확정: 노랑 FFC000 = 미정산)
-          // 노랑/주황 FFC000·ED7D31, 하늘 BDD7EE·DDEBF7, 흰색 — 매칭 쪽 미입금색 룰과 동일
-          const cc=String(f.color||'').toUpperCase().replace(/^FF(?=[0-9A-F]{6}$)/,'');
-          if(!['FFC000','ED7D31','BDD7EE','DDEBF7','FFFFFF'].includes(cc)){ colored+=amt; continue; }
-        }
         const base=names[cur]?cur:cur-1;
         const nm=(names[base]&&(names[base][3]||names[base][2]))||('col'+cur);
+        // 🟡 미입금 계열 색은 칠해져 있어도 미정산 (2026-07-10 사장님 확정: 노랑 FFC000 = 미정산)
+        // 노랑/주황 FFC000·ED7D31, 하늘 BDD7EE·DDEBF7, 흰색 — 매칭 쪽 미입금색 룰과 동일
+        let _paid=false;
+        if(f.pt==='solid'){
+          const cc=String(f.color||'').toUpperCase().replace(/^FF(?=[0-9A-F]{6}$)/,'');
+          _paid=!['FFC000','ED7D31','BDD7EE','DDEBF7','FFFFFF'].includes(cc);
+        }
+        // 📚 누적 기록: 입금완료(색칠)든 미입금이든 이 정산 셀 자체는 저장 (전월 대조용). 유효 업체명만.
+        if(rowDate && nm && !/^col\d+$/.test(nm)) _histRecs.push({date:rowDate, company:nm, amount:amt, paid:_paid});
+        if(_paid){ colored+=amt; continue; }   // 미정산 현황엔 입금완료 셀 제외 (기존 동작 유지)
         if(!stat[nm]) stat[nm]={amt:0,from:'',to:''};
         stat[nm].amt+=amt;
         if(rowDate){ if(!stat[nm].from||rowDate<stat[nm].from) stat[nm].from=rowDate; if(!stat[nm].to||rowDate>stat[nm].to) stat[nm].to=rowDate; }
@@ -644,6 +650,9 @@ async function handleSettleFile(file){
     document.getElementById('s-mis').textContent=fmtN(total);
     document.getElementById('s-mis-sub').textContent=MIS_BASIS+' 기준';
     renderMisPanel(); misOpen();
+    // 📚 이 정산시트의 전 셀을 정산내역 누적 시트에 저장 (전월 대조용). 실패해도 미정산 표시엔 무영향.
+    try{ await saveSettleRecords(_histRecs, file.name); console.log('📚 정산내역 누적:', _histRecs.length, '셀 저장, 총', SETTLE_HISTORY.length, '건'); }
+    catch(e){ console.warn('정산내역 누적 저장 실패',e); }
     try{
       const t=await getToken();
       await ensureSummaryTab(t);
@@ -744,6 +753,7 @@ async function loadMisDetail(){
     const t=await getToken();
     await loadSettleAlias();
     await loadSettleNotes();   // 📌 정산 특이사항 (처리 완료 건 → 다시 경고 안 함)
+    await loadSettleHistory(); // 📚 정산내역 누적 (전월 정산 대조용)
     const hr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('업체호칭!A2:B10000')}`,{headers:{Authorization:`Bearer ${t}`}});
     if(hr.ok){ (((await hr.json()).values)||[]).forEach(x=>{ if(x[0])HONOR[String(x[0]).trim()]=String(x[1]||'').trim(); }); }
     const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('미정산상세!A2:E10000')}`,{headers:{Authorization:`Bearer ${t}`}});
@@ -1477,6 +1487,47 @@ async function saveSettleAlias(){
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산별칭!A2:B10000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
     if(rows.length) await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산별칭!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
   }catch(e){ console.warn('정산별칭 저장 실패',e); }
+}
+
+// 📚 정산내역 누적 (2026-07-16) — 정산시트 올릴 때마다 전 셀(업체×날짜×정산금액×입금완료)을 시트 '정산내역누적'에 저장.
+//    통장내역처럼 계속 쌓임 → 전월(6/30 등) 정산을 다음 달에도 대조 가능(7/1 입금이 6월 정산분인지 확인).
+//    키=날짜|업체(공백제거). 재업로드 시 최신 금액/입금완료로 갱신(색칠하면 paid=true로 바뀜).
+const _shKey=(d,c)=>`${d}|${String(c||'').replace(/\s+/g,'')}`;
+async function loadSettleHistory(){
+  try{ const t=await getToken();
+    const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산내역누적!A2:F100000')}`,{headers:{Authorization:`Bearer ${t}`}});
+    if(!r.ok) return;
+    SETTLE_HISTORY=(((await r.json()).values)||[]).filter(x=>x[0]&&x[1]).map(x=>({
+      date:String(x[0]).trim(), company:String(x[1]).trim(),
+      amount:Number(String(x[2]||'0').replace(/[^0-9-]/g,''))||0,
+      paid:String(x[3]||'')==='입금완료'||String(x[3]||'')==='true', source:x[4]||'', at:x[5]||''
+    }));
+  }catch(e){ console.warn('정산내역누적 로드 실패',e); }
+}
+async function saveSettleRecords(records, source){
+  if(!records||!records.length) return;
+  await loadSettleHistory();                                  // 최신본 먼저 (다른 PC가 올린 것 보존)
+  const map={}; SETTLE_HISTORY.forEach(x=>map[_shKey(x.date,x.company)]=x);
+  const at=new Date().toLocaleString('ko-KR');
+  records.forEach(r=>{ if(r.date&&r.company&&r.amount>0) map[_shKey(r.date,r.company)]={date:r.date,company:r.company,amount:r.amount,paid:!!r.paid,source:source||'',at}; });
+  SETTLE_HISTORY=Object.values(map).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.company<b.company?-1:1));
+  const t=await getToken(); await ensureTabNamed(t,'정산내역누적',['날짜','업체','정산금액','입금완료','출처','등록일시']);
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산내역누적!A2:F100000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+  const rows=SETTLE_HISTORY.map(x=>[x.date,x.company,x.amount,x.paid?'입금완료':'미입금',x.source,x.at]);
+  if(rows.length) await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산내역누적!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+}
+// 특정 업체의 특정 날짜 근처 정산금액 조회 (전월 대조용) — 입금일 이전 N일 안에서 금액 일치하는 정산 찾기
+function findPastSettlement(company, amount, beforeDate, windowDays){
+  const cn=String(company||'').replace(/\s+/g,''); const win=windowDays||45;
+  const bd=new Date(beforeDate); if(isNaN(bd)) return null;
+  let best=null;
+  for(const h of SETTLE_HISTORY){
+    if(String(h.company).replace(/\s+/g,'')!==cn) continue;
+    const hd=new Date(h.date); if(isNaN(hd)) continue;
+    const diff=(bd-hd)/86400000; if(diff<-2||diff>win) continue;   // 입금일 이전 ~win일 (당일+2 여유)
+    if(Math.abs(h.amount-amount)<=1) { if(!best||Math.abs(diff)<Math.abs((bd-new Date(best.date))/86400000)) best=h; }
+  }
+  return best;
 }
 
 // 셀에 빨강 + 메모 추가 (보호색 셀은 건드리지 않음)
