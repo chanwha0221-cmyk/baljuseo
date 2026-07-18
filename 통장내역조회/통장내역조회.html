@@ -408,8 +408,17 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
         <!-- 🧩 분할 입금 + 💬 정산 대화 = 맨 아래에 붙여둠 (2026-07-13 사장님: 둘이 멀면 안 보인다) -->
         <div class="msg-section" id="splitSection" style="display:none">
           <div class="msg-section-title">🧩 분할 입금 (나눠 낸 입금) <span id="splitCount" style="color:#d9480f;font-weight:700"></span></div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">단일·합산 매칭에서 떨어진 입금을 업체별로 <b>합쳐서</b> 다시 맞춰본 결과예요. 합계가 정산과 맞으면 [✓]로 색칠 목록에 넣고, 모자라면 잔액이 얼마인지 알려줍니다. 바로 아래 대화창에서 물어보시면 됩니다.</div>
-          <div id="splitList" style="border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto"></div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">단일·합산 매칭에서 떨어진 입금을 업체별로 <b>합쳐서</b> 다시 맞춰본 결과예요. 왼쪽은 이 달력에 맞는 금액 셀이 아예 없는 건(전월 상환 등), 오른쪽은 합산해도 정산액과 안 맞는 건(부분입금·초과)입니다.</div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:12px;color:var(--text2);padding:4px 2px">📅 매칭 금액 없음 <span id="splitCountL" style="color:var(--text3);font-weight:700"></span></div>
+              <div id="splitListNocell" style="border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto"></div>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:12px;color:var(--text2);padding:4px 2px">🧩 나눠 낸 입금 <span id="splitCountR" style="color:#d9480f;font-weight:700"></span></div>
+              <div id="splitListMismatch" style="border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto"></div>
+            </div>
+          </div>
         </div>
         <!-- 💬 정산 대화 — 2026-07-13 제거. 도구 안 채팅으로는 맥락 한계가 커서, 정산 판단은 클로드와 직접 대화하고
              결론만 '📌 정산 특이사항' 탭에 기록하는 방식으로 전환 (사장님 지시). -->
@@ -1717,13 +1726,18 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance){
   return props;
 }
 function renderSplitPay(props){
-  const sec=document.getElementById('splitSection'), list=document.getElementById('splitList'), cnt=document.getElementById('splitCount');
-  if(!sec||!list) return;
+  const sec=document.getElementById('splitSection'), cnt=document.getElementById('splitCount');
+  const listL=document.getElementById('splitListNocell'), listR=document.getElementById('splitListMismatch');
+  const cntL=document.getElementById('splitCountL'), cntR=document.getElementById('splitCountR');
+  if(!sec||!listL||!listR) return;
   window._splitProps=props||[];
   if(!props || !props.length){ sec.style.display='none'; return; }
   sec.style.display='';
   if(cnt) cnt.textContent='('+props.length+'건)';
-  list.innerHTML=props.map((p,i)=>{
+  // 왼쪽 = 정산달력에 맞는 금액 없음(전월 상환·셀 없음) / 오른쪽 = 합산 금액 안 맞음(부분입금·초과·일치)
+  const leftHtml=[], rightHtml=[];
+  let nL=0, nR=0;
+  const cardHtml=(p,i)=>{
     const txline=p.txs.map(t=>`${t.dateKey} ${t.amount.toLocaleString()}원`).join(' + ');
     if(p.status==='match'){
       const span=p.cells[0].key+'~'+p.cells[p.cells.length-1].key;
@@ -1769,7 +1783,18 @@ function renderSplitPay(props){
       <div style="font-weight:700">${p.company} <span style="color:var(--text3);font-size:11px">이 달력에 미입금 셀 없음</span></div>
       <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} → 전월 정산 상환으로 보입니다.</div>
     </div>`;
-  }).join('');
+  };
+  // 라우팅: 오른쪽 = 합산 금액 비교(부분입금 short·초과 over·합계 일치 match) / 왼쪽 = 정산달력에 맞는 금액 셀 자체가 없음(전월 상환 prevpaid·셀없음)
+  props.forEach((p,i)=>{
+    const html=cardHtml(p,i);
+    if(p.status==='short'||p.status==='over'||p.status==='match'){ rightHtml.push(html); nR++; }
+    else { leftHtml.push(html); nL++; }
+  });
+  const empty='<div style="padding:12px;color:var(--text3);font-size:11px;text-align:center">없음</div>';
+  listL.innerHTML = leftHtml.join('') || empty;
+  listR.innerHTML = rightHtml.join('') || empty;
+  if(cntL) cntL.textContent='('+nL+'건)';
+  if(cntR) cntR.textContent='('+nR+'건)';
 }
 // [✓ 색칠 목록에 추가] — 분할 입금이 합계로 맞는 구간을 색칠 목록(toPaint)에 넣음
 function applySplit(i){
