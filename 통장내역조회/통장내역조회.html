@@ -1899,14 +1899,38 @@ function applySplit(i){
 
 /* 💬 정산 대화 UI/AI 호출은 2026-07-13 제거 — 정산 판단은 클로드와 직접 대화, 결론은 📌 정산 특이사항 탭에 기록 */
 
+// 📚 저장된 정산내역(SETTLE_HISTORY)으로 정산달력 meta 재구성 — 파일 재업로드 없이 매칭 (2026-07-16 사장님)
+//   누적 저장분엔 (날짜·업체·정산금액·입금완료) 다 있으므로 분석용 셀 구조를 합성한다.
+//   색칠완료=회색(AEAAAA·보호색)으로 표현해 기존 _isCellPaintable/_splitPayMatch 그대로 재사용. 워크북 없음 → 다운로드만 생략.
+function _mdKeyFromIso(iso){ const m=String(iso).match(/(\d{4})-(\d{2})-(\d{2})/); return m ? (parseInt(m[2],10)+'/'+parseInt(m[3],10)) : String(iso); }
+function _metaFromHistory(){
+  if(!SETTLE_HISTORY || !SETTLE_HISTORY.length) return null;
+  const companies=[...new Set(SETTLE_HISTORY.map(h=>h.company).filter(Boolean))];
+  const dateSet=[...new Set(SETTLE_HISTORY.map(h=>h.date).filter(Boolean))].sort();
+  const dateRows=dateSet.map((iso,i)=>({ row:i+5, date:new Date(iso), key:_mdKeyFromIso(iso), _iso:iso }));
+  const rowByIso={}; dateRows.forEach(d=>rowByIso[d._iso]=d.row);
+  const companyCols={}; companies.forEach((c,i)=>{ companyCols[c]={ vat:3+i*2, tax:0 }; });   // 합성: 업체마다 한 칸(면세칸)에 정산금액
+  const cellMap={};                                                                             // 'row_col' → {value, paid}
+  SETTLE_HISTORY.forEach(h=>{ const row=rowByIso[h.date], cc=companyCols[h.company]; if(row&&cc) cellMap[row+'_'+cc.vat]={ value:h.amount, paid:!!h.paid }; });
+  const ws={ getCell(r,c){ const e=cellMap[r+'_'+c]; return { value: e?e.value:0, fill: (e&&e.paid)?{type:'pattern',fgColor:{argb:'FFAEAAAA'}}:null, note:'' }; } };   // note는 쓰기 가능 데이터속성(버려지는 객체라 무해)
+  return { companyCols, dateRows, ws, wb:null, memoMap:{}, _fromHistory:true, _span: dateSet.length?(dateSet[0]+'~'+dateSet[dateSet.length-1]):'' };
+}
 // 메인 매칭 실행
 async function runSettlementMatch(){
   const _fSetEl = document.getElementById('matchSettlementFile');
   const fSet = _fSetEl && _fSetEl.files[0];
   const _fTxEl = document.getElementById('matchTransactionFile');   // 2026-07-16: 거래내역 업로드칸 제거 → 항상 통장 누적데이터 사용. 요소 없으면 null
   const fTx  = _fTxEl ? _fTxEl.files[0] : null;
-  if(!fSet){ alert('리모콘 정산시트(정산달력)를 [💰 통장내역 조회] 탭에서 먼저 올려주세요.'); return; }
+  const _useHistory = !fSet && SETTLE_HISTORY && SETTLE_HISTORY.length;   // 파일 없으면 저장분으로 매칭
+  if(!fSet && !_useHistory){ alert('리모콘 정산시트(정산달력)를 [💰 통장내역 조회] 탭에서 한 번은 올려주세요. (그 뒤로는 저장된 정산내역으로 자동 매칭됩니다)'); return; }
   if(!fTx && !allData.length){ alert('통장 거래내역이 없어요 — [💰 통장내역 조회] 탭에서 거래내역을 먼저 올려주세요.'); return; }
+  // 저장분 매칭 시 매칭기간 비어있으면 정산내역 전체 범위~오늘로 자동
+  if(_useHistory){
+    const _a=document.getElementById('matchTxFrom'), _b=document.getElementById('matchTxTo');
+    const _ds=[...SETTLE_HISTORY].map(h=>h.date).filter(Boolean).sort();
+    if(_a && !_a.value && _ds.length) _a.value=_ds[0];
+    if(_b && !_b.value) _b.value=new Date().toISOString().slice(0,10);
+  }
   const strict = document.getElementById('matchOptStrict').checked;
   const allowRange = document.getElementById('matchOptRange').checked;
   // 매칭 결과 로그칸은 숨김 유지 (2026-07-16 사장님: 왼쪽 '매칭 금액 없음' 칸이 대체 → 로그 불필요). textarea는 남겨 _logLine 무해하게 기록만.
@@ -1927,8 +1951,10 @@ async function runSettlementMatch(){
       _logLine(`  → [통장내역 조회] 탭 데이터 사용 (${_f||'처음'} ~ ${_t||'끝'})`);
     }
     _logLine(`  → 입금건 ${txs.length}건 인식`);
-    _logLine('• 정산달력 파싱 중...');
-    const meta = await _parseSettlement(fSet);
+    _logLine(fSet ? '• 정산달력 파싱 중...' : '• 저장된 정산내역으로 매칭(파일 없이)...');
+    const meta = fSet ? await _parseSettlement(fSet) : _metaFromHistory();
+    if(!meta){ alert('정산내역이 없어요 — 정산시트를 한 번 올려주세요.'); return; }
+    if(meta._fromHistory) _logLine(`  → 📚 저장분 사용 (${meta._span}) · 색칠 파일 다운로드는 없음(리모콘에서 직접 색칠)`);
     _logLine(`  → 업체 ${Object.keys(meta.companyCols).length}개, 일자 행 ${meta.dateRows.length}개`);
     const aliasMap = _buildAliasMap(meta.memoMap);
     Object.assign(aliasMap, SETTLE_ALIAS); // 🧠 사장님이 전에 확정한 학습 별칭 병합
@@ -2108,6 +2134,9 @@ async function runSettlementMatch(){
     // 2026-07-16 사장님: '작게 보기' 전체화면(mp-full) 제거 — 쓸모없음. 결과는 그냥 패널에 그대로 표시.
 
     // 다운로드 — 실패해도 매칭 결과(색칠 목록)는 유효하므로 별도 try (2026-07-10)
+    if(meta._fromHistory || !meta.wb){
+      showToast('✅ 매칭 완료 — 색칠 목록 보고 리모콘에서 색칠하세요 (저장분 매칭이라 파일 다운로드는 없음)');
+    } else
     try{
       const outBuf = await meta.wb.xlsx.writeBuffer();
       const blob = new Blob([outBuf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
