@@ -637,7 +637,7 @@ async function handleSettleFile(file){
         }
         if(cur<3||c.getAttribute('t')==='s') continue;
         const amt=parseFloat(val);
-        if(!(amt>0)) continue;
+        if(!isFinite(amt) || amt===0) continue;   // 음수(반품·차감 -16,000 등)는 유지 — 이전엔 amt>0만 받아 차감이 유실됨 (2026-07-18 에보아르 6/18 -16,000 케이스)
         const f=fills[xfs[parseInt(c.getAttribute('s')||'0',10)]||0]||{pt:'none',color:'없음'};
         const ck=(f.pt==='solid'?(f.color||'?'):'색없음');
         byColor[ck]=(byColor[ck]||0)+amt;
@@ -1978,7 +1978,7 @@ function _metaFromHistory(){
   if(!SETTLE_HISTORY || !SETTLE_HISTORY.length) return null;
   const companies=[...new Set(SETTLE_HISTORY.map(h=>h.company).filter(Boolean))];
   const dateSet=[...new Set(SETTLE_HISTORY.map(h=>h.date).filter(Boolean))].sort();
-  const dateRows=dateSet.map((iso,i)=>({ row:i+5, date:new Date(iso), key:_mdKeyFromIso(iso), _iso:iso }));
+  const dateRows=dateSet.map((iso,i)=>({ row:i+5, date:new Date(iso+'T00:00:00'), key:_mdKeyFromIso(iso), _iso:iso }));   // ⚠ 로컬(KST) 자정으로 — new Date('YYYY-MM-DD')는 UTC라 입금(KST 자정)보다 9시간 뒤가 돼서 같은날 정산이 '미래'로 잘못 제외되던 버그 fix (2026-07-18 케이스타일)
   const rowByIso={}; dateRows.forEach(d=>rowByIso[d._iso]=d.row);
   const companyCols={}; companies.forEach((c,i)=>{ companyCols[c]={ vat:3+i*2, tax:0 }; });   // 합성: 업체마다 한 칸(면세칸)에 정산금액
   const cellMap={};                                                                             // 'row_col' → {value, paid}
