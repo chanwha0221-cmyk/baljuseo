@@ -1768,14 +1768,17 @@ function _attributePastPayments(allCells, txs, ws, tolerance){
     // 끝점 j(최신→과거)를 옮겨가며, j에서 과거로 '연속' 누적해 입금액과 딱 맞는 구간을 찾는다.
     //   ⚠ 6/30 입금이 6/30셀(63,000)이 아니라 6/22~6/29 인 경우처럼, 끝점이 입금 당일 아닐 수 있음 → 끝점 이동 필수.
     //   입금은 미래 못 냄 → j.date < 입금일(당일 정산은 아직 미발생이라 제외). 이미 청구된 셀은 경계.
+    // ⚠ 색칠완료(입금완료) 셀만 합산한다 — 입금은 '확정된(색칠된) 정산분'을 낸 것. 사이의 미색칠 셀은 아직 미정산이라 이 입금 대상 아님 → 건너뜀.
+    //   (2026-07-18 케이스타일: 7/15 입금 209,000 = 7/13(178,000)+7/15(31,000). 사이 7/14(33,000)는 미색칠이라 제외 → 비연속 허용)
     let found=null;
     for(let j=cells.length-1; j>=0 && !found; j--){
-      if(cells[j]._claimed || cells[j].date>d.date) continue;   // 미래 정산은 제외(당일까진 후보)
+      if(cells[j]._claimed || cells[j].date>d.date || !cells[j]._paid) continue;   // 끝점 = 색칠완료·입금일 이하·미청구
       let sum=0, run=[];
       for(let i=j; i>=0; i--){
-        if(cells[i]._claimed) break;                 // 다른 입금이 가져간 셀 → 연속성 끊김
+        if(cells[i]._claimed) break;                 // 다른 입금이 가져간 셀 → 경계
+        if(!cells[i]._paid) continue;                // 미색칠 셀은 건너뜀(비연속 허용)
         run.push(cells[i]); sum+=cells[i].sum;
-        if(Math.abs(sum-d.amount)<=tolerance){ if(run.every(c=>c._paid)) found=run.slice(); break; }  // 딱 맞고 전부 색칠완료
+        if(Math.abs(sum-d.amount)<=tolerance){ found=run.slice(); break; }   // 색칠완료 셀 합이 딱 맞음
         if(sum>d.amount+tolerance) break;
       }
     }
