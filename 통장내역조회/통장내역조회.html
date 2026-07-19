@@ -618,7 +618,7 @@ async function handleSettleFile(file){
     const colOf=(ref,fb)=>{if(!ref)return fb;const m=ref.match(/^([A-Z]+)/);if(!m)return fb;let n=0;for(const ch of m[1])n=n*26+ch.charCodeAt(0)-64;return n;};
     const names={},stat={};let colored=0;
     const byColor={}; // 🎨 색깔별 합계 — 리모컨 미입금액과 차이 원인 진단용 (2026-07-10)
-    const _histRecs=[]; // 📚 정산내역 누적용 — 전 셀(업체·날짜·정산금액·입금완료) 수집 (2026-07-16)
+    const _histAgg={}; // 📚 정산내역 누적용 — (날짜|업체) 키로 면세+과세 합산 (2026-07-18 유실 버그fix: 같은 키 덮어쓰기로 면세가 날아가던 것)
     for(const row of [...shx.getElementsByTagName('row')]){
       const rnum=parseInt(row.getAttribute('r')||'0',10);
       let cur=0, rowDate='';
@@ -651,7 +651,7 @@ async function handleSettleFile(file){
           _paid=!['FFC000','ED7D31','BDD7EE','DDEBF7','FFFFFF'].includes(cc);
         }
         // 📚 누적 기록: 입금완료(색칠)든 미입금이든 이 정산 셀 자체는 저장 (전월 대조용). 유효 업체명만.
-        if(rowDate && nm && !/^col\d+$/.test(nm)) _histRecs.push({date:rowDate, company:nm, amount:amt, paid:_paid});
+        if(rowDate && nm && !/^col\d+$/.test(nm)){ const _hk=rowDate+'|'+nm; if(_histAgg[_hk]){ _histAgg[_hk].amount+=amt; _histAgg[_hk].paid=_histAgg[_hk].paid&&_paid; } else { _histAgg[_hk]={date:rowDate, company:nm, amount:amt, paid:_paid}; } }   // 면세+과세 합산(같은 키)
         if(_paid){ colored+=amt; continue; }   // 미정산 현황엔 입금완료 셀 제외 (기존 동작 유지)
         if(!stat[nm]) stat[nm]={amt:0,from:'',to:''};
         stat[nm].amt+=amt;
@@ -665,7 +665,8 @@ async function handleSettleFile(file){
     document.getElementById('s-mis-sub').textContent=MIS_BASIS+' 기준';
     renderMisPanel(); misOpen();
     // 📚 이 정산시트의 전 셀을 정산내역 누적 시트에 저장 (전월 대조용). 실패해도 미정산 표시엔 무영향.
-    try{ await saveSettleRecords(_histRecs, file.name); console.log('📚 정산내역 누적:', _histRecs.length, '셀 저장, 총', SETTLE_HISTORY.length, '건'); }
+    const _histRecs=Object.values(_histAgg);   // (날짜|업체) 합산된 최종 레코드
+    try{ await saveSettleRecords(_histRecs, file.name); console.log('📚 정산내역 누적:', _histRecs.length, '건 저장, 총', SETTLE_HISTORY.length, '건'); }
     catch(e){ console.warn('정산내역 누적 저장 실패',e); }
     try{
       const t=await getToken();
