@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v4.1</title>
+<title>통장 내역 조회 v4.2</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
@@ -162,7 +162,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v4.1</span>
+  <span class="ver">v4.2</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -2111,11 +2111,20 @@ async function runSettlementMatch(){
 
       // 2) 합산 매칭 (주정산/월정산: 연속된 N개 일자 합)
       if(allowRange){
+        // 🚫 이미 입금완료(색칠)된 셀·미래 정산은 범위 합산에서 제외 (2026-07-20 빅피쉬 버그:
+        //    6/23~6/29 이미 색칠인데 6/30까지 싸잡아 1,087,500으로 오매칭 → 이미 칠한 걸 또 칠하라고 함).
+        //    단일 셀 매칭엔 있던 규칙이 범위 매칭엔 빠져 있었음. 색칠셀은 '건너뛰기'가 아니라 '기간 경계'로 끊는다.
+        const _paintableCell = c => _isCellPaintable(meta.ws, c.row, c.vatCol||c.taxCol);
         let bestRange = null;
         for(let i=0;i<cells.length;i++){
+          if(cells[i].date > tx.date) continue;                        // 시작 셀이 미래면 스킵
+          if(cells[i].sum>0 && !_paintableCell(cells[i])) continue;     // 시작 셀이 이미 색칠이면 스킵
           let sum = 0;
           for(let j=i;j<cells.length;j++){
-            sum += cells[j].sum;
+            const cj = cells[j];
+            if(cj.date > tx.date) break;                               // 입금은 미래 정산 못 냄
+            if(cj.sum>0 && !_paintableCell(cj)) break;                 // 이미 입금완료 셀 = 기간 경계
+            sum += cj.sum;
             if(sum===0) continue;
             const diff = Math.abs(sum - tx.amount);
             if(diff <= tolerance){
