@@ -45,8 +45,14 @@
 - **대상수산 대구**: `대구` 포함 → `초대왕 생대구 5kg급` (수량 그대로, 한마리=1). pp() 대상수산 블록 맨 앞. ※`자연산 급냉 대구`는 별도 규칙(급냉 국내산 대구 1.5kg)이라 영향 없음.
 
 ## 작업 환경 주의
-- **샌드박스(bash)에서 구글 API 직접 호출 불가** (DNS 차단). API는 브라우저에서만 동작. 로직 검증은 `node`로 순수 함수 시뮬레이션 / `node --check`로 구문 검사.
-- 큰 HTML 편집 후엔 `<script>` 추출해서 `node --check` + git HEAD와 `diff`로 잘림/손상 확인 (식봄ERP.html이 끝부분 잘린 적 있음 — git HEAD에서 복구함).
+- **샌드박스(bash)에서 구글 API 직접 호출 불가** (DNS 차단). API는 브라우저에서만 동작.
+- 🚫 **이 PC엔 node·python이 없다 (2026-07-21 Claude Code 실측)** — `python.exe`는 MS스토어 스텁이라 실행 불가. **`node --check` 구문검사·순수함수 시뮬레이션 못 씀.**
+- ✅ **대체 검증 = Browser MCP** (Claude Code 기준, 이게 오히려 더 확실함):
+  1. `mcp__Claude_Browser__navigate`로 `file:///C:/Users/홍찬화/내 드라이브/.../파일.html` 열기 (이미 열려 있으면 `tabs_context`로 tabId 확인 — tabId 인자 필수)
+  2. `read_console_messages {onlyErrors:true}` → 에러 0이면 구문 정상
+  3. `javascript_tool`로 `typeof 함수명` 찍어 주요 함수 로드 확인
+  4. **렌더 함수는 가짜 데이터를 직접 넣어 결과 검증** — 예: `renderToPaint([...]); document.getElementById('toPaintList').innerText`. 브라우저에서 실제 출력을 보는 거라 시뮬레이션보다 정확. (2026-07-21 통장내역조회 fix 이렇게 검증함)
+- 편집 후 잘림 확인은 그대로: `wc -l` + `grep -c '</script>'` + `tail -c 30` 을 **편집 전 baseline과 비교**. git HEAD와 `diff`도 병행 (식봄ERP.html이 끝부분 잘린 적 있음 — git HEAD에서 복구함).
 - 🚨 **드라이브 동기화 = 파일 잘림 주범**: 이 폴더가 구글 드라이브라 **Edit/Write 도구로 쓰면 동기화와 충돌해 끝부분이 잘릴 수 있음**(index.html 여러 번 당함). **규칙**: ①완성본은 안정폴더 `/outputs`에서 만들고 ②`bash cp`로 한 번에 복사 ③복사 후 `wc -l` + `grep -c '</script>'` + `tail -1`로 무결성 확인. CLAUDE.md 같은 드라이브 파일 편집도 bash(python) 사용.
 - 잘렸을 때 복구: `git show HEAD~N:파일 > 파일` (온전한 커밋 찾아). git log에서 줄수/`</script>` 개수로 온전판 판별.
 
