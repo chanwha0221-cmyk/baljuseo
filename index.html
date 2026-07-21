@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.550</title>
+<title>발주서 변환기 v22.551</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.550</span>
+  <span class="ver">v22.551</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -884,7 +884,6 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('미더덕'))return{name:'통통 미더덕 500g',qty:Math.max(1,Math.round(qty*wi*2)),maxB:999};
   if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
   if(norm(pn).includes('총알한치')&&norm(pn).includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
-  if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터')){const miM=pn.match(/(\d+)\s*미/);const calcQty=miM?Math.max(1,Math.round(parseInt(miM[1])/5)):qty;return{name:'반건조오징어 1kg 5미',qty:calcQty,maxB:999};}
   if(cl==='대상수산'&&(norm(pn).includes('바다장어')||norm(pn).includes('바다 장어')))return{name:'비만 바다장어 1kg',qty:Math.round(qty*wi),maxB:999};
   // 초벌 고창 민물 장어 → 이름 그대로 유지 + 1kg 단위 (특왕 민물장어 규칙보다 먼저 처리 — 초벌·고창 있으면 특왕 아님)
   if(cl==='대상수산'&&norm(pn).includes('초벌')&&norm(pn).includes('고창')&&norm(pn).includes('민물')&&norm(pn).includes('장어'))return{name:'초벌 고창 민물 장어 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
