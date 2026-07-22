@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.552</title>
+<title>발주서 변환기 v22.553</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.552</span>
+  <span class="ver">v22.553</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -589,7 +589,8 @@ const CC={
   "더세븐홀딩스":{address:"",phone:"1577-0926"},
   "엄자씨마켓":{address:"",phone:"1577-0926",insert:"더세븐홀딩스",showInsert:true},
   "팍스리테일":{address:"대구시 남구 대명로 124KT&G 7층",phone:"053-942-5551"},
-  "팡베베":{phone:"010-7153-3917"}
+  "팡베베":{phone:"010-7153-3917"},
+  "킹콩농수산":{address:"경기도 화성시 동탄구 동탄기흥로 594-7, 1214호 주식회사 킹콩에프앤비",phone:"031-8043-2244",insert:"킹콩에프앤비",showInsert:true}
 };
 const RA="강원특별자치도 동해시 대학로 16";
 const HEADER_KEYWORDS=["주문처","업체명","거래처","공급사","상품명","고객명","수취인","연락처"];
@@ -1658,9 +1659,53 @@ function parseBaeminLarge(raw){
 }
 const CLIENT_ALIAS={'(주)에보아르코리아':'에보아르코리아','자은np':'자은엔앤피','자은NP':'자은엔앤피','자은Np':'자은엔앤피','자은nP':'자은엔앤피'};
 function applyClientAlias(s){ let r=s; for(const k in CLIENT_ALIAS){ r=r.split(k).join(CLIENT_ALIAS[k]); } return r; }
+// 🐙 킹콩농수산 세로형 발주 (2026-07-22 신설): 업체가 상품을 세로로 나열(첫 발주라 합포장 '/' 안 넣고 옴).
+//   구조: [킹콩농수산][주문처주소][주문처전화] → 이후 [상품들…][받는사람][받는사람주소][전화] 반복(여러 건 몰아 가능).
+//   같은 받는사람에 상품 여러 줄이면 '/'로 합포장. E=킹콩에프앤비 자동 삽입.
+function isKingkongVertical(raw){
+  const first=(raw.trim().split('\n').map(l=>l.trim()).find(l=>l)||'');
+  return first.replace(/\s+/g,'')==='킹콩농수산';
+}
+function parseKingkongVertical(raw){
+  const KK={insert:'킹콩에프앤비',client:'킹콩농수산',addr:'경기도 화성시 동탄구 동탄기흥로 594-7, 1214호 주식회사 킹콩에프앤비',phone:'031-8043-2244'};
+  const phoneRe=/0\d{1,2}-?\d{3,4}-?\d{4,5}/;
+  const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+  let i=0;
+  if(lines[i]&&lines[i].replace(/\s+/g,'')==='킹콩농수산')i++;   // 주문처명 스킵
+  while(i<lines.length&&!phoneRe.test(lines[i]))i++;             // 주문처 주소줄(들) 스킵
+  if(i<lines.length&&phoneRe.test(lines[i]))i++;                // 주문처 전화 스킵
+  const rows=[];let buf=[];
+  for(;i<lines.length;i++){
+    const ln=lines[i];
+    if(phoneRe.test(ln)){                    // 전화 = 한 건의 끝 앵커
+      const addr=buf.pop()||'';              // 전화 앞줄 = 받는사람 주소
+      const name=buf.pop()||'';              // 그 앞줄 = 받는사람
+      const products=buf.slice();buf=[];     // 나머지 = 상품들
+      if(!products.length)continue;
+      const combined=products.join(' / ');   // 합포장: '/'로 묶음
+      // 10칸: E삽입 F주문처 G주문처주소 H주문처전화 I창고빈 J상품 K받는사람 L받는사람주소 M전화 N메시지
+      rows.push([KK.insert,KK.client,KK.addr,KK.phone,'',combined,name,addr,ln,''].join('\t'));
+    }else buf.push(ln);
+  }
+  return rows;
+}
 function run(){
   wc=0;let input=document.getElementById('inp').value.trim();
   if(!input){sl('입력 데이터가 없습니다.','warn');return;}
+  // 🐙 킹콩농수산 세로형 발주 자동 인식 (첫 줄이 '킹콩농수산')
+  if(isKingkongVertical(input)){
+    const out=parseKingkongVertical(input);
+    if(out.length===0){sl('킹콩농수산 발주 파싱 실패 — [상품…][받는사람][주소][전화] 순서 확인','warn');return;}
+    document.getElementById('out').value=applyClientAlias(out.join('\n'));
+    document.getElementById('s-in').textContent=out.length;
+    document.getElementById('s-out').textContent=out.length;
+    document.getElementById('in-count').textContent=out.length+' 건';
+    document.getElementById('out-count').textContent=out.length+' 행';
+    document.getElementById('s-warn').textContent=0;
+    autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
+    sl('킹콩농수산 발주 '+out.length+'행 출력 (합포장 자동 / 킹콩에프앤비 삽입)','ok');
+    return;
+  }
   // 직접발주(채팅) 형식 자동 인식 — [제품] + [수취인] 마커
   if(input.includes('[제품]')&&input.includes('[수취인]')){
     const orders=parseDirectOrders(input);
