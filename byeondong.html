@@ -362,10 +362,10 @@
     var url = 'https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+':batchUpdate';
     var body = { requests: [
       { insertDimension: { range: { sheetId: gid, dimension:'ROWS', startIndex:startRow0, endIndex:startRow0+count }, inheritFromBefore:false } },
-      { repeatCell: {   // 끼운 행 A~M 가운데 정렬 + 폰트 12
+      { repeatCell: {   // 끼운 행 A~M 흰 배경 + 가운데 정렬 + 폰트 12 (주황 배경 상속 방지)
         range: { sheetId: gid, startRowIndex:startRow0, endRowIndex:startRow0+count, startColumnIndex:0, endColumnIndex:13 },
-        cell: { userEnteredFormat: { horizontalAlignment:'CENTER', verticalAlignment:'MIDDLE', textFormat:{ fontSize:12 } } },
-        fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat.fontSize)'
+        cell: { userEnteredFormat: { backgroundColor:{red:1,green:1,blue:1}, horizontalAlignment:'CENTER', verticalAlignment:'MIDDLE', textFormat:{ fontSize:12 } } },
+        fields: 'userEnteredFormat(backgroundColor,horizontalAlignment,verticalAlignment,textFormat.fontSize)'
       } }
     ] };
     return fetch(url, {method:'POST', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'}, body:JSON.stringify(body)})
@@ -422,17 +422,24 @@
   function rowNotice(it){ var v=it.v; return [ v[6], linkName(v[7]), it.gong, v[11],v[12],v[13], v[15], v[14], '' ]; }                   // 9칸, 공급가 idx2
   function rowWh(it){     var v=it.v; return [ v[5], v[6], linkName(v[7]), it.gong, v[11],v[12],v[13], v[15], v[14] ]; }                  // 9칸, 공급가 idx3
   // 한 탭에 적용: 삽입(addRows) + 중복정리(addPk) + 품절삭제(delPk). hdr1=헤더 1-based행, nameCol=상품명 열문자, gongIdx=공급가 0based열.
-  function applyToTab(gid, tab, hdr1, nameCol, gongIdx, addRows, addPk, delPk){
-    return readRange(APPLY_ID, "'"+tab+"'!"+nameCol+(hdr1+1)+":"+nameCol).then(function(existing){
-      var pre=[];   // 삭제 대상 기존행(1-based): 새로넣는것과 같은상품(중복) 또는 품절
-      existing.forEach(function(rr, idx){ var nm=cell(rr,0); if(!nm) return; var k=pkey(nm); if(addPk[k]||delPk[k]) pre.push(hdr1+1+idx); });
-      var N=addRows.length;
+  // insertIdx0=삽입 0-based위치(그 앞에 끼움), readStart1=상품명 읽기 시작 1-based행, rmBlanks=빈 상품명 행도 삭제
+  function applyToTab(gid, tab, insertIdx0, readStart1, nameCol, gongIdx, addRows, addPk, delPk, rmBlanks){
+    return readRange(APPLY_ID, "'"+tab+"'!"+nameCol+readStart1+":"+nameCol).then(function(existing){
+      var pre=[];   // 삭제 대상 기존행(1-based): 중복상품 / 품절 / (rmBlanks면)빈행
+      existing.forEach(function(rr, idx){ var nm=cell(rr,0); var row1=readStart1+idx;
+        if(!nm){ if(rmBlanks) pre.push(row1); return; }
+        var k=pkey(nm); if(addPk[k]||delPk[k]) pre.push(row1);
+      });
+      var N=addRows.length, writeRow1=insertIdx0+1;
       var chain = (N>0)
-        ? batchInsertRows(APPLY_ID, gid, hdr1, N)                       // hdr1(0based시작=hdr1) = (hdr1+1)행에 삽입
-            .then(function(){ return writeRows(APPLY_ID, tab, hdr1+1, addRows); })
-            .then(function(){ return colorFmt(APPLY_ID, gid, hdr1, addRows, gongIdx); })
+        ? batchInsertRows(APPLY_ID, gid, insertIdx0, N)                 // insertIdx0 앞(=writeRow1 행)에 삽입
+            .then(function(){ return writeRows(APPLY_ID, tab, writeRow1, addRows); })
+            .then(function(){ return colorFmt(APPLY_ID, gid, insertIdx0, addRows, gongIdx); })
         : Promise.resolve(true);
-      return chain.then(function(){ var del = (N>0) ? pre.map(function(x){return x+N;}) : pre; return deleteRowsDesc(APPLY_ID, gid, del); });
+      return chain.then(function(){
+        var del = pre.map(function(r){ return (N>0 && (r-1)>=insertIdx0) ? r+N : r; });   // 삽입점 이하 행만 +N 밀림
+        return deleteRowsDesc(APPLY_ID, gid, del);
+      });
     });
   }
 
@@ -454,7 +461,7 @@
         var vi=sortItems(items.slice());
         var vRows=vi.map(rowVari);
         rep.vari=vRows.length;
-        return applyToTab(APPLY_GID, APPLY_TAB, 4, 'H', 8, vRows, {}, {});
+        return applyToTab(APPLY_GID, APPLY_TAB, 4, 5, 'H', 8, vRows, {}, {}, false);   // 5행 삽입, 중복삭제X(로그)
       }).then(function(){
         // 2) 공지_당일생물 — 당일&non품절 추가 / 당일&품절 삭제
         setBtn('당일생물...');
@@ -463,7 +470,7 @@
         var delPk={}; items.forEach(function(it){ if(it.day.indexOf('당일')>=0 && it.poom) delPk[pkey(it.name)]=1; });
         rep.notice=add.length; rep.poomDel += Object.keys(delPk).length;
         if(!add.length && !Object.keys(delPk).length) return true;
-        return applyToTab(NOTICE_GID, NOTICE_TAB, NOTICE_HDR, 'B', 2, add.map(rowNotice), addPk, delPk);
+        return applyToTab(NOTICE_GID, NOTICE_TAB, NOTICE_HDR, NOTICE_HDR+1, 'B', 2, add.map(rowNotice), addPk, delPk, false);   // 24행 삽입
       }).then(function(){
         // 3) 창고 탭 — 상시(당일아님)를 공급처별로. non품절 추가 / 품절 삭제. 매칭없는 공급처는 리포트.
         var sisi=items.filter(function(it){ return it.day.indexOf('당일')<0; });
@@ -482,7 +489,8 @@
           setBtn('창고: '+info.tab+'...');
           var rows=sortItems(info.add.slice()).map(rowWh);
           rep.wh[info.tab]=rows.length; rep.poomDel += Object.keys(info.delPk).length;
-          return applyToTab(parseInt(g,10), info.tab, 1, 'C', 3, rows, info.addPk, info.delPk).then(function(){ i++; return nextTab(); });
+          // 3행부터 삽입(2행 유지), 2행부터 스캔해 중복·빈행 삭제, 빈칸 제거
+          return applyToTab(parseInt(g,10), info.tab, 2, 2, 'C', 3, rows, info.addPk, info.delPk, true).then(function(){ i++; return nextTab(); });
         }
         return nextTab();
       }).then(function(){
