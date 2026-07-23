@@ -237,11 +237,14 @@
       var name=cell(v,NAME_COL), sync=cell(v,SYNC_COL);
       if(name==='' || sync!=='') continue;
       var pk=pkey(name);
+      // 원가(표시·판단용): 변동공지 K열 우선, 없으면 원가파일
       var wongaRaw = cell(v,WONGA_COL); var wnum = num(wongaRaw);
       if(wnum==null){ wnum = num(WONGA[pk]); }
+      // 공급가변동 = 변동공지 공급가변동(I열=idx8) + 마진. "A > B"면 뒤(새 값) 사용. 만원↑+1000 / 만원↓+500 (I값 기준)
+      var gongRaw = cell(v,8); var gparts = gongRaw.split('>'); var gnum = num(gparts[gparts.length-1]);
       var supply='';
-      if(wnum!=null){ supply = comma(wnum + (wnum>=10000?1000:500)); }
-      var wonPrice = PRICE[pk] || '';
+      if(gnum!=null){ supply = comma(gnum + (gnum>=10000?1000:500)); }
+      var wonPrice = PRICE[pk] || '';           // 원공급가(현재판매가)
       var magam = MAGAM[pk] || '';
       var spec = [cell(v,13), cell(v,14)].filter(function(x){return x!=='';}).join('\n');
       rows.push({
@@ -254,7 +257,7 @@
 
     var lastSheetRow = offset+values.length-1;
     setStatus('✅ <b>'+rows.length+'건</b> 발견 · 기준 시작행 '+floor+' · 읽은 마지막행 '+lastSheetRow, 'ok');
-    if(rows.length===0){ document.getElementById('result').innerHTML='<div style="padding:20px;color:#888">신규 변동이 없어요. 시작 행을 위로 낺뢤보세요.</div>'; return; }
+    if(rows.length===0){ document.getElementById('result').innerHTML='<div style="padding:20px;color:#888">신규 변동이 없어요. 시작 행을 위로 낮춰보세요.</div>'; return; }
 
     var h='<table id="qtytable"><thead><tr>';
     for(var i=0;i<COLS.length;i++) h+='<th class="'+(NEWCOLS[i]?'new':'')+'">'+esc(COLS[i])+'</th>';
@@ -263,9 +266,13 @@
       h+='<tr data-k="'+esc(r.pk)+'">';
       for(var i=0;i<r.c.length;i++){
         var cls = NEWCOLS[i]?'new':''; if(i===14) cls+=' spec';
-        if(i===8){ h+='<td class="'+cls+'"><input class="sg-in" value="'+esc(r.c[8])+'"></td>'; }
-        else if(i===15){ h+='<td class="'+cls+' magam" data-k="'+esc(r.pk)+'">'+esc(r.c[15])+'</td>'; }
-        else { h+='<td class="'+cls+'">'+esc(r.c[i])+'</td>'; }
+        if(i===8){ // 공급가변동 = 수정 가능 입력칸
+          h+='<td class="'+cls+'"><input class="sg-in" value="'+esc(r.c[8])+'"></td>';
+        } else if(i===15){ // 마감시간
+          h+='<td class="'+cls+' magam" data-k="'+esc(r.pk)+'">'+esc(r.c[15])+'</td>';
+        } else {
+          h+='<td class="'+cls+'">'+esc(r.c[i])+'</td>';
+        }
       }
       h+='</tr>';
     });
@@ -274,10 +281,12 @@
     document.getElementById('actions').style.display='flex';
     document.getElementById('copyHint').textContent='('+COLS.length+'칸 · 공급가 칸 직접 수정 가능)';
 
+    // 마감시간 없는 상품 → 팝업
     var missing = rows.filter(function(r){ return !r.c[15]; });
     if(missing.length){ openMagamPopup(missing); }
   }
 
+  // ===== 마감시간 팝업 =====
   function openMagamPopup(missing){
     var seen={}, uniq=[];
     missing.forEach(function(r){ if(!seen[r.pk]){ seen[r.pk]=1; uniq.push(r); } });
@@ -298,6 +307,7 @@
     }
     if(jobs.length===0){ alert('입력한 마감시간이 없어요.'); return; }
     btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='저장중...';
+    // 순차 저장
     var idx=0;
     function next(){
       if(idx>=jobs.length){
@@ -318,6 +328,7 @@
   });
   function cssq(s){ return String(s).replace(/["\\]/g,'\\$&'); }
 
+  // ===== 전체 복사 (화면 표 그대로, 공급가 수정값 포함) =====
   document.getElementById('copyBtn').addEventListener('click', function(){
     var tbl=document.getElementById('qtytable'); if(!tbl) return;
     var lines=[];
