@@ -548,7 +548,7 @@
     var d=new Date(); function p2(n){ return (n<10?'0':'')+n; }
     var today = d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
 
-    var newRows=[], removeSet={}, skipped=0, filledWonga=0, renamed=0;
+    var newRows=[], removeSet={}, seenPk={}, skipped=0, filledWonga=0, renamed=0, dupInNew=0;
     items.forEach(function(it){
       var v=it.v, byun=String(v[3]||'');
       if(byun.indexOf('품절')>=0){ skipped++; return; }                       // 품절 제외
@@ -559,12 +559,14 @@
 
       var name = (rename && rename.neu) ? rename.neu : String(v[7]||'').trim();
       var pk = pkey(name);
+      if(seenPk[pk]){ dupInNew++; return; }   // 같은 상품이 변동공지에 두 번 → 맨 위 첫 건만 남김
+      seenPk[pk] = 1;
       // 리모컨에 있는 상품인지(이름변경이면 옛 이름으로 조회)
       var oldPk = (rename && rename.old) ? pkey(rename.old) : pk;
       var inRemote = !!(WONGA_NAMES[oldPk] || WONGA_NAMES[pk]);
       var isNew = /출시/.test(byun) || !inRemote;   // 출시 or 리모컨에 아예 없던 상품 = 이때만 원가 넣음
       var gwaSe = sani(v[13]);          // 과세(면세/과세)
-      var taekBi = sani(v[12]);         // 택배비
+      var taekBi = sani(v[12]); if(/무료|무배/.test(taekBi)) taekBi='0';   // 무료배송 → 0
       var E, F, G;
       if(isNew){                        // 출시/신규만 → 원가 E·F·G 채움 (F/G는 공급가쪽과 동일)
         E = sani(v[10]); F = gwaSe; G = taekBi;
@@ -603,7 +605,7 @@
     try { XLSX.writeFile(wb, fn); }
     catch(e){ alert('엑셀 저장 실패: '+e.message); return; }
 
-    setStatus('✅ 리모컨 엑셀 생성 완료 → <b>'+esc(fn)+'</b><br>· 새 상품 <b>'+newRows.length+'</b>건 맨위(원가채움 '+filledWonga+' · 이름변경 '+renamed+') + 기존 <b>'+kept.length+'</b>행<br>· 제외 '+skipped+'건 · 기존 중복/옛이름 삭제 '+removedExisting+'건', 'ok');
+    setStatus('✅ 리모컨 엑셀 생성 완료 → <b>'+esc(fn)+'</b><br>· 새 상품 <b>'+newRows.length+'</b>건 맨위(원가채움 '+filledWonga+' · 이름변경 '+renamed+') + 기존 <b>'+kept.length+'</b>행<br>· 제외 '+skipped+'건 · 새행 중복스킵 '+dupInNew+'건 · 기존 중복/옛이름 삭제 '+removedExisting+'건', 'ok');
   });
 </script>
 </body>
