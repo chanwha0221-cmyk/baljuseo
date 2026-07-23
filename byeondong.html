@@ -89,6 +89,7 @@
 
   <div class="actions" id="actions" style="display:none">
     <button id="applyBtn" style="background:#b45309;color:#fff">📥 변동사항 적용 (사본테스트)</button>
+    <button id="noticeBtn" style="background:#2d6a4f;color:#fff">📢 당일생물 공지 적용</button>
     <button class="ghost" id="copyBtn">📋 전체 복사</button>
     <span class="mini" id="copyHint"></span>
   </div>
@@ -118,6 +119,9 @@
   var APPLY_GID = 548798859;                                       // 상품변동사항 탭 gid
   var LINK_ID = '1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';  // 링크 모음 시트("상품정보 업데이트")
   var LINK_TAB = '링크';                                            // A열 상품명 → B열 URL (중복이면 위=첫 번째 우선)
+  var NOTICE_TAB = '공지_당일생물';   // 당일 상품 공지 (같은 사본 APPLY_ID)
+  var NOTICE_GID = 322594718;         // 공지_당일생물 탭 gid
+  var NOTICE_HDR = 23;                // 헤더 23행, 데이터 24행부터
   var SCOPE = 'https://www.googleapis.com/auth/spreadsheets';           // 읽기+쓰기
   var DEFAULT_CLIENT_ID = '337370860058-repde1q121dchas1fddan4tasikjep7l.apps.googleusercontent.com';
   var NAME_COL = 7, SYNC_COL = 18, WONGA_COL = 10, NUM_COLS = 19;       // 0-based: H상품명, S마찬, K원가
@@ -129,6 +133,9 @@
   var WONGA = {}, PRICE = {}, MAGAM = {}, MAGAM_LOADED = false, LINKMAP = {};
 
   function pkey(s){ return String(s==null?'':s).toLowerCase().replace(/\s+/g,'').trim(); }
+  // 정렬 순위: 출시0>재입고1>인상2>인하3>정보변경(스펙/마감/택배사/이벤트 등)4>품절5, 그룹 내 당일 먼저
+  function rankByun(d){ d=String(d||''); if(d.indexOf('출시')>=0)return 0; if(d.indexOf('재입고')>=0)return 1; if(d.indexOf('인상')>=0)return 2; if(d.indexOf('인하')>=0)return 3; if(d.indexOf('품절')>=0)return 5; return 4; }
+  function rankDay(e){ return String(e||'').indexOf('당일')>=0 ? 0 : 1; }
   function num(s){ var n = parseInt(String(s==null?'':s).replace(/[^0-9]/g,''),10); return isNaN(n)?null:n; }
   function comma(n){ return (n==null)?'':Number(n).toLocaleString('ko-KR'); }
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -368,18 +375,27 @@
     return fetch(url, {method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'}, body:JSON.stringify({values:rows})})
       .then(function(r){ if(!r.ok) throw new Error('값 기록 실패 HTTP '+r.status); return true; });
   }
-  // 공급가변동(I열) 글자색: 변경있음(">") 빨강 / 변경없음 검정
-  function colorFmt(sheetId, gid, startRow0, rows){
+  // 공급가 글자색(gongIdx 열): 변경있음(">") 빨강 / 변경없음 검정
+  function colorFmt(sheetId, gid, startRow0, rows, gongIdx){
     var reqs=[];
     for(var i=0;i<rows.length;i++){
-      var changed = String(rows[i][8]||'').indexOf('>')>=0;
+      var changed = String(rows[i][gongIdx]||'').indexOf('>')>=0;
       var col = changed ? {red:0.8, green:0.0, blue:0.0} : {red:0.0, green:0.0, blue:0.0};
-      reqs.push({ repeatCell: { range:{ sheetId:gid, startRowIndex:startRow0+i, endRowIndex:startRow0+i+1, startColumnIndex:8, endColumnIndex:9 }, cell:{ userEnteredFormat:{ textFormat:{ foregroundColor:col } } }, fields:'userEnteredFormat.textFormat.foregroundColor' } });
+      reqs.push({ repeatCell: { range:{ sheetId:gid, startRowIndex:startRow0+i, endRowIndex:startRow0+i+1, startColumnIndex:gongIdx, endColumnIndex:gongIdx+1 }, cell:{ userEnteredFormat:{ textFormat:{ foregroundColor:col } } }, fields:'userEnteredFormat.textFormat.foregroundColor' } });
     }
     if(!reqs.length) return Promise.resolve(true);
     var url='https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+':batchUpdate';
     return fetch(url,{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({requests:reqs})})
       .then(function(r){ if(!r.ok) throw new Error('색상 서식 실패 HTTP '+r.status); return true; });
+  }
+  // 행 삭제 (1-based 행번호들, 아래→위 순으로 안전 삭제)
+  function deleteRowsDesc(sheetId, gid, sheetRows1){
+    if(!sheetRows1 || !sheetRows1.length) return Promise.resolve(true);
+    var sorted = sheetRows1.slice().sort(function(a,b){return b-a;});
+    var reqs = sorted.map(function(rw){ return { deleteDimension: { range: { sheetId:gid, dimension:'ROWS', startIndex:rw-1, endIndex:rw } } }; });
+    var url='https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+':batchUpdate';
+    return fetch(url,{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({requests:reqs})})
+      .then(function(r){ if(!r.ok) throw new Error('중복 삭제 실패 HTTP '+r.status); return true; });
   }
   document.getElementById('applyBtn').addEventListener('click', function(){
     var tbl=document.getElementById('qtytable'); if(!tbl){ alert('먼저 불러오기 하세요.'); return; }
@@ -394,9 +410,7 @@
       // A~M 13칸: 공급처,기재,적용,변동,상시당일,유통,창고명,상품명,공급가변동,택배사,택배비,면과세,스펙/참고
       rows.push([ txt(0),txt(1),txt(2),txt(3),txt(4),txt(5),txt(6),txt(7), gong, txt(11),txt(12),txt(13),txt(14) ]);
     }
-    // 정렬: 출시>재입고>인상>인하>정보변경(스펙/마감/택배사 등)>품절, 각 그룹 안에서 당일 먼저 (안정 정렬)
-    function rankByun(d){ d=String(d||''); if(d.indexOf('출시')>=0)return 0; if(d.indexOf('재입고')>=0)return 1; if(d.indexOf('인상')>=0)return 2; if(d.indexOf('인하')>=0)return 3; if(d.indexOf('품절')>=0)return 5; return 4; }
-    function rankDay(e){ return String(e||'').indexOf('당일')>=0 ? 0 : 1; }
+    // 정렬(전역 rankByun/rankDay): a[3]=변동, a[4]=상시당일
     rows.sort(function(a,b){ var r=rankByun(a[3])-rankByun(b[3]); if(r!==0) return r; return rankDay(a[4])-rankDay(b[4]); });
     if(!confirm(rows.length+'건을 [사본테스트] 상품변동사항 5행에 끼워넣을까요?\n(정렬: 출시>재입고>인상>인하>정보변경>품절, 당일 위 / 기존 내용은 아래로 밀림)')) return;
     var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
@@ -407,8 +421,48 @@
           return batchInsertRows(APPLY_ID, APPLY_GID, 4, rows.length);   // startIndex 4 = 5행
         })
         .then(function(){ return writeRows(APPLY_ID, APPLY_TAB, 5, rows); })
-        .then(function(){ return colorFmt(APPLY_ID, APPLY_GID, 4, rows); })   // 공급가 색: 변경만 빨강
+        .then(function(){ return colorFmt(APPLY_ID, APPLY_GID, 4, rows, 8); })   // 공급가(I=8) 색: 변경만 빨강
         .then(function(){ btn.disabled=false; btn.innerHTML=o; setStatus('✅ '+rows.length+'건 [사본테스트] 상품변동사항 5행에 적용 완료!','ok'); alert('적용 완료! 사본테스트 시트를 확인해보세요.'); })
+        .catch(function(e){ btn.disabled=false; btn.innerHTML=o; setStatus('⚠️ 적용 실패: '+e.message,'warn'); alert('적용 실패: '+e.message); });
+    });
+  });
+
+  // ===== 📢 당일생물 공지 적용 — 공지_당일생물 24행에 (당일만) 끼워넣기 + 아래 같은상품 삭제 =====
+  document.getElementById('noticeBtn').addEventListener('click', function(){
+    var tbl=document.getElementById('qtytable'); if(!tbl){ alert('먼저 불러오기 하세요.'); return; }
+    var trs=tbl.tBodies[0].querySelectorAll('tr'); if(!trs.length){ alert('데이터가 없어요.'); return; }
+    function norm(s){ return String(s||'').replace(/[^0-9]/g,''); }
+    var items=[];
+    for(var r=0;r<trs.length;r++){
+      var tds=trs[r].children;
+      var txt=function(i){ var inp=tds[i]?tds[i].querySelector('input'):null; return inp?inp.value:(tds[i]?tds[i].textContent:''); };
+      if(String(txt(4)).indexOf('당일')<0) continue;   // 당일 상품만
+      var won=txt(9), sae=txt(8);
+      var gong=(won && norm(won)!=='' && norm(won)!==norm(sae)) ? (won+' > '+sae) : sae;
+      // 9칸(A~I): 창고명,상품명,공급가,택배사,택배비,면과세,발주마감시간,스펙변동(합침),기타내용
+      items.push({ name:txt(7), byun:txt(3), day:txt(4), c:[ txt(6), txt(7), gong, txt(11), txt(12), txt(13), txt(15), txt(14), '' ] });
+    }
+    if(!items.length){ alert('당일 상품이 없어요.'); return; }
+    items.sort(function(a,b){ var x=rankByun(a.byun)-rankByun(b.byun); if(x!==0) return x; return rankDay(a.day)-rankDay(b.day); });
+    if(!confirm(items.length+'건(당일)을 [사본테스트] 공지_당일생물 '+(NOTICE_HDR+1)+'행에 넣을까요?\n(아래에 같은 상품 있으면 삭제 · 기존은 아래로 밀림)')) return;
+    var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
+    var newPk={}; items.forEach(function(it){ newPk[pkey(it.name)]=1; });
+    withToken(function(){
+      readLinks()
+        .then(function(){
+          items.forEach(function(it){ var nm=it.c[1]; var u=LINKMAP[pkey(nm)]; if(u) it.c[1]='=HYPERLINK("'+u+'","'+String(nm).replace(/"/g,'""')+'")'; });
+          return readRange(APPLY_ID, "'"+NOTICE_TAB+"'!B"+(NOTICE_HDR+1)+":B");   // 기존 상품명(B24:B)
+        })
+        .then(function(existing){
+          var dupRows=[];
+          existing.forEach(function(rr, idx){ var nm=cell(rr,0); if(nm && newPk[pkey(nm)]) dupRows.push(NOTICE_HDR+1+idx); });
+          var N=items.length, body=items.map(function(it){return it.c;});
+          return batchInsertRows(APPLY_ID, NOTICE_GID, NOTICE_HDR, N)   // 24행에 N줄 삽입
+            .then(function(){ return writeRows(APPLY_ID, NOTICE_TAB, NOTICE_HDR+1, body); })
+            .then(function(){ return colorFmt(APPLY_ID, NOTICE_GID, NOTICE_HDR, body, 2); })   // 공급가(C=2) 색
+            .then(function(){ return deleteRowsDesc(APPLY_ID, NOTICE_GID, dupRows.map(function(d){return d+N;})); });   // 삽입으로 +N 밀림
+        })
+        .then(function(){ btn.disabled=false; btn.innerHTML=o; setStatus('✅ 당일 '+items.length+'건 공지_당일생물 적용 완료 (중복 정리됨)','ok'); alert('당일생물 공지 적용 완료! 시트 확인해보세요.'); })
         .catch(function(e){ btn.disabled=false; btn.innerHTML=o; setStatus('⚠️ 적용 실패: '+e.message,'warn'); alert('적용 실패: '+e.message); });
     });
   });
