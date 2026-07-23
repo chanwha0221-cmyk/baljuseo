@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.553</title>
+<title>발주서 변환기 v22.554</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.553</span>
+  <span class="ver">v22.554</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1690,6 +1690,32 @@ function parseKingkongVertical(raw){
   return rows;
 }
 function run(){
+  // 여러 업체 취합 입력 = '===발주구분===' 구분선으로 블록 분리 후 각 업체를 개별 변환(폭 다른 양식 섞임 방지)
+  const SEP=/^===발주구분===\s*$/m;
+  const inpEl=document.getElementById('inp');
+  const full=inpEl.value;
+  if(!SEP.test(full)){ runSingle(); return; }
+  const blocks=full.split(/^===발주구분===\s*$/m).map(s=>s.trim()).filter(Boolean);
+  const outEl=document.getElementById('out');
+  const outs=[];
+  for(const b of blocks){
+    inpEl.value=b; outEl.value='';
+    runSingle();
+    const o=(outEl.value||'').trim();
+    if(o) outs.push(o);
+  }
+  inpEl.value=full;
+  const merged=outs.join('\n');
+  outEl.value=merged;
+  const outN=merged.split('\n').filter(l=>l.trim()).length;
+  document.getElementById('s-out').textContent=outN;
+  document.getElementById('out-count').textContent=outN+' 행';
+  document.getElementById('s-in').textContent=blocks.length;
+  document.getElementById('in-count').textContent=blocks.length+' 업체';
+  autoResize(inpEl);autoResize(outEl);
+  sl(blocks.length+'개 업체 블록 개별 변환 완료 — 총 '+outN+'행','ok');
+}
+function runSingle(){
   wc=0;let input=document.getElementById('inp').value.trim();
   if(!input){sl('입력 데이터가 없습니다.','warn');return;}
   // 🐙 킹콩농수산 세로형 발주 자동 인식 (첫 줄이 '킹콩농수산')
