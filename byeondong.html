@@ -37,6 +37,14 @@
   .sg-in { width: 92px; font-size: 13px; padding: 4px 6px; border:1px solid #b45309; border-radius:5px; font-weight:700; color:#b45309; }
   .byun-in { width: 88px; font-size: 13px; padding: 4px 6px; border:1px solid #999; border-radius:5px; }
   #allBtn { border:none; border-radius:6px; padding:8px 15px; font-weight:700; cursor:pointer; }
+  .cpbtn { border:none; background:#eef2f0; color:#2d6a4f; border-radius:4px; padding:1px 5px; font-size:11px; cursor:pointer; vertical-align:middle; }
+  .cpbtn:hover { background:#dfeae5; }
+  #applyReport { margin-top:12px; }
+  #applyReport .card { background:#f4faf6; border:1px solid #cfe0d8; }
+  #applyReport ul { margin:6px 0 0; padding-left:18px; line-height:1.7; }
+  #applyReport a { color:#2d6a4f; font-weight:600; }
+  #applyReport .pnmlist { max-height:240px; overflow:auto; margin-top:6px; font-size:13px; }
+  #applyReport .pnmrow { padding:2px 0; }
   .actions { margin: 10px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid #cfe0d8; border-top-color:#2d6a4f; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -95,6 +103,7 @@
   </div>
 
   <div id="result" class="scroll"></div>
+  <div id="applyReport"></div>
 
   <!-- ③ 마감시간 입력 팝업 -->
   <div id="mgov" class="ovl">
@@ -247,6 +256,7 @@
     setStatus('<span class="spinner"></span> 시트 읽는 중...');
     document.getElementById('actions').style.display='none';
     document.getElementById('result').innerHTML='';
+    document.getElementById('applyReport').innerHTML='';
 
     var pSrc = readRange(SPREADSHEET_ID, dataRange);
     var pMag = MAGAM_LOADED ? Promise.resolve(null) : readRange(MAGAM_ID, "'"+MAGAM_TAB+"'!A2:J").then(function(v){
@@ -278,6 +288,11 @@
       var wonPrice = PRICE[pk] || '';           // 원공급가(현재판매가)
       var magam = MAGAM[pk] || '';
       var spec = [cell(v,13), cell(v,14)].filter(function(x){return x!=='';}).join('\n');
+      // 스펙/참고에 "마감시간 : 16시 > 14시" 같은 변경 있으면 실제 마감시간을 새 값으로 반영
+      var mmc = spec.match(/마감\s*시간[^:：>\n]*[:：]?\s*([^>\n]+?)\s*>\s*([^\n]+)/);
+      if(mmc){ var oT=mmc[1].trim(), nT=mmc[2].trim();
+        magam = (magam && magam.indexOf(oT)>=0) ? magam.split(oT).join(nT) : nT;
+      }
       rows.push({
         pk:pk, disp:name, row:sheetRow,
         c:[ cell(v,0), cell(v,1), cell(v,2), cell(v,3), cell(v,4), cell(v,5), cell(v,6), name,
@@ -413,7 +428,7 @@
     var items=[];
     for(var r=0;r<trs.length;r++){
       var tds=trs[r].children;
-      var txt=function(i){ var inp=tds[i]?tds[i].querySelector('input'):null; return inp?inp.value:(tds[i]?tds[i].textContent:''); };
+      var txt=function(i){ var td=tds[i]; if(!td) return ''; var inp=td.querySelector('input'); if(inp) return inp.value; var pnm=td.querySelector('.pnm'); return pnm?pnm.textContent:td.textContent; };
       var v=[]; for(var i=0;i<16;i++) v.push(txt(i));
       var won=v[9], sae=v[8];
       var gong=(won && norm(won)!=='' && norm(won)!==norm(sae)) ? (won+' > '+sae) : sae;  // 변동있으면 a>b
@@ -500,11 +515,24 @@
         return nextTab();
       }).then(function(){
         btn.disabled=false; btn.innerHTML=o;
+        // 화면 하단 적용 결과 리포트(각 시트 링크)
+        var base='https://docs.google.com/spreadsheets/d/'+APPLY_ID+'/edit#gid=';
+        function li(gid,label,cnt){ return '<li><a href="'+base+gid+'" target="_blank">'+esc(label)+'</a> : <b>'+cnt+'</b>건</li>'; }
+        var rh='<div class="card"><b>📋 적용 결과 리포트</b> <span class="mini">(각 시트 클릭해 확인)</span><ul>';
+        rh+=li(APPLY_GID,'상품변동사항',rep.vari);
+        rh+=li(NOTICE_GID,'공지_당일생물',rep.notice);
+        Object.keys(rep.wh).forEach(function(t){ rh+=li(WH[t],'창고 · '+t,rep.wh[t]); });
+        rh+='<li>품절 삭제: <b>'+rep.poomDel+'</b>건</li>';
+        if(rep.unmatched.length) rh+='<li style="color:#c0392b">⚠️ 미매칭 공급처(못 넣음): <b>'+esc(rep.unmatched.join(', '))+'</b> — 공급처 이름이 창고 탭 이름과 달라요. 수동 확인!</li>';
+        rh+='</ul></div>';
+        // 적용된 상품명 목록 + 복사 버튼(시트에서 검색 확인용)
+        rh+='<div class="card"><b>🔎 상품명 (복사해서 시트에서 검색)</b><div class="pnmlist">';
+        items.forEach(function(it){ var nm=String(it.v[7]||'').trim(); if(nm) rh+='<div class="pnmrow"><button class="cpbtn" data-nm="'+esc(nm)+'" title="복사">📋</button> '+esc(nm)+'</div>'; });
+        rh+='</div></div>';
+        document.getElementById('applyReport').innerHTML=rh;
         var whSum=Object.keys(rep.wh).map(function(t){return t+'('+rep.wh[t]+')';}).join(', ')||'없음';
-        var msg='✅ 각 시트 적용 완료 [사본테스트]\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건';
-        if(rep.unmatched.length) msg+='\n⚠️ 창고 매칭 실패(못 넣음): '+rep.unmatched.join(', ')+'\n→ 공급처 이름이 탭 이름과 달라요. 수동 확인 필요.';
-        setStatus('✅ 각 시트 적용 완료 (변동'+rep.vari+'·당일'+rep.notice+'·창고'+Object.keys(rep.wh).length+'탭·품절삭제'+rep.poomDel+(rep.unmatched.length?'·미매칭'+rep.unmatched.length:'')+')','ok');
-        alert(msg);
+        setStatus('✅ 각 시트 적용 완료 (변동'+rep.vari+'·당일'+rep.notice+'·창고'+Object.keys(rep.wh).length+'탭·품절삭제'+rep.poomDel+(rep.unmatched.length?'·미매칭'+rep.unmatched.length:'')+') — 아래 리포트 확인','ok');
+        alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건'+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
       }).catch(function(e){ btn.disabled=false; btn.innerHTML=o; setStatus('⚠️ 적용 실패: '+e.message,'warn'); alert('적용 실패: '+e.message+'\n(일부만 적용됐을 수 있어요. 시트 확인 후 재시도)'); });
     });
   });
@@ -518,7 +546,8 @@
       var tds=trs[r].children, arr=[];
       for(var c=0;c<tds.length;c++){
         var inp=tds[c].querySelector('input');
-        var t = inp ? inp.value : tds[c].textContent;
+        var pnm=tds[c].querySelector('.pnm');
+        var t = inp ? inp.value : (pnm ? pnm.textContent : tds[c].textContent);
         arr.push(String(t==null?'':t).replace(/\t/g,' ').replace(/\n/g,' '));
       }
       lines.push(arr.join('\t'));
@@ -527,6 +556,15 @@
     var btn=this, ok=false;
     try{ var ta=document.createElement('textarea'); ta.value=tsv; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select(); ok=document.execCommand('copy'); document.body.removeChild(ta); }catch(e){ ok=false; }
     var o=btn.innerHTML; btn.innerHTML=ok?'✓ 복사됨':'복사 실패'; setTimeout(function(){ btn.innerHTML=o; },1500);
+  });
+
+  // ===== 상품명 옆 📋 복사 버튼 (검색용) — 이벤트 위임 =====
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest ? e.target.closest('.cpbtn') : null;
+    if(!b) return;
+    var nm = b.getAttribute('data-nm') || '';
+    try{ var ta=document.createElement('textarea'); ta.value=nm; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }catch(_){}
+    var o=b.textContent; b.textContent='✓'; setTimeout(function(){ b.textContent=o; }, 900);
   });
 
   // ===== 📗 리모컨(원가파일) 업데이트 엑셀 생성 =====
