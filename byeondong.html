@@ -559,20 +559,18 @@
 
       var name = (rename && rename.neu) ? rename.neu : String(v[7]||'').trim();
       var pk = pkey(name);
-      // 기존 리모컨 행 찾기(이름변경이면 옛 이름으로) → 원가(E/F/G) 보존용
+      // 리모컨에 있는 상품인지(이름변경이면 옛 이름으로 조회)
       var oldPk = (rename && rename.old) ? pkey(rename.old) : pk;
-      var existRow = WONGA_ROWMAP[oldPk] || WONGA_ROWMAP[pk] || null;
-      var isNew = /출시/.test(byun) || !existRow;   // 출시 or 리모컨에 아예 없던 상품
+      var inRemote = !!(WONGA_NAMES[oldPk] || WONGA_NAMES[pk]);
+      var isNew = /출시/.test(byun) || !inRemote;   // 출시 or 리모컨에 아예 없던 상품 = 이때만 원가 넣음
       var gwaSe = sani(v[13]);          // 과세(면세/과세)
       var taekBi = sani(v[12]);         // 택배비
       var E, F, G;
-      if(isNew){                        // 신규 → 원가 E·F·G 채움(F/G는 공급가쪽과 동일)
+      if(isNew){                        // 출시/신규만 → 원가 E·F·G 채움 (F/G는 공급가쪽과 동일)
         E = sani(v[10]); F = gwaSe; G = taekBi;
         if(E!=='') filledWonga++;
-      } else {                          // 기존 → 정산팀 원가 그대로 보존
-        E = String(existRow[4]!=null?existRow[4]:'');
-        F = String(existRow[5]!=null?existRow[5]:'');
-        G = String(existRow[6]!=null?existRow[6]:'');
+      } else {                          // 기존 상품 → 원가는 관리팀 몫, 절대 안 건드림(전부 빈칸)
+        E = ''; F = ''; G = '';
       }
       if(rename){ renamed++; if(rename.old) removeSet[pkey(rename.old)]=1; }   // 옛 이름 행 제거 표시
 
