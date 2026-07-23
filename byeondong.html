@@ -342,7 +342,14 @@
   // ===== 변동사항 적용 — 사본테스트 상품변동사항 5행에 끼워넣기 =====
   function batchInsertRows(sheetId, gid, startRow0, count){
     var url = 'https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+':batchUpdate';
-    var body = { requests: [ { insertDimension: { range: { sheetId: gid, dimension:'ROWS', startIndex:startRow0, endIndex:startRow0+count }, inheritFromBefore:false } } ] };
+    var body = { requests: [
+      { insertDimension: { range: { sheetId: gid, dimension:'ROWS', startIndex:startRow0, endIndex:startRow0+count }, inheritFromBefore:false } },
+      { repeatCell: {   // 끼운 행 A~M 가운데 정렬 + 폰트 12
+        range: { sheetId: gid, startRowIndex:startRow0, endRowIndex:startRow0+count, startColumnIndex:0, endColumnIndex:13 },
+        cell: { userEnteredFormat: { horizontalAlignment:'CENTER', verticalAlignment:'MIDDLE', textFormat:{ fontSize:12 } } },
+        fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat.fontSize)'
+      } }
+    ] };
     return fetch(url, {method:'POST', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'}, body:JSON.stringify(body)})
       .then(function(r){ if(!r.ok) throw new Error('행 삽입 실패 HTTP '+r.status); return true; });
   }
