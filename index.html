@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.554</title>
+<title>발주서 변환기 v22.555</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.554</span>
+  <span class="ver">v22.555</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1689,13 +1689,30 @@ function parseKingkongVertical(raw){
   }
   return rows;
 }
+function autoSplitByHeader(text){
+  // 구분선 없어도 '주문처 …' 헤더줄을 업체 경계로 보고 자동 분리(안전망)
+  const lines=text.split(/\r?\n/);
+  const isHdr=function(l){const c=l.split('\t');return c[0].trim()==='주문처' && /(주소|연락처|상품)/.test(l);};
+  const blocks=[]; let cur=[];
+  for(const l of lines){
+    if(isHdr(l) && cur.some(function(x){return x.trim();})){ blocks.push(cur.join('\n')); cur=[]; }
+    cur.push(l);
+  }
+  if(cur.some(function(x){return x.trim();})) blocks.push(cur.join('\n'));
+  return blocks.map(function(b){return b.trim();}).filter(Boolean);
+}
 function run(){
-  // 여러 업체 취합 입력 = '===발주구분===' 구분선으로 블록 분리 후 각 업체를 개별 변환(폭 다른 양식 섞임 방지)
-  const SEP=/^===발주구분===\s*$/m;
+  // 다업체 취합 입력을 블록으로 나눠 업체별 개별 변환(폭 다른 양식 섞임→오배분 방지)
   const inpEl=document.getElementById('inp');
   const full=inpEl.value;
-  if(!SEP.test(full)){ runSingle(); return; }
-  const blocks=full.split(/^===발주구분===\s*$/m).map(s=>s.trim()).filter(Boolean);
+  let blocks=null, mode='';
+  if(/^===발주구분===\s*$/m.test(full)){
+    blocks=full.split(/^===발주구분===\s*$/m).map(function(s){return s.trim();}).filter(Boolean); mode='구분선';
+  } else {
+    const ab=autoSplitByHeader(full);            // 안전망: 구분선 없어도 헤더줄 기준 자동 분리
+    if(ab.length>1){ blocks=ab; mode='헤더자동'; }
+  }
+  if(!blocks){ runSingle(); return; }            // 단일 업체 = 기존 로직 그대로(무위험)
   const outEl=document.getElementById('out');
   const outs=[];
   for(const b of blocks){
@@ -1707,13 +1724,13 @@ function run(){
   inpEl.value=full;
   const merged=outs.join('\n');
   outEl.value=merged;
-  const outN=merged.split('\n').filter(l=>l.trim()).length;
+  const outN=merged.split('\n').filter(function(l){return l.trim();}).length;
   document.getElementById('s-out').textContent=outN;
   document.getElementById('out-count').textContent=outN+' 행';
   document.getElementById('s-in').textContent=blocks.length;
   document.getElementById('in-count').textContent=blocks.length+' 업체';
   autoResize(inpEl);autoResize(outEl);
-  sl(blocks.length+'개 업체 블록 개별 변환 완료 — 총 '+outN+'행','ok');
+  sl(blocks.length+'개 업체 블록 개별 변환('+mode+') — 총 '+outN+'행','ok');
 }
 function runSingle(){
   wc=0;let input=document.getElementById('inp').value.trim();
