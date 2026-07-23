@@ -81,6 +81,7 @@
       <span><span class="step">2</span><label for="startRow">시작 행</label></span>
       <input id="startRow" type="number" min="2" placeholder="예: 16612">
       <button id="load">🔍 불러오기</button>
+      <button id="excelBtn" class="ghost">📗 엑셀 생성 (리모컨)</button>
       <span class="mini">비우면 처음부터(느림)·마지막 o 아래 자동</span>
     </div>
   </div>
@@ -132,6 +133,7 @@
   var tokenClient = null, accessToken = null, tokenExp = 0, pending = null, LAST = null;
   var WRITE_OK = false, consentTried = false;   // 쓰기(수정) 권한 확보 여부
   var WONGA = {}, PRICE = {}, MAGAM = {}, MAGAM_LOADED = false, LINKMAP = {};
+  var WONGA_ROWS = [], WONGA_HDR = [], WONGA_NAMES = {}, WONGA_ROWMAP = {};   // 리모컨(원가파일) 전체 행/헤더/상품명셋/상품명→행 — 엑셀 생성용
 
   function pkey(s){ return String(s==null?'':s).toLowerCase().replace(/\s+/g,'').trim(); }
   // 정렬 순위: 출시0>재입고1>인상2>인하3>정보변경(스펙/마감/택배사/이벤트 등)4>품절5, 그룹 내 당일 먼저
@@ -165,16 +167,18 @@
         var ws = wb.Sheets[wb.SheetNames[0]];
         var rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
         WONGA = {}; PRICE = {};
+        WONGA_HDR = rows[0] || []; WONGA_ROWS = []; WONGA_NAMES = {}; WONGA_ROWMAP = {};   // 엑셀 생성용 원본 보관
         for (var i=1;i<rows.length;i++){
           var r = rows[i]; if(!r) continue;
           var nm = String(r[0]!=null?r[0]:'').trim(); if(!nm) continue;
           var k = pkey(nm);
+          WONGA_ROWS.push(r); WONGA_NAMES[k] = 1; if(!WONGA_ROWMAP[k]) WONGA_ROWMAP[k]=r;   // 전체 행 + 상품명 + 상품명→행(원가 보존용)
           var w = String(r[4]!=null?r[4]:'').trim();   // E 원가
           var p = String(r[1]!=null?r[1]:'').trim();   // B 공급가(현재판매가)
           if(w!=='') WONGA[k]=w;
           if(p!=='') PRICE[k]=p;
         }
-        wongaStatus('✅ 원가 <b>'+Object.keys(WONGA).length+'</b>개 로드됨 ('+esc(f.name)+')','ok');
+        wongaStatus('✅ 원가 <b>'+Object.keys(WONGA).length+'</b>개 로드됨 · 전체 <b>'+WONGA_ROWS.length+'</b>행 ('+esc(f.name)+')','ok');
       } catch(err){ wongaStatus('⚠️ 원가 파일 읽기 실패: '+esc(err.message),'warn'); }
     };
     reader.readAsArrayBuffer(f);
@@ -275,7 +279,7 @@
       var magam = MAGAM[pk] || '';
       var spec = [cell(v,13), cell(v,14)].filter(function(x){return x!=='';}).join('\n');
       rows.push({
-        pk:pk, disp:name,
+        pk:pk, disp:name, row:sheetRow,
         c:[ cell(v,0), cell(v,1), cell(v,2), cell(v,3), cell(v,4), cell(v,5), cell(v,6), name,
             supply, wonPrice, (wnum!=null?comma(wnum):''), cell(v,9), cell(v,11), cell(v,12), spec, magam ]
       });
@@ -283,7 +287,8 @@
     LAST=rows;
 
     var lastSheetRow = offset+values.length-1;
-    setStatus('✅ <b>'+rows.length+'건</b> 발견 · 기준 시작행 '+floor+' · 읽은 마지막행 '+lastSheetRow, 'ok');
+    var endRow = rows.length ? rows[rows.length-1].row : lastSheetRow;   // 마지막 신규 상품 행(ㅇ 표시 끝행)
+    setStatus('✅ <b>'+rows.length+'건</b> 발견 · <b>시작행 '+floor+' ~ 끝행 '+endRow+'</b> (이 구간에 ㅇ 표시) · 읽은 마지막행 '+lastSheetRow, 'ok');
     if(rows.length===0){ document.getElementById('result').innerHTML='<div style="padding:20px;color:#888">신규 변동이 없어요. 시작 행을 위로 낮춰보세요.</div>'; return; }
 
     var h='<table id="qtytable"><thead><tr>';
@@ -522,6 +527,85 @@
     var btn=this, ok=false;
     try{ var ta=document.createElement('textarea'); ta.value=tsv; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select(); ok=document.execCommand('copy'); document.body.removeChild(ta); }catch(e){ ok=false; }
     var o=btn.innerHTML; btn.innerHTML=ok?'✓ 복사됨':'복사 실패'; setTimeout(function(){ btn.innerHTML=o; },1500);
+  });
+
+  // ===== 📗 리모컨(원가파일) 업데이트 엑셀 생성 =====
+  // 규칙: 품절·원가변경·순수 정보변경 제외 / 출시·재입고·인상·인하(+상품명변경) 포함.
+  //       출시·리모컨에없던 신규 → 원가 E·F·G 채움, 나머지 → 원가 빈칸.
+  //       새 항목 맨 위 + 기존 리모컨, 중복은 위(새것) 남기고 삭제, 상품명 변경은 옛 이름 행 삭제.
+  document.getElementById('excelBtn').addEventListener('click', function(){
+    if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로드 실패 — 새로고침 후 다시.'); return; }
+    var items = readItems();
+    if(items===null){ alert('먼저 ② 불러오기를 하세요.'); return; }
+    if(!items.length){ alert('불러온 데이터가 없어요.'); return; }
+    if(!WONGA_HDR || !WONGA_HDR.length || !WONGA_ROWS.length){ alert('① 원가 파일(리모컨)을 먼저 넣어주세요 — 기존 목록 위에 새 상품을 얹어야 해요.'); return; }
+
+    function sani(x){ x=String(x==null?'':x); if(x.indexOf('>')>=0) x=x.split('>').pop(); return x.trim(); }   // "A > B" → B
+    function parseRename(spec){   // 스펙에 "상품명 : 옛 > 새" 형태면 {old,neu}
+      var m = String(spec||'').match(/상품\s*명[^:：>\n]*[:：]?\s*([^>\n]+?)\s*>\s*([^\n]+)/);
+      return m ? { old: m[1].trim(), neu: m[2].trim() } : null;
+    }
+    var d=new Date(); function p2(n){ return (n<10?'0':'')+n; }
+    var today = d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+
+    var newRows=[], removeSet={}, skipped=0, filledWonga=0, renamed=0;
+    items.forEach(function(it){
+      var v=it.v, byun=String(v[3]||'');
+      if(byun.indexOf('품절')>=0){ skipped++; return; }                       // 품절 제외
+      if(byun.replace(/\s/g,'').indexOf('원가변경')>=0){ skipped++; return; }   // 원가변경 제외
+      var rename = parseRename(v[14]);
+      var typed = /출시|재입고|인상|인하/.test(byun);
+      if(!typed && !rename){ skipped++; return; }                             // 순수 정보변경 등 제외
+
+      var name = (rename && rename.neu) ? rename.neu : String(v[7]||'').trim();
+      var pk = pkey(name);
+      // 기존 리모컨 행 찾기(이름변경이면 옛 이름으로) → 원가(E/F/G) 보존용
+      var oldPk = (rename && rename.old) ? pkey(rename.old) : pk;
+      var existRow = WONGA_ROWMAP[oldPk] || WONGA_ROWMAP[pk] || null;
+      var isNew = /출시/.test(byun) || !existRow;   // 출시 or 리모컨에 아예 없던 상품
+      var gwaSe = sani(v[13]);          // 과세(면세/과세)
+      var taekBi = sani(v[12]);         // 택배비
+      var E, F, G;
+      if(isNew){                        // 신규 → 원가 E·F·G 채움(F/G는 공급가쪽과 동일)
+        E = sani(v[10]); F = gwaSe; G = taekBi;
+        if(E!=='') filledWonga++;
+      } else {                          // 기존 → 정산팀 원가 그대로 보존
+        E = String(existRow[4]!=null?existRow[4]:'');
+        F = String(existRow[5]!=null?existRow[5]:'');
+        G = String(existRow[6]!=null?existRow[6]:'');
+      }
+      if(rename){ renamed++; if(rename.old) removeSet[pkey(rename.old)]=1; }   // 옛 이름 행 제거 표시
+
+      newRows.push([
+        name,                    // A 공급상품명
+        sani(v[8]),              // B 공급가
+        gwaSe,                   // C 공급가 과세
+        taekBi,                  // D 공급가 택배비
+        E,                       // E 원가 (신규=채움 / 기존=보존)
+        F,                       // F 원가 과세
+        G,                       // G 원가 택배비
+        sani(v[6]),              // H 창고
+        String(v[4]||'').trim(), // I 상시/당일
+        String(v[5]||'').trim(), // J 유통기한
+        today                    // K 등록일시
+      ]);
+      removeSet[pk]=1;           // 같은 상품 기존 행 제거(맨 위 새것만 남김)
+    });
+
+    if(!newRows.length){ alert('리모컨에 넣을 상품이 없어요.\n(전부 품절/원가변경/정보변경으로 제외됨)'); return; }
+
+    var kept = WONGA_ROWS.filter(function(r){ return !removeSet[pkey(String(r[0]!=null?r[0]:'').trim())]; });
+    var removedExisting = WONGA_ROWS.length - kept.length;
+
+    var out = [WONGA_HDR].concat(newRows).concat(kept);
+    var ws = XLSX.utils.aoa_to_sheet(out);
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    var fn = '리모컨_업데이트_'+today.replace(/-/g,'')+'.xlsx';
+    try { XLSX.writeFile(wb, fn); }
+    catch(e){ alert('엑셀 저장 실패: '+e.message); return; }
+
+    setStatus('✅ 리모컨 엑셀 생성 완료 → <b>'+esc(fn)+'</b><br>· 새 상품 <b>'+newRows.length+'</b>건 맨위(원가채움 '+filledWonga+' · 이름변경 '+renamed+') + 기존 <b>'+kept.length+'</b>행<br>· 제외 '+skipped+'건 · 기존 중복/옛이름 삭제 '+removedExisting+'건', 'ok');
   });
 </script>
 </body>
