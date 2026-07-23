@@ -35,6 +35,8 @@
   th.new { background: #b45309; }
   td.spec { white-space: pre-wrap; max-width: 260px; color:#555; font-size:12px; }
   .sg-in { width: 92px; font-size: 13px; padding: 4px 6px; border:1px solid #b45309; border-radius:5px; font-weight:700; color:#b45309; }
+  .byun-in { width: 88px; font-size: 13px; padding: 4px 6px; border:1px solid #999; border-radius:5px; }
+  #applyBtn { border:none; border-radius:6px; padding:8px 15px; font-weight:700; cursor:pointer; }
   .actions { margin: 10px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid #cfe0d8; border-top-color:#2d6a4f; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -86,6 +88,7 @@
   <div id="status"></div>
 
   <div class="actions" id="actions" style="display:none">
+    <button id="applyBtn" style="background:#b45309;color:#fff">📥 변동사항 적용 (사본테스트)</button>
     <button class="ghost" id="copyBtn">📋 전체 복사</button>
     <span class="mini" id="copyHint"></span>
   </div>
@@ -110,6 +113,9 @@
   var TAB = '[상품] 2. 변동공지';
   var MAGAM_ID = '1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI';        // 수량 리더 시트
   var MAGAM_TAB = '마감시간';
+  var APPLY_ID = '1GX04Eq_5Pr3ptbyXQpf0vAgVqmaOqMu-knvNy6af528';  // ★ 변동사항 적용 대상 = 연습용 사본테스트 (실전 전환 시 여기만 진짜 유통시트 id로 교체)
+  var APPLY_TAB = '상품변동사항';
+  var APPLY_GID = 548798859;                                       // 상품변동사항 탭 gid
   var SCOPE = 'https://www.googleapis.com/auth/spreadsheets';           // 읽기+쓰기
   var DEFAULT_CLIENT_ID = '337370860058-repde1q121dchas1fddan4tasikjep7l.apps.googleusercontent.com';
   var NAME_COL = 7, SYNC_COL = 18, WONGA_COL = 10, NUM_COLS = 19;       // 0-based: H상품명, S마찬, K원가
@@ -117,6 +123,7 @@
   var NEWCOLS = {8:1, 9:1, 10:1, 15:1};  // 새로 추가된(강조) 컬럼 인덱스
 
   var tokenClient = null, accessToken = null, tokenExp = 0, pending = null, LAST = null;
+  var WRITE_OK = false, consentTried = false;   // 쓰기(수정) 권한 확보 여부
   var WONGA = {}, PRICE = {}, MAGAM = {}, MAGAM_LOADED = false;
 
   function pkey(s){ return String(s==null?'':s).toLowerCase().replace(/\s+/g,'').trim(); }
@@ -172,7 +179,9 @@
       client_id: cid, scope: SCOPE,
       callback: function(resp){
         if(resp && resp.access_token){
-          accessToken = resp.access_token;
+          var okScope = (typeof google.accounts.oauth2.hasGrantedAllScopes!=='function') || google.accounts.oauth2.hasGrantedAllScopes(resp, SCOPE);
+          if(!okScope && !consentTried){ consentTried=true; setStatus('✍️ 시트에 쓰려면 "수정" 권한이 필요해요 — 뜨는 창에서 허용해주세요...','warn'); tokenClient.requestAccessToken({prompt:'consent'}); return; }
+          accessToken = resp.access_token; WRITE_OK = okScope;
           tokenExp = Date.now() + ((resp.expires_in?resp.expires_in:3300)*1000);
           var a=pending; pending=null; if(a) a();
         } else { setStatus('⚠️ 로그인 취소/실패'+(resp&&resp.error?(' ('+resp.error+')'):''),'warn'); }
@@ -181,7 +190,7 @@
     return true;
   }
   function withToken(action){
-    if(accessToken && Date.now() < tokenExp-60000){ action(); return; }
+    if(accessToken && Date.now() < tokenExp-60000 && WRITE_OK){ action(); return; }
     if(!ensureClient()){ setStatus('⚠️ 구글 라이브러리 로딩중이거나 Client ID 미설정','warn'); document.getElementById('cfg').open=true; return; }
     pending = action; tokenClient.requestAccessToken({prompt:''});
   }
@@ -266,7 +275,9 @@
       h+='<tr data-k="'+esc(r.pk)+'">';
       for(var i=0;i<r.c.length;i++){
         var cls = NEWCOLS[i]?'new':''; if(i===14) cls+=' spec';
-        if(i===8){ // 공급가변동 = 수정 가능 입력칸
+        if(i===3){ // 변동 = 수정 가능 (재입고+인상 등 여러 변동 합치기)
+          h+='<td class="'+cls+'"><input class="byun-in" value="'+esc(r.c[3])+'"></td>';
+        } else if(i===8){ // 공급가변동 = 수정 가능 입력칸
           h+='<td class="'+cls+'"><input class="sg-in" value="'+esc(r.c[8])+'"></td>';
         } else if(i===15){ // 마감시간
           h+='<td class="'+cls+' magam" data-k="'+esc(r.pk)+'">'+esc(r.c[15])+'</td>';
@@ -324,9 +335,44 @@
         idx++; next();
       }).catch(function(e){ alert('저장 실패('+j.name+'): '+e.message); btn.disabled=false; btn.innerHTML=o; });
     }
-    next();
+    withToken(function(){ next(); });   // 쓰기 토큰 확보 후 저장
   });
   function cssq(s){ return String(s).replace(/["\\]/g,'\\$&'); }
+
+  // ===== 변동사항 적용 — 사본테스트 상품변동사항 5행에 끼워넣기 =====
+  function batchInsertRows(sheetId, gid, startRow0, count){
+    var url = 'https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+':batchUpdate';
+    var body = { requests: [ { insertDimension: { range: { sheetId: gid, dimension:'ROWS', startIndex:startRow0, endIndex:startRow0+count }, inheritFromBefore:false } } ] };
+    return fetch(url, {method:'POST', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'}, body:JSON.stringify(body)})
+      .then(function(r){ if(!r.ok) throw new Error('행 삽입 실패 HTTP '+r.status); return true; });
+  }
+  function writeRows(sheetId, tab, startRow1, rows){
+    var url='https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+'/values/'+encodeURIComponent("'"+tab+"'!A"+startRow1)+'?valueInputOption=USER_ENTERED';
+    return fetch(url, {method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'}, body:JSON.stringify({values:rows})})
+      .then(function(r){ if(!r.ok) throw new Error('값 기록 실패 HTTP '+r.status); return true; });
+  }
+  document.getElementById('applyBtn').addEventListener('click', function(){
+    var tbl=document.getElementById('qtytable'); if(!tbl){ alert('먼저 불러오기 하세요.'); return; }
+    var trs=tbl.tBodies[0].querySelectorAll('tr'); if(!trs.length){ alert('적용할 데이터가 없어요.'); return; }
+    function norm(s){ return String(s||'').replace(/[^0-9]/g,''); }
+    var rows=[];
+    for(var r=0;r<trs.length;r++){
+      var tds=trs[r].children;
+      var txt=function(i){ var inp=tds[i]?tds[i].querySelector('input'):null; return inp?inp.value:(tds[i]?tds[i].textContent:''); };
+      var won=txt(9), sae=txt(8);   // 원공급가 / 새 공급가
+      var gong=(won && norm(won)!=='' && norm(won)!==norm(sae)) ? (won+' > '+sae) : sae;  // 변동있으면 a>b
+      // A~M 13칸: 공급처,기재,적용,변동,상시당일,유통,창고명,상품명,공급가변동,택배사,택배비,면과세,스펙/참고
+      rows.push([ txt(0),txt(1),txt(2),txt(3),txt(4),txt(5),txt(6),txt(7), gong, txt(11),txt(12),txt(13),txt(14) ]);
+    }
+    if(!confirm(rows.length+'건을 [사본테스트] 상품변동사항 5행에 끼워넣을까요?\n(기존 내용은 아래로 밀립니다)')) return;
+    var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
+    withToken(function(){
+      batchInsertRows(APPLY_ID, APPLY_GID, 4, rows.length)   // startIndex 4 = 5행
+        .then(function(){ return writeRows(APPLY_ID, APPLY_TAB, 5, rows); })
+        .then(function(){ btn.disabled=false; btn.innerHTML=o; setStatus('✅ '+rows.length+'건 [사본테스트] 상품변동사항 5행에 적용 완료!','ok'); alert('적용 완료! 사본테스트 시트를 확인해보세요.'); })
+        .catch(function(e){ btn.disabled=false; btn.innerHTML=o; setStatus('⚠️ 적용 실패: '+e.message,'warn'); alert('적용 실패: '+e.message); });
+    });
+  });
 
   // ===== 전체 복사 (화면 표 그대로, 공급가 수정값 포함) =====
   document.getElementById('copyBtn').addEventListener('click', function(){
