@@ -4,215 +4,337 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>마찬 변동공지 신규 추출</title>
-<!-- 구글 로그인(Google Identity Services) — 정적 페이지에서 내 계정으로 비공개 시트 읽기 -->
+<!-- 구글 로그인 (읽기+쓰기: 마감시간 시트에 기록해야 해서 spreadsheets 스코프) -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- 엑셀(원가 파일) 파싱용 SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: "Noto Sans KR","Malgun Gothic",sans-serif; margin: 0; padding: 18px; color: #222; background: #fafafa; }
+  body { font-family: "Noto Sans KR","Malgun Gothic",sans-serif; margin: 0; padding: 16px; color: #222; background: #fafafa; }
   h1 { font-size: 20px; margin: 0 0 4px; color: #2d6a4f; }
-  .sub { font-size: 12px; color: #888; margin-bottom: 14px; line-height: 1.5; }
-  .card { background:#fff; border:1px solid #e3e3e3; border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+  .sub { font-size: 12px; color: #888; margin-bottom: 12px; line-height: 1.5; }
+  .card { background:#fff; border:1px solid #e3e3e3; border-radius:10px; padding:11px 13px; margin-bottom:10px; }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .step { display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; background:#2d6a4f; color:#fff; border-radius:50%; font-size:12px; font-weight:700; margin-right:6px; }
   label { font-size: 13px; font-weight: 600; }
-  input[type=text], input[type=number] { font-size: 15px; padding: 8px 10px; border: 1px solid #bbb; border-radius: 6px; font-family: inherit; }
-  #clientId { flex: 1; min-width: 260px; }
-  #startRow { width: 120px; }
-  button { font-size: 14px; padding: 9px 16px; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 600; }
+  input[type=text], input[type=number] { font-size: 14px; padding: 7px 9px; border: 1px solid #bbb; border-radius: 6px; font-family: inherit; }
+  #clientId { flex: 1; min-width: 240px; }
+  #startRow { width: 110px; }
+  button { font-size: 14px; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 600; }
   #load { background: #2d6a4f; color: #fff; }
   #load:hover { background: #1f4d36; }
   .ghost { background: #eef2f0; color: #2d6a4f; border: 1px solid #cfe0d8; }
   .ghost:hover { background: #dfeae5; }
   .mini { font-size: 12px; color: #999; }
-  #status { font-size: 13px; margin: 12px 2px; min-height: 20px; }
+  #status, #wongaStatus { font-size: 13px; min-height: 18px; margin: 4px 2px; }
   .ok { color: #2d6a4f; } .warn { color: #c0392b; }
-  table { width: 100%; border-collapse: collapse; background:#fff; border:1px solid #e3e3e3; border-radius:10px; overflow:hidden; }
-  th, td { padding: 9px 8px; border-bottom: 1px solid #eee; font-size: 14px; text-align: left; vertical-align: top; }
-  th { background: #2d6a4f; color: #fff; font-size: 12px; white-space: nowrap; }
-  td.num { color:#999; white-space:nowrap; }
-  td.price { text-align:right; font-weight:600; color:#2d6a4f; white-space:nowrap; }
-  tr:hover td { background:#f5faf7; }
-  .spec { color:#666; font-size:12px; white-space:pre-wrap; }
-  .actions { margin: 12px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  details { margin-bottom:12px; }
-  summary { cursor:pointer; font-size:13px; color:#2d6a4f; font-weight:600; }
+  table { border-collapse: collapse; background:#fff; border:1px solid #e3e3e3; font-size: 13px; white-space: nowrap; }
+  th, td { padding: 7px 8px; border-bottom: 1px solid #eee; border-right:1px solid #f0f0f0; text-align: left; vertical-align: top; }
+  th { background: #2d6a4f; color: #fff; font-size: 11.5px; position: sticky; top: 0; }
+  th.new, td.new { background: #fff9ec; }
+  th.new { background: #b45309; }
+  td.spec { white-space: pre-wrap; max-width: 260px; color:#555; font-size:12px; }
+  .sg-in { width: 92px; font-size: 13px; padding: 4px 6px; border:1px solid #b45309; border-radius:5px; font-weight:700; color:#b45309; }
+  .actions { margin: 10px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid #cfe0d8; border-top-color:#2d6a4f; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .ovl { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); align-items:center; justify-content:center; z-index:9999; }
+  .ovbox { background:#fff; border-radius:10px; padding:16px; width:88%; max-width:520px; max-height:80vh; overflow:auto; }
+  .ovtitle { font-size:15px; font-weight:700; color:#b45309; margin-bottom:10px; }
+  .mgrow { display:flex; gap:8px; align-items:center; margin-bottom:7px; }
+  .mgrow span { flex:1; font-size:13px; font-weight:600; }
+  .mgrow input { width:150px; }
+  details { margin-bottom:10px; }
+  summary { cursor:pointer; font-size:13px; color:#2d6a4f; font-weight:600; }
+  .scroll { overflow-x:auto; }
 </style>
 </head>
 <body>
   <h1>📦 마찬 변동공지 — 신규 추출</h1>
-  <div class="sub">비공개 원본 "상품 2. 변동공지"를 <b>내 구글 계정으로 로그인</b>해서 읽습니다. S열(마찬 동기화)이 빈 신규 상품만 뽑아요. 원본은 건드리지도 공개하지도 않아요.</div>
+  <div class="sub">원가 파일을 넣고 → 시작행 불러오면, 공급가(원가+마진)·원공급가·마감시간까지 자동으로 채워옵니다.</div>
 
-  <!-- ⚙️ 최초 1회: 구글 OAuth 클라이언트 ID 넣기 (브라우저가 기억함) -->
   <details id="cfg">
-    <summary>⚙️ 설정 (최초 1회 — 구글 로그인 Client ID 넣기)</summary>
+    <summary>⚙️ 설정 (최초 1회 — 구글 로그인 Client ID)</summary>
     <div class="card" style="margin-top:8px">
       <div class="row">
         <label for="clientId">Client ID</label>
-        <input id="clientId" type="text" placeholder="1234567890-xxxxxxxx.apps.googleusercontent.com">
+        <input id="clientId" type="text" placeholder="...apps.googleusercontent.com">
         <button class="ghost" id="saveCfg">저장</button>
       </div>
-      <div class="mini" style="margin-top:6px">구글 클라우드 콘솔에서 발급한 OAuth 웹 클라이언트 ID. (발급 방법은 채팅 안내 참고)</div>
     </div>
   </details>
 
+  <!-- ① 원가 파일 -->
   <div class="card">
     <div class="row">
-      <label for="startRow">시작 행</label>
+      <span><span class="step">1</span><label>원가 파일 선택</label></span>
+      <input type="file" id="wongaFile" accept=".xlsx,.xls">
+    </div>
+    <div id="wongaStatus" class="mini">아직 원가 파일 없음 (선택하면 상품명→원가/현재판매가 준비)</div>
+  </div>
+
+  <!-- ② 시작행 불러오기 -->
+  <div class="card">
+    <div class="row">
+      <span><span class="step">2</span><label for="startRow">시작 행</label></span>
       <input id="startRow" type="number" min="2" placeholder="예: 16612">
       <button id="load">🔍 불러오기</button>
-      <span class="mini">비워두면 처음(2행)부터 읽고 "마지막 o 아래"를 자동으로 잡아요 (느림)</span>
+      <span class="mini">비우면 처음부터(느림)·마지막 o 아래 자동</span>
     </div>
   </div>
 
   <div id="status"></div>
 
   <div class="actions" id="actions" style="display:none">
-    <button class="ghost" id="copyBtn">📋 전체 복사 (시트 붙여넣기용)</button>
+    <button class="ghost" id="copyBtn">📋 전체 복사</button>
     <span class="mini" id="copyHint"></span>
   </div>
 
-  <div id="result"></div>
+  <div id="result" class="scroll"></div>
+
+  <!-- ③ 마감시간 입력 팝업 -->
+  <div id="mgov" class="ovl">
+    <div class="ovbox">
+      <div class="ovtitle">⏰ <span class="step" style="background:#b45309">3</span> 마감시간이 없는 상품 — 마감시간만 입력하세요</div>
+      <div id="mglist"></div>
+      <div style="text-align:right; margin-top:12px;">
+        <button class="ghost" id="mgsave" style="background:#b45309;color:#fff;border:none">✔ 확인 (저장)</button>
+        <button class="ghost" id="mgclose">닫기</button>
+      </div>
+    </div>
+  </div>
 
 <script>
-  // ===== 고정 설정 (비밀 아님 — 접근은 시트 권한+로그인으로 통제) =====
-  var SPREADSHEET_ID = '1FZFCpwWdEzdLeXZQ5lvdUZjAtjAfn-uVwHnMccvXWzM';
+  // ===== 고정 설정 =====
+  var SPREADSHEET_ID = '1FZFCpwWdEzdLeXZQ5lvdUZjAtjAfn-uVwHnMccvXWzM';   // 마스터 외부유통
   var TAB = '[상품] 2. 변동공지';
-  var SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
-  var NAME_COL = 7, SYNC_COL = 18, NUM_COLS = 19;  // 0-based: H=7(상품명), S=18(마찬)
-  // 결과·복사에 넣을 칸 = A~O (15칸). S열은 필터에만 쓰고 출력엔 안 넣음. 행번호도 안 넣음.
-  var COLS = ['창고','기재날짜','적용날짜','변동','상시/당일','유통기한','창고명','상품명','공급가변동','택배사','원가','택배비','면과세','스펙변동','기타'];
-  var COPY_COLS = COLS.length; // 15 (A~O)
-  // baljuseo-sheets 프로젝트에서 발급한 OAuth 웹 클라이언트 ID (2026-07-23). 설정칸에 다른 값 넣으면 그게 우선.
+  var MAGAM_ID = '1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI';        // 수량 리더 시트
+  var MAGAM_TAB = '마감시간';
+  var SCOPE = 'https://www.googleapis.com/auth/spreadsheets';           // 읽기+쓰기
   var DEFAULT_CLIENT_ID = '337370860058-repde1q121dchas1fddan4tasikjep7l.apps.googleusercontent.com';
+  var NAME_COL = 7, SYNC_COL = 18, WONGA_COL = 10, NUM_COLS = 19;       // 0-based: H상품명, S마찬, K원가
+  var COLS = ['공급처','기재날짜','적용날짜','변동','상시/당일','유통기한','창고명변동','상품명변동','공급가변동','원공급가','원가','택배사','택배비변동','면과세변동','스펙변동/참고사항','마감시간'];
+  var NEWCOLS = {8:1, 9:1, 10:1, 15:1};  // 새로 추가된(강조) 컬럼 인덱스
 
   var tokenClient = null, accessToken = null, tokenExp = 0, pending = null, LAST = null;
+  var WONGA = {}, PRICE = {}, MAGAM = {}, MAGAM_LOADED = false;
 
-  window.addEventListener('load', function () {
-    var c = localStorage.getItem('byd_clientId') || DEFAULT_CLIENT_ID;
-    document.getElementById('clientId').value = c;   // 기본 Client ID가 이미 박혀있음 (그냥 쓰면 됨)
-    var s = localStorage.getItem('byd_startRow'); if (s) document.getElementById('startRow').value = s;
+  function pkey(s){ return String(s==null?'':s).toLowerCase().replace(/\s+/g,'').trim(); }
+  function num(s){ var n = parseInt(String(s==null?'':s).replace(/[^0-9]/g,''),10); return isNaN(n)?null:n; }
+  function comma(n){ return (n==null)?'':Number(n).toLocaleString('ko-KR'); }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function cell(arr, idx){ return (arr && arr.length>idx && arr[idx]!=null) ? String(arr[idx]).trim() : ''; }
+  function setStatus(h,c){ var e=document.getElementById('status'); e.className=c||''; e.innerHTML=h; }
+  function wongaStatus(h,c){ var e=document.getElementById('wongaStatus'); e.className=c||''; e.innerHTML=h; }
+  function getClientId(){ return (localStorage.getItem('byd_clientId') || document.getElementById('clientId').value || DEFAULT_CLIENT_ID || '').trim(); }
+
+  window.addEventListener('load', function(){
+    document.getElementById('clientId').value = localStorage.getItem('byd_clientId') || DEFAULT_CLIENT_ID;
+    var s = localStorage.getItem('byd_startRow'); if(s) document.getElementById('startRow').value = s;
   });
-  document.getElementById('saveCfg').addEventListener('click', function () {
+  document.getElementById('saveCfg').addEventListener('click', function(){
     localStorage.setItem('byd_clientId', document.getElementById('clientId').value.trim());
-    setStatus('✅ Client ID 저장됨', 'ok'); document.getElementById('cfg').open = false; tokenClient = null;
+    setStatus('✅ Client ID 저장됨','ok'); document.getElementById('cfg').open=false; tokenClient=null;
   });
-  document.getElementById('load').addEventListener('click', loadData);
-  document.getElementById('startRow').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadData(); });
 
-  function setStatus(html, cls) { var el = document.getElementById('status'); el.className = cls || ''; el.innerHTML = html; }
-  function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function getClientId() { return (localStorage.getItem('byd_clientId') || document.getElementById('clientId').value || DEFAULT_CLIENT_ID || '').trim(); }
+  // ===== ① 원가 파일 파싱 (SheetJS) =====
+  document.getElementById('wongaFile').addEventListener('change', function(e){
+    var f = e.target.files[0]; if(!f) return;
+    wongaStatus('<span class="spinner"></span> 원가 파일 읽는 중...');
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      try {
+        var wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+        WONGA = {}; PRICE = {};
+        for (var i=1;i<rows.length;i++){
+          var r = rows[i]; if(!r) continue;
+          var nm = String(r[0]!=null?r[0]:'').trim(); if(!nm) continue;
+          var k = pkey(nm);
+          var w = String(r[4]!=null?r[4]:'').trim();   // E 원가
+          var p = String(r[1]!=null?r[1]:'').trim();   // B 공급가(현재판매가)
+          if(w!=='') WONGA[k]=w;
+          if(p!=='') PRICE[k]=p;
+        }
+        wongaStatus('✅ 원가 <b>'+Object.keys(WONGA).length+'</b>개 로드됨 ('+esc(f.name)+')','ok');
+      } catch(err){ wongaStatus('⚠️ 원가 파일 읽기 실패: '+esc(err.message),'warn'); }
+    };
+    reader.readAsArrayBuffer(f);
+  });
 
-  // ===== 구글 로그인 토큰 =====
-  function ensureClient() {
-    if (tokenClient) return true;
-    if (!(window.google && google.accounts && google.accounts.oauth2)) return false;
-    var cid = getClientId(); if (!cid) return false;
+  // ===== 구글 로그인 =====
+  function ensureClient(){
+    if(tokenClient) return true;
+    if(!(window.google && google.accounts && google.accounts.oauth2)) return false;
+    var cid = getClientId(); if(!cid) return false;
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: cid, scope: SCOPE,
-      callback: function (resp) {
-        if (resp && resp.access_token) {
+      callback: function(resp){
+        if(resp && resp.access_token){
           accessToken = resp.access_token;
-          tokenExp = Date.now() + ((resp.expires_in ? resp.expires_in : 3300) * 1000);
-          var a = pending; pending = null; if (a) a();
-        } else { setStatus('⚠️ 로그인 취소 또는 실패' + (resp && resp.error ? (' (' + resp.error + ')') : ''), 'warn'); }
+          tokenExp = Date.now() + ((resp.expires_in?resp.expires_in:3300)*1000);
+          var a=pending; pending=null; if(a) a();
+        } else { setStatus('⚠️ 로그인 취소/실패'+(resp&&resp.error?(' ('+resp.error+')'):''),'warn'); }
       }
     });
     return true;
   }
-  function withToken(action) {
-    if (accessToken && Date.now() < tokenExp - 60000) { action(); return; }
-    if (!ensureClient()) { setStatus('⚠️ 구글 라이브러리 로딩 중이거나 Client ID 미설정. 설정을 확인하고 다시 눌러주세요.', 'warn'); document.getElementById('cfg').open = true; return; }
-    pending = action;
-    tokenClient.requestAccessToken({ prompt: '' });   // 최초엔 로그인/동의 창, 이후엔 조용히
+  function withToken(action){
+    if(accessToken && Date.now() < tokenExp-60000){ action(); return; }
+    if(!ensureClient()){ setStatus('⚠️ 구글 라이브러리 로딩중이거나 Client ID 미설정','warn'); document.getElementById('cfg').open=true; return; }
+    pending = action; tokenClient.requestAccessToken({prompt:''});
   }
 
-  function loadData() { withToken(doFetch); }
-
-  // 시트 범위 읽기 (내 토큰으로)
-  function readRange(range) {
-    var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + SPREADSHEET_ID + '/values/' + encodeURIComponent(range) + '?majorDimension=ROWS';
-    return fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } }).then(function (r) {
-      if (r.status === 401 || r.status === 403) { throw new Error('권한 오류(' + r.status + ') — 이 계정이 원본 시트에 접근 가능한지, Sheets API가 켜져있는지 확인'); }
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json().then(function (j) { return j.values || []; });
+  // ===== Sheets API 읽기 =====
+  function readRange(sheetId, range){
+    var url = 'https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+'/values/'+encodeURIComponent(range)+'?majorDimension=ROWS';
+    return fetch(url, { headers:{ Authorization:'Bearer '+accessToken } }).then(function(r){
+      if(r.status===401||r.status===403) throw new Error('권한 오류('+r.status+') — 시트 접근/수정권한, 재로그인 확인');
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json().then(function(j){ return j.values||[]; });
     });
   }
+  // ===== Sheets API 쓰기(append) — 마감시간 시트 맨 아래 =====
+  function appendMagam(name, time){
+    var url = 'https://sheets.googleapis.com/v4/spreadsheets/'+MAGAM_ID+'/values/'+encodeURIComponent("'"+MAGAM_TAB+"'!A:J")+':append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS';
+    var body = { values: [[ '', name, '', '', '', '', '', '', '', time ]] };  // B=상품명, J=마감시간
+    return fetch(url, { method:'POST', headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' }, body: JSON.stringify(body) })
+      .then(function(r){ if(!r.ok) throw new Error('마감시간 저장 실패 HTTP '+r.status); return true; });
+  }
 
-  function doFetch() {
-    var start = parseInt(document.getElementById('startRow').value, 10);
-    localStorage.setItem('byd_startRow', document.getElementById('startRow').value || '');
-    var hasStart = !(isNaN(start) || start < 2);
-    var dataRange = "'" + TAB + "'!A" + (hasStart ? start : 2) + ":S";   // 시작행부터 끝까지 (열린 범위)
-    var offset = hasStart ? start : 2;                                    // 반환된 첫 행 = 시트 offset 행
+  document.getElementById('load').addEventListener('click', function(){ withToken(doFetch); });
+  document.getElementById('startRow').addEventListener('keydown', function(e){ if(e.key==='Enter') withToken(doFetch); });
 
+  function doFetch(){
+    var start = parseInt(document.getElementById('startRow').value,10);
+    localStorage.setItem('byd_startRow', document.getElementById('startRow').value||'');
+    var hasStart = !(isNaN(start)||start<2);
+    var dataRange = "'"+TAB+"'!A"+(hasStart?start:2)+":S";
+    var offset = hasStart?start:2;
+    if(Object.keys(WONGA).length===0) wongaStatus('⚠️ 원가 파일을 아직 안 넣었어요 — 원가/공급가 칸이 비어요 (①번 먼저)','warn');
     setStatus('<span class="spinner"></span> 시트 읽는 중...');
-    document.getElementById('actions').style.display = 'none';
-    document.getElementById('result').innerHTML = '';
+    document.getElementById('actions').style.display='none';
+    document.getElementById('result').innerHTML='';
 
-    readRange(dataRange)
-      .then(function (values) { render(values, offset, hasStart, start); })
-      .catch(function (e) { setStatus('⚠️ ' + e.message, 'warn'); });
-  }
-
-  function cell(arr, idx) { return (arr && arr.length > idx && arr[idx] != null) ? String(arr[idx]).trim() : ''; }
-
-  function render(values, offset, hasStart, start) {
-    // values[i] = 시트 (offset + i) 행
-    var floor;
-    if (hasStart) { floor = start; }
-    else {
-      var lastO = 1;
-      for (var k = 0; k < values.length; k++) { if (cell(values[k], SYNC_COL) !== '') lastO = offset + k; }
-      floor = lastO + 1;
-    }
-
-    var rows = [];
-    for (var k = 0; k < values.length; k++) {
-      var sheetRow = offset + k;
-      if (sheetRow < floor) continue;
-      var name = cell(values[k], NAME_COL);
-      var sync = cell(values[k], SYNC_COL);
-      if (name !== '' && sync === '') { rows.push(values[k]); }   // 원본 행 배열 통째 저장
-    }
-    LAST = rows;
-
-    var lastSheetRow = offset + values.length - 1;
-    setStatus('✅ <b>' + rows.length + '건</b> 발견 · 기준 시작행 ' + floor + ' · 읽은 마지막행 ' + lastSheetRow, 'ok');
-    if (rows.length === 0) {
-      document.getElementById('result').innerHTML = '<div style="padding:20px;color:#888">신규 변동이 없어요. 시작 행을 좀 더 위(작은 숫자)로 낮춰보세요.</div>';
-      return;
-    }
-
-    var h = '<div style="overflow-x:auto"><table><thead><tr>';
-    for (var c1 = 0; c1 < COLS.length; c1++) h += '<th>' + esc(COLS[c1]) + '</th>';
-    h += '</tr></thead><tbody>';
-    rows.forEach(function (rowArr) {
-      h += '<tr>';
-      for (var c2 = 0; c2 < COPY_COLS; c2++) h += '<td>' + esc(cell(rowArr, c2)) + '</td>';
-      h += '</tr>';
+    var pSrc = readRange(SPREADSHEET_ID, dataRange);
+    var pMag = MAGAM_LOADED ? Promise.resolve(null) : readRange(MAGAM_ID, "'"+MAGAM_TAB+"'!A2:J").then(function(v){
+      MAGAM={}; v.forEach(function(r){ var nm=cell(r,1); if(nm) MAGAM[pkey(nm)] = cell(r,9); }); MAGAM_LOADED=true; return null;
     });
-    h += '</tbody></table></div>';
-    document.getElementById('result').innerHTML = h;
-    document.getElementById('actions').style.display = 'flex';
-    document.getElementById('copyHint').textContent = '(A~O ' + COPY_COLS + '칸, 행번호 없음)';
+    Promise.all([pSrc, pMag]).then(function(res){ render(res[0], offset, hasStart, start); })
+      .catch(function(e){ setStatus('⚠️ '+e.message,'warn'); });
   }
 
-  document.getElementById('copyBtn').addEventListener('click', function () {
-    if (!LAST || !LAST.length) return;
-    var tsv = LAST.map(function (rowArr) {
-      var c = (rowArr || []).slice(0, COPY_COLS);
-      while (c.length < COPY_COLS) c.push('');
-      return c.map(function (x) { return String(x == null ? '' : x).replace(/\t/g,' ').replace(/\n/g,' '); }).join('\t');
-    }).join('\n');
-    var btn = this, ok = false;
-    try {
-      var ta = document.createElement('textarea'); ta.value = tsv; ta.style.position='fixed'; ta.style.opacity='0';
-      document.body.appendChild(ta); ta.focus(); ta.select(); ok = document.execCommand('copy'); document.body.removeChild(ta);
-    } catch (e) { ok = false; }
-    var o = btn.innerHTML; btn.innerHTML = ok ? '✓ 복사됨' : '복사 실패';
-    setTimeout(function () { btn.innerHTML = o; }, 1500);
+  function render(values, offset, hasStart, start){
+    var floor;
+    if(hasStart){ floor=start; }
+    else { var lastO=1; for(var k0=0;k0<values.length;k0++){ if(cell(values[k0],SYNC_COL)!=='') lastO=offset+k0; } floor=lastO+1; }
+
+    var rows=[];
+    for(var k=0;k<values.length;k++){
+      var v=values[k], sheetRow=offset+k;
+      if(sheetRow<floor) continue;
+      var name=cell(v,NAME_COL), sync=cell(v,SYNC_COL);
+      if(name==='' || sync!=='') continue;
+      var pk=pkey(name);
+      var wongaRaw = cell(v,WONGA_COL); var wnum = num(wongaRaw);
+      if(wnum==null){ wnum = num(WONGA[pk]); }
+      var supply='';
+      if(wnum!=null){ supply = comma(wnum + (wnum>=10000?1000:500)); }
+      var wonPrice = PRICE[pk] || '';
+      var magam = MAGAM[pk] || '';
+      var spec = [cell(v,13), cell(v,14)].filter(function(x){return x!=='';}).join('\n');
+      rows.push({
+        pk:pk, disp:name,
+        c:[ cell(v,0), cell(v,1), cell(v,2), cell(v,3), cell(v,4), cell(v,5), cell(v,6), name,
+            supply, wonPrice, (wnum!=null?comma(wnum):''), cell(v,9), cell(v,11), cell(v,12), spec, magam ]
+      });
+    }
+    LAST=rows;
+
+    var lastSheetRow = offset+values.length-1;
+    setStatus('✅ <b>'+rows.length+'건</b> 발견 · 기준 시작행 '+floor+' · 읽은 마지막행 '+lastSheetRow, 'ok');
+    if(rows.length===0){ document.getElementById('result').innerHTML='<div style="padding:20px;color:#888">신규 변동이 없어요. 시작 행을 위로 낺뢤보세요.</div>'; return; }
+
+    var h='<table id="qtytable"><thead><tr>';
+    for(var i=0;i<COLS.length;i++) h+='<th class="'+(NEWCOLS[i]?'new':'')+'">'+esc(COLS[i])+'</th>';
+    h+='</tr></thead><tbody>';
+    rows.forEach(function(r){
+      h+='<tr data-k="'+esc(r.pk)+'">';
+      for(var i=0;i<r.c.length;i++){
+        var cls = NEWCOLS[i]?'new':''; if(i===14) cls+=' spec';
+        if(i===8){ h+='<td class="'+cls+'"><input class="sg-in" value="'+esc(r.c[8])+'"></td>'; }
+        else if(i===15){ h+='<td class="'+cls+' magam" data-k="'+esc(r.pk)+'">'+esc(r.c[15])+'</td>'; }
+        else { h+='<td class="'+cls+'">'+esc(r.c[i])+'</td>'; }
+      }
+      h+='</tr>';
+    });
+    h+='</tbody></table>';
+    document.getElementById('result').innerHTML=h;
+    document.getElementById('actions').style.display='flex';
+    document.getElementById('copyHint').textContent='('+COLS.length+'칸 · 공급가 칸 직접 수정 가능)';
+
+    var missing = rows.filter(function(r){ return !r.c[15]; });
+    if(missing.length){ openMagamPopup(missing); }
+  }
+
+  function openMagamPopup(missing){
+    var seen={}, uniq=[];
+    missing.forEach(function(r){ if(!seen[r.pk]){ seen[r.pk]=1; uniq.push(r); } });
+    var html='';
+    uniq.forEach(function(r){
+      html+='<div class="mgrow"><span>'+esc(r.disp)+'</span><input type="text" data-k="'+esc(r.pk)+'" data-name="'+esc(r.disp)+'" placeholder="예: 연장마감 : 16시"></div>';
+    });
+    document.getElementById('mglist').innerHTML=html;
+    document.getElementById('mgov').style.display='flex';
+  }
+  document.getElementById('mgclose').addEventListener('click', function(){ document.getElementById('mgov').style.display='none'; });
+  document.getElementById('mgsave').addEventListener('click', function(){
+    var inputs = document.querySelectorAll('#mglist input');
+    var jobs=[]; var btn=this;
+    for(var i=0;i<inputs.length;i++){
+      var val=inputs[i].value.trim();
+      if(val!==''){ jobs.push({ pk:inputs[i].getAttribute('data-k'), name:inputs[i].getAttribute('data-name'), time:val }); }
+    }
+    if(jobs.length===0){ alert('입력한 마감시간이 없어요.'); return; }
+    btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='저장중...';
+    var idx=0;
+    function next(){
+      if(idx>=jobs.length){
+        btn.disabled=false; btn.innerHTML=o;
+        document.getElementById('mgov').style.display='none';
+        setStatus('✅ 마감시간 '+jobs.length+'건 저장 완료 (마감시간 시트 + 표 반영)','ok');
+        return;
+      }
+      var j=jobs[idx];
+      appendMagam(j.name, j.time).then(function(){
+        MAGAM[j.pk]=j.time;
+        var cells=document.querySelectorAll('td.magam[data-k="'+cssq(j.pk)+'"]');
+        for(var m=0;m<cells.length;m++) cells[m].textContent=j.time;
+        idx++; next();
+      }).catch(function(e){ alert('저장 실패('+j.name+'): '+e.message); btn.disabled=false; btn.innerHTML=o; });
+    }
+    next();
+  });
+  function cssq(s){ return String(s).replace(/["\\]/g,'\\$&'); }
+
+  document.getElementById('copyBtn').addEventListener('click', function(){
+    var tbl=document.getElementById('qtytable'); if(!tbl) return;
+    var lines=[];
+    var trs=tbl.tBodies[0].querySelectorAll('tr');
+    for(var r=0;r<trs.length;r++){
+      var tds=trs[r].children, arr=[];
+      for(var c=0;c<tds.length;c++){
+        var inp=tds[c].querySelector('input');
+        var t = inp ? inp.value : tds[c].textContent;
+        arr.push(String(t==null?'':t).replace(/\t/g,' ').replace(/\n/g,' '));
+      }
+      lines.push(arr.join('\t'));
+    }
+    var tsv=lines.join('\n');
+    var btn=this, ok=false;
+    try{ var ta=document.createElement('textarea'); ta.value=tsv; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select(); ok=document.execCommand('copy'); document.body.removeChild(ta); }catch(e){ ok=false; }
+    var o=btn.innerHTML; btn.innerHTML=ok?'✓ 복사됨':'복사 실패'; setTimeout(function(){ btn.innerHTML=o; },1500);
   });
 </script>
 </body>
