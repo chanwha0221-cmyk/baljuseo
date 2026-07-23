@@ -358,6 +358,19 @@
     return fetch(url, {method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'}, body:JSON.stringify({values:rows})})
       .then(function(r){ if(!r.ok) throw new Error('값 기록 실패 HTTP '+r.status); return true; });
   }
+  // 공급가변동(I열) 글자색: 변경있음(">") 빨강 / 변경없음 검정
+  function colorFmt(sheetId, gid, startRow0, rows){
+    var reqs=[];
+    for(var i=0;i<rows.length;i++){
+      var changed = String(rows[i][8]||'').indexOf('>')>=0;
+      var col = changed ? {red:0.8, green:0.0, blue:0.0} : {red:0.0, green:0.0, blue:0.0};
+      reqs.push({ repeatCell: { range:{ sheetId:gid, startRowIndex:startRow0+i, endRowIndex:startRow0+i+1, startColumnIndex:8, endColumnIndex:9 }, cell:{ userEnteredFormat:{ textFormat:{ foregroundColor:col } } }, fields:'userEnteredFormat.textFormat.foregroundColor' } });
+    }
+    if(!reqs.length) return Promise.resolve(true);
+    var url='https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+':batchUpdate';
+    return fetch(url,{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({requests:reqs})})
+      .then(function(r){ if(!r.ok) throw new Error('색상 서식 실패 HTTP '+r.status); return true; });
+  }
   document.getElementById('applyBtn').addEventListener('click', function(){
     var tbl=document.getElementById('qtytable'); if(!tbl){ alert('먼저 불러오기 하세요.'); return; }
     var trs=tbl.tBodies[0].querySelectorAll('tr'); if(!trs.length){ alert('적용할 데이터가 없어요.'); return; }
@@ -380,6 +393,7 @@
     withToken(function(){
       batchInsertRows(APPLY_ID, APPLY_GID, 4, rows.length)   // startIndex 4 = 5행
         .then(function(){ return writeRows(APPLY_ID, APPLY_TAB, 5, rows); })
+        .then(function(){ return colorFmt(APPLY_ID, APPLY_GID, 4, rows); })   // 공급가 색: 변경만 빨강
         .then(function(){ btn.disabled=false; btn.innerHTML=o; setStatus('✅ '+rows.length+'건 [사본테스트] 상품변동사항 5행에 적용 완료!','ok'); alert('적용 완료! 사본테스트 시트를 확인해보세요.'); })
         .catch(function(e){ btn.disabled=false; btn.innerHTML=o; setStatus('⚠️ 적용 실패: '+e.message,'warn'); alert('적용 실패: '+e.message); });
     });
