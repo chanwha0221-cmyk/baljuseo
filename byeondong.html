@@ -116,6 +116,8 @@
   var APPLY_ID = '1GX04Eq_5Pr3ptbyXQpf0vAgVqmaOqMu-knvNy6af528';  // ★ 변동사항 적용 대상 = 연습용 사본테스트 (실전 전환 시 여기만 진짜 유통시트 id로 교체)
   var APPLY_TAB = '상품변동사항';
   var APPLY_GID = 548798859;                                       // 상품변동사항 탭 gid
+  var LINK_ID = '1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';  // 링크 모음 시트("상품정보 업데이트")
+  var LINK_TAB = '링크';                                            // A열 상품명 → B열 URL (중복이면 위=첫 번째 우선)
   var SCOPE = 'https://www.googleapis.com/auth/spreadsheets';           // 읽기+쓰기
   var DEFAULT_CLIENT_ID = '337370860058-repde1q121dchas1fddan4tasikjep7l.apps.googleusercontent.com';
   var NAME_COL = 7, SYNC_COL = 18, WONGA_COL = 10, NUM_COLS = 19;       // 0-based: H상품명, S마찬, K원가
@@ -124,7 +126,7 @@
 
   var tokenClient = null, accessToken = null, tokenExp = 0, pending = null, LAST = null;
   var WRITE_OK = false, consentTried = false;   // 쓰기(수정) 권한 확보 여부
-  var WONGA = {}, PRICE = {}, MAGAM = {}, MAGAM_LOADED = false;
+  var WONGA = {}, PRICE = {}, MAGAM = {}, MAGAM_LOADED = false, LINKMAP = {};
 
   function pkey(s){ return String(s==null?'':s).toLowerCase().replace(/\s+/g,'').trim(); }
   function num(s){ var n = parseInt(String(s==null?'':s).replace(/[^0-9]/g,''),10); return isNaN(n)?null:n; }
@@ -202,6 +204,14 @@
       if(r.status===401||r.status===403) throw new Error('권한 오류('+r.status+') — 시트 접근/수정권한, 재로그인 확인');
       if(!r.ok) throw new Error('HTTP '+r.status);
       return r.json().then(function(j){ return j.values||[]; });
+    });
+  }
+  // ===== 링크 시트에서 상품명→URL (중복이면 위=첫 번째 우선) =====
+  function readLinks(){
+    return readRange(LINK_ID, "'"+LINK_TAB+"'!A2:B").then(function(v){
+      LINKMAP={};
+      v.forEach(function(r){ var nm=cell(r,0), url=cell(r,1); if(nm && url && !LINKMAP[pkey(nm)]) LINKMAP[pkey(nm)]=url; });
+      return true;
     });
   }
   // ===== Sheets API 쓰기(append) — 마감시간 시트 맨 아래 =====
@@ -391,7 +401,11 @@
     if(!confirm(rows.length+'건을 [사본테스트] 상품변동사항 5행에 끼워넣을까요?\n(정렬: 출시>재입고>인상>인하>정보변경>품절, 당일 위 / 기존 내용은 아래로 밀림)')) return;
     var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
     withToken(function(){
-      batchInsertRows(APPLY_ID, APPLY_GID, 4, rows.length)   // startIndex 4 = 5행
+      readLinks()   // 링크 시트에서 상품명→URL 가져와 상품명(H)에 하이퍼링크
+        .then(function(){
+          rows.forEach(function(row){ var nm=row[7]; var u=LINKMAP[pkey(nm)]; if(u) row[7]='=HYPERLINK("'+u+'","'+String(nm).replace(/"/g,'""')+'")'; });
+          return batchInsertRows(APPLY_ID, APPLY_GID, 4, rows.length);   // startIndex 4 = 5행
+        })
         .then(function(){ return writeRows(APPLY_ID, APPLY_TAB, 5, rows); })
         .then(function(){ return colorFmt(APPLY_ID, APPLY_GID, 4, rows); })   // 공급가 색: 변경만 빨강
         .then(function(){ btn.disabled=false; btn.innerHTML=o; setStatus('✅ '+rows.length+'건 [사본테스트] 상품변동사항 5행에 적용 완료!','ok'); alert('적용 완료! 사본테스트 시트를 확인해보세요.'); })
