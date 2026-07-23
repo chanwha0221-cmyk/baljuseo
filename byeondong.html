@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>마찬 변동공지 신규 추출</title>
+<!-- 구글 로그인(Google Identity Services) — 정적 페이지에서 내 계정으로 비공개 시트 읽기 -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Noto Sans KR","Malgun Gothic",sans-serif; margin: 0; padding: 18px; color: #222; background: #fafafa; }
+  h1 { font-size: 20px; margin: 0 0 4px; color: #2d6a4f; }
+  .sub { font-size: 12px; color: #888; margin-bottom: 14px; line-height: 1.5; }
+  .card { background:#fff; border:1px solid #e3e3e3; border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  label { font-size: 13px; font-weight: 600; }
+  input[type=text], input[type=number] { font-size: 15px; padding: 8px 10px; border: 1px solid #bbb; border-radius: 6px; font-family: inherit; }
+  #clientId { flex: 1; min-width: 260px; }
+  #startRow { width: 120px; }
+  button { font-size: 14px; padding: 9px 16px; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 600; }
+  #load { background: #2d6a4f; color: #fff; }
+  #load:hover { background: #1f4d36; }
+  .ghost { background: #eef2f0; color: #2d6a4f; border: 1px solid #cfe0d8; }
+  .ghost:hover { background: #dfeae5; }
+  .mini { font-size: 12px; color: #999; }
+  #status { font-size: 13px; margin: 12px 2px; min-height: 20px; }
+  .ok { color: #2d6a4f; } .warn { color: #c0392b; }
+  table { width: 100%; border-collapse: collapse; background:#fff; border:1px solid #e3e3e3; border-radius:10px; overflow:hidden; }
+  th, td { padding: 9px 8px; border-bottom: 1px solid #eee; font-size: 14px; text-align: left; vertical-align: top; }
+  th { background: #2d6a4f; color: #fff; font-size: 12px; white-space: nowrap; }
+  td.num { color:#999; white-space:nowrap; }
+  td.price { text-align:right; font-weight:600; color:#2d6a4f; white-space:nowrap; }
+  tr:hover td { background:#f5faf7; }
+  .spec { color:#666; font-size:12px; white-space:pre-wrap; }
+  .actions { margin: 12px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  details { margin-bottom:12px; }
+  summary { cursor:pointer; font-size:13px; color:#2d6a4f; font-weight:600; }
+  .spinner { display:inline-block; width:14px; height:14px; border:2px solid #cfe0d8; border-top-color:#2d6a4f; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <h1>📦 마찬 변동공지 — 신규 추출</h1>
+  <div class="sub">비공개 원본 "상품 2. 변동공지"를 <b>내 구글 계정으로 로그인</b>해서 읽습니다. S열(마찬 동기화)이 빈 신규 상품만 뽑아요. 원본은 건드리지도 공개하지도 않아요.</div>
+
+  <!-- ⚙️ 최초 1회: 구글 OAuth 클라이언트 ID 넣기 (브라우저가 기억함) -->
+  <details id="cfg">
+    <summary>⚙️ 설정 (최초 1회 — 구글 로그인 Client ID 넣기)</summary>
+    <div class="card" style="margin-top:8px">
+      <div class="row">
+        <label for="clientId">Client ID</label>
+        <input id="clientId" type="text" placeholder="1234567890-xxxxxxxx.apps.googleusercontent.com">
+        <button class="ghost" id="saveCfg">저장</button>
+      </div>
+      <div class="mini" style="margin-top:6px">구글 클라우드 콘솔에서 발급한 OAuth 웹 클라이언트 ID. (발급 방법은 채팅 안내 참고)</div>
+    </div>
+  </details>
+
+  <div class="card">
+    <div class="row">
+      <label for="startRow">시작 행</label>
+      <input id="startRow" type="number" min="2" placeholder="예: 16612">
+      <button id="load">🔍 불러오기</button>
+      <span class="mini">비워두면 처음(2행)부터 읽고 "마지막 o 아래"를 자동으로 잡아요 (느림)</span>
+    </div>
+  </div>
+
+  <div id="status"></div>
+
+  <div class="actions" id="actions" style="display:none">
+    <button class="ghost" id="copyBtn">📋 전체 복사 (시트 붙여넣기용)</button>
+    <span class="mini" id="copyHint"></span>
+  </div>
+
+  <div id="result"></div>
+
+<script>
+  // ===== 고정 설정 (비밀 아님 — 접근은 시트 권한+로그인으로 통제) =====
+  var SPREADSHEET_ID = '1FZFCpwWdEzdLeXZQ5lvdUZjAtjAfn-uVwHnMccvXWzM';
+  var TAB = '상품 2. 변동공지';
+  var SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+  var NAME_COL = 7, SYNC_COL = 18, NUM_COLS = 19;  // 0-based: H=7(상품명), S=18(마찬)
+  // baljuseo-sheets 프로젝트에서 발급한 OAuth 웹 클라이언트 ID (2026-07-23). 설정칸에 다른 값 넣으면 그게 우선.
+  var DEFAULT_CLIENT_ID = '337370860058-repde1q121dchas1fddan4tasikjep7l.apps.googleusercontent.com';
+
+  var tokenClient = null, accessToken = null, tokenExp = 0, pending = null, LAST = null;
+
+  window.addEventListener('load', function () {
+    var c = localStorage.getItem('byd_clientId') || DEFAULT_CLIENT_ID;
+    document.getElementById('clientId').value = c;   // 기본 Client ID가 이미 박혀있음 (그냥 쓰면 됨)
+    var s = localStorage.getItem('byd_startRow'); if (s) document.getElementById('startRow').value = s;
+  });
+  document.getElementById('saveCfg').addEventListener('click', function () {
+    localStorage.setItem('byd_clientId', document.getElementById('clientId').value.trim());
+    setStatus('✅ Client ID 저장됨', 'ok'); document.getElementById('cfg').open = false; tokenClient = null;
+  });
+  document.getElementById('load').addEventListener('click', loadData);
+  document.getElementById('startRow').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadData(); });
+
+  function setStatus(html, cls) { var el = document.getElementById('status'); el.className = cls || ''; el.innerHTML = html; }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function getClientId() { return (localStorage.getItem('byd_clientId') || document.getElementById('clientId').value || DEFAULT_CLIENT_ID || '').trim(); }
+
+  // ===== 구글 로그인 토큰 =====
+  function ensureClient() {
+    if (tokenClient) return true;
+    if (!(window.google && google.accounts && google.accounts.oauth2)) return false;
+    var cid = getClientId(); if (!cid) return false;
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: cid, scope: SCOPE,
+      callback: function (resp) {
+        if (resp && resp.access_token) {
+          accessToken = resp.access_token;
+          tokenExp = Date.now() + ((resp.expires_in ? resp.expires_in : 3300) * 1000);
+          var a = pending; pending = null; if (a) a();
+        } else { setStatus('⚠️ 로그인 취소 또는 실패' + (resp && resp.error ? (' (' + resp.error + ')') : ''), 'warn'); }
+      }
+    });
+    return true;
+  }
+  function withToken(action) {
+    if (accessToken && Date.now() < tokenExp - 60000) { action(); return; }
+    if (!ensureClient()) { setStatus('⚠️ 구글 라이브러리 로딩 중이거나 Client ID 미설정. 설정을 확인하고 다시 눌러주세요.', 'warn'); document.getElementById('cfg').open = true; return; }
+    pending = action;
+    tokenClient.requestAccessToken({ prompt: '' });   // 최초엔 로그인/동의 창, 이후엔 조용히
+  }
+
+  function loadData() { withToken(doFetch); }
+
+  // 시트 범위 읽기 (내 토큰으로)
+  function readRange(range) {
+    var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + SPREADSHEET_ID + '/values/' + encodeURIComponent(range) + '?majorDimension=ROWS';
+    return fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } }).then(function (r) {
+      if (r.status === 401 || r.status === 403) { throw new Error('권한 오류(' + r.status + ') — 이 계정이 원본 시트에 접근 가능한지, Sheets API가 켜져있는지 확인'); }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json().then(function (j) { return j.values || []; });
+    });
+  }
+
+  function doFetch() {
+    var start = parseInt(document.getElementById('startRow').value, 10);
+    localStorage.setItem('byd_startRow', document.getElementById('startRow').value || '');
+    var hasStart = !(isNaN(start) || start < 2);
+    var dataRange = "'" + TAB + "'!A" + (hasStart ? start : 2) + ":S";   // 시작행부터 끝까지 (열린 범위)
+    var offset = hasStart ? start : 2;                                    // 반환된 첫 행 = 시트 offset 행
+
+    setStatus('<span class="spinner"></span> 시트 읽는 중...');
+    document.getElementById('actions').style.display = 'none';
+    document.getElementById('result').innerHTML = '';
+
+    readRange(dataRange)
+      .then(function (values) { render(values, offset, hasStart, start); })
+      .catch(function (e) { setStatus('⚠️ ' + e.message, 'warn'); });
+  }
+
+  function cell(arr, idx) { return (arr && arr.length > idx && arr[idx] != null) ? String(arr[idx]).trim() : ''; }
+
+  function render(values, offset, hasStart, start) {
+    // values[i] = 시트 (offset + i) 행
+    var floor;
+    if (hasStart) { floor = start; }
+    else {
+      var lastO = 1;
+      for (var k = 0; k < values.length; k++) { if (cell(values[k], SYNC_COL) !== '') lastO = offset + k; }
+      floor = lastO + 1;
+    }
+
+    var rows = [];
+    for (var k = 0; k < values.length; k++) {
+      var sheetRow = offset + k;
+      if (sheetRow < floor) continue;
+      var name = cell(values[k], NAME_COL);
+      var sync = cell(values[k], SYNC_COL);
+      if (name !== '' && sync === '') {
+        rows.push({ row: sheetRow, cells: values[k], 창고: cell(values[k],6), 상품명: name, 공급가: cell(values[k],8), 변동: cell(values[k],3), 상시당일: cell(values[k],4), 스펙: cell(values[k],13) });
+      }
+    }
+    LAST = rows;
+
+    var lastSheetRow = offset + values.length - 1;
+    setStatus('✅ <b>' + rows.length + '건</b> 발견 · 기준 시작행 ' + floor + ' · 읽은 마지막행 ' + lastSheetRow, 'ok');
+    if (rows.length === 0) {
+      document.getElementById('result').innerHTML = '<div style="padding:20px;color:#888">신규 변동이 없어요. 시작 행을 좀 더 위(작은 숫자)로 낮춰보세요.</div>';
+      return;
+    }
+
+    var h = '<table><thead><tr><th>행</th><th>창고</th><th>상품명</th><th>공급가</th><th>변동</th><th>상시/당일</th><th>스펙 변동</th></tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr><td class="num">' + r.row + '</td><td>' + esc(r.창고) + '</td><td><b>' + esc(r.상품명) + '</b></td>'
+         + '<td class="price">' + esc(r.공급가) + '</td><td>' + esc(r.변동) + '</td><td>' + esc(r.상시당일) + '</td>'
+         + '<td class="spec">' + esc(r.스펙) + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    document.getElementById('result').innerHTML = h;
+    document.getElementById('actions').style.display = 'flex';
+    document.getElementById('copyHint').textContent = '(A~S 원본 ' + NUM_COLS + '칸 그대로)';
+  }
+
+  document.getElementById('copyBtn').addEventListener('click', function () {
+    if (!LAST || !LAST.length) return;
+    var tsv = LAST.map(function (r) {
+      var c = (r.cells || []).slice(0, NUM_COLS);
+      while (c.length < NUM_COLS) c.push('');
+      return c.map(function (x) { return String(x == null ? '' : x).replace(/\t/g,' ').replace(/\n/g,' '); }).join('\t');
+    }).join('\n');
+    var btn = this, ok = false;
+    try {
+      var ta = document.createElement('textarea'); ta.value = tsv; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.focus(); ta.select(); ok = document.execCommand('copy'); document.body.removeChild(ta);
+    } catch (e) { ok = false; }
+    var o = btn.innerHTML; btn.innerHTML = ok ? '✓ 복사됨' : '복사 실패';
+    setTimeout(function () { btn.innerHTML = o; }, 1500);
+  });
+</script>
+</body>
+</html>
