@@ -80,6 +80,9 @@
   var TAB = '[상품] 2. 변동공지';
   var SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
   var NAME_COL = 7, SYNC_COL = 18, NUM_COLS = 19;  // 0-based: H=7(상품명), S=18(마찬)
+  // 결과·복사에 넣을 칸 = A~O (15칸). S열은 필터에만 쓰고 출력엔 안 넣음. 행번호도 안 넣음.
+  var COLS = ['창고','기재날짜','적용날짜','변동','상시/당일','유통기한','창고명','상품명','공급가변동','택배사','원가','택배비','면과세','스펙변동','기타'];
+  var COPY_COLS = COLS.length; // 15 (A~O)
   // baljuseo-sheets 프로젝트에서 발급한 OAuth 웹 클라이언트 ID (2026-07-23). 설정칸에 다른 값 넣으면 그게 우선.
   var DEFAULT_CLIENT_ID = '337370860058-repde1q121dchas1fddan4tasikjep7l.apps.googleusercontent.com';
 
@@ -171,9 +174,7 @@
       if (sheetRow < floor) continue;
       var name = cell(values[k], NAME_COL);
       var sync = cell(values[k], SYNC_COL);
-      if (name !== '' && sync === '') {
-        rows.push({ row: sheetRow, cells: values[k], 창고: cell(values[k],6), 상품명: name, 공급가: cell(values[k],8), 변동: cell(values[k],3), 상시당일: cell(values[k],4), 스펙: cell(values[k],13) });
-      }
+      if (name !== '' && sync === '') { rows.push(values[k]); }   // 원본 행 배열 통째 저장
     }
     LAST = rows;
 
@@ -184,23 +185,25 @@
       return;
     }
 
-    var h = '<table><thead><tr><th>행</th><th>창고</th><th>상품명</th><th>공급가</th><th>변동</th><th>상시/당일</th><th>스펙 변동</th></tr></thead><tbody>';
-    rows.forEach(function (r) {
-      h += '<tr><td class="num">' + r.row + '</td><td>' + esc(r.창고) + '</td><td><b>' + esc(r.상품명) + '</b></td>'
-         + '<td class="price">' + esc(r.공급가) + '</td><td>' + esc(r.변동) + '</td><td>' + esc(r.상시당일) + '</td>'
-         + '<td class="spec">' + esc(r.스펙) + '</td></tr>';
+    var h = '<div style="overflow-x:auto"><table><thead><tr>';
+    for (var c1 = 0; c1 < COLS.length; c1++) h += '<th>' + esc(COLS[c1]) + '</th>';
+    h += '</tr></thead><tbody>';
+    rows.forEach(function (rowArr) {
+      h += '<tr>';
+      for (var c2 = 0; c2 < COPY_COLS; c2++) h += '<td>' + esc(cell(rowArr, c2)) + '</td>';
+      h += '</tr>';
     });
-    h += '</tbody></table>';
+    h += '</tbody></table></div>';
     document.getElementById('result').innerHTML = h;
     document.getElementById('actions').style.display = 'flex';
-    document.getElementById('copyHint').textContent = '(A~S 원본 ' + NUM_COLS + '칸 그대로)';
+    document.getElementById('copyHint').textContent = '(A~O ' + COPY_COLS + '칸, 행번호 없음)';
   }
 
   document.getElementById('copyBtn').addEventListener('click', function () {
     if (!LAST || !LAST.length) return;
-    var tsv = LAST.map(function (r) {
-      var c = (r.cells || []).slice(0, NUM_COLS);
-      while (c.length < NUM_COLS) c.push('');
+    var tsv = LAST.map(function (rowArr) {
+      var c = (rowArr || []).slice(0, COPY_COLS);
+      while (c.length < COPY_COLS) c.push('');
       return c.map(function (x) { return String(x == null ? '' : x).replace(/\t/g,' ').replace(/\n/g,' '); }).join('\t');
     }).join('\n');
     var btn = this, ok = false;
