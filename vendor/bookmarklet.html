@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>그룹웨어 자동입력 — 즐겨찾기 설치</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;background:#f5f6f8;color:#1f2937;line-height:1.75;padding:40px 20px}
+  .wrap{max-width:720px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:40px 44px}
+  h1{font-size:23px;font-weight:700;color:#0d2a4f}
+  .sub{font-size:14px;color:#6b7280;margin:6px 0 28px}
+  .drag{background:#f0f7ff;border:2px dashed #93c5fd;border-radius:10px;padding:26px;text-align:center;margin-bottom:8px}
+  .bm{display:inline-block;background:#1a4e8a;color:#fff;text-decoration:none;font-size:17px;font-weight:700;padding:13px 30px;border-radius:8px;cursor:grab}
+  .bm:hover{background:#0d2a4f}
+  .dragcap{font-size:13px;color:#1e40af;margin-top:14px}
+  h2{font-size:16px;font-weight:700;color:#0d2a4f;margin:30px 0 8px;padding-top:22px;border-top:1px solid #eef0f3}
+  ol{margin-left:20px}li{margin-bottom:7px;font-size:14.5px}
+  p{font-size:14.5px}
+  b{color:#0d2a4f}
+  kbd{background:#f3f4f6;border:1px solid #d1d5db;border-bottom-width:2px;border-radius:4px;padding:1px 6px;font-size:13px;font-family:monospace}
+  .note{background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:13px 17px;font-size:13.5px;color:#7c2d12;margin-top:14px}
+  .code{background:#0f172a;color:#cbd5e1;border-radius:8px;padding:14px;font-family:'Consolas',monospace;font-size:11.5px;line-height:1.5;word-break:break-all;max-height:150px;overflow:auto;margin-top:10px}
+  button{background:#374151;color:#fff;border:0;border-radius:6px;padding:7px 16px;font-size:13.5px;font-weight:600;cursor:pointer;margin-top:10px}
+  button:hover{background:#111827}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>그룹웨어 자동입력 설치</h1>
+  <div class="sub">프로그램 설치가 아닙니다. 아래 파란 버튼을 <b>즐겨찾기 막대로 끌어다 놓기</b>, 그게 전부입니다. PC당 한 번만 하면 됩니다.</div>
+
+  <div class="drag">
+    <a class="bm" id="bm" href="#">그룹웨어 자동입력</a>
+    <div class="dragcap">↑ 이 버튼을 마우스로 눌러 <b>즐겨찾기 막대에 끌어다 놓으세요</b> (누르면 아무 일도 안 일어납니다)</div>
+  </div>
+
+  <div class="note">
+    즐겨찾기 막대가 안 보이면 <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd> 를 눌러 켜세요.
+  </div>
+
+  <h2>쓰는 법</h2>
+  <ol>
+    <li>업체등록 도구에서 업체명·사진 넣고 <b>[그룹웨어 등록]</b> 클릭</li>
+    <li>그룹웨어 글쓰기 탭이 새로 열립니다</li>
+    <li>즐겨찾기의 <b>[그룹웨어 자동입력]</b> 을 한 번 클릭</li>
+    <li>제목·사진·본문삽입이 자동으로 됩니다 → <b>등록</b> 버튼만 누르면 끝</li>
+  </ol>
+
+  <h2>처음 한 번만 나오는 창</h2>
+  <p>클릭했을 때 <b>“클립보드 콘텐츠 보기를 허용하시겠습니까?”</b> 라는 물음이 뜨면 <b>허용</b>을 누르세요. 사진을 클립보드에서 꺼내오는 데 필요하며, 한 번 허용하면 다시 묻지 않습니다.</p>
+
+  <h2>잘 안 될 때</h2>
+  <ol>
+    <li><b>“클립보드를 읽지 못했습니다”</b> → 그룹웨어 페이지의 빈 곳을 한 번 클릭한 뒤 즐겨찾기를 다시 누르세요.</li>
+    <li><b>“클립보드에 사진이 없습니다”</b> → 중간에 다른 것을 복사한 경우입니다. 도구로 돌아가 [그룹웨어 등록]을 다시 누르세요.</li>
+    <li>드래그가 안 되면 아래 코드를 복사해서, 즐겨찾기 추가 → URL 칸에 붙여넣어도 됩니다.</li>
+  </ol>
+  <div class="code" id="src"></div>
+  <button id="copy">코드 복사</button>
+</div>
+
+<script>
+const BM = `javascript:(async()=>{
+if(!/act=dispBoardWrite/.test(location.href)){alert('그룹웨어 글쓰기 화면에서 눌러주세요.');return}
+const T=(m,c,d)=>{const o=document.getElementById('vtT');if(o)o.remove();const e=document.createElement('div');e.id='vtT';e.textContent=m;e.style.cssText='position:fixed;top:20px;right:20px;background:'+c+';color:#fff;padding:16px 22px;border-radius:10px;font:bold 14px sans-serif;z-index:2147483647;box-shadow:0 6px 20px rgba(0,0,0,.35);white-space:pre-line;line-height:1.6;max-width:440px;cursor:pointer';e.onclick=()=>e.remove();document.body.appendChild(e);setTimeout(()=>{if(e.parentNode)e.remove()},d||6000)};
+let t='';const h=location.hash.match(/vt=([^&]*)/);if(h){try{t=decodeURIComponent(h[1])}catch(x){}}
+let f=null;
+try{const its=await navigator.clipboard.read();
+for(const it of its){for(const ty of it.types){
+if(ty.indexOf('image/')===0&&!f){const b=await it.getType(ty);f=new File([b],(t||'사업자등록증')+'.png',{type:b.type||'image/png'})}
+else if(ty==='text/plain'&&!t){t=((await (await it.getType(ty)).text())||'').trim()}}}
+}catch(x){T('클립보드를 읽지 못했습니다.\\n페이지 빈 곳을 한 번 클릭한 뒤 다시 눌러주세요.\\n('+x.name+')','#c0392b',10000);return}
+if(!f){T('클립보드에 사진이 없습니다.\\n업체등록 도구에서 [그룹웨어 등록]을 다시 눌러주세요.','#b45309',9000);return}
+T('자동 입력 중...','#1a73e8',3000);
+const ti=document.querySelector('input[name="title"]')||document.querySelector('#title')||document.querySelector('form input[type="text"]');
+let ok1=false;
+if(ti&&t){const s=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;s.call(ti,t);ti.dispatchEvent(new Event('input',{bubbles:true}));ti.dispatchEvent(new Event('change',{bubbles:true}));ok1=true}
+const fi=document.querySelector('input[type="file"][id^="AXUpload"]')||document.querySelector('input[type="file"][name^="files"]')||document.querySelector('input[type="file"]');
+let ok2=false;
+if(fi){const dt=new DataTransfer();dt.items.add(f);fi.files=dt.files;fi.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,400));ok2=!!(fi.files&&fi.files.length);
+if(!ok2){const dz=document.querySelector('.fileUploader,.fileUploadControl,[class*="upload"],[class*="attach"]');
+if(dz){const d2=new DataTransfer();d2.items.add(f);for(const ev of ['dragenter','dragover','drop'])dz.dispatchEvent(new DragEvent(ev,{bubbles:true,cancelable:true,dataTransfer:d2}));await new Promise(r=>setTimeout(r,400));ok2=!!(fi.files&&fi.files.length)}}}
+let ok3=false;
+if(ok2){for(let i=0;i<12;i++){await new Promise(r=>setTimeout(r,500));
+const b=document.querySelector('input[value="본문 삽입"]')||document.querySelector('input[value="본문삽입"]')||[].slice.call(document.querySelectorAll('input[type="button"],button')).filter(x=>(x.value||x.innerText||'').replace(/\\s/g,'')==='본문삽입')[0];
+if(b&&!b.disabled){b.click();ok3=true;break}}}
+T(ok1&&ok2&&ok3?'완료!\\n제목: '+t+'\\n사진 첨부 + 본문삽입까지 끝\\n\\n등록 버튼만 누르세요':ok1&&ok2?'제목·사진은 들어갔지만 본문삽입 자동클릭 실패\\n본문삽입을 직접 누른 뒤 등록하세요':ok1?'제목만 입력됨 — 사진 첨부 실패\\n사진은 직접 첨부해주세요':'자동 입력 실패 — 페이지 구조가 바뀐 듯합니다',(ok1&&ok2&&ok3)?'#2d6a4f':'#b45309',13000)
+})()`.replace(/\n/g, '');
+
+document.getElementById('bm').href = BM;
+document.getElementById('src').textContent = BM;
+document.getElementById('bm').addEventListener('click', e => {
+  e.preventDefault();
+  alert('이 버튼은 누르는 게 아니라 즐겨찾기 막대로 끌어다 놓는 것입니다.');
+});
+document.getElementById('copy').addEventListener('click', async () => {
+  const btn = document.getElementById('copy');
+  try {
+    await navigator.clipboard.writeText(BM);
+    btn.textContent = '복사됨';
+    setTimeout(() => btn.textContent = '코드 복사', 1600);
+  } catch (e) { btn.textContent = '복사 실패'; }
+});
+</script>
+</body>
+</html>
