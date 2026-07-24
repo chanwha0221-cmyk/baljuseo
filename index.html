@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.557</title>
+<title>발주서 변환기 v22.558</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.557</span>
+  <span class="ver">v22.558</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -698,13 +698,20 @@ function mergeLines(raw){
   const merged=[];let lastClient='';let lastKnownClient='';
   const hasDataHeader=lines.some(l=>isDataHeader(l.trim()));
   let dataStart=!hasDataHeader;
+  // 1열에 같은 이름이 2번 이상 나오면 그건 업체명이다(발주는 업체명이 반복, 혜인건강 선물은 주문자가 매번 다름).
+  // → 혜인건강 선물 인식기가 미등록 업체를 '사람 이름'으로 오인해 혜인건강으로 바꿔치기하는 것 차단
+  //   (2026-07-24 '아이원' → 혜인건강 둔갑 건. 사장님이 적어준 업체명은 절대 안 바꾼다)
+  const firstColCount={};
+  for(const l of lines){const f=(toTsv(l.trim()).split('\t')[0]||'').trim().replace(/\s+/g,'');if(f)firstColCount[f]=(firstColCount[f]||0)+1;}
   for(const line of lines){
     const trimmed=line.trim();if(!trimmed)continue;
     const normalized=toTsv(trimmed);
     if(!dataStart){if(isDataHeader(normalized)){dataStart=true;}continue;}
     if(isHeaderRow(normalized))continue;
     const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)[kK]\b/g,'$1kg').replace(/한판/g,'1판')).join('\t');
-    const hgift=preprocessHyeinGift(trimmed);
+    const _f0=(normalized.split('\t')[0]||'').trim().replace(/\s+/g,'');
+    const _looksVendor=hasDataHeader||firstColCount[_f0]>1;   // 표 양식이거나 1열 반복 = 업체명
+    const hgift=_looksVendor?null:preprocessHyeinGift(trimmed);
     if(hgift){merged.push(hgift);lastClient='혜인건강';lastKnownClient='혜인건강';continue;}
     const nahaeng=preprocessNahaengJaeun(trimmed);
     if(nahaeng){const _fw=nahaeng.split('\t')[0].replace(/\s+/g,'');merged.push(nahaeng);lastClient=_fw;lastKnownClient=_fw;continue;}
