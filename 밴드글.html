@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v2.7</title>
+<title>밴드글 메이커 v2.8</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v2.7 ⚡</span>
+  <span class="ver">v2.8 ⚡</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -482,7 +482,7 @@ ${b}
 지침:
 - 원문 1의 구성·서식 패턴(어디를 볼드/큰글씨로 쓰는지)을 유지하면서, 원문 2의 정보를 본문에 자연스럽게 녹여 확장한 새 밴드글을 쓴다.
 - "※ 구성 :", "※ 중량 :" 같은 스펙 나열 형식은 절대 그대로 쓰지 말 것 — 전부 자연스러운 문장으로 녹일 것. (예: "원물 100~150kg급 참다랑어에서 뜬 필렛 500g을 트레이에 담아 보내드립니다")
-- 분량: 【잠금N】 토큰(인트로 박스·하단 주문안내 고정부)을 뺀 **순수 본문만** 공백 포함 1,000~1,100자. 1,000자 미만도 1,150자 초과도 안 된다. 최우선 조건.
+- 🚨 분량(가장 중요한 절대 규칙): 【잠금N】 토큰(인트로 박스·하단 주문안내 고정부)을 뺀 **순수 본문만** 공백 포함 **딱 1,000~1,100자**. 목표 중앙값 1,050자. **1,100자 절대 초과 금지.** 자료가 많아도 다 넣으려 하지 말고 핵심만 골라 1,100자 안에 압축해라. 길게 쓰는 것보다 1,100자를 지키는 게 우선이다.
 - 쇼핑몰 결제·채팅 주문·사업자 안내 같은 하단 고정 문구를 새로 쓰지 말 것 — 그건 【잠금N】 토큰이 담당한다.
 - 가격·구성·원산지·스펙은 원문에 있는 것만. 지어내기 금지. 원문 정보는 빠짐없이.
 - 부족한 분량은 손질법·조리법·보관법·맛있게 먹는 팁 등 상식 수준 보강만. 과장·허위 금지.
@@ -532,23 +532,23 @@ async function generate(isRetry){
   const btn=$('genBtn'); btn.disabled=true; btn.innerHTML='<span class="spin">⏳</span> 생성 중... (10~20초)';
   try{
     let out=(await callAI(buildPrompt(aMarked,b))).trim();
-    // 950~1,200 안에 들어오면 통과. 최대 2회만 교정 (2026-07-13: 재생성 널뛰기·대기시간 사고 수정)
-    //  - 짧으면 buildExpand(초안 유지 + 문단 추가) / 길면 buildShrink(초안 유지 + 군더더기만 삭감)
-    //  - 둘 다 '초안 편집'이라 한 번이면 대개 수렴. 결과가 더 나빠지면 그 시도는 버리고 이전 초안 유지.
-    const OK_LO=950, OK_HI=1200;
+    // 사장님 목표 = 순수 본문 1,000~1,100자. 한 방 생성은 들쭉날쭉(990~1,600)이라 여기서 '조용히' 범위 안까지 자동 교정.
+    // (2026-07-24 사장님 격노: 중간과정·자수·"다시 생성" 경고 절대 보여주지 말 것. 버튼은 계속 '생성 중...' 하나만.)
+    //  - 길면 buildShrink(초안 유지 + 군더더기만 삭감) / 짧으면 buildExpand(초안 유지 + 문단 추가). 둘 다 '초안 편집'이라 수렴 잘 됨.
+    //  - 수렴 여유로 상한 1,120까지 통과(1,100 목표 + 20). 최대 4회. 더 나빠지면 그 시도는 버리고 이전 초안 유지.
+    const OK_LO=1000, OK_HI=1120;
     const dist=n=>(n<OK_LO?OK_LO-n:(n>OK_HI?n-OK_HI:0));
-    for(let att=0; att<2; att++){
+    for(let att=0; att<4; att++){
       const L=bodyLen(out);
       if(L>=OK_LO && L<=OK_HI) break;
-      btn.innerHTML='<span class="spin">⏳</span> '+(L<OK_LO?'짧아서 문단 추가':'길어서 압축')+' 중... ('+L.toLocaleString()+'자 · '+(att+1)+'/2)';
+      // ⚠️ 중간 자수·단계 노출 금지 — 버튼 문구 그대로 유지(사장님 지시). 교정을 몇 번 돌리든 티 안 나게.
       const fixed=(await callAI(L<OK_LO?buildExpand(out,L):buildShrink(out,L))).trim();
       const FL=bodyLen(fixed);
       // 잠금 토큰이 깨졌거나(==== 노출) 목표에서 더 멀어졌으면 버리고 기존 초안 유지
       if(FL>0 && !/={6,}/.test(fixed) && dist(FL)<dist(L)) out=fixed;
       else break;
     }
-    const finalL=bodyLen(out);
-    if(finalL<OK_LO||finalL>OK_HI){ if(typeof toast==='function') toast('⚠️ '+finalL.toLocaleString()+'자 — 목표(1,000~1,100) 밖입니다. 그대로 두거나 [🔁 다시 생성] 하세요'); }
+    // 경고 toast 제거 — 사장님한테 '다시 생성' 시키지 않는다. 최선을 다한 최종 결과만 조용히 보여줌.
     // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
     out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
     out=softWrap(out);   // 긴 줄 의미단위 미달분 안전망 래핑 (잠금·이미지 줄 제외)
