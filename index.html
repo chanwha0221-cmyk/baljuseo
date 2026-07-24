@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.556</title>
+<title>발주서 변환기 v22.557</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.556</span>
+  <span class="ver">v22.557</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -589,6 +589,7 @@ const CC={
   "더세븐홀딩스":{address:"",phone:"1577-0926"},
   "엄자씨마켓":{address:"",phone:"1577-0926",insert:"더세븐홀딩스",showInsert:true},
   "팍스리테일":{address:"대구시 남구 대명로 124KT&G 7층",phone:"053-942-5551"},
+  "영성":{address:"",phone:"1533-2981"},   // 업체 주소 안 씀 (2026-07-24 사장님)
   "팡베베":{phone:"010-7153-3917"},
   "킹콩농수산":{address:"경기도 화성시 동탄구 동탄기흥로 594-7, 1214호 주식회사 킹콩에프앤비",phone:"031-8043-2244",insert:"킹콩에프앤비",showInsert:true}
 };
@@ -737,13 +738,16 @@ function mergeLines(raw){
     const isNew=isKnownClient(firstCol)||firstCol===lastClient||isFullRow;
     if(merged.length===0||isNew){
       let toPush=pp2;
-      // 🚨 '주문처' 헤더가 있는 블록(게시판 표 양식/발주취합 버튼)은 1열이 곧 주문처다.
-      //    미등록 업체라도 앞 업체명을 끼워넣으면 안 됨 — 끼워넣으면 칸이 한 칸씩 밀려
-      //    업체명이 앞 업체로 둔갑함(2026-07-24 '영성' 발주가 팍스리테일로 나간 건).
-      //    미등록은 아래 runSingle의 '미등록 업체' 경고로 잡히게 둔다.
-      const colIsClient=hasDataHeader&&firstCol&&!firstColIsProduct;
-      if(!colIsClient&&(isFullRow||firstColIsProduct)&&!isKnownClient(firstCol)&&firstCol!==lastClient&&lastKnownClient){
-        toPush=lastKnownClient+'\t'+pp2;
+      // 🚨 절대규칙 (2026-07-24 사장님 지시): 사장님이 1열에 적어준 업체명은 절대 건드리지 않는다.
+      //    CC 등록 여부와 무관 — 등록 안 됐다고 앞 업체명을 끼워넣으면 칸이 한 칸씩 밀려
+      //    업체명이 앞 업체로 둔갑함('영성' 발주가 팍스리테일로 나간 사고).
+      //    앞 업체명을 채우는 건 1열이 '비었을 때'와 '상품명일 때'뿐:
+      //      · 1열이 빈칸  → 밀지 말고 그 빈칸만 채운다(칸 수 유지)
+      //      · 1열이 상품  → 업체명 칸 자체가 없는 행이므로 앞에 끼워넣는다
+      //    미등록 업체는 runSingle의 '미등록 업체' 경고로 알린다(조용히 바꾸지 않음).
+      if(lastKnownClient&&!isKnownClient(firstCol)&&firstCol!==lastClient){
+        if(!firstCol){const _c=pp2.split('\t');_c[0]=lastKnownClient;toPush=_c.join('\t');}
+        else if(firstColIsProduct){toPush=lastKnownClient+'\t'+pp2;}
       }
       merged.push(toPush);
       if(firstCol)lastClient=firstCol;
