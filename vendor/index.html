@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v2.1</title>
+<title>외부 업체 등록 도구 v2.2</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -78,6 +78,10 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 .gw-hint{display:none;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;padding:10px 14px;font-size:12px;color:#9a3412;line-height:1.7}
 .gw-hint.show{display:block}
 .gw-hint b{color:#7c2d12}
+.gw-install{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed #fdba74}
+.gw-install.show{display:block}
+.gw-install a{display:inline-block;margin-top:6px;background:#1a4e8a;color:#fff;text-decoration:none;padding:6px 14px;border-radius:5px;font-weight:600}
+.gw-install a:hover{background:#0d2a4f}
 .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px}
 
 /* ========== 이미지 확대 패널 (왼쪽만 덮음 → 오른쪽 입력창 그대로 사용 가능) ========== */
@@ -94,7 +98,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v2.1</span>
+  <span class="ver">v2.2</span>
   <span class="subtitle">사업자번호 OCR · 자동 양식 파싱 · 그룹웨어 연동</span>
 </header>
 <div class="main">
@@ -185,6 +189,10 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
       1. 제목 칸 클릭 → <b>Ctrl+V</b> (사업자명 자동 복사됨)<br>
       2. 다운로드 폴더의 <code id="gwFileName"></code> 사진을 첨부 영역으로 <b>드래그</b><br>
       3. 등록 클릭
+      <div class="gw-install" id="gwInstall">
+        이 PC에 <b>확장 프로그램을 한 번만 설치</b>하면 다음부터는 제목·사진이 자동으로 채워집니다.
+        <a id="gwInstallLink" href="#" target="_blank" rel="noopener">확장 설치하기 ▶</a>
+      </div>
     </div>
   </div>
 </div>
@@ -198,6 +206,12 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
+// ★★ 확장 프로그램 설치 주소 ★★
+// 크롬 웹스토어에 비공개(unlisted)로 게시한 뒤, 발급받은 주소를 아래 따옴표 안에 붙여넣으세요.
+// 예) 'https://chromewebstore.google.com/detail/abcdefghijklmnop'
+// 비워두면 "확장 설치하기" 버튼은 나타나지 않고 수동 안내만 표시됩니다.
+const EXT_STORE_URL = '';
+
 let currentFile = null;
 
 function fileToBase64(file) {
@@ -618,7 +632,17 @@ async function uploadToGroupware() {
   }
 
   // 폴백: 수동 모드
-  showToast('⚠️ 확장 프로그램 없음 — 수동 모드\n(확장 설치 후 새로고침하면 자동 처리)', '#b45309', 4000);
+  showToast(EXT_STORE_URL
+    ? '⚠️ 이 PC엔 확장 프로그램이 없습니다 — 수동 모드\n아래 "확장 설치하기"를 한 번만 누르면 다음부터 자동 처리됩니다'
+    : '⚠️ 확장 프로그램 없음 — 수동 모드\n(확장 설치 후 새로고침하면 자동 처리)', '#b45309', 5000);
+
+  const installBox = document.getElementById('gwInstall');
+  if (EXT_STORE_URL) {
+    document.getElementById('gwInstallLink').href = EXT_STORE_URL;
+    installBox.classList.add('show');
+  } else {
+    installBox.classList.remove('show');
+  }
 
   const url = URL.createObjectURL(currentFile);
   const a = document.createElement('a');
