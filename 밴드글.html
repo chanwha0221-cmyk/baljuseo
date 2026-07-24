@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v2.5</title>
+<title>밴드글 메이커 v2.7</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v2.5</span>
+  <span class="ver">v2.7 ⚡</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -118,6 +118,10 @@ const DATA_TAB='밴드글';
 const HEADER=['id','날짜','제목','본문','글자수','등록일시'];
 const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
 const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
+// ⚡ 속도 (2026-07-24): Gemini 2.5 Flash는 옵션이 없으면 '생각 시간 무제한(동적)'이 기본 → 한 번 생성에 15~25초씩 걸렸음.
+//   thinkingBudget으로 생각시간을 잘라 속도 확보. 0=생각 끔(가장 빠름, ~5초). 잠금(【잠금N】)·서식 마커가 자주 깨지면 512~1024로 올릴 것.
+//   ⚠️ 이 값이 실제로 먹으려면 AI 프록시(Apps Script)도 generationConfig 전달하게 재배포돼 있어야 함 (2026-07-24 프록시 개정판).
+const AI_THINKING_BUDGET=0;
 
 const $=id=>document.getElementById(id);
 let DATA=[], loaded=false, LOCKS=[], IMGS=[], TAIL_LOCK=-1;   // TAIL_LOCK = 하단 고정부 잠금 인덱스(유실 시 맨 '끝'으로 복원)
@@ -441,7 +445,7 @@ async function downloadImgs(){
 function copyPlain(){ const v=plainOf(outMarked()); if(!v.trim()){toast('복사할 글이 없어요');return;} navigator.clipboard.writeText(v).then(()=>toast('📋 텍스트만 복사됨')); }
 
 async function callAI(prompt,retry=0){
-  const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[]}),redirect:'follow'});
+  const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[],thinkingBudget:AI_THINKING_BUDGET}),redirect:'follow'});
   const d=await r.json();
   if(d.error){
     // 구글 무료 한도(분당 20건) — "retry in N초"를 읽어서 그만큼 기다렸다 재시도 (2026-07-10)
