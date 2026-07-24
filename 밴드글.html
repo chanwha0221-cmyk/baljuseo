@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v2.8</title>
+<title>밴드글 메이커 v2.9</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v2.8 ⚡</span>
+  <span class="ver">v2.9 ⚡</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -538,16 +538,19 @@ async function generate(isRetry){
     //  - 수렴 여유로 상한 1,120까지 통과(1,100 목표 + 20). 최대 4회. 더 나빠지면 그 시도는 버리고 이전 초안 유지.
     const OK_LO=1000, OK_HI=1120;
     const dist=n=>(n<OK_LO?OK_LO-n:(n>OK_HI?n-OK_HI:0));
-    for(let att=0; att<4; att++){
-      const L=bodyLen(out);
-      if(L>=OK_LO && L<=OK_HI) break;
-      // ⚠️ 중간 자수·단계 노출 금지 — 버튼 문구 그대로 유지(사장님 지시). 교정을 몇 번 돌리든 티 안 나게.
-      const fixed=(await callAI(L<OK_LO?buildExpand(out,L):buildShrink(out,L))).trim();
+    // ⚠️ 중간 자수·단계 노출 금지 — 버튼 문구 그대로 유지(사장님 지시). 교정을 몇 번 돌리든 티 안 나게.
+    // '제일 좋은 초안(best)'을 들고 최대 4회 재교정. 한 번 개선 안 됐다고 바로 포기하지 않음(생성 편차로 다음 시도가 성공할 수 있음).
+    // 범위 안에 들면 즉시 종료. 잠금(======) 깨진 결과는 버리되 루프는 계속. 연속 2회 헛돌면 중단(무한루프 방지).
+    let best=out, bestD=dist(bodyLen(out)), stall=0;
+    for(let att=0; att<4 && bestD>0 && stall<2; att++){
+      const L=bodyLen(best);
+      const fixed=(await callAI(L<OK_LO?buildExpand(best,L):buildShrink(best,L))).trim();
+      if(/={6,}/.test(fixed)){ stall++; continue; }   // 잠금 깨진 결과 폐기
       const FL=bodyLen(fixed);
-      // 잠금 토큰이 깨졌거나(==== 노출) 목표에서 더 멀어졌으면 버리고 기존 초안 유지
-      if(FL>0 && !/={6,}/.test(fixed) && dist(FL)<dist(L)) out=fixed;
-      else break;
+      if(FL>0 && dist(FL)<bestD){ best=fixed; bestD=dist(FL); stall=0; }   // 개선되면 채택
+      else stall++;
     }
+    out=best;
     // 경고 toast 제거 — 사장님한테 '다시 생성' 시키지 않는다. 최선을 다한 최종 결과만 조용히 보여줌.
     // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
     out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
