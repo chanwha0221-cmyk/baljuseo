@@ -17,6 +17,7 @@
 | `sales.html` | 판매 분석 |
 | `식봄ERP.html` | **식봄 ERP** 3탭: ①상품 대량등록(엑셀 생성) ②상세페이지 HTML 변환기 ③마진 체크. 서비스계정 + SheetJS |
 | `수량관리.html` | **팀 수량 관리** (하이브리드 v2.0): 브라우저 계산 + 구글시트 저장 → IMPORTRANGE 소스 |
+| `제안서.html` | **상품 제안서 생성기** — 팀원 원본 pptx를 토큰화한 `제안서_assets/template.pptx`에 글자만 치환. 배경=원본 슬라이드 실렌더(`제안서_assets/bg1~6`), 브라우저 JSZip으로 pptx 생성 → **원본 디자인 100% 보존, 글자만 편집.** 좌표/스타일 맵=`제안서_assets/fields.js`. 라이브: `/제안서.html` |
 
 ### 별도 (GitHub 아님, 구글시트 Apps Script에 붙여넣어 사용)
 - `C:\내드라이브\claude\github\마찬발주관리_AppsScript_최신코드.txt` — 시트 발주관리 메뉴(상품 수량 확인 다이얼로그 등). 수정 후 script.google.com에 붙여넣어야 적용됨.
