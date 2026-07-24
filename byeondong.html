@@ -579,8 +579,9 @@
 
   // ===== 📗 리모컨(원가파일) 업데이트 엑셀 생성 =====
   // 규칙: 품절·원가변경·순수 정보변경 제외 / 출시·재입고·인상·인하(+상품명변경) 포함.
-  //       출시·리모컨에없던 신규 → 원가 E·F·G 채움, 나머지 → 원가 빈칸.
-  //       새 항목 맨 위 + 기존 리모컨, 중복은 위(새것) 남기고 삭제, 상품명 변경은 옛 이름 행 삭제.
+  //       출시·리모컨에없던 신규 → 원가 E·F·G 채움, 나머지 → 원가 빈칸(관리팀 원가 안 건드림).
+  //       ★ 변경분만 출력 — 기존 리모컨 전체는 붙이지 않는다. 전체를 덮어쓰면 그 사이 관리팀이 고친
+  //         원가까지 옛 값으로 엎어져 사고나던 문제 때문. 업데이트할 상품 행만 뽑아 그것만 리모컨에 반영.
   document.getElementById('excelBtn').addEventListener('click', function(){
     if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로드 실패 — 새로고침 후 다시.'); return; }
     var items = readItems();
@@ -642,18 +643,16 @@
 
     if(!newRows.length){ alert('리모컨에 넣을 상품이 없어요.\n(전부 품절/원가변경/정보변경으로 제외됨)'); return; }
 
-    var kept = WONGA_ROWS.filter(function(r){ return !removeSet[pkey(String(r[0]!=null?r[0]:'').trim())]; });
-    var removedExisting = WONGA_ROWS.length - kept.length;
-
-    var out = [WONGA_HDR].concat(newRows).concat(kept);
+    // ★ 변경분만 출력. 기존 리모컨 전체(WONGA_ROWS)는 붙이지 않는다 → 관리팀이 고친 원가를 안 엎음.
+    var out = [WONGA_HDR].concat(newRows);
     var ws = XLSX.utils.aoa_to_sheet(out);
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-    var fn = '리모컨_업데이트_'+today.replace(/-/g,'')+'.xlsx';
+    var fn = '리모컨_변경분_'+today.replace(/-/g,'')+'.xlsx';
     try { XLSX.writeFile(wb, fn); }
     catch(e){ alert('엑셀 저장 실패: '+e.message); return; }
 
-    setStatus('✅ 리모컨 엑셀 생성 완료 → <b>'+esc(fn)+'</b><br>· 새 상품 <b>'+newRows.length+'</b>건 맨위(원가채움 '+filledWonga+' · 이름변경 '+renamed+') + 기존 <b>'+kept.length+'</b>행<br>· 제외 '+skipped+'건 · 새행 중복스킵 '+dupInNew+'건 · 기존 중복/옛이름 삭제 '+removedExisting+'건', 'ok');
+    setStatus('✅ 리모컨 <b>변경분</b> 엑셀 생성 완료 → <b>'+esc(fn)+'</b><br>· 업데이트 대상 <b>'+newRows.length+'</b>건만 (원가채움 '+filledWonga+' · 이름변경 '+renamed+')<br>· 제외 '+skipped+'건(품절/원가변경/정보변경) · 중복스킵 '+dupInNew+'건<br>· ✅ 기존 상품은 안 들어감 → 관리팀 원가 안 건드림'+(renamed?'<br>· ⚠️ 이름변경 '+renamed+'건은 리모컨에 옛 이름 행이 남아있을 수 있어요(수동 확인)':''), 'ok');
   });
 </script>
 </body>
