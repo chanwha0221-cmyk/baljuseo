@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v2.2</title>
+<title>외부 업체 등록 도구 v2.3</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -78,9 +78,8 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 .gw-hint{display:none;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;padding:10px 14px;font-size:12px;color:#9a3412;line-height:1.7}
 .gw-hint.show{display:block}
 .gw-hint b{color:#7c2d12}
-.gw-install{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed #fdba74}
-.gw-install.show{display:block}
-.gw-install a{display:inline-block;margin-top:6px;background:#1a4e8a;color:#fff;text-decoration:none;padding:6px 14px;border-radius:5px;font-weight:600}
+.gw-install{margin-top:10px;padding-top:10px;border-top:1px dashed #fdba74}
+.gw-install a{background:#1a4e8a;color:#fff;text-decoration:none;padding:4px 12px;border-radius:5px;font-weight:600}
 .gw-install a:hover{background:#0d2a4f}
 .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px}
 
@@ -98,7 +97,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v2.2</span>
+  <span class="ver">v2.3</span>
   <span class="subtitle">사업자번호 OCR · 자동 양식 파싱 · 그룹웨어 연동</span>
 </header>
 <div class="main">
@@ -185,14 +184,18 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
       <button class="btn" id="clearBtn">초기화</button>
     </div>
     <div class="gw-hint" id="gwHint">
-      <b>확장 프로그램 미설치 — 수동 모드:</b><br>
-      1. 제목 칸 클릭 → <b>Ctrl+V</b> (사업자명 자동 복사됨)<br>
+      <b>새 탭에서 즐겨찾기 [그룹웨어 자동입력] 을 한 번 클릭하세요.</b><br>
+      업체명·사진이 자동으로 채워집니다 → <b>등록</b> 버튼만 누르면 끝.
+      <div class="gw-install">
+        즐겨찾기에 아직 없나요? <a href="bookmarklet.html" target="_blank" rel="noopener">1분 설치 안내 ▶</a>
+        <span style="display:block;margin-top:4px">프로그램 설치가 아니라 <b>즐겨찾기에 드래그 한 번</b>입니다.</span>
+      </div>
+    </div>
+    <div class="gw-hint" id="gwManual">
+      <b>클립보드를 못 써서 수동 모드로 넘어갔습니다:</b><br>
+      1. 제목 칸 클릭 → <b>Ctrl+V</b> (업체명 자동 복사됨)<br>
       2. 다운로드 폴더의 <code id="gwFileName"></code> 사진을 첨부 영역으로 <b>드래그</b><br>
       3. 등록 클릭
-      <div class="gw-install" id="gwInstall">
-        이 PC에 <b>확장 프로그램을 한 번만 설치</b>하면 다음부터는 제목·사진이 자동으로 채워집니다.
-        <a id="gwInstallLink" href="#" target="_blank" rel="noopener">확장 설치하기 ▶</a>
-      </div>
     </div>
   </div>
 </div>
@@ -206,13 +209,30 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
-// ★★ 확장 프로그램 설치 주소 ★★
-// 크롬 웹스토어에 비공개(unlisted)로 게시한 뒤, 발급받은 주소를 아래 따옴표 안에 붙여넣으세요.
-// 예) 'https://chromewebstore.google.com/detail/abcdefghijklmnop'
-// 비워두면 "확장 설치하기" 버튼은 나타나지 않고 수동 안내만 표시됩니다.
-const EXT_STORE_URL = '';
+const GW_URL = 'https://masterc.co.kr/index.php?mid=board_WmLw11&act=dispBoardWrite';
 
 let currentFile = null;
+
+// 클립보드는 image/png만 받으므로 캔버스로 축소 후 PNG로 변환
+function toPngBlob(file, maxSide) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(img.src);
+      cv.toBlob(b => b ? resolve(b) : reject(new Error('canvas 변환 실패')), 'image/png');
+    };
+    img.onerror = () => reject(new Error('이미지 로드 실패'));
+    img.src = URL.createObjectURL(file);
+  });
+}
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -240,7 +260,7 @@ function sendToExtension(payload) {
     setTimeout(() => {
       window.removeEventListener('message', handler);
       resolve(false);
-    }, 3000);
+    }, 1200);
   });
 }
 
@@ -610,10 +630,21 @@ async function uploadToGroupware() {
 
   const ext = (currentFile.name.match(/\.[a-z0-9]+$/i) || ['.jpg'])[0].toLowerCase();
   const newName = company + ext;
-  const gwUrl = 'https://masterc.co.kr/index.php?mid=board_WmLw11&act=dispBoardWrite';
 
-  // 1차: 확장 프로그램 자동 모드
-  showToast('🔄 확장 프로그램 연결 중...', '#1a73e8', 1500);
+  // 사진을 클립보드에 담는다. 클릭 직후에 해야 브라우저가 허용하므로 다른 작업보다 먼저.
+  let clipOk = false;
+  try {
+    const png = await toPngBlob(currentFile, 1600);
+    await navigator.clipboard.write([new ClipboardItem({
+      'image/png': png,
+      'text/plain': new Blob([company], { type: 'text/plain' })
+    })]);
+    clipOk = true;
+  } catch (e) {
+    console.warn('[업체등록] 클립보드 담기 실패:', e.message);
+  }
+
+  // 1차: 확장 프로그램이 깔린 PC면 클릭 없이 자동
   try {
     const base64 = await fileToBase64(currentFile);
     const ready = await sendToExtension({
@@ -623,7 +654,7 @@ async function uploadToGroupware() {
       imageName: newName
     });
     if (ready) {
-      window.open(gwUrl, '_blank');
+      window.open(GW_URL, '_blank');
       showToast('✅ 그룹웨어 새 탭 열림\n제목·사진 자동 입력됨 → 등록 버튼만 클릭하세요', 'var(--ok)', 7000);
       return;
     }
@@ -631,18 +662,16 @@ async function uploadToGroupware() {
     console.warn('[업체등록] 확장 통신 오류:', e.message);
   }
 
-  // 폴백: 수동 모드
-  showToast(EXT_STORE_URL
-    ? '⚠️ 이 PC엔 확장 프로그램이 없습니다 — 수동 모드\n아래 "확장 설치하기"를 한 번만 누르면 다음부터 자동 처리됩니다'
-    : '⚠️ 확장 프로그램 없음 — 수동 모드\n(확장 설치 후 새로고침하면 자동 처리)', '#b45309', 5000);
-
-  const installBox = document.getElementById('gwInstall');
-  if (EXT_STORE_URL) {
-    document.getElementById('gwInstallLink').href = EXT_STORE_URL;
-    installBox.classList.add('show');
-  } else {
-    installBox.classList.remove('show');
+  // 2차: 북마클릿 모드 — 사진은 클립보드로, 업체명은 주소 뒤 #vt= 로 넘어간다
+  if (clipOk) {
+    window.open(GW_URL + '#vt=' + encodeURIComponent(company), '_blank');
+    document.getElementById('gwHint').classList.add('show');
+    showToast('📋 사진을 클립보드에 담았습니다\n새 탭에서 즐겨찾기 [그룹웨어 자동입력] 클릭', 'var(--accent)', 8000);
+    return;
   }
+
+  // 3차: 클립보드도 막혔을 때 — 예전 수동 모드
+  showToast('⚠️ 클립보드를 못 썼습니다 — 수동 모드\n사진을 다운로드했습니다', '#b45309', 5000);
 
   const url = URL.createObjectURL(currentFile);
   const a = document.createElement('a');
@@ -653,9 +682,9 @@ async function uploadToGroupware() {
   try { await navigator.clipboard.writeText(company); } catch (e) {}
 
   document.getElementById('gwFileName').textContent = newName;
-  document.getElementById('gwHint').classList.add('show');
+  document.getElementById('gwManual').classList.add('show');
 
-  window.open(gwUrl, '_blank');
+  window.open(GW_URL, '_blank');
 }
 
 // ========== 초기화 ==========
@@ -676,6 +705,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   document.getElementById('ocrRaw').classList.remove('show');
   document.getElementById('ocrRaw').textContent = '';
   document.getElementById('gwHint').classList.remove('show');
+  document.getElementById('gwManual').classList.remove('show');
   document.getElementById('fileSize').textContent = '';
   document.getElementById('parseStatus').textContent = '붙여넣으면 자동 파싱';
   document.getElementById('parseStatus').className = 'parse-status';
