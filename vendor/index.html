@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v2.3</title>
+<title>외부 업체 등록 도구 v2.4</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -78,9 +78,6 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 .gw-hint{display:none;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;padding:10px 14px;font-size:12px;color:#9a3412;line-height:1.7}
 .gw-hint.show{display:block}
 .gw-hint b{color:#7c2d12}
-.gw-install{margin-top:10px;padding-top:10px;border-top:1px dashed #fdba74}
-.gw-install a{background:#1a4e8a;color:#fff;text-decoration:none;padding:4px 12px;border-radius:5px;font-weight:600}
-.gw-install a:hover{background:#0d2a4f}
 .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px}
 
 /* ========== 이미지 확대 패널 (왼쪽만 덮음 → 오른쪽 입력창 그대로 사용 가능) ========== */
@@ -97,7 +94,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v2.3</span>
+  <span class="ver">v2.4</span>
   <span class="subtitle">사업자번호 OCR · 자동 양식 파싱 · 그룹웨어 연동</span>
 </header>
 <div class="main">
@@ -186,10 +183,6 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
     <div class="gw-hint" id="gwHint">
       <b>새 탭에서 즐겨찾기 [그룹웨어 자동입력] 을 한 번 클릭하세요.</b><br>
       업체명·사진이 자동으로 채워집니다 → <b>등록</b> 버튼만 누르면 끝.
-      <div class="gw-install">
-        즐겨찾기에 아직 없나요? <a href="bookmarklet.html" target="_blank" rel="noopener">1분 설치 안내 ▶</a>
-        <span style="display:block;margin-top:4px">프로그램 설치가 아니라 <b>즐겨찾기에 드래그 한 번</b>입니다.</span>
-      </div>
     </div>
     <div class="gw-hint" id="gwManual">
       <b>클립보드를 못 써서 수동 모드로 넘어갔습니다:</b><br>
