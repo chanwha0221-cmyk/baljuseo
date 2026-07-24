@@ -322,6 +322,8 @@ const OVERDUE_DAYS=14;
 const FOLLOWUP_DAYS=14;  // 14일+ 2차 메일 대상 (채널별 그룹 뷰) — 2026-06-09 14일로 변경
 const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
 const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
+// ⚡ 속도 (2026-07-24): Gemini 2.5 Flash 생각시간 컷. 0=생각 끔(가장 빠름). 얕아지면 512~1024로. (프록시 개정판이 이 값 전달)
+const AI_THINKING_BUDGET=0;
 
 const DEFAULT_TEMPLATE=`안녕하세요, 대표님.
 주식회사 마스터 홍찬화 팀장입니다. 처음 인사드립니다.
@@ -423,7 +425,7 @@ async function driveBlobURL(id){
 }
 async function callAI(prompt,retry=0){
   try{
-    const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[]}),redirect:'follow'});
+    const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[],thinkingBudget:AI_THINKING_BUDGET}),redirect:'follow'});
     const d=await r.json();
     if(d.error){ if(/high demand|overload|quota|rate limit|too many|503|429/i.test(d.error)&&retry<2){await new Promise(s=>setTimeout(s,3000));return callAI(prompt,retry+1);} throw new Error(d.error); }
     return d.text||'';
