@@ -20,7 +20,8 @@
 
   .guide{font-size:13px;color:var(--red);font-weight:700;background:#fff;padding:10px 12px;border-left:5px solid var(--red);border-radius:4px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);line-height:1.5;}
   textarea{width:100%;height:200px;padding:13px;border:2px solid var(--border);border-radius:8px;font-size:15px;line-height:1.55;resize:vertical;font-family:inherit;outline:none;}
-  .dl-badge{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:9px;margin-left:4px;background:#eef1f5;color:#6b7686;white-space:nowrap;vertical-align:middle;flex-shrink:0}
+  .dl-badge{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:9px;margin-left:4px;background:#eef1f5;color:#6b7686;white-space:nowrap;vertical-align:middle;flex-shrink:0;cursor:pointer;user-select:none}
+  .dl-badge:hover{filter:brightness(.94);box-shadow:0 0 0 2px rgba(0,0,0,.06)}
   .dl-badge.active{background:#fff3cd;color:#b45309;border:1px solid #f0d9a8}
   .dl-badge.none{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca}
   .dl-badge.unk{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
@@ -155,7 +156,7 @@
 
   <!-- 현황판 -->
   <div class="panel">
-    <div class="panel-head">📋 현황판 <span class="count-pill" id="itemCount" style="margin-left:6px"></span><button class="btn-ghost" onclick="openDeadlineSheet()" style="margin-left:auto" title="'마감시간' 탭을 새 탭으로 열어 마감시간을 입력·수정하세요 (A:창고 / B:상품 / J:마감시간)">⏰ 마감시간 시트 열기</button></div>
+    <div class="panel-head">📋 현황판 <span class="count-pill" id="itemCount" style="margin-left:6px"></span><button class="btn-ghost" onclick="openDeadlineSheet()" style="margin-left:auto" title="여러 개를 한꺼번에 손볼 때만 쓰세요. 한 품목은 품목명 옆 ⏰ 배지를 눌러 바로 입력·저장됩니다 (A:창고 / B:상품 / J:마감시간)">⏰ 마감시간 시트 열기</button></div>
     <div class="tbl-scroll">
       <table id="statusTable">
         <thead>
@@ -219,6 +220,26 @@
       <button class="btn-danger" style="margin-right:auto" onclick="deleteItem()">🗑 이 품목 삭제</button>
       <button class="btn-ghost" onclick="document.getElementById('editOverlay').classList.remove('show')">취소</button>
       <button class="btn btn-primary" onclick="saveEdit()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ⏰ 마감시간 입력 모달 (현황판 품목 옆 ⏰ 배지 클릭) -->
+<div class="overlay" id="dlOverlay">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head">⏰ 마감시간 입력 — <span id="dlTitle"></span></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:#888;margin-bottom:9px">버튼을 누르거나 직접 적으세요. 저장하면 <b>'마감시간' 시트 J열</b>에 바로 들어갑니다. (시트 열 필요 없음)</div>
+      <div id="dlChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+      <input id="dlInput" placeholder="예: 12시 / 오후 2시 / 연장마감 : 16시 / 익일마감"
+             oninput="updateDlPreview()" onkeydown="if(event.key==='Enter')saveDeadline()"
+             style="width:100%;padding:9px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:14px">
+      <div id="dlPreview" style="font-size:12px;margin-top:8px;color:#888"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-danger" style="margin-right:auto" id="dlClearBtn" onclick="saveDeadline('')">🗑 지우기</button>
+      <button class="btn-ghost" onclick="document.getElementById('dlOverlay').classList.remove('show')">취소</button>
+      <button class="btn btn-primary" onclick="saveDeadline()">저장</button>
     </div>
   </div>
 </div>
@@ -543,14 +564,76 @@ function getActiveDeadlineHour(){
   if(min >= 12*60+1 && min <= 14*60) return 14;     // 12:01–14:00 → 2시 마감
   return -1;
 }
+// 배지는 클릭하면 마감시간 입력 모달이 뜬다 (2026-07-24: 시트 직접 열지 않고 여기서 바로 저장)
 function deadlineBadge(uKey){
   const it = uKey.split('||')[1] || uKey;   // 상품명만으로 매칭 (창고명 무시)
   const v = deadlineMap[it];
-  if(!v) return ` <span class="dl-badge none" title="마감시간 시트에 상품명(${esc(it)}) 매칭 없음 — 시트에 추가 필요">⏰ 없음</span>`;
+  const clk = ` data-key="${uKey.replace(/"/g,'&quot;')}" onclick="openDeadlineFromBtn(this)"`;
+  if(!v) return ` <span class="dl-badge none"${clk} title="마감시간 없음 — 눌러서 바로 입력 (시트에 저장됨)">⏰ 없음 ＋</span>`;
   const h = getDeadlineHour(v);
-  if(h===-1) return ` <span class="dl-badge unk" title="형식 인식 불가: ${esc(v)}">⏰ ?</span>`;
+  if(h===-1) return ` <span class="dl-badge unk"${clk} title="형식 인식 불가: ${esc(v)} — 눌러서 수정">⏰ ?</span>`;
   const active = (h>=0) && (getActiveDeadlineHour() === h); // 익일(-2)은 시간대 매칭 X
-  return ` <span class="dl-badge${active?' active':''}" title="마감시간 (시트값: ${esc(v)})">⏰ ${deadlineLabel(h)}</span>`;
+  return ` <span class="dl-badge${active?' active':''}"${clk} title="마감시간 (시트값: ${esc(v)}) — 눌러서 수정">⏰ ${deadlineLabel(h)}</span>`;
+}
+
+//=================== ⏰ 마감시간 입력·저장 ('마감시간' 시트 J열) ===================
+// 시트를 새 탭으로 열어 손으로 적던 걸 대체. 상품명(B열)으로 행을 찾아 J열만 갱신하고,
+// 그 상품이 시트에 아예 없으면 맨 아래에 [창고·상품명·마감시간] 한 줄을 새로 붙인다.
+const DL_PRESETS = ['12시','14시','16시','연장마감 : 16시','익일마감'];
+let dlKey = null;
+function openDeadlineFromBtn(btn){ openDeadline(btn.getAttribute('data-key')); }
+function openDeadline(uKey){
+  dlKey = uKey;
+  const [wh,it] = uKey.split('||');
+  const cur = deadlineMap[it] || '';
+  document.getElementById('dlTitle').textContent = `[${wh}] ${it}`;
+  document.getElementById('dlChips').innerHTML = DL_PRESETS
+    .map(p=>`<button class="btn-ghost" style="padding:5px 10px;font-size:12px" onclick="pickDeadline(this)" data-v="${p}">${p}</button>`).join('');
+  const inp = document.getElementById('dlInput');
+  inp.value = cur;
+  document.getElementById('dlClearBtn').style.display = cur ? '' : 'none';
+  updateDlPreview();
+  document.getElementById('dlOverlay').classList.add('show');
+  setTimeout(()=>{ inp.focus(); inp.select(); }, 50);
+}
+function pickDeadline(btn){ document.getElementById('dlInput').value = btn.getAttribute('data-v'); updateDlPreview(); }
+function updateDlPreview(){
+  const v = document.getElementById('dlInput').value.trim();
+  const el = document.getElementById('dlPreview');
+  if(!v){ el.textContent='비워두고 저장하면 마감시간이 지워집니다.'; el.style.color='#888'; return; }
+  const h = getDeadlineHour(v);
+  if(h===-1){ el.textContent='⚠️ 시간으로 인식이 안 돼요 — 배지에 ⏰? 로 표시됩니다'; el.style.color='#b45309'; }
+  else { el.textContent=`✅ ${deadlineLabel(h)} 마감으로 인식`; el.style.color='#3fa45c'; }
+}
+// forceVal 을 주면 그 값으로 저장 (지우기 버튼은 '')
+async function saveDeadline(forceVal){
+  if(!dlKey) return;
+  const [wh,it] = dlKey.split('||');
+  const val = String(forceVal!==undefined ? forceVal : document.getElementById('dlInput').value).trim();
+  if(!it) return;
+  if(val && getDeadlineHour(val)===-1 &&
+     !confirm(`"${val}" 은(는) 시간으로 인식되지 않아요.\n그래도 시트에 저장할까요? (배지엔 ⏰? 로 표시됩니다)`)) return;
+  document.getElementById('dlOverlay').classList.remove('show');
+  setSync('saving');
+  try{
+    const rows = await sheetGet(SH_DEADLINE,'A2:J');
+    // 창고+상품명이 둘 다 같은 행 우선, 없으면 상품명만 같은 행, 그것도 없으면 새 줄
+    let idx = rows.findIndex(r=>r && String(r[1]||'').trim()===it && String(r[0]||'').trim()===wh);
+    if(idx<0) idx = rows.findIndex(r=>r && String(r[1]||'').trim()===it);
+    if(idx>=0){
+      await sheetValuesUpdate([{range:`${SH_DEADLINE}!J${idx+2}`, values:[[val]]}]);
+    }else{
+      if(!val){ setSync('ok'); toast('시트에 없는 상품이라 지울 것도 없어요'); return; }
+      const row = rows.length + 2;   // 마지막 데이터 다음 줄
+      await sheetValuesUpdate([{range:`${SH_DEADLINE}!A${row}:J${row}`, values:[[wh,it,'','','','','','','',val]]}]);
+    }
+    if(val) deadlineMap[it] = val; else delete deadlineMap[it];
+    setSync('ok'); render();
+    toast(val ? `⏰ 저장됨 — ${it} : ${val}` : `⏰ 마감시간 지움 — ${it}`);
+  }catch(e){
+    setSync('error'); console.error('마감시간 저장 실패:',e);
+    toast('⚠️ 마감시간 저장 실패: '+e.message,'warn');
+  }
 }
 function renderDeadlinePanel(){
   const active = getActiveDeadlineHour();
