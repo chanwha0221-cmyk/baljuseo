@@ -18,7 +18,7 @@
   .step { display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; background:#2d6a4f; color:#fff; border-radius:50%; font-size:12px; font-weight:700; margin-right:6px; }
   label { font-size: 13px; font-weight: 600; }
   input[type=text], input[type=number] { font-size: 14px; padding: 7px 9px; border: 1px solid #bbb; border-radius: 6px; font-family: inherit; }
-  #clientId { flex: 1; min-width: 240px; }
+  #clientId, #applyTarget { flex: 1; min-width: 240px; }
   #startRow, #endRow { width: 110px; }
   button { font-size: 14px; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 600; }
   #load { background: #2d6a4f; color: #fff; }
@@ -71,6 +71,12 @@
         <input id="clientId" type="text" placeholder="...apps.googleusercontent.com">
         <button class="ghost" id="saveCfg">저장</button>
       </div>
+      <div class="row" style="margin-top:8px">
+        <label for="applyTarget">반영 시트</label>
+        <input id="applyTarget" type="text" placeholder="비우면 실전 · 복사본 URL이나 시트ID 붙여넣기(테스트용)">
+        <button class="ghost" id="saveTarget">저장</button>
+      </div>
+      <div id="targetBadge" class="mini" style="margin-top:6px"></div>
     </div>
   </details>
 
@@ -79,6 +85,7 @@
     <div class="row">
       <span><span class="step">1</span><label>원가 파일 선택</label></span>
       <input type="file" id="wongaFile" accept=".xlsx,.xls">
+      <button class="ghost" id="linkUpdateBtn" type="button">🔗 링크 업데이트 (2창 열기)</button>
     </div>
     <div id="wongaStatus" class="mini">아직 원가 파일 없음 (선택하면 상품명→원가/현재판매가 준비)</div>
   </div>
@@ -102,6 +109,7 @@
     <button id="allBtn" style="background:#b45309;color:#fff">🔀 각 시트 적용 (변동사항+당일생물+창고)</button>
     <button class="ghost" id="copyBtn">📋 전체 복사</button>
     <span class="mini" id="copyHint"></span>
+    <span class="mini" id="targetBadge2" style="margin-left:auto"></span>
   </div>
 
   <div id="result" class="scroll"></div>
@@ -125,7 +133,8 @@
   var TAB = '[상품] 2. 변동공지';
   var MAGAM_ID = '1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI';        // 수량 리더 시트
   var MAGAM_TAB = '마감시간';
-  var APPLY_ID = '1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';  // ★ 실전! 마스터_홍찬화 유통시트 (gid는 사본과 동일하게 보존됨) / 사본테스트: 1GX04Eq_5Pr3ptbyXQpf0vAgVqmaOqMu-knvNy6af528
+  var DEFAULT_APPLY_ID = '1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';  // ★ 실전! 마스터_홍찬화 유통시트 (gid는 사본과 동일하게 보존됨)
+  var APPLY_ID = DEFAULT_APPLY_ID;  // 각 시트 적용 대상 — 설정 '반영 시트'에 복사본 URL/ID 넣으면 그걸로 스위칭(탭 gid 동일 전제). 사본테스트 예: 1GX04Eq_5Pr3ptbyXQpf0vAgVqmaOqMu-knvNy6af528
   var APPLY_TAB = '상품변동사항';
   var APPLY_GID = 548798859;                                       // 상품변동사항 탭 gid
   var LINK_ID = '1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';  // 링크 모음 시트("상품정보 업데이트")
@@ -158,10 +167,48 @@
   function wongaStatus(h,c){ var e=document.getElementById('wongaStatus'); e.className=c||''; e.innerHTML=h; }
   function getClientId(){ return (localStorage.getItem('byd_clientId') || document.getElementById('clientId').value || DEFAULT_CLIENT_ID || '').trim(); }
 
+  // ===== 반영 시트(APPLY_ID) 스위칭 — 비우면 실전, 복사본 URL/ID 넣으면 그걸로 (테스트용) =====
+  function extractSheetId(s){
+    s=String(s||'').trim(); if(!s) return '';
+    var m=s.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/); if(m) return m[1];   // URL이면 ID 추출
+    return /^[a-zA-Z0-9_-]{20,}$/.test(s) ? s : '';                            // 아니면 ID 자체로 간주(실패 시 '')
+  }
+  // APPLY_ID를 현재 입력값으로 확정하고 상태 리턴. mode: live(실전)/copy(복사본)/error(인식실패)
+  function resolveApplyTarget(){
+    var raw=(document.getElementById('applyTarget').value||'').trim();
+    if(!raw){ APPLY_ID=DEFAULT_APPLY_ID; return {id:DEFAULT_APPLY_ID, mode:'live'}; }
+    var id=extractSheetId(raw);
+    if(!id){ APPLY_ID=DEFAULT_APPLY_ID; return {id:DEFAULT_APPLY_ID, mode:'error'}; }
+    APPLY_ID=id; return {id:id, mode:(id===DEFAULT_APPLY_ID?'live':'copy')};
+  }
+  function updateTargetBadge(){
+    var t=resolveApplyTarget(), html;
+    if(t.mode==='copy')      html='🧪 반영 대상: <b style="color:#2d6a4f">복사본(테스트)</b> <span style="color:#999">'+esc(t.id.slice(0,10))+'…</span>';
+    else if(t.mode==='error')html='⚠️ <b style="color:#c0392b">반영 시트 주소 인식 실패</b> — 이 상태면 실전으로 감';
+    else                     html='🎯 반영 대상: <b style="color:#c0392b">실전 마스터 유통시트</b>';
+    var a=document.getElementById('targetBadge'), b=document.getElementById('targetBadge2');
+    if(a) a.innerHTML=html; if(b) b.innerHTML=html;
+  }
+
   window.addEventListener('load', function(){
     document.getElementById('clientId').value = localStorage.getItem('byd_clientId') || DEFAULT_CLIENT_ID;
     var s = localStorage.getItem('byd_startRow'); if(s) document.getElementById('startRow').value = s;
     var eR = localStorage.getItem('byd_endRow'); if(eR) document.getElementById('endRow').value = eR;
+    document.getElementById('applyTarget').value = localStorage.getItem('byd_applyTarget') || '';
+    updateTargetBadge();
+  });
+  // ===== 🔗 링크 업데이트 — 링크 시트 + 그룹웨어 문서복사 두 창 열기 =====
+  document.getElementById('linkUpdateBtn').addEventListener('click', function(){
+    window.open('https://docs.google.com/spreadsheets/d/1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ/edit?gid=0#gid=0','_blank');
+    window.open('https://masterc.co.kr/index.php?module=rkdoccopy','_blank');
+  });
+
+  document.getElementById('applyTarget').addEventListener('input', updateTargetBadge);
+  document.getElementById('saveTarget').addEventListener('click', function(){
+    localStorage.setItem('byd_applyTarget', document.getElementById('applyTarget').value.trim());
+    updateTargetBadge();
+    var t=resolveApplyTarget();
+    setStatus(t.mode==='copy' ? '🧪 반영 대상 저장됨 — 복사본(테스트)로 갑니다' : (t.mode==='error' ? '⚠️ 주소 인식 실패 — 지금 상태론 실전으로 갑니다. 복사본 URL/ID 확인!' : '🎯 반영 대상 저장됨 — 실전 마스터 유통시트'), t.mode==='copy'?'ok':'warn');
   });
   document.getElementById('saveCfg').addEventListener('click', function(){
     localStorage.setItem('byd_clientId', document.getElementById('clientId').value.trim());
@@ -478,9 +525,12 @@
     var items=readItems();
     if(items===null){ alert('먼저 불러오기 하세요.'); return; }
     if(!items.length){ alert('적용할 데이터가 없어요.'); return; }
+    var tgt=resolveApplyTarget();
+    if(tgt.mode==='error'){ alert('⚠️ 반영 시트 주소를 인식 못했어요.\n설정에서 복사본 URL/ID를 다시 확인하세요.\n(대참사 방지로 중단 — 비우면 실전, 복사본이면 정확한 주소를 넣어주세요)'); document.getElementById('cfg').open=true; updateTargetBadge(); return; }
+    var tgtLabel=(tgt.mode==='copy') ? '🧪 복사본(테스트) '+tgt.id.slice(0,10)+'…' : '🎯 실전 마스터 유통시트';
     var nDay=items.filter(function(it){return it.day.indexOf('당일')>=0;}).length;
     var nPoom=items.filter(function(it){return it.poom;}).length;
-    if(!confirm('각 시트에 적용할까요? [사본테스트]\n· 상품변동사항: 전체 '+items.length+'건 (5행)\n· 당일 '+nDay+'건 → 공지_당일생물\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 → 카탈로그에서 삭제\n(같은 상품 중복은 아래것 삭제)')) return;
+    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항: 전체 '+items.length+'건 (5행)\n· 당일 '+nDay+'건 → 공지_당일생물\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 → 카탈로그에서 삭제\n(같은 상품 중복은 아래것 삭제)')) return;
     var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
     var rep={ vari:0, notice:0, wh:{}, poomDel:0, unmatched:[] };
     function setBtn(t){ btn.innerHTML=t; }
