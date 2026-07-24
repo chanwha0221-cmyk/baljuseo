@@ -39,6 +39,10 @@
   #allBtn { border:none; border-radius:6px; padding:8px 15px; font-weight:700; cursor:pointer; }
   .cpbtn { border:none; background:#eef2f0; color:#2d6a4f; border-radius:4px; padding:1px 5px; font-size:11px; cursor:pointer; vertical-align:middle; }
   .cpbtn:hover { background:#dfeae5; }
+  td.delcol { text-align:center; }
+  th.delcol { background:#c0392b; }
+  .delrow { background:#fdecea; color:#c0392b; border:1px solid #e6b0aa; border-radius:5px; padding:2px 9px; font-size:13px; font-weight:700; cursor:pointer; line-height:1.2; }
+  .delrow:hover { background:#f1948a; color:#fff; }
   #applyReport { margin-top:12px; }
   #applyReport .card { background:#f4faf6; border:1px solid #cfe0d8; }
   #applyReport ul { margin:6px 0 0; padding-left:18px; line-height:1.7; }
@@ -365,6 +369,7 @@
 
     var h='<table id="qtytable"><thead><tr>';
     for(var i=0;i<COLS.length;i++) h+='<th class="'+(NEWCOLS[i]?'new':'')+'">'+esc(COLS[i])+'</th>';
+    h+='<th class="delcol">제외</th>';
     h+='</tr></thead><tbody>';
     rows.forEach(function(r){
       h+='<tr data-k="'+esc(r.pk)+'">';
@@ -380,12 +385,13 @@
           h+='<td class="'+cls+'">'+esc(r.c[i])+'</td>';
         }
       }
+      h+='<td class="delcol"><button class="delrow" type="button" title="이 상품 시트에서 제외">✕</button></td>';
       h+='</tr>';
     });
     h+='</tbody></table>';
     document.getElementById('result').innerHTML=h;
     document.getElementById('actions').style.display='flex';
-    document.getElementById('copyHint').textContent='('+COLS.length+'칸 · 공급가 칸 직접 수정 가능)';
+    document.getElementById('copyHint').textContent='('+rows.length+'건 · 공급가 수정 가능 · ✕로 시트에서 제외)';
 
     // 마감시간 없는 상품 → 팝업
     var missing = rows.filter(function(r){ return !r.c[15]; });
@@ -605,6 +611,7 @@
     for(var r=0;r<trs.length;r++){
       var tds=trs[r].children, arr=[];
       for(var c=0;c<tds.length;c++){
+        if(tds[c].classList && tds[c].classList.contains('delcol')) continue;   // ✕ 제외 버튼 칸은 복사 안 함
         var inp=tds[c].querySelector('input');
         var pnm=tds[c].querySelector('.pnm');
         var t = inp ? inp.value : (pnm ? pnm.textContent : tds[c].textContent);
@@ -616,6 +623,17 @@
     var btn=this, ok=false;
     try{ var ta=document.createElement('textarea'); ta.value=tsv; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select(); ok=document.execCommand('copy'); document.body.removeChild(ta); }catch(e){ ok=false; }
     var o=btn.innerHTML; btn.innerHTML=ok?'✓ 복사됨':'복사 실패'; setTimeout(function(){ btn.innerHTML=o; },1500);
+  });
+
+  // ===== 표에서 상품 제외(✕) — 이벤트 위임. 지우면 각 시트 적용·엑셀·복사에서 자동 제외 =====
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest ? e.target.closest('.delrow') : null;
+    if(!b) return;
+    var tr = b.closest('tr'); if(!tr) return;
+    tr.parentNode.removeChild(tr);
+    var left = document.querySelectorAll('#qtytable tbody tr').length;
+    var ch = document.getElementById('copyHint'); if(ch) ch.textContent='('+left+'건 남음 · 공급가 수정 가능 · ✕로 시트에서 제외)';
+    if(left===0){ document.getElementById('actions').style.display='none'; setStatus('모든 상품을 제외했어요. 다시 불러오세요.','warn'); }
   });
 
   // ===== 상품명 옆 📋 복사 버튼 (검색용) — 이벤트 위임 =====
