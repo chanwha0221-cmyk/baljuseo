@@ -83,8 +83,8 @@
           <button class="cpbtn" type="button" data-nm="https://chanwha0221-cmyk.github.io">복사</button><br>
         &nbsp;· 만들어진 <code>...apps.googleusercontent.com</code> 를 아래 <b>Client ID</b> 칸에 붙여넣고 <b>저장</b><br>
         <br>
-        <b>2️⃣ 반영 시트</b> — 우리 팀 유통시트 주소(URL/ID)를 아래 <b>반영 시트</b> 칸에 넣고 저장
-          <span style="color:#c0392b">(⚠️ 비우면 마스터 실전 시트로 감 — 꼭 우리 팀 걸로!)</span><br>
+        <b>2️⃣ 반영 시트</b> — 우리 팀 유통시트 주소(URL/ID)를 아래 <b>반영 시트</b> 칸에 넣기 <span style="color:#c0392b">(필수)</span>
+          <span style="color:#c0392b">(⚠️ 안 넣으면 각 시트 적용이 막힘 — 한 번 넣으면 계속 유지됨)</span><br>
         <b>3️⃣ 링크 시트</b> — 우리 팀 '최신 링크 모음' 구글시트 주소를 아래 <b>링크 시트</b> 칸에 넣고 저장<br>
         <br>
         세팅 끝나면 매번: <b>원가 파일 선택 → 시작 행 불러오기 → 🔀 각 시트 적용.</b>
@@ -99,7 +99,7 @@
       </div>
       <div class="row" style="margin-top:8px">
         <label for="applyTarget">반영 시트</label>
-        <input id="applyTarget" type="text" placeholder="우리 팀 유통시트 URL/ID (비우면 마스터 실전)">
+        <input id="applyTarget" type="text" placeholder="우리 팀 유통시트 URL/ID (필수 — 안 넣으면 적용 막힘)">
         <button class="ghost" id="saveTarget">저장</button>
       </div>
       <div id="targetBadge" class="mini" style="margin-top:6px"></div>
@@ -206,19 +206,21 @@
     var m=s.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/); if(m) return m[1];   // URL이면 ID 추출
     return /^[a-zA-Z0-9_-]{20,}$/.test(s) ? s : '';                            // 아니면 ID 자체로 간주(실패 시 '')
   }
-  // APPLY_ID를 현재 입력값으로 확정하고 상태 리턴. mode: live(실전)/copy(복사본)/error(인식실패)
+  // APPLY_ID를 현재 입력값으로 확정. mode: empty(미입력)/error(인식실패)/live(내 마스터 실전)/copy(우리 팀 시트)
+  // ★ 비었을 때 자동 폴백 없음 — 실수로 비우고 돌려서 남의 실전에 쏘는 사고 방지. 반드시 입력해야 적용됨.
   function resolveApplyTarget(){
     var raw=(document.getElementById('applyTarget').value||'').trim();
-    if(!raw){ APPLY_ID=DEFAULT_APPLY_ID; return {id:DEFAULT_APPLY_ID, mode:'live'}; }
+    if(!raw){ APPLY_ID=''; return {id:'', mode:'empty'}; }
     var id=extractSheetId(raw);
-    if(!id){ APPLY_ID=DEFAULT_APPLY_ID; return {id:DEFAULT_APPLY_ID, mode:'error'}; }
+    if(!id){ APPLY_ID=''; return {id:'', mode:'error'}; }
     APPLY_ID=id; return {id:id, mode:(id===DEFAULT_APPLY_ID?'live':'copy')};
   }
   function updateTargetBadge(){
     var t=resolveApplyTarget(), html;
-    if(t.mode==='copy')      html='🧪 반영 대상: <b style="color:#2d6a4f">복사본(테스트)</b> <span style="color:#999">'+esc(t.id.slice(0,10))+'…</span>';
-    else if(t.mode==='error')html='⚠️ <b style="color:#c0392b">반영 시트 주소 인식 실패</b> — 이 상태면 실전으로 감';
-    else                     html='🎯 반영 대상: <b style="color:#c0392b">실전 마스터 유통시트</b>';
+    if(t.mode==='empty')     html='⚠️ <b style="color:#c0392b">반영 시트 미입력</b> — 우리 팀 유통시트 주소를 먼저 넣으세요';
+    else if(t.mode==='error')html='⚠️ <b style="color:#c0392b">반영 시트 주소 인식 실패</b> — URL/ID 다시 확인';
+    else if(t.mode==='copy') html='✅ 반영 대상: <b style="color:#2d6a4f">우리 팀 시트</b> <span style="color:#999">'+esc(t.id.slice(0,10))+'…</span>';
+    else                     html='🎯 반영 대상: <b style="color:#c0392b">마스터 실전 시트</b>';
     var a=document.getElementById('targetBadge'), b=document.getElementById('targetBadge2');
     if(a) a.innerHTML=html; if(b) b.innerHTML=html;
   }
@@ -252,14 +254,19 @@
     window.open('https://masterc.co.kr/index.php?module=rkdoccopy','_blank');
   });
 
-  document.getElementById('applyTarget').addEventListener('input', updateTargetBadge);
+  // 입력 즉시 저장 → 다시 바꾸기 전까지 유지(새로고침해도)
+  document.getElementById('applyTarget').addEventListener('input', function(){ localStorage.setItem('byd_applyTarget', this.value.trim()); updateTargetBadge(); });
   document.getElementById('saveTarget').addEventListener('click', function(){
     localStorage.setItem('byd_applyTarget', document.getElementById('applyTarget').value.trim());
     updateTargetBadge();
     var t=resolveApplyTarget();
-    setStatus(t.mode==='copy' ? '🧪 반영 대상 저장됨 — 복사본(테스트)로 갑니다' : (t.mode==='error' ? '⚠️ 주소 인식 실패 — 지금 상태론 실전으로 갑니다. 복사본 URL/ID 확인!' : '🎯 반영 대상 저장됨 — 실전 마스터 유통시트'), t.mode==='copy'?'ok':'warn');
+    var msg = t.mode==='empty' ? '⚠️ 반영 시트가 비었어요 — 주소를 넣어야 각 시트 적용이 됩니다'
+            : t.mode==='error' ? '⚠️ 주소 인식 실패 — URL/ID 다시 확인하세요'
+            : t.mode==='copy'  ? '✅ 반영 대상 저장됨 — 우리 팀 시트'
+            :                    '🎯 반영 대상 저장됨 — 마스터 실전 시트';
+    setStatus(msg, (t.mode==='copy'||t.mode==='live')?'ok':'warn');
   });
-  document.getElementById('linkSheet').addEventListener('input', syncLink);
+  document.getElementById('linkSheet').addEventListener('input', function(){ localStorage.setItem('byd_linkSheet', this.value.trim()); syncLink(); });
   document.getElementById('saveLink').addEventListener('click', function(){
     localStorage.setItem('byd_linkSheet', document.getElementById('linkSheet').value.trim());
     syncLink();
@@ -584,8 +591,9 @@
     if(items===null){ alert('먼저 불러오기 하세요.'); return; }
     if(!items.length){ alert('적용할 데이터가 없어요.'); return; }
     var tgt=resolveApplyTarget();
-    if(tgt.mode==='error'){ alert('⚠️ 반영 시트 주소를 인식 못했어요.\n설정에서 복사본 URL/ID를 다시 확인하세요.\n(대참사 방지로 중단 — 비우면 실전, 복사본이면 정확한 주소를 넣어주세요)'); document.getElementById('cfg').open=true; updateTargetBadge(); return; }
-    var tgtLabel=(tgt.mode==='copy') ? '🧪 복사본(테스트) '+tgt.id.slice(0,10)+'…' : '🎯 실전 마스터 유통시트';
+    if(tgt.mode==='empty'){ alert('⚠️ 반영 시트가 비어 있어요.\n\n설정(⚙️)에서 우리 팀 유통시트 주소를 먼저 넣어주세요.\n한 번 넣으면 저장돼서 다시 바꾸기 전까지 계속 유지됩니다.'); document.getElementById('cfg').open=true; updateTargetBadge(); return; }
+    if(tgt.mode==='error'){ alert('⚠️ 반영 시트 주소를 인식 못했어요.\n설정에서 URL/ID를 다시 확인하세요.\n(대참사 방지로 중단)'); document.getElementById('cfg').open=true; updateTargetBadge(); return; }
+    var tgtLabel=(tgt.mode==='copy') ? '✅ 우리 팀 시트 '+tgt.id.slice(0,10)+'…' : '🎯 마스터 실전 시트';
     var nDay=items.filter(function(it){return it.day.indexOf('당일')>=0;}).length;
     var nPoom=items.filter(function(it){return it.poom;}).length;
     if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항: 전체 '+items.length+'건 (5행)\n· 당일 '+nDay+'건 → 공지_당일생물\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 → 카탈로그에서 삭제\n(같은 상품 중복은 아래것 삭제)')) return;
