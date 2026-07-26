@@ -18,7 +18,7 @@
   .step { display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; background:#2d6a4f; color:#fff; border-radius:50%; font-size:12px; font-weight:700; margin-right:6px; }
   label { font-size: 13px; font-weight: 600; }
   input[type=text], input[type=number] { font-size: 14px; padding: 7px 9px; border: 1px solid #bbb; border-radius: 6px; font-family: inherit; }
-  #clientId, #applyTarget { flex: 1; min-width: 240px; }
+  #clientId, #applyTarget, #linkSheet { flex: 1; min-width: 240px; }
   #startRow, #endRow { width: 110px; }
   button { font-size: 14px; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 600; }
   #load { background: #2d6a4f; color: #fff; }
@@ -68,19 +68,47 @@
   <div class="sub">원가 파일을 넣고 → 시작행 불러오면, 공급가(원가+마진)·원공급가·마감시간까지 자동으로 채워옵니다.</div>
 
   <details id="cfg">
-    <summary>⚙️ 설정 (최초 1회 — 구글 로그인 Client ID)</summary>
+    <summary>⚙️ 설정 · 팀별 최초 세팅 (여기부터 눌러서 펼치기)</summary>
+
+    <details style="margin:8px 0" open>
+      <summary style="color:#b45309; font-weight:700">📖 처음 세팅 방법 (우리 팀 최초 1회만)</summary>
+      <div class="card" style="background:#fff9ec; border-color:#f0d9a8; font-size:12.5px; line-height:1.75">
+        <b>1️⃣ Client ID 발급</b> — 구글 로그인용 (팀마다 각자 발급)<br>
+        &nbsp;· <b>console.cloud.google.com</b> 접속 → 새 프로젝트 생성<br>
+        &nbsp;· 'API 및 서비스' → <b>Google Sheets API</b> 사용 설정<br>
+        &nbsp;· 'OAuth 동의 화면' 구성 → 테스트 사용자에 <b>본인 구글 계정</b> 추가<br>
+        &nbsp;· '사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID → <b>웹 애플리케이션</b>'<br>
+        &nbsp;· <b>[승인된 JavaScript 원본]</b>에 이 주소를 그대로 추가 →
+          <code style="background:#fff;border:1px solid #e0c48a;border-radius:4px;padding:1px 5px">https://chanwha0221-cmyk.github.io</code>
+          <button class="cpbtn" type="button" data-nm="https://chanwha0221-cmyk.github.io">복사</button><br>
+        &nbsp;· 만들어진 <code>...apps.googleusercontent.com</code> 를 아래 <b>Client ID</b> 칸에 붙여넣고 <b>저장</b><br>
+        <br>
+        <b>2️⃣ 반영 시트</b> — 우리 팀 유통시트 주소(URL/ID)를 아래 <b>반영 시트</b> 칸에 넣고 저장
+          <span style="color:#c0392b">(⚠️ 비우면 마스터 실전 시트로 감 — 꼭 우리 팀 걸로!)</span><br>
+        <b>3️⃣ 링크 시트</b> — 우리 팀 '최신 링크 모음' 구글시트 주소를 아래 <b>링크 시트</b> 칸에 넣고 저장<br>
+        <br>
+        세팅 끝나면 매번: <b>원가 파일 선택 → 시작 행 불러오기 → 🔀 각 시트 적용.</b>
+      </div>
+    </details>
+
     <div class="card" style="margin-top:8px">
       <div class="row">
         <label for="clientId">Client ID</label>
-        <input id="clientId" type="text" placeholder="...apps.googleusercontent.com">
+        <input id="clientId" type="text" placeholder="...apps.googleusercontent.com (위 1번에서 발급)">
         <button class="ghost" id="saveCfg">저장</button>
       </div>
       <div class="row" style="margin-top:8px">
         <label for="applyTarget">반영 시트</label>
-        <input id="applyTarget" type="text" placeholder="비우면 실전 · 복사본 URL이나 시트ID 붙여넣기(테스트용)">
+        <input id="applyTarget" type="text" placeholder="우리 팀 유통시트 URL/ID (비우면 마스터 실전)">
         <button class="ghost" id="saveTarget">저장</button>
       </div>
       <div id="targetBadge" class="mini" style="margin-top:6px"></div>
+      <div class="row" style="margin-top:8px">
+        <label for="linkSheet">링크 시트</label>
+        <input id="linkSheet" type="text" placeholder="우리 팀 '최신 링크 모음' 구글시트 URL/ID">
+        <button class="ghost" id="saveLink">저장</button>
+      </div>
+      <div id="linkBadge" class="mini" style="margin-top:6px"></div>
     </div>
   </details>
 
@@ -141,7 +169,8 @@
   var APPLY_ID = DEFAULT_APPLY_ID;  // 각 시트 적용 대상 — 설정 '반영 시트'에 복사본 URL/ID 넣으면 그걸로 스위칭(탭 gid 동일 전제). 사본테스트 예: 1GX04Eq_5Pr3ptbyXQpf0vAgVqmaOqMu-knvNy6af528
   var APPLY_TAB = '상품변동사항';
   var APPLY_GID = 548798859;                                       // 상품변동사항 탭 gid
-  var LINK_ID = '1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';  // 링크 모음 시트("상품정보 업데이트")
+  var DEFAULT_LINK_ID = '1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';  // 기본(마스터) 링크 모음 시트("상품정보 업데이트")
+  var LINK_ID = DEFAULT_LINK_ID;  // 링크 읽기 + 링크업데이트 버튼 대상 — 설정 '링크 시트'에 팀별 주소 넣으면 그걸로
   var LINK_TAB = '링크';                                            // A열 상품명 → B열 URL (중복이면 위=첫 번째 우선)
   var NOTICE_TAB = '공지_당일생물';   // 당일 상품 공지 (같은 사본 APPLY_ID)
   var NOTICE_GID = 322594718;         // 공지_당일생물 탭 gid
@@ -193,6 +222,19 @@
     var a=document.getElementById('targetBadge'), b=document.getElementById('targetBadge2');
     if(a) a.innerHTML=html; if(b) b.innerHTML=html;
   }
+  // 링크 시트(LINK_ID) 확정 + 배지. 비우면 기본(마스터) 시트.
+  function syncLink(){
+    var raw=(document.getElementById('linkSheet').value||'').trim();
+    var id=extractSheetId(raw);
+    LINK_ID = id || DEFAULT_LINK_ID;
+    var el=document.getElementById('linkBadge');
+    if(el){
+      if(id)       el.innerHTML='🔗 링크 시트: <b style="color:#2d6a4f">우리 팀 시트</b> <span style="color:#999">'+esc(id.slice(0,10))+'…</span>';
+      else if(raw) el.innerHTML='⚠️ <b style="color:#c0392b">링크 시트 주소 인식 실패</b> — 기본(마스터) 시트 사용';
+      else         el.innerHTML='🔗 링크 시트: <span style="color:#999">기본(마스터) 시트</span>';
+    }
+    return LINK_ID;
+  }
 
   window.addEventListener('load', function(){
     document.getElementById('clientId').value = localStorage.getItem('byd_clientId') || DEFAULT_CLIENT_ID;
@@ -200,10 +242,13 @@
     var eR = localStorage.getItem('byd_endRow'); if(eR) document.getElementById('endRow').value = eR;
     document.getElementById('applyTarget').value = localStorage.getItem('byd_applyTarget') || '';
     updateTargetBadge();
+    document.getElementById('linkSheet').value = localStorage.getItem('byd_linkSheet') || '';
+    syncLink();
   });
   // ===== 🔗 링크 업데이트 — 링크 시트 + 그룹웨어 문서복사 두 창 열기 =====
   document.getElementById('linkUpdateBtn').addEventListener('click', function(){
-    window.open('https://docs.google.com/spreadsheets/d/1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ/edit?gid=0#gid=0','_blank');
+    var lid = syncLink();   // 설정의 링크 시트 값으로 LINK_ID 확정(비우면 기본)
+    window.open('https://docs.google.com/spreadsheets/d/'+lid+'/edit?gid=0#gid=0','_blank');
     window.open('https://masterc.co.kr/index.php?module=rkdoccopy','_blank');
   });
 
@@ -213,6 +258,13 @@
     updateTargetBadge();
     var t=resolveApplyTarget();
     setStatus(t.mode==='copy' ? '🧪 반영 대상 저장됨 — 복사본(테스트)로 갑니다' : (t.mode==='error' ? '⚠️ 주소 인식 실패 — 지금 상태론 실전으로 갑니다. 복사본 URL/ID 확인!' : '🎯 반영 대상 저장됨 — 실전 마스터 유통시트'), t.mode==='copy'?'ok':'warn');
+  });
+  document.getElementById('linkSheet').addEventListener('input', syncLink);
+  document.getElementById('saveLink').addEventListener('click', function(){
+    localStorage.setItem('byd_linkSheet', document.getElementById('linkSheet').value.trim());
+    syncLink();
+    var raw=(document.getElementById('linkSheet').value||'').trim(), id=extractSheetId(raw);
+    setStatus(id ? '🔗 링크 시트 저장됨 — 우리 팀 시트 사용' : (raw ? '⚠️ 링크 시트 주소 인식 실패 — 기본(마스터) 시트로 갑니다' : '🔗 링크 시트 비움 — 기본(마스터) 시트 사용'), id?'ok':'warn');
   });
   document.getElementById('saveCfg').addEventListener('click', function(){
     localStorage.setItem('byd_clientId', document.getElementById('clientId').value.trim());
@@ -541,6 +593,7 @@
     var rep={ vari:0, notice:0, wh:{}, poomDel:0, unmatched:[] };
     function setBtn(t){ btn.innerHTML=t; }
     withToken(function(){
+      syncLink();   // 링크 시트(LINK_ID) 확정 — 상품명 하이퍼링크 읽기용
       readLinks().then(function(){
         // 1) 상품변동사항 — 전체(품절 포함). 기록(로그)이므로 중복삭제 없이 5행에 append만.
         setBtn('상품변동사항...');
