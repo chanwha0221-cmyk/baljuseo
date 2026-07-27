@@ -43,6 +43,12 @@
   th.delcol { background:#c0392b; }
   .delrow { background:#fdecea; color:#c0392b; border:1px solid #e6b0aa; border-radius:5px; padding:2px 9px; font-size:13px; font-weight:700; cursor:pointer; line-height:1.2; }
   .delrow:hover { background:#f1948a; color:#fff; }
+  tr.excluded { display:none; }
+  .spec-in { width:230px; min-height:36px; font-size:12px; padding:4px 6px; border:1px solid #999; border-radius:5px; font-family:inherit; resize:vertical; color:#555; vertical-align:top; }
+  #excludedBox .card { background:#fbeeee; border-color:#e6b0aa; }
+  .exchip { display:inline-block; background:#fff; border:1px solid #e6b0aa; border-radius:13px; padding:2px 11px 2px 4px; margin:3px 5px 0 0; font-size:12.5px; }
+  .restore { border:none; background:#2d6a4f; color:#fff; border-radius:11px; padding:1px 8px; font-size:12px; font-weight:700; cursor:pointer; margin-right:4px; }
+  .restore:hover { background:#1f4d36; }
   #applyReport { margin-top:12px; }
   #applyReport .card { background:#f4faf6; border:1px solid #cfe0d8; }
   #applyReport ul { margin:6px 0 0; padding-left:18px; line-height:1.7; }
@@ -144,6 +150,7 @@
     <span class="mini" id="targetBadge2" style="margin-left:auto"></span>
   </div>
 
+  <div id="excludedBox"></div>
   <div id="result" class="scroll"></div>
   <div id="applyReport"></div>
 
@@ -438,6 +445,8 @@
           h+='<td class="'+cls+'"><input class="byun-in" value="'+esc(r.c[3])+'"></td>';
         } else if(i===8){ // 공급가변동 = 수정 가능 입력칸
           h+='<td class="'+cls+'"><input class="sg-in" value="'+esc(r.c[8])+'"></td>';
+        } else if(i===14){ // 스펙변동/참고사항 = 직접 입력 가능
+          h+='<td class="'+cls+'"><textarea class="spec-in">'+esc(r.c[14])+'</textarea></td>';
         } else if(i===15){ // 마감시간
           h+='<td class="'+cls+' magam" data-k="'+esc(r.pk)+'">'+esc(r.c[15])+'</td>';
         } else {
@@ -450,7 +459,7 @@
     h+='</tbody></table>';
     document.getElementById('result').innerHTML=h;
     document.getElementById('actions').style.display='flex';
-    document.getElementById('copyHint').textContent='('+rows.length+'건 · 공급가 수정 가능 · ✕로 시트에서 제외)';
+    refreshExcluded();   // 제외목록 영역 초기화 + 남은 건수 표시
 
     // 마감시간 없는 상품 → 팝업
     var missing = rows.filter(function(r){ return !r.c[15]; });
@@ -549,8 +558,9 @@
     function norm(s){ return String(s||'').replace(/[^0-9]/g,''); }
     var items=[];
     for(var r=0;r<trs.length;r++){
+      if(trs[r].classList.contains('excluded')) continue;   // ✕로 제외된 행은 빼고 읽음
       var tds=trs[r].children;
-      var txt=function(i){ var td=tds[i]; if(!td) return ''; var inp=td.querySelector('input'); if(inp) return inp.value; var pnm=td.querySelector('.pnm'); return pnm?pnm.textContent:td.textContent; };
+      var txt=function(i){ var td=tds[i]; if(!td) return ''; var inp=td.querySelector('input,textarea'); if(inp) return inp.value; var pnm=td.querySelector('.pnm'); return pnm?pnm.textContent:td.textContent; };
       var v=[]; for(var i=0;i<16;i++) v.push(txt(i));
       var won=v[9], sae=v[8];
       var gong=(won && norm(won)!=='' && norm(won)!==norm(sae)) ? (won+' > '+sae) : sae;  // 변동있으면 a>b
@@ -672,10 +682,11 @@
     var lines=[];
     var trs=tbl.tBodies[0].querySelectorAll('tr');
     for(var r=0;r<trs.length;r++){
+      if(trs[r].classList.contains('excluded')) continue;   // 제외된 행은 복사 안 함
       var tds=trs[r].children, arr=[];
       for(var c=0;c<tds.length;c++){
         if(tds[c].classList && tds[c].classList.contains('delcol')) continue;   // ✕ 제외 버튼 칸은 복사 안 함
-        var inp=tds[c].querySelector('input');
+        var inp=tds[c].querySelector('input,textarea');
         var pnm=tds[c].querySelector('.pnm');
         var t = inp ? inp.value : (pnm ? pnm.textContent : tds[c].textContent);
         arr.push(String(t==null?'':t).replace(/\t/g,' ').replace(/\n/g,' '));
@@ -688,15 +699,43 @@
     var o=btn.innerHTML; btn.innerHTML=ok?'✓ 복사됨':'복사 실패'; setTimeout(function(){ btn.innerHTML=o; },1500);
   });
 
-  // ===== 표에서 상품 제외(✕) — 이벤트 위임. 지우면 각 시트 적용·엑셀·복사에서 자동 제외 =====
+  // ===== 제외 목록 갱신 + 남은 건수 표시 (제외된 행은 숨김만 — 복원 가능) =====
+  function refreshExcluded(){
+    var tbl=document.getElementById('qtytable'), box=document.getElementById('excludedBox');
+    if(!tbl){ if(box) box.innerHTML=''; return; }
+    var ex=tbl.querySelectorAll('tbody tr.excluded');
+    var live=tbl.querySelectorAll('tbody tr:not(.excluded)').length;
+    var ch=document.getElementById('copyHint'); if(ch) ch.textContent='('+live+'건 · 공급가·스펙 수정 가능 · ✕로 제외)';
+    if(!box) return;
+    if(!ex.length){ box.innerHTML=''; return; }
+    var h='<div class="card"><b style="color:#c0392b">🗑 제외된 상품 '+ex.length+'건</b> <span class="mini">(잘못 뺐으면 ↩ 눌러 다시 올리기)</span><div style="margin-top:6px">';
+    for(var i=0;i<ex.length;i++){
+      var nmTd=ex[i].children[7];   // 상품명 칸(idx7)
+      var nm=nmTd?nmTd.textContent:'(이름?)';
+      h+='<span class="exchip"><button class="restore" type="button" data-idx="'+i+'">↩</button>'+esc(nm)+'</span>';
+    }
+    h+='</div></div>';
+    box.innerHTML=h;
+  }
+  // ===== 표에서 상품 제외(✕) — 숨김 처리. 각 시트 적용·엑셀·복사에서 제외되고, 아래 목록에서 복원 가능 =====
   document.addEventListener('click', function(e){
     var b = e.target && e.target.closest ? e.target.closest('.delrow') : null;
     if(!b) return;
     var tr = b.closest('tr'); if(!tr) return;
-    tr.parentNode.removeChild(tr);
-    var left = document.querySelectorAll('#qtytable tbody tr').length;
-    var ch = document.getElementById('copyHint'); if(ch) ch.textContent='('+left+'건 남음 · 공급가 수정 가능 · ✕로 시트에서 제외)';
-    if(left===0){ document.getElementById('actions').style.display='none'; setStatus('모든 상품을 제외했어요. 다시 불러오세요.','warn'); }
+    tr.classList.add('excluded');   // 제거 대신 숨김 → 복원 가능
+    refreshExcluded();
+    var live=document.querySelectorAll('#qtytable tbody tr:not(.excluded)').length;
+    if(live===0){ setStatus('모든 상품을 제외했어요. ↩로 다시 올리거나 다시 불러오세요.','warn'); }
+  });
+  // ===== 제외 복원(↩) — 이벤트 위임 =====
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest ? e.target.closest('.restore') : null;
+    if(!b) return;
+    var idx=parseInt(b.getAttribute('data-idx'),10);
+    var tbl=document.getElementById('qtytable'); if(!tbl) return;
+    var ex=tbl.querySelectorAll('tbody tr.excluded');
+    if(ex[idx]) ex[idx].classList.remove('excluded');
+    refreshExcluded();
   });
 
   // ===== 상품명 옆 📋 복사 버튼 (검색용) — 이벤트 위임 =====
