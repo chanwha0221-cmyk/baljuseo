@@ -602,7 +602,9 @@
     function setBtn(t){ btn.innerHTML=t; }
     withToken(function(){
       syncLink();   // 링크 시트(LINK_ID) 확정 — 상품명 하이퍼링크 읽기용
-      readLinks().then(function(){
+      readLinks().catch(function(e){   // 링크 못 읽으면(권한/로그인) 원인 불명확한 전체실패 대신 명확 안내
+        throw new Error('링크 시트를 못 읽었어요 — 우리 팀 공용 구글 계정으로 로그인했는지 확인하고, 로그인 한 번 더 한 뒤 다시 시도하세요.\n(원인: '+e.message+')');
+      }).then(function(){
         // 1) 상품변동사항 — 전체(품절 포함). 기록(로그)이므로 중복삭제 없이 5행에 append만.
         setBtn('상품변동사항...');
         var vi=sortItems(items.slice());
