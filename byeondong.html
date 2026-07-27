@@ -629,10 +629,17 @@
     return items;
   }
   function sortItems(arr){ arr.sort(function(a,b){ var x=rankByun(a.byun)-rankByun(b.byun); if(x!==0) return x; return rankDay(a.day)-rankDay(b.day); }); return arr; }
+  // 스펙/참고사항에서 '원가' 관련 문구 제거 — 업체 시트에 원가 노출 방지(각 시트 넣을 때만 적용). 줄/구분자 단위로 원가 든 조각만 삭제.
+  function stripCost(s){
+    s=String(s==null?'':s);
+    return s.split(/\r?\n/).map(function(line){
+      return line.split(/\s*[,/·|]\s*/).filter(function(seg){ return seg.trim()!=='' && !/원가/.test(seg); }).join(', ');
+    }).filter(function(line){ return line.trim()!==''; }).join('\n').trim();
+  }
   // 목적지별 행 빌더 (상품명은 하이퍼링크 적용)
-  function rowVari(it){   var v=it.v; return [ v[0],v[1],v[2],v[3],v[4],v[5],v[6], linkName(v[7]), it.gong, v[11],v[12],v[13], v[14] ]; }   // 13칸, 공급가 idx8
-  function rowNotice(it){ var v=it.v; return [ v[6], linkName(v[7]), it.gong, v[11],v[12],v[13], v[15], v[14], '' ]; }                   // 9칸, 공급가 idx2
-  function rowWh(it){     var v=it.v; return [ v[5], v[6], linkName(v[7]), it.gong, v[11],v[12],v[13], v[15], v[14] ]; }                  // 9칸, 공급가 idx3
+  function rowVari(it){   var v=it.v; return [ v[0],v[1],v[2],v[3],v[4],v[5],v[6], linkName(v[7]), it.gong, v[11],v[12],v[13], stripCost(v[14]) ]; }   // 13칸, 공급가 idx8
+  function rowNotice(it){ var v=it.v; return [ v[6], linkName(v[7]), it.gong, v[11],v[12],v[13], v[15], stripCost(v[14]), '' ]; }         // 9칸, 공급가 idx2
+  function rowWh(it){     var v=it.v; return [ v[5], v[6], linkName(v[7]), it.gong, v[11],v[12],v[13], v[15], stripCost(v[14]) ]; }        // 9칸, 공급가 idx3
   // 한 탭에 적용: 삽입(addRows) + 중복정리(addPk) + 품절삭제(delPk). hdr1=헤더 1-based행, nameCol=상품명 열문자, gongIdx=공급가 0based열.
   // insertIdx0=삽입 0-based위치(그 앞에 끼움), readStart1=상품명 읽기 시작 1-based행, rmBlanks=빈 상품명 행도 삭제
   function applyToTab(gid, tab, insertIdx0, readStart1, nameCol, gongIdx, addRows, addPk, delPk, rmBlanks){
