@@ -19,6 +19,7 @@
   label { font-size: 13px; font-weight: 600; }
   input[type=text], input[type=number] { font-size: 14px; padding: 7px 9px; border: 1px solid #bbb; border-radius: 6px; font-family: inherit; }
   #clientId, #applyTarget, #linkSheet { flex: 1; min-width: 240px; }
+  input[readonly] { background:#f2f2f2; color:#999; cursor:not-allowed; }
   #startRow, #endRow { width: 110px; }
   button { font-size: 14px; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 600; }
   #load { background: #2d6a4f; color: #fff; }
@@ -84,15 +85,10 @@
     <details style="margin:8px 0" open>
       <summary style="color:#b45309; font-weight:700">📖 처음 세팅 방법 (우리 팀 최초 1회만)</summary>
       <div class="card" style="background:#fff9ec; border-color:#f0d9a8; font-size:12.5px; line-height:1.75">
-        <b>1️⃣ Client ID 발급</b> — 구글 로그인용 (팀마다 각자 발급)<br>
-        &nbsp;· <b>console.cloud.google.com</b> 접속 → 새 프로젝트 생성<br>
-        &nbsp;· 'API 및 서비스' → <b>Google Sheets API</b> 사용 설정<br>
-        &nbsp;· 'OAuth 동의 화면' 구성 → 테스트 사용자에 <b>본인 구글 계정</b> 추가<br>
-        &nbsp;· '사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID → <b>웹 애플리케이션</b>'<br>
-        &nbsp;· <b>[승인된 JavaScript 원본]</b>에 이 주소를 그대로 추가 →
-          <code style="background:#fff;border:1px solid #e0c48a;border-radius:4px;padding:1px 5px">https://chanwha0221-cmyk.github.io</code>
-          <button class="cpbtn" type="button" data-nm="https://chanwha0221-cmyk.github.io">복사</button><br>
-        &nbsp;· 만들어진 <code>...apps.googleusercontent.com</code> 를 아래 <b>Client ID</b> 칸에 붙여넣고 <b>저장</b><br>
+        팀이 넣을 건 <b>반영 시트</b>·<b>링크 시트</b> 딱 2개예요. (Client ID는 공용이라 손 안 대면 됩니다.)<br><br>
+        <b>1️⃣ Client ID</b> — <span style="color:#2d6a4f"><b>그대로 두세요! 이미 세팅돼 있어요</b></span> (모든 팀 공용 · 마스터가 미리 설정). 아래 Client ID 칸은 <b>건드리지 마세요.</b><br>
+        &nbsp;· 로그인은 <b>각자 본인 구글 계정</b>으로 (그 계정이 우리 팀 시트에 편집 권한만 있으면 됨)<br>
+        &nbsp;· 첫 로그인 때 '확인되지 않은 앱' 경고가 뜨면 → <b>고급 → 계속</b> 누르면 됩니다<br>
         <br>
         <b>2️⃣ 반영 시트</b> — 우리 팀 유통시트 주소(URL/ID)를 아래 <b>반영 시트</b> 칸에 넣기 <span style="color:#c0392b">(필수)</span>
           <span style="color:#c0392b">(⚠️ 안 넣으면 각 시트 적용이 막힘 — 한 번 넣으면 계속 유지됨)</span><br>
@@ -104,9 +100,8 @@
 
     <div class="card" style="margin-top:8px">
       <div class="row">
-        <label for="clientId">Client ID</label>
-        <input id="clientId" type="text" placeholder="...apps.googleusercontent.com (위 1번에서 발급)">
-        <button class="ghost" id="saveCfg">저장</button>
+        <label for="clientId">Client ID <span class="mini" style="color:#2d6a4f">(공용·고정 — 건드리지 마세요)</span></label>
+        <input id="clientId" type="text" readonly title="모든 팀 공용 Client ID (수정 불가)">
       </div>
       <div class="row" style="margin-top:8px">
         <label for="applyTarget">반영 시트</label>
@@ -224,7 +219,7 @@
   function cell(arr, idx){ return (arr && arr.length>idx && arr[idx]!=null) ? String(arr[idx]).trim() : ''; }
   function setStatus(h,c){ var e=document.getElementById('status'); e.className=c||''; e.innerHTML=h; }
   function wongaStatus(h,c){ var e=document.getElementById('wongaStatus'); e.className=c||''; e.innerHTML=h; }
-  function getClientId(){ return (localStorage.getItem('byd_clientId') || document.getElementById('clientId').value || DEFAULT_CLIENT_ID || '').trim(); }
+  function getClientId(){ return DEFAULT_CLIENT_ID; }   // 모든 팀 공용 고정 (칸 수정 불가)
 
   // ===== 반영 시트(APPLY_ID) 스위칭 — 비우면 실전, 복사본 URL/ID 넣으면 그걸로 (테스트용) =====
   function extractSheetId(s){
@@ -265,7 +260,7 @@
   }
 
   window.addEventListener('load', function(){
-    document.getElementById('clientId').value = localStorage.getItem('byd_clientId') || DEFAULT_CLIENT_ID;
+    document.getElementById('clientId').value = DEFAULT_CLIENT_ID;   // 공용 고정
     var s = localStorage.getItem('byd_startRow'); if(s) document.getElementById('startRow').value = s;
     var eR = localStorage.getItem('byd_endRow'); if(eR) document.getElementById('endRow').value = eR;
     document.getElementById('applyTarget').value = localStorage.getItem('byd_applyTarget') || '';
@@ -339,10 +334,6 @@
     for(var i=0;i<ins.length;i++){ var v=(ins[i].value||'').trim(); if(v!==''){ var n=parseInt(v,10); if(n>=1) SHEET_STARTS[ins[i].getAttribute('data-tab')]=n; } }
     localStorage.setItem('byd_sheetStarts', JSON.stringify(SHEET_STARTS));
     var hint=document.getElementById('startsHint'); if(hint) hint.textContent='✅ 저장됨 ('+Object.keys(SHEET_STARTS).length+'개 지정, 나머지는 기본값)';
-  });
-  document.getElementById('saveCfg').addEventListener('click', function(){
-    localStorage.setItem('byd_clientId', document.getElementById('clientId').value.trim());
-    setStatus('✅ Client ID 저장됨','ok'); document.getElementById('cfg').open=false; tokenClient=null;
   });
 
   // ===== ① 원가 파일 파싱 (SheetJS) =====
