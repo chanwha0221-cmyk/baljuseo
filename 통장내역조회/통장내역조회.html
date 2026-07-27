@@ -2114,9 +2114,11 @@ async function runSettlementMatch(){
         if(aliasMap[k]){ matchedCompany = aliasMap[k]; break; }
       }
       if(!matchedCompany){
-        // 🔁 학습 별칭 부분일치 — 이름 뒤 날짜만 바뀌는 입금(예 '서희석_6/15'→'서희석' 등록분)
+        // 🔁 학습 별칭 앞부분 일치 — 이름 뒤 날짜/번호만 바뀌는 입금(예 '서희석_6/15'→'서희석' 등록분)
+        //   ⚠️ 2026-07-27 사장님 지적: includes(포함)면 '주식회사마스터'가 별칭 '마스터'에 걸려 썬푸드로 오매칭됨
+        //      (썬푸드 진짜 입금은 거래내용='마스터'·예금주 강훈 → 위 정확일치로 잡힘). → startsWith(앞부분)로 좁힘.
         const _np=_normPayer(tx.name);
-        for(const ak in SETTLE_ALIAS){ if(ak.length>=2 && _np.includes(ak)){ matchedCompany=SETTLE_ALIAS[ak]; break; } }
+        for(const ak in SETTLE_ALIAS){ if(ak.length>=2 && _np.startsWith(ak)){ matchedCompany=SETTLE_ALIAS[ak]; break; } }
         if(matchedCompany==='취합안함'){ _logLine(`⊘ 취합 제외: ${tx.dateKey} ${tx.name} ${tx.amount.toLocaleString()}원`); tx.used=true; continue; }
       }
       if(!matchedCompany){
