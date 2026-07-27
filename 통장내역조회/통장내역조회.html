@@ -1937,11 +1937,9 @@ function renderSplitPay(props){
       return `<div id="sp-${i}" style="padding:8px 10px;border-bottom:1px solid var(--border)">
         <div style="font-weight:700">${p.company} <span style="color:#d9480f;font-size:11px">⚠ 부분 입금 (아직 덜 냄)</span></div>
         <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${p.txs.length}건: ${txline} = <b>${p.paid.toLocaleString()}원</b><br>미입금 정산 ${p.span} 합계 <b>${p.total.toLocaleString()}원</b> → <b style="color:#d9480f">잔액 ${(p.total-p.paid).toLocaleString()}원 미입금</b><br>
-        ${p.past && !p.past.exact
-          ? `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 <b>${p.past.sum.toLocaleString()}원</b> 건으로 보이는데 <b style="color:#d9480f">${Math.abs(p.past.diff).toLocaleString()}원 ${p.past.diff<0?'더 들어왔습니다(초과입금)':'모자랍니다'}</b> — ${p.past.diff<0?'초과분은 세금계산서 금액과 달라지니 확인하세요.':'업체가 금액을 틀리게 넣었을 수 있어요.'}`
-          : p.past && p.past.exact
-            ? `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 합계와 입금액이 정확히 일치합니다 → 그 기간 건일 가능성이 큽니다.`
-            : `<span style="color:var(--text3)">어느 날짜를 갚은 건지 확정이 안 돼 색칠 안 합니다.</span>`}</div>
+        ${p.past && p.past.exact
+          ? `🔎 이 입금은 <b>${p.past.from}~${p.past.to}</b> 정산(<b>${p.past.sum.toLocaleString()}원</b>)과 정확히 일치 → 그 구간만 낸 것이고, 나머지 날짜는 그대로 미입금입니다.`
+          : `<span style="color:var(--text3)">→ 부족분 <b style="color:#d9480f">${(p.total-p.paid).toLocaleString()}원</b> 입금 요청하면 됩니다. (총액보다 덜 낸 것이라 '초과' 아님 — 앞 날짜를 억지로 빼서 맞추지 않음)</span>`}</div>
         <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="noteSplit(${i})">📝 특이사항 등록</button>
       </div>`;
     }
