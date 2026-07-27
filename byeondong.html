@@ -204,13 +204,28 @@
   var NEWCOLS = {8:1, 9:1, 10:1, 15:1};  // 새로 추가된(강조) 컬럼 인덱스
 
   // ===== 시트별 '변경값 넣기 시작 행' — 팀마다 시트 구조 달라서 지정 가능. 미지정이면 기본값(=기존 동작 그대로) =====
-  var DEFAULT_STARTS = {};                       // 탭별 기본 시작행(변경값 첫 행)
-  DEFAULT_STARTS[APPLY_TAB]=5; DEFAULT_STARTS[NOTICE_TAB]=24;   // 상품변동사항 5행 / 공지_당일생물 24행
-  Object.keys(WH).forEach(function(k){ DEFAULT_STARTS[k]=3; }); // 창고 탭들 3행
+  // ===== 탭 역할 인식 — 이름이 팀마다 달라도(★당일생물 등) 키워드로 판정. 시트 탐색으로 실제 이름 파악 후 매칭 =====
+  var WHNAMES={}; Object.keys(WH).forEach(function(k){ WHNAMES[k]=1; });   // 공급처명(창고 탭) 집합
+  function tabRole(t){   // {def:기본시작행} 또는 null(코드가 안 쓰는 탭)
+    t=String(t||'');
+    if(t.indexOf('상품변동')>=0) return {def:5};
+    if(t.indexOf('당일생물')>=0) return {def:24};
+    if(WHNAMES[t]) return {def:3};
+    return null;
+  }
   var SHEET_STARTS = {};                          // 팀이 지정한 값 {탭이름: 시작행}
   function loadSheetStarts(){ try{ SHEET_STARTS=JSON.parse(localStorage.getItem('byd_sheetStarts')||'{}'); }catch(e){ SHEET_STARTS={}; } }
-  // 지정값 있으면 {ins:S-1, read:S}, 없으면 기존 하드코딩 기본값 그대로 리턴(실전 동작 안 바뀜)
+  // 지정값 있으면 {ins:S-1, read:S}, 없으면 기본값 리턴
   function startPair(tab, defIns0, defRead1){ var s=parseInt(SHEET_STARTS[tab],10); return (!isNaN(s)&&s>=1)?{ins:s-1,read:s}:{ins:defIns0,read:defRead1}; }
+  // 반영 시트의 실제 {탭이름: gid} 로드 — 팀마다 탭이름·gid가 달라 하드코딩 대신 실제로 가져와 씀
+  function loadTabGids(){
+    var url='https://sheets.googleapis.com/v4/spreadsheets/'+APPLY_ID+'?fields=sheets.properties(title,sheetId)';
+    return fetch(url,{headers:{Authorization:'Bearer '+accessToken}}).then(function(r){
+      if(!r.ok) throw new Error('반영 시트 탭 목록을 못 읽었어요 (HTTP '+r.status+') — 반영 시트 주소를 확인하세요');
+      return r.json();
+    }).then(function(j){ var m={}; (j.sheets||[]).forEach(function(s){ m[s.properties.title]=s.properties.sheetId; }); return m; });
+  }
+  function findTabByKeyword(tabGids, kw){ for(var t in tabGids){ if(String(t).indexOf(kw)>=0) return {tab:t, gid:tabGids[t]}; } return null; }
 
   var tokenClient = null, accessToken = null, tokenExp = 0, pending = null, LAST = null;
   var WRITE_OK = false, consentTried = false;   // 쓰기(수정) 권한 확보 여부
@@ -347,7 +362,7 @@
     if(!tabs.length){ box.innerHTML='<span class="warn">탭이 없어요. 반영 시트 주소 확인.</span>'; return; }
     var h='<div class="card" style="margin-top:8px"><b>시트별 시작 행</b> <span class="mini">(변경값이 들어갈 첫 행 · 비우면 기본값 그대로)</span><div style="margin-top:6px">';
     tabs.forEach(function(t){
-      var def=DEFAULT_STARTS[t], used=(def!=null);
+      var role=tabRole(t), used=!!role, def=role?role.def:null;
       var cur=(SHEET_STARTS[t]!=null?String(SHEET_STARTS[t]):'');
       h+='<div class="srow"><span class="sname'+(used?'':' unused')+'">'+esc(t)+(used?'':' (안 씀)')+'</span>'
         +'<input class="startin" data-tab="'+esc(t)+'" type="number" min="1" value="'+esc(cur)+'" placeholder="'+(used?('기본 '+def):'-')+'"'+(used?'':' disabled')+'></div>';
@@ -702,44 +717,53 @@
     var tgtLabel=(tgt.mode==='copy') ? '✅ 우리 팀 시트 '+tgt.id.slice(0,10)+'…' : '🎯 마스터 실전 시트';
     var nDay=items.filter(function(it){return it.day.indexOf('당일')>=0;}).length;
     var nPoom=items.filter(function(it){return it.poom;}).length;
-    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항: 전체 '+items.length+'건 (5행)\n· 당일 '+nDay+'건 → 공지_당일생물\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 → 카탈로그에서 삭제\n(같은 상품 중복은 아래것 삭제)')) return;
+    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 전체 '+items.length+'건\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
     var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
-    var rep={ vari:0, notice:0, wh:{}, poomDel:0, unmatched:[] };
+    var rep={ vari:0, notice:0, wh:{}, whGid:{}, poomDel:0, unmatched:[], variGid:0, variTab:'', noticeGid:0, noticeTab:'' };
     function setBtn(t){ btn.innerHTML=t; }
     withToken(function(){
       syncLink();   // 링크 시트(LINK_ID) 확정 — 상품명 하이퍼링크 읽기용
-      readLinks().catch(function(e){   // 링크 못 읽으면 원인별 안내 (400=주소/탭 문제, 그 외=로그인)
-        var m=String(e&&e.message||e);
-        var hint=(m.indexOf('400')>=0||m.indexOf('parse')>=0||m.indexOf('Unable')>=0)
-          ? '링크 시트 주소가 맞는지, 그리고 그 시트에 "링크"라는 이름의 탭이 있는지 확인하세요. (코드가 "링크" 탭의 A·B열 = 상품명·URL을 읽어요)'
-          : '우리 팀 공용 구글 계정으로 로그인했는지 확인하고, 로그인 한 번 더 한 뒤 다시 시도하세요.';
-        throw new Error('링크 시트를 못 읽었어요 — '+hint+'\n(원인: '+m+')');
+      var TABG=null;
+      loadTabGids().then(function(m){ TABG=m; })   // ★ 반영 시트의 실제 {탭이름:gid} — 팀마다 달라서 실제로 가져옴
+      .then(function(){
+        return readLinks().catch(function(e){   // 링크 못 읽으면 원인별 안내 (400=주소/탭 문제, 그 외=로그인)
+          var m=String(e&&e.message||e);
+          var hint=(m.indexOf('400')>=0||m.indexOf('parse')>=0||m.indexOf('Unable')>=0)
+            ? '링크 시트 주소가 맞는지, 그리고 그 시트에 "링크"라는 이름의 탭이 있는지 확인하세요. (코드가 "링크" 탭의 A·B열 = 상품명·URL을 읽어요)'
+            : '우리 팀 공용 구글 계정으로 로그인했는지 확인하고, 로그인 한 번 더 한 뒤 다시 시도하세요.';
+          throw new Error('링크 시트를 못 읽었어요 — '+hint+'\n(원인: '+m+')');
+        });
       }).then(function(){
-        // 1) 상품변동사항 — 전체(품절 포함). 기록(로그)이므로 중복삭제 없이 5행에 append만.
+        // 1) 상품변동사항 — 실제 시트에서 '상품변동' 든 탭 자동 인식(이름 팀마다 달라도 OK)
         setBtn('상품변동사항...');
+        var vt=findTabByKeyword(TABG,'상품변동');
+        if(!vt) throw new Error('반영 시트에서 "상품변동" 들어간 탭을 못 찾았어요 — 반영 시트가 맞는지, 그 탭 이름을 확인하세요.');
         var vi=sortItems(items.slice());
         var vRows=vi.map(rowVari);
-        rep.vari=vRows.length;
-        var spV=startPair(APPLY_TAB, 4, 5);   // 지정값 있으면 그 행, 없으면 기본 5행
-        return applyToTab(APPLY_GID, APPLY_TAB, spV.ins, spV.read, 'H', 8, vRows, {}, {}, false);   // 중복삭제X(로그)
+        rep.vari=vRows.length; rep.variGid=vt.gid; rep.variTab=vt.tab;
+        var spV=startPair(vt.tab, 4, 5);   // 지정값 있으면 그 행, 없으면 기본 5행
+        return applyToTab(vt.gid, vt.tab, spV.ins, spV.read, 'H', 8, vRows, {}, {}, false);   // 중복삭제X(로그)
       }).then(function(){
-        // 2) 공지_당일생물 — 당일&non품절 추가 / 당일&품절 삭제
+        // 2) 당일생물 — 실제 시트에서 '당일생물' 든 탭 자동 인식(★당일생물 등도 OK)
         setBtn('당일생물...');
         var add=sortItems(items.filter(function(it){ return it.day.indexOf('당일')>=0 && !it.poom; }));
         var addPk={}; add.forEach(function(it){ addPk[pkey(it.name)]=1; });
         var delPk={}; items.forEach(function(it){ if(it.day.indexOf('당일')>=0 && it.poom) delPk[pkey(it.name)]=1; });
         rep.notice=add.length; rep.poomDel += Object.keys(delPk).length;
         if(!add.length && !Object.keys(delPk).length) return true;
-        var spN=startPair(NOTICE_TAB, NOTICE_HDR, NOTICE_HDR+1);   // 지정값 있으면 그 행, 없으면 기본 24행
-        return applyToTab(NOTICE_GID, NOTICE_TAB, spN.ins, spN.read, 'B', 2, add.map(rowNotice), addPk, delPk, false);
+        var nt=findTabByKeyword(TABG,'당일생물');
+        if(!nt) throw new Error('반영 시트에서 "당일생물" 들어간 탭을 못 찾았어요 — 그 탭 이름을 확인하세요.');
+        rep.noticeGid=nt.gid; rep.noticeTab=nt.tab;
+        var spN=startPair(nt.tab, NOTICE_HDR, NOTICE_HDR+1);   // 지정값 있으면 그 행, 없으면 기본 24행
+        return applyToTab(nt.gid, nt.tab, spN.ins, spN.read, 'B', 2, add.map(rowNotice), addPk, delPk, false);
       }).then(function(){
-        // 3) 창고 탭 — 상시(당일아님)를 공급처별로. non품절 추가 / 품절 삭제. 매칭없는 공급처는 리포트.
+        // 3) 창고 탭 — 공급처명과 같은 탭 이름 자동 매칭(실제 gid). 못 찾으면 리포트.
         var sisi=items.filter(function(it){ return it.day.indexOf('당일')<0; });
         var byG={};
         sisi.forEach(function(it){
-          var g=WH[it.sup];
-          if(!g){ if(rep.unmatched.indexOf(it.sup)<0) rep.unmatched.push(it.sup); return; }
-          if(!byG[g]) byG[g]={ tab:it.sup, add:[], addPk:{}, delPk:{} };
+          var g=TABG[it.sup];
+          if(g===undefined){ if(rep.unmatched.indexOf(it.sup)<0) rep.unmatched.push(it.sup); return; }
+          if(!byG[g]) byG[g]={ tab:it.sup, gid:g, add:[], addPk:{}, delPk:{} };
           if(it.poom){ byG[g].delPk[pkey(it.name)]=1; }
           else { byG[g].add.push(it); byG[g].addPk[pkey(it.name)]=1; }
         });
@@ -749,10 +773,10 @@
           var g=gids[i], info=byG[g];
           setBtn('창고: '+info.tab+'...');
           var rows=sortItems(info.add.slice()).map(rowWh);
-          rep.wh[info.tab]=rows.length; rep.poomDel += Object.keys(info.delPk).length;
+          rep.wh[info.tab]=rows.length; rep.whGid[info.tab]=info.gid; rep.poomDel += Object.keys(info.delPk).length;
           // 지정값 있으면 그 행, 없으면 기본(3행 삽입·2행부터 스캔). 빈칸 제거
           var spW=startPair(info.tab, 2, 2);
-          return applyToTab(parseInt(g,10), info.tab, spW.ins, spW.read, 'C', 3, rows, info.addPk, info.delPk, true).then(function(){ i++; return nextTab(); });
+          return applyToTab(info.gid, info.tab, spW.ins, spW.read, 'C', 3, rows, info.addPk, info.delPk, true).then(function(){ i++; return nextTab(); });
         }
         return nextTab();
       }).then(function(){
@@ -761,9 +785,9 @@
         var base='https://docs.google.com/spreadsheets/d/'+APPLY_ID+'/edit#gid=';
         function li(gid,label,cnt){ return '<li><a href="'+base+gid+'" target="_blank">'+esc(label)+'</a> : <b>'+cnt+'</b>건</li>'; }
         var rh='<div class="card"><b>📋 적용 결과 리포트</b> <span class="mini">(각 시트 클릭해 확인)</span><ul>';
-        rh+=li(APPLY_GID,'상품변동사항',rep.vari);
-        rh+=li(NOTICE_GID,'공지_당일생물',rep.notice);
-        Object.keys(rep.wh).forEach(function(t){ rh+=li(WH[t],'창고 · '+t,rep.wh[t]); });
+        rh+=li(rep.variGid,'상품변동사항 · '+rep.variTab,rep.vari);
+        if(rep.noticeGid) rh+=li(rep.noticeGid,'당일생물 · '+rep.noticeTab,rep.notice);
+        Object.keys(rep.wh).forEach(function(t){ rh+=li(rep.whGid[t],'창고 · '+t,rep.wh[t]); });
         rh+='<li>품절 삭제: <b>'+rep.poomDel+'</b>건</li>';
         if(rep.unmatched.length) rh+='<li style="color:#c0392b">⚠️ 미매칭 공급처(못 넣음): <b>'+esc(rep.unmatched.join(', '))+'</b> — 공급처 이름이 창고 탭 이름과 달라요. 수동 확인!</li>';
         rh+='</ul></div>';
