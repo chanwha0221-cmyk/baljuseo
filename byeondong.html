@@ -215,6 +215,8 @@
   }
   var SHEET_STARTS = {};                          // 팀이 지정한 값 {탭이름: 시작행}
   function loadSheetStarts(){ try{ SHEET_STARTS=JSON.parse(localStorage.getItem('byd_sheetStarts')||'{}'); }catch(e){ SHEET_STARTS={}; } }
+  var WHMAP = {};                                 // 공급처명 → 탭이름 매핑(이름 다를 때: 단독(유)→단독 등). 한 번 답하면 저장.
+  function loadWhMap(){ try{ WHMAP=JSON.parse(localStorage.getItem('byd_whMap')||'{}'); }catch(e){ WHMAP={}; } }
   // 지정값 있으면 {ins:S-1, read:S}, 없으면 기본값 리턴
   function startPair(tab, defIns0, defRead1){ var s=parseInt(SHEET_STARTS[tab],10); return (!isNaN(s)&&s>=1)?{ins:s-1,read:s}:{ins:defIns0,read:defRead1}; }
   // 반영 시트의 실제 {탭이름: gid} 로드 — 팀마다 탭이름·gid가 달라 하드코딩 대신 실제로 가져와 씀
@@ -307,6 +309,7 @@
     document.getElementById('syncCol').value = localStorage.getItem('byd_syncCol') || '';
     syncSyncCol();
     loadSheetStarts();
+    loadWhMap();
   });
   document.getElementById('syncCol').addEventListener('input', function(){ localStorage.setItem('byd_syncCol', this.value.trim()); syncSyncCol(); });
   document.getElementById('saveSync').addEventListener('click', function(){
@@ -362,10 +365,10 @@
     if(!tabs.length){ box.innerHTML='<span class="warn">탭이 없어요. 반영 시트 주소 확인.</span>'; return; }
     var h='<div class="card" style="margin-top:8px"><b>시트별 시작 행</b> <span class="mini">(변경값이 들어갈 첫 행 · 비우면 기본값 그대로)</span><div style="margin-top:6px">';
     tabs.forEach(function(t){
-      var role=tabRole(t), used=!!role, def=role?role.def:null;
+      var role=tabRole(t), def=role?role.def:null;   // 역할 있으면 기본행 힌트만 — 막지는 않음(모든 탭 입력 가능)
       var cur=(SHEET_STARTS[t]!=null?String(SHEET_STARTS[t]):'');
-      h+='<div class="srow"><span class="sname'+(used?'':' unused')+'">'+esc(t)+(used?'':' (안 씀)')+'</span>'
-        +'<input class="startin" data-tab="'+esc(t)+'" type="number" min="1" value="'+esc(cur)+'" placeholder="'+(used?('기본 '+def):'-')+'"'+(used?'':' disabled')+'></div>';
+      h+='<div class="srow"><span class="sname">'+esc(t)+'</span>'
+        +'<input class="startin" data-tab="'+esc(t)+'" type="number" min="1" value="'+esc(cur)+'" placeholder="'+(def!=null?('기본 '+def):'시작행(선택)')+'"></div>';
     });
     h+='</div><button class="ghost" id="saveStarts" type="button">저장</button> <span class="mini" id="startsHint"></span></div>';
     box.innerHTML=h;
@@ -757,25 +760,35 @@
         var spN=startPair(nt.tab, NOTICE_HDR, NOTICE_HDR+1);   // 지정값 있으면 그 행, 없으면 기본 24행
         return applyToTab(nt.gid, nt.tab, spN.ins, spN.read, 'B', 2, add.map(rowNotice), addPk, delPk, false);
       }).then(function(){
-        // 3) 창고 탭 — 공급처명과 같은 탭 이름 자동 매칭(실제 gid). 못 찾으면 리포트.
+        // 3) 창고 탭 — 공급처 → 탭 결정: ①이름 같으면 그대로 ②저장 매핑(단독(유)→단독 등) ③모르면 물어봄(한 번, 저장)
         var sisi=items.filter(function(it){ return it.day.indexOf('당일')<0; });
-        var byG={};
-        sisi.forEach(function(it){
-          var g=TABG[it.sup];
-          if(g===undefined){ if(rep.unmatched.indexOf(it.sup)<0) rep.unmatched.push(it.sup); return; }
-          if(!byG[g]) byG[g]={ tab:it.sup, gid:g, add:[], addPk:{}, delPk:{} };
-          if(it.poom){ byG[g].delPk[pkey(it.name)]=1; }
-          else { byG[g].add.push(it); byG[g].addPk[pkey(it.name)]=1; }
+        var supTab={}, supList=[];
+        sisi.forEach(function(it){ if(supList.indexOf(it.sup)<0) supList.push(it.sup); });
+        supList.forEach(function(sup){
+          var tab = (TABG[sup]!==undefined) ? sup
+                  : ((WHMAP[sup] && TABG[WHMAP[sup]]!==undefined) ? WHMAP[sup] : null);
+          if(!tab){   // 어느 탭인지 모름 → 사장님/팀에게 물어봄
+            var ans = prompt('「'+sup+'」공급처는 어느 탭에 넣을까요?\n\n반영 시트 탭 목록:\n'+Object.keys(TABG).join('  /  ')+'\n\n(위 이름 중 하나를 정확히 입력 · 비우면 이 공급처는 건너뜁니다)', WHMAP[sup]||'');
+            if(ans!==null){ ans=ans.trim(); if(ans && TABG[ans]!==undefined){ WHMAP[sup]=ans; localStorage.setItem('byd_whMap', JSON.stringify(WHMAP)); tab=ans; } }
+          }
+          supTab[sup]=tab;   // null이면 미매칭(리포트)
         });
-        var gids=Object.keys(byG), i=0;
+        var byT={};
+        sisi.forEach(function(it){
+          var tab=supTab[it.sup];
+          if(!tab){ if(rep.unmatched.indexOf(it.sup)<0) rep.unmatched.push(it.sup); return; }
+          if(!byT[tab]) byT[tab]={ tab:tab, gid:TABG[tab], add:[], addPk:{}, delPk:{} };
+          if(it.poom){ byT[tab].delPk[pkey(it.name)]=1; }
+          else { byT[tab].add.push(it); byT[tab].addPk[pkey(it.name)]=1; }
+        });
+        var tkeys=Object.keys(byT), i=0;
         function nextTab(){
-          if(i>=gids.length) return Promise.resolve(true);
-          var g=gids[i], info=byG[g];
+          if(i>=tkeys.length) return Promise.resolve(true);
+          var info=byT[tkeys[i]];
           setBtn('창고: '+info.tab+'...');
           var rows=sortItems(info.add.slice()).map(rowWh);
           rep.wh[info.tab]=rows.length; rep.whGid[info.tab]=info.gid; rep.poomDel += Object.keys(info.delPk).length;
-          // 지정값 있으면 그 행, 없으면 기본(3행 삽입·2행부터 스캔). 빈칸 제거
-          var spW=startPair(info.tab, 2, 2);
+          var spW=startPair(info.tab, 2, 2);   // 지정값 있으면 그 행, 없으면 기본(3행 삽입·2행부터 스캔)
           return applyToTab(info.gid, info.tab, spW.ins, spW.read, 'C', 3, rows, info.addPk, info.delPk, true).then(function(){ i++; return nextTab(); });
         }
         return nextTab();
