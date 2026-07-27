@@ -1736,13 +1736,17 @@ function _isCellPaintable(ws, row, col){
 //   단일·합산 매칭에서 떨어진 입금들을 업체별로 모아 '합치면 어느 구간 정산과 맞는지' 계산.
 //   - 합계가 미입금 구간 합과 맞으면 → 색칠 제안 (사장님이 [✓] 누르면 색칠 목록에 들어감)
 //   - 모자라면 → "얼마 중 얼마 입금 / 잔액 얼마 미입금" 상태만 설명 (색칠 안 함)
-/* 🔎 과거 구간 확인 — 입금일 이전(당일 포함)의 정산 셀(색칠 포함 전부)에서 입금액과 합이 맞는 연속 구간을 찾는다.
+/* 🔎 과거 구간 확인 — 입금일 이전(당일 포함)의 정산 셀에서 입금액과 합이 맞는 연속 구간을 찾는다.
    목적: "이 입금은 6/22~6/29 정산분이었다"를 설명하기 위함. **색칠은 절대 하지 않는다**(색칠 = 사장님이 이미 검증 완료).
+   ⚠️ 2026-07-27 사장님 지시: **색칠된(입금완료) 셀은 후보에서 제외한다.** 색칠 = 이미 검토·정산 끝난 것 → 절대 다시 보지 않음.
+      부수효과(의도됨): 색칠칸을 빼면 그 사이에 낀 '색칠 안 된(보류·빼먹은) 날'들이 연속 구간으로 합쳐져서
+      한 번에 몰아서 낸 입금(예: 시엘리 7/26 333,900 = 색칠 안 된 7/3+7/13+7/14+7/15)을 정확히 잡는다.
    가장 최근 구간부터(뒤에서 앞으로) 훑어 가장 짧은 구간 우선. */
-function _findPastRun(allCells, lastPay, paid, tolerance, excludeKeys){
+function _findPastRun(allCells, lastPay, paid, tolerance, excludeKeys, ws){
   // excludeKeys: 이번 매칭에서 다른(주로 더 늦은) 입금이 이미 가져간 셀 키 Set — 입금끼리 연계 정산(2026-07-20).
   //   빅피쉬: 7/20 입금이 7/1~7/15를 덮으면, 7/13 입금의 과거구간 탐색에서 7/1~7/15를 빼야 6/22~6/30으로 정확히 잡힘.
-  const cells=(allCells||[]).filter(c=>c.sum>0 && (!lastPay || c.date<=lastPay) && !(excludeKeys && excludeKeys.has(c.key)));
+  // ws 주면 색칠된(입금완료) 셀 제외 — _isCellPaintable(=미색칠)만 후보로 남긴다 (2026-07-27).
+  const cells=(allCells||[]).filter(c=>c.sum>0 && (!lastPay || c.date<=lastPay) && !(excludeKeys && excludeKeys.has(c.key)) && (!ws || _isCellPaintable(ws, c.row, c.vatCol||c.taxCol)));
   // 🔎 사장님 원칙 (2026-07-20): "10원이라도 더 줬으면 초과입금" — 오차로 먹지 말고 '초과입금'으로 정확히 표시(세금계산서 대사).
   // 1) 정확 일치 구간이 있으면 그것.
   for(let j=cells.length-1;j>=0;j--){
@@ -1874,7 +1878,7 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
       if(rest.length){
         const restSum=rest.reduce((a,t)=>a+t.amount,0);
         const lastPay=rest.reduce((m,t)=>(t.date&&(!m||t.date>m)?t.date:m),null);
-        const past=_findPastRun(allCells, lastPay, restSum, tolerance, _exclude);
+        const past=_findPastRun(allCells, lastPay, restSum, tolerance, _exclude, ws);
         const restPaintCells=(past && past.cells) ? past.cells.filter(c=>c.sum>0 && _isCellPaintable(ws,c.row,c.vatCol||c.taxCol)) : [];   // 2026-07-21 fix: 잔여입금 경로도 미색칠 날 안내
         props.push({company, txs:rest, cells:[], status: past?'prevpaid':'over', paid:restSum, paintCells:restPaintCells,
                     total: past?past.sum:0, past,
@@ -1890,7 +1894,7 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
     const upTo=lastPay ? unpaid.filter(c=>c.date<=lastPay) : unpaid;
     const upToSum=upTo.reduce((a,c)=>a+c.sum,0);
     if(paid > upToSum + tolerance){
-      const past=_findPastRun(allCells, lastPay, paid, tolerance, _exclude);   // 🔎 과거 확인 (색칠 포함, 칠하진 않음)
+      const past=_findPastRun(allCells, lastPay, paid, tolerance, _exclude, ws);   // 🔎 과거 확인 (색칠 셀 제외 — 미색칠만, 칠하진 않음)
       // 확인된 과거구간 안에 아직 색 안 칠한 날이 있으면 색칠목록 후보로.
       // ⚠ 2026-07-21 fix: 전엔 `past.diff<0`(초과입금)일 때만 검사해서, 금액이 딱 맞는(exact) 구간은
       //    미색칠 날이 있어도 "이미 색칠된 구간"이라 단정하고 넘어갔음(나행상회 7/20 559,100 = 6/30~7/15,
@@ -1900,7 +1904,7 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : '해당 없음'});
     }else{
       // 부족(short)일 때도 과거 구간을 같이 본다 — 업체가 6/22~6/30 정산분을 금액 틀리게 넣은 경우 등 (빅피쉬 케이스)
-      const past=_findPastRun(allCells, lastPay, paid, tolerance, _exclude);
+      const past=_findPastRun(allCells, lastPay, paid, tolerance, _exclude, ws);
       props.push({company, txs:allTxs, cells:[], status:'short', paid, total:upToSum, past,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
     }
