@@ -20,6 +20,7 @@
   input[type=text], input[type=number] { font-size: 14px; padding: 7px 9px; border: 1px solid #bbb; border-radius: 6px; font-family: inherit; }
   #clientId, #applyTarget, #linkSheet { flex: 1; min-width: 240px; }
   input[readonly] { background:#f2f2f2; color:#999; cursor:not-allowed; }
+  #syncCol { width: 200px; text-transform: uppercase; }
   #startRow, #endRow { width: 110px; }
   button { font-size: 14px; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 600; }
   #load { background: #2d6a4f; color: #fff; }
@@ -116,6 +117,12 @@
       </div>
       <div id="linkBadge" class="mini" style="margin-top:6px"></div>
       <div class="row" style="margin-top:8px">
+        <label for="syncCol">내 표시 열 ⭕</label>
+        <input id="syncCol" type="text" placeholder="동그라미 치는 열 (예: S · 마우팀 X)">
+        <button class="ghost" id="saveSync">저장</button>
+      </div>
+      <div id="syncBadge" class="mini" style="margin-top:6px"></div>
+      <div class="row" style="margin-top:8px">
         <label>시트별 시작 행</label>
         <button class="ghost" id="scanSheets" type="button">🔎 시트 탐색</button>
         <span class="mini">반영 시트의 탭을 불러와 각 탭 시작행 지정 (팀 구조가 다를 때만)</span>
@@ -191,7 +198,8 @@
   var WH = { '군산':1009852460,'인천':195825545,'동해':375641521,'충무':27150970,'마진':1057056081,'하남':1137717862,'찐한국':1044117799,'생고':1232303792,'김포':1750157191,'부산':152528685,'북구':1088458771,'팡팡':2110050415,'떡':1356948137,'키트':1315403555,'창원':550048807,'단독(유)':1840390601,'단독(무)':1038659575,'뿌리기':211818725 };
   var SCOPE = 'https://www.googleapis.com/auth/spreadsheets';           // 읽기+쓰기
   var DEFAULT_CLIENT_ID = '337370860058-repde1q121dchas1fddan4tasikjep7l.apps.googleusercontent.com';
-  var NAME_COL = 7, SYNC_COL = 18, WONGA_COL = 10, NUM_COLS = 19;       // 0-based: H상품명, S마찬, K원가
+  var NAME_COL = 7, SYNC_COL = 18, WONGA_COL = 10, NUM_COLS = 19;       // 0-based: H상품명, S동그라미(기본), K원가
+  var DEFAULT_SYNC_COL = 18;   // 기본 S열 — 팀마다 '동그라미(동기화 완료)' 치는 열이 달라 설정에서 바꿈(예: 마우팀 X열)
   var COLS = ['공급처','기재날짜','적용날짜','변동','상시/당일','유통기한','창고명변동','상품명변동','공급가변동','원공급가','원가','택배사','택배비변동','면과세변동','스펙변동/참고사항','마감시간'];
   var NEWCOLS = {8:1, 9:1, 10:1, 15:1};  // 새로 추가된(강조) 컬럼 인덱스
 
@@ -258,6 +266,20 @@
     }
     return LINK_ID;
   }
+  // ===== 동그라미(동기화 완료) 열 — 팀마다 위치 다름(마스터 S / 마우 X 등). 열문자 ↔ 0-based 인덱스 =====
+  function colToIdx(s){ s=String(s||'').trim().toUpperCase(); if(!/^[A-Z]{1,3}$/.test(s)) return -1; var n=0; for(var i=0;i<s.length;i++){ n=n*26+(s.charCodeAt(i)-64); } return n-1; }
+  function idxToCol(n){ n=Math.floor(n)+1; var s=''; while(n>0){ var r=(n-1)%26; s=String.fromCharCode(65+r)+s; n=Math.floor((n-1)/26); } return s; }
+  function syncSyncCol(){   // 입력값(열문자) → SYNC_COL 확정 + 배지. 비면/이상하면 기본 S열.
+    var raw=(document.getElementById('syncCol').value||'').trim(), idx=colToIdx(raw);
+    SYNC_COL = (idx>=0)? idx : DEFAULT_SYNC_COL;
+    var el=document.getElementById('syncBadge');
+    if(el){
+      if(idx>=0)   el.innerHTML='⭕ 내 표시 열: <b style="color:#2d6a4f">'+esc(raw.toUpperCase())+'열</b> (이 열에 동그라미 <b>없는</b> 상품이 신규)';
+      else if(raw) el.innerHTML='⚠️ <b style="color:#c0392b">열 문자를 못 알아봤어요</b> — 기본 S열 사용 (예: S, X)';
+      else         el.innerHTML='⭕ 내 표시 열: <span style="color:#999">기본 S열</span> (다르면 우리 팀 열을 넣으세요)';
+    }
+    return SYNC_COL;
+  }
 
   window.addEventListener('load', function(){
     document.getElementById('clientId').value = DEFAULT_CLIENT_ID;   // 공용 고정
@@ -267,7 +289,14 @@
     updateTargetBadge();
     document.getElementById('linkSheet').value = localStorage.getItem('byd_linkSheet') || '';
     syncLink();
+    document.getElementById('syncCol').value = localStorage.getItem('byd_syncCol') || '';
+    syncSyncCol();
     loadSheetStarts();
+  });
+  document.getElementById('syncCol').addEventListener('input', function(){ localStorage.setItem('byd_syncCol', this.value.trim()); syncSyncCol(); });
+  document.getElementById('saveSync').addEventListener('click', function(){
+    localStorage.setItem('byd_syncCol', document.getElementById('syncCol').value.trim());
+    var col=syncSyncCol(); setStatus('⭕ 내 표시 열 저장됨 — <b>'+idxToCol(col)+'열</b>에 동그라미 없는 상품을 신규로 가져옵니다','ok');
   });
   // ===== 🔗 링크 업데이트 — 링크 시트 + 그룹웨어 문서복사 두 창 열기 =====
   document.getElementById('linkUpdateBtn').addEventListener('click', function(){
@@ -427,7 +456,9 @@
     var startAt = hasStart?start:2;
     // 끝 행: 값이 있고 시작행보다 크거나 같아야 유효 (아니면 무시=끝까지)
     var hasEnd = !(isNaN(end)||end<2||end<startAt);
-    var dataRange = "'"+TAB+"'!A"+startAt+":S"+(hasEnd?end:'');
+    syncSyncCol();   // 내 표시 열(동그라미) 확정
+    var syncLetter = idxToCol(SYNC_COL);
+    var dataRange = "'"+TAB+"'!A"+startAt+":"+syncLetter+(hasEnd?end:'');
     var offset = startAt;
     if(Object.keys(WONGA).length===0) wongaStatus('⚠️ 원가 파일을 아직 안 넣었어요 — 원가/공급가 칸이 비어요 (①번 먼저)','warn');
     setStatus('<span class="spinner"></span> 시트 읽는 중...');
@@ -677,8 +708,12 @@
     function setBtn(t){ btn.innerHTML=t; }
     withToken(function(){
       syncLink();   // 링크 시트(LINK_ID) 확정 — 상품명 하이퍼링크 읽기용
-      readLinks().catch(function(e){   // 링크 못 읽으면(권한/로그인) 원인 불명확한 전체실패 대신 명확 안내
-        throw new Error('링크 시트를 못 읽었어요 — 우리 팀 공용 구글 계정으로 로그인했는지 확인하고, 로그인 한 번 더 한 뒤 다시 시도하세요.\n(원인: '+e.message+')');
+      readLinks().catch(function(e){   // 링크 못 읽으면 원인별 안내 (400=주소/탭 문제, 그 외=로그인)
+        var m=String(e&&e.message||e);
+        var hint=(m.indexOf('400')>=0||m.indexOf('parse')>=0||m.indexOf('Unable')>=0)
+          ? '링크 시트 주소가 맞는지, 그리고 그 시트에 "링크"라는 이름의 탭이 있는지 확인하세요. (코드가 "링크" 탭의 A·B열 = 상품명·URL을 읽어요)'
+          : '우리 팀 공용 구글 계정으로 로그인했는지 확인하고, 로그인 한 번 더 한 뒤 다시 시도하세요.';
+        throw new Error('링크 시트를 못 읽었어요 — '+hint+'\n(원인: '+m+')');
       }).then(function(){
         // 1) 상품변동사항 — 전체(품절 포함). 기록(로그)이므로 중복삭제 없이 5행에 append만.
         setBtn('상품변동사항...');
