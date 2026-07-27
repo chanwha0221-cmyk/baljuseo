@@ -1,0 +1,255 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>냉동식품 3PL 업체 선정 · 견적 관리</title>
+<style>
+ body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;margin:0;background:#f4f5f7;color:#1f2329}
+ .wrap{max-width:1000px;margin:0 auto;padding:16px}
+ .bar{position:sticky;top:0;background:#f4f5f7;padding:10px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid #e1e4e8;z-index:10}
+ button{font-family:inherit;font-size:13px;font-weight:700;border:0;border-radius:8px;padding:9px 13px;cursor:pointer}
+ .b1{background:#2563eb;color:#fff}.b2{background:#0f9d58;color:#fff}.b3{background:#7c3aed;color:#fff}.b4{background:#e2e8f0;color:#1f2329}.bx{background:#fde8e8;color:#a32d2d}
+ button:active{transform:translateY(1px)}
+ .saved{font-size:12px;color:#0f9d58;margin-left:auto}
+ .card{background:#fff;border:1px solid #e1e4e8;border-radius:10px;padding:18px 22px;margin-top:14px}
+ h1.title{font-size:19px;margin:0 0 2px;color:#0d2a4f}
+ .meta{color:#6b7280;font-size:12px}
+ h2.sec{font-size:14px;margin:0 0 12px;padding:8px 12px;background:#eef2f7;border-left:4px solid #2563eb;border-radius:0 6px 6px 0;color:#0d2a4f}
+ table{border-collapse:collapse;width:100%;font-size:12.5px}
+ th,td{border:1px solid #dfe3e8;padding:5px 7px;text-align:left;vertical-align:middle}
+ th{background:#f0f3f7;color:#0d2a4f;font-weight:700;text-align:center}
+ td.c{text-align:center}
+ input,textarea,td[contenteditable]{font-family:inherit;font-size:12.5px}
+ input.cell{width:100%;border:1px solid transparent;border-radius:4px;padding:5px 6px;background:transparent;color:#1f2329;box-sizing:border-box}
+ input.cell:hover{border-color:#e1e4e8}input.cell:focus{border-color:#2563eb;background:#f8fbff;outline:none}
+ td[contenteditable]{min-width:70px}td[contenteditable]:focus{background:#f8fbff;outline:2px solid #2563eb;outline-offset:-2px}
+ tr.out td{background:#fbf1f1}
+ .kvform{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px 16px}
+ .fld{display:flex;flex-direction:column;gap:3px}
+ .fld label{font-size:11px;color:#6b7280;font-weight:700}
+ .fld input{border:1px solid #d0d5dd;border-radius:6px;padding:7px 9px}
+ .fld input:focus{border-color:#2563eb;outline:none}
+ .boxrow{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+ .subj{font-weight:700;color:#0d2a4f;background:#eef2f7;border:1px solid #dfe3e8;border-radius:6px;padding:9px 12px;font-size:13px;margin:8px 0}
+ .mailbox{background:#f8fafc;border:1px solid #dfe3e8;border-radius:8px;padding:15px 17px;font-size:12.5px;white-space:pre-wrap;line-height:1.65}
+ .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+ select{font-family:inherit;font-size:13px;padding:7px 9px;border:1px solid #d0d5dd;border-radius:6px}
+ .badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
+ .bg-web{background:#eaf0fb;color:#185fa5}
+ .del{background:#fde8e8;color:#a32d2d;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;border:0;cursor:pointer}
+ select.stat{border:1px solid #d0d5dd;border-radius:6px;padding:4px 5px;font-weight:700;font-size:11px;width:100%;box-sizing:border-box}
+ .st-done{color:#0f6e56;background:#e8f4ee}.st-call{color:#854f0b;background:#faeeda}.st-reply{color:#185fa5;background:#eaf0fb}.st-ex{color:#a32d2d;background:#fde8e8}.st-w{color:#6b7280;background:#fff}
+ .statline{font-size:12px;color:#374151;margin:2px 0 10px}.statline b{color:#0d2a4f}
+ .hint{font-size:11.5px;color:#6b7280;margin-top:8px}
+ .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:8px;opacity:0;transition:.2s;font-size:13px;z-index:99}
+ .toast.on{opacity:.95}
+ a{color:#2563eb}
+ @media print{.bar,.del,.addbtn,.hint{display:none}.card{break-inside:avoid}}
+</style></head><body>
+<div class="wrap">
+ <div class="bar">
+  <button class="b3" onclick="copySubj()">📋 메일 제목</button>
+  <button class="b1" onclick="copyMail()">📋 메일 본문</button>
+  <button class="b4" onclick="exportJson()">💾 백업 내보내기</button>
+  <button class="b4" onclick="document.getElementById('imp').click()">📂 불러오기</button>
+  <button class="b4" onclick="window.print()">🖨 인쇄/PDF</button>
+  <button class="bx" onclick="resetAll()">초기화</button>
+  <input type="file" id="imp" accept=".json" style="display:none" onchange="importJson(this)">
+  <span class="saved" id="saved"></span>
+ </div>
+
+ <div class="card">
+  <h1 class="title">냉동식품 3PL 물류 위탁 · 업체 선정 & 견적 관리</h1>
+  <div class="meta">작성 (주)마스터 홍찬화 · 값을 직접 고치면 자동 저장됩니다 (이 브라우저에 보관 · 백업은 [백업 내보내기])</div>
+ </div>
+
+ <div class="card">
+  <h2 class="sec">1. 물류 요건 (여기 고치면 아래 메일이 자동으로 바뀜)</h2>
+  <div class="kvform">
+   <div class="fld"><label>상품군</label><input id="r_product"></div>
+   <div class="fld"><label>취급 품목 (SKU)</label><input id="r_sku"></div>
+   <div class="fld"><label>월 출고량(건)</label><input id="r_monthly"></div>
+   <div class="fld"><label>일평균(건)</label><input id="r_daily"></div>
+   <div class="fld"><label>피크(건)</label><input id="r_peak"></div>
+   <div class="fld"><label>보관 파레트 수</label><input id="r_pallet"></div>
+   <div class="fld"><label>1차 회신 마감</label><input id="r_deadline"></div>
+   <div class="fld"><label>계약 목표</label><input id="r_month"></div>
+  </div>
+  <div style="margin-top:12px"><label style="font-size:11px;color:#6b7280;font-weight:700">일평균 박스 구성(건)</label>
+   <div class="boxrow" style="margin-top:4px">
+    <div class="fld"><label>극소</label><input id="r_xs"></div>
+    <div class="fld"><label>소</label><input id="r_s"></div>
+    <div class="fld"><label>중</label><input id="r_m"></div>
+    <div class="fld"><label>대1</label><input id="r_l1"></div>
+    <div class="fld"><label>대2</label><input id="r_l2"></div>
+    <div class="fld"><label>합계(자동)</label><input id="r_sum" readonly style="background:#f0f3f7"></div>
+   </div>
+  </div>
+  <div style="margin-top:12px" class="kvform">
+   <div class="fld"><label>발신 회사</label><input id="r_company"></div>
+   <div class="fld"><label>담당자</label><input id="r_sender"></div>
+   <div class="fld"><label>연락처</label><input id="r_phone"></div>
+   <div class="fld"><label>회신 이메일</label><input id="r_email"></div>
+  </div>
+ </div>
+
+ <div class="card">
+  <h2 class="sec">2. 후보 업체 (발송상태 기록 · 견적대상 체크 · 자유롭게 추가/삭제)</h2>
+  <div class="statline" id="vstat"></div>
+  <table id="vtbl">
+   <thead><tr>
+    <th style="width:12%">업체명</th><th style="width:12%">홈페이지</th><th style="width:16%">이메일</th>
+    <th style="width:10%">담당자/연락처</th><th class="c" style="width:10%">발송상태</th><th class="c" style="width:6%">견적<br>대상</th><th>메모</th><th style="width:4%"></th>
+   </tr></thead>
+   <tbody id="vbody"></tbody>
+  </table>
+  <button class="b4 addbtn" style="margin-top:10px" onclick="addVendor()">＋ 업체 추가</button>
+  <div class="hint">※ 팀프레시는 도산 위기로 견적대상 해제(제외) 상태입니다. 체크하면 아래 비교표·메일 대상에 다시 들어갑니다.</div>
+ </div>
+
+ <div class="card">
+  <h2 class="sec">3. 견적 회신 비교표 (칸을 클릭해 바로 입력 · 견적대상 업체만 표시)</h2>
+  <div style="overflow-x:auto"><table id="qtbl"></table></div>
+  <div class="hint">※ 회신 오는 대로 각 칸 클릭해서 입력하면 자동 저장됩니다. 업체명·견적대상을 바꾸면 이 표도 따라 바뀝니다.</div>
+ </div>
+
+ <div class="card">
+  <h2 class="sec">4. 견적요청 메일 (요건에서 자동 생성)</h2>
+  <div class="row">
+   <label style="font-size:12px;color:#6b7280;font-weight:700">받는 업체:</label>
+   <select id="vsel" onchange="renderMail()"></select>
+   <span style="font-size:11.5px;color:#6b7280">← 고르면 {업체명} 자리에 자동으로 들어갑니다</span>
+  </div>
+  <div class="subj" id="subjView"></div>
+  <div class="mailbox" id="mailView"></div>
+ </div>
+</div>
+<div class="toast" id="toast">복사됨</div>
+<script>
+const KEY='md_3pl_v1';
+const QCOLS=['보관료(파레트/월)','입고비','출고비(건당)','부자재','냉동택배(사이즈별)','최소물량·기간','센터위치'];
+const STATS=['대기','발송완료','전화예정','회신완료','제외'];
+const STCLS={'대기':'st-w','발송완료':'st-done','전화예정':'st-call','회신완료':'st-reply','제외':'st-ex'};
+const SEED={
+ req:{product:'냉동식품 (-18℃ 보관)',sku:'83',monthly:'11,500',daily:'380',peak:'430',
+  xs:'153',s:'162',m:'49',l1:'8',l2:'9',pallet:'산출 중',deadline:'7/29(수)',month:'8월 중',
+  company:'(주)마스터 (마스터 유통)',sender:'홍찬화',phone:'010-____-____',email:'chanwha0221@gmail.com'},
+ vendors:[
+  {name:'팀프레시',site:'teamfresh.co.kr',email:'',contact:'',target:false,status:'제외',note:'2025년부터 영업 중단 진행·도산 위기 → 제외'},
+  {name:'아이스허브',site:'icehub.kr',email:'',contact:'',target:true,status:'발송완료',note:'냉동 30년 · 용인·오산·안성권 · 대표메일 견적요청 발송(7/27)'},
+  {name:'(주)더다 F&D',site:'냉동3pl.kr',email:'',contact:'',target:true,status:'발송완료',note:'김포 냉동 전문 · 대표메일 견적요청 발송(7/27)'},
+  {name:'마고로지스',site:'magologis.com',email:'',contact:'',target:true,status:'발송완료',note:'평택·의왕·대구/칠곡·구미·오산·용인·익산 센터 · API 콜드체인(홈페이지 확인) · 대표메일 발송(7/27)'},
+  {name:'백호냉장',site:'',email:'',contact:'',target:true,status:'발송완료',note:'냉장·냉동 약 3,000평 · 대표메일 견적요청 발송(7/27)'},
+  {name:'해오름물류',site:'haeohreum.co.kr',email:'',contact:'',target:true,status:'전화예정',note:'전국 거점 + 자체 냉동차량 · ⚠️ 이메일 없음 → 7/28(내일) 전화'}
+ ],
+ quotes:{}
+};
+let S=load();
+
+function load(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r);}catch(e){}return JSON.parse(JSON.stringify(SEED));}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+ const el=document.getElementById('saved');const d=new Date();
+ el.textContent='저장됨 '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}
+
+// ---- 요건 폼 ----
+const RF=[['r_product','product'],['r_sku','sku'],['r_monthly','monthly'],['r_daily','daily'],['r_peak','peak'],
+ ['r_pallet','pallet'],['r_deadline','deadline'],['r_month','month'],['r_xs','xs'],['r_s','s'],['r_m','m'],
+ ['r_l1','l1'],['r_l2','l2'],['r_company','company'],['r_sender','sender'],['r_phone','phone'],['r_email','email']];
+function fillReqForm(){RF.forEach(([id,k])=>{const el=document.getElementById(id);if(el)el.value=S.req[k]||'';});sumBoxes();}
+function sumBoxes(){const n=x=>{const v=parseInt(String(S.req[x]||'').replace(/[^0-9]/g,''),10);return isNaN(v)?0:v;};
+ document.getElementById('r_sum').value=(n('xs')+n('s')+n('m')+n('l1')+n('l2'));}
+RF.forEach(([id,k])=>{document.addEventListener('input',e=>{if(e.target&&e.target.id===id){S.req[k]=e.target.value;sumBoxes();save();renderMail();}});});
+
+// ---- 업체 표 ----
+function renderVendors(){
+ const tb=document.getElementById('vbody');tb.innerHTML='';
+ S.vendors.forEach((v,i)=>{
+  if(!v.status)v.status=v.target?'대기':'제외';
+  const tr=document.createElement('tr');if(!v.target)tr.className='out';
+  const opts=STATS.map(o=>'<option'+(o===v.status?' selected':'')+'>'+o+'</option>').join('');
+  tr.innerHTML=
+   '<td><input class="cell" data-i="'+i+'" data-f="name" value="'+esc(v.name)+'"></td>'+
+   '<td><input class="cell" data-i="'+i+'" data-f="site" value="'+esc(v.site)+'"></td>'+
+   '<td><input class="cell" data-i="'+i+'" data-f="email" placeholder="견적 회신 받을 주소" value="'+esc(v.email)+'"></td>'+
+   '<td><input class="cell" data-i="'+i+'" data-f="contact" value="'+esc(v.contact)+'"></td>'+
+   '<td class="c"><select class="stat '+(STCLS[v.status]||'st-w')+'" data-i="'+i+'" data-f="status">'+opts+'</select></td>'+
+   '<td class="c"><input type="checkbox" data-i="'+i+'" data-f="target" '+(v.target?'checked':'')+'></td>'+
+   '<td><input class="cell" data-i="'+i+'" data-f="note" value="'+esc(v.note)+'"></td>'+
+   '<td class="c"><button class="del" data-del="'+i+'">삭제</button></td>';
+  tb.appendChild(tr);
+ });
+ const cnt={};S.vendors.forEach(v=>{cnt[v.status]=(cnt[v.status]||0)+1;});
+ document.getElementById('vstat').innerHTML=STATS.filter(s=>cnt[s]).map(s=>'<b>'+s+'</b> '+cnt[s]).join(' · ')||'&nbsp;';
+}
+document.addEventListener('input',e=>{const t=e.target;if(t.classList&&t.classList.contains('cell')&&t.dataset.i!==undefined){
+ S.vendors[+t.dataset.i][t.dataset.f]=t.value;save();}});
+document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.f==='target'){
+ S.vendors[+t.dataset.i].target=t.checked;save();renderVendors();renderQuote();renderSelect();renderMail();}
+ if(t.dataset&&t.dataset.f==='status'){S.vendors[+t.dataset.i].status=t.value;save();renderVendors();}
+ if(t.classList&&t.classList.contains('cell')&&t.dataset.f==='name'){save();renderQuote();renderSelect();renderMail();}});
+document.addEventListener('click',e=>{if(e.target.dataset&&e.target.dataset.del!==undefined){
+ if(!confirm('이 업체를 삭제할까요?'))return;const i=+e.target.dataset.del;const nm=S.vendors[i].name;
+ S.vendors.splice(i,1);delete S.quotes[nm];save();renderVendors();renderQuote();renderSelect();renderMail();}});
+function addVendor(){S.vendors.push({name:'새 업체',site:'',email:'',contact:'',target:true,status:'대기',note:''});save();renderVendors();renderQuote();renderSelect();renderMail();}
+
+// ---- 비교표 ----
+function renderQuote(){
+ const tb=document.getElementById('qtbl');
+ let h='<thead><tr><th style="width:12%">업체</th>';QCOLS.forEach(c=>h+='<th>'+c+'</th>');h+='</tr></thead><tbody>';
+ const act=S.vendors.filter(v=>v.target);
+ if(!act.length)h+='<tr><td colspan="'+(QCOLS.length+1)+'" style="text-align:center;color:#6b7280;padding:14px">견적대상 업체가 없습니다</td></tr>';
+ act.forEach(v=>{h+='<tr><td style="font-weight:700">'+esc(v.name)+'</td>';
+  QCOLS.forEach(c=>{const val=(S.quotes[v.name]&&S.quotes[v.name][c])||'';
+   h+='<td contenteditable data-v="'+esc(v.name)+'" data-c="'+esc(c)+'">'+esc(val)+'</td>';});
+  h+='</tr>';});
+ h+='</tbody>';tb.innerHTML=h;
+}
+document.addEventListener('input',e=>{const t=e.target;if(t.getAttribute&&t.getAttribute('contenteditable')!==null&&t.dataset.v){
+ if(!S.quotes[t.dataset.v])S.quotes[t.dataset.v]={};S.quotes[t.dataset.v][t.dataset.c]=t.textContent;save();}});
+
+// ---- 메일 ----
+function renderSelect(){const s=document.getElementById('vsel');const prev=s.value;s.innerHTML='';
+ S.vendors.filter(v=>v.target).forEach(v=>{const o=document.createElement('option');o.value=v.name;o.textContent=v.name;s.appendChild(o);});
+ if([...s.options].some(o=>o.value===prev))s.value=prev;}
+function subj(){return '[견적요청] 냉동식품 3PL 물류 위탁 견적 요청 - '+(S.req.company.match(/\(주\)[^ ]*/)?S.req.company.match(/\(주\)[^ ]*/)[0]:S.req.company);}
+function mailText(){const r=S.req;const who=document.getElementById('vsel').value||'{업체명}';
+ return who+' 담당자님 안녕하세요.\n\n'+
+ '냉동식품 유통을 운영하는 '+r.company+'입니다.\n'+
+ '냉동식품 3PL 물류 위탁을 검토 중이며, 아래 조건으로 견적을 요청드립니다.\n\n'+
+ '[ 물류 개요 ]\n'+
+ '- 상품군 : '+r.product+'\n'+
+ '- 취급 품목 : 약 '+r.sku+' SKU\n'+
+ '- 출고량 : 월 약 '+r.monthly+'건 / 일평균 '+r.daily+'건 (피크 '+r.peak+'건)\n'+
+ '- 일평균 박스 구성 : 극소 '+r.xs+' / 소 '+r.s+' / 중 '+r.m+' / 대1 '+r.l1+' / 대2 '+r.l2+'\n'+
+ '- 보관 파레트 수 : '+r.pallet+' (확인되는 대로 전달드리겠습니다)\n'+
+ '  ※ 박스 사이즈별 실측 규격은 요청 주시면 전달드립니다.\n\n'+
+ '[ 견적 요청 항목 ] (항목별 단가로 부탁드립니다)\n'+
+ '1) 냉동 보관료 (파레트당 / 월)\n'+
+ '2) 입고비 (파레트 또는 박스당)\n'+
+ '3) 출고 작업비 (건당 피킹+패킹, 합포장 기준 포함)\n'+
+ '4) 부자재 단가 (박스 사이즈별 / 보냉백 / 아이스팩·드라이아이스)\n'+
+ '5) 냉동택배 단가 (박스 사이즈별) + 이용 택배사\n'+
+ '6) 최소 계약 물량·금액, 계약기간 조건\n'+
+ '7) 센터(물류거점) 위치\n\n'+
+ '[ 일정 ]\n'+
+ '- 1차 견적 회신 : '+r.deadline+'까지 부탁드립니다.\n'+
+ '- 계약 목표 : '+r.month+'\n\n'+
+ '회신 및 문의는 본 메일로 부탁드립니다.\n검토 감사합니다.\n\n'+
+ r.company+'  '+r.sender+' 드림\n연락처 : '+r.phone+'\n이메일 : '+r.email;
+}
+function renderMail(){document.getElementById('subjView').textContent='제목:  '+subj();
+ document.getElementById('mailView').textContent=mailText();}
+
+// ---- 공통 ----
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1300);}
+function cp(s,l){navigator.clipboard.writeText(s).then(()=>toast(l+' 복사됨')).catch(()=>{const ta=document.createElement('textarea');ta.value=s;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast(l+' 복사됨');});}
+function copySubj(){cp(subj(),'메일 제목');}
+function copyMail(){cp(mailText(),'메일 본문');}
+function exportJson(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);a.download='냉동3PL_견적데이터.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('백업 파일 저장');}
+function importJson(inp){const f=inp.files[0];if(!f)return;const rd=new FileReader();
+ rd.onload=()=>{try{S=JSON.parse(rd.result);save();fillReqForm();renderVendors();renderQuote();renderSelect();renderMail();toast('불러오기 완료');}catch(e){alert('불러오기 실패: '+e.message);}inp.value='';};rd.readAsText(f);}
+function resetAll(){if(!confirm('입력한 견적·업체 내용을 모두 지우고 처음 상태로 되돌릴까요?'))return;
+ S=JSON.parse(JSON.stringify(SEED));save();fillReqForm();renderVendors();renderQuote();renderSelect();renderMail();toast('초기화됨');}
+
+fillReqForm();renderVendors();renderQuote();renderSelect();renderMail();
+</script></body></html>
