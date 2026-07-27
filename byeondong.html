@@ -91,7 +91,7 @@
         <br>
         <b>2️⃣ 반영 시트</b> — 우리 팀 유통시트 주소(URL/ID)를 아래 <b>반영 시트</b> 칸에 넣기 <span style="color:#c0392b">(필수)</span>
           <span style="color:#c0392b">(⚠️ 안 넣으면 각 시트 적용이 막힘 — 한 번 넣으면 계속 유지됨)</span><br>
-        <b>3️⃣ 링크 시트</b> — 우리 팀 '최신 링크 모음' 구글시트 주소를 아래 <b>링크 시트</b> 칸에 넣고 저장<br>
+        <b>3️⃣ 링크 시트</b> — 우리 팀 '최신 링크 모음' 구글시트 주소를 아래 <b>링크 시트</b> 칸에 넣기 <span style="color:#c0392b">(필수 — 안 넣으면 링크 업데이트·각 시트 적용 막힘)</span><br>
         <br>
         세팅 끝나면 매번: <b>원가 파일 선택 → 시작 행 불러오기 → 🔀 각 시트 적용.</b>
       </div>
@@ -111,7 +111,7 @@
       <div id="targetBadge" class="mini" style="margin-top:6px"></div>
       <div class="row" style="margin-top:8px">
         <label for="linkSheet">링크 시트</label>
-        <input id="linkSheet" type="text" placeholder="우리 팀 '최신 링크 모음' 구글시트 URL/ID">
+        <input id="linkSheet" type="text" placeholder="우리 팀 '최신 링크 모음' 구글시트 URL/ID (필수 — 안 넣으면 막힘)">
         <button class="ghost" id="saveLink">저장</button>
       </div>
       <div id="linkBadge" class="mini" style="margin-top:6px"></div>
@@ -176,8 +176,7 @@
   var APPLY_ID = DEFAULT_APPLY_ID;  // 각 시트 적용 대상 — 설정 '반영 시트'에 복사본 URL/ID 넣으면 그걸로 스위칭(탭 gid 동일 전제). 사본테스트 예: 1GX04Eq_5Pr3ptbyXQpf0vAgVqmaOqMu-knvNy6af528
   var APPLY_TAB = '상품변동사항';
   var APPLY_GID = 548798859;                                       // 상품변동사항 탭 gid
-  var DEFAULT_LINK_ID = '1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';  // 기본(마스터) 링크 모음 시트("상품정보 업데이트")
-  var LINK_ID = DEFAULT_LINK_ID;  // 링크 읽기 + 링크업데이트 버튼 대상 — 설정 '링크 시트'에 팀별 주소 넣으면 그걸로
+  var LINK_ID = '';  // 링크 읽기 + 링크업데이트 버튼 대상 — 설정 '링크 시트'에 팀별 주소를 넣어야 함(기본값 없음, 비면 막힘)
   var LINK_TAB = '링크';                                            // A열 상품명 → B열 URL (중복이면 위=첫 번째 우선)
   var NOTICE_TAB = '공지_당일생물';   // 당일 상품 공지 (같은 사본 APPLY_ID)
   var NOTICE_GID = 322594718;         // 공지_당일생물 탭 gid
@@ -231,16 +230,16 @@
     var a=document.getElementById('targetBadge'), b=document.getElementById('targetBadge2');
     if(a) a.innerHTML=html; if(b) b.innerHTML=html;
   }
-  // 링크 시트(LINK_ID) 확정 + 배지. 비우면 기본(마스터) 시트.
+  // 링크 시트(LINK_ID) 확정 + 배지. ★기본값 없음 — 비면 LINK_ID='' 로 두고 막는다(남의 시트 열림 방지).
   function syncLink(){
     var raw=(document.getElementById('linkSheet').value||'').trim();
     var id=extractSheetId(raw);
-    LINK_ID = id || DEFAULT_LINK_ID;
+    LINK_ID = id || '';
     var el=document.getElementById('linkBadge');
     if(el){
       if(id)       el.innerHTML='🔗 링크 시트: <b style="color:#2d6a4f">우리 팀 시트</b> <span style="color:#999">'+esc(id.slice(0,10))+'…</span>';
-      else if(raw) el.innerHTML='⚠️ <b style="color:#c0392b">링크 시트 주소 인식 실패</b> — 기본(마스터) 시트 사용';
-      else         el.innerHTML='🔗 링크 시트: <span style="color:#999">기본(마스터) 시트</span>';
+      else if(raw) el.innerHTML='⚠️ <b style="color:#c0392b">링크 시트 주소 인식 실패</b> — URL/ID 다시 확인';
+      else         el.innerHTML='⚠️ <b style="color:#c0392b">링크 시트 미입력</b> — 우리 팀 링크 모음 시트를 먼저 넣으세요';
     }
     return LINK_ID;
   }
@@ -256,7 +255,8 @@
   });
   // ===== 🔗 링크 업데이트 — 링크 시트 + 그룹웨어 문서복사 두 창 열기 =====
   document.getElementById('linkUpdateBtn').addEventListener('click', function(){
-    var lid = syncLink();   // 설정의 링크 시트 값으로 LINK_ID 확정(비우면 기본)
+    var lid = syncLink();   // 설정의 링크 시트 값으로 LINK_ID 확정
+    if(!lid){ alert('⚠️ 링크 시트가 비어 있어요.\n\n설정(⚙️)에서 우리 팀 링크 모음 구글시트 주소를 먼저 넣어주세요.\n(안 넣으면 엉뚱한 시트가 열려 사고날 수 있어 막았어요)'); document.getElementById('cfg').open=true; syncLink(); return; }
     window.open('https://docs.google.com/spreadsheets/d/'+lid+'/edit?gid=0#gid=0','_blank');
     window.open('https://masterc.co.kr/index.php?module=rkdoccopy','_blank');
   });
@@ -278,7 +278,7 @@
     localStorage.setItem('byd_linkSheet', document.getElementById('linkSheet').value.trim());
     syncLink();
     var raw=(document.getElementById('linkSheet').value||'').trim(), id=extractSheetId(raw);
-    setStatus(id ? '🔗 링크 시트 저장됨 — 우리 팀 시트 사용' : (raw ? '⚠️ 링크 시트 주소 인식 실패 — 기본(마스터) 시트로 갑니다' : '🔗 링크 시트 비움 — 기본(마스터) 시트 사용'), id?'ok':'warn');
+    setStatus(id ? '🔗 링크 시트 저장됨 — 우리 팀 시트 사용' : (raw ? '⚠️ 링크 시트 주소 인식 실패 — URL/ID 다시 확인' : '⚠️ 링크 시트가 비었어요 — 넣어야 링크업데이트·각 시트 적용이 됩니다'), id?'ok':'warn');
   });
   document.getElementById('saveCfg').addEventListener('click', function(){
     localStorage.setItem('byd_clientId', document.getElementById('clientId').value.trim());
@@ -603,6 +603,7 @@
     var tgt=resolveApplyTarget();
     if(tgt.mode==='empty'){ alert('⚠️ 반영 시트가 비어 있어요.\n\n설정(⚙️)에서 우리 팀 유통시트 주소를 먼저 넣어주세요.\n한 번 넣으면 저장돼서 다시 바꾸기 전까지 계속 유지됩니다.'); document.getElementById('cfg').open=true; updateTargetBadge(); return; }
     if(tgt.mode==='error'){ alert('⚠️ 반영 시트 주소를 인식 못했어요.\n설정에서 URL/ID를 다시 확인하세요.\n(대참사 방지로 중단)'); document.getElementById('cfg').open=true; updateTargetBadge(); return; }
+    if(!syncLink()){ alert('⚠️ 링크 시트가 비어 있어요.\n\n설정(⚙️)에서 우리 팀 링크 모음 구글시트 주소를 먼저 넣어주세요.\n(안 넣으면 각 시트 적용이 막힙니다)'); document.getElementById('cfg').open=true; return; }
     var tgtLabel=(tgt.mode==='copy') ? '✅ 우리 팀 시트 '+tgt.id.slice(0,10)+'…' : '🎯 마스터 실전 시트';
     var nDay=items.filter(function(it){return it.day.indexOf('당일')>=0;}).length;
     var nPoom=items.filter(function(it){return it.poom;}).length;
