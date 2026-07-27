@@ -22,6 +22,11 @@
 ### 별도 (GitHub 아님, 구글시트 Apps Script에 붙여넣어 사용)
 - `C:\내드라이브\claude\github\마찬발주관리_AppsScript_최신코드.txt` — 시트 발주관리 메뉴(상품 수량 확인 다이얼로그 등). 수정 후 script.google.com에 붙여넣어야 적용됨.
 
+## byeondong.html OAuth (외부팀 공유용 — 2026-07-27 게시)
+- **byeondong 로그인 Client ID = `337370860058-...` (프로젝트 `baljuseo-sheets`)**, 모든 팀 **공용 고정**(칸 readonly). ⚠️ `machan-byeondong` 프로젝트는 **빈 프로젝트**(클라이언트 없음) — 헷갈리지 말 것.
+- **2026-07-27 `baljuseo-sheets` OAuth 동의화면을 프로덕션 게시** → 아무 구글계정이나 로그인 가능(첫 로그인 시 '확인되지 않은 앱' 경고 → 고급>계속). 테스트 사용자 등록 불필요.
+- 팀이 넣는 건 **반영 시트·링크 시트 2개뿐**(둘 다 기본값 없음·비면 막힘). Client ID는 안 건드림. → **"팀마다 Client ID 각자 발급"은 옛 설명(게시 전). 이제 공용 하나.**
+
 ## 구글시트 서비스계정 (브라우저에서 직접 API 호출)
 - `CLIENT_EMAIL = sheets-writer@baljuseo-sheets.iam.gserviceaccount.com`
 - `OAUTH_SCOPE = https://www.googleapis.com/auth/spreadsheets`
