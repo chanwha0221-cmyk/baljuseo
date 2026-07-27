@@ -49,6 +49,11 @@
   .exchip { display:inline-block; background:#fff; border:1px solid #e6b0aa; border-radius:13px; padding:2px 11px 2px 4px; margin:3px 5px 0 0; font-size:12.5px; }
   .restore { border:none; background:#2d6a4f; color:#fff; border-radius:11px; padding:1px 8px; font-size:12px; font-weight:700; cursor:pointer; margin-right:4px; }
   .restore:hover { background:#1f4d36; }
+  .srow { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .sname { flex:1; font-size:13px; }
+  .sname.unused { color:#aaa; }
+  .startin { width:90px; font-size:13px; padding:4px 6px; border:1px solid #bbb; border-radius:5px; }
+  .startin:disabled { background:#f2f2f2; }
   #applyReport { margin-top:12px; }
   #applyReport .card { background:#f4faf6; border:1px solid #cfe0d8; }
   #applyReport ul { margin:6px 0 0; padding-left:18px; line-height:1.7; }
@@ -115,6 +120,12 @@
         <button class="ghost" id="saveLink">저장</button>
       </div>
       <div id="linkBadge" class="mini" style="margin-top:6px"></div>
+      <div class="row" style="margin-top:8px">
+        <label>시트별 시작 행</label>
+        <button class="ghost" id="scanSheets" type="button">🔎 시트 탐색</button>
+        <span class="mini">반영 시트의 탭을 불러와 각 탭 시작행 지정 (팀 구조가 다를 때만)</span>
+      </div>
+      <div id="sheetRowsBox"></div>
     </div>
   </details>
 
@@ -189,6 +200,15 @@
   var COLS = ['공급처','기재날짜','적용날짜','변동','상시/당일','유통기한','창고명변동','상품명변동','공급가변동','원공급가','원가','택배사','택배비변동','면과세변동','스펙변동/참고사항','마감시간'];
   var NEWCOLS = {8:1, 9:1, 10:1, 15:1};  // 새로 추가된(강조) 컬럼 인덱스
 
+  // ===== 시트별 '변경값 넣기 시작 행' — 팀마다 시트 구조 달라서 지정 가능. 미지정이면 기본값(=기존 동작 그대로) =====
+  var DEFAULT_STARTS = {};                       // 탭별 기본 시작행(변경값 첫 행)
+  DEFAULT_STARTS[APPLY_TAB]=5; DEFAULT_STARTS[NOTICE_TAB]=24;   // 상품변동사항 5행 / 공지_당일생물 24행
+  Object.keys(WH).forEach(function(k){ DEFAULT_STARTS[k]=3; }); // 창고 탭들 3행
+  var SHEET_STARTS = {};                          // 팀이 지정한 값 {탭이름: 시작행}
+  function loadSheetStarts(){ try{ SHEET_STARTS=JSON.parse(localStorage.getItem('byd_sheetStarts')||'{}'); }catch(e){ SHEET_STARTS={}; } }
+  // 지정값 있으면 {ins:S-1, read:S}, 없으면 기존 하드코딩 기본값 그대로 리턴(실전 동작 안 바뀜)
+  function startPair(tab, defIns0, defRead1){ var s=parseInt(SHEET_STARTS[tab],10); return (!isNaN(s)&&s>=1)?{ins:s-1,read:s}:{ins:defIns0,read:defRead1}; }
+
   var tokenClient = null, accessToken = null, tokenExp = 0, pending = null, LAST = null;
   var WRITE_OK = false, consentTried = false;   // 쓰기(수정) 권한 확보 여부
   var WONGA = {}, PRICE = {}, MAGAM = {}, MAGAM_LOADED = false, LINKMAP = {};
@@ -252,6 +272,7 @@
     updateTargetBadge();
     document.getElementById('linkSheet').value = localStorage.getItem('byd_linkSheet') || '';
     syncLink();
+    loadSheetStarts();
   });
   // ===== 🔗 링크 업데이트 — 링크 시트 + 그룹웨어 문서복사 두 창 열기 =====
   document.getElementById('linkUpdateBtn').addEventListener('click', function(){
@@ -279,6 +300,45 @@
     syncLink();
     var raw=(document.getElementById('linkSheet').value||'').trim(), id=extractSheetId(raw);
     setStatus(id ? '🔗 링크 시트 저장됨 — 우리 팀 시트 사용' : (raw ? '⚠️ 링크 시트 주소 인식 실패 — URL/ID 다시 확인' : '⚠️ 링크 시트가 비었어요 — 넣어야 링크업데이트·각 시트 적용이 됩니다'), id?'ok':'warn');
+  });
+
+  // ===== 🔎 시트 탐색 — 반영 시트의 탭 목록을 불러와 각 탭 시작행 지정 =====
+  document.getElementById('scanSheets').addEventListener('click', function(){
+    var tgt=resolveApplyTarget();
+    if(tgt.mode==='empty'||tgt.mode==='error'){ alert('⚠️ 먼저 반영 시트 주소를 제대로 넣어주세요.\n(그 시트의 탭을 불러오는 거예요)'); updateTargetBadge(); return; }
+    var box=document.getElementById('sheetRowsBox'); box.innerHTML='<span class="mini"><span class="spinner"></span> 탭 불러오는 중...</span>';
+    withToken(function(){
+      var url='https://sheets.googleapis.com/v4/spreadsheets/'+APPLY_ID+'?fields=sheets.properties(title)';
+      fetch(url,{headers:{Authorization:'Bearer '+accessToken}}).then(function(r){
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        return r.json();
+      }).then(function(j){
+        var tabs=(j.sheets||[]).map(function(s){ return s.properties.title; });
+        renderSheetRows(tabs);
+      }).catch(function(e){ box.innerHTML='<span class="warn">시트 탐색 실패: '+esc(e.message)+' — 반영 시트 주소가 맞는지 확인하세요</span>'; });
+    });
+  });
+  function renderSheetRows(tabs){
+    var box=document.getElementById('sheetRowsBox');
+    if(!tabs.length){ box.innerHTML='<span class="warn">탭이 없어요. 반영 시트 주소 확인.</span>'; return; }
+    var h='<div class="card" style="margin-top:8px"><b>시트별 시작 행</b> <span class="mini">(변경값이 들어갈 첫 행 · 비우면 기본값 그대로)</span><div style="margin-top:6px">';
+    tabs.forEach(function(t){
+      var def=DEFAULT_STARTS[t], used=(def!=null);
+      var cur=(SHEET_STARTS[t]!=null?String(SHEET_STARTS[t]):'');
+      h+='<div class="srow"><span class="sname'+(used?'':' unused')+'">'+esc(t)+(used?'':' (안 씀)')+'</span>'
+        +'<input class="startin" data-tab="'+esc(t)+'" type="number" min="1" value="'+esc(cur)+'" placeholder="'+(used?('기본 '+def):'-')+'"'+(used?'':' disabled')+'></div>';
+    });
+    h+='</div><button class="ghost" id="saveStarts" type="button">저장</button> <span class="mini" id="startsHint"></span></div>';
+    box.innerHTML=h;
+  }
+  // 시작행 저장 (이벤트 위임)
+  document.addEventListener('click', function(e){
+    var b=e.target&&e.target.closest?e.target.closest('#saveStarts'):null;
+    if(!b) return;
+    var ins=document.querySelectorAll('#sheetRowsBox .startin'); SHEET_STARTS={};
+    for(var i=0;i<ins.length;i++){ var v=(ins[i].value||'').trim(); if(v!==''){ var n=parseInt(v,10); if(n>=1) SHEET_STARTS[ins[i].getAttribute('data-tab')]=n; } }
+    localStorage.setItem('byd_sheetStarts', JSON.stringify(SHEET_STARTS));
+    var hint=document.getElementById('startsHint'); if(hint) hint.textContent='✅ 저장됨 ('+Object.keys(SHEET_STARTS).length+'개 지정, 나머지는 기본값)';
   });
   document.getElementById('saveCfg').addEventListener('click', function(){
     localStorage.setItem('byd_clientId', document.getElementById('clientId').value.trim());
@@ -592,6 +652,12 @@
         var del = pre.map(function(r){ return (N>0 && (r-1)>=insertIdx0) ? r+N : r; });   // 삽입점 이하 행만 +N 밀림
         return deleteRowsDesc(APPLY_ID, gid, del);
       });
+    }).catch(function(e){
+      var m=String(e&&e.message||e);
+      if(m.indexOf('400')>=0 || m.indexOf('404')>=0 || m.indexOf('parse range')>=0 || m.indexOf('Unable')>=0){
+        throw new Error('"'+tab+'" 탭에 쓰지 못했어요.\n반영 시트에 이 탭이 없거나 주소가 잘못됐어요 — 반영 시트가 "결과를 쓸 유통시트"(상품변동사항·공지_당일생물·창고 탭이 있는)가 맞는지 확인하세요.\n(변동공지를 읽어오는 원본 시트를 넣으면 이 오류가 납니다.)');
+      }
+      throw e;
     });
   }
 
@@ -621,7 +687,8 @@
         var vi=sortItems(items.slice());
         var vRows=vi.map(rowVari);
         rep.vari=vRows.length;
-        return applyToTab(APPLY_GID, APPLY_TAB, 4, 5, 'H', 8, vRows, {}, {}, false);   // 5행 삽입, 중복삭제X(로그)
+        var spV=startPair(APPLY_TAB, 4, 5);   // 지정값 있으면 그 행, 없으면 기본 5행
+        return applyToTab(APPLY_GID, APPLY_TAB, spV.ins, spV.read, 'H', 8, vRows, {}, {}, false);   // 중복삭제X(로그)
       }).then(function(){
         // 2) 공지_당일생물 — 당일&non품절 추가 / 당일&품절 삭제
         setBtn('당일생물...');
@@ -630,7 +697,8 @@
         var delPk={}; items.forEach(function(it){ if(it.day.indexOf('당일')>=0 && it.poom) delPk[pkey(it.name)]=1; });
         rep.notice=add.length; rep.poomDel += Object.keys(delPk).length;
         if(!add.length && !Object.keys(delPk).length) return true;
-        return applyToTab(NOTICE_GID, NOTICE_TAB, NOTICE_HDR, NOTICE_HDR+1, 'B', 2, add.map(rowNotice), addPk, delPk, false);   // 24행 삽입
+        var spN=startPair(NOTICE_TAB, NOTICE_HDR, NOTICE_HDR+1);   // 지정값 있으면 그 행, 없으면 기본 24행
+        return applyToTab(NOTICE_GID, NOTICE_TAB, spN.ins, spN.read, 'B', 2, add.map(rowNotice), addPk, delPk, false);
       }).then(function(){
         // 3) 창고 탭 — 상시(당일아님)를 공급처별로. non품절 추가 / 품절 삭제. 매칭없는 공급처는 리포트.
         var sisi=items.filter(function(it){ return it.day.indexOf('당일')<0; });
@@ -649,8 +717,9 @@
           setBtn('창고: '+info.tab+'...');
           var rows=sortItems(info.add.slice()).map(rowWh);
           rep.wh[info.tab]=rows.length; rep.poomDel += Object.keys(info.delPk).length;
-          // 3행부터 삽입(2행 유지), 2행부터 스캔해 중복·빈행 삭제, 빈칸 제거
-          return applyToTab(parseInt(g,10), info.tab, 2, 2, 'C', 3, rows, info.addPk, info.delPk, true).then(function(){ i++; return nextTab(); });
+          // 지정값 있으면 그 행, 없으면 기본(3행 삽입·2행부터 스캔). 빈칸 제거
+          var spW=startPair(info.tab, 2, 2);
+          return applyToTab(parseInt(g,10), info.tab, spW.ins, spW.read, 'C', 3, rows, info.addPk, info.delPk, true).then(function(){ i++; return nextTab(); });
         }
         return nextTab();
       }).then(function(){
