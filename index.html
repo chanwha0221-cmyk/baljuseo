@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.559</title>
+<title>발주서 변환기 v22.560</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.559</span>
+  <span class="ver">v22.560</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -816,7 +816,7 @@ function pp(cl,pr,qty){
     if(_np.includes('임금님')&&_np.includes('전복')){const _wm=_np.match(/([\d.]+)\s*kg/);const _tk=Math.max(1,Math.round(qty*(_wm?parseFloat(_wm[1]):1)));if(_tk%2===0)return{name:'임금님 5-6미 전복 2kg',qty:_tk/2,maxB:999};return{name:'임금님 5-6미 전복 1kg',qty:_tk,maxB:999};}
     if(_np.includes('멍게'))return{name:'통통 깐멍게 500g',qty,maxB:999};
     if(_np.includes('통통생물오징어')||(_np.includes('통찜용')&&_np.includes('오징어')))return{name:'통통 생물 오징어 1kg',qty,maxB:999};
-    if(_np.includes('통실바다장어')||(_np.includes('통실')&&_np.includes('바다장어')))return{name:'통통 바다장어 1kg',qty,maxB:999};
+    if(_np.includes('통실바다장어')||(_np.includes('통실')&&_np.includes('바다장어'))){const _wm=_np.match(/([\d.]+)\s*kg/);return{name:'통통 바다장어 1kg',qty:Math.max(1,Math.round(qty*(_wm?parseFloat(_wm[1]):1))),maxB:999};}
   }
   let r=pr.replace(/\*/g,'x');
   // 합포장 멀티상품을 업체가 콤마(,)로 구분해 줄 때 → 우리 합포장 구분자 '/'로 변환 (천단위 1,000 은 보존). 2026-06-09 사장님 요청
