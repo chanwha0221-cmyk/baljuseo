@@ -1008,8 +1008,10 @@
       if(byun.replace(/\s/g,'').indexOf('원가변경')>=0){ skipped++; return; }   // 원가변경 제외
       var rename = parseRename(v[14]);
       var typed = /출시|재입고|인상|인하/.test(byun);
-      var priceSet = sani(v[8]).replace(/[,\s]/g,'') !== '';                  // 공급가 칸에 값 있음 = 팔 단가를 직접 손댔다(변동 라벨이 인상/인하 아니어도 반영해야 함)
-      if(!typed && !rename && !priceSet){ skipped++; return; }                // 순수 정보변경 등 제외 — 단, 공급가를 손댔으면(priceSet) 포함
+      var saeNum = sani(v[8]).replace(/[^0-9]/g,'');                          // 공급가 칸 숫자만
+      var wonNum = String(v[9]||'').replace(/[^0-9]/g,'');                    // 원공급가 숫자만
+      var priceChanged = saeNum!=='' && saeNum!==wonNum;                     // 공급가 칸에 값 있고 + 원공급가와 다름 = 팔 단가가 실제 변경됨(라벨이 인상/인하 아니어도)
+      if(!typed && !rename && !priceChanged){ skipped++; return; }            // 순수 정보변경 등 제외 — 단, 원공급가에서 공급가가 바뀌었으면 포함
 
       var name = (rename && rename.neu) ? rename.neu : String(v[7]||'').trim();
       var pk = pkey(name);
