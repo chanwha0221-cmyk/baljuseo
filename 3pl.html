@@ -53,12 +53,14 @@
   <button class="b4" onclick="window.print()">🖨 인쇄/PDF</button>
   <button class="bx" onclick="resetAll()">초기화</button>
   <input type="file" id="imp" accept=".json" style="display:none" onchange="importJson(this)">
-  <span class="saved" id="saved"></span>
+  <button class="b4" onclick="cloudRefresh()" title="다른 기기에서 저장한 최신 내용 불러오기">☁ 새로고침</button>
+  <span class="saved" id="sync">☁ …</span>
+  <span class="saved" id="saved" style="margin-left:8px"></span>
  </div>
 
  <div class="card">
   <h1 class="title">냉동식품 3PL 물류 위탁 · 업체 선정 & 견적 관리</h1>
-  <div class="meta">작성 (주)마스터 홍찬화 · 값을 직접 고치면 자동 저장됩니다 (이 브라우저에 보관 · 백업은 [백업 내보내기])</div>
+  <div class="meta">작성 (주)마스터 홍찬화 · 값을 직접 고치면 구글시트에 자동 동기화됩니다 (어느 기기·브라우저서 열어도 같은 내용 · 백업은 [백업 내보내기])</div>
  </div>
 
  <div class="card">
@@ -145,9 +147,94 @@ const SEED={
 let S=load();
 
 function load(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r);}catch(e){}return JSON.parse(JSON.stringify(SEED));}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
- const el=document.getElementById('saved');const d=new Date();
- el.textContent='저장됨 '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}
+function hhmmss(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}
+function save(){
+ S._ts=Date.now();
+ try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+ const el=document.getElementById('saved');if(el)el.textContent='로컬 '+hhmmss();
+ scheduleCloud();}
+
+/* ===== 구글시트 클라우드 동기화 (어느 기기서든 같은 데이터) ===== */
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
+const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+const OAUTH_SCOPE='https://www.googleapis.com/auth/spreadsheets';
+const SHEET_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
+const CLOUD_TAB='_3pl_state';
+let _cachedToken=null,_tokenExp=0,_tabReady=false;
+
+async function getAccessToken(){
+  const now=Math.floor(Date.now()/1000);
+  if(_cachedToken && _tokenExp - now > 300) return _cachedToken;
+  const header={alg:'RS256',typ:'JWT'};
+  const claim={iss:CLIENT_EMAIL,scope:OAUTH_SCOPE,aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now};
+  const enc=(obj)=>btoa(JSON.stringify(obj)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const toSign=enc(header)+'.'+enc(claim);
+  const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(toSign));
+  const jwt=toSign+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const res=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`});
+  const d=await res.json();
+  _cachedToken=d.access_token;_tokenExp=now+3600;return _cachedToken;
+}
+function setSync(t,warn){const el=document.getElementById('sync');if(!el)return;el.textContent=t;el.style.color=warn?'#a32d2d':'#2563eb';}
+async function ensureTab(token){
+  if(_tabReady)return;
+  const m=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,{headers:{Authorization:'Bearer '+token}});
+  const md=await m.json();
+  const has=(md.sheets||[]).some(s=>s.properties.title===CLOUD_TAB);
+  if(!has){await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:CLOUD_TAB}}}]})});}
+  _tabReady=true;
+}
+async function cloudPull(){
+  const token=await getAccessToken();
+  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(CLOUD_TAB)}!A1`,{headers:{Authorization:'Bearer '+token}});
+  if(!r.ok)return null;
+  const d=await r.json();
+  const raw=d.values&&d.values[0]&&d.values[0][0];
+  if(!raw)return null;
+  try{return JSON.parse(raw);}catch(e){return null;}
+}
+async function cloudPush(){
+  const token=await getAccessToken();
+  await ensureTab(token);
+  const body=JSON.stringify({values:[[JSON.stringify(S)]]});
+  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(CLOUD_TAB)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body});
+  if(!r.ok)throw new Error('push '+r.status);
+}
+let _pushTimer=null;
+function scheduleCloud(){
+  setSync('☁ 저장 중…');
+  clearTimeout(_pushTimer);
+  _pushTimer=setTimeout(()=>{cloudPush().then(()=>setSync('☁ 저장됨 '+hhmmss())).catch(()=>setSync('⚠ 클라우드 저장실패(로컬은 보관됨)',true));},800);
+}
+function rerenderAll(){fillReqForm();renderVendors();renderQuote();renderSelect();renderMail();}
+async function initCloud(){
+  setSync('☁ 동기화 중…');
+  try{
+    const remote=await cloudPull();
+    if(remote){
+      if((remote._ts||0)>=(S._ts||0)){
+        S=remote;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+        rerenderAll();setSync('☁ 불러옴 '+hhmmss());
+      }else{await cloudPush();setSync('☁ 저장됨 '+hhmmss());}
+    }else{await cloudPush();setSync('☁ 저장됨 '+hhmmss());}
+  }catch(e){setSync('⚠ 클라우드 오프라인 (로컬만 저장)',true);}
+}
+async function cloudRefresh(){
+  setSync('☁ 불러오는 중…');
+  try{
+    const remote=await cloudPull();
+    if(remote){S=remote;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}rerenderAll();setSync('☁ 최신 반영 '+hhmmss());}
+    else setSync('☁ 시트에 저장된 내용 없음');
+  }catch(e){setSync('⚠ 불러오기 실패',true);}
+}
+window.addEventListener('focus',()=>{
+  const a=document.activeElement;
+  if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable))return;
+  cloudPull().then(r=>{if(r&&(r._ts||0)>(S._ts||0)){S=r;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}rerenderAll();setSync('☁ 최신 반영 '+hhmmss());}}).catch(()=>{});
+});
 
 // ---- 요건 폼 ----
 const RF=[['r_product','product'],['r_sku','sku'],['r_monthly','monthly'],['r_daily','daily'],['r_peak','peak'],
@@ -252,4 +339,5 @@ function resetAll(){if(!confirm('입력한 견적·업체 내용을 모두 지�
  S=JSON.parse(JSON.stringify(SEED));save();fillReqForm();renderVendors();renderQuote();renderSelect();renderMail();toast('초기화됨');}
 
 fillReqForm();renderVendors();renderQuote();renderSelect();renderMail();
+initCloud();
 </script></body></html>

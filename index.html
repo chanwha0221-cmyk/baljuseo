@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.561</title>
+<title>발주서 변환기 v22.562</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.561</span>
+  <span class="ver">v22.562</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -912,6 +912,8 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('풀도다리')){const isFrozen=norm(pn).includes('급냉');return{name:isFrozen?'연안 급냉 풀도다리 1kg':'연안 활 풀도다리 1kg',qty:Math.round(qty*wi),maxB:999};}
   // 골뱅이 어묵탕은 완전 다른 상품 — 활 골뱅이 규칙보다 먼저 처리 (2026-07-13 사고: 157세트가 활 골뱅이 1kg으로 치환됨)
   if(norm(pn).includes('골뱅이')&&(norm(pn).includes('어묵탕')||norm(pn).includes('어묵')))return{name:'골뱅이 어묵탕 1세트',qty,maxB:999};
+  // 자숙(삶은) 골뱅이는 활 골뱅이와 완전 다른 상품 — 이름·수량·중량 입력 그대로 (2026-07-28 사고: 자숙 골뱅이 500g x2가 활 골뱅이 1kg x1로 둔갑)
+  if(norm(pn).includes('골뱅이')&&norm(pn).includes('자숙'))return{name:pn,qty,maxB:999};
   if(norm(pn).includes('골뱅이'))return{name:'동해 활 골뱅이 1kg',qty:Math.round(qty*wi),maxB:999};
   if(norm(pn).includes('거북손')&&norm(pn).includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
   if(norm(pn).includes('석화')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
