@@ -46,6 +46,7 @@
 </style></head><body>
 <div class="wrap">
  <div class="bar">
+  <button class="b2" onclick="cloudSave()" title="지금 화면 내용을 전 기기(구글시트)에 저장">💾 저장</button>
   <button class="b3" onclick="copySubj()">📋 메일 제목</button>
   <button class="b1" onclick="copyMail()">📋 메일 본문</button>
   <button class="b4" onclick="exportJson()">💾 백업 내보내기</button>
@@ -60,7 +61,7 @@
 
  <div class="card">
   <h1 class="title">냉동식품 3PL 물류 위탁 · 업체 선정 & 견적 관리</h1>
-  <div class="meta">작성 (주)마스터 홍찬화 · 값을 직접 고치면 구글시트에 자동 동기화됩니다 (어느 기기·브라우저서 열어도 같은 내용 · 백업은 [백업 내보내기])</div>
+  <div class="meta">작성 (주)마스터 홍찬화 · 고친 값은 이 브라우저에 임시저장 · <b>[💾 저장]</b>을 누르면 그 내용이 전 기기(구글시트)에 반영되고, 다음에 열면 그 저장본이 뜹니다</div>
  </div>
 
  <div class="card">
@@ -148,11 +149,9 @@ let S=load();
 
 function load(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r);}catch(e){}return JSON.parse(JSON.stringify(SEED));}
 function hhmmss(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}
-function save(){
- S._ts=Date.now();
+function save(){ /* 편집 시 이 브라우저에만 임시저장. 전 기기 반영은 [저장] 버튼(cloudSave)만 함 */
  try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
- const el=document.getElementById('saved');if(el)el.textContent='로컬 '+hhmmss();
- scheduleCloud();}
+ const el=document.getElementById('saved');if(el)el.textContent='임시저장 '+hhmmss();}
 
 /* ===== 구글시트 클라우드 동기화 (어느 기기서든 같은 데이터) ===== */
 const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
@@ -203,24 +202,25 @@ async function cloudPush(){
   const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(CLOUD_TAB)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body});
   if(!r.ok)throw new Error('push '+r.status);
 }
-let _pushTimer=null;
-function scheduleCloud(){
+async function cloudSave(){
   setSync('☁ 저장 중…');
-  clearTimeout(_pushTimer);
-  _pushTimer=setTimeout(()=>{cloudPush().then(()=>setSync('☁ 저장됨 '+hhmmss())).catch(()=>setSync('⚠ 클라우드 저장실패(로컬은 보관됨)',true));},800);
+  try{ S._ts=Date.now(); await cloudPush(); try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} setSync('☁ 저장됨 '+hhmmss()+' · 전 기기 반영'); }
+  catch(e){ setSync('⚠ 저장 실패 — 인터넷 확인 후 다시 [저장]',true); }
 }
 function rerenderAll(){fillReqForm();renderVendors();renderQuote();renderSelect();renderMail();}
+function nonEmpty(st){ if(!st||typeof st!=='object')return false;
+  if(Array.isArray(st.vendors)&&st.vendors.length)return true;
+  if(st.req&&Object.values(st.req).some(v=>String(v||'').trim()))return true;
+  if(st.quotes&&Object.keys(st.quotes).length)return true; return false; }
 async function initCloud(){
-  setSync('☁ 동기화 중…');
+  setSync('☁ 불러오는 중…');
   try{
     const remote=await cloudPull();
-    if(remote){
-      if((remote._ts||0)>=(S._ts||0)){
-        S=remote;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
-        rerenderAll();setSync('☁ 불러옴 '+hhmmss());
-      }else{await cloudPush();setSync('☁ 저장됨 '+hhmmss());}
-    }else{await cloudPush();setSync('☁ 저장됨 '+hhmmss());}
-  }catch(e){setSync('⚠ 클라우드 오프라인 (로컬만 저장)',true);}
+    if(remote&&nonEmpty(remote)){
+      S=remote;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+      rerenderAll();setSync('☁ 저장본 불러옴 '+hhmmss());
+    }else{ setSync('☁ 저장된 내용 없음 (이 브라우저 내용 표시 중)'); }
+  }catch(e){ setSync('⚠ 클라우드 오프라인 (로컬만 표시)',true); }
 }
 async function cloudRefresh(){
   setSync('☁ 불러오는 중…');
@@ -230,11 +230,7 @@ async function cloudRefresh(){
     else setSync('☁ 시트에 저장된 내용 없음');
   }catch(e){setSync('⚠ 불러오기 실패',true);}
 }
-window.addEventListener('focus',()=>{
-  const a=document.activeElement;
-  if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable))return;
-  cloudPull().then(r=>{if(r&&(r._ts||0)>(S._ts||0)){S=r;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}rerenderAll();setSync('☁ 최신 반영 '+hhmmss());}}).catch(()=>{});
-});
+/* 자동으로 화면을 덮어쓰지 않음 — 불러오기는 페이지 열 때 1회(initCloud)와 [☁ 새로고침] 버튼으로만 */
 
 // ---- 요건 폼 ----
 const RF=[['r_product','product'],['r_sku','sku'],['r_monthly','monthly'],['r_daily','daily'],['r_peak','peak'],
