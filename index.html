@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.560</title>
+<title>발주서 변환기 v22.561</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.560</span>
+  <span class="ver">v22.561</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1026,7 +1026,7 @@ function preprocessNahaengJaeun(line){
 }
 function isPureNum(s){return !!(s.match(/^\d{1,6}$/))}
 function extractPhoneFromAddr(addr){
-  const m=addr.match(/0\d{1,2}-\d{3,4}-\d{4}/);
+  const m=addr.match(/(?<!\d)0\d{1,3}-\d{3,4}-\d{4}(?!\d)/);  // 0\d{1,3} = 안심번호(0508 등 4자리 앞번호) 포함, 앞뒤 (?<!\d)(?!\d)로 숫자 중간 매칭 방지 (2026-07-28 0508 05 잘림 fix)
   if(!m)return{addr,phone:''};
   const phone=m[0];const cleaned=addr.replace(phone,'').replace(/\s+/g,' ').trim();
   return{addr:cleaned,phone};
@@ -1066,13 +1066,24 @@ function pr2(line){
   // 시트에서 복사 시 칸 사이에 끼는 빈 스페이서 칸 건너뛰기: 이름 다음 칸이 비면 다음 비지 않은 칸을 주소로
   let ai=pi+2+qtyColOffset;
   while(ai<cols.length-1&&(cols[ai]||'').trim()==='')ai++;
+  // 🚨 [이름][전화][주소] 순서 대응 (2026-07-28): 이름 다음 칸이 통째로 전화번호면
+  //    그건 고객 전화(안심번호 0504·050X 포함)고, 진짜 주소는 그 다음 비지 않은 칸이다.
+  //    기존엔 전화칸을 주소로 오인 → 주소가 전화칸으로 밀려 fp()가 주소 숫자만 긁어 깨짐
+  //    (썬푸드마켓 오철규 0504-4984-3192 → 3831 사고).
+  let phoneBeforeAddr='';
+  if(isPhone((cols[ai]||'').trim().replace(/\s+/g,''))){
+    phoneBeforeAddr=(cols[ai]||'').trim();
+    ai++;
+    while(ai<cols.length-1&&(cols[ai]||'').trim()==='')ai++;
+  }
   const rawAddr=(cols[ai]||'').trim();
   const extracted=extractPhoneFromAddr(rawAddr);
   let addr=extracted.addr;const addrPhone=extracted.phone;
   const rest=cols.slice(ai+1).map(c=>(c||'').trim()).filter(Boolean);
   const p1=rest[0]||'';const p2=rest[1]||'';const p3=rest[2]||'';
   let custPhone='',msg='';
-  if(isPhone(p1)){custPhone=p1;msg=p2+(p3?' '+p3:'');}
+  if(phoneBeforeAddr){custPhone=phoneBeforeAddr;msg=[p1,p2,p3].filter(x=>x&&!isPhone(x.replace(/\s+/g,''))).join(' ').trim();}
+  else if(isPhone(p1)){custPhone=p1;msg=p2+(p3?' '+p3:'');}
   else if(isPhone(p2)){custPhone=p2;msg=p3;}
   else{custPhone=p1||p2||addrPhone;msg=p3;}
   const qm=prod.match(/[xX×]\s*(\d+)\s*$/);
@@ -1435,7 +1446,7 @@ function normSikbomProd(raw){return raw.replace(/^(버피|연안)\s+/,'').trim()
 function normLine(l){const t=l.trim();return t.includes('\t')?t:t.replace(/ {2,}/g,'\t');}
 function isOrderHdr(l){return /^\d{9}[\t ]/.test(l)&&/GP[A-Z]/.test(l);}
 function extractAddrPhone(a){
-  const m=a.match(/(0\d{1,2}[\s]?\d{3,4}[\s]?\d{4})/);
+  const m=a.match(/(?<!\d)(0\d{1,3}[\s]?\d{3,4}[\s]?\d{4})(?!\d)/);  // 0\d{1,3} = 안심번호(0508 등) 포함 (2026-07-28 fix)
   if(!m)return{addr:a.trim(),msg:''};
   const ix=a.indexOf(m[1]);
   return{addr:a.slice(0,ix).trim(),msg:a.slice(ix+m[1].length).trim()};
