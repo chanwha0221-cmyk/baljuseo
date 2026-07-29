@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.562</title>
+<title>발주서 변환기 v22.563</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.562</span>
+  <span class="ver">v22.563</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -949,13 +949,14 @@ function br(cl,cfg,nq,nr,ord,iv){
 }
 function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4,5}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));} // 끝 5자리 허용 (테오푸드 070-8028-78757, 2026-07-02)
 function isHumanName(s){return /^[가-힣]{2,6}$/.test((s||'').trim());}
+function isHyeinBuyer(s){s=(s||'').trim();return isHumanName(s)||/^[A-Za-z][A-Za-z0-9]{1,19}$/.test(s);} // 혜인 선물 주문자: 한글 이름 또는 jjj2829 같은 영문시작 아이디 (2026-07-29)
 function preprocessHyeinGift(line){
   // 혜인건강 선물 발주: 앞(주문자)·뒤(수령인)가 둘 다 사람 이름인 형식 → 혜인건강 10칸으로 인식.
   // 사는사람(주문자)·받는사람(수령인) 이름 둘 다 보존. 내용은 그대로 두고 맨 앞에 혜인건강만 붙임.
   const c=line.split('\t').map(x=>(x||'').trim());
   if(c.length<6)return null;
   const buyer=c[0];
-  if(!isHumanName(buyer)||isKnownClient(buyer)||isPhone(buyer))return null; // 첫 칸이 등록업체/전화면 제외
+  if(!isHyeinBuyer(buyer)||isKnownClient(buyer)||isPhone(buyer))return null; // 첫 칸이 등록업체/전화면 제외
   if(!isPhone(c[1]))return null;      // 주문자 연락처
   if(!isHumanName(c[3]))return null;  // 수령인명 (뒤에도 사람 이름)
   if(!isPhone(c[5]))return null;      // 수령인 연락처
@@ -982,7 +983,7 @@ function preprocessHyein(line){
     return`혜인건강\t\t\t\t${product}\t${custName}\t${addr}\t${custPhone}\t${msg}`;
   }
   // 형식 2: 이름 전화번호 상품명 x N 이름(N) 주소 전화번호 (탭 없는 공백 구분)
-  const m2=line.match(/^([가-힣]{2,6})\s+(0\d{1,2}-\d{3,4}-\d{4})\s+(.*?[xX×]\s*\d+)\s+([가-힣]{2,6})\(\d+\)\s+(.+)$/);
+  const m2=line.match(/^([가-힣]{2,6}|[A-Za-z][A-Za-z0-9]{1,19})\s+(0\d{1,2}-\d{3,4}-\d{4})\s+(.*?[xX×]\s*\d+)\s+([가-힣]{2,6})\(\d+\)\s+(.+)$/);
   if(m2){
     const firstWord=m2[1].replace(/\s+/g,'');
     if(isKnownClient(firstWord))return null;
