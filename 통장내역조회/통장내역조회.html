@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v4.3</title>
+<title>통장 내역 조회 v4.4</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
@@ -162,7 +162,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v4.3</span>
+  <span class="ver">v4.4</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1514,8 +1514,10 @@ function _nameKeys(rawName){
   const s = rawName.toString().trim();
   keys.add(s);
   // 괄호 안 추출: '신종원(온필드푸드)' → '온필드푸드'
+  // ⚠ 2026-07-29 fix: '(주)신선한아침'의 괄호 안 '주' 같은 법인표기가 키로 들어가면
+  //    별칭 '주'에 걸려 (주)로 시작하는 남의 입금이 전부 한 업체로 붙음(우디 초과입금 오보 사고). 법인표기·1글자는 제외.
   const m = s.match(/\(([^)]+)\)/);
-  if(m) keys.add(m[1].trim());
+  if(m){ const inner=m[1].trim(); if(inner.length>=2 && !_CORP_TOKENS.has(inner)) keys.add(inner); }
   // 괄호 앞 부분
   const pre = s.replace(/\([^)]*\)/g,'').trim();
   if(pre) keys.add(pre);
@@ -1524,13 +1526,21 @@ function _nameKeys(rawName){
   return keys;
 }
 
+// 법인 표기 토큰 — 업체 식별력이 없어서 키/별칭으로 쓰면 안 됨 (2026-07-29 우디 오보 사고)
+const _CORP_TOKENS = new Set(['주','유','합','(주)','(유)','주식회사','유한회사','합자회사','유한책임회사','농업회사법인','어업회사법인','영어조합법인']);
 // 정산달력의 입금자명 메모 ↔ 업체명 매핑 (양방향)
 function _buildAliasMap(memoMap){
   // memoMap[업체명] = "배요섭 / 김시내 / (주)아이리스그" 등
   const aliasToCompany = {}; // 별칭 → 업체명
   for(const [company, txt] of Object.entries(memoMap)){
     const tokens = txt.split(/[\/,>·\s]+/).map(t=>t.trim()).filter(Boolean);
-    tokens.forEach(t=>{ if(t.length>=2) aliasToCompany[t] = company; aliasToCompany[t.replace(/\s+/g,'')] = company; });
+    // ⚠ 2026-07-29 fix: 공백제거 버전(tt)이 길이 검사 없이 등록돼 '주' 1글자가 별칭이 됐음
+    //    → '(주)OOO' 입금 전부가 그 업체로 오매칭(우디 초과입금 오보). 두 버전 다 길이·법인표기 가드.
+    tokens.forEach(t=>{
+      const tt=t.replace(/\s+/g,'');
+      if(t.length>=2 && !_CORP_TOKENS.has(t)) aliasToCompany[t] = company;
+      if(tt.length>=2 && !_CORP_TOKENS.has(tt)) aliasToCompany[tt] = company;
+    });
   }
   return aliasToCompany;
 }
