@@ -18,6 +18,7 @@ const CC={
   "청년어부":{phone:"010-2614-6813",insert:"마우셀"},
   "청년수산":{phone:"010-2614-6813",insert:"마우셀",showInsert:true},
   "혜인건강":{phone:"070-4473-7196",insert:"HN"},
+  "더바른곳간":{phone:"",insert:"홈앤디자인",showInsert:true},
   "파더그로브":{phone:"0502-2679-0637",insert:"퍼니밀"},
   "김융환":{address:"경기도 남양주시 홍유릉로 309 401호",phone:"010-6533-1027",insert:"발볼"},
   "발볼":{address:"경기도 남양주시 홍유릉로 309 401호",phone:"010-6533-1027"},
