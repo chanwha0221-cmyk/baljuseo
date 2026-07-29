@@ -277,7 +277,7 @@
   var NOTICE_TAB = '공지_당일생물';   // 당일 상품 공지 (같은 사본 APPLY_ID)
   var NOTICE_GID = 322594718;         // 공지_당일생물 탭 gid
   var NOTICE_HDR = 23;                // 헤더 23행, 데이터 24행부터
-  // 창고 라우팅: 공급처(idx0) → 창고 탭 gid (같은 사본 APPLY_ID · 헤더 1행 · 데이터 2행부터 · 상품명 C열)
+  // 창고 라우팅: 공급처(idx0) → 창고 탭 gid (같은 사본 APPLY_ID · 헤더 1행 · 2행=색칠 구분행(건드리지 말 것) · 데이터 3행부터 · 상품명 C열)
   var WH = { '군산':1009852460,'인천':195825545,'동해':375641521,'충무':27150970,'마진':1057056081,'하남':1137717862,'찐한국':1044117799,'생고':1232303792,'김포':1750157191,'부산':152528685,'북구':1088458771,'팡팡':2110050415,'떡':1356948137,'키트':1315403555,'창원':550048807,'단독(유)':1840390601,'단독(무)':1038659575,'뿌리기':211818725 };
   var SCOPE = 'https://www.googleapis.com/auth/spreadsheets';           // 읽기+쓰기
   var DEFAULT_CLIENT_ID = '337370860058-repde1q121dchas1fddan4tasikjep7l.apps.googleusercontent.com';
@@ -757,7 +757,9 @@
       var txt=function(i){ var td=tds[i]; if(!td) return ''; var inp=td.querySelector('input,textarea'); if(inp) return inp.value; var pnm=td.querySelector('.pnm'); return pnm?pnm.textContent:td.textContent; };
       var v=[]; for(var i=0;i<16;i++) v.push(txt(i));
       var won=v[9], sae=v[8];
-      var gong=(won && norm(won)!=='' && norm(won)!==norm(sae)) ? (won+' > '+sae) : sae;  // 변동있으면 a>b
+      // 가격은 항상 천단위 콤마(12,000 > 11,000) — 숫자 조각만 콤마 포맷, 그 외 글자는 보존
+      var fmtWon=function(s){ return String(s==null?'':s).trim().replace(/\d[\d,]*/g, function(m){ var n=num(m); return n==null?m:comma(n); }); };
+      var gong=(won && norm(won)!=='' && norm(won)!==norm(sae)) ? (fmtWon(won)+' > '+fmtWon(sae)) : fmtWon(sae);  // 변동있으면 a>b
       items.push({ v:v, gong:gong, name:v[7], sup:String(v[0]).trim(), byun:v[3], day:v[4], poom:String(v[3]).indexOf('품절')>=0 });
     }
     return items;
@@ -882,7 +884,7 @@
           setBtn('창고: '+info.tab+'...');
           var rows=sortItems(info.add.slice()).map(rowWh);
           rep.wh[info.tab]=rows.length; rep.whGid[info.tab]=info.gid; rep.poomDel += Object.keys(info.delPk).length;
-          var spW=startPair(info.tab, 2, 2);   // 지정값 있으면 그 행, 없으면 기본(3행 삽입·2행부터 스캔)
+          var spW=startPair(info.tab, 2, 3);   // 지정값 있으면 그 행, 없으면 기본(3행 삽입·3행부터 스캔 — 2행은 색칠 구분행이라 절대 안 건드림)
           return applyToTab(info.gid, info.tab, spW.ins, spW.read, 'C', 3, rows, info.addPk, info.delPk, true).then(function(){ i++; return nextTab(); });
         }
         return nextTab();
