@@ -381,9 +381,9 @@ async function saveBand(){
 }
 async function delBand(id){
   if(!loaded){ toast('로드가 안 된 상태라 삭제 불가 (새로고침 후)'); return; }
-  const it=DATA.find(x=>x.id===id); if(!it) return;
+  const it=DATA.find(x=>String(x.id)===String(id)); if(!it) return;
   if(!confirm('['+it.title+'] 저장본을 삭제할까요?')) return;
-  DATA=DATA.filter(x=>x.id!==id);
+  DATA=DATA.filter(x=>String(x.id)!==String(id));
   try{
     const t=await getToken();
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A2:F100000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
@@ -400,13 +400,13 @@ function renderList(){
     <div class="item-head" onclick="document.getElementById('it-${x.id}').classList.toggle('open')">
       <span class="item-title">${esc(plainOf(x.title))}</span>
       <span class="item-meta">${esc(x.date)} · ${(x.len||0).toLocaleString()}자</span>
-      <button class="btn-sm" onclick="event.stopPropagation();loadToOut(${JSON.stringify(x.id)})">✍️ 불러오기</button>
-      <button class="btn-sm" style="color:#c0392b" onclick="event.stopPropagation();delBand(${JSON.stringify(x.id)})">🗑</button>
+      <button class="btn-sm" onclick="event.stopPropagation();loadToOut('${String(x.id).replace(/[^0-9a-zA-Z_-]/g,'')}')">✍️ 불러오기</button>
+      <button class="btn-sm" style="color:#c0392b" onclick="event.stopPropagation();delBand('${String(x.id).replace(/[^0-9a-zA-Z_-]/g,'')}')">🗑</button>
     </div>
     <div class="item-body">${markedToHtml(x.body)}</div>
   </div>`).join('');
 }
-function loadToOut(id){ const it=DATA.find(x=>x.id===id); if(!it) return; $('out').innerHTML=markedToHtml(it.body); upOut(); $('out').scrollIntoView({behavior:'smooth'}); toast('결과창에 불러왔어요'); }
+function loadToOut(id){ const it=DATA.find(x=>String(x.id)===String(id)); if(!it) return; $('out').innerHTML=markedToHtml(it.body); upOut(); $('out').scrollIntoView({behavior:'smooth'}); toast('결과창에 불러왔어요'); }
 async function copyRich(){
   const el=$('out');
   if(!plainOf(outMarked()).trim()){ toast('복사할 글이 없어요'); return; }
@@ -489,6 +489,8 @@ ${b}
 - "※ 구성 :", "※ 중량 :" 같은 스펙 나열 형식은 절대 그대로 쓰지 말 것 — 전부 자연스러운 문장으로 녹일 것. (예: "원물 100~150kg급 참다랑어에서 뜬 필렛 500g을 트레이에 담아 보내드립니다")
 - 🚨 분량(가장 중요한 절대 규칙): 【잠금N】 토큰(인트로 박스·하단 주문안내 고정부)을 뺀 **순수 본문만** 공백 포함 **딱 1,000~1,100자**. 목표 중앙값 1,050자. **1,100자 절대 초과 금지.** 자료가 많아도 다 넣으려 하지 말고 핵심만 골라 1,100자 안에 압축해라. 길게 쓰는 것보다 1,100자를 지키는 게 우선이다.
 - 쇼핑몰 결제·채팅 주문·사업자 안내 같은 하단 고정 문구를 새로 쓰지 말 것 — 그건 【잠금N】 토큰이 담당한다.
+- 🚫 \`======\` 박스(가격 박스 포함)·\`🔽\` 주문안내·\`*가격\`/\`*쇼핑몰url\`/\`*채팅방url\`/\`*사업자\`/\`*사칭img\` 토큰 줄을 네가 새로 만드는 것 절대 금지 — 전부 【잠금N】이 담당하고, 완성글에 딱 1회씩만 들어간다. 중복은 폐기 사유다.
+- 🚫 실제 가격 숫자(단가·원 단위 금액)를 본문 어디에도 쓰지 말 것 — 가격 표기는 잠금 박스 안 \`*가격\` 토큰뿐이다. (2026-07-29 사장님: 상품명 뒤에 실단가 박는 것 금지)
 - 가격·구성·원산지·스펙은 원문에 있는 것만. 지어내기 금지. 원문 정보는 빠짐없이.
 - 부족한 분량은 손질법·조리법·보관법·맛있게 먹는 팁 등 상식 수준 보강만. 과장·허위 금지.
 - '마스터 유통', '마스터' 같은 상호명은 절대 쓰지 말 것 — 반드시 '저희', '저희가', '저희는' 으로 표현한다. (예: "마스터 유통은 양으로 실망시키지 않습니다" ❌ → "저희는 양으로 실망시키지 않습니다" ⭕)
@@ -510,7 +512,7 @@ ${draft}
 - ⚠️ 【잠금1】【잠금2】… 토큰은 절대 지우거나 옮기지 말 것. 있던 자리에 그 표기 그대로 반드시 남겨라 (지우면 그 결과는 폐기된다).
 - ⚠️ 【잠금N】 토큰 '뒤(아래)'에는 단 한 글자도 쓰지 말 것. 새로 넣는 문단은 반드시 토큰보다 위, 상품 설명 본문 중간에 둔다.
 - 늘리는 방법: **상품 설명 본문의 중간(초·중반)**에 새 문단을 끼워 넣어 본문을 약 ${need}자 늘릴 것. 내용은 손질법·조리법·보관법·맛있게 먹는 팁·어울리는 요리 등 '새로운 실질 정보'만.
-- 🚫 절대 금지: ①이미 있는 문장을 그대로 반복하거나 말만 살짝 바꿔 되풀이하기 ②마무리·인사 문구를 새로 덧붙이기 ③글 맨 끝의 주문안내·결제·사업자·사칭 안내를 흉내내거나 반복하기. 자수만 채우려고 같은 말 늘리지 말 것 — 반드시 새로운 정보로만 늘려라.
+- 🚫 절대 금지: ①이미 있는 문장을 그대로 반복하거나 말만 살짝 바꿔 되풀이하기 ②마무리·인사 문구를 새로 덧붙이기 ③글 맨 끝의 주문안내·결제·사업자·사칭 안내를 흉내내거나 반복하기 ④\`======\` 박스·실제 가격 숫자 새로 쓰기(가격은 잠금 박스의 \`*가격\` 토큰만). 자수만 채우려고 같은 말 늘리지 말 것 — 반드시 새로운 정보로만 늘려라.
 - 새 문단도 한 줄은 공백 포함 28자 이내, 짧은 줄 호흡, 빈 줄로 문단 구분.
 - 가격·구성·원산지·스펙은 지어내지 말 것(원문에 있는 것만).
 - '마스터 유통' 상호명 금지 — '저희'로 쓸 것.
@@ -559,6 +561,10 @@ async function generate(isRetry){
       else stall++;
     }
     out=best;
+    // 고정부 중복 안전망 (2026-07-29 부사사과 사고: AI가 잠금 밖에 실단가 ======박스+🔽주문안내를 또 써서 이중 삽입)
+    //   이 시점 잠금은 전부 【잠금N】 토큰 상태 → out에 남은 literal ======박스·🔽·*토큰 줄은 100% AI가 지어낸 것이라 통째 제거.
+    out=out.replace(/={6,}[^\n]*\n[\s\S]*?\n\s*={6,}[^\n]*\n?/g,'');
+    out=out.split('\n').filter(l=>{const b=l.replace(/[*_《》\s]/g,'');return !(b.startsWith('🔽')||/^(가격|쇼핑몰url|채팅방url|사업자|사칭img)$/.test(b));}).join('\n');
     // 경고 toast 제거 — 사장님한테 '다시 생성' 시키지 않는다. 최선을 다한 최종 결과만 조용히 보여줌.
     // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
     out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
