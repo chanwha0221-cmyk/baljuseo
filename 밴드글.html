@@ -564,7 +564,8 @@ async function generate(isRetry){
     // 고정부 중복 안전망 (2026-07-29 부사사과 사고: AI가 잠금 밖에 실단가 ======박스+🔽주문안내를 또 써서 이중 삽입)
     //   이 시점 잠금은 전부 【잠금N】 토큰 상태 → out에 남은 literal ======박스·🔽·*토큰 줄은 100% AI가 지어낸 것이라 통째 제거.
     out=out.replace(/={6,}[^\n]*\n[\s\S]*?\n\s*={6,}[^\n]*\n?/g,'');
-    out=out.split('\n').filter(l=>{const b=l.replace(/[*_《》\s]/g,'');return !(b.startsWith('🔽')||/^(가격|쇼핑몰url|채팅방url|사업자|사칭img)$/.test(b));}).join('\n');
+    //   ⚠️ 2026-07-29 매생이 사고 2차: AI가 ====== 없이 '★ 상품명 - *가격' 줄만 흉내내 안전망을 통과 → *가격 포함 줄·★ 시작 줄도 제거(*가격 토큰과 ★는 잠금 박스 전용)
+    out=out.split('\n').filter(l=>{const b=l.replace(/[*_《》\s]/g,'');return !(b.startsWith('🔽')||b.startsWith('★')||l.includes('*가격')||/^(가격|쇼핑몰url|채팅방url|사업자|사칭img)$/.test(b));}).join('\n');
     // 경고 toast 제거 — 사장님한테 '다시 생성' 시키지 않는다. 최선을 다한 최종 결과만 조용히 보여줌.
     // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
     out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
@@ -581,6 +582,8 @@ async function generate(isRetry){
     });
     // 사진 토큰 유실 보강 — AI가 빼먹은 사진은 글 끝에 순서대로 붙임
     IMGS.forEach((u,i)=>{ const tk='〈이미지'+(i+1)+'〉'; if(out.indexOf(tk)===-1) out+='\n\n'+tk; });
+    // 하단 *사업자·*사칭img 줄은 항상 《작》 자동 처리 (2026-07-29 사장님: 작은 글씨 안 돼 있다고 격노. ⚠️ \b는 한글 끝에서 안 걸리므로 \s*$ 사용)
+    out=out.split('\n').map(l=>{const t=l.trim();return (/^\*(사업자|사칭img)\s*$/.test(t)&&!/《작》/.test(l))?'《작》'+t+'《/작》':l;}).join('\n');
     $('out').innerHTML=markedToHtml(out); upOut();
     toast('✨ 생성 완료 (본문 '+bodyLen(out).toLocaleString()+'자, 고정부 제외) — 수정 후 💾 저장!');
     $('out').scrollIntoView({behavior:'smooth',block:'start'});
