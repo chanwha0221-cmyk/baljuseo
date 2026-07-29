@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v4.4</title>
+<title>통장 내역 조회 v4.5</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
@@ -162,7 +162,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v4.4</span>
+  <span class="ver">v4.5</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -618,6 +618,7 @@ async function handleSettleFile(file){
     const colOf=(ref,fb)=>{if(!ref)return fb;const m=ref.match(/^([A-Z]+)/);if(!m)return fb;let n=0;for(const ch of m[1])n=n*26+ch.charCodeAt(0)-64;return n;};
     const names={},stat={};let colored=0;
     const byColor={}; // 🎨 색깔별 합계 — 리모컨 미입금액과 차이 원인 진단용 (2026-07-10)
+    let _dMin='';     // 📅 A열 일자 최솟값 — 매칭 기간 자동 입력용 (2026-07-29 사장님 지시: 파일명에 날짜 없어도 내용 보고 박아라)
     const _histAgg={}; // 📚 정산내역 누적용 — (날짜|업체) 키로 면세+과세 합산 (2026-07-18 유실 버그fix: 같은 키 덮어쓰기로 면세가 날아가던 것)
     for(const row of [...shx.getElementsByTagName('row')]){
       const rnum=parseInt(row.getAttribute('r')||'0',10);
@@ -633,7 +634,9 @@ async function handleSettleFile(file){
         if(cur===1){ // A열 = 날짜 (숫자 시리얼이면 변환)
           let dv=String(val);
           if(/^\d+(\.\d+)?$/.test(dv)) dv=new Date(Date.UTC(1899,11,30)+parseFloat(dv)*86400000).toISOString().slice(0,10);
-          rowDate=dv; continue;
+          rowDate=dv;
+          if(/^\d{4}-\d{2}-\d{2}$/.test(dv) && (!_dMin||dv<_dMin)) _dMin=dv;
+          continue;
         }
         if(cur<3||c.getAttribute('t')==='s') continue;
         const amt=parseFloat(val);
@@ -657,6 +660,14 @@ async function handleSettleFile(file){
         stat[nm].amt+=amt;
         if(rowDate){ if(!stat[nm].from||rowDate<stat[nm].from) stat[nm].from=rowDate; if(!stat[nm].to||rowDate>stat[nm].to) stat[nm].to=rowDate; }
       }
+    }
+    // 📅 매칭 기간 자동 입력 (2026-07-29): 파일명(YYYYMMDD_YYYYMMDD)에서 못 잡았으면 파일 내용의 첫 일자~오늘로.
+    //    끝날짜를 '오늘'로 하는 이유: 정산달력 마지막 날 이후에 들어온 입금(다음주 상환)도 매칭에 넣어야 함.
+    if(_dMin){
+      const _a=document.getElementById('matchTxFrom'), _b=document.getElementById('matchTxTo');
+      const _n=new Date(), _today=_n.getFullYear()+'-'+String(_n.getMonth()+1).padStart(2,'0')+'-'+String(_n.getDate()).padStart(2,'0');
+      if(_a&&!_a.value)_a.value=_dMin;
+      if(_b&&!_b.value)_b.value=_today;
     }
     MIS_DATA=Object.entries(stat).map(([name,v])=>({name,amt:v.amt,from:v.from,to:v.to})).sort((a,b)=>b.amt-a.amt);
     MIS_BASIS=file.name.replace(/\.xlsx$/i,'');
