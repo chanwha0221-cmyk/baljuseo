@@ -253,8 +253,16 @@ function extractLocks(marked){
   let ti=-1;
   // ⚠️ 2026-07-13: 하단 고정부 줄이 굵게/큰글씨면 마커가 붙어(**🔽 …**) '^🔽' 감지에 실패 → 잠금이 안 걸려
   //    AI가 주문안내 뭉치를 통째로 날리는 사고. → 마커를 벗긴 평문으로 판정한다.
-  const bare=s=>String(s).replace(/《\/?큰》/g,'').replace(/\*\*/g,'').replace(/__/g,'').trim();
-  for(let i=0;i<lines.length;i++){ const b=bare(lines[i]); if(/진짜 자신 있습니다/.test(b) || /^🔽/.test(b) || /^[^가-힣A-Za-z0-9]{0,3}쇼핑몰 간편 결제/.test(b)){ ti=i; break; } }
+  // ⚠️ 2026-07-30 멸치밥새우 사고: 고정부 첫 줄이 '▼ 쇼핑몰 간편 주문 ▼'(🔽 아님·'결제' 아님)이라 감지 실패 →
+  //    ▼줄·*쇼핑몰url 두 줄이 잠금 밖에 남아 AI 손을 타고, 아래 중복 안전망이 *쇼핑몰url을 지워버림 → ▼·'간편 주문' 표기도 감지.
+  const bare=s=>String(s).replace(/《\/?[큰작]》/g,'').replace(/\*\*/g,'').replace(/__/g,'').trim();
+  for(let i=0;i<lines.length;i++){ const b=bare(lines[i]); if(/진짜 자신 있습니다/.test(b) || /^[🔽▼]/.test(b) || /^[^가-힣A-Za-z0-9]{0,3}쇼핑몰 간편 (결제|주문)/.test(b)){ ti=i; break; } }
+  // 최후 안전망(2026-07-30): 안내 문구가 또 바뀌어도 *쇼핑몰url·*사업자 같은 토큰 줄은 반드시 있음 →
+  //    첫 토큰 줄을 찾아 그 문단 시작(빈 줄·잠금토큰 경계)까지 거슬러 올라가 거기부터 고정부로 잡는다.
+  if(ti<0){
+    for(let i=0;i<lines.length;i++){ if(/^(쇼핑몰url|채팅방url|사업자|사칭img)$/.test(bare(lines[i]).replace(/[*\s]/g,''))){ ti=i; break; } }
+    while(ti>0 && lines[ti-1].trim()!=='' && !/^【\s*잠금/.test(lines[ti-1].trim())) ti--;
+  }
   if(ti>=0 && lines.slice(ti).join('').trim()){
     LOCKS.push(lines.slice(ti).join('\n'));
     TAIL_LOCK=LOCKS.length-1;   // 이 잠금은 '글 맨 끝' 소속 — 유실돼도 위로 올리지 말 것
@@ -565,7 +573,8 @@ async function generate(isRetry){
     //   이 시점 잠금은 전부 【잠금N】 토큰 상태 → out에 남은 literal ======박스·🔽·*토큰 줄은 100% AI가 지어낸 것이라 통째 제거.
     out=out.replace(/={6,}[^\n]*\n[\s\S]*?\n\s*={6,}[^\n]*\n?/g,'');
     //   ⚠️ 2026-07-29 매생이 사고 2차: AI가 ====== 없이 '★ 상품명 - *가격' 줄만 흉내내 안전망을 통과 → *가격 포함 줄·★ 시작 줄도 제거(*가격 토큰과 ★는 잠금 박스 전용)
-    out=out.split('\n').filter(l=>{const b=l.replace(/[*_《》\s]/g,'');return !(b.startsWith('🔽')||b.startsWith('★')||l.includes('*가격')||/^(가격|쇼핑몰url|채팅방url|사업자|사칭img)$/.test(b));}).join('\n');
+    //   ⚠️ 2026-07-30 멸치밥새우 사고: 고정부 표기가 ▼ 변형('▼ 쇼핑몰 간편 주문 ▼')으로도 존재 → ▼ 시작·'쇼핑몰 간편'·'누르시고' 줄도 잠금 전용 문구라 AI 출력에선 제거.
+    out=out.split('\n').filter(l=>{const b=l.replace(/[*_《》\s]/g,'');return !(b.startsWith('🔽')||b.startsWith('▼')||b.startsWith('★')||l.includes('*가격')||/쇼핑몰 간편 (결제|주문)/.test(l)||l.includes('누르시고')||/^(가격|쇼핑몰url|채팅방url|사업자|사칭img)$/.test(b));}).join('\n');
     // 경고 toast 제거 — 사장님한테 '다시 생성' 시키지 않는다. 최선을 다한 최종 결과만 조용히 보여줌.
     // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
     out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
