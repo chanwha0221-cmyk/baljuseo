@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.567</title>
+<title>발주서 변환기 v22.568</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.567</span>
+  <span class="ver">v22.568</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -875,6 +875,8 @@ function pp(cl,pr,qty){
     if(norm(pn).includes('곰치'))return{name:'생물 손질곰치 세트 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};   // 1kg 기준: 2kg→x2, 3kg→x3 (2026-07-16)
     if(norm(pn).includes('대구'))return{name:'초대왕 생대구 5kg급',qty,maxB:999};
     if(norm(pn).includes('참다랑어'))return{name:'130kg급 생참다랑어 필렛 500g',qty:Math.max(1,Math.round(qty*wi*2)),maxB:999};
+    // 반건조 오징어 피데기: 5미 단위로 발주 (5미=x1, 10미=x2). 마지막 'N미'가 발주 마릿수 (2026-07-30 사장님 지시)
+    if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터')){const _mi=norm(pn).match(/(\d+)미/g);const _n=_mi?parseInt(_mi[_mi.length-1]):5;return{name:'정품 반건조 오징어 1.2kg급',qty:Math.max(1,Math.round(qty*_n/5)),maxB:999};}
     if(norm(pn).includes('호래기'))return{name:'횟감 대짜 호래기 500g',qty:Math.round(qty*wi*2),maxB:999};
     if(norm(pn).includes('참소라'))return{name:'연안 주먹참소라 1kg',qty:Math.round(qty*wi),maxB:999};
     if(norm(pn).includes('참가리비'))return{name:'국내산 참가리비 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};

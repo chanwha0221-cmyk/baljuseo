@@ -39,6 +39,8 @@ function pp(cl,pr,qty){
   const wm=cn.match(/([\d.]+)kg/);const gm=!wm&&cn.match(/(\d+)g\b/);const wi=wm?parseFloat(wm[1]):gm?parseInt(gm[1])/1000:1;
   const pn=qm?cn:cn.replace(/[xX×]\s*[\d.]+/g,'').trim();
   if(cl==='대상수산'){
+    // 반건조 오징어 피데기: 5미 단위로 발주 (5미=x1, 10미=x2). 마지막 'N미'가 발주 마릿수 (2026-07-30 사장님 지시)
+    if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터')){const _mi=norm(pn).match(/(\d+)미/g);const _n=_mi?parseInt(_mi[_mi.length-1]):5;return{name:'정품 반건조 오징어 1.2kg급',qty:Math.max(1,Math.round(qty*_n/5)),maxB:999};}
     if(norm(pn).includes('호래기'))return{name:'횟감 대짜 호래기 500g',qty:Math.round(qty*wi*2),maxB:999};
     if(norm(pn).includes('참소라'))return{name:'연안 주먹참소라 1kg',qty:Math.round(qty*wi),maxB:999};
     if(norm(pn).includes('주꾸미')||norm(pn).includes('쭈꾸미'))return{name:'연안 활 주꾸미 1kg',qty:Math.round(qty*wi),maxB:999};
