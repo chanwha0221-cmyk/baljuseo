@@ -532,6 +532,9 @@ async function loadDataset(){const db=await openDB();return new Promise((res,rej
 async function deleteDataset(){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete('dataset');tx.oncomplete=res;tx.onerror=rej;});}
 // 거래 고유키 — 거래일시(시각포함)+입금+출금+잔액+내용+예금주. 같으면 동일 거래로 보고 중복 스킵
 function recKey(d){return d.date+'|'+d.in+'|'+d.out+'|'+d.bal+'|'+d.desc+'|'+d.name;}
+// 교차 양식 중복 키 (2026-07-31): 같은 입금이 통장 양식(초 실값·잔액 있음)과 리모컨 양식(초 00·잔액 0)으로 들어오면
+// recKey가 달라 이중집계됨 → 날짜+시:분+금액으로 잡는다. 입금(in>0)에만 사용.
+function _crossKey(d){const m=String(d.date||'').match(/(\d{1,2}):(\d{2})/);return m?d.dateOnly+'|'+m[1].padStart(2,'0')+':'+m[2]+'|'+d.in:null;}
 function renderAll(filename){
   if(!allData.length)return;
   allData.sort((a,b)=>a.date.localeCompare(b.date));
@@ -985,8 +988,16 @@ function parseRows(rows,filename,showChat=true){
   if(parsed.length===0){alert('데이터를 읽지 못했어요.');return;}
   // 병합: 기존 누적 데이터 유지 + 새 거래만 추가 (중복은 스킵)
   const seen=new Set(allData.map(recKey));
+  // 교차 양식 중복 방지: 기존 입금들의 분단위 키 개수 맵 — 같은 분·같은 금액 입금이 이미 있으면 다른 양식에서 온 같은 건으로 보고 스킵(건수만큼만)
+  const crossCnt={};
+  for(const d of allData){ if(d.in>0){const k=_crossKey(d); if(k)crossCnt[k]=(crossCnt[k]||0)+1;} }
   let added=0,skipped=0;const newRecs=[];
-  for(const r of parsed){const k=recKey(r);if(seen.has(k)){skipped++;continue;}seen.add(k);allData.push(r);newRecs.push(r);added++;}
+  for(const r of parsed){
+    const k=recKey(r);
+    if(seen.has(k)){skipped++;continue;}
+    if(r.in>0){const ck=_crossKey(r); if(ck&&crossCnt[ck]>0){crossCnt[ck]--;skipped++;continue;}}
+    seen.add(k);allData.push(r);newRecs.push(r);added++;
+  }
   renderAll(filename);
   saveDataset(allData,filename).catch(()=>{});
   // 새 거래만 공유 시트에 append (기존 시트 데이터 안 건드림)
