@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v4.9</title>
+<title>통장 내역 조회 v5.0</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v4.9</span>
+  <span class="ver">v5.0</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1983,12 +1983,20 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
       //    미색칠 셀은 그냥 아직 안 낸 최근 정산분(부족 아님). ※'앞 날짜를 억지로 빼서 맞추지 않음' 방침(7/27)과 별개 —
       //    여기는 추정이 아니라 누계가 원 단위로 일치할 때만 완납 판정.
       const _cumPaid = paid + _att.resolved.reduce((a,r)=>a+r.amount,0);
-      const _painted = allCells.filter(c=>c.date<=lastPay && !_isCellPaintable(ws,c.row,c.vatCol||c.taxCol));
-      const _paintedSum = _painted.reduce((a,c)=>a+c.sum,0);
-      if(_paintedSum>0 && Math.abs(_cumPaid-_paintedSum)<=tolerance){
+      // ⚠ 2026-07-31 2차 fix (원가로직스 재발): 처음엔 '입금일 이하 색칠 셀 전부'를 합쳤는데, 그러면 6월 등
+      //   과거 색칠분까지 다 더해져 입금 누계와 절대 안 맞음. → 색칠 셀을 최신부터 거꾸로 누적하다가
+      //   입금 누계와 원 단위 일치하는 지점이 있으면 = 그 최근 색칠 구간을 이 입금들로 완납한 것.
+      const _pntDesc = allCells.filter(c=>c.date<=lastPay && !_isCellPaintable(ws,c.row,c.vatCol||c.taxCol)).sort((a,b)=>b.date-a.date);
+      let _hit=null, _acc=0; const _run=[];
+      for(const c of _pntDesc){
+        _acc+=c.sum; _run.push(c);
+        if(Math.abs(_acc-_cumPaid)<=tolerance){ _hit={sum:_acc}; break; }
+        if(_acc>_cumPaid+tolerance) break;   // 더 거슬러 올라가면 커지기만 함
+      }
+      if(_hit){
         props.push({company, txs:allTxs, cells:[], status:'carryok', paid, total:upToSum,
-                    cum:_cumPaid, paintedSum:_paintedSum,
-                    paintedSpan:_painted[0].key+'~'+_painted[_painted.length-1].key,
+                    cum:_cumPaid, paintedSum:_hit.sum,
+                    paintedSpan:_run[_run.length-1].key+'~'+_run[0].key,
                     span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
       }else{
       // 부족(short)일 때도 과거 구간을 같이 본다 — 업체가 6/22~6/30 정산분을 금액 틀리게 넣은 경우 등 (빅피쉬 케이스)
