@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v4.6</title>
+<title>통장 내역 조회 v4.7</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v4.6</span>
+  <span class="ver">v4.7</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -216,8 +216,8 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
     <div style="display:flex;gap:12px;align-items:stretch">
       <div class="upload-zone" id="dropzone" onclick="document.getElementById('fileInput').click()" style="flex:1;min-width:0">
         <div class="icon">📂</div>
-        <div class="label" id="uploadLabel">① 통장 거래내역 xlsx 업로드</div>
-        <div class="hint" id="uploadHint">하나은행 기업자유예금 형식 · 끌어다 놓거나 클릭</div>
+        <div class="label" id="uploadLabel">① 통장 거래내역 / 리모컨 입금내역 xlsx 업로드</div>
+        <div class="hint" id="uploadHint">통장 거래내역 · 리모컨 입금내역(은행/계좌/일시/이름/금액) 둘 다 자동 인식 · 끌어다 놓거나 클릭</div>
         <div id="savedFileInfo" style="display:none;margin-top:8px;font-size:11px;color:var(--text3)">
           💾 <span id="savedFileName"></span> · <button onclick="openDataSheet(event)" style="border:none;background:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;text-decoration:underline">📄 시트 열기</button> · <button onclick="clearSaved(event)" style="border:none;background:none;color:var(--warn);cursor:pointer;font-size:11px;padding:0">캐시 초기화</button>
         </div>
@@ -900,7 +900,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
   }
   // 구버전(파일 버퍼)만 있으면 1회 파싱해서 데이터셋으로 전환
   const saved=await loadSavedFile().catch(()=>null);
-  if(!saved){document.getElementById('uploadHint').textContent='하나은행 기업자유예금 형식 지원';return;}
+  if(!saved){document.getElementById('uploadHint').textContent='통장 거래내역 · 리모컨 입금내역 둘 다 자동 인식';return;}
   document.getElementById('uploadHint').textContent='저장된 파일 불러오는 중...';
   const wb=XLSX.read(new Uint8Array(saved.buf),{type:'array',cellText:true,cellDates:true});
   const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''});
@@ -930,7 +930,27 @@ function readFile(file){
   reader.readAsArrayBuffer(file);
 }
 function parseRows(rows,filename,showChat=true){
-  let hdrIdx=rows.findIndex(r=>r.some(c=>String(c).includes('거래일시')));
+  const parsed=[];
+  // 🆕 리모컨 입금내역 양식 자동 감지 (2026-07-31 사장님: 리모컨에 실시간 입금이 꽂히니 그 엑셀도 받자 — 기존 통장 양식은 그대로 병행)
+  // 헤더 = 은행|계좌|일시|이름|금액|입금확인채널|확인자. '일시'는 정확일치라 통장 양식의 '거래일시'와 안 겹침.
+  const bankHdrIdx=rows.findIndex(r=>r.some(c=>String(c).includes('거래일시')));
+  const rmIdx=rows.findIndex(r=>{const h=r.map(c=>String(c==null?'':c).trim());return h.indexOf('일시')>=0&&h.indexOf('이름')>=0&&h.indexOf('금액')>=0;});
+  if(bankHdrIdx===-1&&rmIdx>-1){
+    const hdr=rows[rmIdx].map(c=>String(c==null?'':c).trim());
+    const ci={bank:hdr.indexOf('은행'),date:hdr.indexOf('일시'),name:hdr.indexOf('이름'),amt:hdr.indexOf('금액')};
+    for(let i=rmIdx+1;i<rows.length;i++){
+      const r=rows[i];
+      const dateStr=String(r[ci.date]||'').trim();
+      const amt=parseNum(r[ci.amt]);
+      if(!dateStr||dateStr==='합계'||amt===0)continue;   // 입금내역이라 전부 입금(+) — 0원/빈 행 스킵
+      const _dm=dateStr.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+      const dateOnly=_dm?_dm[1]+'-'+_dm[2].padStart(2,'0')+'-'+_dm[3].padStart(2,'0'):dateStr.slice(0,10);
+      const nm=String(r[ci.name]||'').trim();
+      // desc에 이름을 넣어야 정산 매칭(_txsFromDataset가 desc를 입금자명으로 씀)·검색이 기존 그대로 동작
+      parsed.push({ date:dateStr, dateOnly, in:amt, out:0, bal:0, desc:nm, bank:ci.bank>-1?String(r[ci.bank]||'').trim():'', name:nm });
+    }
+  } else {
+  let hdrIdx=bankHdrIdx;
   if(hdrIdx===-1)hdrIdx=2;
   const hdr=rows[hdrIdx];
   const colIdx={
@@ -943,7 +963,6 @@ function parseRows(rows,filename,showChat=true){
     name:hdr.findIndex(c=>String(c).includes('예금주명')),
   };
   if(colIdx.date===-1){Object.assign(colIdx,{date:1,out:2,in:3,bal:4,desc:5,bank:7,name:12});}
-  const parsed=[];
   for(let i=hdrIdx+1;i<rows.length;i++){
     const r=rows[i];
     const dateStr=String(r[colIdx.date]||'').trim();
@@ -961,6 +980,7 @@ function parseRows(rows,filename,showChat=true){
       bank:String(r[colIdx.bank]||'').trim(),
       name:String(r[colIdx.name]||'').trim(),
     });
+  }
   }
   if(parsed.length===0){alert('데이터를 읽지 못했어요.');return;}
   // 병합: 기존 누적 데이터 유지 + 새 거래만 추가 (중복은 스킵)
