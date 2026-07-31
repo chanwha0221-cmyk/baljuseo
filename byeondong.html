@@ -231,7 +231,8 @@
       <div class="step2"><b>③</b> <b>표 확인·수정</b> — 공급가·변동·마감시간·<b>스펙변동</b>을 칸에서 바로 고칠 수 있어요.<br>
         · <b>✕</b>로 뿌리기 싫은 상품 빼기 → 아래 '제외된 상품'에서 <b>↩</b>로 다시 올리기.</div>
       <div class="step2"><b>④</b> <b>🔀 각 시트 적용</b> — 상품변동사항·당일생물·창고 탭에 자동으로 들어가요.<br>
-        · 창고 공급처를 어느 탭에 넣을지 모르면 <b>물어봐요</b> (한 번 답하면 저장).</div>
+        · 창고 공급처를 어느 탭에 넣을지 모르면 <b>물어봐요</b> (한 번 답하면 저장).<br>
+        · <b>&lt;○○창고 전상품&gt; 택배사 변경</b> 행은 상품으로 안 넣고, 창고 탭에서 <b>그 창고 상품들의 택배사를 실제로 바꾸고 스펙에 변경 문구</b>를 달아줘요.</div>
       <div class="step2"><b>⑤ (선택)</b> <b>📗 엑셀 생성</b> — 리모컨 업데이트용 <b>변경분만</b> 엑셀로 뽑아요.</div>
       <div class="step2"><b>⑥ (선택)</b> <b>🔗 링크 업데이트</b> — 링크 시트 + 그룹웨어 문서복사를 새 창으로 열어줘요.</div>
     </div>
@@ -804,6 +805,46 @@
     });
   }
 
+  // ===== <○○창고 전상품> 일괄 변경 — 상품 행으로 안 넣고, 창고 탭에서 그 창고 상품들을 실제로 바꿈 =====
+  // 판별: 상품명변동이 <…전상품…> 꼴 (예: <완전창고 전상품>)
+  function isBulkAll(it){ return /^[<〈].*전상품.*[>〉]$/.test(String(it.name||'').trim()); }
+  // 창고 탭(A유통기한 B창고명 C상품명 D공급가 E택배사 F택배비 G면과세 H마감 I스펙)에서
+  // 창고명(B) 일치 행의 택배사(E)를 새 값으로 바꾸고 스펙(I)에 변경 문구 append.
+  // ★반드시 그 탭의 삽입·삭제가 다 끝난 뒤 호출(최신 상태 재독이라 행 밀림 무관).
+  // ★변동 칸에 '택배사' 있을 때만 실행 — 그 외(마감시간 등)는 안전 스킵+리포트 (2026-06-10 전상품 덮어쓰기 사고 교훈)
+  function applyBulkAll(tab, readStart1, bulks){
+    return readRange(APPLY_ID, "'"+tab+"'!A"+readStart1+":I").then(function(rows){
+      var data=[], notes=[];
+      bulks.forEach(function(b){
+        var wh=String(b.v[6]||'').trim();
+        if(!wh){ var m=String(b.name||'').match(/^[<〈]\s*(.+?)\s*(?:창고)?\s*전상품/); if(m) wh=m[1].trim(); }
+        var newCourier=String(b.v[11]||'').trim();
+        // 스펙 문구: 원가 든 줄만 제거(줄 단위 — stripCost는 '/'도 구분자로 봐서 "로젠택배/우체국택배"가 변조됨)
+        var note=String(b.v[14]==null?'':b.v[14]).split(/\r?\n/).filter(function(l){ return l.trim()!=='' && !/원가/.test(l); }).join('\n').trim();
+        if(String(b.byun||'').indexOf('택배사')<0 || !wh || !newCourier){
+          notes.push({tab:tab, wh:wh||b.name, n:0, skip:'변동「'+(b.byun||'?')+'」은 전상품 자동변경 미지원(택배사만 됨) — 수동 확인'});
+          return;
+        }
+        var whK=pkey(wh), n=0;
+        rows.forEach(function(rr, idx){
+          var wc=pkey(cell(rr,1));                       // B 창고명 (공백 무시 비교)
+          if(!wc || (wc!==whK && wc!==whK+'창고' && wc+'창고'!==whK)) return;
+          var row1=readStart1+idx;
+          data.push({ range:"'"+tab+"'!E"+row1, values:[[newCourier]] });
+          var spec=String(cell(rr,8)||'');               // I 스펙 — 같은 문구 이미 있으면 중복 안 붙임
+          if(note && spec.indexOf(note)<0) data.push({ range:"'"+tab+"'!I"+row1, values:[[ spec ? spec+'\n'+note : note ]] });
+          n++;
+        });
+        notes.push({tab:tab, wh:wh, n:n, courier:newCourier});
+      });
+      if(!data.length) return notes;
+      var url='https://sheets.googleapis.com/v4/spreadsheets/'+APPLY_ID+'/values:batchUpdate';
+      return fetch(url,{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+        body:JSON.stringify({valueInputOption:'USER_ENTERED', data:data})})
+        .then(function(r){ if(!r.ok) throw new Error('"'+tab+'" 전상품 일괄변경 실패 HTTP '+r.status); return notes; });
+    });
+  }
+
   // ===== 🔀 각 시트 적용 — 한 번에: 상품변동사항(전체) + 당일생물(당일) + 창고(상시) + 품절삭제 =====
   document.getElementById('allBtn').addEventListener('click', function(){
     var items=readItems();
@@ -816,9 +857,10 @@
     var tgtLabel=(tgt.mode==='copy') ? '✅ 우리 팀 시트 '+tgt.id.slice(0,10)+'…' : '🎯 마스터 실전 시트';
     var nDay=items.filter(function(it){return it.day.indexOf('당일')>=0;}).length;
     var nPoom=items.filter(function(it){return it.poom;}).length;
-    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 전체 '+items.length+'건\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
+    var nBulk=items.filter(function(it){return it.day.indexOf('당일')<0 && isBulkAll(it);}).length;
+    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 전체 '+items.length+'건\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제'+(nBulk?'\n· <창고 전상품> 일괄 '+nBulk+'건 → 그 창고 상품 택배사 실제 변경+스펙 문구':'')+'\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
     var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
-    var rep={ vari:0, notice:0, wh:{}, whGid:{}, poomDel:0, unmatched:[], variGid:0, variTab:'', noticeGid:0, noticeTab:'' };
+    var rep={ vari:0, notice:0, wh:{}, whGid:{}, poomDel:0, unmatched:[], variGid:0, variTab:'', noticeGid:0, noticeTab:'', bulk:[] };
     function setBtn(t){ btn.innerHTML=t; }
     withToken(function(){
       syncLink();   // 링크 시트(LINK_ID) 확정 — 상품명 하이퍼링크 읽기용
@@ -845,7 +887,7 @@
       }).then(function(){
         // 2) 당일생물 — 실제 시트에서 '당일생물' 든 탭 자동 인식(★당일생물 등도 OK)
         setBtn('당일생물...');
-        var add=sortItems(items.filter(function(it){ return it.day.indexOf('당일')>=0 && !it.poom; }));
+        var add=sortItems(items.filter(function(it){ return it.day.indexOf('당일')>=0 && !it.poom && !isBulkAll(it); }));   // <전상품> 행은 상품으로 안 넣음
         var addPk={}; add.forEach(function(it){ addPk[pkey(it.name)]=1; });
         var delPk={}; items.forEach(function(it){ if(it.day.indexOf('당일')>=0 && it.poom) delPk[pkey(it.name)]=1; });
         rep.notice=add.length; rep.poomDel += Object.keys(delPk).length;
@@ -873,8 +915,9 @@
         sisi.forEach(function(it){
           var tab=supTab[it.sup];
           if(!tab){ if(rep.unmatched.indexOf(it.sup)<0) rep.unmatched.push(it.sup); return; }
-          if(!byT[tab]) byT[tab]={ tab:tab, gid:TABG[tab], add:[], addPk:{}, delPk:{} };
-          if(it.poom){ byT[tab].delPk[pkey(it.name)]=1; }
+          if(!byT[tab]) byT[tab]={ tab:tab, gid:TABG[tab], add:[], addPk:{}, delPk:{}, bulk:[], bulkPk:{} };
+          if(isBulkAll(it)){ byT[tab].bulk.push(it); byT[tab].bulkPk[pkey(it.name)]=1; byT[tab].delPk[pkey(it.name)]=1; }   // 상품으로 안 넣음 + 예전에 상품행으로 잘못 들어간 <전상품> 행 있으면 청소
+          else if(it.poom){ byT[tab].delPk[pkey(it.name)]=1; }
           else { byT[tab].add.push(it); byT[tab].addPk[pkey(it.name)]=1; }
         });
         var tkeys=Object.keys(byT), i=0;
@@ -883,9 +926,16 @@
           var info=byT[tkeys[i]];
           setBtn('창고: '+info.tab+'...');
           var rows=sortItems(info.add.slice()).map(rowWh);
-          rep.wh[info.tab]=rows.length; rep.whGid[info.tab]=info.gid; rep.poomDel += Object.keys(info.delPk).length;
+          rep.wh[info.tab]=rows.length; rep.whGid[info.tab]=info.gid;
+          rep.poomDel += Object.keys(info.delPk).filter(function(k){ return !info.bulkPk[k]; }).length;
           var spW=startPair(info.tab, 2, 3);   // 지정값 있으면 그 행, 없으면 기본(3행 삽입·3행부터 스캔 — 2행은 색칠 구분행이라 절대 안 건드림)
-          return applyToTab(info.gid, info.tab, spW.ins, spW.read, 'C', 3, rows, info.addPk, info.delPk, true).then(function(){ i++; return nextTab(); });
+          return applyToTab(info.gid, info.tab, spW.ins, spW.read, 'C', 3, rows, info.addPk, info.delPk, true)
+            .then(function(){
+              if(!info.bulk.length) return true;
+              setBtn('창고: '+info.tab+' 전상품 일괄...');
+              return applyBulkAll(info.tab, spW.read, info.bulk).then(function(notes){ rep.bulk=rep.bulk.concat(notes); return true; });
+            })
+            .then(function(){ i++; return nextTab(); });
         }
         return nextTab();
       }).then(function(){
@@ -898,6 +948,10 @@
         if(rep.noticeGid) rh+=li(rep.noticeGid,'당일생물 · '+rep.noticeTab,rep.notice);
         Object.keys(rep.wh).forEach(function(t){ rh+=li(rep.whGid[t],'창고 · '+t,rep.wh[t]); });
         rh+='<li>품절 삭제: <b>'+rep.poomDel+'</b>건</li>';
+        rep.bulk.forEach(function(b){
+          if(b.skip) rh+='<li style="color:#c0392b">⚠️ 전상품 일괄 스킵 · '+esc(b.tab)+' 「'+esc(b.wh)+'」: '+esc(b.skip)+'</li>';
+          else rh+='<li>🚚 전상품 일괄 · '+esc(b.tab)+' 「'+esc(b.wh)+'」창고 → 택배사 <b>'+esc(b.courier)+'</b> <b>'+b.n+'</b>건 변경+스펙 문구'+(b.n===0?' <b style="color:#c0392b">(그 창고 상품 0건 — 창고명 확인!)</b>':'')+'</li>';
+        });
         if(rep.unmatched.length) rh+='<li style="color:#c0392b">⚠️ 미매칭 공급처(못 넣음): <b>'+esc(rep.unmatched.join(', '))+'</b> — 공급처 이름이 창고 탭 이름과 달라요. 수동 확인!</li>';
         rh+='</ul></div>';
         // 적용된 상품명 목록 + 복사 버튼(시트에서 검색 확인용)
@@ -906,8 +960,9 @@
         rh+='</div></div>';
         document.getElementById('applyReport').innerHTML=rh;
         var whSum=Object.keys(rep.wh).map(function(t){return t+'('+rep.wh[t]+')';}).join(', ')||'없음';
-        setStatus('✅ 각 시트 적용 완료 (변동'+rep.vari+'·당일'+rep.notice+'·창고'+Object.keys(rep.wh).length+'탭·품절삭제'+rep.poomDel+(rep.unmatched.length?'·미매칭'+rep.unmatched.length:'')+') — 아래 리포트 확인','ok');
-        alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건'+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
+        var bulkSum=rep.bulk.map(function(b){ return b.skip ? (b.tab+' 「'+b.wh+'」스킵(수동 확인)') : (b.tab+' 「'+b.wh+'」'+b.n+'건→'+b.courier); }).join('\n   ');
+        setStatus('✅ 각 시트 적용 완료 (변동'+rep.vari+'·당일'+rep.notice+'·창고'+Object.keys(rep.wh).length+'탭·품절삭제'+rep.poomDel+(rep.bulk.length?'·전상품일괄'+rep.bulk.length:'')+(rep.unmatched.length?'·미매칭'+rep.unmatched.length:'')+') — 아래 리포트 확인','ok');
+        alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건'+(bulkSum?'\n· 🚚 전상품 일괄(택배사 변경+스펙):\n   '+bulkSum:'')+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
       }).catch(function(e){ btn.disabled=false; btn.innerHTML=o; setStatus('⚠️ 적용 실패: '+e.message,'warn'); alert('적용 실패: '+e.message+'\n(일부만 적용됐을 수 있어요. 시트 확인 후 재시도)'); });
     });
   });
