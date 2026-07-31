@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v4.8</title>
+<title>통장 내역 조회 v4.9</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v4.8</span>
+  <span class="ver">v4.9</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1882,8 +1882,13 @@ function _attributePastPayments(allCells, txs, ws, tolerance){
     } else {
       // 역산 구간을 못 찾아도, 입금일까지의 정산이 '전부 색칠완료'면 = 이 입금은 데이터 밖(더 이전 기간) 상환이 확실 → 확인 완료.
       //   (입금은 미래를 못 내므로, 입금일 이하가 다 완료면 남은 미입금과는 무관. 2026-07-16 썬푸드 6/1·6/9=5월분 케이스)
+      //   ⏳ 단 2026-07-31 에버몰 교훈: 입금일 '당일' 정산값이 달력에 아예 없으면 = 리모콘 export가 구버전이라
+      //   그날 값이 미기입일 수 있음 → '확실' 아님. dayEmpty로 표시해 화면에서 최신 달력 재매칭을 안내한다.
       const upto=cells.filter(c=>c.date<=d.date);
-      if(!upto.length || upto.every(c=>c._paid)) resolved.push({tx:d, amount:d.amount, from:'', to:'', n:0, priorOnly:true});
+      if(!upto.length || upto.every(c=>c._paid)){
+        const dayEmpty = !cells.some(c=>c.date.getTime()===d.date.getTime());
+        resolved.push({tx:d, amount:d.amount, from:'', to:'', n:0, priorOnly:true, dayEmpty});
+      }
       else remaining.push(d);
     }
   }
@@ -1898,11 +1903,15 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
     const allCells=(cellsByCompany[company]||[]).filter(c=>c.sum>0);
     // 📥 입금 역산 귀속 — 색칠완료 과거구간과 딱 맞는 입금은 '확정 상환'으로 빼고, 나머지만 아래 로직으로 (2026-07-16)
     const _att=_attributePastPayments(allCells, allTxs0, ws, tolerance);
-    _att.resolved.forEach(r=> props.push({company, txs:[r.tx], cells:[], status:'resolved_past', paid:r.amount, from:r.from, to:r.to, priorOnly:!!r.priorOnly}));
+    _att.resolved.forEach(r=> props.push({company, txs:[r.tx], cells:[], status:'resolved_past', paid:r.amount, from:r.from, to:r.to, priorOnly:!!r.priorOnly, dayEmpty:!!r.dayEmpty, dateKey:r.tx.dateKey}));
     const allTxs=_att.remaining;
     if(!allTxs.length) continue;   // 전부 확정 상환이면 이 업체는 확인 필요 없음
+    // ⏳ 입금일에 정산값이 달력에 아예 없는 날 감지 (2026-07-31 에버몰 케이스): 리모콘 export가 구버전이면
+    //    최근 정산값이 빈 채로 와서 그 입금이 조용히 미매칭 → 색칠·재추출 후에야 나타나 "하루씩 나온다"는 체감.
+    //    allCells는 sum>0만 담으므로, 입금일과 같은 날짜 셀이 하나도 없으면 = 그 날 정산값 미기입.
+    const _emptyDays=[...new Set(allTxs.filter(t=>t.date && !allCells.some(c=>c.date.getTime()===t.date.getTime())).map(t=>t.dateKey))];
     const unpaid=allCells.filter(c=>_isCellPaintable(ws,c.row,c.vatCol||c.taxCol));   // 색칠 안 된 셀만 색칠 대상
-    if(!unpaid.length){ props.push({company, txs:allTxs, cells:[], status:'nocell', paid:allTxs.reduce((a,t)=>a+t.amount,0), total:0}); continue; }
+    if(!unpaid.length){ props.push({company, txs:allTxs, cells:[], status:'nocell', paid:allTxs.reduce((a,t)=>a+t.amount,0), total:0, emptyDays:_emptyDays}); continue; }
 
     /* ⏱ 시간 규칙 (사장님 확립 — 2026-07-13)
        ① 입금은 정산일 당일 또는 그 이후에만 들어온다. 입금일 이후 정산은 그때 존재하지도 않던 돈이라 갚을 수 없다.
@@ -1945,7 +1954,7 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
         const lastPay=rest.reduce((m,t)=>(t.date&&(!m||t.date>m)?t.date:m),null);
         const past=_findPastRun(allCells, lastPay, restSum, tolerance, _exclude, ws);
         const restPaintCells=(past && past.cells) ? past.cells.filter(c=>c.sum>0 && _isCellPaintable(ws,c.row,c.vatCol||c.taxCol)) : [];   // 2026-07-21 fix: 잔여입금 경로도 미색칠 날 안내
-        props.push({company, txs:rest, cells:[], status: past?'prevpaid':'over', paid:restSum, paintCells:restPaintCells,
+        props.push({company, txs:rest, cells:[], status: past?'prevpaid':'over', paid:restSum, paintCells:restPaintCells, emptyDays:_emptyDays,
                     total: past?past.sum:0, past,
                     span: best.run[0].key+'~'+best.run[best.run.length-1].key,
                     why: past? '이전 마감분 상환' : '정산 조합에 안 쓰인 잔여 입금 → 과입금(환불) 가능성'});
@@ -1965,7 +1974,7 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
       //    미색칠 날이 있어도 "이미 색칠된 구간"이라 단정하고 넘어갔음(나행상회 7/20 559,100 = 6/30~7/15,
       //    6/30이 미색칠인데 조치 안내 없음). 초과·정확 가리지 말고 실제 색칠상태를 본다.
       const paintCells=(past && past.cells) ? past.cells.filter(c=>c.sum>0 && _isCellPaintable(ws,c.row,c.vatCol||c.taxCol)) : [];
-      props.push({company, txs:allTxs, cells:[], status:'prevpaid', paid, total:upToSum, past, paintCells,
+      props.push({company, txs:allTxs, cells:[], status:'prevpaid', paid, total:upToSum, past, paintCells, emptyDays:_emptyDays,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : '해당 없음'});
     }else{
       // 🆕 이월 부족분 정리 인식 (2026-07-31 원가로직스 케이스): 색칠할 때 입금이 모자랐고(7/22~28 정산 928,600을 824,300만 받고 색칠),
@@ -1984,7 +1993,7 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
       }else{
       // 부족(short)일 때도 과거 구간을 같이 본다 — 업체가 6/22~6/30 정산분을 금액 틀리게 넣은 경우 등 (빅피쉬 케이스)
       const past=_findPastRun(allCells, lastPay, paid, tolerance, _exclude, ws);
-      props.push({company, txs:allTxs, cells:[], status:'short', paid, total:upToSum, past,
+      props.push({company, txs:allTxs, cells:[], status:'short', paid, total:upToSum, past, emptyDays:_emptyDays,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
       }
     }
@@ -2005,6 +2014,10 @@ function renderSplitPay(props){
   let nL=0, nR=0;
   const cardHtml=(p,i)=>{
     const txline=p.txs.map(t=>`${t.dateKey} ${t.amount.toLocaleString()}원`).join(' + ');
+    // ⏳ 입금일 정산값이 달력에 없음 = 리모콘 export가 구버전일 가능성 (에버몰 2026-07-31 케이스 — 조용히 빠져서 "하루씩 나온다"는 체감의 주범)
+    const emptyHint=(p.emptyDays&&p.emptyDays.length)
+      ? `<br>⏳ <b style="color:#b45309">${p.emptyDays.join(', ')} 정산값이 달력에 아직 없어요</b> — 리모콘에서 최신 정산달력을 다시 받아 올리면 이 입금이 제대로 매칭될 수 있습니다.`
+      : '';
     if(p.status==='match'){
       const span=p.cells[0].key+'~'+p.cells[p.cells.length-1].key;
       return `<div id="sp-${i}" style="padding:8px 10px;border-bottom:1px solid var(--border)">
@@ -2027,14 +2040,14 @@ function renderSplitPay(props){
         <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${p.txs.length}건: ${txline} = <b>${p.paid.toLocaleString()}원</b><br>미입금 정산 ${p.span} 합계 <b>${p.total.toLocaleString()}원</b> → <b style="color:#d9480f">잔액 ${(p.total-p.paid).toLocaleString()}원 미입금</b><br>
         ${p.past && p.past.exact
           ? `🔎 이 입금은 <b>${p.past.from}~${p.past.to}</b> 정산(<b>${p.past.sum.toLocaleString()}원</b>)과 정확히 일치 → 그 구간만 낸 것이고, 나머지 날짜는 그대로 미입금입니다.`
-          : `<span style="color:var(--text3)">→ 부족분 <b style="color:#d9480f">${(p.total-p.paid).toLocaleString()}원</b> 입금 요청하면 됩니다. (총액보다 덜 낸 것이라 '초과' 아님 — 앞 날짜를 억지로 빼서 맞추지 않음)</span>`}</div>
+          : `<span style="color:var(--text3)">→ 부족분 <b style="color:#d9480f">${(p.total-p.paid).toLocaleString()}원</b> 입금 요청하면 됩니다. (총액보다 덜 낸 것이라 '초과' 아님 — 앞 날짜를 억지로 빼서 맞추지 않음)</span>`}${emptyHint}</div>
         <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="noteSplit(${i})">📝 특이사항 등록</button>
       </div>`;
     }
     if(p.status==='over'){
       return `<div id="sp-${i}" style="padding:8px 10px;border-bottom:1px solid var(--border)">
         <div style="font-weight:700">${p.company} <span style="color:#d9480f;font-size:11px">⚠ 정산보다 ${(p.paid-p.total).toLocaleString()}원 더 들어옴</span></div>
-        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} = <b>${p.paid.toLocaleString()}원</b> / 이 달력 미입금 합계 <b>${p.total.toLocaleString()}원</b> → <b style="color:#d9480f">초과 ${(p.paid-p.total).toLocaleString()}원</b><br><span style="color:var(--text3)">전월 정산까지 갚았거나, 업체가 더 보낸 경우예요. 환불·상계 처리하셨으면 아래 [특이사항 등록] 해두시면 다음부터 안 뜹니다.</span></div>
+        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} = <b>${p.paid.toLocaleString()}원</b> / 이 달력 미입금 합계 <b>${p.total.toLocaleString()}원</b> → <b style="color:#d9480f">초과 ${(p.paid-p.total).toLocaleString()}원</b><br><span style="color:var(--text3)">전월 정산까지 갚았거나, 업체가 더 보낸 경우예요. 환불·상계 처리하셨으면 아래 [특이사항 등록] 해두시면 다음부터 안 뜹니다.</span>${emptyHint}</div>
         <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="noteSplit(${i})">📝 특이사항 등록</button>
       </div>`;
     }
@@ -2055,7 +2068,7 @@ function renderSplitPay(props){
                   : ` <span style="color:var(--text3)">(이 구간은 이미 다 색칠돼 있어 조치 불필요)</span>`)
             : p.past.diff<0
               ? `🔎 <b>${p.past.from}~${p.past.to}</b> 정산 <b>${p.past.sum.toLocaleString()}원</b> 상환 + <b style="color:#d9480f">초과입금 ${Math.abs(p.past.diff).toLocaleString()}원</b> (업체가 그만큼 더 넣음).${p.paintCells&&p.paintCells.length?` <span style="color:#d9480f">이 정산분 중 아직 색 안 칠한 날(${p.paintCells.map(c=>c.key).join(', ')})은 아래 [색칠 목록에 추가]로 칠하세요.</span>`:''} <span style="color:var(--text3)">초과분은 세금계산서 발행금액과 달라지니 환불·상계·차기 이월 중 처리하고 [특이사항 등록] 해두세요.</span>`
-              : `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 합계 <b>${p.past.sum.toLocaleString()}원</b> — 이 구간 건으로 보이는데 <b style="color:#d9480f">입금이 ${Math.abs(p.past.diff).toLocaleString()}원 모자랍니다</b>. <span style="color:var(--text3)">업체가 금액을 틀리게 넣은 경우예요 — 맞으면 [특이사항 등록] 해두시면 다음부턴 안 뜹니다.</span>`}
+              : `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 합계 <b>${p.past.sum.toLocaleString()}원</b> — 이 구간 건으로 보이는데 <b style="color:#d9480f">입금이 ${Math.abs(p.past.diff).toLocaleString()}원 모자랍니다</b>. <span style="color:var(--text3)">업체가 금액을 틀리게 넣은 경우예요 — 맞으면 [특이사항 등록] 해두시면 다음부턴 안 뜹니다.</span>`}${emptyHint}
         </div>
         ${p.paintCells&&p.paintCells.length?`<button class="btn-copy" style="margin-top:5px;margin-right:5px;padding:4px 10px;font-size:11px;background:var(--accent);color:#fff;border-color:var(--accent)" onclick="applyOverpayPaint(${i})">🎨 색칠 목록에 추가 (${p.paintCells.map(c=>c.key).join(',')})</button>`:''}
         <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="noteSplit(${i})">📝 특이사항 등록</button>
@@ -2063,7 +2076,7 @@ function renderSplitPay(props){
     }
     return `<div style="padding:8px 10px;border-bottom:1px solid var(--border)">
       <div style="font-weight:700">${p.company} <span style="color:var(--text3);font-size:11px">이 달력에 미입금 셀 없음</span></div>
-      <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} → 전월 정산 상환으로 보입니다.</div>
+      <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} → 전월 정산 상환으로 보입니다.${emptyHint}</div>
     </div>`;
   };
   // 라우팅: 오른쪽 = 합산 금액 비교(부분입금 short·초과 over·합계 일치 match) / 왼쪽 = 정산달력에 맞는 금액 셀 자체가 없음(전월 상환 prevpaid·셀없음)
@@ -2078,8 +2091,12 @@ function renderSplitPay(props){
   const empty='<div style="padding:12px;color:var(--text3);font-size:11px;text-align:center">없음</div>';
   let doneNote='';
   if(done.length){
-    const items=done.map(p=>`${p.company} ${p.priorOnly?'이전 기간분':(p.from&&p.to?(p.from===p.to?p.from:p.from+'~'+p.to):'')} (${p.paid.toLocaleString()}원)`).join(' · ');
-    doneNote=`<div style="padding:7px 10px;background:#eefaf3;border:1px solid #c3e6d0;border-radius:6px;margin-bottom:6px;font-size:11px;color:#2f7d52">✓ 과거 상환 자동확인 <b>${done.length}건</b> — 이미 색칠완료된 구간과 딱 맞아 조치 불필요<br><span style="color:var(--text3)">${items}</span></div>`;
+    const items=done.map(p=>`${p.dayEmpty?'⏳':''}${p.company} ${p.priorOnly?'이전 기간분':(p.from&&p.to?(p.from===p.to?p.from:p.from+'~'+p.to):'')} (${p.paid.toLocaleString()}원)`).join(' · ');
+    const staleOnes=done.filter(p=>p.dayEmpty);
+    const staleNote=staleOnes.length
+      ? `<br><b style="color:#b45309">⏳ ${staleOnes.map(p=>`${p.company} ${p.dateKey||''}`).join(', ')}</b> — <span style="color:#b45309">입금일 정산값이 달력에 아직 없어서 '이전 기간 상환'으로 추정만 한 것입니다. 리모콘에서 최신 정산달력을 다시 받아 올리고 재매칭하면 제대로 잡힐 수 있어요.</span>`
+      : '';
+    doneNote=`<div style="padding:7px 10px;background:#eefaf3;border:1px solid #c3e6d0;border-radius:6px;margin-bottom:6px;font-size:11px;color:#2f7d52">✓ 과거 상환 자동확인 <b>${done.length}건</b> — 이미 색칠완료된 구간과 딱 맞아 조치 불필요<br><span style="color:var(--text3)">${items}</span>${staleNote}</div>`;
   }
   listL.innerHTML = doneNote + (leftHtml.join('') || empty);
   listR.innerHTML = rightHtml.join('') || empty;
