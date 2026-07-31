@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v4.7</title>
+<title>통장 내역 조회 v4.8</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v4.7</span>
+  <span class="ver">v4.8</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1968,10 +1968,25 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
       props.push({company, txs:allTxs, cells:[], status:'prevpaid', paid, total:upToSum, past, paintCells,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : '해당 없음'});
     }else{
+      // 🆕 이월 부족분 정리 인식 (2026-07-31 원가로직스 케이스): 색칠할 때 입금이 모자랐고(7/22~28 정산 928,600을 824,300만 받고 색칠),
+      //    나중 입금(7/30 104,300)이 그 부족분을 갚는 패턴. 기존엔 남은 입금을 미색칠 셀하고만 비교해 '부분 입금 269,600 부족' 오판.
+      //    판정 = 누적 대사: 색칠 완료 셀 합(입금일 이하) == 이 업체 기간 내 입금 누계(확정상환 포함) 이면 색칠 구간까지 완납.
+      //    미색칠 셀은 그냥 아직 안 낸 최근 정산분(부족 아님). ※'앞 날짜를 억지로 빼서 맞추지 않음' 방침(7/27)과 별개 —
+      //    여기는 추정이 아니라 누계가 원 단위로 일치할 때만 완납 판정.
+      const _cumPaid = paid + _att.resolved.reduce((a,r)=>a+r.amount,0);
+      const _painted = allCells.filter(c=>c.date<=lastPay && !_isCellPaintable(ws,c.row,c.vatCol||c.taxCol));
+      const _paintedSum = _painted.reduce((a,c)=>a+c.sum,0);
+      if(_paintedSum>0 && Math.abs(_cumPaid-_paintedSum)<=tolerance){
+        props.push({company, txs:allTxs, cells:[], status:'carryok', paid, total:upToSum,
+                    cum:_cumPaid, paintedSum:_paintedSum,
+                    paintedSpan:_painted[0].key+'~'+_painted[_painted.length-1].key,
+                    span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
+      }else{
       // 부족(short)일 때도 과거 구간을 같이 본다 — 업체가 6/22~6/30 정산분을 금액 틀리게 넣은 경우 등 (빅피쉬 케이스)
       const past=_findPastRun(allCells, lastPay, paid, tolerance, _exclude, ws);
       props.push({company, txs:allTxs, cells:[], status:'short', paid, total:upToSum, past,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
+      }
     }
   }
   return props;
@@ -1996,6 +2011,14 @@ function renderSplitPay(props){
         <div style="font-weight:700">${p.company} <span style="color:#2f9e44;font-size:11px">✓ 나눠 낸 금액 합계가 정산과 일치</span></div>
         <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${p.txs.length}건: ${txline} = <b>${p.paid.toLocaleString()}원</b><br>정산 ${span} 합계 <b>${p.total.toLocaleString()}원</b> → 이 구간 전부 입금 완료</div>
         <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="applySplit(${i})">✓ 색칠 목록에 추가</button>
+      </div>`;
+    }
+    if(p.status==='carryok'){
+      return `<div id="sp-${i}" style="padding:8px 10px;border-bottom:1px solid var(--border)">
+        <div style="font-weight:700">${p.company} <span style="color:#2f9e44;font-size:11px">✓ 이월 부족분 정리 — 색칠 구간까지 완납</span></div>
+        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${p.txs.length}건: ${txline} = <b>${p.paid.toLocaleString()}원</b> · 기간 내 입금 누계 <b>${p.cum.toLocaleString()}원</b><br>
+        색칠 완료 정산(${p.paintedSpan}) 합계 <b>${p.paintedSum.toLocaleString()}원</b>과 입금 누계가 일치 → 이 입금은 앞서 색칠 때 모자랐던 <b>이월 잔액을 갚은 것</b>입니다.<br>
+        <span style="color:var(--text3)">미색칠 ${p.span} ${p.total.toLocaleString()}원은 아직 안 낸 최근 정산분 — 부족 아님, 다음 입금 대상. (색칠은 이미 돼 있어 조치 불필요)</span></div>
       </div>`;
     }
     if(p.status==='short'){
@@ -2049,7 +2072,7 @@ function renderSplitPay(props){
   props.forEach((p,i)=>{
     if(p.status==='resolved_past'){ done.push(p); return; }
     const html=cardHtml(p,i);
-    if(p.status==='short'||p.status==='over'||p.status==='match'){ rightHtml.push(html); nR++; }
+    if(p.status==='short'||p.status==='over'||p.status==='match'||p.status==='carryok'){ rightHtml.push(html); nR++; }
     else { leftHtml.push(html); nL++; }
   });
   const empty='<div style="padding:12px;color:var(--text3);font-size:11px;text-align:center">없음</div>';
