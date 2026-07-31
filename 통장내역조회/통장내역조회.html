@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v5.0</title>
+<title>통장 내역 조회 v5.1</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v5.0</span>
+  <span class="ver">v5.1</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -2091,15 +2091,18 @@ function renderSplitPay(props){
   //   resolved_past = 색칠완료 과거구간과 딱 맞는 확정 상환 → 확인필요 목록에서 빼고 요약만 (2026-07-16)
   const done=[];
   props.forEach((p,i)=>{
-    if(p.status==='resolved_past'){ done.push(p); return; }
+    if(p.status==='resolved_past'||p.status==='carryok'){ done.push(p); return; }   // carryok=완납 확인 → 카드 없이 요약만 (2026-07-31 사장님 "맞으면 안 보여주면 되잖아")
     const html=cardHtml(p,i);
-    if(p.status==='short'||p.status==='over'||p.status==='match'||p.status==='carryok'){ rightHtml.push(html); nR++; }
+    if(p.status==='short'||p.status==='over'||p.status==='match'){ rightHtml.push(html); nR++; }
     else { leftHtml.push(html); nL++; }
   });
   const empty='<div style="padding:12px;color:var(--text3);font-size:11px;text-align:center">없음</div>';
   let doneNote='';
   if(done.length){
-    const items=done.map(p=>`${p.dayEmpty?'⏳':''}${p.company} ${p.priorOnly?'이전 기간분':(p.from&&p.to?(p.from===p.to?p.from:p.from+'~'+p.to):'')} (${p.paid.toLocaleString()}원)`).join(' · ');
+    const items=done.map(p=>{
+      if(p.status==='carryok') return `${p.company} ${p.paintedSpan} 완납 — 이월 부족분 정리 (누계 ${p.cum.toLocaleString()}원 일치)`;
+      return `${p.dayEmpty?'⏳':''}${p.company} ${p.priorOnly?'이전 기간분':(p.from&&p.to?(p.from===p.to?p.from:p.from+'~'+p.to):'')} (${p.paid.toLocaleString()}원)`;
+    }).join(' · ');
     const staleOnes=done.filter(p=>p.dayEmpty);
     const staleNote=staleOnes.length
       ? `<br><b style="color:#b45309">⏳ ${staleOnes.map(p=>`${p.company} ${p.dateKey||''}`).join(', ')}</b> — <span style="color:#b45309">입금일 정산값이 달력에 아직 없어서 '이전 기간 상환'으로 추정만 한 것입니다. 리모콘에서 최신 정산달력을 다시 받아 올리고 재매칭하면 제대로 잡힐 수 있어요.</span>`
@@ -2234,9 +2237,12 @@ async function runSettlementMatch(){
       }
       if(!matchedCompany){
         // 업체명 부분 일치 시도
+        // ⚠ 2026-07-31 fix: 2글자 허용 시 입금자명 '마켓'(=주식회사마켓/식봄)이 '빅피쉬마켓'에 붙는 오매칭 —
+        //   흔한 짧은 단어(마켓·푸드·수산 등)가 아무 업체에나 걸림. 최소 3글자로 강화.
+        //   못 찾으면 ❓미식별로 떠서 사장님이 별칭 한 번 지정하면 영구 학습되는 게 오매칭보다 안전.
         for(const company of Object.keys(meta.companyCols)){
           for(const k of keys){
-            if(k.length>=2 && (company.includes(k) || k.includes(company))){ matchedCompany = company; break; }
+            if(k.length>=3 && (company.includes(k) || k.includes(company))){ matchedCompany = company; break; }
           }
           if(matchedCompany) break;
         }
