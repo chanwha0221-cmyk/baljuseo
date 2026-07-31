@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v5.2</title>
+<title>통장 내역 조회 v5.3</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v5.2</span>
+  <span class="ver">v5.3</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1986,7 +1986,16 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
       //    미색칠 날이 있어도 "이미 색칠된 구간"이라 단정하고 넘어갔음(나행상회 7/20 559,100 = 6/30~7/15,
       //    6/30이 미색칠인데 조치 안내 없음). 초과·정확 가리지 말고 실제 색칠상태를 본다.
       const paintCells=(past && past.cells) ? past.cells.filter(c=>c.sum>0 && _isCellPaintable(ws,c.row,c.vatCol||c.taxCol)) : [];
-      props.push({company, txs:allTxs, cells:[], status:'prevpaid', paid, total:upToSum, past, paintCells, emptyDays:_emptyDays,
+      // 🆕 선입금 배정 (2026-07-31 서율컴퍼니 — 사장님: 어제 입금으로 마지막 날짜까지 다 맞췄으니 30일까지 색칠 가능해야):
+      //   초과입금이 남아 있고 입금일 '이후' 미색칠 정산이 있으면, 이른 날짜부터 통째로 덮이는 만큼 색칠 후보에 추가.
+      //   (예: 649,100 = 7/29 정산 38,700 + 초과 610,400 → 그중 115,900을 7/30 정산에 배정, 나머지만 초과로 표시)
+      let _excess = past ? Math.max(0, paid - past.sum) : Math.max(0, paid - upToSum);
+      const _pcKeys={}; paintCells.forEach(c=>{_pcKeys[c.key]=1;});
+      const _futureUnpaid = unpaid.filter(c=>!_pcKeys[c.key] && lastPay && c.date>lastPay).sort((a,b)=>a.date-b.date);
+      const prepayCells=[];
+      for(const c of _futureUnpaid){ if(_excess>=c.sum){ prepayCells.push(c); _excess-=c.sum; } else break; }
+      props.push({company, txs:allTxs, cells:[], status:'prevpaid', paid, total:upToSum, past,
+                  paintCells: paintCells.concat(prepayCells), prepayCells, prepayLeft:_excess, emptyDays:_emptyDays,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : '해당 없음'});
     }else{
       // 🆕 이월 부족분 정리 인식 (2026-07-31 원가로직스 케이스): 색칠할 때 입금이 모자랐고(7/22~28 정산 928,600을 824,300만 받고 색칠),
@@ -2088,7 +2097,8 @@ function renderSplitPay(props){
                   : ` <span style="color:var(--text3)">(이 구간은 이미 다 색칠돼 있어 조치 불필요)</span>`)
             : p.past.diff<0
               ? `🔎 <b>${p.past.from}~${p.past.to}</b> 정산 <b>${p.past.sum.toLocaleString()}원</b> 상환 + <b style="color:#d9480f">초과입금 ${Math.abs(p.past.diff).toLocaleString()}원</b> (업체가 그만큼 더 넣음).${p.paintCells&&p.paintCells.length?` <span style="color:#d9480f">이 정산분 중 아직 색 안 칠한 날(${p.paintCells.map(c=>c.key).join(', ')})은 아래 [색칠 목록에 추가]로 칠하세요.</span>`:''} <span style="color:var(--text3)">초과분은 세금계산서 발행금액과 달라지니 환불·상계·차기 이월 중 처리하고 [특이사항 등록] 해두세요.</span>`
-              : `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 합계 <b>${p.past.sum.toLocaleString()}원</b> — 이 구간 건으로 보이는데 <b style="color:#d9480f">입금이 ${Math.abs(p.past.diff).toLocaleString()}원 모자랍니다</b>. <span style="color:var(--text3)">업체가 금액을 틀리게 넣은 경우예요 — 맞으면 [특이사항 등록] 해두시면 다음부턴 안 뜹니다.</span>`}${emptyHint}
+              : `🔎 과거 확인: <b>${p.past.from}~${p.past.to}</b> 정산 합계 <b>${p.past.sum.toLocaleString()}원</b> — 이 구간 건으로 보이는데 <b style="color:#d9480f">입금이 ${Math.abs(p.past.diff).toLocaleString()}원 모자랍니다</b>. <span style="color:var(--text3)">업체가 금액을 틀리게 넣은 경우예요 — 맞으면 [특이사항 등록] 해두시면 다음부턴 안 뜹니다.</span>`}
+        ${p.prepayCells&&p.prepayCells.length?`<br>💡 <b style="color:#2f9e44">초과입금 중 ${p.prepayCells.reduce((a,c)=>a+c.sum,0).toLocaleString()}원은 입금일 이후 미색칠 정산(${p.prepayCells.map(c=>c.key).join(', ')})에 선입금으로 배정</b> → 아래 색칠 버튼에 포함했습니다.${p.prepayLeft>0?` 남은 초과분은 <b>${p.prepayLeft.toLocaleString()}원</b>입니다.`:' 초과분이 딱 떨어집니다.'}`:''}${emptyHint}
         </div>
         ${p.paintCells&&p.paintCells.length?`<button class="btn-copy" style="margin-top:5px;margin-right:5px;padding:4px 10px;font-size:11px;background:var(--accent);color:#fff;border-color:var(--accent)" onclick="applyOverpayPaint(${i})">🎨 색칠 목록에 추가 (${p.paintCells.map(c=>c.key).join(',')})</button>`:''}
         <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="noteSplit(${i})">📝 특이사항 등록</button>
