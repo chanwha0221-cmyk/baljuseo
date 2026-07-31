@@ -54,7 +54,8 @@
 - **샌드박스(bash)에서 구글 API 직접 호출 불가** (DNS 차단). API는 브라우저에서만 동작.
 - 🚫 **이 PC엔 node·python이 없다 (2026-07-21 Claude Code 실측)** — `python.exe`는 MS스토어 스텁이라 실행 불가. **`node --check` 구문검사·순수함수 시뮬레이션 못 씀.**
 - ✅ **대체 검증 = Browser MCP** (Claude Code 기준, 이게 오히려 더 확실함):
-  1. `mcp__Claude_Browser__navigate`로 `file:///C:/Users/홍찬화/내 드라이브/.../파일.html` 열기 (이미 열려 있으면 `tabs_context`로 tabId 확인 — tabId 인자 필수)
+  1. `mcp__Claude_Browser__navigate`로 `file:///C:/Users/user9/.../파일.html` 열기 (이미 열려 있으면 `tabs_context`로 tabId 확인 — tabId 인자 필수)
+     · ⚠️ 2026-07-31 실측: 인앱 브라우저가 file:// 로드에서 300초 멈춤 + 크롬 MCP는 file:// 자체 불가(https 강제) → **우회 = PowerShell HttpListener 임시 서버**(scratchpad에 serve.ps1, `http://localhost:8422/파일.html`)로 서빙 후 크롬 MCP로 검증. 끝나면 서버 프로세스 kill
   2. `read_console_messages {onlyErrors:true}` → 에러 0이면 구문 정상
   3. `javascript_tool`로 `typeof 함수명` 찍어 주요 함수 로드 확인
   4. **렌더 함수는 가짜 데이터를 직접 넣어 결과 검증** — 예: `renderToPaint([...]); document.getElementById('toPaintList').innerText`. 브라우저에서 실제 출력을 보는 거라 시뮬레이션보다 정확. (2026-07-21 통장내역조회 fix 이렇게 검증함)
