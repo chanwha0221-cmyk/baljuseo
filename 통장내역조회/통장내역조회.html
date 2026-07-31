@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v5.1</title>
+<title>통장 내역 조회 v5.2</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v5.1</span>
+  <span class="ver">v5.2</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1917,7 +1917,19 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
        ① 입금은 정산일 당일 또는 그 이후에만 들어온다. 입금일 이후 정산은 그때 존재하지도 않던 돈이라 갚을 수 없다.
        ② 색칠된 셀 = 사장님이 이미 검증 완료 → 절대 다시 칠하지 않는다. 매칭 후보는 미입금 셀뿐.
        ③ 입금이 여러 건이면 '조합(부분집합)'으로 맞춘다. 남는 입금은 과입금(환불 대상)일 수 있다.
-          (착한한끼: 6/22~7/7 정산 7,376,000 = 6/30 4,700,000 + 7/8 2,676,000, 7/9 100,000은 과입금) */
+          (착한한끼: 6/22~7/7 정산 7,376,000 = 6/30 4,700,000 + 7/8 2,676,000, 7/9 100,000은 과입금)
+       ④ 🆕 선입금 예외 (2026-07-31 서율컴퍼니 — 사장님: 어제 입금으로 마지막 날짜까지 다 맞춘 거다):
+          남은 입금 '전액'이 미입금 '전액'(입금일 이후 정산 포함, 마지막 날짜까지)과 원 단위로 일치하면
+          거래처가 다음날 정산까지 미리 맞춰 보낸 선입금으로 인정 → 끝까지 색칠 제안.
+          부분 미래매칭은 계속 금지(6/16입금→6/22정산 오매칭 재발 방지) — '전액 일치'만. */
+    const _paidAll=allTxs.reduce((a,t)=>a+t.amount,0);
+    const _unpaidAll=unpaid.reduce((a,c)=>a+c.sum,0);
+    if(unpaid.length && Math.abs(_paidAll-_unpaidAll)<=tolerance){
+      const _lp=allTxs.reduce((m,t)=>(t.date&&(!m||t.date>m)?t.date:m),null);
+      const _prepay=_lp ? unpaid.some(c=>c.date>_lp) : false;
+      props.push({company, txs:allTxs, cells:unpaid.slice(), status:'match', paid:_paidAll, total:_unpaidAll, prepay:_prepay});
+      continue;
+    }
 
     const N=Math.min(allTxs.length, 12);          // 조합 탐색은 최대 12건(4,096가지)
     const list=allTxs.slice(-N);
@@ -2030,7 +2042,7 @@ function renderSplitPay(props){
       const span=p.cells[0].key+'~'+p.cells[p.cells.length-1].key;
       return `<div id="sp-${i}" style="padding:8px 10px;border-bottom:1px solid var(--border)">
         <div style="font-weight:700">${p.company} <span style="color:#2f9e44;font-size:11px">✓ 나눠 낸 금액 합계가 정산과 일치</span></div>
-        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${p.txs.length}건: ${txline} = <b>${p.paid.toLocaleString()}원</b><br>정산 ${span} 합계 <b>${p.total.toLocaleString()}원</b> → 이 구간 전부 입금 완료</div>
+        <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${p.txs.length}건: ${txline} = <b>${p.paid.toLocaleString()}원</b><br>정산 ${span} 합계 <b>${p.total.toLocaleString()}원</b> → 이 구간 전부 입금 완료${p.prepay?`<br><span style="color:#b45309">⚠ 마지막 입금일 이후 정산(마지막 날짜)까지 포함 — <b>선입금</b>으로 전액이 원 단위 일치해서 인정했습니다.</span>`:''}</div>
         <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="applySplit(${i})">✓ 색칠 목록에 추가</button>
       </div>`;
     }
