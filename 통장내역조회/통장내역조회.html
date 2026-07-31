@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v5.3</title>
+<title>통장 내역 조회 v5.4</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v5.3</span>
+  <span class="ver">v5.4</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1979,52 +1979,42 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
     const lastPay=allTxs.reduce((m,t)=>(t.date&&(!m||t.date>m)?t.date:m),null);
     const upTo=lastPay ? unpaid.filter(c=>c.date<=lastPay) : unpaid;
     const upToSum=upTo.reduce((a,c)=>a+c.sum,0);
-    if(paid > upToSum + tolerance){
+    // 🧮 누적 대사 (carryok) — 초과/부족 가르기 '전에' 공통으로 먼저 본다 (2026-07-31 원가로직스·서율 두 케이스).
+    //    색칠할 때 입금이 모자랐던(또는 색칠이 앞서갔던) 이월 잔액을 나중 입금이 갚는 패턴:
+    //    색칠 셀을 최신부터 거꾸로 누적하다 '기간 내 입금 누계(확정상환 포함)'와 원 단위 일치 지점이 있으면
+    //    = 그 최근 색칠 구간을 이 입금들로 완납. 미색칠 셀은 아직 안 낸 최근 정산분(부족·초과 아님).
+    //    ▸원가로직스: 928,600 = 색칠 7/22~7/28 (부족 경로) ▸서율: 1,365,700 = 색칠 6/30~7/28 (초과 경로 —
+    //    처음에 부족 경로에만 넣어서 '초과입금 610,400' 오판. 사장님: "입금액이랑 정산액이랑 비교해 보라")
+    //    ※'앞 날짜를 억지로 빼서 맞추지 않음' 방침(7/27)과 별개 — 추정이 아니라 누계가 원 단위 일치할 때만.
+    const _cumPaid = paid + _att.resolved.reduce((a,r)=>a+r.amount,0);
+    const _pntDesc = allCells.filter(c=>c.date<=lastPay && !_isCellPaintable(ws,c.row,c.vatCol||c.taxCol)).sort((a,b)=>b.date-a.date);
+    let _hit=null, _acc=0; const _run=[];
+    for(const c of _pntDesc){
+      _acc+=c.sum; _run.push(c);
+      if(Math.abs(_acc-_cumPaid)<=tolerance){ _hit={sum:_acc}; break; }
+      if(_acc>_cumPaid+tolerance) break;   // 더 거슬러 올라가면 커지기만 함
+    }
+    if(_hit){
+      props.push({company, txs:allTxs, cells:[], status:'carryok', paid, total:upToSum,
+                  cum:_cumPaid, paintedSum:_hit.sum,
+                  paintedSpan:_run[_run.length-1].key+'~'+_run[0].key,
+                  span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
+    }
+    else if(paid > upToSum + tolerance){
       const past=_findPastRun(allCells, lastPay, paid, tolerance, _exclude, ws);   // 🔎 과거 확인 (색칠 셀 제외 — 미색칠만, 칠하진 않음)
       // 확인된 과거구간 안에 아직 색 안 칠한 날이 있으면 색칠목록 후보로.
       // ⚠ 2026-07-21 fix: 전엔 `past.diff<0`(초과입금)일 때만 검사해서, 금액이 딱 맞는(exact) 구간은
       //    미색칠 날이 있어도 "이미 색칠된 구간"이라 단정하고 넘어갔음(나행상회 7/20 559,100 = 6/30~7/15,
       //    6/30이 미색칠인데 조치 안내 없음). 초과·정확 가리지 말고 실제 색칠상태를 본다.
+      // (2026-07-31 선입금 배정 시도는 서율 산수와 모순이라 철회 — 초과입금을 미래 정산에 밀어넣지 않는다)
       const paintCells=(past && past.cells) ? past.cells.filter(c=>c.sum>0 && _isCellPaintable(ws,c.row,c.vatCol||c.taxCol)) : [];
-      // 🆕 선입금 배정 (2026-07-31 서율컴퍼니 — 사장님: 어제 입금으로 마지막 날짜까지 다 맞췄으니 30일까지 색칠 가능해야):
-      //   초과입금이 남아 있고 입금일 '이후' 미색칠 정산이 있으면, 이른 날짜부터 통째로 덮이는 만큼 색칠 후보에 추가.
-      //   (예: 649,100 = 7/29 정산 38,700 + 초과 610,400 → 그중 115,900을 7/30 정산에 배정, 나머지만 초과로 표시)
-      let _excess = past ? Math.max(0, paid - past.sum) : Math.max(0, paid - upToSum);
-      const _pcKeys={}; paintCells.forEach(c=>{_pcKeys[c.key]=1;});
-      const _futureUnpaid = unpaid.filter(c=>!_pcKeys[c.key] && lastPay && c.date>lastPay).sort((a,b)=>a.date-b.date);
-      const prepayCells=[];
-      for(const c of _futureUnpaid){ if(_excess>=c.sum){ prepayCells.push(c); _excess-=c.sum; } else break; }
-      props.push({company, txs:allTxs, cells:[], status:'prevpaid', paid, total:upToSum, past,
-                  paintCells: paintCells.concat(prepayCells), prepayCells, prepayLeft:_excess, emptyDays:_emptyDays,
+      props.push({company, txs:allTxs, cells:[], status:'prevpaid', paid, total:upToSum, past, paintCells, emptyDays:_emptyDays,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : '해당 없음'});
     }else{
-      // 🆕 이월 부족분 정리 인식 (2026-07-31 원가로직스 케이스): 색칠할 때 입금이 모자랐고(7/22~28 정산 928,600을 824,300만 받고 색칠),
-      //    나중 입금(7/30 104,300)이 그 부족분을 갚는 패턴. 기존엔 남은 입금을 미색칠 셀하고만 비교해 '부분 입금 269,600 부족' 오판.
-      //    판정 = 누적 대사: 색칠 완료 셀 합(입금일 이하) == 이 업체 기간 내 입금 누계(확정상환 포함) 이면 색칠 구간까지 완납.
-      //    미색칠 셀은 그냥 아직 안 낸 최근 정산분(부족 아님). ※'앞 날짜를 억지로 빼서 맞추지 않음' 방침(7/27)과 별개 —
-      //    여기는 추정이 아니라 누계가 원 단위로 일치할 때만 완납 판정.
-      const _cumPaid = paid + _att.resolved.reduce((a,r)=>a+r.amount,0);
-      // ⚠ 2026-07-31 2차 fix (원가로직스 재발): 처음엔 '입금일 이하 색칠 셀 전부'를 합쳤는데, 그러면 6월 등
-      //   과거 색칠분까지 다 더해져 입금 누계와 절대 안 맞음. → 색칠 셀을 최신부터 거꾸로 누적하다가
-      //   입금 누계와 원 단위 일치하는 지점이 있으면 = 그 최근 색칠 구간을 이 입금들로 완납한 것.
-      const _pntDesc = allCells.filter(c=>c.date<=lastPay && !_isCellPaintable(ws,c.row,c.vatCol||c.taxCol)).sort((a,b)=>b.date-a.date);
-      let _hit=null, _acc=0; const _run=[];
-      for(const c of _pntDesc){
-        _acc+=c.sum; _run.push(c);
-        if(Math.abs(_acc-_cumPaid)<=tolerance){ _hit={sum:_acc}; break; }
-        if(_acc>_cumPaid+tolerance) break;   // 더 거슬러 올라가면 커지기만 함
-      }
-      if(_hit){
-        props.push({company, txs:allTxs, cells:[], status:'carryok', paid, total:upToSum,
-                    cum:_cumPaid, paintedSum:_hit.sum,
-                    paintedSpan:_run[_run.length-1].key+'~'+_run[0].key,
-                    span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
-      }else{
       // 부족(short)일 때도 과거 구간을 같이 본다 — 업체가 6/22~6/30 정산분을 금액 틀리게 넣은 경우 등 (빅피쉬 케이스)
       const past=_findPastRun(allCells, lastPay, paid, tolerance, _exclude, ws);
       props.push({company, txs:allTxs, cells:[], status:'short', paid, total:upToSum, past, emptyDays:_emptyDays,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
-      }
     }
   }
   return props;
