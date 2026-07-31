@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v5.5</title>
+<title>통장 내역 조회 v5.6</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v5.5</span>
+  <span class="ver">v5.6</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1986,20 +1986,30 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
     //    ▸원가로직스: 928,600 = 색칠 7/22~7/28 (부족 경로) ▸서율: 1,365,700 = 색칠 6/30~7/28 (초과 경로 —
     //    처음에 부족 경로에만 넣어서 '초과입금 610,400' 오판. 사장님: "입금액이랑 정산액이랑 비교해 보라")
     //    ※'앞 날짜를 억지로 빼서 맞추지 않음' 방침(7/27)과 별개 — 추정이 아니라 누계가 원 단위 일치할 때만.
-    // 🧮 누계 = 이 업체의 '기간 내 입금 전체' (2026-07-31 서율 3차 fix — 남은입금+확정상환만 합치면
-    //    특이사항/⊘ 등 앞 단계에서 소비된 입금(7/27 716,600)이 빠져 사장님 계산과 안 맞음)
-    const _fullTxs=(allTxByCompany&&allTxByCompany[company])||null;
-    const _cumPaid = _fullTxs ? _fullTxs.reduce((a,t)=>a+t.amount,0) : (paid + _att.resolved.reduce((a,r)=>a+r.amount,0));
-    const _pntDesc = allCells.filter(c=>c.date<=lastPay && !_isCellPaintable(ws,c.row,c.vatCol||c.taxCol)).sort((a,b)=>b.date-a.date);
-    let _hit=null, _acc=0; const _run=[];
-    for(const c of _pntDesc){
-      _acc+=c.sum; _run.push(c);
-      if(Math.abs(_acc-_cumPaid)<=tolerance){ _hit={sum:_acc}; break; }
-      if(_acc>_cumPaid+tolerance) break;   // 더 거슬러 올라가면 커지기만 함
+    // 🧮 양쪽 꼬리 대사 (2026-07-31 서율 4차 fix — 최종): '최근 입금 꼬리 누계'와 '최근 색칠 꼬리 누계'가
+    //    원 단위로 일치하는 지점이 있으면 = 그 최근 색칠 구간을 그 입금들로 완납한 것.
+    //    ▸입금 목록은 매칭 기간·특이사항·⊘와 무관하게 업체별 '달력 시작 이후 전체'(allTxByCompany)에서 —
+    //     기간을 좁혀 돌리면(7/29~) 7/27 716,600이 빠져 대사 불가했던 원인 제거
+    //    ▸한쪽 총액이 아니라 '양쪽 꼬리'를 훑는 이유: 6월 등 과거 구간에 소액 불일치가 있어도(이름매핑·이월 등)
+    //     최근 구간 대사(서율 1,365,700 = 색칠 6/30~7/28)는 성립하기 때문. 남은 입금(leftover)이 다 포함된 꼬리부터만 인정.
+    const _fullTxs=((allTxByCompany&&allTxByCompany[company])||allTxs).slice().sort((a,b)=>b.date-a.date);   // 최신→과거
+    const _pntDesc = allCells.filter(c=>!_isCellPaintable(ws,c.row,c.vatCol||c.taxCol)).sort((a,b)=>b.date-a.date);
+    const _pSums=[]; { let _pa=0; for(const c of _pntDesc){ _pa+=c.sum; _pSums.push(_pa); } }
+    let _hit=null, _sd=0;
+    for(const t of _fullTxs){
+      _sd+=t.amount;
+      if(_sd>=paid-tolerance){   // 남은 입금 전액이 포함된 꼬리부터 유효
+        for(let pi=0; pi<_pSums.length; pi++){
+          if(Math.abs(_pSums[pi]-_sd)<=tolerance){ _hit={sum:_pSums[pi], n:pi+1, cum:_sd}; break; }
+          if(_pSums[pi]>_sd+tolerance) break;
+        }
+      }
+      if(_hit) break;
     }
     if(_hit){
+      const _run=_pntDesc.slice(0,_hit.n);
       props.push({company, txs:allTxs, cells:[], status:'carryok', paid, total:upToSum,
-                  cum:_cumPaid, paintedSum:_hit.sum,
+                  cum:_hit.cum, paintedSum:_hit.sum,
                   paintedSpan:_run[_run.length-1].key+'~'+_run[0].key,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
     }
@@ -2229,6 +2239,31 @@ async function runSettlementMatch(){
     Object.assign(aliasMap, SETTLE_ALIAS); // 🧠 사장님이 전에 확정한 학습 별칭 병합
     if(Object.keys(aliasMap).length) _logLine(`  → 입금자명 별칭 ${Object.keys(aliasMap).length}개 매핑`);
 
+    // 🧮 누적 대사용 업체별 입금 전체 수집 (2026-07-31 서율 4차 fix): 매칭 기간·특이사항과 무관하게
+    //    '통장 전체 데이터'에서 달력 시작일 이후 입금을 업체별로 모음 — 기간을 좁혀 돌려도(7/29~) 대사 가능.
+    //    업체명 해석은 메인 루프와 같은 순서(정확→별칭→앞부분→부분일치 3자 이상).
+    const _cumResolve=(nm)=>{
+      const keys=_nameKeys(nm);
+      for(const k of keys){ if(SETTLE_ALIAS[k]==='취합안함') return null; }
+      for(const k of keys){ if(meta.companyCols[k]) return k; if(aliasMap[k]) return aliasMap[k]==='취합안함'?null:aliasMap[k]; }
+      const _np=_normPayer(nm);
+      for(const ak in SETTLE_ALIAS){ if(ak.length>=2 && _np.startsWith(ak)){ const v=SETTLE_ALIAS[ak]; return v==='취합안함'?null:v; } }
+      for(const company of Object.keys(meta.companyCols)){ for(const k of keys){ if(k.length>=3 && (company.includes(k)||k.includes(company))) return company; } }
+      return null;
+    };
+    {
+      const _calStart = meta.dateRows.length ? meta.dateRows[0].date : null;
+      if(_calStart){
+        for(const d of allData){
+          if(!(d.in>0)) continue;
+          const m=/(\d{4})-(\d{2})-(\d{2})/.exec(d.dateOnly||''); if(!m) continue;
+          const dd=new Date(+m[1],+m[2]-1,+m[3]); if(dd<_calStart) continue;
+          const co=_cumResolve((d.desc||'').trim()); if(!co||!meta.companyCols[co]) continue;
+          (allTxByCompany[co]=allTxByCompany[co]||[]).push({date:dd, dateKey:(dd.getMonth()+1)+'/'+dd.getDate(), amount:d.in});
+        }
+      }
+    }
+
     // 업체별로 정산 셀 인덱스 (date, vatCol, taxCol, vatVal, taxVal, sum)
     const cellsByCompany = {};
     for(const [name, cols] of Object.entries(meta.companyCols)){
@@ -2279,9 +2314,6 @@ async function runSettlementMatch(){
         failCount++;
         continue;
       }
-      // 🧮 업체별 '기간 내 입금 전체' 수집 (2026-07-31 서율 3차 fix): 누적 대사는 남은 입금이 아니라 전체 입금으로 —
-      //    7/27 716,600이 특이사항/⊘ 등 앞 단계에서 소비되면 누계가 모자라 대사가 안 맞던 원인
-      (allTxByCompany[matchedCompany]=allTxByCompany[matchedCompany]||[]).push(tx);
       // 📌 이미 특이사항으로 처리한 입금건이면 다시 경고하지 않음 (2026-07-13)
       const _noted=_isNoted(matchedCompany, tx.dateKey, tx.amount);
       if(_noted){ _logLine(`📌 처리됨(특이사항): ${matchedCompany} ${tx.dateKey} ${tx.amount.toLocaleString()}원 — ${_noted.memo}`); tx.used=true; continue; }
