@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v4.0</title>
+<title>밴드글 메이커 v4.1</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,11 +54,11 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v4.0 🤖</span>
+  <span class="ver">v4.1 🤖</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
-  <div class="hint">📌 ① 밴드 글을 <b>마우스로 긁어서 복사 → 왼쪽 칸에 붙여넣기</b> (볼드·큰글씨 그대로 들어옵니다) ② 게시판 글은 오른쪽에 ③ <b>하비서(Claude)한테 "밴드글 쓰자"</b> → 하비서가 원문을 읽고 결과창에 반영 ④ 수정(Ctrl+B로 볼드) → 💾 저장 = 스타일 학습 ⑤ [📋 서식 복사] → 밴드 글쓰기 창에서 <b>북마크릿</b> 클릭(서식째 주입) ⑥ 사진: 기존 글 <b>수정</b>이면 첨부 유지라 그대로, 새 글이면 [🖼 원문 사진 받기]로 내려받아 사진 첨부에 올리기</div>
+  <div class="hint">📌 ① 밴드 글을 <b>마우스로 긁어서 복사 → 왼쪽 칸에 붙여넣기</b> (볼드·큰글씨 그대로) ② 게시판 글은 오른쪽에 ③ <b>[📮 하비서에게 보내기]</b> 누르고 채팅에 <b>"밴드글 쓰자"</b> ④ <b>[🤖 하비서 글 가져오기]</b> → 수정(Ctrl+B 볼드) → 💾 저장 = 스타일 학습 ⑤ [📋 서식 복사] → 밴드 글쓰기 창에서 <b>북마크릿 v9</b> 클릭 = <b>서식 + 사진까지 한 번에</b> 자동 첨부 (구버전 북마크릿이면 사진은 수동)</div>
   <div class="grid">
     <div class="panel">
       <div class="panel-head">📱 원문 1 — 기존 밴드글 (서식 유지) <span class="cnt" id="cnt-a">0자</span></div>
@@ -73,8 +73,9 @@ textarea:focus{border-color:var(--accent)}
     </div>
   </div>
   <div class="bar">
+    <button class="btn primary" onclick="sendToClaude()" title="원문을 작업대(시트)에 저장 — 하비서가 어느 창에서든 가져갑니다">📮 하비서에게 보내기</button>
     <button class="btn" onclick="resetAll()" title="원문·결과·사진 전부 비우고 처음부터">🧹 초기화</button>
-    <span class="hint">🤖 글 작성 = 하비서 담당 (원문 붙여넣고 하비서 호출) · 스타일 교본 <b id="sampleCnt">0</b>건 · ====== 잠금 블록은 글자 하나 안 건드립니다</span>
+    <span class="hint">📮 보내기 → 채팅에 <b>"밴드글 쓰자"</b> → 🤖 가져오기 · 스타일 교본 <b id="sampleCnt">0</b>건 · ====== 잠금 블록은 글자 하나 안 건드립니다</span>
   </div>
   <div class="panel">
     <div class="panel-head">✍️ 뉴 밴드글 (직접 수정 — Ctrl+B 볼드)
@@ -83,6 +84,7 @@ textarea:focus{border-color:var(--accent)}
     <div class="panel-body">
       <div id="out" class="rich" contenteditable="true" data-ph="하비서가 쓴 글이 여기 들어옵니다 (직접 수정 가능)" oninput="upOut()"></div>
       <div class="bar" style="margin-top:10px">
+        <button class="btn" style="background:#7b2d8b;color:#fff;border-color:#7b2d8b" onclick="fetchFromClaude()">🤖 하비서 글 가져오기</button>
         <button class="btn green" onclick="saveBand()">💾 저장 (스타일 학습)</button>
         <button class="btn copy" onclick="copyRich()">📋 서식 복사 (밴드용)</button>
         <button class="btn" onclick="copyPlain()">텍스트만 복사</button>
@@ -413,6 +415,9 @@ function loadToOut(id){ const it=DATA.find(x=>String(x.id)===String(id)); if(!it
 async function copyRich(){
   const el=$('out');
   if(!plainOf(outMarked()).trim()){ toast('복사할 글이 없어요'); return; }
+  // 🖼 사진 URL 목록을 숨은 마커로 동봉 (2026-08-03 v4.1) — 북마크릿 v9가 이걸 읽어 사진까지 한 번에 첨부
+  let _imgMk=null;
+  if(IMGS.length){ _imgMk=document.createElement('span'); _imgMk.setAttribute('data-band-imgs',IMGS.join('|')); _imgMk.style.display='none'; el.appendChild(_imgMk); }
   // 1순위: 선택 복사 — 브라우저가 마우스 드래그 복사와 100% 동일한 클립보드를 만들어 밴드 에디터 호환 최고 (2026-07-10 서식 안 붙던 문제)
   let ok=false;
   try{
@@ -430,7 +435,8 @@ async function copyRich(){
       ok=true;
     }catch(e){}
   }
-  toast(ok?'📋 서식째 복사됨 — 밴드 글쓰기에 Ctrl+V (Ctrl+Shift+V는 서식 날아가니 금지)':'⚠️ 복사 실패 — 결과창을 마우스로 전체 드래그해서 Ctrl+C 해주세요');
+  if(_imgMk) _imgMk.remove();
+  toast(ok?('📋 서식째 복사됨'+(IMGS.length?' (사진 '+IMGS.length+'장 정보 포함)':'')+' — 밴드 글쓰기에서 북마크릿 클릭'):'⚠️ 복사 실패 — 결과창을 마우스로 전체 드래그해서 Ctrl+C 해주세요');
 }
 // 원문 1의 사진들을 weserv 프록시 경유로 일괄 다운로드 → 밴드 사진 첨부에 올리기 (밴드 본문 인라인 불가 우회, 2026-07-10)
 async function downloadImgs(){
@@ -498,6 +504,65 @@ function claudeSetBand(marked){
   const n=bodyLen(t);
   toast('🤖 하비서 글 반영 완료 (본문 '+n.toLocaleString()+'자) — 수정 후 💾 저장!');
   return '본문 '+n+'자 (목표 1000~1100'+((n>=1000&&n<=1100)?' ✅':' ⚠️ 범위 밖 — 다시 조정 필요')+')';
+}
+
+/* ===== 📮 작업대 (시트 큐, 2026-08-03 v4.1) — 하비서가 사장님 창을 찾을 필요 없게 ===== */
+// 사장님: [📮 하비서에게 보내기] → 채팅에 "밴드글 쓰자" → [🤖 하비서 글 가져오기]. 어느 창·어느 PC든 무관.
+const WORK_TAB='밴드_작업대';
+async function ensureWorkTab(){
+  const t=await getToken();
+  const m=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,{headers:{Authorization:`Bearer ${t}`}});
+  const titles=(((await m.json()).sheets)||[]).map(s=>s.properties.title);
+  if(!titles.includes(WORK_TAB)){
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:WORK_TAB}}}]})});
+  }
+}
+async function sendToClaude(){
+  const src1=extractLocks(markSrcA());
+  const src2=$('src-b').value.trim();
+  if(!src1&&!src2){ toast('원문을 먼저 붙여넣어 주세요'); return; }
+  try{
+    await ensureWorkTab();
+    const t=await getToken();
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!A1')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['요청',nowKST(),src1,src2,JSON.stringify(IMGS),JSON.stringify(LOCKS),String(TAIL_LOCK)],['결과','','']]})});
+    toast('📮 하비서에게 보냈습니다 — 채팅에 "밴드글 쓰자"만 치시면 돼요');
+  }catch(e){ toast('⚠️ 전송 실패: '+e.message); }
+}
+async function fetchFromClaude(){
+  try{
+    const t=await getToken();
+    const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!A1:G2')}`,{headers:{Authorization:`Bearer ${t}`}});
+    const v=((await r.json()).values)||[];
+    const res=v[1]&&v[1][1];
+    if(!res){ toast('아직 하비서 결과가 없어요 (채팅에 "밴드글 쓰자" 하셨나요?)'); return; }
+    try{ IMGS=JSON.parse((v[0]&&v[0][4])||'[]'); }catch(_){}
+    try{ LOCKS=JSON.parse((v[0]&&v[0][5])||'[]'); }catch(_){}
+    const _tl=parseInt(v[0]&&v[0][6]); TAIL_LOCK=isNaN(_tl)?-1:_tl;
+    $('out').innerHTML=markedToHtml(res); upOut();
+    $('out').scrollIntoView({behavior:'smooth',block:'start'});
+    toast('🤖 하비서 글 불러옴 ('+((v[1]&&v[1][2])||'')+') — 확인 후 💾 저장!');
+  }catch(e){ toast('⚠️ '+e.message); }
+}
+// ── 하비서 쪽 (Claude가 자기 인앱 브라우저에서 호출 — 사장님 창 불필요) ──
+async function claudeReadWork(){
+  const t=await getToken();
+  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!A1:G1')}`,{headers:{Authorization:`Bearer ${t}`}});
+  const v=(((await r.json()).values)||[])[0]||[];
+  if(v[0]!=='요청') return JSON.stringify({error:'작업대에 요청 없음 — 사장님이 [📮 하비서에게 보내기]를 아직 안 누름'});
+  try{ IMGS=JSON.parse(v[4]||'[]'); }catch(_){ IMGS=[]; }
+  try{ LOCKS=JSON.parse(v[5]||'[]'); }catch(_){ LOCKS=[]; }
+  const _tl=parseInt(v[6]); TAIL_LOCK=isNaN(_tl)?-1:_tl;
+  if(!loaded) await loadAll().catch(function(){});
+  return JSON.stringify({at:v[1], src1_marked:v[2]||'', src2:v[3]||'', locks:LOCKS.length, imgs:IMGS.length, samples:[...DATA].slice(-3).map(x=>({title:x.title,body:x.body}))});
+}
+async function claudeWriteResult(marked){
+  let out=String(marked||'').replace(/\r\n/g,'\n').trim();
+  if(!out) return '⚠️ 빈 글';
+  out=finalizeBand(out);   // 잠금 복원 + 전체 안전망 (claudeReadWork가 LOCKS/IMGS 세팅해둠)
+  const n=bodyLen(out);
+  const t=await getToken();
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['결과',out,'본문 '+n+'자 · '+nowKST()]]})});
+  return '본문 '+n+'자 '+((n>=1000&&n<=1100)?'✅':'⚠️ 범위 밖 — 조정 필요')+' — 작업대 저장 완료. 사장님은 [🤖 하비서 글 가져오기] 클릭';
 }
 
 // 원문 1·결과창에 붙여넣는 즉시 UI 쓰레기(삭제 버튼 등) 제거
