@@ -3,10 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.569</title>
+<title>발주서 변환기 v22.570</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +55,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.569</span>
+  <span class="ver">v22.570</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -107,394 +104,6 @@ async function checkSheetAccess(){var st=document.getElementById('sheetStatus');
 initSheetUrl();
 let pendingHistory=[];
 let dayHistory=[];
-function clearDayHistory(){dayHistory=[];pendingHistory=[];sl('오늘 발주 히스토리 초기화됨','ok');}
-function loadToHistory(){
-  const input=document.getElementById('inp').value.trim();
-  if(!input){sl('입력 데이터가 없습니다.','warn');return;}
-  dayHistory=[];pendingHistory=[];
-  const lines=mergeLines(input);const rules=parseRules();let count=0;
-  for(const line of lines){
-    const row=pr2(line);if(!row)continue;
-    const{client,nameRaw,address,qty,qtyColValue,prod}=row;
-    const{name:rawName,qty:fq}=pp(client,prod,qty);
-    const finalQty=fq*(qtyColValue||1);let name=rawName;
-    for(const rule of rules){if(name.includes(rule.from))name=name.replace(rule.from,rule.to);}
-    const dupKey=(nameRaw+'|'+address).replace(/\s/g,'');
-    dayHistory.push({client,product:name,qty:finalQty,nameRaw,address,key:dupKey});count++;
-  }
-  sl('분석데이터 입력 완료 — 히스토리 '+count+'건 등록됨','ok');
-}
-async function analyzeDay_REMOVED(){
-  const input=document.getElementById('inp').value.trim();
-  if(!input){sl('입력란에 발주서 데이터가 없습니다. (B~J열 — 원가(면세)부터 상품명까지 9칸을 붙여넣으세요)','warn');return;}
-  const dateInput=prompt('이번 분석은 어느 날짜 데이터인가요?\n(M/D 형식, 예: 5/8)','');
-  if(dateInput===null)return;
-  const dm=dateInput.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
-  if(!dm){sl('날짜 형식이 잘못됨. M/D 형식으로 입력 (예: 5/8)','warn');return;}
-  const mon=parseInt(dm[1]),day=parseInt(dm[2]);
-  if(mon<1||mon>12||day<1||day>31){sl('잘못된 월/일','warn');return;}
-  const dateLabel=mon+'/'+day;
-  sl('판매 분석 중...');
-
-  // 입력 파싱 (B~J 9칸 기준 — A열 원번 제외)
-  const COL={원가면세:0,원가과세:1,공급가면세:2,공급가과세:3,업체:4,상품:8};
-  const num=v=>{
-    if(v===null||v===undefined||v==='')return 0;
-    const s=String(v).replace(/[^0-9.\-]/g,'');
-    return parseFloat(s)||0;
-  };
-  // 보이지 않는 공백류 안전 버전 (명시적 유니코드)
-  const cleanCellSafe=v=>{if(v==null)return'';const s=String(v);let r='';for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c===0xA0||c===0x034F||c===0x061C||c===0x180E||c===0x3000||c===0xFEFF||(c>=0x200B&&c<=0x200F)||(c>=0x202A&&c<=0x202F)||(c>=0x205F&&c<=0x206F)||(c>=0xFE00&&c<=0xFE0F))continue;r+=s[i];}return r.trim();};
-  /* OLD_BROKEN_REGEX_BEGIN
-  const _x=v=>(v==null?'':String(v)).replace(/[ ​‌‍‎‏   　﻿]/g,'').trim();
-  // 보이지 않는 공백류(NBSP, 유니코드 공백 등) 정리 헬퍼 — 일반 공백(U+0020)은 보존
-  const cleanCell=v=>(v==null?'':String(v)).replace(/[ ​-‏ - 　﻿]/g,'').trim();
-  */
-  // cleanCell — 안전 버전(cleanCellSafe) 위임 (구 정규식 버전 깨졌었음)
-  const cleanCell=cleanCellSafe;
-  // 상품명 정규화 + 수량 추출
-  // 1) 괄호 안 내용 모두 제거 — 위치 무관 ("(제주)연안굴비" 의 (제주) prefix도 떼고, "민물장어 (생강 많이)" 의 suffix도 뗌)
-  // 2) 닫는 괄호 없는 미완성 괄호는 첫 ( 부터 끝까지 절단
-  // 3) 끝의 "x N" / "× N" / "* N" 패턴에서 수량 추출
-  // 4) 정규화 후 빈 상품명이면 원본 사용 (방어)
-  const parseProduct=name=>{
-    const orig=cleanCell(name);
-    let s=orig;
-    // 정상 닫힌 (...) 그룹 모두 제거 (위치 무관)
-    s=s.replace(/\s*[\(（][^\(（\)）]*[\)）]\s*/g,' ');
-    // 미완성 괄호(닫힘 없음) — 첫 ( 부터 끝까지 잘라냄
-    const pi=s.search(/[\(（]/);
-    if(pi>=0)s=s.slice(0,pi);
-    s=s.replace(/\s+/g,' ').trim();
-    if(!s)s=orig; // 다 잘려서 빈 결과면 원본 사용
-    const m=s.match(/^(.*?)\s*[x×*X]\s*(\d+)\s*$/);
-    if(m){
-      const clean=m[1].trim();
-      return{clean:clean||s, qty:parseInt(m[2])};
-    }
-    return{clean:s,qty:1};
-  };
-  // 헤더 행 판별: 첫 셀에 한글(원가, 공급가 등) 들어있으면 헤더
-  const isHeader=r=>{
-    const c0=(r[COL.원가면세]||'').toString().trim();
-    return /[가-힣]/.test(c0);
-  };
-  const rawLines=input.split(/\r?\n/).map(l=>l.split('\t'));
-  const lines=rawLines.filter(r=>r.length>=9 && !isHeader(r) && cleanCell(r[COL.업체]) && cleanCell(r[COL.상품]));
-  if(lines.length===0){sl('파싱된 행이 없음. B~J열 9칸(원가(면세)~상품명)을 붙여넣었는지 확인하세요.','warn');return;}
-
-  const clientMap={},productMap={};
-  let skippedNoCompany=0;
-  for(const r of lines){
-    const 업체=cleanCell(r[COL.업체]);
-    const 상품Raw=cleanCell(r[COL.상품]);
-    if(!업체){skippedNoCompany++;continue;}
-    const 원가행=num(r[COL.원가면세])+num(r[COL.원가과세]);
-    const 공급가행=num(r[COL.공급가면세])+num(r[COL.공급가과세]);
-    // 합포장 (/ 구분) — 각 상품을 별도 행으로 분리, 원가·공급가는 N등분
-    const parts=상품Raw.split('/').map(p=>p.trim()).filter(Boolean);
-    if(parts.length===0)continue;
-    const N=parts.length;
-    const 원가분배=원가행/N;
-    const 공급가분배=공급가행/N;
-    for(const part of parts){
-      const {clean:상품,qty:수량}=parseProduct(part);
-      if(!상품)continue;
-      const 매출=공급가분배;
-      const 매입=원가분배;
-      const 마진=매출-매입;
-      // 공백 차이로 분리되는 상품 통합 — key는 공백 제거 정규화, 표시명은 원본(처음 본 버전 유지)
-      const 상품키=상품.replace(/\s+/g,'');
-      const ck=업체+'||'+상품키;
-      if(!clientMap[ck])clientMap[ck]={업체,상품,수량:0,매출:0,매입:0,마진:0};
-      clientMap[ck].수량+=수량; clientMap[ck].매출+=매출; clientMap[ck].매입+=매입; clientMap[ck].마진+=마진;
-      if(!productMap[상품키])productMap[상품키]={상품,수량:0,매출:0,매입:0,마진:0};
-      productMap[상품키].수량+=수량; productMap[상품키].매출+=매출; productMap[상품키].매입+=매입; productMap[상품키].마진+=마진;
-    }
-  }
-
-  try{
-    const token=await getAccessToken();
-    const metaRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}?fields=sheets.properties.title`,{headers:{'Authorization':`Bearer ${token}`}});
-    const meta=await metaRes.json();
-    if(meta.error){sl('분석 스프레드시트 접근 실패: '+meta.error.message+' (편집자 권한 공유 확인)','warn');return;}
-    const titles=(meta.sheets||[]).map(s=>s.properties.title);
-    const addReqs=[];
-    if(!titles.includes('업체별판매'))addReqs.push({addSheet:{properties:{title:'업체별판매'}}});
-    if(!titles.includes('전체판매'))addReqs.push({addSheet:{properties:{title:'전체판매'}}});
-    if(addReqs.length){await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:addReqs})});}
-    const okC=await mergeAnalysis(token,'업체별판매',dateLabel,Object.values(clientMap),['업체명','상품명'],it=>[it.업체,it.상품]);
-    if(!okC)return;
-    const okP=await mergeAnalysis(token,'전체판매',dateLabel,Object.values(productMap),['상품명'],it=>[it.상품]);
-    if(!okP)return;
-    const skipMsg=skippedNoCompany>0?(', 업체명 누락 '+skippedNoCompany+'행 스킵'):'';
-    sl('판매 분석 완료! '+dateLabel+' ('+lines.length+'행 처리'+skipMsg+')','ok');
-  }catch(e){sl('분석 오류: '+e.message,'warn');}
-}
-async function rollbackDate_REMOVED(){
-  const dateInput=prompt('어느 날짜 데이터를 롤백(삭제)할까요?\n(M/D 형식, 예: 5/8)\n\n해당 날짜의 수량/매출/마진 컬럼이 두 분석 시트에서 모두 제거됩니다.','');
-  if(dateInput===null)return;
-  const dm=dateInput.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
-  if(!dm){sl('날짜 형식이 잘못됨. M/D 형식 (예: 5/8)','warn');return;}
-  const dateLabel=parseInt(dm[1])+'/'+parseInt(dm[2]);
-  if(!confirm(dateLabel+' 데이터를 업체별판매·전체판매 두 시트에서 모두 삭제합니다.\n계속할까요? (되돌릴 수 없음)'))return;
-  sl(dateLabel+' 롤백 중...');
-  try{
-    const token=await getAccessToken();
-    // 빈 items로 mergeAnalysis 호출 → 그 날짜 데이터만 제거하고 새로 추가는 없음
-    const okC=await mergeAnalysis(token,'업체별판매',dateLabel,[],['업체명','상품명'],it=>[]);
-    if(!okC)return;
-    const okP=await mergeAnalysis(token,'전체판매',dateLabel,[],['상품명'],it=>[]);
-    if(!okP)return;
-    sl(dateLabel+' 데이터 롤백 완료! (그 날짜에만 데이터 있던 상품 행은 자동 삭제됨)','ok');
-  }catch(e){sl('롤백 오류: '+e.message,'warn');}
-}
-async function mergeAnalysis_REMOVED(token,sheetName,dateLabel,items,keyCols,getKey){
-  const readRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ20000`,{headers:{'Authorization':`Bearer ${token}`}});
-  const readData=await readRes.json();
-  const existing=readData.values||[];
-  const header=existing[0]||[];
-  const rows=existing.slice(1);
-
-  // 끝의 합계 컬럼들 분리 (구버전: 합계 수량/매출/마진/마진율 4개, 신버전: 합계 마진율 1개)
-  let dataHeaders=header.slice(keyCols.length);
-  // 신버전: 마지막이 "합계 마진율"
-  while(dataHeaders.length>0 && /^합계\s/.test(dataHeaders[dataHeaders.length-1])){
-    dataHeaders=dataHeaders.slice(0,dataHeaders.length-1);
-  }
-
-  // 기존 날짜 컬럼 → 위치 매핑
-  const dateMap={}; // dateLabel → {수량:idx, 매출:idx, 마진:idx} (dataHeaders 기준)
-  for(let i=0;i<dataHeaders.length;i++){
-    const m=dataHeaders[i].match(/^(\d{1,2}\/\d{1,2})\s+(수량|매출|마진)$/);
-    if(m){
-      if(!dateMap[m[1]])dateMap[m[1]]={};
-      dateMap[m[1]][m[2]]=i;
-    }
-  }
-
-  // 기존 행 → rowMap
-  const rowMap={};
-  const num=v=>{const s=(v||'').toString().replace(/[^0-9.\-]/g,'');return parseFloat(s)||0;};
-  // 보이지 않는 공백류 안전 — 정규식 대신 charCode 비교
-  const cleanCell=v=>{if(v==null)return'';const s=String(v);let r='';for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c===0xA0||c===0x034F||c===0x061C||c===0x180E||c===0x3000||c===0xFEFF||(c>=0x200B&&c<=0x200F)||(c>=0x202A&&c<=0x202F)||(c>=0x205F&&c<=0x206F)||(c>=0xFE00&&c<=0xFE0F))continue;r+=s[i];}return r.trim();};
-  /* OLD_BROKEN_REGEX_2:
-  const _y=v=>(v==null?'':String(v)).replace(/[ ​ -   　﻿]/g,'').trim();
-  */
-  let lastFirstKey=''; // 셀 병합으로 인해 빈 업체명이 나오면 위쪽 행에서 채우기 위함
-  for(const row of rows){
-    const keyVals=keyCols.map((_,i)=>(row[i]||'').toString());
-    if(keyVals.every(v=>!cleanCell(v)))continue;
-    // 첫 키 컬럼(업체명)이 비어있으면 위쪽 행에서 propagate (셀 병합 영향 보정)
-    if(keyCols[0]==='업체명'){
-      const c0=cleanCell(keyVals[0]);
-      if(c0){lastFirstKey=c0;keyVals[0]=c0;}
-      else if(lastFirstKey){keyVals[0]=lastFirstKey;}
-      // 그래도 비어있으면 (이전 valid 업체명 없음) — 깨진 잔재 데이터, 스킵
-      if(!cleanCell(keyVals[0]))continue;
-    }
-    // 키 컬럼들 다 cleanCell 처리 (공백 정규화)
-    for(let i=0;i<keyVals.length;i++)keyVals[i]=cleanCell(keyVals[i]);
-    // 요약 행(상품명="총합") 스킵 — 다시 누적되지 않게
-    if(keyVals[keyVals.length-1]==='총합')continue;
-    // 상품명 비어있어도 스킵
-    if(!keyVals[keyVals.length-1])continue;
-    // 공백 차이로 분리되는 상품을 묶기 위해 키는 공백 제거 정규화 사용
-    const k=keyVals.map(v=>v.replace(/\s+/g,'')).join('||');
-    const dates={};
-    for(const [d,mIdx] of Object.entries(dateMap)){
-      const obj={};
-      for(const [metric,idx] of Object.entries(mIdx)){
-        const cell=row[keyCols.length+idx];
-        const n=num(cell);
-        if(n!==0)obj[metric]=n;
-      }
-      if(Object.keys(obj).length)dates[d]=obj;
-    }
-    // 같은 정규화 키 중복 시 (시트에 공백만 다른 행 여러 개) → dates 합산 병합
-    if(!rowMap[k]){
-      rowMap[k]={keyVals,dates};
-    }else{
-      for(const [d,obj] of Object.entries(dates)){
-        if(!rowMap[k].dates[d])rowMap[k].dates[d]={};
-        for(const [metric,val] of Object.entries(obj)){
-          rowMap[k].dates[d][metric]=(rowMap[k].dates[d][metric]||0)+val;
-        }
-      }
-    }
-  }
-
-  // 같은 날짜 데이터 자동 교체 (확인창 없이 그 날짜 데이터 다 지우고 새로 넣음)
-  for(const v of Object.values(rowMap))delete v.dates[dateLabel];
-
-  // 신규 데이터 병합 (공백 정규화 키 사용 + 같은 키일 경우 가산 병합)
-  for(const item of items){
-    const keyVals=getKey(item);
-    const k=keyVals.map(v=>(v||'').replace(/\s+/g,'')).join('||');
-    if(!rowMap[k])rowMap[k]={keyVals,dates:{}};
-    if(!rowMap[k].dates[dateLabel])rowMap[k].dates[dateLabel]={수량:0,매출:0,마진:0};
-    rowMap[k].dates[dateLabel].수량+=item.수량||0;
-    rowMap[k].dates[dateLabel].매출+=item.매출||0;
-    rowMap[k].dates[dateLabel].마진+=item.마진||0;
-  }
-
-  // 모든 날짜 수집 + 오름차순(왼쪽=과거)
-  const allDates=new Set();
-  for(const v of Object.values(rowMap))for(const d of Object.keys(v.dates))allDates.add(d);
-  const sortedDates=Array.from(allDates).sort((a,b)=>{
-    const am=a.match(/^(\d+)\/(\d+)$/),bm=b.match(/^(\d+)\/(\d+)$/);
-    return (am?parseInt(am[1])*100+parseInt(am[2]):0)-(bm?parseInt(bm[1])*100+parseInt(bm[2]):0);
-  });
-
-  // 새 헤더 (합계 수량 / 합계 매출 / 합계 마진율)
-  const newHeader=[...keyCols];
-  for(const d of sortedDates)newHeader.push(d+' 수량',d+' 매출',d+' 마진');
-  newHeader.push('합계 수량','합계 매출','합계 마진율');
-
-  // 행 빌드 + 합계 (마진율은 숫자로 저장, % 포맷은 시트 쪽에서 적용)
-  const newRows=[];
-  for(const v of Object.values(rowMap)){
-    const r=v.keyVals.slice();
-    let sQ=0,sR=0,sM=0;
-    for(const d of sortedDates){
-      const dat=v.dates[d]||{};
-      const q=dat.수량||0,R=dat.매출||0,M=dat.마진||0;
-      r.push(q||'',R||'',M||'');
-      sQ+=q; sR+=R; sM+=M;
-    }
-    const rate=sR>0?Math.round((sM/sR)*10000)/100:0;
-    r.push(sQ||'',sR||'',sR>0?rate:'');
-    // 정렬용 메타
-    r._sR=sR; r._sM=sM; r._sRate=rate; r._sQ=sQ;
-    // 모든 합계 0이면 제외
-    if(sQ===0 && sR===0 && sM===0)continue;
-    newRows.push(r);
-  }
-
-  // 정렬: 매출 → 마진 → 마진율 → 수량 (모두 내림차순)
-  const cmp=(a,b)=>{
-    if(b._sR!==a._sR)return b._sR-a._sR;
-    if(b._sM!==a._sM)return b._sM-a._sM;
-    if(b._sRate!==a._sRate)return b._sRate-a._sRate;
-    return b._sQ-a._sQ;
-  };
-  // 업체별판매: 업체끼리 묶고 → 업체 합계 순위로 그룹 정렬 → 그룹 안에서 상품별 정렬 → 그룹 끝에 "총합" 행 추가
-  if(keyCols[0]==='업체명'){
-    const groups={};
-    for(const r of newRows){
-      const c=r[0];
-      if(!groups[c])groups[c]={rows:[],_sR:0,_sM:0,_sQ:0};
-      groups[c].rows.push(r);
-      groups[c]._sR+=r._sR; groups[c]._sM+=r._sM; groups[c]._sQ+=r._sQ;
-    }
-    for(const g of Object.values(groups)){
-      g._sRate=g._sR>0?Math.round((g._sM/g._sR)*10000)/100:0;
-    }
-    const sortedGroups=Object.values(groups).sort(cmp);
-    for(const g of sortedGroups)g.rows.sort(cmp);
-    newRows.length=0;
-    for(const g of sortedGroups){
-      const company=g.rows[0][0];
-      for(const r of g.rows)newRows.push(r);
-      // 업체 총합 행 (per-date 수량은 비우고 매출/마진만, 합계는 수량/매출/마진율)
-      const sumRow=[company,'총합'];
-      let totalQ=0,totalR=0,totalM=0;
-      for(let d=0;d<sortedDates.length;d++){
-        let dQ=0,dR=0,dM=0;
-        for(const gr of g.rows){
-          dQ+=parseFloat(gr[keyCols.length+d*3])||0;
-          dR+=parseFloat(gr[keyCols.length+d*3+1])||0;
-          dM+=parseFloat(gr[keyCols.length+d*3+2])||0;
-        }
-        sumRow.push('', dR||'', dM||''); // per-date 수량 빈칸 유지
-        totalQ+=dQ; totalR+=dR; totalM+=dM;
-      }
-      const rate=totalR>0?Math.round((totalM/totalR)*10000)/100:0;
-      sumRow.push(totalQ||'',totalR||'',totalR>0?rate:'');
-      newRows.push(sumRow);
-    }
-  }else{
-    newRows.sort(cmp);
-  }
-
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:ZZ20000:clear`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
-  const finalData=[newHeader,...newRows];
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:finalData})});
-
-  // === 포맷팅 ===
-  try{
-    // 시트 ID 조회
-    const meta2Res=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}?fields=sheets.properties`,{headers:{'Authorization':`Bearer ${token}`}});
-    const meta2=await meta2Res.json();
-    const sheetInfo=(meta2.sheets||[]).find(s=>s.properties.title===sheetName);
-    if(!sheetInfo)return true;
-    const sheetId=sheetInfo.properties.sheetId;
-    const numCols=newHeader.length;
-    const numRowsTotal=finalData.length; // 헤더 포함
-    const dateCount=sortedDates.length;
-    const firstNumColIdx=keyCols.length;
-    const lastNumColIdx=firstNumColIdx+dateCount*3; // 날짜 컬럼 끝 (exclusive)
-    const rateColIdx=numCols-1; // 합계 마진율
-
-    const reqs=[];
-    // 1) 기존 셀 병합 해제 + 포맷 리셋 (큰 범위로)
-    reqs.push({unmergeCells:{range:{sheetId,startRowIndex:0,endRowIndex:5000,startColumnIndex:0,endColumnIndex:50}}});
-    reqs.push({updateBorders:{range:{sheetId,startRowIndex:0,endRowIndex:numRowsTotal+5,startColumnIndex:0,endColumnIndex:numCols},top:{style:'NONE'},bottom:{style:'NONE'},left:{style:'NONE'},right:{style:'NONE'},innerHorizontal:{style:'NONE'},innerVertical:{style:'NONE'}}});
-    // 1b) 숫자 포맷 리셋 — 이전 실행의 잔재 % 포맷 등이 새 컬럼 위치에 남지 않게 일괄 콤마로 초기화
-    reqs.push({repeatCell:{range:{sheetId,startRowIndex:0,endRowIndex:5000,startColumnIndex:0,endColumnIndex:50},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'}}},fields:'userEnteredFormat.numberFormat'}});
-
-    // 2) 첫 행 고정
-    reqs.push({updateSheetProperties:{properties:{sheetId,gridProperties:{frozenRowCount:1}},fields:'gridProperties.frozenRowCount'}});
-
-    // 3) 헤더 행: 굵게 + 가운데 정렬 + 연회색 배경
-    reqs.push({repeatCell:{range:{sheetId,startRowIndex:0,endRowIndex:1,startColumnIndex:0,endColumnIndex:numCols},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE',textFormat:{bold:true},backgroundColor:{red:0.93,green:0.93,blue:0.93}}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat,backgroundColor)'}});
-
-    // 4) 키 컬럼 (업체명/상품명) 데이터 영역: 가운데 정렬
-    if(numRowsTotal>1){
-      reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:0,endColumnIndex:keyCols.length},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment)'}});
-    }
-
-    // 5) 날짜 수량/매출/마진 + 합계 수량/매출 컬럼: 천 단위 콤마 + 가운데 (마진율 제외)
-    if(numRowsTotal>1 && rateColIdx>firstNumColIdx){
-      reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:firstNumColIdx,endColumnIndex:rateColIdx},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(numberFormat,horizontalAlignment,verticalAlignment)'}});
-    }
-
-    // 6) 합계 마진율 컬럼: "30.77%" 형식 + 가운데
-    if(numRowsTotal>1){
-      reqs.push({repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:numRowsTotal,startColumnIndex:rateColIdx,endColumnIndex:rateColIdx+1},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'0.00"%"'},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(numberFormat,horizontalAlignment,verticalAlignment)'}});
-    }
-
-    // 7) 컬럼 너비 자동 조정
-    reqs.push({autoResizeDimensions:{dimensions:{sheetId,dimension:'COLUMNS',startIndex:0,endIndex:numCols}}});
-
-    // 8) 업체별판매: 업체별로 묶고 → 업체명 셀 병합 + 그룹 외곽 테두리
-    if(keyCols[0]==='업체명' && newRows.length>0){
-      let s=0;
-      for(let i=1;i<=newRows.length;i++){
-        const reachedEnd=(i===newRows.length);
-        const isBoundary=reachedEnd||(newRows[i][0]!==newRows[s][0]);
-        if(isBoundary){
-          const sheetStartRow=s+1; // 헤더가 0행, 데이터는 1행부터
-          const sheetEndRow=i+1;   // exclusive
-          const grpSize=i-s;
-          // 그룹이 2행 이상일 때만 셀 병합
-          if(grpSize>=2){
-            reqs.push({mergeCells:{range:{sheetId,startRowIndex:sheetStartRow,endRowIndex:sheetEndRow,startColumnIndex:0,endColumnIndex:1},mergeType:'MERGE_ALL'}});
-          }
-          // 그룹 외곽 테두리
-          const border={style:'SOLID',width:1,color:{red:0.4,green:0.4,blue:0.4}};
-          reqs.push({updateBorders:{range:{sheetId,startRowIndex:sheetStartRow,endRowIndex:sheetEndRow,startColumnIndex:0,endColumnIndex:numCols},top:border,bottom:border,left:border,right:border}});
-          s=i;
-        }
-      }
-    }
-
-    if(reqs.length>0){
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${ANALYSIS_SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:reqs})});
-    }
-  }catch(e){console.warn('포맷 적용 실패(데이터는 정상 저장됨):',e);}
-  return true;
-}
 async function getAccessToken(){
   const header={alg:'RS256',typ:'JWT'};
   const now=Math.floor(Date.now()/1000);
@@ -597,6 +206,11 @@ const CC={
 };
 const RA="강원특별자치도 동해시 대학로 16";
 const HEADER_KEYWORDS=["주문처","업체명","거래처","공급사","상품명","고객명","수취인","연락처"];
+// 📏 단위 목록 단일화 (2026-08-03): 상품 판정 정규식 5곳(parseLooseBoardRow×2·mergeLines·pr2·preprocessBalbolLine)이
+//    제각각 복붙이라 목록이 어긋나 있던 것 통합. 새 단위는 UNIT_WORDS 한 곳만 추가하면 전 파서에 반영된다.
+//    (?:급|짜리)? = "5kg급" 접미사 허용, (?![가-힣]) = "1단지" 같은 주소 오인식 방지
+const UNIT_WORDS='kg|g|ea|팩|미|구|개|마리|인분|봉|통|박스|세트|셋트|리터|ml|L|판|대|장|줄|관|단|마|모|벌';
+const UNIT_QTY_RE=new RegExp('\\d+\\s*(?:'+UNIT_WORDS+')(?:급|짜리)?(?![가-힣])','i');
 let wc=0;
 function sl(m,t){const e=document.getElementById('log');e.textContent=m;e.className='log-pill'+(t?' '+t:'');if(t==='warn')wc++;}
 function fp(t){
@@ -664,11 +278,11 @@ function csvParseRows(input){
 // 게시판 텍스트 형식 fallback: "업체명  주소  전화  상품 x N  수령인  주소  전화  [메모]"
 // 공백 개수 상관없이 전화번호 2개를 앵커로 분해 (1칸 공백이든 3칸이든 무관)
 function parseLooseBoardRow(line){
-  const phoneRe=/0\d{1,2}-\d{3,4}-\d{4}/g;
+  const phoneRe=/0\d{1,3}-\d{3,4}-\d{4}/g;   // 0\d{1,3} = 안심번호(0508 등 앞 4자리) 포함 — 2026-08-03 전 파서 통일
   const phones=[...line.matchAll(phoneRe)];
   if(phones.length<2)return null;
   // 상품 경계 앵커: 'x N'(명시 수량) 또는 단위 수량(5kg·500g·1팩 등). 둘 다 없으면 상품/수령인 경계를 못 잡으니 패스
-  const _unitRe=/\d+\s*(?:kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판|대|장|줄|관|단|모|벌)(?![가-힣])/i;
+  const _unitRe=UNIT_QTY_RE;
   if(!/[xX×]\s*\d+/.test(line)&&!_unitRe.test(line))return null;
   const p1=phones[0],p2=phones[phones.length-1];
   if(p1.index===p2.index)return null;
@@ -683,7 +297,7 @@ function parseLooseBoardRow(line){
   else{const bw=before.split(/\s+/);orderClient=bw[0]||'';orderAddr=bw.slice(1).join(' ');}
   // middle = "상품명 ... x N  수령인  주소"  (수량이 'x N' 없이 단위만, 예: '동치미 5kg'면 첫 단위 토큰을 상품 끝 앵커로)
   let xm=middle.match(/^(.+?[xX×]\s*\d+)\s+(.+)$/);
-  if(!xm)xm=middle.match(/^(.+?\d+\s*(?:kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판|대|장|줄|관|단|모|벌))\s+(.+)$/i);
+  if(!xm)xm=middle.match(new RegExp('^(.+?\\d+\\s*(?:'+UNIT_WORDS+'))\\s+(.+)$','i'));
   if(!xm)return null;
   const product=xm[1].trim();const rest=xm[2].trim();
   // rest = "수령인  주소" — 2공백+ 우선, 안되면 첫 한글이름(2-6자)
@@ -742,7 +356,7 @@ function mergeLines(raw){
     const pp2=preprocessed.replace(/^연락처/,'').replace(/^\(\d{5}\)\s*/,'');  // 연락처·우편번호 접두어 제거
     const firstCol=pp2.split('\t')[0].trim().replace(/\s+/g,'');
     const isFullRow=pp2.split('\t').length>=4;
-    const unitPat=/\d+(kg|g|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판)/i;
+    const unitPat=UNIT_QTY_RE;
     const firstColIsProduct=!isKnownClient(firstCol)&&unitPat.test(firstCol);
     const isNew=isKnownClient(firstCol)||firstCol===lastClient||isFullRow;
     if(merged.length===0||isNew){
@@ -888,7 +502,6 @@ function pp(cl,pr,qty){
     if(norm(pn).includes('참멍게'))return{name:'자연산 특대짜 참멍게 1kg',qty:Math.round(qty*wi),maxB:999};
     if(norm(pn).includes('멍게'))return{name:'향긋 깐 멍게 500g',qty:Math.round(qty*wi*2),maxB:999};
     if(norm(pn).includes('해삼'))return{name:'자연산 활 해삼 500g',qty:Math.round(qty*wi*2),maxB:999};
-    if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty:Math.round(qty*wi),maxB:999};
     if(norm(pn).includes('바지락')&&!norm(pn).includes('깐'))return{name:'왕 바지락 1kg',qty:Math.round(qty*wi),maxB:999};
     if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty:Math.round(qty*wi*2),maxB:999};
   }
@@ -928,6 +541,8 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};
   if(norm(pn).includes('담양')&&norm(pn).includes('떡갈비')&&!norm(pn).includes('맛상'))return{name:'맛상 '+pn,qty,maxB:999};
   if(norm(pn).includes('보리굴비'))return{name:pn.replace(/(\d+)\s*미/,'$1마리'),qty,maxB:999};
+  // ⚠️ 아래 옥돔 규칙은 현재 도달 불가 — FREE_SHIP_KEYWORDS의 '옥돔'이 위에서 항상 먼저 처리(803행 부근).
+  //    옥돔을 무료배송(FREE_SHIP)에서 빼는 날 다시 살아나는 백업 규칙이라 일부러 남겨둠 (2026-08-03 점검).
   if(norm(pn).includes('옥돔')){const _m=pn.match(/(\d+)\s*(?:미|마리)/);return{name:'제주 반건조 옥돔 '+(_m?_m[1]:'5')+'마리',qty,maxB:999};}
   // 마스터씨 자체 육류 표준 상품명 — 게시판 기준명으로 정규화 (인분/냉동 등 부가표기 제거. 2026-06-19 사장님 지시)
   if(norm(pn).includes('도가니')&&norm(pn).includes('곰탕'))return{name:'도가니곰탕 600g',qty,maxB:999};
@@ -977,24 +592,24 @@ function preprocessHyein(line){
     const maIdx=line.indexOf('[마스터]');const beforeMa=line.slice(0,maIdx).trim();
     const firstWord=beforeMa.split(/\s+/)[0].replace(/\s+/g,'');
     if(isKnownClient(firstWord))return null;
-    const preMaPhoneM=beforeMa.match(/(0\d{1,2}-\d{3,4}-\d{4})/);
+    const preMaPhoneM=beforeMa.match(/(0\d{1,3}-\d{3,4}-\d{4})/);
     const preMaPhone=preMaPhoneM?preMaPhoneM[1]:'';
     const after=line.slice(maIdx+'[마스터]'.length).trim();
     const m=after.match(/^(.*?[xX×]\s*\d+)\s+([가-힣]{2,6})\(\d+\)\s+(.+)$/);
     if(!m)return null;
     const product=m[1].trim();const custName=m[2].trim();const rest=m[3].trim();
-    const pm=rest.match(/(0\d{1,2}-\d{3,4}-\d{4})/);
+    const pm=rest.match(/(0\d{1,3}-\d{3,4}-\d{4})/);
     let addr=rest,custPhone=preMaPhone,msg='';
     if(pm){const idx=rest.indexOf(pm[1]);addr=rest.slice(0,idx).trim();msg=rest.slice(idx+pm[1].length).trim();custPhone=pm[1];}
     return`혜인건강\t\t\t\t${product}\t${custName}\t${addr}\t${custPhone}\t${msg}`;
   }
   // 형식 2: 이름 전화번호 상품명 x N 이름(N) 주소 전화번호 (탭 없는 공백 구분)
-  const m2=line.match(/^([가-힣]{2,6}|[A-Za-z][A-Za-z0-9]{1,19})\s+(0\d{1,2}-\d{3,4}-\d{4})\s+(.*?[xX×]\s*\d+)\s+([가-힣]{2,6})\(\d+\)\s+(.+)$/);
+  const m2=line.match(/^([가-힣]{2,6}|[A-Za-z][A-Za-z0-9]{1,19})\s+(0\d{1,3}-\d{3,4}-\d{4})\s+(.*?[xX×]\s*\d+)\s+([가-힣]{2,6})\(\d+\)\s+(.+)$/);
   if(m2){
     const firstWord=m2[1].replace(/\s+/g,'');
     if(isKnownClient(firstWord))return null;
     const product=m2[3].trim();const custName=m2[4].trim();const rest=m2[5].trim();
-    const pm=rest.match(/(0\d{1,2}-\d{3,4}-\d{4})/);
+    const pm=rest.match(/(0\d{1,3}-\d{3,4}-\d{4})/);
     let addr=rest,custPhone=m2[2],msg='';
     if(pm){const idx=rest.lastIndexOf(pm[0]);addr=rest.slice(0,idx).trim();custPhone=pm[0];msg=rest.slice(idx+pm[0].length).trim();}
     return`혜인건강\t\t\t\t${product}\t${custName}\t${addr}\t${custPhone}\t${msg}`;
@@ -1052,7 +667,7 @@ function pr2(line){
   // 단위 패턴: 숫자+단위 (단위 뒤에 한글이 더 붙으면 매치 안 함 — "1단지" 같은 주소 오인식 방지)
   //          OR "숫자 x 숫자" (예: 500 x 2)
   //          OR 문자열 끝의 "x N" (예: ...x 1)
-  const unitPattern=/\d+(kg|g|ea|팩|미|구|개|마리|인분|봉|통|박스|세트|리터|ml|L|판|대|장|줄|관|단|마|모|벌)(?:급|짜리)?(?![가-힣])|\d+\s*[xX×]\s*\d+|[xX×]\s*\d+\s*$/i;
+  const unitPattern=new RegExp('\\d+\\s*(?:'+UNIT_WORDS+')(?:급|짜리)?(?![가-힣])|\\d+\\s*[xX×]\\s*\\d+|[xX×]\\s*\\d+\\s*$','i');
   // 단위 없는 숫자 상품('해신탕 1' 등)은 unitPattern에 안 걸려 주소가 상품으로 오인됨(2026-07-07 해신탕 건) — 키워드 우선 매칭
   const UNITLESS_PRODUCTS=['해신탕'];
   let pi=-1;
@@ -1143,7 +758,7 @@ function preprocessBalbolLine(raw){
   const custName=data[0];
   const custPhone=fp((data[1]||'').replace(/\s/g,''));
   let prodIdx=data.length-1;
-  while(prodIdx>2&&!/\d+(kg|g|팩|개|미|구|마리|봉|통|박스)/i.test(data[prodIdx]))prodIdx--;
+  while(prodIdx>2&&!UNIT_QTY_RE.test(data[prodIdx]))prodIdx--;
   const product=data[prodIdx]||'';
   if(!product)return null;
   const address=data.slice(2,prodIdx).join(', ');
@@ -1706,7 +1321,7 @@ function isKingkongVertical(raw){
 }
 function parseKingkongVertical(raw){
   const KK={insert:'킹콩에프앤비',client:'킹콩농수산',addr:'경기도 화성시 동탄구 동탄기흥로 594-7, 1214호 주식회사 킹콩에프앤비',phone:'031-8043-2244'};
-  const phoneRe=/0\d{1,2}-?\d{3,4}-?\d{4,5}/;
+  const phoneRe=/0\d{1,3}-?\d{3,4}-?\d{4,5}/;
   const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
   let i=0;
   if(lines[i]&&lines[i].replace(/\s+/g,'')==='킹콩농수산')i++;   // 주문처명 스킵
