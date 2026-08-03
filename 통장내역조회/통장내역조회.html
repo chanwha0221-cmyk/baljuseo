@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v5.6</title>
+<title>통장 내역 조회 v5.7</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v5.6</span>
+  <span class="ver">v5.7</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -259,7 +259,6 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
       <div class="card" style="cursor:pointer" onclick="misOpen()" title="업체별 미정산 현황 탭 열기 (정산달력 업로드는 탭 안에서)">
         <div class="title">📋 미정산</div><div class="amount" id="s-mis" style="color:#d9480f">-</div><div class="sub" id="s-mis-sub">클릭 → 미정산 현황</div>
       </div>
-      <input type="file" id="settleFile" accept=".xlsx" style="display:none" onchange="handleSettleFile(this.files[0]);this.value=''">
     </div>
     <div class="table-wrap" id="tableWrap" style="display:none">
       <div class="table-head">
@@ -846,13 +845,30 @@ async function loadMisDetail(){
     const hr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('업체호칭!A2:B10000')}`,{headers:{Authorization:`Bearer ${t}`}});
     if(hr.ok){ (((await hr.json()).values)||[]).forEach(x=>{ if(x[0])HONOR[String(x[0]).trim()]=String(x[1]||'').trim(); }); }
     const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('미정산상세!A2:E10000')}`,{headers:{Authorization:`Bearer ${t}`}});
-    if(!r.ok) return;
-    const rows=(((await r.json()).values)||[]).filter(x=>String(x[0]||'').trim());
-    if(!rows.length) return;
-    MIS_DATA=rows.map(x=>({name:String(x[0]),from:String(x[1]||''),to:String(x[2]||''),amt:Number(x[3]||0)})).sort((a,b)=>b.amt-a.amt);
-    MIS_BASIS=String(rows[0][4]||'');
-    renderMisPanel();
+    if(r.ok){
+      const rows=(((await r.json()).values)||[]).filter(x=>String(x[0]||'').trim());
+      if(rows.length){
+        MIS_DATA=rows.map(x=>({name:String(x[0]),from:String(x[1]||''),to:String(x[2]||''),amt:Number(x[3]||0)})).sort((a,b)=>b.amt-a.amt);
+        MIS_BASIS=String(rows[0][4]||'');
+        renderMisPanel();
+      }
+    }
+    _showSettleSaved(); // 🔄 저장분 사용 중 표시 (2026-08-03 사장님: 새로고침하면 정산시트 초기화처럼 보임)
   }catch(e){}
+}
+// 🔄 새로고침 후에도 정산시트 저장분 상태를 ② 업로드칸에 표시 — 파일 다시 안 올려도 매칭 가능함을 보이게 (2026-08-03)
+function _showSettleSaved(){
+  if((!SETTLE_HISTORY||!SETTLE_HISTORY.length)&&!MIS_BASIS) return;
+  const lb=document.getElementById('settleUploadLabel'), ht=document.getElementById('settleUploadHint'), fi=document.getElementById('settleFileInfo');
+  if(lb) lb.textContent='② 리모콘 정산시트 — 저장분 사용 중';
+  if(ht) ht.textContent='새 xlsx를 올리면 최신 정산시트로 교체됩니다';
+  if(fi){ fi.style.display=''; fi.textContent='✅ '+(MIS_BASIS||'저장된 정산내역')+(SETTLE_HISTORY&&SETTLE_HISTORY.length?' · 누적 '+SETTLE_HISTORY.length+'건':'')+' (파일 없이 매칭 가능)'; }
+  const rr=document.getElementById('matchRangeRow'); if(rr) rr.style.display='';
+  const _a=document.getElementById('matchTxFrom'), _b=document.getElementById('matchTxTo');
+  const _ds=(SETTLE_HISTORY||[]).map(h=>h.date).filter(Boolean).sort();
+  if(_a&&!_a.value&&_ds.length)_a.value=_ds[0];
+  if(_b&&!_b.value)_b.value=new Date().toISOString().slice(0,10);
+  if(MIS_BASIS){ const ms=document.getElementById('s-mis-sub'); if(ms) ms.textContent=MIS_BASIS+' 기준 · 클릭 → 현황'; }
 }
 function clearSaved(e){e.stopPropagation();if(!confirm('이 PC의 캐시만 초기화합니다.\n공유 시트 원본은 지워지지 않아요 (원본 수정·삭제는 [📄 시트 열기]에서 직접).\n계속할까요?'))return;deleteSavedFile();deleteDataset();location.reload();}
 window.addEventListener('DOMContentLoaded',async()=>{
