@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v3.0</title>
+<title>밴드글 메이커 v4.0</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,11 +54,11 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v3.0 ⚡</span>
+  <span class="ver">v4.0 🤖</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
-  <div class="hint">📌 ① 밴드 글을 <b>마우스로 긁어서 복사 → 왼쪽 칸에 붙여넣기</b> (볼드·큰글씨 그대로 들어옵니다) ② 게시판 글은 오른쪽에 ③ 생성 → 수정(Ctrl+B로 볼드) → 💾 저장 = 스타일 학습 ④ [📋 서식 복사] → 밴드 글쓰기 창에서 <b>북마크릿</b> 클릭(서식째 주입) ⑤ 사진: 기존 글 <b>수정</b>이면 첨부 유지라 그대로, 새 글이면 [🖼 원문 사진 받기]로 내려받아 사진 첨부에 올리기</div>
+  <div class="hint">📌 ① 밴드 글을 <b>마우스로 긁어서 복사 → 왼쪽 칸에 붙여넣기</b> (볼드·큰글씨 그대로 들어옵니다) ② 게시판 글은 오른쪽에 ③ <b>하비서(Claude)한테 "밴드글 쓰자"</b> → 하비서가 원문을 읽고 결과창에 반영 ④ 수정(Ctrl+B로 볼드) → 💾 저장 = 스타일 학습 ⑤ [📋 서식 복사] → 밴드 글쓰기 창에서 <b>북마크릿</b> 클릭(서식째 주입) ⑥ 사진: 기존 글 <b>수정</b>이면 첨부 유지라 그대로, 새 글이면 [🖼 원문 사진 받기]로 내려받아 사진 첨부에 올리기</div>
   <div class="grid">
     <div class="panel">
       <div class="panel-head">📱 원문 1 — 기존 밴드글 (서식 유지) <span class="cnt" id="cnt-a">0자</span></div>
@@ -73,21 +73,19 @@ textarea:focus{border-color:var(--accent)}
     </div>
   </div>
   <div class="bar">
-    <button class="btn primary" id="genBtn" onclick="generate()">✨ 뉴 밴드글 생성 (1050자)</button>
     <button class="btn" onclick="resetAll()" title="원문·결과·사진 전부 비우고 처음부터">🧹 초기화</button>
-    <span class="hint">스타일 교본 <b id="sampleCnt">0</b>건 반영 · ====== 잠금 블록은 글자 하나 안 건드립니다</span>
+    <span class="hint">🤖 글 작성 = 하비서 담당 (원문 붙여넣고 하비서 호출) · 스타일 교본 <b id="sampleCnt">0</b>건 · ====== 잠금 블록은 글자 하나 안 건드립니다</span>
   </div>
   <div class="panel">
     <div class="panel-head">✍️ 뉴 밴드글 (직접 수정 — Ctrl+B 볼드)
       <span class="cnt"><span class="count-pill" id="outCnt">0자</span></span>
     </div>
     <div class="panel-body">
-      <div id="out" class="rich" contenteditable="true" data-ph="생성 결과가 여기 나옵니다" oninput="upOut()"></div>
+      <div id="out" class="rich" contenteditable="true" data-ph="하비서가 쓴 글이 여기 들어옵니다 (직접 수정 가능)" oninput="upOut()"></div>
       <div class="bar" style="margin-top:10px">
         <button class="btn green" onclick="saveBand()">💾 저장 (스타일 학습)</button>
         <button class="btn copy" onclick="copyRich()">📋 서식 복사 (밴드용)</button>
         <button class="btn" onclick="copyPlain()">텍스트만 복사</button>
-        <button class="btn" onclick="generate(true)">🔁 다시 생성</button>
         <button class="btn" onclick="insertPhotoSlot()" title="커서 위치에 사진 넣을 빈 줄 5칸을 넣습니다 (밴드는 본문에 사진이 안 들어가서 자리만 비워둡니다)">🖼 사진 자리 넣기</button>
         <button class="btn" id="imgDlBtn" onclick="downloadImgs()">🖼 원문 사진 받기</button>
       </div>
@@ -116,12 +114,9 @@ const OAUTH_SCOPE='https://www.googleapis.com/auth/spreadsheets';
 const SHEET_ID='1JJkkWo3mKIFzdQHw73k4Wc_Dl_NHvrDgmabDFD9ktrk';
 const DATA_TAB='밴드글';
 const HEADER=['id','날짜','제목','본문','글자수','등록일시'];
-const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
-const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
-// ⚡ 속도 (2026-07-24): Gemini 2.5 Flash는 옵션이 없으면 '생각 시간 무제한(동적)'이 기본 → 한 번 생성에 15~25초씩 걸렸음.
-//   thinkingBudget으로 생각시간을 잘라 속도 확보. 0=생각 끔(가장 빠름, ~5초). 잠금(【잠금N】)·서식 마커가 자주 깨지면 512~1024로 올릴 것.
-//   ⚠️ 이 값이 실제로 먹으려면 AI 프록시(Apps Script)도 generationConfig 전달하게 재배포돼 있어야 함 (2026-07-24 프록시 개정판).
-const AI_THINKING_BUDGET=0;
+// (2026-08-03 v4.0) Gemini 생성 엔진 제거 — 글 작성은 하비서(Claude)가 담당.
+//   사장님 통찰: 이 작업은 '완전 재생성'이 아니라 원문1(서식 틀)+원문2(정보)의 '중간본 편집'.
+//   Claude 흐름: 원문 붙여넣기 → claudeGetSources()로 재료 회수 → 글 작성 → claudeSetBand(마크드)로 반영.
 
 const $=id=>document.getElementById(id);
 let DATA=[], loaded=false, LOCKS=[], IMGS=[], TAIL_LOCK=-1;   // TAIL_LOCK = 하단 고정부 잠금 인덱스(유실 시 맨 '끝'으로 복원)
@@ -456,149 +451,54 @@ async function downloadImgs(){
 }
 function copyPlain(){ const v=plainOf(outMarked()); if(!v.trim()){toast('복사할 글이 없어요');return;} navigator.clipboard.writeText(v).then(()=>toast('📋 텍스트만 복사됨')); }
 
-async function callAI(prompt,retry=0){
-  const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[],thinkingBudget:AI_THINKING_BUDGET}),redirect:'follow'});
-  const d=await r.json();
-  if(d.error){
-    // 구글 무료 한도(분당 20건) — "retry in N초"를 읽어서 그만큼 기다렸다 재시도 (2026-07-10)
-    if(/high demand|overload|quota|rate limit|too many|exceeded|503|429/i.test(d.error)&&retry<3){
-      const m=String(d.error).match(/retry in ([0-9.]+)s/i);
-      const wait=Math.min(Math.ceil(m?parseFloat(m[1])+2:15),60);
-      const btn=document.getElementById('genBtn');
-      for(let s=wait;s>0;s--){ if(btn&&btn.disabled)btn.innerHTML='<span class="spin">⏳</span> AI 사용량 한도 — '+s+'초 대기 후 자동 재시도 ('+(retry+1)+'/3)'; await new Promise(x=>setTimeout(x,1000)); }
-      return callAI(prompt,retry+1);
-    }
-    logErr('AI서버 응답: '+JSON.stringify(d).slice(0,500));
-    throw new Error(d.error);
-  }
-  return d.text||'';
+/* ===== 🤖 하비서(Claude) 연동 (2026-08-03 v4.0 — Gemini 생성 엔진 대체) ===== */
+// Claude가 원문·잠금·교본을 한 번에 회수. 원문1은 잠금 토큰화된 마크드 문법으로 줌.
+function claudeGetSources(){
+  const src1=extractLocks(markSrcA());
+  return JSON.stringify({
+    src1_marked: src1,                 // 원문1 (【잠금N】 토큰 포함 — 토큰은 그대로 유지할 것)
+    src2: $('src-b').value.trim(),     // 원문2 (게시판 글)
+    locks: LOCKS.length,
+    imgs: IMGS.length,
+    samples: [...DATA].slice(-3).map(x=>({title:x.title, body:x.body}))   // 최근 저장본 = 톤 교본
+  });
 }
-function buildPrompt(aMarked,b,extra){
-  const samples=[...DATA].slice(-5).map((x,i)=>`《교본 ${i+1}》\n${x.body.slice(0,1500)}`).join('\n\n');
-  return `너는 '마스터 유통'의 네이버 밴드 게시글 작가다.
-
-[서식 마커 문법 — 반드시 이 문법으로 출력. 밴드는 굵게·밑줄·크기 3단만 지원]
-- **텍스트** = 굵게
-- __텍스트__ = 밑줄
-- 섹션 제목·핵심 강조 줄은 **__텍스트__** (굵게+밑줄 조합 — 이 밴드의 시그니처 패턴)
-- 《큰》텍스트《/큰》 = 더크게(22px). ⚠️ 원문 1에 《큰》이 실제로 있던 자리에만 유지하고, 네가 새로 추가하는 것은 금지. 인트로 제목을 포함한 모든 제목·강조는 **__텍스트__** 가 기본이다 (크기는 자동으로 크게 18px).
-- 《작》텍스트《/작》 = 작게(14px). ⚠️ 원문 1에 《작》이 있던 자리(사업자·사칭 안내 등 하단 작은 글씨)에만 그대로 유지하고, 네가 새로 만들지 말 것.
-- 【잠금N】 토큰 = 절대 규칙 블록. 받은 위치 그대로, 토큰 그대로 출력할 것. 내용 수정·풀어쓰기 금지.
-- 〈이미지N〉 토큰 = 사진 자리. 원문 1에 있던 토큰을 전부, 표기 그대로 유지하고 글 흐름에 맞는 위치에 배치할 것. 새로 만들거나 빼먹지 말 것.
-${samples?`\n[스타일 교본 — 사장님이 최종 확정한 밴드글. 말투·호흡·서식 사용 패턴을 따라갈 것]\n${samples}\n`:''}
-[원문 1 — 기존 밴드글 (서식 마커 포함)]
-${aMarked}
-
-[원문 2 — 게시판 글]
-${b}
-
-지침:
-- 원문 1의 구성·서식 패턴(어디를 볼드/큰글씨로 쓰는지)을 유지하면서, 원문 2의 정보를 본문에 자연스럽게 녹여 확장한 새 밴드글을 쓴다.
-- "※ 구성 :", "※ 중량 :" 같은 스펙 나열 형식은 절대 그대로 쓰지 말 것 — 전부 자연스러운 문장으로 녹일 것. (예: "원물 100~150kg급 참다랑어에서 뜬 필렛 500g을 트레이에 담아 보내드립니다")
-- 🚨 분량(가장 중요한 절대 규칙): 【잠금N】 토큰(인트로 박스·하단 주문안내 고정부)을 뺀 **순수 본문만** 공백 포함 **딱 1,000~1,100자**. 목표 중앙값 1,050자. **1,100자 절대 초과 금지.** 자료가 많아도 다 넣으려 하지 말고 핵심만 골라 1,100자 안에 압축해라. 길게 쓰는 것보다 1,100자를 지키는 게 우선이다.
-- 쇼핑몰 결제·채팅 주문·사업자 안내 같은 하단 고정 문구를 새로 쓰지 말 것 — 그건 【잠금N】 토큰이 담당한다.
-- 🚫 \`======\` 박스(가격 박스 포함)·\`🔽\` 주문안내·\`*가격\`/\`*쇼핑몰url\`/\`*채팅방url\`/\`*사업자\`/\`*사칭img\` 토큰 줄을 네가 새로 만드는 것 절대 금지 — 전부 【잠금N】이 담당하고, 완성글에 딱 1회씩만 들어간다. 중복은 폐기 사유다.
-- 🚫 실제 가격 숫자(단가·원 단위 금액)를 본문 어디에도 쓰지 말 것 — 가격 표기는 잠금 박스 안 \`*가격\` 토큰뿐이다. (2026-07-29 사장님: 상품명 뒤에 실단가 박는 것 금지)
-- 가격·구성·원산지·스펙은 원문에 있는 것만. 지어내기 금지. 원문 정보는 빠짐없이.
-- 부족한 분량은 손질법·조리법·보관법·맛있게 먹는 팁 등 상식 수준 보강만. 과장·허위 금지.
-- '마스터 유통', '마스터' 같은 상호명은 절대 쓰지 말 것 — 반드시 '저희', '저희가', '저희는' 으로 표현한다. (예: "마스터 유통은 양으로 실망시키지 않습니다" ❌ → "저희는 양으로 실망시키지 않습니다" ⭕)
-- 줄 길이: 한 줄은 공백 포함 28자 이내로 짧게. 문장이 길면 의미 단위에서 줄바꿈해 두 줄로 나눌 것 (밴드 모바일 화면에서 어정쩡한 위치에 잘리는 것 방지). 교본처럼 짧은 줄 호흡.
-- 문단 짧게, 빈 줄 구분, 모바일 가독성.
-${extra||''}
-- 출력은 밴드글 본문만.`;
+// 기존 Gemini 생성기의 안전망 파이프라인 그대로 — Claude가 쓴 글에도 동일 적용
+function finalizeBand(out){
+  // 고정부 중복 안전망 (2026-07-29 부사사과 사고): 잠금 밖 literal ======박스·🔽·*토큰 줄은 전부 제거
+  out=out.replace(/={6,}[^\n]*\n[\s\S]*?\n\s*={6,}[^\n]*\n?/g,'');
+  out=out.split('\n').filter(l=>{const b=l.replace(/[*_《》\s]/g,'');return !(b.startsWith('🔽')||b.startsWith('▼')||b.startsWith('★')||l.includes('*가격')||/쇼핑몰 간편 (결제|주문)/.test(l)||l.includes('누르시고')||/^(가격|쇼핑몰url|채팅방url|사업자|사칭img)$/.test(b));}).join('\n');
+  // 상호명 안전망 — '마스터 유통' → '저희'
+  out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
+  out=softWrap(out);
+  out=out.replace(/\n{3,}/g,'\n\n');
+  out=restoreLocks(out);
+  // 잠금 유실 복원 — 하단 고정부는 맨 끝, 나머지는 맨 위
+  LOCKS.forEach((blk,i)=>{
+    if(out.indexOf(blk)!==-1) return;
+    if(i===TAIL_LOCK) out=out.replace(/\n+$/,'')+'\n\n'+blk;
+    else out=blk+'\n\n'+out;
+  });
+  // 사진 토큰 유실 보강
+  IMGS.forEach((u,i)=>{ const tk='〈이미지'+(i+1)+'〉'; if(out.indexOf(tk)===-1) out+='\n\n'+tk; });
+  // 🚨 *가격 절대규칙 (2026-08-03 사장님): 가격줄(★)에 실금액이 박혀 있으면 무조건 *가격 토큰으로 강제 — 본문에 가격 정보가 있어도 예외 없음
+  out=out.split('\n').map(l=>{const t=l.replace(/[*_《》\s]/g,'');return (t.startsWith('★')&&/\d[\d,]{2,}\s*원/.test(l))?l.replace(/[-–—]?\s*[\d,]+\s*원[^\n]*$/,'- *가격'):l;}).join('\n');
+  // 하단 *사업자·*사칭img 줄 《작》 자동 처리
+  out=out.split('\n').map(l=>{const t=l.trim();return (/^\*(사업자|사칭img)\s*$/.test(t)&&!/《작》/.test(l))?'《작》'+t+'《/작》':l;}).join('\n');
+  return out;
 }
-// 분량 미달 시: 처음부터 다시 쓰지 않고 초안에 문단을 '추가'시킴 — 재생성보다 수렴 확실 (2026-07-10)
-function buildExpand(draft,L){
-  const need=1070-L;
-  return `아래는 밴드 판매글 초안이다. 본문이 ${L}자로 목표(1,000~1,100자)에 약 ${need}자 부족하다.
-
-[초안]
-${draft}
-
-지침:
-- 초안의 기존 문장·서식 마커(**굵게**, __밑줄__, 《큰》, 《작》, 〈이미지N〉)·줄바꿈은 하나도 바꾸거나 빼지 말 것. 순서도 그대로.
-- ⚠️ 【잠금1】【잠금2】… 토큰은 절대 지우거나 옮기지 말 것. 있던 자리에 그 표기 그대로 반드시 남겨라 (지우면 그 결과는 폐기된다).
-- ⚠️ 【잠금N】 토큰 '뒤(아래)'에는 단 한 글자도 쓰지 말 것. 새로 넣는 문단은 반드시 토큰보다 위, 상품 설명 본문 중간에 둔다.
-- 늘리는 방법: **상품 설명 본문의 중간(초·중반)**에 새 문단을 끼워 넣어 본문을 약 ${need}자 늘릴 것. 내용은 손질법·조리법·보관법·맛있게 먹는 팁·어울리는 요리 등 '새로운 실질 정보'만.
-- 🚫 절대 금지: ①이미 있는 문장을 그대로 반복하거나 말만 살짝 바꿔 되풀이하기 ②마무리·인사 문구를 새로 덧붙이기 ③글 맨 끝의 주문안내·결제·사업자·사칭 안내를 흉내내거나 반복하기 ④\`======\` 박스·실제 가격 숫자 새로 쓰기(가격은 잠금 박스의 \`*가격\` 토큰만). 자수만 채우려고 같은 말 늘리지 말 것 — 반드시 새로운 정보로만 늘려라.
-- 새 문단도 한 줄은 공백 포함 28자 이내, 짧은 줄 호흡, 빈 줄로 문단 구분.
-- 가격·구성·원산지·스펙은 지어내지 말 것(원문에 있는 것만).
-- '마스터 유통' 상호명 금지 — '저희'로 쓸 것.
-- 출력은 추가가 반영된 완성본 전체만.`;
+// Claude가 완성한 마크드 글을 결과창에 반영 — 저장·서식복사는 사장님 버튼 그대로
+function claudeSetBand(marked){
+  let t=String(marked||'').replace(/\r\n/g,'\n').trim();
+  if(!t) return '⚠️ 빈 글';
+  t=finalizeBand(t);
+  $('out').innerHTML=markedToHtml(t); upOut();
+  $('out').scrollIntoView({behavior:'smooth',block:'start'});
+  const n=bodyLen(t);
+  toast('🤖 하비서 글 반영 완료 (본문 '+n.toLocaleString()+'자) — 수정 후 💾 저장!');
+  return '본문 '+n+'자 (목표 1000~1100'+((n>=1000&&n<=1100)?' ✅':' ⚠️ 범위 밖 — 다시 조정 필요')+')';
 }
-// 분량 초과 시: 재생성(널뛰기 원인) 대신 그 초안을 유지한 채 군더더기만 깎음 (2026-07-13)
-function buildShrink(draft,L){
-  const cut=L-1070;
-  return `아래는 밴드 판매글 초안이다. 본문이 ${L}자로 목표(1,000~1,100자)보다 약 ${cut}자 길다.
 
-[초안]
-${draft}
-
-지침:
-- 글을 새로 쓰지 말 것. 이 초안을 그대로 두고 ${cut}자만 덜어낸다.
-- ⚠️ 【잠금1】【잠금2】… 토큰은 절대 지우거나 옮기지 말 것. 있던 자리에 그 표기 그대로 반드시 남겨라 (지우면 그 결과는 폐기된다).
-- 서식 마커(**굵게**, __밑줄__, 《큰》, 《작》, 〈이미지N〉)와 문단 구조·순서는 하나도 바꾸거나 빼지 말 것.
-- 덜어낼 것: 반복되는 표현, 군더더기 수식어, 같은 말 다른 문장. 가격·구성·원산지·스펙 등 정보는 절대 지우지 말 것.
-- 결과 본문은 반드시 1,000~1,100자 사이. ${cut}자보다 많이 깎지 말 것 (짧아지면 안 됨).
-- 출력은 압축된 완성본 전체만.`;
-}
-async function generate(isRetry){
-  const aMarkedRaw=markSrcA();   // 사진 목록도 이 원문 기준으로 초기화
-  const b=$('src-b').value.trim();
-  if(!aMarkedRaw&&!b){ toast('원문을 하나라도 붙여넣어 주세요'); return; }
-  const aMarked=extractLocks(aMarkedRaw);
-  const btn=$('genBtn'); btn.disabled=true; btn.innerHTML='<span class="spin">⏳</span> 생성 중... (10~20초)';
-  try{
-    let out=(await callAI(buildPrompt(aMarked,b))).trim();
-    // 사장님 목표 = 순수 본문 1,000~1,100자. 한 방 생성은 들쭉날쭉(990~1,600)이라 여기서 '조용히' 범위 안까지 자동 교정.
-    // (2026-07-24 사장님 격노: 중간과정·자수·"다시 생성" 경고 절대 보여주지 말 것. 버튼은 계속 '생성 중...' 하나만.)
-    //  - 길면 buildShrink(초안 유지 + 군더더기만 삭감) / 짧으면 buildExpand(초안 유지 + 문단 추가). 둘 다 '초안 편집'이라 수렴 잘 됨.
-    //  - 수렴 여유로 상한 1,120까지 통과(1,100 목표 + 20). 최대 4회. 더 나빠지면 그 시도는 버리고 이전 초안 유지.
-    const OK_LO=1000, OK_HI=1120;
-    const dist=n=>(n<OK_LO?OK_LO-n:(n>OK_HI?n-OK_HI:0));
-    // ⚠️ 중간 자수·단계 노출 금지 — 버튼 문구 그대로 유지(사장님 지시). 교정을 몇 번 돌리든 티 안 나게.
-    // '제일 좋은 초안(best)'을 들고 최대 4회 재교정. 한 번 개선 안 됐다고 바로 포기하지 않음(생성 편차로 다음 시도가 성공할 수 있음).
-    // 범위 안에 들면 즉시 종료. 잠금(======) 깨진 결과는 버리되 루프는 계속. 연속 2회 헛돌면 중단(무한루프 방지).
-    let best=out, bestD=dist(bodyLen(out)), stall=0;
-    for(let att=0; att<4 && bestD>0 && stall<2; att++){
-      const L=bodyLen(best);
-      const fixed=(await callAI(L<OK_LO?buildExpand(best,L):buildShrink(best,L))).trim();
-      if(/={6,}/.test(fixed)){ stall++; continue; }   // 잠금 깨진 결과 폐기
-      const FL=bodyLen(fixed);
-      if(FL>0 && dist(FL)<bestD){ best=fixed; bestD=dist(FL); stall=0; }   // 개선되면 채택
-      else stall++;
-    }
-    out=best;
-    // 고정부 중복 안전망 (2026-07-29 부사사과 사고: AI가 잠금 밖에 실단가 ======박스+🔽주문안내를 또 써서 이중 삽입)
-    //   이 시점 잠금은 전부 【잠금N】 토큰 상태 → out에 남은 literal ======박스·🔽·*토큰 줄은 100% AI가 지어낸 것이라 통째 제거.
-    out=out.replace(/={6,}[^\n]*\n[\s\S]*?\n\s*={6,}[^\n]*\n?/g,'');
-    //   ⚠️ 2026-07-29 매생이 사고 2차: AI가 ====== 없이 '★ 상품명 - *가격' 줄만 흉내내 안전망을 통과 → *가격 포함 줄·★ 시작 줄도 제거(*가격 토큰과 ★는 잠금 박스 전용)
-    //   ⚠️ 2026-07-30 멸치밥새우 사고: 고정부 표기가 ▼ 변형('▼ 쇼핑몰 간편 주문 ▼')으로도 존재 → ▼ 시작·'쇼핑몰 간편'·'누르시고' 줄도 잠금 전용 문구라 AI 출력에선 제거.
-    out=out.split('\n').filter(l=>{const b=l.replace(/[*_《》\s]/g,'');return !(b.startsWith('🔽')||b.startsWith('▼')||b.startsWith('★')||l.includes('*가격')||/쇼핑몰 간편 (결제|주문)/.test(l)||l.includes('누르시고')||/^(가격|쇼핑몰url|채팅방url|사업자|사칭img)$/.test(b));}).join('\n');
-    // 경고 toast 제거 — 사장님한테 '다시 생성' 시키지 않는다. 최선을 다한 최종 결과만 조용히 보여줌.
-    // 상호명 안전망 — AI가 흘린 '마스터 유통' 잔재를 '저희'로 (잠금 블록은 아직 토큰 상태라 안전)
-    out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
-    out=softWrap(out);   // 긴 줄 의미단위 미달분 안전망 래핑 (잠금·이미지 줄 제외)
-    out=out.replace(/\n{3,}/g,'\n\n');   // 연속 빈 줄 1개로 정규화 — 노출에서 간격 두 배로 벌어지던 사고 방지 (2026-07-10)
-    out=restoreLocks(out);
-    // 잠금 블록 무결성 검증 (2026-07-13 수정) — AI가 토큰을 지워 유실되면 '원래 있던 자리'로 복원.
-    //   상단 ====== 박스 = 글 맨 위 / 하단 고정부(🔽 주문안내·URL·사업자) = 글 맨 끝.
-    //   (이전엔 전부 맨 위로 붙여 하단 고정부가 통째로 사라진 것처럼 보이는 사고)
-    LOCKS.forEach((blk,i)=>{
-      if(out.indexOf(blk)!==-1) return;
-      if(i===TAIL_LOCK) out=out.replace(/\n+$/,'')+'\n\n'+blk;
-      else out=blk+'\n\n'+out;
-    });
-    // 사진 토큰 유실 보강 — AI가 빼먹은 사진은 글 끝에 순서대로 붙임
-    IMGS.forEach((u,i)=>{ const tk='〈이미지'+(i+1)+'〉'; if(out.indexOf(tk)===-1) out+='\n\n'+tk; });
-    // 하단 *사업자·*사칭img 줄은 항상 《작》 자동 처리 (2026-07-29 사장님: 작은 글씨 안 돼 있다고 격노. ⚠️ \b는 한글 끝에서 안 걸리므로 \s*$ 사용)
-    out=out.split('\n').map(l=>{const t=l.trim();return (/^\*(사업자|사칭img)\s*$/.test(t)&&!/《작》/.test(l))?'《작》'+t+'《/작》':l;}).join('\n');
-    $('out').innerHTML=markedToHtml(out); upOut();
-    toast('✨ 생성 완료 (본문 '+bodyLen(out).toLocaleString()+'자, 고정부 제외) — 수정 후 💾 저장!');
-    $('out').scrollIntoView({behavior:'smooth',block:'start'});
-  }catch(e){ toast('⚠️ 생성 실패: '+e.message); }
-  btn.disabled=false; btn.textContent='✨ 뉴 밴드글 생성 (1050자)';
-}
 // 원문 1·결과창에 붙여넣는 즉시 UI 쓰레기(삭제 버튼 등) 제거
 window.addEventListener('DOMContentLoaded',()=>{
   ['src-a','out'].forEach(id=>{
