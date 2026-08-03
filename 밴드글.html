@@ -500,6 +500,8 @@ function finalizeBand(out){
   out=out.split('\n').map(l=>{const t=l.replace(/《\/?[큰작]》/g,'').replace(/[*_\s]/g,'');return (t.startsWith('★')&&/\d[\d,]{2,}\s*원/.test(l))?l.replace(/\d[\d,]*\s*원/,'*가격'):l;}).join('\n');
   // 하단 *사업자·*사칭img 줄 《작》 자동 처리
   out=out.split('\n').map(l=>{const t=l.trim();return (/^\*(사업자|사칭img)\s*$/.test(t)&&!/《작》/.test(l))?'《작》'+t+'《/작》':l;}).join('\n');
+  // *사업자·*사칭img는 항상 붙여서 — 사이 빈 줄 금지 (2026-08-03 사장님 지시)
+  out=out.replace(/(^[^\n]*\*사업자[^\n]*)\n{2,}(?=[^\n]*\*사칭img)/m,'$1\n');
   return out;
 }
 // Claude가 완성한 마크드 글을 결과창에 반영 — 저장·서식복사는 사장님 버튼 그대로
