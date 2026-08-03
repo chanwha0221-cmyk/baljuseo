@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v4.2</title>
+<title>밴드글 메이커 v4.3</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v4.2 🤖</span>
+  <span class="ver">v4.3 🤖</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -156,8 +156,10 @@ function htmlToMarked(root){
   function small(el){ const fs=(el.style&&el.style.fontSize)||''; const m=fs.match(/([\d.]+)px/); if(m&&parseFloat(m[1])>0&&parseFloat(m[1])<16) return true; return /^SMALL$/.test(el.tagName||''); }
   function bold(el){ if(/^(B|STRONG)$/.test(el.tagName||'')) return true; const fw=(el.style&&el.style.fontWeight)||''; return fw==='bold'||parseInt(fw)>=600; }
   function und(el){ if((el.tagName||'')==='U') return true; const td=(el.style&&(el.style.textDecoration||el.style.textDecorationLine))||''; return String(td).includes('underline'); }
-  function walk(n){
-    if(n.nodeType===3){ out+=n.nodeValue.replace(/\u00a0/g,' '); return; }
+  // sized = \uc870\uc0c1 \uc911 \uba85\uc2dc font-size(px)\uac00 \uc788\ub294\uc9c0. \ubc34\ub4dc '\ubcf4\ud1b5' \ud14d\uc2a4\ud2b8\ub294 \uc2a4\ud32c\uc774 \uc544\uc608 \uc5c6\uc5b4\uc11c(2026-08-03 \uc2e4\uce21)
+  //   sized=false\uc778 \ub9e8\uc0b4 \ud14d\uc2a4\ud2b8 = \ubcf4\ud1b5 = \u300a\uc791\u300b\uc73c\ub85c \uc7a1\ub294\ub2e4 (\uc548 \uc7a1\uc73c\uba74 18px \uac89\uc2a4\ud32c\uc5d0 \ubb49\uac1c\uc9c0\ub358 7-24 \uc0ac\uace0 \uc7ac\ubc1c)
+  function walk(n,sized){
+    if(n.nodeType===3){ const v=n.nodeValue.replace(/\u00a0/g,' '); if(!sized&&v.trim()){ out+='\u300a\uc791\u300b'+v+'\u300a/\uc791\u300b'; } else { out+=v; } return; }
     if(n.nodeType!==1) return;
     const tag=n.tagName;
     if(tag==='BR'){ out+='\n'; return; }
@@ -165,17 +167,19 @@ function htmlToMarked(root){
     if(/^(SCRIPT|STYLE|VIDEO)$/.test(tag)) return;
     const isBlock=/^(P|DIV|H[1-6]|LI|TR|SECTION|ARTICLE)$/.test(tag);
     const b=bold(n), g=big(n), u=und(n), s=!g&&small(n);
+    const hasFs=/[\d.]+px/.test((n.style&&n.style.fontSize)||'')||/^(H[1-3]|SMALL)$/.test(tag);
+    const childSized=sized||hasFs;
     if(g) out+='《큰》'; else if(s) out+='《작》';
     if(b) out+='**';
     if(u) out+='__';
-    for(const c of n.childNodes) walk(c);
+    for(const c of n.childNodes) walk(c,childSized);
     if(u) out+='__';
     if(b) out+='**';
     if(g) out+='《/큰》'; else if(s) out+='《/작》';
     if(isBlock && !out.endsWith('\n')) out+='\n';
   }
-  for(const c of root.childNodes) walk(c);
-  return out.replace(/\*\*\s*\*\*/g,'').replace(/__\s*__/g,'').replace(/《작》\s*《\/작》/g,'').replace(/《큰》\s*《\/큰》/g,'').replace(/\n{3,}/g,'\n\n').trim();
+  for(const c of root.childNodes) walk(c,false);
+  return out.replace(/《\/작》《작》/g,'').replace(/\*\*\s*\*\*/g,'').replace(/__\s*__/g,'').replace(/《작》\s*《\/작》/g,'').replace(/《큰》\s*《\/큰》/g,'').replace(/\n{3,}/g,'\n\n').trim();
 }
 // 마커가 두 줄에 걸쳐 열리고 닫히면(예: **마트 매대 주꾸미와는\n결이 완전 다릅니다.**) 줄 단위 변환이 실패해
 // '**'가 글자로 노출됐음 (2026-07-13 사장님 실사례). → 변환 전에 여는·닫는 마커 사이의 줄바꿈을 자리표시자로 접었다가 복원.
@@ -199,11 +203,15 @@ function markedToHtml(t){
     let h=esc(line);
     h=h.replace(/〈이미지(\d+)〉/g,(m,n2)=>{ const u=IMGS[parseInt(n2,10)-1]; return u?'<img src="'+esc(u)+'" style="max-width:100%">':''; });
     h=h.replace(/《큰》([\s\S]*?)《\/큰》/g,'<span style="font-size:22px">$1</span>');
-    h=h.replace(/《작》([\s\S]*?)《\/작》/g,'<span style="font-size:14px">$1</span>');   // 작게(사업자·사칭 등 하단 작은 글씨)
+    // 《작》 = 밴드 '보통'(스팬 없음) — 2026-08-03 실측: 밴드 크기는 보통/크게18/더크게22 3단뿐, '작게'란 크기가 없고
+    //   14px 스팬은 저장 시 삭제돼 18px로 뭉개졌음(항정살 사업자 줄 사고). 작은 글씨 = 스팬 안 씌운 기본(보통)이 정답.
+    const isFullSmall=/^《작》[\s\S]*《\/작》$/.test(line.trim());
+    h=h.replace(/《\/?작》/g,'');
     // 안쪽에 별표 하나(*가격)·밑줄 하나가 있어도 매칭되게 — 옛 [^*]*? 는 실패해서 **가 글자로 노출됐음 (2026-07-13)
     h=h.replace(/\*\*((?:[^*\n]|\*(?!\*))+?)\*\*/g,'<b>$1</b>');
     h=h.replace(/__((?:[^_\n]|_(?!_))+?)__/g,'<u>$1</u>');
     h=h.split(_NL).join('<br>');   // 접었던 줄바꿈 복원 (마커 안쪽 줄바꿈)
+    if(isFullSmall) return h;   // 보통 크기 = 겉 18px 스팬도 안 씌움
     return '<span style="font-size:18px">'+h+'</span>';
   }).join('<br>');
 }
@@ -525,7 +533,9 @@ async function sendToClaude(){
     await ensureWorkTab();
     const t=await getToken();
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!A1')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['요청',nowKST(),src1,src2,JSON.stringify(IMGS),JSON.stringify(LOCKS),String(TAIL_LOCK)],['결과','','']]})});
-    toast('📮 하비서에게 보냈습니다 — 채팅에 "밴드글 쓰자"만 치시면, 결과는 여기 자동으로 뜹니다');
+    // 💡 사장님 아이디어 (2026-08-03): 호출 문구를 클립보드에 담아줌 → 채팅창에서 Ctrl+V → Enter면 끝
+    try{ await navigator.clipboard.writeText('밴드글 쓰자'); }catch(_){}
+    toast('📮 보냈습니다 — 채팅창에 Ctrl+V → Enter 하세요 ("밴드글 쓰자" 복사돼 있음). 결과는 여기 자동으로 뜹니다');
     startResultWatch();   // 결과 자동 감시 시작 — 도착하면 알아서 결과창에 로드
   }catch(e){ toast('⚠️ 전송 실패: '+e.message); }
 }
