@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v4.1</title>
+<title>밴드글 메이커 v4.2</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v4.1 🤖</span>
+  <span class="ver">v4.2 🤖</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -525,8 +525,32 @@ async function sendToClaude(){
     await ensureWorkTab();
     const t=await getToken();
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!A1')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['요청',nowKST(),src1,src2,JSON.stringify(IMGS),JSON.stringify(LOCKS),String(TAIL_LOCK)],['결과','','']]})});
-    toast('📮 하비서에게 보냈습니다 — 채팅에 "밴드글 쓰자"만 치시면 돼요');
+    toast('📮 하비서에게 보냈습니다 — 채팅에 "밴드글 쓰자"만 치시면, 결과는 여기 자동으로 뜹니다');
+    startResultWatch();   // 결과 자동 감시 시작 — 도착하면 알아서 결과창에 로드
   }catch(e){ toast('⚠️ 전송 실패: '+e.message); }
+}
+// 📡 결과 자동 감시 (2026-08-03 v4.2, 사장님 "왔는지 모르겠다") — 보내기 후 20초마다 확인, 도착 시 자동 로드+알림. 최대 30분.
+let _watchTimer=null;
+function startResultWatch(){
+  if(_watchTimer) clearInterval(_watchTimer);
+  const st=$('status'); let tick=0;
+  if(st) st.textContent='📡 하비서 작업 대기 중... (도착하면 자동으로 뜹니다)';
+  _watchTimer=setInterval(async function(){
+    tick++;
+    if(tick>90){ clearInterval(_watchTimer); _watchTimer=null; if(st) st.textContent='감시 종료 — [🤖 하비서 글 가져오기]로 수동 확인'; return; }
+    try{
+      const t=await getToken();
+      const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!B2:C2')}`,{headers:{Authorization:`Bearer ${t}`}});
+      const v=(((await r.json()).values)||[])[0]||[];
+      if(v[0]){
+        clearInterval(_watchTimer); _watchTimer=null;
+        await fetchFromClaude();
+        if(st) st.textContent='✅ 하비서 글 도착 ('+(v[1]||'')+')';
+        document.title='✅ 밴드글 도착! — 밴드글 메이커';
+        alert('🤖 하비서 글이 도착했습니다! 결과창을 확인하세요.');
+      }
+    }catch(e){}
+  },20000);
 }
 async function fetchFromClaude(){
   try{
