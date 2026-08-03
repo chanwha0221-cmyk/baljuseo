@@ -1080,9 +1080,12 @@
       var isNew = /출시/.test(byun) || !inRemote;   // 출시 or 리모컨에 아예 없던 상품 = 이때만 원가 넣음
       var gwaSe = sani(v[13]);          // 과세(면세/과세)
       var taekBi = sani(v[12]); if(/무료|무배/.test(taekBi)) taekBi='0';   // 무료배송 → 0
+      // 참고사항에 "택배비 원가 : 3,500" 명시 시 원가 택배비는 그 값 (공급가 택배비와 다를 수 있음)
+      var mTW = String(v[14]||'').match(/택배비\s*원가\s*[:：]\s*([\d,]+)/);
+      var taekBiWonga = mTW ? mTW[1].replace(/,/g,'') : taekBi;
       var E, F, G;
-      if(isNew){                        // 출시/신규만 → 원가 E·F·G 채움 (F/G는 공급가쪽과 동일)
-        E = sani(v[10]); F = gwaSe; G = taekBi;
+      if(isNew){                        // 출시/신규만 → 원가 E·F·G 채움 (F는 공급가쪽과 동일, G는 원가 택배비 우선)
+        E = sani(v[10]); F = gwaSe; G = taekBiWonga;
         if(E!=='') filledWonga++;
       } else {                          // 기존 상품 → 원가는 관리팀 몫, 절대 안 건드림(전부 빈칸)
         E = ''; F = ''; G = '';
