@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>발주서 변환기 v22.568</title>
+<title>발주서 변환기 v22.569</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -58,7 +58,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.568</span>
+  <span class="ver">v22.569</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -1756,8 +1756,10 @@ function run(){
   for(const b of blocks){
     inpEl.value=b; outEl.value='';
     runSingle();
-    const o=(outEl.value||'').trim();
-    if(o) outs.push(o);
+    // 🚨 .trim() 금지 (2026-08-03 청년수산 10칸→9칸 사고): 배송메시지가 빈 마지막 셀이면
+    //    줄 끝 탭까지 잘려 시트에서 칸이 밀린다. 줄바꿈만 제거하고 탭은 보존.
+    const o=(outEl.value||'').replace(/^[\r\n]+|[\r\n]+$/g,'');
+    if(o.trim()) outs.push(o);
   }
   inpEl.value=full;
   const merged=outs.join('\n');
@@ -1768,7 +1770,11 @@ function run(){
   document.getElementById('s-in').textContent=blocks.length;
   document.getElementById('in-count').textContent=blocks.length+' 업체';
   autoResize(inpEl);autoResize(outEl);
-  sl(blocks.length+'개 업체 블록 개별 변환('+mode+') — 총 '+outN+'행','ok');
+  const mcc=merged.split('\n').filter(function(l){return l.trim();}).map(function(l){return l.split('\t').length;});
+  const mBad=mcc.filter(function(n){return n!==9&&n!==10;}).length;
+  const mTxt=' [10칸 '+mcc.filter(function(n){return n===10;}).length+'·9칸 '+mcc.filter(function(n){return n===9;}).length+']';
+  if(mBad>0){sl('🚨 칸수 이상 '+mBad+'행 — 시트 붙여넣기 전 확인!'+mTxt,'warn');}
+  else{sl(blocks.length+'개 업체 블록 개별 변환('+mode+') — 총 '+outN+'행'+mTxt,'ok');}
 }
 function runSingle(){
   wc=0;let input=document.getElementById('inp').value.trim();
@@ -1880,8 +1886,13 @@ function runSingle(){
   document.getElementById('out-count').textContent=out.length+' 행';
   autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
   document.getElementById('s-warn').textContent=wc;
-  if(dupNames.length>0){sl('⚠️ 중복 발주 의심: '+dupNames.join(', '),'warn');}
-  else{sl('완료 — '+out.length+'행 출력, 주의 '+wc+'건',wc>0?'warn':'ok');}
+  // 칸수 자가검증 (2026-08-03 청년수산 사고): 일반 9칸·insert/직접발주 10칸 외엔 경고
+  const cc=out.map(function(r){return r.split('\t').length;});
+  const ccBad=cc.filter(function(n){return n!==9&&n!==10;}).length;
+  const ccTxt=' [10칸 '+cc.filter(function(n){return n===10;}).length+'·9칸 '+cc.filter(function(n){return n===9;}).length+']';
+  if(ccBad>0){sl('🚨 칸수 이상 '+ccBad+'행 — 시트 붙여넣기 전 확인!'+ccTxt,'warn');}
+  else if(dupNames.length>0){sl('⚠️ 중복 발주 의심: '+dupNames.join(', ')+ccTxt,'warn');}
+  else{sl('완료 — '+out.length+'행 출력, 주의 '+wc+'건'+ccTxt,wc>0?'warn':'ok');}
 }
 function copyOut(){const v=document.getElementById('out').value;if(!v)return;navigator.clipboard.writeText(v).then(()=>sl('클립보드에 복사됐어요!','ok'));}
 function clearAll(){
