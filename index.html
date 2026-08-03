@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.570</title>
+<title>발주서 변환기 v22.571</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -55,7 +55,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.570</span>
+  <span class="ver">v22.571</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -642,6 +642,12 @@ function preprocessNahaengJaeun(line){
     name='초특가 국내산 등갈비 1kg';
   }else if(name.includes('가브리살')){
     name='녹돈 담백 가브리살 500g';   // 전라남도 특산물 녹차 먹고자란 녹돈 가브리살 → 표준명 치환 (2026-07-21)
+  }else if(name.includes('유정란')){
+    // 유정란 옵션 "난각2번/ 유정란/ 60구" → 표준명 (2026-08-03 사장님 지시). 몰 상품명(20구/40구/60구 나열)이 아니라 옵션 칸이 실제 발주
+    const _gu=name.match(/(\d+)\s*구/);const _n=_gu?' '+_gu[1]+'구':'';
+    if(/1\s*번/.test(name))name='자연방사 난각 1번 유정란'+_n;
+    else if(/2\s*번/.test(name))name='동물복지 난각 2번 유정란'+_n;
+    else name=name.split('/').map(function(s){return s.trim();}).filter(Boolean).join(' ');  // 1·2번 표기 없으면 슬래시만 정리
   }else if(name.includes('사과')){
     const wm=name.match(/([\d.]+)\s*kg/i);
     if(wm&&parseFloat(wm[1])===3)name='꼬마 부사사과 3kg';
