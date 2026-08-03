@@ -467,7 +467,7 @@ function claudeGetSources(){
 function finalizeBand(out){
   // 고정부 중복 안전망 (2026-07-29 부사사과 사고): 잠금 밖 literal ======박스·🔽·*토큰 줄은 전부 제거
   out=out.replace(/={6,}[^\n]*\n[\s\S]*?\n\s*={6,}[^\n]*\n?/g,'');
-  out=out.split('\n').filter(l=>{const b=l.replace(/[*_《》\s]/g,'');return !(b.startsWith('🔽')||b.startsWith('▼')||b.startsWith('★')||l.includes('*가격')||/쇼핑몰 간편 (결제|주문)/.test(l)||l.includes('누르시고')||/^(가격|쇼핑몰url|채팅방url|사업자|사칭img)$/.test(b));}).join('\n');
+  out=out.split('\n').filter(l=>{const b=l.replace(/《\/?[큰작]》/g,'').replace(/[*_《》\s]/g,'');return !(b.startsWith('🔽')||b.startsWith('▼')||b.startsWith('★')||l.includes('*가격')||/쇼핑몰 간편 (결제|주문)/.test(l)||l.includes('누르시고')||/^(가격|쇼핑몰url|채팅방url|사업자|사칭img)$/.test(b));}).join('\n');
   // 상호명 안전망 — '마스터 유통' → '저희'
   out=out.replace(/마스터\s*유통(은|이|가|을|를|에서|의)?/g,(m,j)=>({'은':'저희는','이':'저희가','가':'저희가','을':'저희를','를':'저희를','에서':'저희가','의':'저희'}[j]||'저희'));
   out=softWrap(out);
@@ -482,7 +482,8 @@ function finalizeBand(out){
   // 사진 토큰 유실 보강
   IMGS.forEach((u,i)=>{ const tk='〈이미지'+(i+1)+'〉'; if(out.indexOf(tk)===-1) out+='\n\n'+tk; });
   // 🚨 *가격 절대규칙 (2026-08-03 사장님): 가격줄(★)에 실금액이 박혀 있으면 무조건 *가격 토큰으로 강제 — 본문에 가격 정보가 있어도 예외 없음
-  out=out.split('\n').map(l=>{const t=l.replace(/[*_《》\s]/g,'');return (t.startsWith('★')&&/\d[\d,]{2,}\s*원/.test(l))?l.replace(/[-–—]?\s*[\d,]+\s*원[^\n]*$/,'- *가격'):l;}).join('\n');
+  //   ⚠️ 《큰》 마커는 [《》] 문자만 벗기면 '큰' 글자가 남아 ★ 감지 실패 (항정살 건에서 실측) → 《큰》《작》을 통째로 벗겨 판정
+  out=out.split('\n').map(l=>{const t=l.replace(/《\/?[큰작]》/g,'').replace(/[*_\s]/g,'');return (t.startsWith('★')&&/\d[\d,]{2,}\s*원/.test(l))?l.replace(/\d[\d,]*\s*원/,'*가격'):l;}).join('\n');
   // 하단 *사업자·*사칭img 줄 《작》 자동 처리
   out=out.split('\n').map(l=>{const t=l.trim();return (/^\*(사업자|사칭img)\s*$/.test(t)&&!/《작》/.test(l))?'《작》'+t+'《/작》':l;}).join('\n');
   return out;
