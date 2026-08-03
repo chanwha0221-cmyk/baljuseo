@@ -667,7 +667,7 @@
     missing.forEach(function(r){ if(!seen[r.pk]){ seen[r.pk]=1; uniq.push(r); } });
     var html='';
     uniq.forEach(function(r){
-      html+='<div class="mgrow"><span>'+esc(r.disp)+'</span><input type="text" data-k="'+esc(r.pk)+'" data-name="'+esc(r.disp)+'" placeholder="예: 연장마감 : 16시"></div>';
+      html+='<div class="mgrow"><span><button class="cpbtn" data-nm="'+esc(r.disp)+'" title="상품명 복사 (시트 검색용)">📋</button> '+esc(r.disp)+'</span><input type="text" data-k="'+esc(r.pk)+'" data-name="'+esc(r.disp)+'" placeholder="예: 연장마감 : 16시"></div>';
     });
     document.getElementById('mglist').innerHTML=html;
     document.getElementById('mgov').style.display='flex';
