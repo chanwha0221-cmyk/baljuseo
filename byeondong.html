@@ -860,10 +860,14 @@
     if(tgt.mode==='error'){ alert('⚠️ 반영 시트 주소를 인식 못했어요.\n설정에서 URL/ID를 다시 확인하세요.\n(대참사 방지로 중단)'); document.getElementById('cfg').open=true; updateTargetBadge(); return; }
     if(!syncLink()){ alert('⚠️ 링크 시트가 비어 있어요.\n\n설정(⚙️)에서 우리 팀 링크 모음 구글시트 주소를 먼저 넣어주세요.\n(안 넣으면 각 시트 적용이 막힙니다)'); document.getElementById('cfg').open=true; return; }
     var tgtLabel=(tgt.mode==='copy') ? '✅ 우리 팀 시트 '+tgt.id.slice(0,10)+'…' : '🎯 마스터 실전 시트';
-    var nDay=items.filter(function(it){return it.day.indexOf('당일')>=0;}).length;
-    var nPoom=items.filter(function(it){return it.poom;}).length;
-    var nBulk=items.filter(function(it){return it.day.indexOf('당일')<0 && isBulkAll(it);}).length;
-    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 전체 '+items.length+'건\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제'+(nBulk?'\n· <창고 전상품> 일괄 '+nBulk+'건 → 그 창고 상품 택배사 실제 변경+스펙 문구':'')+'\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
+    // ★밀린 업데이트 대비 (2026-08-04): 같은 상품이 변동공지에 2건 이상이면 맨 위(=최신) 건만 당일생물/창고 탭에 반영.
+    //   리모컨 엑셀 생성과 같은 규칙. 상품변동사항 탭은 로그라서 전부 넣음(items 그대로).
+    var seenApply={}, dupSkip=0;
+    var uni=items.filter(function(it){ var k=pkey(it.name); if(seenApply[k]){ dupSkip++; return false; } seenApply[k]=1; return true; });
+    var nDay=uni.filter(function(it){return it.day.indexOf('당일')>=0;}).length;
+    var nPoom=uni.filter(function(it){return it.poom;}).length;
+    var nBulk=uni.filter(function(it){return it.day.indexOf('당일')<0 && isBulkAll(it);}).length;
+    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 전체 '+items.length+'건\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제'+(nBulk?'\n· <창고 전상품> 일괄 '+nBulk+'건 → 그 창고 상품 택배사 실제 변경+스펙 문구':'')+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건 → 맨 위(최신) 건만 반영':'')+'\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
     var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
     var rep={ vari:0, notice:0, wh:{}, whGid:{}, poomDel:0, unmatched:[], variGid:0, variTab:'', noticeGid:0, noticeTab:'', bulk:[] };
     function setBtn(t){ btn.innerHTML=t; }
@@ -892,9 +896,9 @@
       }).then(function(){
         // 2) 당일생물 — 실제 시트에서 '당일생물' 든 탭 자동 인식(★당일생물 등도 OK)
         setBtn('당일생물...');
-        var add=sortItems(items.filter(function(it){ return it.day.indexOf('당일')>=0 && !it.poom && !isBulkAll(it); }));   // <전상품> 행은 상품으로 안 넣음
+        var add=sortItems(uni.filter(function(it){ return it.day.indexOf('당일')>=0 && !it.poom && !isBulkAll(it); }));   // <전상품> 행은 상품으로 안 넣음 · uni=같은 상품 최신 건만
         var addPk={}; add.forEach(function(it){ addPk[pkey(it.name)]=1; });
-        var delPk={}; items.forEach(function(it){ if(it.day.indexOf('당일')>=0 && it.poom) delPk[pkey(it.name)]=1; });
+        var delPk={}; uni.forEach(function(it){ if(it.day.indexOf('당일')>=0 && it.poom) delPk[pkey(it.name)]=1; });
         rep.notice=add.length; rep.poomDel += Object.keys(delPk).length;
         if(!add.length && !Object.keys(delPk).length) return true;
         var nt=findTabByKeyword(TABG,'당일생물');
@@ -904,7 +908,7 @@
         return applyToTab(nt.gid, nt.tab, spN.ins, spN.read, 'B', 2, add.map(rowNotice), addPk, delPk, false);
       }).then(function(){
         // 3) 창고 탭 — 공급처 → 탭 결정: ①이름 같으면 그대로 ②저장 매핑(단독(유)→단독 등) ③모르면 물어봄(한 번, 저장)
-        var sisi=items.filter(function(it){ return it.day.indexOf('당일')<0; });
+        var sisi=uni.filter(function(it){ return it.day.indexOf('당일')<0; });   // uni=같은 상품 최신 건만
         var supTab={}, supList=[];
         sisi.forEach(function(it){ if(supList.indexOf(it.sup)<0) supList.push(it.sup); });
         supList.forEach(function(sup){
@@ -966,8 +970,8 @@
         document.getElementById('applyReport').innerHTML=rh;
         var whSum=Object.keys(rep.wh).map(function(t){return t+'('+rep.wh[t]+')';}).join(', ')||'없음';
         var bulkSum=rep.bulk.map(function(b){ return b.skip ? (b.tab+' 「'+b.wh+'」스킵(수동 확인)') : (b.tab+' 「'+b.wh+'」'+b.n+'건→'+b.courier); }).join('\n   ');
-        setStatus('✅ 각 시트 적용 완료 (변동'+rep.vari+'·당일'+rep.notice+'·창고'+Object.keys(rep.wh).length+'탭·품절삭제'+rep.poomDel+(rep.bulk.length?'·전상품일괄'+rep.bulk.length:'')+(rep.unmatched.length?'·미매칭'+rep.unmatched.length:'')+') — 아래 리포트 확인','ok');
-        alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건'+(bulkSum?'\n· 🚚 전상품 일괄(택배사 변경+스펙):\n   '+bulkSum:'')+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
+        setStatus('✅ 각 시트 적용 완료 (변동'+rep.vari+'·당일'+rep.notice+'·창고'+Object.keys(rep.wh).length+'탭·품절삭제'+rep.poomDel+(rep.bulk.length?'·전상품일괄'+rep.bulk.length:'')+(dupSkip?'·중복스킵'+dupSkip:'')+(rep.unmatched.length?'·미매칭'+rep.unmatched.length:'')+') — 아래 리포트 확인','ok');
+        alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건'+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건은 맨 위(최신) 건만 반영':'')+(bulkSum?'\n· 🚚 전상품 일괄(택배사 변경+스펙):\n   '+bulkSum:'')+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
       }).catch(function(e){ btn.disabled=false; btn.innerHTML=o; setStatus('⚠️ 적용 실패: '+e.message,'warn'); alert('적용 실패: '+e.message+'\n(일부만 적용됐을 수 있어요. 시트 확인 후 재시도)'); });
     });
   });
