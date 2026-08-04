@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v4.3</title>
+<title>밴드글 메이커 v4.5</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v4.3 🤖</span>
+  <span class="ver">v4.5 🤖</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -433,9 +433,12 @@ async function copyRich(){
   const el=$('out');
   if(!plainOf(outMarked()).trim()){ toast('복사할 글이 없어요'); return; }
   // 🖼 사진 URL 목록을 숨은 마커로 동봉 (2026-08-03 v4.1) — 북마크릿 v9가 이걸 읽어 사진까지 한 번에 첨부
+  // ⚠️ display:none 금지 (2026-08-04 뿔소라 사고): 크롬의 선택영역 복사(execCommand)는 렌더링 안 되는
+  //    노드를 클립보드 HTML에서 통째로 뺀다 → 마커 유실 → 북마크릿 "사진 정보 없음".
+  //    렌더링은 되되 안 보이는 1px 투명 스팬 + 제로폭 공백으로 동봉해야 복사에 실린다.
   const imgList=harvestImgs();
   let _imgMk=null;
-  if(imgList.length){ _imgMk=document.createElement('span'); _imgMk.setAttribute('data-band-imgs',imgList.join('|')); _imgMk.style.display='none'; el.appendChild(_imgMk); }
+  if(imgList.length){ _imgMk=document.createElement('span'); _imgMk.setAttribute('data-band-imgs',imgList.join('|')); _imgMk.setAttribute('aria-hidden','true'); _imgMk.style.cssText='font-size:1px;line-height:0;color:transparent;'; _imgMk.textContent=String.fromCharCode(8203); el.appendChild(_imgMk); }
   // 1순위: 선택 복사 — 브라우저가 마우스 드래그 복사와 100% 동일한 클립보드를 만들어 밴드 에디터 호환 최고 (2026-07-10 서식 안 붙던 문제)
   let ok=false;
   try{
