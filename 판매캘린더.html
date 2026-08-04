@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>판매 캘린더 v1.0</title>
+<!-- 발주서 시트(읽기전용)에서 날짜 탭별 판매 데이터를 집계해 캘린더로 보여주는 도구.
+     ★발주서 원본은 절대 수정하지 않음 — 읽기만 함. (2026-08-05 사장님 의뢰, 새벽소리팀용) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic','Apple SD Gothic Neo',sans-serif; margin:0; background:#f4f6f9; color:#222; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 14px; }
+  h1 { font-size: 20px; margin: 6px 0 2px; }
+  .sub { color:#777; font-size: 12.5px; margin-bottom: 10px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:#fff; border:1px solid #e3e7ee; border-radius:10px; padding:10px 12px; margin-bottom:10px; }
+  .bar label { font-size: 13px; font-weight:700; }
+  .bar input[type=month], .bar select, .bar input[type=text] { padding:6px 8px; border:1px solid #cfd6e0; border-radius:8px; font-size:13.5px; }
+  button { padding:7px 12px; border:none; border-radius:8px; background:#2d6a4f; color:#fff; font-size:13.5px; font-weight:700; cursor:pointer; }
+  button.ghost { background:#fff; color:#2d6a4f; border:1px solid #2d6a4f; }
+  button.nav { background:#eef2f7; color:#333; border:1px solid #d6dde8; padding:7px 10px; }
+  button:disabled { opacity:.5; cursor:default; }
+  #status { font-size:12.5px; margin:6px 2px; min-height:18px; }
+  #status.ok { color:#2d6a4f; } #status.warn { color:#c0392b; }
+  .cfg { background:#fff; border:1px solid #e3e7ee; border-radius:10px; padding:10px 12px; margin-bottom:10px; font-size:13px; }
+  .cfg input { width: 480px; max-width:100%; padding:6px 8px; border:1px solid #cfd6e0; border-radius:8px; }
+  .cal { display:grid; grid-template-columns: repeat(7, 1fr); gap:6px; }
+  .dow { text-align:center; font-size:12.5px; font-weight:700; color:#667; padding:4px 0; }
+  .dow.sun { color:#c0392b; } .dow.sat { color:#1d5bbf; }
+  .day { background:#fff; border:1px solid #e3e7ee; border-radius:10px; min-height:110px; padding:6px 7px; font-size:12px; cursor:pointer; position:relative; overflow:hidden; }
+  .day.blank { background:transparent; border:none; cursor:default; }
+  .day:hover:not(.blank) { border-color:#2d6a4f; }
+  .day .dnum { font-weight:800; font-size:13px; }
+  .day.sun .dnum { color:#c0392b; } .day.sat .dnum { color:#1d5bbf; }
+  .day .tot { position:absolute; top:6px; right:8px; font-size:11px; color:#888; }
+  .day.hit { outline:3px solid #f5b301; }
+  .prod { margin-top:4px; line-height:1.45; border-top:1px dashed #eee; padding-top:3px; }
+  .prod .pn { font-weight:700; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .prod .pv { color:#555; }
+  .prod .pv b { color:#2d6a4f; }
+  .prod.hitp .pn { background:#fff3c4; }
+  .more { color:#999; font-size:11px; margin-top:3px; }
+  .src { position:absolute; bottom:4px; right:8px; font-size:10px; color:#bbb; }
+  .ovl { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:50; }
+  .obox { background:#fff; max-width:640px; margin:6vh auto; border-radius:12px; padding:16px 18px; max-height:80vh; overflow:auto; }
+  .obox h3 { margin:0 0 8px; font-size:16px; }
+  .obox table { width:100%; border-collapse:collapse; font-size:13px; }
+  .obox th, .obox td { border-bottom:1px solid #eee; padding:6px 6px; text-align:right; }
+  .obox th:first-child, .obox td:first-child { text-align:left; }
+  .cpbtn { border:none; background:none; cursor:pointer; font-size:12px; padding:0 2px; }
+  .mini { font-size:12px; color:#888; }
+  details.help { background:#fff; border:1px solid #e3e7ee; border-radius:10px; padding:8px 12px; margin-top:12px; font-size:13px; line-height:1.7; }
+  .sum { display:flex; gap:16px; margin:8px 2px; font-size:13px; color:#444; flex-wrap:wrap; }
+  .sum b { color:#2d6a4f; }
+  @media (max-width:800px){ .day{min-height:84px} .prod .pv{display:block} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📅 판매 캘린더 <span class="mini">v1.0</span></h1>
+  <div class="sub">발주서 시트에서 판매 데이터를 자동으로 끌어와 날짜별로 보여줍니다 — 발주서 원본은 읽기만 하고 절대 건드리지 않아요.</div>
+
+  <div class="cfg">
+    <b>⚙️ 발주서 시트</b>
+    <input id="sheetUrl" type="text" placeholder="발주서 구글시트 URL (날짜 탭 0801, 0731(완), ★당일 이 있는 시트)">
+    <button class="ghost" id="saveSheet">저장</button>
+    <span class="mini" id="sheetBadge"></span>
+  </div>
+
+  <div class="bar">
+    <button class="nav" id="prevM">◀</button>
+    <input type="month" id="month">
+    <button class="nav" id="nextM">▶</button>
+    <label>노출 상품</label>
+    <select id="topn">
+      <option value="2">2개</option>
+      <option value="3" selected>3개</option>
+      <option value="4">4개</option>
+      <option value="5">5개</option>
+    </select>
+    <button id="updToday">🔄 데이터 업데이트 (오늘)</button>
+    <button class="ghost" id="updMonth">📆 이 달 전체 불러오기</button>
+    <input type="text" id="q" placeholder="🔍 상품 검색 (언제 팔았더라?)" style="min-width:190px">
+    <span style="flex:1"></span>
+    <button class="ghost" id="tmplBtn">📤 엑셀 양식</button>
+    <label for="xlsIn" style="cursor:pointer"><span style="display:inline-block;padding:7px 12px;border:1px solid #2d6a4f;border-radius:8px;color:#2d6a4f;font-weight:700;font-size:13.5px">📥 엑셀 업로드</span></label>
+    <input type="file" id="xlsIn" accept=".xlsx,.xls" style="display:none">
+  </div>
+  <div id="status"></div>
+  <div class="sum" id="sum"></div>
+  <div class="cal" id="cal"></div>
+
+  <details class="help">
+    <summary><b>📖 사용법 · 엑셀 양식</b></summary>
+    · <b>처음 한 번</b>: 위에 발주서 시트 주소 저장 → <b>📆 이 달 전체 불러오기</b> (구글 로그인 창이 뜨면 발주서에 접근 가능한 계정으로 로그인)<br>
+    · <b>매일</b>: 발주서 다 쓰고 나서 <b>🔄 데이터 업데이트 (오늘)</b> 한 번 — 오늘 날짜 탭(★당일 또는 MMDD)을 읽어 캘린더에 반영합니다.<br>
+    · 불러온 데이터는 이 컴퓨터에 저장돼서 다음에 열어도 그대로 보여요 (고객 정보는 저장하지 않고 상품별 집계만 저장).<br>
+    · <b>날짜 칸 클릭</b> → 그날 판 전체 상품 목록. <b>🔍 검색</b>에 상품명을 치면 판매한 날이 노랗게 표시됩니다.<br>
+    · <b>마진</b> = 판매가 합계 − 공급가 합계. 발주서에 공급가가 비어 있으면 '-'로 나와요.<br>
+    · 한 주문에 상품이 여러 개(예: A × 1 / B × 2)면 금액은 수량 비율로 나눠 집계합니다.<br>
+    · <b>과거 데이터 엑셀 업로드 양식</b> (📤 엑셀 양식 버튼으로 다운로드): 첫 행 제목 그대로 두고
+      <b>날짜(2026-07-01), 상품명, 판매량, 매출, 마진</b> 순서로 채우면 됩니다. 마진은 모르면 비워두세요.
+      같은 날짜를 업로드하면 그 날짜 데이터는 업로드 내용으로 교체됩니다.
+  </details>
+</div>
+
+<div class="ovl" id="ovl"><div class="obox">
+  <h3 id="obTitle"></h3>
+  <table id="obTbl"></table>
+  <div style="text-align:right;margin-top:10px"><button class="ghost" id="obClose">닫기</button></div>
+</div></div>
+
+<script>
+(function(){
+  'use strict';
+  var CLIENT_ID = '337370860058-repde1q121dchas1fddan4tasikjep7l.apps.googleusercontent.com';   // 팀 공용 (스펙변동 도구와 동일)
+  var SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+  var DEFAULT_SHEET = 'https://docs.google.com/spreadsheets/d/19CRwCWjeyMj9yNvsSQ4o-yeN4FrtN2P7JReJNcPXH-s/edit';
+  var tokenClient=null, accessToken=null, tokenExp=0, pending=null;
+
+  // ===== 저장소: 날짜(YYYY-MM-DD) → [{n:상품명, q:판매량, r:매출, m:마진(null가능)}] =====
+  var DATA = {};
+  try { DATA = JSON.parse(localStorage.getItem('scal_data')||'{}'); } catch(e){ DATA={}; }
+  function saveData(){ localStorage.setItem('scal_data', JSON.stringify(DATA)); }
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function comma(n){ return (n==null||isNaN(n))?'-':Math.round(n).toLocaleString('ko-KR'); }
+  function num(s){ if(typeof s==='number') return s; var n=parseFloat(String(s==null?'':s).replace(/[^0-9.\-]/g,'')); return isNaN(n)?null:n; }
+  function setStatus(h,c){ var e=$('status'); e.className=c||''; e.innerHTML=h; }
+  function pad2(n){ return (n<10?'0':'')+n; }
+  function ymd(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+
+  // ===== 시트 주소 =====
+  function sheetId(){
+    var raw=($('sheetUrl').value||'').trim();
+    var m=raw.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/); if(m) return m[1];
+    return /^[a-zA-Z0-9_-]{20,}$/.test(raw) ? raw : '';
+  }
+  function syncSheetBadge(){
+    var id=sheetId();
+    $('sheetBadge').innerHTML = id ? '✅ 연결됨 <span style="color:#aaa">'+esc(id.slice(0,10))+'…</span>' : '⚠️ 시트 주소를 넣어주세요';
+    return id;
+  }
+  $('sheetUrl').value = localStorage.getItem('scal_sheet') || DEFAULT_SHEET;
+  $('sheetUrl').addEventListener('input', function(){ localStorage.setItem('scal_sheet', this.value.trim()); syncSheetBadge(); });
+  $('saveSheet').addEventListener('click', function(){ localStorage.setItem('scal_sheet', $('sheetUrl').value.trim()); syncSheetBadge(); setStatus(sheetId()?'✅ 시트 저장됨':'⚠️ 주소 인식 실패 — URL 다시 확인','ok'); });
+  syncSheetBadge();
+
+  // ===== 구글 로그인 (읽기 전용) =====
+  function ensureClient(){
+    if(tokenClient) return true;
+    if(!(window.google && google.accounts && google.accounts.oauth2)) return false;
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID, scope: SCOPE,
+      callback: function(resp){
+        if(resp && resp.access_token){
+          accessToken=resp.access_token; tokenExp=Date.now()+((resp.expires_in||3300)*1000);
+          var a=pending; pending=null; if(a) a();
+        } else setStatus('⚠️ 로그인 취소/실패','warn');
+      }
+    });
+    return true;
+  }
+  function withToken(action){
+    if(accessToken && Date.now()<tokenExp-60000){ action(); return; }
+    if(!ensureClient()){ setStatus('⚠️ 구글 라이브러리 로딩 중 — 잠시 후 다시','warn'); return; }
+    pending=action; tokenClient.requestAccessToken({prompt:''});
+  }
+
+  // ===== 발주서 읽기 → 날짜별 집계 =====
+  // 날짜 탭 매칭: MMDD(완) > MMDD > (오늘이면) ★당일. 발주서 원본은 읽기만.
+  function tabForDate(titles, d, todayStr){
+    var mmdd=pad2(d.getMonth()+1)+pad2(d.getDate());
+    if(titles.indexOf(mmdd+'(완)')>=0) return mmdd+'(완)';
+    if(titles.indexOf(mmdd)>=0) return mmdd;
+    if(ymd(d)===todayStr && titles.indexOf('★당일')>=0) return '★당일';
+    return null;
+  }
+  // 한 탭의 행들 → 상품 집계. 행 규칙: F열(판매가)이 숫자인 행만 주문으로 침(체크리스트 행 제외).
+  // I열 "상품 × N" 파싱, "A × 1 / B × 2" 복수상품은 금액을 수량 비율로 분배.
+  function aggRows(rows){
+    var byName={};
+    rows.forEach(function(r){
+      var priceRaw=(r&&r.length>5)?String(r[5]==null?'':r[5]).trim():'';
+      var prodRaw=(r&&r.length>8)?String(r[8]==null?'':r[8]).trim():'';
+      if(priceRaw==='' || prodRaw==='') return;
+      var price=num(priceRaw); if(price==null) return;
+      var supRaw=(r.length>6)?String(r[6]==null?'':r[6]).trim():'';
+      var sup=num(supRaw);   // 공급가 (없으면 null → 마진 계산 제외)
+      var parts=prodRaw.split('/').map(function(s){ return s.trim(); }).filter(function(s){ return s!==''; });
+      var items=parts.map(function(p){
+        var m=p.match(/^(.*?)[×xX*]\s*(\d+)\s*$/);
+        return m ? {n:m[1].trim(), q:parseInt(m[2],10)||1} : {n:p, q:1};
+      }).filter(function(it){ return it.n!==''; });
+      if(!items.length) return;
+      var totQ=items.reduce(function(a,b){ return a+b.q; },0)||1;
+      items.forEach(function(it){
+        var share=it.q/totQ;
+        var k=it.n;
+        if(!byName[k]) byName[k]={n:it.n,q:0,r:0,m:null,_sup:0,_hasSup:false};
+        byName[k].q+=it.q;
+        byName[k].r+=price*share;
+        if(sup!=null){ byName[k]._sup+=sup*share; byName[k]._hasSup=true; }
+      });
+    });
+    return Object.keys(byName).map(function(k){
+      var o=byName[k];
+      return {n:o.n, q:o.q, r:Math.round(o.r), m:o._hasSup?Math.round(o.r-o._sup):null};
+    }).sort(function(a,b){ return b.r-a.r; });
+  }
+  function fetchDates(dates, doneMsg){
+    var id=syncSheetBadge();
+    if(!id){ setStatus('⚠️ 먼저 발주서 시트 주소를 넣어주세요','warn'); return; }
+    setStatus('⏳ 발주서 읽는 중...');
+    withToken(function(){
+      fetch('https://sheets.googleapis.com/v4/spreadsheets/'+id+'?fields=sheets.properties(title)',{headers:{Authorization:'Bearer '+accessToken}})
+      .then(function(r){ if(!r.ok) throw new Error('시트 정보를 못 읽었어요 (HTTP '+r.status+') — 주소·권한 확인'); return r.json(); })
+      .then(function(j){
+        var titles=(j.sheets||[]).map(function(s){ return s.properties.title; });
+        var todayStr=ymd(new Date());
+        var pairs=[];   // {date:'YYYY-MM-DD', tab}
+        dates.forEach(function(d){ var t=tabForDate(titles,d,todayStr); if(t) pairs.push({date:ymd(d), tab:t}); });
+        if(!pairs.length) throw new Error('해당 날짜의 탭을 발주서에서 못 찾았어요 (예: 0801, 0801(완), ★당일)');
+        var qs=pairs.map(function(p){ return 'ranges='+encodeURIComponent("'"+p.tab+"'!A3:I"); }).join('&');
+        return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+id+'/values:batchGet?majorDimension=ROWS&'+qs,{headers:{Authorization:'Bearer '+accessToken}})
+          .then(function(r){ if(!r.ok) throw new Error('데이터를 못 읽었어요 (HTTP '+r.status+')'); return r.json(); })
+          .then(function(vr){
+            var got=0;
+            (vr.valueRanges||[]).forEach(function(v,i){
+              var agg=aggRows(v.values||[]);
+              if(agg.length){ DATA[pairs[i].date]=agg; got++; }
+            });
+            saveData(); render();
+            setStatus('✅ '+(doneMsg||'업데이트 완료')+' — 데이터 있는 날 <b>'+got+'</b>일 반영 (읽은 탭 '+pairs.length+'개)','ok');
+          });
+      })
+      .catch(function(e){ setStatus('⚠️ '+esc(e.message),'warn'); });
+    });
+  }
+  $('updToday').addEventListener('click', function(){ fetchDates([new Date()], '오늘('+ymd(new Date()).slice(5)+') 업데이트'); });
+  $('updMonth').addEventListener('click', function(){
+    var mv=$('month').value; if(!mv){ setStatus('⚠️ 위에서 월을 선택하세요','warn'); return; }
+    var y=parseInt(mv.slice(0,4),10), m=parseInt(mv.slice(5,7),10);
+    var last=new Date(y,m,0).getDate(), today=new Date();
+    var dates=[];
+    for(var d=1;d<=last;d++){ var dt=new Date(y,m-1,d); if(dt<=today) dates.push(dt); }
+    if(!dates.length){ setStatus('⚠️ 미래 달은 불러올 게 없어요','warn'); return; }
+    fetchDates(dates, mv.replace('-','년 ')+'월 전체 불러오기');
+  });
+
+  // ===== 엑셀 양식 다운로드 / 업로드 (과거 데이터) =====
+  $('tmplBtn').addEventListener('click', function(){
+    var rows=[['날짜','상품명','판매량','매출','마진'],
+              ['2026-07-01','생물 가자미 4kg',3,65700,21000],
+              ['2026-07-01','프리미엄 햇고바멸치 1박스',2,70000,''],
+              ['2026-07-02','활 새우 500g',5,110000,35000]];
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'판매데이터');
+    XLSX.writeFile(wb,'판매캘린더_양식.xlsx');
+    setStatus('📤 양식 다운로드됨 — 예시 행은 지우고 실제 데이터로 채워서 업로드하세요','ok');
+  });
+  $('xlsIn').addEventListener('change', function(e){
+    var f=e.target.files[0]; if(!f) return;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      try{
+        var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array',cellDates:true});
+        var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''});
+        var byDate={}, bad=0;
+        for(var i=1;i<rows.length;i++){
+          var r=rows[i]; if(!r||!r.length) continue;
+          var dRaw=r[0], name=String(r[1]==null?'':r[1]).trim();
+          if(name==='' && (dRaw===''||dRaw==null)) continue;
+          var dstr='';
+          if(dRaw instanceof Date){ dstr=ymd(dRaw); }
+          else { var s=String(dRaw).trim().replace(/[./]/g,'-'); var m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) dstr=m[1]+'-'+pad2(+m[2])+'-'+pad2(+m[3]); }
+          if(!dstr || name===''){ bad++; continue; }
+          var q=num(r[2])||0, rev=num(r[3])||0, mg=num(r[4]);
+          if(!byDate[dstr]) byDate[dstr]={};
+          if(!byDate[dstr][name]) byDate[dstr][name]={n:name,q:0,r:0,m:null,_has:false};
+          var o=byDate[dstr][name]; o.q+=q; o.r+=rev;
+          if(mg!=null){ o.m=(o.m||0)+mg; o._has=true; }
+        }
+        var days=Object.keys(byDate);
+        if(!days.length) throw new Error('읽을 데이터가 없어요 — 양식(날짜/상품명/판매량/매출/마진) 확인');
+        days.forEach(function(dstr){
+          DATA[dstr]=Object.keys(byDate[dstr]).map(function(k){ var o=byDate[dstr][k]; return {n:o.n,q:o.q,r:Math.round(o.r),m:o._has?Math.round(o.m):null}; })
+            .sort(function(a,b){ return b.r-a.r; });
+        });
+        saveData(); render();
+        setStatus('📥 엑셀 업로드 완료 — <b>'+days.length+'</b>일 데이터 반영'+(bad?' (형식 이상 '+bad+'행 건너뜀)':''),'ok');
+      }catch(err){ setStatus('⚠️ 엑셀 읽기 실패: '+esc(err.message),'warn'); }
+      e.target.value='';
+    };
+    reader.readAsArrayBuffer(f);
+  });
+
+  // ===== 캘린더 렌더 =====
+  function render(){
+    var mv=$('month').value; if(!mv) return;
+    var y=parseInt(mv.slice(0,4),10), m=parseInt(mv.slice(5,7),10);
+    var first=new Date(y,m-1,1), last=new Date(y,m,0).getDate();
+    var topn=parseInt($('topn').value,10)||3;
+    var q=($('q').value||'').trim().toLowerCase();
+    var cal=$('cal'); var h='';
+    ['일','월','화','수','목','금','토'].forEach(function(d,i){ h+='<div class="dow'+(i===0?' sun':i===6?' sat':'')+'">'+d+'</div>'; });
+    for(var b=0;b<first.getDay();b++) h+='<div class="day blank"></div>';
+    var monthRev=0, monthMg=0, mgAll=true, daysWith=0;
+    for(var d=1;d<=last;d++){
+      var dt=new Date(y,m-1,d), key=ymd(dt), dow=dt.getDay();
+      var list=DATA[key]||[];
+      var hit = q && list.some(function(p){ return p.n.toLowerCase().indexOf(q)>=0; });
+      var dayRev=list.reduce(function(a,p){ return a+p.r; },0);
+      var dayMg=0, dayMgOk=list.length>0;
+      list.forEach(function(p){ if(p.m==null) dayMgOk=false; else dayMg+=p.m; });
+      if(list.length){ daysWith++; monthRev+=dayRev; if(dayMgOk) monthMg+=dayMg; else mgAll=false; }
+      var shown=list.slice(0,topn);
+      if(q && hit){   // 검색 매치 상품이 topN 밖이면 끌어올려 보여줌
+        list.forEach(function(p){ if(p.n.toLowerCase().indexOf(q)>=0 && shown.indexOf(p)<0) shown.push(p); });
+      }
+      h+='<div class="day'+(dow===0?' sun':dow===6?' sat':'')+(hit?' hit':'')+'" data-d="'+key+'">'
+        +'<span class="dnum">'+d+'</span>'
+        +(list.length?'<span class="tot">'+comma(dayRev)+'</span>':'');
+      shown.forEach(function(p){
+        var ph = q && p.n.toLowerCase().indexOf(q)>=0;
+        h+='<div class="prod'+(ph?' hitp':'')+'"><span class="pn" title="'+esc(p.n)+'">'+esc(p.n)+'</span>'
+          +'<span class="pv">'+p.q+'개 · <b>'+comma(p.r)+'</b>'+(p.m!=null?' · 마진 '+comma(p.m):'')+'</span></div>';
+      });
+      if(list.length>shown.length) h+='<div class="more">+'+(list.length-shown.length)+'개 더 (클릭)</div>';
+      h+='</div>';
+    }
+    cal.innerHTML=h;
+    $('sum').innerHTML = daysWith
+      ? '📊 '+y+'년 '+m+'월: 판매일 <b>'+daysWith+'</b>일 · 매출 합계 <b>'+comma(monthRev)+'</b>원'+(mgAll?' · 마진 합계 <b>'+comma(monthMg)+'</b>원':' · 마진 합계 - (공급가 빈 날 있음)')
+      : '이 달은 아직 데이터가 없어요 — 📆 이 달 전체 불러오기 또는 📥 엑셀 업로드';
+  }
+  // 날짜 칸 클릭 → 그날 전체 목록
+  document.addEventListener('click', function(e){
+    var cp=e.target.closest?e.target.closest('.cpbtn'):null;
+    if(cp){
+      var nm=cp.getAttribute('data-nm')||'';
+      try{ var ta=document.createElement('textarea'); ta.value=nm; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }catch(_){}
+      var o=cp.textContent; cp.textContent='✓'; setTimeout(function(){ cp.textContent=o; },900);
+      return;
+    }
+    var day=e.target.closest?e.target.closest('.day'):null;
+    if(!day || day.classList.contains('blank')) return;
+    var key=day.getAttribute('data-d'); var list=DATA[key]||[];
+    if(!list.length) return;
+    $('obTitle').textContent=key+' 판매 내역 ('+list.length+'개 상품)';
+    var t='<tr><th>상품명</th><th>판매량</th><th>매출</th><th>마진</th></tr>';
+    var tr=0, tm=0, mok=true;
+    list.forEach(function(p){
+      tr+=p.r; if(p.m==null) mok=false; else tm+=p.m;
+      t+='<tr><td>'+esc(p.n)+' <button class="cpbtn" data-nm="'+esc(p.n)+'" title="상품명 복사">📋</button></td><td>'+p.q+'</td><td>'+comma(p.r)+'</td><td>'+(p.m!=null?comma(p.m):'-')+'</td></tr>';
+    });
+    t+='<tr><th>합계</th><th></th><th>'+comma(tr)+'</th><th>'+(mok?comma(tm):'-')+'</th></tr>';
+    $('obTbl').innerHTML=t;
+    $('ovl').style.display='block';
+  });
+  $('obClose').addEventListener('click', function(){ $('ovl').style.display='none'; });
+  $('ovl').addEventListener('click', function(e){ if(e.target===this) this.style.display='none'; });
+
+  // ===== 컨트롤 =====
+  var now=new Date();
+  $('month').value = localStorage.getItem('scal_month') || (now.getFullYear()+'-'+pad2(now.getMonth()+1));
+  $('topn').value = localStorage.getItem('scal_topn') || '3';
+  $('month').addEventListener('change', function(){ localStorage.setItem('scal_month', this.value); render(); });
+  $('topn').addEventListener('change', function(){ localStorage.setItem('scal_topn', this.value); render(); });
+  $('q').addEventListener('input', render);
+  function shiftM(d){ var v=$('month').value; var y=parseInt(v.slice(0,4),10), m=parseInt(v.slice(5,7),10)+d; if(m<1){m=12;y--;} if(m>12){m=1;y++;} $('month').value=y+'-'+pad2(m); localStorage.setItem('scal_month',$('month').value); render(); }
+  $('prevM').addEventListener('click', function(){ shiftM(-1); });
+  $('nextM').addEventListener('click', function(){ shiftM(1); });
+  render();
+  window._scal = { aggRows:aggRows, tabForDate:tabForDate, render:render, DATA:DATA, saveData:saveData };   // 점검용
+})();
+</script>
+</body>
+</html>
