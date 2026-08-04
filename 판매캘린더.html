@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>판매 캘린더 v1.0</title>
+<title>판매 캘린더 v1.1</title>
 <!-- 발주서 시트(읽기전용)에서 날짜 탭별 판매 데이터를 집계해 캘린더로 보여주는 도구.
      ★발주서 원본은 절대 수정하지 않음 — 읽기만 함. (2026-08-05 사장님 의뢰, 새벽소리팀용) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -58,7 +58,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>📅 판매 캘린더 <span class="mini">v1.0</span></h1>
+  <h1>📅 판매 캘린더 <span class="mini">v1.1</span></h1>
   <div class="sub">발주서 시트에서 판매 데이터를 자동으로 끌어와 날짜별로 보여줍니다 — 발주서 원본은 읽기만 하고 절대 건드리지 않아요.</div>
 
   <div class="cfg">
@@ -70,7 +70,7 @@
 
   <div class="bar">
     <button class="nav" id="prevM">◀</button>
-    <input type="month" id="month">
+    <input type="date" id="from"> ~ <input type="date" id="to">
     <button class="nav" id="nextM">▶</button>
     <label>노출 상품</label>
     <select id="topn">
@@ -80,7 +80,7 @@
       <option value="5">5개</option>
     </select>
     <button id="updToday">🔄 데이터 업데이트 (오늘)</button>
-    <button class="ghost" id="updMonth">📆 이 달 전체 불러오기</button>
+    <button class="ghost" id="updMonth">📆 기간 전체 불러오기</button>
     <input type="text" id="q" placeholder="🔍 상품 검색 (언제 팔았더라?)" style="min-width:190px">
     <span style="flex:1"></span>
     <button class="ghost" id="tmplBtn">📤 엑셀 양식</button>
@@ -93,7 +93,8 @@
 
   <details class="help">
     <summary><b>📖 사용법 · 엑셀 양식</b></summary>
-    · <b>처음 한 번</b>: 위에 발주서 시트 주소 저장 → <b>📆 이 달 전체 불러오기</b> (구글 로그인 창이 뜨면 발주서에 접근 가능한 계정으로 로그인)<br>
+    · <b>처음 한 번</b>: 위에 발주서 시트 주소 저장 → 기간 선택 → <b>📆 기간 전체 불러오기</b> (구글 로그인 창이 뜨면 발주서에 접근 가능한 계정으로 로그인)<br>
+    · 날짜 칸의 상품은 <b>판매 수량이 많은 순</b>으로 표시됩니다. 과거 달 발주서가 다른 시트 파일이면, 시트 주소만 바꿔서 그 기간을 불러오면 돼요 — 불러온 데이터는 시트를 다시 바꿔도 계속 남습니다.<br>
     · <b>매일</b>: 발주서 다 쓰고 나서 <b>🔄 데이터 업데이트 (오늘)</b> 한 번 — 오늘 날짜 탭(★당일 또는 MMDD)을 읽어 캘린더에 반영합니다.<br>
     · 불러온 데이터는 이 컴퓨터에 저장돼서 다음에 열어도 그대로 보여요 (고객 정보는 저장하지 않고 상품별 집계만 저장).<br>
     · <b>날짜 칸 클릭</b> → 그날 판 전체 상품 목록. <b>🔍 검색</b>에 상품명을 치면 판매한 날이 노랗게 표시됩니다.<br>
@@ -208,7 +209,7 @@
     return Object.keys(byName).map(function(k){
       var o=byName[k];
       return {n:o.n, q:o.q, r:Math.round(o.r), m:o._hasSup?Math.round(o.r-o._sup):null};
-    }).sort(function(a,b){ return b.r-a.r; });
+    }).sort(function(a,b){ return (b.q-a.q) || (b.r-a.r); });   // ★판매 수량 순위 (동률이면 매출)
   }
   function fetchDates(dates, doneMsg){
     var id=syncSheetBadge();
@@ -239,15 +240,23 @@
       .catch(function(e){ setStatus('⚠️ '+esc(e.message),'warn'); });
     });
   }
+  function rangeVals(){
+    var f=$('from').value, t=$('to').value;
+    if(!f || !t) return null;
+    if(f>t){ var tmp=f; f=t; t=tmp; }
+    return {from:f, to:t};
+  }
   $('updToday').addEventListener('click', function(){ fetchDates([new Date()], '오늘('+ymd(new Date()).slice(5)+') 업데이트'); });
   $('updMonth').addEventListener('click', function(){
-    var mv=$('month').value; if(!mv){ setStatus('⚠️ 위에서 월을 선택하세요','warn'); return; }
-    var y=parseInt(mv.slice(0,4),10), m=parseInt(mv.slice(5,7),10);
-    var last=new Date(y,m,0).getDate(), today=new Date();
+    var rv=rangeVals(); if(!rv){ setStatus('⚠️ 위에서 기간(시작일~종료일)을 선택하세요','warn'); return; }
+    var today=new Date(); today.setHours(23,59,59,0);
     var dates=[];
-    for(var d=1;d<=last;d++){ var dt=new Date(y,m-1,d); if(dt<=today) dates.push(dt); }
-    if(!dates.length){ setStatus('⚠️ 미래 달은 불러올 게 없어요','warn'); return; }
-    fetchDates(dates, mv.replace('-','년 ')+'월 전체 불러오기');
+    for(var dt=new Date(rv.from+'T00:00:00'); ymd(dt)<=rv.to; dt.setDate(dt.getDate()+1)){
+      if(dt<=today) dates.push(new Date(dt));
+      if(dates.length>200) break;   // 안전장치 (최대 200일)
+    }
+    if(!dates.length){ setStatus('⚠️ 미래 기간은 불러올 게 없어요','warn'); return; }
+    fetchDates(dates, rv.from+' ~ '+rv.to+' 기간 불러오기');
   });
 
   // ===== 엑셀 양식 다운로드 / 업로드 (과거 데이터) =====
@@ -287,7 +296,7 @@
         if(!days.length) throw new Error('읽을 데이터가 없어요 — 양식(날짜/상품명/판매량/매출/마진) 확인');
         days.forEach(function(dstr){
           DATA[dstr]=Object.keys(byDate[dstr]).map(function(k){ var o=byDate[dstr][k]; return {n:o.n,q:o.q,r:Math.round(o.r),m:o._has?Math.round(o.m):null}; })
-            .sort(function(a,b){ return b.r-a.r; });
+            .sort(function(a,b){ return (b.q-a.q) || (b.r-a.r); });   // 수량 순위
         });
         saveData(); render();
         setStatus('📥 엑셀 업로드 완료 — <b>'+days.length+'</b>일 데이터 반영'+(bad?' (형식 이상 '+bad+'행 건너뜀)':''),'ok');
@@ -297,44 +306,52 @@
     reader.readAsArrayBuffer(f);
   });
 
-  // ===== 캘린더 렌더 =====
+  // ===== 캘린더 렌더 — 선택한 기간의 달들을 이어서 표시 =====
   function render(){
-    var mv=$('month').value; if(!mv) return;
-    var y=parseInt(mv.slice(0,4),10), m=parseInt(mv.slice(5,7),10);
-    var first=new Date(y,m-1,1), last=new Date(y,m,0).getDate();
+    var rv=rangeVals(); if(!rv) return;
     var topn=parseInt($('topn').value,10)||3;
     var q=($('q').value||'').trim().toLowerCase();
-    var cal=$('cal'); var h='';
-    ['일','월','화','수','목','금','토'].forEach(function(d,i){ h+='<div class="dow'+(i===0?' sun':i===6?' sat':'')+'">'+d+'</div>'; });
-    for(var b=0;b<first.getDay();b++) h+='<div class="day blank"></div>';
-    var monthRev=0, monthMg=0, mgAll=true, daysWith=0;
-    for(var d=1;d<=last;d++){
-      var dt=new Date(y,m-1,d), key=ymd(dt), dow=dt.getDay();
-      var list=DATA[key]||[];
-      var hit = q && list.some(function(p){ return p.n.toLowerCase().indexOf(q)>=0; });
-      var dayRev=list.reduce(function(a,p){ return a+p.r; },0);
-      var dayMg=0, dayMgOk=list.length>0;
-      list.forEach(function(p){ if(p.m==null) dayMgOk=false; else dayMg+=p.m; });
-      if(list.length){ daysWith++; monthRev+=dayRev; if(dayMgOk) monthMg+=dayMg; else mgAll=false; }
-      var shown=list.slice(0,topn);
-      if(q && hit){   // 검색 매치 상품이 topN 밖이면 끌어올려 보여줌
-        list.forEach(function(p){ if(p.n.toLowerCase().indexOf(q)>=0 && shown.indexOf(p)<0) shown.push(p); });
+    var fy=parseInt(rv.from.slice(0,4),10), fm=parseInt(rv.from.slice(5,7),10);
+    var ty=parseInt(rv.to.slice(0,4),10), tm=parseInt(rv.to.slice(5,7),10);
+    var totRev=0, totMg=0, mgAll=true, daysWith=0;
+    var h='';
+    var y=fy, m=fm, guard=0;
+    while((y<ty || (y===ty && m<=tm)) && guard++<36){
+      var first=new Date(y,m-1,1), last=new Date(y,m,0).getDate();
+      h+='<div style="grid-column:1/-1;font-weight:800;font-size:15px;margin:8px 2px 0">'+y+'년 '+m+'월</div>';
+      ['일','월','화','수','목','금','토'].forEach(function(d,i){ h+='<div class="dow'+(i===0?' sun':i===6?' sat':'')+'">'+d+'</div>'; });
+      for(var b=0;b<first.getDay();b++) h+='<div class="day blank"></div>';
+      for(var d=1;d<=last;d++){
+        var dt=new Date(y,m-1,d), key=ymd(dt), dow=dt.getDay();
+        var inRange = key>=rv.from && key<=rv.to;
+        if(!inRange){ h+='<div class="day blank" style="background:#fafbfc;border:1px dashed #eee"></div>'; continue; }
+        var list=DATA[key]||[];
+        var hit = q && list.some(function(p){ return p.n.toLowerCase().indexOf(q)>=0; });
+        var dayRev=list.reduce(function(a,p){ return a+p.r; },0);
+        var dayMg=0, dayMgOk=list.length>0;
+        list.forEach(function(p){ if(p.m==null) dayMgOk=false; else dayMg+=p.m; });
+        if(list.length){ daysWith++; totRev+=dayRev; if(dayMgOk) totMg+=dayMg; else mgAll=false; }
+        var shown=list.slice(0,topn);
+        if(q && hit){   // 검색 매치 상품이 topN 밖이면 끌어올려 보여줌
+          list.forEach(function(p){ if(p.n.toLowerCase().indexOf(q)>=0 && shown.indexOf(p)<0) shown.push(p); });
+        }
+        h+='<div class="day'+(dow===0?' sun':dow===6?' sat':'')+(hit?' hit':'')+'" data-d="'+key+'">'
+          +'<span class="dnum">'+d+'</span>'
+          +(list.length?'<span class="tot">'+comma(dayRev)+'</span>':'');
+        shown.forEach(function(p){
+          var ph = q && p.n.toLowerCase().indexOf(q)>=0;
+          h+='<div class="prod'+(ph?' hitp':'')+'"><span class="pn" title="'+esc(p.n)+'">'+esc(p.n)+'</span>'
+            +'<span class="pv">'+p.q+'개 · <b>'+comma(p.r)+'</b>'+(p.m!=null?' · 마진 '+comma(p.m):'')+'</span></div>';
+        });
+        if(list.length>shown.length) h+='<div class="more">+'+(list.length-shown.length)+'개 더 (클릭)</div>';
+        h+='</div>';
       }
-      h+='<div class="day'+(dow===0?' sun':dow===6?' sat':'')+(hit?' hit':'')+'" data-d="'+key+'">'
-        +'<span class="dnum">'+d+'</span>'
-        +(list.length?'<span class="tot">'+comma(dayRev)+'</span>':'');
-      shown.forEach(function(p){
-        var ph = q && p.n.toLowerCase().indexOf(q)>=0;
-        h+='<div class="prod'+(ph?' hitp':'')+'"><span class="pn" title="'+esc(p.n)+'">'+esc(p.n)+'</span>'
-          +'<span class="pv">'+p.q+'개 · <b>'+comma(p.r)+'</b>'+(p.m!=null?' · 마진 '+comma(p.m):'')+'</span></div>';
-      });
-      if(list.length>shown.length) h+='<div class="more">+'+(list.length-shown.length)+'개 더 (클릭)</div>';
-      h+='</div>';
+      m++; if(m>12){ m=1; y++; }
     }
-    cal.innerHTML=h;
+    $('cal').innerHTML=h;
     $('sum').innerHTML = daysWith
-      ? '📊 '+y+'년 '+m+'월: 판매일 <b>'+daysWith+'</b>일 · 매출 합계 <b>'+comma(monthRev)+'</b>원'+(mgAll?' · 마진 합계 <b>'+comma(monthMg)+'</b>원':' · 마진 합계 - (공급가 빈 날 있음)')
-      : '이 달은 아직 데이터가 없어요 — 📆 이 달 전체 불러오기 또는 📥 엑셀 업로드';
+      ? '📊 '+rv.from+' ~ '+rv.to+': 판매일 <b>'+daysWith+'</b>일 · 매출 합계 <b>'+comma(totRev)+'</b>원'+(mgAll?' · 마진 합계 <b>'+comma(totMg)+'</b>원':' · 마진 합계 - (공급가 빈 날 있음)')
+      : '이 기간은 아직 데이터가 없어요 — 📆 기간 전체 불러오기 또는 📥 엑셀 업로드';
   }
   // 날짜 칸 클릭 → 그날 전체 목록
   document.addEventListener('click', function(e){
@@ -365,12 +382,26 @@
 
   // ===== 컨트롤 =====
   var now=new Date();
-  $('month').value = localStorage.getItem('scal_month') || (now.getFullYear()+'-'+pad2(now.getMonth()+1));
+  var defFrom = now.getFullYear()+'-'+pad2(now.getMonth()+1)+'-01';
+  var defTo = now.getFullYear()+'-'+pad2(now.getMonth()+1)+'-'+pad2(new Date(now.getFullYear(),now.getMonth()+1,0).getDate());
+  $('from').value = localStorage.getItem('scal_from') || defFrom;
+  $('to').value = localStorage.getItem('scal_to') || defTo;
   $('topn').value = localStorage.getItem('scal_topn') || '3';
-  $('month').addEventListener('change', function(){ localStorage.setItem('scal_month', this.value); render(); });
+  function saveRange(){ localStorage.setItem('scal_from',$('from').value); localStorage.setItem('scal_to',$('to').value); }
+  $('from').addEventListener('change', function(){ saveRange(); render(); });
+  $('to').addEventListener('change', function(){ saveRange(); render(); });
   $('topn').addEventListener('change', function(){ localStorage.setItem('scal_topn', this.value); render(); });
   $('q').addEventListener('input', render);
-  function shiftM(d){ var v=$('month').value; var y=parseInt(v.slice(0,4),10), m=parseInt(v.slice(5,7),10)+d; if(m<1){m=12;y--;} if(m>12){m=1;y++;} $('month').value=y+'-'+pad2(m); localStorage.setItem('scal_month',$('month').value); render(); }
+  // ◀▶ = 기간을 한 달씩 이동 (기간이 딱 한 달이면 그 달 통째로 이동)
+  function shiftM(d){
+    var rv=rangeVals(); if(!rv) return;
+    function shift(s){ var y=parseInt(s.slice(0,4),10), m=parseInt(s.slice(5,7),10)+d, day=parseInt(s.slice(8,10),10); if(m<1){m=12;y--;} if(m>12){m=1;y++;} var lastD=new Date(y,m,0).getDate(); return y+'-'+pad2(m)+'-'+pad2(Math.min(day,lastD)); }
+    var f=shift(rv.from), t=shift(rv.to);
+    // 월초~월말 형태면 이동한 달도 월초~월말로 맞춤
+    if(rv.from.slice(8)==='01' && rv.to===rv.to.slice(0,8)+pad2(new Date(parseInt(rv.to.slice(0,4),10),parseInt(rv.to.slice(5,7),10),0).getDate()))
+      t=t.slice(0,8)+pad2(new Date(parseInt(t.slice(0,4),10),parseInt(t.slice(5,7),10),0).getDate());
+    $('from').value=f; $('to').value=t; saveRange(); render();
+  }
   $('prevM').addEventListener('click', function(){ shiftM(-1); });
   $('nextM').addEventListener('click', function(){ shiftM(1); });
   render();
