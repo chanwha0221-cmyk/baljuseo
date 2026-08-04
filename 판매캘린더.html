@@ -325,7 +325,8 @@
         var dt=new Date(y,m-1,d), key=ymd(dt), dow=dt.getDay();
         var inRange = key>=rv.from && key<=rv.to;
         if(!inRange){ h+='<div class="day blank" style="background:#fafbfc;border:1px dashed #eee"></div>'; continue; }
-        var list=DATA[key]||[];
+        // ★정렬은 항상 그리는 시점에 — 예전에 저장된 데이터(매출순)도 수량순으로 보이게 (2026-08-05 사장님 지적)
+        var list=(DATA[key]||[]).slice().sort(function(a,b){ return (b.q-a.q) || (b.r-a.r); });
         var hit = q && list.some(function(p){ return p.n.toLowerCase().indexOf(q)>=0; });
         var dayRev=list.reduce(function(a,p){ return a+p.r; },0);
         var dayMg=0, dayMgOk=list.length>0;
@@ -364,7 +365,8 @@
     }
     var day=e.target.closest?e.target.closest('.day'):null;
     if(!day || day.classList.contains('blank')) return;
-    var key=day.getAttribute('data-d'); var list=DATA[key]||[];
+    var key=day.getAttribute('data-d');
+    var list=(DATA[key]||[]).slice().sort(function(a,b){ return (b.q-a.q) || (b.r-a.r); });   // 수량순
     if(!list.length) return;
     $('obTitle').textContent=key+' 판매 내역 ('+list.length+'개 상품)';
     var t='<tr><th>상품명</th><th>판매량</th><th>매출</th><th>마진</th></tr>';
