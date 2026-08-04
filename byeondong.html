@@ -767,10 +767,15 @@
   }
   function sortItems(arr){ arr.sort(function(a,b){ var x=rankByun(a.byun)-rankByun(b.byun); if(x!==0) return x; return rankDay(a.day)-rankDay(b.day); }); return arr; }
   // 스펙/참고사항에서 '원가' 관련 문구 제거 — 업체 시트에 원가 노출 방지(각 시트 넣을 때만 적용). 줄/구분자 단위로 원가 든 조각만 삭제.
+  // ★천단위 콤마 보호 (2026-08-04): "택배비 원가 : 3,850"의 3,850이 콤마 구분자로 쪼개져 "850"만 시트에 새던 사고.
+  //   숫자 사이 콤마는 제어문자(chr1)로 잠시 바꿔 조각내기에서 제외. 원가 없는 줄은 아예 안 건드림(로젠택배/우체국택배 변조 방지).
   function stripCost(s){
+    var P=String.fromCharCode(1);   // 천단위 콤마 임시 보호용 센티널
     s=String(s==null?'':s);
     return s.split(/\r?\n/).map(function(line){
-      return line.split(/\s*[,/·|]\s*/).filter(function(seg){ return seg.trim()!=='' && !/원가/.test(seg); }).join(', ');
+      if(!/원가/.test(line)) return line;
+      var prot=line.replace(/(\d),(?=\d)/g,'$1'+P);
+      return prot.split(/\s*[,/·|]\s*/).filter(function(seg){ return seg.trim()!=='' && !/원가/.test(seg); }).join(', ').split(P).join(',');
     }).filter(function(line){ return line.trim()!==''; }).join('\n').trim();
   }
   // 목적지별 행 빌더 (상품명은 하이퍼링크 적용)
