@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v5.7</title>
+<title>통장 내역 조회 v5.8</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v5.7</span>
+  <span class="ver">v5.8</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -2029,6 +2029,20 @@ function _splitPayMatch(cellsByCompany, leftoverByCompany, ws, tolerance, painte
                   paintedSpan:_run[_run.length-1].key+'~'+_run[0].key,
                   span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
     }
+    // 🛡 잔액 가드 (2026-08-04 서율 재발 — 달력 시작일이 7/1로 잘리면 6/30 색칠분 32,700이 빠져
+    //    꼬리 대사(위 _hit)가 원 단위로 안 맞고, 그대로 prevpaid로 떨어져 '초과입금 610,400 → 환불' 오보):
+    //    달력 시작 이후 '입금 누계'가 '색칠 누계 + 입금일까지 미색칠 누계'를 넘지 않으면 초과입금 증거가 없다 —
+    //    차액은 달력 범위 밖(시작일 이전) 색칠분 상환 몫. 미색칠 셀은 아직 안 낸 최근 정산분으로 두고 조용히 처리.
+    //    (진짜 초과입금이면 입금 누계가 이 상한을 넘으므로 기존 경고 경로 그대로 탄다)
+    else if(paid > upToSum + tolerance
+            && _fullTxs.reduce((a,t)=>a+t.amount,0) <= _pntDesc.reduce((a,c)=>a+c.sum,0) + upToSum + tolerance){
+      const _cumPaid=_fullTxs.reduce((a,t)=>a+t.amount,0);
+      const _paintedAll=_pntDesc.reduce((a,c)=>a+c.sum,0);
+      props.push({company, txs:allTxs, cells:[], status:'carryok', guard:true, paid, total:upToSum,
+                  cum:_cumPaid, paintedSum:_paintedAll,
+                  paintedSpan:_pntDesc.length?(_pntDesc[_pntDesc.length-1].key+'~'+_pntDesc[0].key):'',
+                  span: upTo.length ? (upTo[0].key+'~'+upTo[upTo.length-1].key) : ''});
+    }
     else if(paid > upToSum + tolerance){
       const past=_findPastRun(allCells, lastPay, paid, tolerance, _exclude, ws);   // 🔎 과거 확인 (색칠 셀 제외 — 미색칠만, 칠하진 않음)
       // 확인된 과거구간 안에 아직 색 안 칠한 날이 있으면 색칠목록 후보로.
@@ -2151,7 +2165,9 @@ function renderSplitPay(props){
   let doneNote='';
   if(done.length){
     const items=done.map(p=>{
-      if(p.status==='carryok') return `${p.company} ${p.paintedSpan} 완납 — 이월 부족분 정리 (누계 ${p.cum.toLocaleString()}원 일치)`;
+      if(p.status==='carryok') return p.guard
+        ? `${p.company} 입금 누계 ${p.cum.toLocaleString()}원 ≤ 색칠 ${p.paintedSum.toLocaleString()}원+미색칠 — 초과 아님 (차액은 달력 시작 전 색칠분 상환, 미색칠은 다음 입금 대기)`
+        : `${p.company} ${p.paintedSpan} 완납 — 이월 부족분 정리 (누계 ${p.cum.toLocaleString()}원 일치)`;
       return `${p.dayEmpty?'⏳':''}${p.company} ${p.priorOnly?'이전 기간분':(p.from&&p.to?(p.from===p.to?p.from:p.from+'~'+p.to):'')} (${p.paid.toLocaleString()}원)`;
     }).join(' · ');
     const staleOnes=done.filter(p=>p.dayEmpty);
