@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>판매 캘린더 v1.2</title>
+<title>판매 캘린더 v1.3</title>
 <!-- 발주서 시트(읽기전용)에서 날짜 탭별 판매 데이터를 집계해 캘린더로 보여주는 도구.
      ★발주서 원본은 절대 수정하지 않음 — 읽기만 함. (2026-08-05 사장님 의뢰, 새벽소리팀용) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -19,6 +19,7 @@
   .bar input[type=month], .bar select, .bar input[type=text] { padding:6px 8px; border:1px solid #cfd6e0; border-radius:8px; font-size:13.5px; }
   button { padding:7px 12px; border:none; border-radius:8px; background:#2d6a4f; color:#fff; font-size:13.5px; font-weight:700; cursor:pointer; }
   button.ghost { background:#fff; color:#2d6a4f; border:1px solid #2d6a4f; }
+  button.ghost.on { background:#e67e22; color:#fff; border-color:#e67e22; }
   button.nav { background:#eef2f7; color:#333; border:1px solid #d6dde8; padding:7px 10px; }
   button:disabled { opacity:.5; cursor:default; }
   #status { font-size:12.5px; margin:6px 2px; min-height:18px; }
@@ -40,6 +41,10 @@
   .prod .pv { color:#555; }
   .prod .pv b { color:#2d6a4f; }
   .prod.hitp .pn { background:#fff3c4; }
+  .prod.plan { border-left:3px solid #e67e22; padding-left:5px; background:#fff7ef; border-radius:4px; }
+  .prod.plan .pn { color:#c0561a; }
+  .obox td.pl { color:#c0561a; font-weight:700; }
+  .obox .chk { margin-right:6px; }
   .more { color:#999; font-size:11px; margin-top:3px; }
   .src { position:absolute; bottom:4px; right:8px; font-size:10px; color:#bbb; }
   .ovl { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:50; }
@@ -58,7 +63,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>📅 판매 캘린더 <span class="mini">v1.2</span></h1>
+  <h1>📅 판매 캘린더 <span class="mini">v1.3</span></h1>
   <div class="sub">발주서 시트에서 판매 데이터를 자동으로 끌어와 날짜별로 보여줍니다 — 발주서 원본은 읽기만 하고 절대 건드리지 않아요.</div>
 
   <div class="cfg">
@@ -80,7 +85,10 @@
       <option value="5">5개</option>
     </select>
     <button id="updToday">🔄 데이터 업데이트 (오늘)</button>
+    <button class="ghost" id="planToday">⭐ 오늘 기획상품 선택</button>
     <button class="ghost" id="updMonth">📆 기간 전체 불러오기</button>
+    <button class="ghost" id="planImport" title="판매일정 탭에 적어뒀던 기획 상품을 과거 날짜에 표시">📋 판매일정 기획 가져오기</button>
+    <button class="ghost" id="planOnly" title="기획(📣) 상품만 남겨서 보기">📣 기획상품만</button>
     <input type="text" id="q" placeholder="🔍 상품 검색 (언제 팔았더라?)" style="min-width:190px">
     <span style="flex:1"></span>
     <button class="ghost" id="tmplBtn">📤 엑셀 양식</button>
@@ -98,6 +106,7 @@
     · <b>매일</b>: 발주서 다 쓰고 나서 <b>🔄 데이터 업데이트 (오늘)</b> 한 번 — 오늘 날짜 탭(★당일 또는 MMDD)을 읽어 캘린더에 반영합니다.<br>
     · 불러온 데이터는 이 컴퓨터에 저장돼서 다음에 열어도 그대로 보여요 (고객 정보는 저장하지 않고 상품별 집계만 저장).<br>
     · <b>날짜 칸 클릭</b> → 그날 판 전체 상품 목록. <b>🔍 검색</b>에 상품명을 치면 판매한 날이 노랗게 표시됩니다.<br>
+    · <b>📣 기획 상품 표시</b>: 내가 기획·제안해서 판 상품은 주황색으로 표시돼요. 매일 흐름 = 🔄 데이터 업데이트 → <b>⭐ 오늘 기획상품 선택</b> → 오늘 판 상품 중 기획한 것 체크 → <b>⭐ 결정</b>. 과거분은 <b>📋 판매일정 기획 가져오기</b> 한 번이면 판매일정 탭에 적어뒀던 상품들이 자동 표시됩니다 (판매 데이터를 먼저 불러온 기간만 매칭돼요).<br>
     · <b>마진</b> = 판매가 합계 − 공급가 합계. 발주서에 공급가가 비어 있으면 '-'로 나와요.<br>
     · 한 주문에 상품이 여러 개(예: A × 1 / B × 2)면 금액은 수량 비율로 나눠 집계합니다.<br>
     · <b>과거 데이터 엑셀 업로드 양식</b> (📤 엑셀 양식 버튼으로 다운로드): 첫 행 제목 그대로 두고
@@ -109,7 +118,11 @@
 <div class="ovl" id="ovl"><div class="obox">
   <h3 id="obTitle"></h3>
   <table id="obTbl"></table>
-  <div style="text-align:right;margin-top:10px"><button class="ghost" id="obClose">닫기</button></div>
+  <div style="text-align:right;margin-top:10px">
+    <span class="mini" style="float:left;line-height:32px">기획(제안)했던 상품은 체크 → ⭐ 결정</span>
+    <button id="obPlanSave">⭐ 결정 (기획 저장)</button>
+    <button class="ghost" id="obClose">닫기</button>
+  </div>
 </div></div>
 
 <script>
@@ -124,6 +137,11 @@
   var DATA = {};
   try { DATA = JSON.parse(localStorage.getItem('scal_data')||'{}'); } catch(e){ DATA={}; }
   function saveData(){ localStorage.setItem('scal_data', JSON.stringify(DATA)); }
+  // 기획(제안) 상품: 날짜 → [상품명]. 캘린더에 주황 표시. 과거분은 판매일정 탭에서 가져오고, 오늘부터는 날짜 팝업에서 체크→결정.
+  var PLAN = {};
+  try { PLAN = JSON.parse(localStorage.getItem('scal_plan')||'{}'); } catch(e){ PLAN={}; }
+  function savePlan(){ localStorage.setItem('scal_plan', JSON.stringify(PLAN)); }
+  function isPlanned(key, name){ return (PLAN[key]||[]).indexOf(name)>=0; }
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -240,6 +258,79 @@
       .catch(function(e){ setStatus('⚠️ '+esc(e.message),'warn'); });
     });
   }
+  // ===== 📋 판매일정 탭에서 과거 기획 상품 가져오기 =====
+  // 탭 구조: 날짜 열(YYYY-MM-DD 요일) + 채널별 [공급사/발주명 | 판매가·택배비] 반복.
+  // "잇팀/상다리 한우모듬" → '/' 앞 공급사 떼고, 그날 판매 데이터 상품명과 대조(정규화 일치/포함)해서 표시.
+  function pkey(s){ return String(s==null?'':s).toLowerCase().replace(/\s+/g,'').trim(); }
+  $('planImport').addEventListener('click', function(){
+    var id=syncSheetBadge();
+    if(!id){ setStatus('⚠️ 먼저 발주서 시트 주소를 넣어주세요','warn'); return; }
+    setStatus('⏳ 판매일정 탭 읽는 중...');
+    withToken(function(){
+      fetch('https://sheets.googleapis.com/v4/spreadsheets/'+id+'?fields=sheets.properties(title)',{headers:{Authorization:'Bearer '+accessToken}})
+      .then(function(r){ if(!r.ok) throw new Error('시트 정보를 못 읽었어요 (HTTP '+r.status+')'); return r.json(); })
+      .then(function(j){
+        var tab=null;
+        (j.sheets||[]).forEach(function(s){ if(!tab && s.properties.title.indexOf('판매일정')>=0) tab=s.properties.title; });
+        if(!tab) throw new Error('"판매일정" 들어간 탭을 못 찾았어요');
+        return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+id+'/values/'+encodeURIComponent("'"+tab+"'!A1:Z")+'?majorDimension=ROWS',{headers:{Authorization:'Bearer '+accessToken}});
+      })
+      .then(function(r){ if(!r.ok) throw new Error('판매일정을 못 읽었어요 (HTTP '+r.status+')'); return r.json(); })
+      .then(function(j){
+        var rows=j.values||[];
+        // 발주명 열 찾기: 상단 몇 행에서 '발주명' 든 셀의 열 번호들
+        var nameCols={};
+        for(var hr=0;hr<Math.min(rows.length,6);hr++){
+          (rows[hr]||[]).forEach(function(c,ci){ if(String(c).indexOf('발주명')>=0) nameCols[ci]=1; });
+        }
+        var cols=Object.keys(nameCols).map(Number);
+        if(!cols.length) throw new Error('판매일정에서 "공급사/발주명" 열을 못 찾았어요');
+        var addedDays=0, matched=0, planTot=0;
+        rows.forEach(function(r){
+          if(!r) return;
+          var dstr='';
+          for(var ci=0;ci<Math.min(r.length,4);ci++){
+            var m=String(r[ci]||'').match(/(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
+            if(m){ dstr=m[1]+'-'+pad2(+m[2])+'-'+pad2(+m[3]); break; }
+          }
+          if(!dstr || !DATA[dstr]) return;   // 판매 데이터가 있는 날만 대조 가능
+          var plans=[];
+          cols.forEach(function(ci){
+            var v=String(r[ci]||'').trim(); if(!v) return;
+            v.split(/\r?\n/).forEach(function(line){
+              line=line.trim(); if(!line) return;
+              if(line.indexOf('/')>=0) line=line.slice(line.indexOf('/')+1).trim();   // 공급사/ 접두 제거
+              if(line) plans.push(line);
+            });
+          });
+          if(!plans.length) return;
+          planTot+=plans.length;
+          var names=PLAN[dstr]||[];
+          plans.forEach(function(pn){
+            var pk=pkey(pn), hit=null;
+            DATA[dstr].forEach(function(p){
+              if(hit) return;
+              var sk=pkey(p.n);
+              if(sk===pk || sk.indexOf(pk)>=0 || pk.indexOf(sk)>=0) hit=p.n;
+            });
+            if(hit && names.indexOf(hit)<0){ names.push(hit); matched++; }
+          });
+          if(names.length){ PLAN[dstr]=names; addedDays++; }
+        });
+        if(!matched) throw new Error('판매일정 기획 상품과 판매 데이터가 매칭된 게 없어요 — 먼저 그 기간 데이터를 불러왔는지 확인');
+        savePlan(); render();
+        setStatus('📋 판매일정 기획 가져오기 완료 — <b>'+addedDays+'</b>일 / 기획 '+planTot+'건 중 <b>'+matched+'</b>건 매칭·표시','ok');
+      })
+      .catch(function(e){ setStatus('⚠️ '+esc(e.message),'warn'); });
+    });
+  });
+  // ⭐ 오늘 기획상품 선택 → 오늘 날짜 팝업 열기
+  $('planToday').addEventListener('click', function(){
+    var key=ymd(new Date());
+    if(!(DATA[key]||[]).length){ setStatus('⚠️ 오늘('+key.slice(5)+') 판매 데이터가 아직 없어요 — 먼저 🔄 데이터 업데이트','warn'); return; }
+    openDay(key);
+  });
+
   function rangeVals(){
     var f=$('from').value, t=$('to').value;
     if(!f || !t) return null;
@@ -327,6 +418,7 @@
         if(!inRange){ h+='<div class="day blank" style="background:#fafbfc;border:1px dashed #eee"></div>'; continue; }
         // ★정렬은 항상 그리는 시점에 — 예전에 저장된 데이터(매출순)도 수량순으로 보이게 (2026-08-05 사장님 지적)
         var list=(DATA[key]||[]).slice().sort(function(a,b){ return (b.q-a.q) || (b.r-a.r); });
+        if(PLAN_ONLY) list=list.filter(function(p){ return isPlanned(key,p.n); });   // 📣 기획상품만 모드
         var hit = q && list.some(function(p){ return p.n.toLowerCase().indexOf(q)>=0; });
         var dayRev=list.reduce(function(a,p){ return a+p.r; },0);
         var dayMg=0, dayMgOk=list.length>0;
@@ -336,12 +428,14 @@
         if(q && hit){   // 검색 매치 상품이 topN 밖이면 끌어올려 보여줌
           list.forEach(function(p){ if(p.n.toLowerCase().indexOf(q)>=0 && shown.indexOf(p)<0) shown.push(p); });
         }
+        list.forEach(function(p){ if(isPlanned(key,p.n) && shown.indexOf(p)<0) shown.push(p); });   // 기획 상품은 topN 밖이어도 표시
         h+='<div class="day'+(dow===0?' sun':dow===6?' sat':'')+(hit?' hit':'')+'" data-d="'+key+'">'
           +'<span class="dnum">'+d+'</span>'
           +(list.length?'<span class="tot">'+comma(dayRev)+'</span>':'');
         shown.forEach(function(p){
           var ph = q && p.n.toLowerCase().indexOf(q)>=0;
-          h+='<div class="prod'+(ph?' hitp':'')+'"><span class="pn" title="'+esc(p.n)+'">'+esc(p.n)+'</span>'
+          var pl = isPlanned(key,p.n);
+          h+='<div class="prod'+(ph?' hitp':'')+(pl?' plan':'')+'"><span class="pn" title="'+esc(p.n)+(pl?' (기획 상품)':'')+'">'+(pl?'📣 ':'')+esc(p.n)+'</span>'
             +'<span class="pv">'+p.q+'개 · <b>'+comma(p.r)+'</b>'+(p.m!=null?' · 마진 '+comma(p.m):'')+'</span></div>';
         });
         if(list.length>shown.length) h+='<div class="more">+'+(list.length-shown.length)+'개 더 (클릭)</div>';
@@ -362,6 +456,7 @@
     Object.keys(DATA).forEach(function(k){
       if(k<rv.from || k>rv.to) return;
       (DATA[k]||[]).forEach(function(p){
+        if(PLAN_ONLY && !isPlanned(k,p.n)) return;   // 📣 기획상품만 모드면 집계도 기획만
         if(!by[p.n]) by[p.n]={n:p.n,q:0,r:0,m:0,mok:true,d:0};
         var o=by[p.n]; o.q+=p.q; o.r+=p.r; o.d++;
         if(p.m==null) o.mok=false; else o.m+=p.m;
@@ -383,6 +478,7 @@
     });
     t+='<tr><th>합계</th><th></th><th>'+tq+'</th><th>'+comma(tr)+'</th><th>'+(mok?comma(tm):'-')+'</th></tr>';
     $('obTbl').innerHTML=t;
+    OB_KEY=''; $('obPlanSave').style.display='none';   // 집계 팝업엔 기획 저장 버튼 없음
     $('ovl').style.display='block';
   });
   // 날짜 칸 클릭 → 그날 전체 목록
@@ -396,19 +492,37 @@
     }
     var day=e.target.closest?e.target.closest('.day'):null;
     if(!day || day.classList.contains('blank')) return;
-    var key=day.getAttribute('data-d');
+    openDay(day.getAttribute('data-d'));
+  });
+  // 날짜 팝업 — 체크박스로 기획 상품 표시 후 [⭐ 결정] 저장
+  var OB_KEY='';
+  function openDay(key){
     var list=(DATA[key]||[]).slice().sort(function(a,b){ return (b.q-a.q) || (b.r-a.r); });   // 수량순
     if(!list.length) return;
+    OB_KEY=key;
     $('obTitle').textContent=key+' 판매 내역 ('+list.length+'개 상품)';
-    var t='<tr><th>상품명</th><th>판매량</th><th>매출</th><th>마진</th></tr>';
+    var t='<tr><th>기획</th><th>상품명</th><th>판매량</th><th>매출</th><th>마진</th></tr>';
     var tr=0, tm=0, mok=true;
     list.forEach(function(p){
       tr+=p.r; if(p.m==null) mok=false; else tm+=p.m;
-      t+='<tr><td>'+esc(p.n)+' <button class="cpbtn" data-nm="'+esc(p.n)+'" title="상품명 복사">📋</button></td><td>'+p.q+'</td><td>'+comma(p.r)+'</td><td>'+(p.m!=null?comma(p.m):'-')+'</td></tr>';
+      var pl=isPlanned(key,p.n);
+      t+='<tr><td style="text-align:center"><input type="checkbox" class="chk" data-nm="'+esc(p.n)+'"'+(pl?' checked':'')+'></td>'
+        +'<td class="'+(pl?'pl':'')+'">'+(pl?'📣 ':'')+esc(p.n)+' <button class="cpbtn" data-nm="'+esc(p.n)+'" title="상품명 복사">📋</button></td>'
+        +'<td>'+p.q+'</td><td>'+comma(p.r)+'</td><td>'+(p.m!=null?comma(p.m):'-')+'</td></tr>';
     });
-    t+='<tr><th>합계</th><th></th><th>'+comma(tr)+'</th><th>'+(mok?comma(tm):'-')+'</th></tr>';
+    t+='<tr><th></th><th>합계</th><th></th><th>'+comma(tr)+'</th><th>'+(mok?comma(tm):'-')+'</th></tr>';
     $('obTbl').innerHTML=t;
+    $('obPlanSave').style.display='';
     $('ovl').style.display='block';
+  }
+  $('obPlanSave').addEventListener('click', function(){
+    if(!OB_KEY) return;
+    var names=[];
+    document.querySelectorAll('#obTbl .chk').forEach(function(c){ if(c.checked) names.push(c.getAttribute('data-nm')); });
+    if(names.length) PLAN[OB_KEY]=names; else delete PLAN[OB_KEY];
+    savePlan(); render();
+    $('ovl').style.display='none';
+    setStatus('⭐ '+OB_KEY+' 기획 상품 <b>'+names.length+'</b>개 저장 — 캘린더에 📣 표시됨','ok');
   });
   $('obClose').addEventListener('click', function(){ $('ovl').style.display='none'; });
   $('ovl').addEventListener('click', function(e){ if(e.target===this) this.style.display='none'; });
@@ -437,8 +551,16 @@
   }
   $('prevM').addEventListener('click', function(){ shiftM(-1); });
   $('nextM').addEventListener('click', function(){ shiftM(1); });
+  var PLAN_ONLY = localStorage.getItem('scal_planonly')==='1';
+  function syncPlanOnly(){ $('planOnly').classList.toggle('on', PLAN_ONLY); }
+  $('planOnly').addEventListener('click', function(){
+    PLAN_ONLY=!PLAN_ONLY; localStorage.setItem('scal_planonly', PLAN_ONLY?'1':'0');
+    syncPlanOnly(); render();
+    setStatus(PLAN_ONLY?'📣 기획상품만 보는 중 — 다시 누르면 전체 보기':'전체 상품 보기','ok');
+  });
+  syncPlanOnly();
   render();
-  window._scal = { aggRows:aggRows, tabForDate:tabForDate, render:render, DATA:DATA, saveData:saveData };   // 점검용
+  window._scal = { aggRows:aggRows, tabForDate:tabForDate, render:render, DATA:DATA, saveData:saveData, PLAN:PLAN, savePlan:savePlan, openDay:openDay };   // 점검용
 })();
 </script>
 </body>
