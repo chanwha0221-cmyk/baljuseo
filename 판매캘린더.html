@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>판매 캘린더 v1.1</title>
+<title>판매 캘린더 v1.2</title>
 <!-- 발주서 시트(읽기전용)에서 날짜 탭별 판매 데이터를 집계해 캘린더로 보여주는 도구.
      ★발주서 원본은 절대 수정하지 않음 — 읽기만 함. (2026-08-05 사장님 의뢰, 새벽소리팀용) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -58,7 +58,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>📅 판매 캘린더 <span class="mini">v1.1</span></h1>
+  <h1>📅 판매 캘린더 <span class="mini">v1.2</span></h1>
   <div class="sub">발주서 시트에서 판매 데이터를 자동으로 끌어와 날짜별로 보여줍니다 — 발주서 원본은 읽기만 하고 절대 건드리지 않아요.</div>
 
   <div class="cfg">
@@ -352,8 +352,39 @@
     $('cal').innerHTML=h;
     $('sum').innerHTML = daysWith
       ? '📊 '+rv.from+' ~ '+rv.to+': 판매일 <b>'+daysWith+'</b>일 · 매출 합계 <b>'+comma(totRev)+'</b>원'+(mgAll?' · 마진 합계 <b>'+comma(totMg)+'</b>원':' · 마진 합계 - (공급가 빈 날 있음)')
+        +' <button class="ghost" id="aggBtn" style="padding:3px 10px;font-size:12px">📋 기간 상품별 집계</button>'
       : '이 기간은 아직 데이터가 없어요 — 📆 기간 전체 불러오기 또는 📥 엑셀 업로드';
   }
+  // ===== 기간 상품별 집계 — 조회 기간 전체에서 상품별 판매량/매출/마진 (수량순) =====
+  function rangeAgg(){
+    var rv=rangeVals(); if(!rv) return null;
+    var by={};
+    Object.keys(DATA).forEach(function(k){
+      if(k<rv.from || k>rv.to) return;
+      (DATA[k]||[]).forEach(function(p){
+        if(!by[p.n]) by[p.n]={n:p.n,q:0,r:0,m:0,mok:true,d:0};
+        var o=by[p.n]; o.q+=p.q; o.r+=p.r; o.d++;
+        if(p.m==null) o.mok=false; else o.m+=p.m;
+      });
+    });
+    return { rv:rv, list:Object.keys(by).map(function(k){ var o=by[k]; return {n:o.n,q:o.q,r:o.r,m:o.mok?o.m:null,d:o.d}; })
+      .sort(function(a,b){ return (b.q-a.q)||(b.r-a.r); }) };
+  }
+  document.addEventListener('click', function(e){
+    var b=e.target.closest?e.target.closest('#aggBtn'):null;
+    if(!b) return;
+    var ag=rangeAgg(); if(!ag || !ag.list.length) return;
+    $('obTitle').textContent=ag.rv.from+' ~ '+ag.rv.to+' 상품별 집계 ('+ag.list.length+'개 상품)';
+    var t='<tr><th>상품명</th><th>판매일</th><th>판매량</th><th>매출</th><th>마진</th></tr>';
+    var tq=0, tr=0, tm=0, mok=true;
+    ag.list.forEach(function(p){
+      tq+=p.q; tr+=p.r; if(p.m==null) mok=false; else tm+=p.m;
+      t+='<tr><td>'+esc(p.n)+' <button class="cpbtn" data-nm="'+esc(p.n)+'" title="상품명 복사">📋</button></td><td>'+p.d+'일</td><td>'+p.q+'</td><td>'+comma(p.r)+'</td><td>'+(p.m!=null?comma(p.m):'-')+'</td></tr>';
+    });
+    t+='<tr><th>합계</th><th></th><th>'+tq+'</th><th>'+comma(tr)+'</th><th>'+(mok?comma(tm):'-')+'</th></tr>';
+    $('obTbl').innerHTML=t;
+    $('ovl').style.display='block';
+  });
   // 날짜 칸 클릭 → 그날 전체 목록
   document.addEventListener('click', function(e){
     var cp=e.target.closest?e.target.closest('.cpbtn'):null;
