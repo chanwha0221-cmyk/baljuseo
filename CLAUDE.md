@@ -7,6 +7,7 @@
 - Claude = **하비서 / 마찬비서**. **존댓말로 모신다** (2026-07-28 지적 — 반말·"자기야"로 맞먹지 말 것).
 
 ## 폴더 / 파일 (이 폴더 = GitHub Pages 레포)
+- **레포 위치: `C:\work\baljuseo` (2026-08-04 구글드라이브 밖으로 이전 — 사장님 지시)**. 드라이브 동기화가 git과 충돌해 파일 잘림·index.lock 부활 사고를 내던 근본 원인 제거. 드라이브의 옛 경로는 `발주/baljuseo_이전됨_백업0804`로 백업만 남음 — 절대 편집 금지. **로컬 디스크라 이 레포는 Edit/Write 도구를 잘림 걱정 없이 바로 사용**(아래 "드라이브 동기화 = 파일 잘림 주범" 절은 이 레포엔 더 이상 해당 없음 — 드라이브 안 파일들에만 유효).
 - 레포: `github.com/chanwha0221-cmyk/baljuseo` (main 브랜치)
 - 라이브 URL: `https://chanwha0221-cmyk.github.io/baljuseo/<파일명>`
 
@@ -68,7 +69,7 @@
 
 ## 작업 환경 주의
 - **샌드박스(bash)에서 구글 API 직접 호출 불가** (DNS 차단). API는 브라우저에서만 동작.
-- 🚫 **이 PC엔 node·python이 없다 (2026-07-21 Claude Code 실측)** — `python.exe`는 MS스토어 스텁이라 실행 불가. **`node --check` 구문검사·순수함수 시뮬레이션 못 씀.**
+- ✅ **node 있음 (2026-08-04 설치)**: `C:\Users\user9\tools\node\node.exe` v22.23.2 (포터블, 사용자 PATH 등록 — 새 세션부턴 그냥 `node`). **`node --check` 구문검사·순수함수 시뮬레이션 사용 가능.** 이전 "이 PC엔 node 없다"(07-21) 기록은 폐기. python은 여전히 없음(MS스토어 스텁).
 - ✅ **대체 검증 = Browser MCP** (Claude Code 기준, 이게 오히려 더 확실함):
   1. `mcp__Claude_Browser__navigate`로 `file:///C:/Users/user9/.../파일.html` 열기 (이미 열려 있으면 `tabs_context`로 tabId 확인 — tabId 인자 필수)
      · ⚠️ 2026-07-31 실측: 인앱 브라우저가 file:// 로드에서 300초 멈춤(외부 파일은 정적 스냅샷이라 JS 안 돎) + 크롬 MCP는 file:// 자체 불가(https 강제) → PowerShell HttpListener 임시 서버(scratchpad, `http://localhost:8422/파일.html`)로 서빙
