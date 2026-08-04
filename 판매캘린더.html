@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>판매 캘린더 v1.6</title>
+<title>판매 캘린더 v1.7</title>
 <!-- 발주서 시트(읽기전용)에서 날짜 탭별 판매 데이터를 집계해 캘린더로 보여주는 도구.
      ★발주서 원본은 절대 수정하지 않음 — 읽기만 함. (2026-08-05 사장님 의뢰, 새벽소리팀용) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -68,7 +68,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>📅 판매 캘린더 <span class="mini">v1.6</span></h1>
+  <h1>📅 판매 캘린더 <span class="mini">v1.7</span></h1>
   <div class="sub">발주서 시트에서 판매 데이터를 자동으로 끌어와 날짜별로 보여줍니다 — 발주서 원본은 읽기만 하고 절대 건드리지 않아요.</div>
 
   <div class="cfg">
@@ -110,7 +110,7 @@
     · 날짜 칸의 상품은 <b>판매 수량이 많은 순</b>으로 표시됩니다. 과거 달 발주서가 다른 시트 파일이면, 시트 주소만 바꿔서 그 기간을 불러오면 돼요 — 불러온 데이터는 시트를 다시 바꿔도 계속 남습니다.<br>
     · <b>매일</b>: 발주서 다 쓰고 나서 <b>🔄 데이터 업데이트 (오늘)</b> 한 번 — 오늘 날짜 탭(★당일 또는 MMDD)을 읽어 캘린더에 반영합니다.<br>
     · 불러온 데이터는 이 컴퓨터에 저장돼서 다음에 열어도 그대로 보여요 (고객 정보는 저장하지 않고 상품별 집계만 저장).<br>
-    · <b>날짜 칸 클릭</b> → 그날 판 전체 상품 목록. <b>🔍 검색</b>에 상품명을 치면 판매한 날이 노랗게 표시됩니다.<br>
+    · <b>날짜 칸 클릭</b> → 그날 판 전체 상품 목록. <b>🔍 검색</b>에 상품명을 치면 <b>그 상품을 판 날짜에 그 상품만</b> 남고 나머지는 빈 칸이 됩니다 (위 합계도 그 상품 기준으로 바뀜). 지우면 전체 보기로 복귀.<br>
     · <b>📣 기획 상품 표시</b>: 내가 기획·제안해서 판 상품은 주황색으로 표시돼요. 매일 흐름 = 🔄 데이터 업데이트 → <b>⭐ 오늘 기획상품 선택</b> → 오늘 판 상품 중 기획한 것 체크 → <b>⭐ 결정</b>. 과거분은 <b>📋 판매일정 기획 가져오기</b> 한 번이면 판매일정 탭에 적어뒀던 상품들이 자동 표시됩니다 (판매 데이터를 먼저 불러온 기간만 매칭돼요).<br>
     · <b>판매 채널 카드</b>: 상품 끝에 <b>매크로/플친/밴드/문자</b> 배지가 붙어요 (매크로1·2는 매크로로, 플친·정통은 플친으로 합침, 당근은 무시). 과거분은 기획 가져오기 때 자동으로 붙고, 새 날짜는 날짜 팝업에서 채널 칩을 클릭해 켠 뒤 ⭐ 결정하면 됩니다.<br>
     · <b>기간 집계 정렬</b>: 📋 기간 상품별 집계에서 <b>열 제목(판매량/매출/마진/마진율)을 클릭</b>하면 그 기준으로 정렬되고, 다시 클릭하면 오름/내림이 바뀝니다.<br>
@@ -328,7 +328,7 @@
             colChan[gc]=cur;
           }
         }
-        var addedDays=0, matched=0, planTot=0;
+        var addedDays=0, matched=0, planTot=0, already=0, chAdded=0;
         rows.forEach(function(r){
           if(!r) return;
           var dstr='';
@@ -359,18 +359,18 @@
               if(sk===pk || sk.indexOf(pk)>=0 || pk.indexOf(sk)>=0) hit=p.n;
             });
             if(!hit) return;
-            if(names.indexOf(hit)<0){ names.push(hit); matched++; }
+            if(names.indexOf(hit)<0){ names.push(hit); matched++; } else { already++; }   // 재실행 시 기존 매칭은 already로
             if(pl.ch){   // 채널 배지 저장
               if(!PCH[dstr]) PCH[dstr]={};
               if(!PCH[dstr][hit]) PCH[dstr][hit]=[];
-              if(PCH[dstr][hit].indexOf(pl.ch)<0) PCH[dstr][hit].push(pl.ch);
+              if(PCH[dstr][hit].indexOf(pl.ch)<0){ PCH[dstr][hit].push(pl.ch); chAdded++; }
             }
           });
           if(names.length){ PLAN[dstr]=names; addedDays++; }
         });
-        if(!matched) throw new Error('판매일정 기획 상품과 판매 데이터가 매칭된 게 없어요 — 먼저 그 기간 데이터를 불러왔는지 확인');
+        if(!matched && !already && !chAdded) throw new Error('판매일정 기획 상품과 판매 데이터가 매칭된 게 없어요 — 먼저 그 기간 데이터를 불러왔는지 확인');
         savePlan(); savePch(); render();
-        setStatus('📋 판매일정 기획 가져오기 완료 — <b>'+addedDays+'</b>일 / 기획 '+planTot+'건 중 <b>'+matched+'</b>건 매칭·표시','ok');
+        setStatus('📋 판매일정 기획 가져오기 완료 — <b>'+addedDays+'</b>일 / 새 매칭 <b>'+matched+'</b>건'+(already?' · 기존 유지 '+already+'건':'')+(chAdded?' · 채널 카드 <b>'+chAdded+'</b>건 추가':''),'ok');
       })
       .catch(function(e){ setStatus('⚠️ '+esc(e.message),'warn'); });
     });
@@ -473,16 +473,15 @@
         // ★정렬은 항상 그리는 시점에 — 예전에 저장된 데이터(매출순)도 수량순으로 보이게 (2026-08-05 사장님 지적)
         var list=(DATA[key]||[]).slice().sort(function(a,b){ return (b.q-a.q) || (b.r-a.r); });
         if(PLAN_ONLY) list=list.filter(function(p){ return isPlanned(key,p.n); });   // 📣 기획상품만 모드
-        var hit = q && list.some(function(p){ return p.n.toLowerCase().indexOf(q)>=0; });
+        // 🔍 검색 모드: 그 상품을 판 날짜에 그 상품만 남김 — 안 판 날은 날짜만 빈 칸으로 (2026-08-05 사장님)
+        if(q) list=list.filter(function(p){ return p.n.toLowerCase().indexOf(q)>=0; });
+        var hit = q && list.length>0;
         var dayRev=list.reduce(function(a,p){ return a+p.r; },0);
         var dayMg=0, dayRevM=0;
         list.forEach(function(p){ if(p.m==null) mgAll=false; else { dayMg+=p.m; dayRevM+=p.r; } });   // 마진: 있는 것만 합산
         if(list.length){ daysWith++; totRev+=dayRev; totMg+=dayMg; totRevM+=dayRevM; }
-        var shown=list.slice(0,topn);
-        if(q && hit){   // 검색 매치 상품이 topN 밖이면 끌어올려 보여줌
-          list.forEach(function(p){ if(p.n.toLowerCase().indexOf(q)>=0 && shown.indexOf(p)<0) shown.push(p); });
-        }
-        list.forEach(function(p){ if(isPlanned(key,p.n) && shown.indexOf(p)<0) shown.push(p); });   // 기획 상품은 topN 밖이어도 표시
+        var shown=q?list.slice():list.slice(0,topn);   // 검색 모드면 매치된 것 전부(그 상품만 남았으니까)
+        if(!q) list.forEach(function(p){ if(isPlanned(key,p.n) && shown.indexOf(p)<0) shown.push(p); });   // 기획 상품은 topN 밖이어도 표시
         h+='<div class="day'+(dow===0?' sun':dow===6?' sat':'')+(hit?' hit':'')+'" data-d="'+key+'">'
           +'<span class="dnum">'+d+'</span>'
           +(list.length?'<span class="tot">'+comma(dayRev)+'</span>':'');
