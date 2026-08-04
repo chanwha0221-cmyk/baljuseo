@@ -766,6 +766,32 @@
     return items;
   }
   function sortItems(arr){ arr.sort(function(a,b){ var x=rankByun(a.byun)-rankByun(b.byun); if(x!==0) return x; return rankDay(a.day)-rankDay(b.day); }); return arr; }
+  // ★밀린 업데이트 병합 (2026-08-05 사장님 규칙): 변동공지는 밑으로 쌓임(최신=아래).
+  //   같은 상품이 여러 건이면 자동 반영(당일생물/창고/리모컨)은 마지막(최신) 건 기준 1건으로 병합 —
+  //   빈칸은 앞 건 값으로 승계, 공급가·원가는 최종값. 그 중 '출시'가 있으면 업체 노출은 '처음부터 최종가로 출시':
+  //   변동을 출시로 치고 가격 전환(a > b) 표시 없이 최종가만 (출시하자마자 만원→9천 인하로 보일 필요 없음).
+  //   변동 이력 전 건은 상품변동사항 탭에 그대로 남음(거긴 병합 안 함) — 업데이트하는 사람이 이력 보고 판단.
+  function mergeDupes(items){
+    var byPk={}, order=[], dup=0;
+    items.forEach(function(it){ var k=pkey(it.name); if(!byPk[k]){ byPk[k]=[]; order.push(k); } else dup++; byPk[k].push(it); });
+    var list=order.map(function(k){
+      var L=byPk[k]; if(L.length===1) return L[0];
+      var last=L[L.length-1], v=last.v.slice();
+      [5,6,8,10,11,12,13,14,15].forEach(function(ci){   // 유통기한/창고/공급가/원가/택배사/택배비/면과세/스펙/마감 — 최종값, 비면 앞 건에서 승계
+        if(String(v[ci]||'').trim()==='') for(var j=L.length-2;j>=0;j--){ var pv=L[j].v[ci]; if(String(pv||'').trim()!==''){ v[ci]=pv; break; } }
+      });
+      var hasLaunch=L.some(function(x){ return String(x.byun||'').indexOf('출시')>=0; });
+      var byun=(hasLaunch && !last.poom) ? '출시' : String(last.byun||'');
+      v[3]=byun;
+      var fmt=function(s){ return String(s==null?'':s).trim().replace(/\d[\d,]*/g,function(m){ var n=num(m); return n==null?m:comma(n); }); };
+      var nrm=function(s){ return String(s||'').replace(/[^0-9]/g,''); };
+      var won=v[9], sae=v[8];
+      var gong=(hasLaunch && !last.poom) ? fmt(sae)
+             : ((won && nrm(won)!=='' && nrm(won)!==nrm(sae)) ? (fmt(won)+' > '+fmt(sae)) : fmt(sae));
+      return { v:v, gong:gong, name:last.name, sup:last.sup, byun:byun, day:last.day, poom:last.poom };
+    });
+    return { list:list, dup:dup };
+  }
   // 스펙/참고사항에서 '원가' 관련 문구 제거 — 업체 시트에 원가 노출 방지(각 시트 넣을 때만 적용). 줄/구분자 단위로 원가 든 조각만 삭제.
   // ★천단위 콤마 보호 (2026-08-04): "택배비 원가 : 3,850"의 3,850이 콤마 구분자로 쪼개져 "850"만 시트에 새던 사고.
   //   숫자 사이 콤마는 제어문자(chr1)로 잠시 바꿔 조각내기에서 제외. 원가 없는 줄은 아예 안 건드림(로젠택배/우체국택배 변조 방지).
@@ -860,14 +886,13 @@
     if(tgt.mode==='error'){ alert('⚠️ 반영 시트 주소를 인식 못했어요.\n설정에서 URL/ID를 다시 확인하세요.\n(대참사 방지로 중단)'); document.getElementById('cfg').open=true; updateTargetBadge(); return; }
     if(!syncLink()){ alert('⚠️ 링크 시트가 비어 있어요.\n\n설정(⚙️)에서 우리 팀 링크 모음 구글시트 주소를 먼저 넣어주세요.\n(안 넣으면 각 시트 적용이 막힙니다)'); document.getElementById('cfg').open=true; return; }
     var tgtLabel=(tgt.mode==='copy') ? '✅ 우리 팀 시트 '+tgt.id.slice(0,10)+'…' : '🎯 마스터 실전 시트';
-    // ★밀린 업데이트 대비 (2026-08-04): 같은 상품이 변동공지에 2건 이상이면 맨 위(=최신) 건만 당일생물/창고 탭에 반영.
-    //   리모컨 엑셀 생성과 같은 규칙. 상품변동사항 탭은 로그라서 전부 넣음(items 그대로).
-    var seenApply={}, dupSkip=0;
-    var uni=items.filter(function(it){ var k=pkey(it.name); if(seenApply[k]){ dupSkip++; return false; } seenApply[k]=1; return true; });
+    // ★밀린 업데이트 병합 (2026-08-05): 같은 상품 여러 건 → 마지막(최신) 건 기준 1건 병합 (mergeDupes 참고).
+    //   상품변동사항 탭은 로그라서 전부 넣음(items 그대로).
+    var mg=mergeDupes(items), uni=mg.list, dupSkip=mg.dup;
     var nDay=uni.filter(function(it){return it.day.indexOf('당일')>=0;}).length;
     var nPoom=uni.filter(function(it){return it.poom;}).length;
     var nBulk=uni.filter(function(it){return it.day.indexOf('당일')<0 && isBulkAll(it);}).length;
-    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 전체 '+items.length+'건\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제'+(nBulk?'\n· <창고 전상품> 일괄 '+nBulk+'건 → 그 창고 상품 택배사 실제 변경+스펙 문구':'')+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건 → 맨 위(최신) 건만 반영':'')+'\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
+    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 전체 '+items.length+'건\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제'+(nBulk?'\n· <창고 전상품> 일괄 '+nBulk+'건 → 그 창고 상품 택배사 실제 변경+스펙 문구':'')+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건 → 마지막(최신) 건 기준 병합 (출시 있으면 최종가 출시로)':'')+'\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
     var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
     var rep={ vari:0, notice:0, wh:{}, whGid:{}, poomDel:0, unmatched:[], variGid:0, variTab:'', noticeGid:0, noticeTab:'', bulk:[] };
     function setBtn(t){ btn.innerHTML=t; }
@@ -971,7 +996,7 @@
         var whSum=Object.keys(rep.wh).map(function(t){return t+'('+rep.wh[t]+')';}).join(', ')||'없음';
         var bulkSum=rep.bulk.map(function(b){ return b.skip ? (b.tab+' 「'+b.wh+'」스킵(수동 확인)') : (b.tab+' 「'+b.wh+'」'+b.n+'건→'+b.courier); }).join('\n   ');
         setStatus('✅ 각 시트 적용 완료 (변동'+rep.vari+'·당일'+rep.notice+'·창고'+Object.keys(rep.wh).length+'탭·품절삭제'+rep.poomDel+(rep.bulk.length?'·전상품일괄'+rep.bulk.length:'')+(dupSkip?'·중복스킵'+dupSkip:'')+(rep.unmatched.length?'·미매칭'+rep.unmatched.length:'')+') — 아래 리포트 확인','ok');
-        alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건'+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건은 맨 위(최신) 건만 반영':'')+(bulkSum?'\n· 🚚 전상품 일괄(택배사 변경+스펙):\n   '+bulkSum:'')+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
+        alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건'+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건은 마지막(최신) 건 기준으로 병합 반영':'')+(bulkSum?'\n· 🚚 전상품 일괄(택배사 변경+스펙):\n   '+bulkSum:'')+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
       }).catch(function(e){ btn.disabled=false; btn.innerHTML=o; setStatus('⚠️ 적용 실패: '+e.message,'warn'); alert('적용 실패: '+e.message+'\n(일부만 적용됐을 수 있어요. 시트 확인 후 재시도)'); });
     });
   });
@@ -1060,6 +1085,7 @@
     if(items===null){ alert('먼저 ② 불러오기를 하세요.'); return; }
     if(!items.length){ alert('불러온 데이터가 없어요.'); return; }
     if(!WONGA_HDR || !WONGA_HDR.length || !WONGA_ROWS.length){ alert('① 원가 파일(리모컨)을 먼저 넣어주세요 — 기존 목록 위에 새 상품을 얹어야 해요.'); return; }
+    var mgX=mergeDupes(items); items=mgX.list;   // ★같은 상품 여러 건 → 마지막(최신) 건 기준 병합 (출시 있으면 출시 취급 → 원가 채움)
 
     function sani(x){ x=String(x==null?'':x); if(x.indexOf('>')>=0) x=x.split('>').pop(); return x.trim(); }   // "A > B" → B
     function parseRename(spec){   // 스펙에 "상품명 : 옛 > 새" 형태면 {old,neu}
@@ -1079,7 +1105,7 @@
     var d=new Date(); function p2(n){ return (n<10?'0':'')+n; }
     var today = d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
 
-    var newRows=[], removeSet={}, seenPk={}, skipped=0, filledWonga=0, renamed=0, dupInNew=0, renameNoCost=[];
+    var newRows=[], removeSet={}, seenPk={}, skipped=0, filledWonga=0, renamed=0, dupInNew=mgX.dup, renameNoCost=[];
     items.forEach(function(it){
       var v=it.v, byun=String(v[3]||'');
       if(byun.indexOf('품절')>=0){ skipped++; return; }                       // 품절 제외
@@ -1093,7 +1119,7 @@
 
       var name = (rename && rename.neu) ? rename.neu : String(v[7]||'').trim();
       var pk = pkey(name);
-      if(seenPk[pk]){ dupInNew++; return; }   // 같은 상품이 변동공지에 두 번 → 맨 위 첫 건만 남김
+      if(seenPk[pk]){ dupInNew++; return; }   // 안전망 — 같은 상품 중복은 위에서 이미 마지막(최신) 건으로 병합됨(mergeDupes)
       seenPk[pk] = 1;
       // 리모컨에 있는 상품인지(이름변경이면 옛 이름으로 조회)
       var oldPk = (rename && rename.old) ? pkey(rename.old) : pk;
