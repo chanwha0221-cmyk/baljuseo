@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>판매 캘린더 v1.3</title>
+<title>판매 캘린더 v1.4</title>
 <!-- 발주서 시트(읽기전용)에서 날짜 탭별 판매 데이터를 집계해 캘린더로 보여주는 도구.
      ★발주서 원본은 절대 수정하지 않음 — 읽기만 함. (2026-08-05 사장님 의뢰, 새벽소리팀용) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -63,7 +63,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>📅 판매 캘린더 <span class="mini">v1.3</span></h1>
+  <h1>📅 판매 캘린더 <span class="mini">v1.4</span></h1>
   <div class="sub">발주서 시트에서 판매 데이터를 자동으로 끌어와 날짜별로 보여줍니다 — 발주서 원본은 읽기만 하고 절대 건드리지 않아요.</div>
 
   <div class="cfg">
@@ -107,7 +107,7 @@
     · 불러온 데이터는 이 컴퓨터에 저장돼서 다음에 열어도 그대로 보여요 (고객 정보는 저장하지 않고 상품별 집계만 저장).<br>
     · <b>날짜 칸 클릭</b> → 그날 판 전체 상품 목록. <b>🔍 검색</b>에 상품명을 치면 판매한 날이 노랗게 표시됩니다.<br>
     · <b>📣 기획 상품 표시</b>: 내가 기획·제안해서 판 상품은 주황색으로 표시돼요. 매일 흐름 = 🔄 데이터 업데이트 → <b>⭐ 오늘 기획상품 선택</b> → 오늘 판 상품 중 기획한 것 체크 → <b>⭐ 결정</b>. 과거분은 <b>📋 판매일정 기획 가져오기</b> 한 번이면 판매일정 탭에 적어뒀던 상품들이 자동 표시됩니다 (판매 데이터를 먼저 불러온 기간만 매칭돼요).<br>
-    · <b>마진</b> = 판매가 합계 − 공급가 합계. 발주서에 공급가가 비어 있으면 '-'로 나와요.<br>
+    · <b>마진</b> = 판매가 합계 − 공급가 합계. 공급가 빈 날(발주 전 등)은 그날 것만 '-'로 나오고, 합계·집계는 <b>있는 것만 더한 값</b>에 * 표시가 붙어요. 공급가 채워진 뒤 그 날짜를 다시 업데이트하면 * 없이 정확해집니다.<br>
     · 한 주문에 상품이 여러 개(예: A × 1 / B × 2)면 금액은 수량 비율로 나눠 집계합니다.<br>
     · <b>과거 데이터 엑셀 업로드 양식</b> (📤 엑셀 양식 버튼으로 다운로드): 첫 행 제목 그대로 두고
       <b>날짜(2026-07-01), 상품명, 판매량, 매출, 마진</b> 순서로 채우면 됩니다. 마진은 모르면 비워두세요.
@@ -421,9 +421,9 @@
         if(PLAN_ONLY) list=list.filter(function(p){ return isPlanned(key,p.n); });   // 📣 기획상품만 모드
         var hit = q && list.some(function(p){ return p.n.toLowerCase().indexOf(q)>=0; });
         var dayRev=list.reduce(function(a,p){ return a+p.r; },0);
-        var dayMg=0, dayMgOk=list.length>0;
-        list.forEach(function(p){ if(p.m==null) dayMgOk=false; else dayMg+=p.m; });
-        if(list.length){ daysWith++; totRev+=dayRev; if(dayMgOk) totMg+=dayMg; else mgAll=false; }
+        var dayMg=0;
+        list.forEach(function(p){ if(p.m==null) mgAll=false; else dayMg+=p.m; });   // 마진: 있는 것만 합산
+        if(list.length){ daysWith++; totRev+=dayRev; totMg+=dayMg; }
         var shown=list.slice(0,topn);
         if(q && hit){   // 검색 매치 상품이 topN 밖이면 끌어올려 보여줌
           list.forEach(function(p){ if(p.n.toLowerCase().indexOf(q)>=0 && shown.indexOf(p)<0) shown.push(p); });
@@ -445,11 +445,12 @@
     }
     $('cal').innerHTML=h;
     $('sum').innerHTML = daysWith
-      ? '📊 '+rv.from+' ~ '+rv.to+': 판매일 <b>'+daysWith+'</b>일 · 매출 합계 <b>'+comma(totRev)+'</b>원'+(mgAll?' · 마진 합계 <b>'+comma(totMg)+'</b>원':' · 마진 합계 - (공급가 빈 날 있음)')
+      ? '📊 '+rv.from+' ~ '+rv.to+': 판매일 <b>'+daysWith+'</b>일 · 매출 합계 <b>'+comma(totRev)+'</b>원 · 마진 합계 <b>'+comma(totMg)+'</b>원'+(mgAll?'':' <span style="color:#999">*공급가 빈 건 제외</span>')
         +' <button class="ghost" id="aggBtn" style="padding:3px 10px;font-size:12px">📋 기간 상품별 집계</button>'
       : '이 기간은 아직 데이터가 없어요 — 📆 기간 전체 불러오기 또는 📥 엑셀 업로드';
   }
   // ===== 기간 상품별 집계 — 조회 기간 전체에서 상품별 판매량/매출/마진 (수량순) =====
+  // 마진: 공급가 있는 날만 합산(있는 것만 더함 — 2026-08-05 사장님). 빈 날이 섞이면 숫자 뒤 * 표시.
   function rangeAgg(){
     var rv=rangeVals(); if(!rv) return null;
     var by={};
@@ -457,12 +458,12 @@
       if(k<rv.from || k>rv.to) return;
       (DATA[k]||[]).forEach(function(p){
         if(PLAN_ONLY && !isPlanned(k,p.n)) return;   // 📣 기획상품만 모드면 집계도 기획만
-        if(!by[p.n]) by[p.n]={n:p.n,q:0,r:0,m:0,mok:true,d:0};
+        if(!by[p.n]) by[p.n]={n:p.n,q:0,r:0,m:0,mAny:false,mMiss:false,d:0};
         var o=by[p.n]; o.q+=p.q; o.r+=p.r; o.d++;
-        if(p.m==null) o.mok=false; else o.m+=p.m;
+        if(p.m==null) o.mMiss=true; else { o.m+=p.m; o.mAny=true; }
       });
     });
-    return { rv:rv, list:Object.keys(by).map(function(k){ var o=by[k]; return {n:o.n,q:o.q,r:o.r,m:o.mok?o.m:null,d:o.d}; })
+    return { rv:rv, list:Object.keys(by).map(function(k){ var o=by[k]; return {n:o.n,q:o.q,r:o.r,m:o.mAny?o.m:null,part:o.mAny&&o.mMiss,d:o.d}; })
       .sort(function(a,b){ return (b.q-a.q)||(b.r-a.r); }) };
   }
   document.addEventListener('click', function(e){
@@ -471,12 +472,14 @@
     var ag=rangeAgg(); if(!ag || !ag.list.length) return;
     $('obTitle').textContent=ag.rv.from+' ~ '+ag.rv.to+' 상품별 집계 ('+ag.list.length+'개 상품)';
     var t='<tr><th>상품명</th><th>판매일</th><th>판매량</th><th>매출</th><th>마진</th></tr>';
-    var tq=0, tr=0, tm=0, mok=true;
+    var tq=0, tr=0, tm=0, anyPart=false;
     ag.list.forEach(function(p){
-      tq+=p.q; tr+=p.r; if(p.m==null) mok=false; else tm+=p.m;
-      t+='<tr><td>'+esc(p.n)+' <button class="cpbtn" data-nm="'+esc(p.n)+'" title="상품명 복사">📋</button></td><td>'+p.d+'일</td><td>'+p.q+'</td><td>'+comma(p.r)+'</td><td>'+(p.m!=null?comma(p.m):'-')+'</td></tr>';
+      tq+=p.q; tr+=p.r; if(p.m!=null) tm+=p.m;
+      if(p.part || p.m==null) anyPart=true;
+      t+='<tr><td>'+esc(p.n)+' <button class="cpbtn" data-nm="'+esc(p.n)+'" title="상품명 복사">📋</button></td><td>'+p.d+'일</td><td>'+p.q+'</td><td>'+comma(p.r)+'</td><td>'+(p.m!=null?comma(p.m)+(p.part?' *':''):'-')+'</td></tr>';
     });
-    t+='<tr><th>합계</th><th></th><th>'+tq+'</th><th>'+comma(tr)+'</th><th>'+(mok?comma(tm):'-')+'</th></tr>';
+    t+='<tr><th>합계</th><th></th><th>'+tq+'</th><th>'+comma(tr)+'</th><th>'+comma(tm)+(anyPart?' *':'')+'</th></tr>';
+    if(anyPart) t+='<tr><td colspan="5" class="mini" style="text-align:left;border:none">* 공급가 빈 날(예: 아직 발주 전)은 마진에서 빼고, 있는 것만 더한 값이에요</td></tr>';
     $('obTbl').innerHTML=t;
     OB_KEY=''; $('obPlanSave').style.display='none';   // 집계 팝업엔 기획 저장 버튼 없음
     $('ovl').style.display='block';
@@ -504,13 +507,13 @@
     var t='<tr><th>기획</th><th>상품명</th><th>판매량</th><th>매출</th><th>마진</th></tr>';
     var tr=0, tm=0, mok=true;
     list.forEach(function(p){
-      tr+=p.r; if(p.m==null) mok=false; else tm+=p.m;
+      tr+=p.r; if(p.m==null) mok=false; else tm+=p.m;   // 마진: 있는 것만 합산
       var pl=isPlanned(key,p.n);
       t+='<tr><td style="text-align:center"><input type="checkbox" class="chk" data-nm="'+esc(p.n)+'"'+(pl?' checked':'')+'></td>'
         +'<td class="'+(pl?'pl':'')+'">'+(pl?'📣 ':'')+esc(p.n)+' <button class="cpbtn" data-nm="'+esc(p.n)+'" title="상품명 복사">📋</button></td>'
         +'<td>'+p.q+'</td><td>'+comma(p.r)+'</td><td>'+(p.m!=null?comma(p.m):'-')+'</td></tr>';
     });
-    t+='<tr><th></th><th>합계</th><th></th><th>'+comma(tr)+'</th><th>'+(mok?comma(tm):'-')+'</th></tr>';
+    t+='<tr><th></th><th>합계</th><th></th><th>'+comma(tr)+'</th><th>'+comma(tm)+(mok?'':' *')+'</th></tr>';
     $('obTbl').innerHTML=t;
     $('obPlanSave').style.display='';
     $('ovl').style.display='block';
