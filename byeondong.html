@@ -163,6 +163,7 @@
       <input type="file" id="wongaFile" accept=".xlsx,.xls">
       <button class="ghost" id="dbLoadBtn" type="button">☁️ DB에서 불러오기</button>
       <button class="ghost" id="dbSeedBtn" type="button">📤 원가파일 → DB 적재</button>
+      <button class="ghost" id="dbOpenBtn" type="button" title="리모컨을 직접 수정했으면 DB에도 같은 수정을 — 시트 바로 열기">🔗 DB 시트 열기</button>
       <button class="ghost" id="linkUpdateBtn" type="button">🔗 링크 업데이트 (2창 열기)</button>
     </div>
     <div id="wongaStatus" class="mini">아직 원가 없음 — 파일 선택 또는 ☁️ DB에서 불러오기 (DB 설정돼 있으면 ② 불러오기 때 자동 로드)</div>
@@ -571,6 +572,10 @@
     withToken(function(){
       loadDbWonga().catch(function(e){ wongaStatus('⚠️ DB 로드 실패: '+esc(e.message),'warn'); });
     });
+  });
+  document.getElementById('dbOpenBtn').addEventListener('click', function(){   // 리모컨 직접 수정분을 DB에도 반영하러 갈 때
+    if(!syncDb()){ alert('⚙️ 설정에서 「원가 DB 시트」 주소를 먼저 넣어주세요.'); document.getElementById('cfg').open=true; syncDb(); return; }
+    window.open('https://docs.google.com/spreadsheets/d/'+DB_ID+'/edit','_blank');
   });
   document.getElementById('dbSeedBtn').addEventListener('click', function(){
     if(!syncDb()){ alert('⚙️ 설정에서 「원가 DB 시트」 주소를 먼저 넣어주세요.'); document.getElementById('cfg').open=true; syncDb(); return; }
@@ -1305,7 +1310,7 @@
 
     // ===== ☁️ 원가 DB 동시 업데이트 — 엑셀과 같은 내용을 DB에도 반영 (2026-08-05 사장님) =====
     if(syncDb()){
-      var doDb = confirm('☁️ 원가 DB도 같이 업데이트할까요?\n\n⚠️ 먼저 확인 — 리모컨에서 직접(수동) 수정하신 사항은 없나요?\n· 리모컨을 직접 고친 내용은 DB에 자동 반영이 안 돼요\n  → 그런 게 있다면 DB 시트에도 똑같이 수동 반영하거나, 리모컨 파일을 받아 [📤 DB 적재]로 다시 맞추세요\n· 베스트: 리모컨 직접 수정은 안 하기 (수정은 이 도구로만!)\n\n[확인] DB 업데이트 진행   /   [취소] 엑셀만');
+      var doDb = confirm('☁️ 원가 DB도 같이 업데이트할까요?\n\n⚠️ 먼저 확인 — 리모컨에서 직접(수동) 수정하신 사항은 없나요?\n· 리모컨을 직접 고친 내용은 DB에 자동 반영이 안 돼요\n  → 그런 게 있다면 [🔗 DB 시트 열기]로 가서 똑같이 수동 반영하거나, 리모컨 파일을 받아 [📤 DB 적재]로 다시 맞추세요\n· 베스트: 리모컨 직접 수정은 안 하기 (수정은 이 도구로만!)\n\n[확인] DB 업데이트 진행   /   [취소] 엑셀만');
       if(doDb){
         wongaStatus('<span class="spinner"></span> ☁️ DB 업데이트 중...');
         withToken(function(){
