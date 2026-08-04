@@ -112,8 +112,9 @@
         <b>2️⃣ 반영 시트</b> — 우리 팀 유통시트 주소(URL/ID)를 아래 <b>반영 시트</b> 칸에 넣기 <span style="color:#c0392b">(필수)</span>
           <span style="color:#c0392b">(⚠️ 안 넣으면 각 시트 적용이 막힘 — 한 번 넣으면 계속 유지됨)</span><br>
         <b>3️⃣ 링크 시트</b> — 우리 팀 '최신 링크 모음' 구글시트 주소를 아래 <b>링크 시트</b> 칸에 넣기 <span style="color:#c0392b">(필수 — 안 넣으면 링크 업데이트·각 시트 적용 막힘)</span><br>
+        <b>4️⃣ 원가 DB 시트</b> (선택) — 빈 구글시트 하나 만들어 주소를 <b>원가 DB 시트</b> 칸에 넣고, ①에서 리모컨 원가파일 넣은 뒤 <b>📤 원가파일 → DB 적재</b> 한 번 → 이후엔 파일 안 받아도 원가가 DB에서 자동 로드되고, 엑셀 생성 때 DB도 같이 업데이트돼요. <span style="color:#c0392b">⚠️ 단 리모컨을 직접 수정하면 DB와 어긋나니 수정은 이 도구로만!</span><br>
         <br>
-        세팅 끝나면 매번: <b>원가 파일 선택 → 시작 행 불러오기 → 🔀 각 시트 적용.</b>
+        세팅 끝나면 매번: <b>원가 로드(DB면 자동) → 시작 행 불러오기 → 🔀 각 시트 적용.</b>
       </div>
     </details>
 
@@ -135,6 +136,12 @@
       </div>
       <div id="linkBadge" class="mini" style="margin-top:6px"></div>
       <div class="row" style="margin-top:8px">
+        <label for="dbSheet">원가 DB 시트</label>
+        <input id="dbSheet" type="text" placeholder="리모컨 원가 DB로 쓸 구글시트 URL/ID (선택 — 넣으면 파일 없이 DB에서 원가 로드)">
+        <button class="ghost" id="saveDb">저장</button>
+      </div>
+      <div id="dbBadge" class="mini" style="margin-top:6px"></div>
+      <div class="row" style="margin-top:8px">
         <label for="syncCol">내 표시 열 ⭕</label>
         <input id="syncCol" type="text" placeholder="동그라미 치는 열 (필수 · 예: S · 마우팀 X)">
         <button class="ghost" id="saveSync">저장</button>
@@ -154,9 +161,11 @@
     <div class="row">
       <span><span class="step">1</span><label>원가 파일 선택</label></span>
       <input type="file" id="wongaFile" accept=".xlsx,.xls">
+      <button class="ghost" id="dbLoadBtn" type="button">☁️ DB에서 불러오기</button>
+      <button class="ghost" id="dbSeedBtn" type="button">📤 원가파일 → DB 적재</button>
       <button class="ghost" id="linkUpdateBtn" type="button">🔗 링크 업데이트 (2창 열기)</button>
     </div>
-    <div id="wongaStatus" class="mini">아직 원가 파일 없음 (선택하면 상품명→원가/현재판매가 준비)</div>
+    <div id="wongaStatus" class="mini">아직 원가 없음 — 파일 선택 또는 ☁️ DB에서 불러오기 (DB 설정돼 있으면 ② 불러오기 때 자동 로드)</div>
   </div>
 
   <!-- ② 시작행 불러오기 -->
@@ -233,7 +242,7 @@
       <div class="step2"><b>④</b> <b>🔀 각 시트 적용</b> — 상품변동사항·당일생물·창고 탭에 자동으로 들어가요.<br>
         · 창고 공급처를 어느 탭에 넣을지 모르면 <b>물어봐요</b> (한 번 답하면 저장).<br>
         · <b>&lt;○○창고 전상품&gt; 택배사 변경</b> 행은 상품으로 안 넣고, 창고 탭에서 <b>그 창고 상품들의 택배사를 실제로 바꾸고 스펙에 변경 문구</b>를 달아줘요.</div>
-      <div class="step2"><b>⑤ (선택)</b> <b>📗 엑셀 생성</b> — 리모컨 업데이트용 <b>변경분만</b> 엑셀로 뽑아요.</div>
+      <div class="step2"><b>⑤ (선택)</b> <b>📗 엑셀 생성</b> — 리모컨 업데이트용 <b>변경분만</b> 엑셀로 뽑아요. ☁️ 원가 DB를 쓰면 <b>DB도 같은 내용으로 동시 업데이트</b>돼요 (상품명변경은 DB에서 옛 이름 행 자동 삭제).</div>
       <div class="step2"><b>⑥ (선택)</b> <b>🔗 링크 업데이트</b> — 링크 시트 + 그룹웨어 문서복사를 새 창으로 열어줘요.</div>
     </div>
 
@@ -245,6 +254,8 @@
       → 공급처 이름과 창고 탭 이름이 다를 때예요 (예: 공급처 <code>단독(유)</code> → 탭 <code>단독</code>). 탭 이름을 정확히 입력하면 다음부턴 안 물어봐요.<br><br>
       <b>Q. 원가 정보가 업체한테 보이면 안 되는데?</b><br>
       → 이중으로 막아요. ① 변동칸에 <b>'원가'가 든 건</b>(원가변경·원가 인상/인하)은 <b>상품변동사항 포함 어떤 탭에도 아예 안 들어가요</b>(리모컨 반영도 관리팀 몫이라 제외). ② 출시 등 정상 건의 스펙변동에 <b>'원가' 문구</b>가 섞여 있으면 그 문구만 자동으로 빠져요. 화면엔 보여도 시트엔 안 들어가요.<br><br>
+      <b>Q. ☁️ 원가 DB가 뭐예요?</b><br>
+      → 리모컨 원가를 미러링해두는 우리 구글시트예요. 최초 1회 <b>원가파일 → DB 적재</b>만 하면, 이후엔 리모컨 파일을 매번 안 받아도 ②불러오기 때 원가가 자동 로드되고, 📗엑셀 생성 때 DB도 같은 내용으로 갱신돼요. <span style="color:#c0392b"><b>⚠️ 리모컨을 직접(수동) 수정하면 DB와 어긋나요</b></span> — 수정은 이 도구로만 하고, 직접 고쳤다면 DB에도 수동 반영하거나 리모컨 파일을 받아 다시 적재하세요.<br><br>
       <b>Q. 여러 명이 동시에 써도 돼요?</b><br>
       → 팀마다 다른 시트라 서로 무관해요. 단 <b>같은 팀이 같은 시트에 동시에 '각 시트 적용'</b>은 피하세요(한 번에 한 명).<br><br>
       <span class="warn2"><b>💡 새 팀은 꼭 복사본으로 먼저 테스트</b>하고 실전에 쓰세요.</span>
@@ -316,6 +327,11 @@
   var WRITE_OK = false, consentTried = false;   // 쓰기(수정) 권한 확보 여부
   var WONGA = {}, PRICE = {}, MAGAM = {}, MAGAM_LOADED = false, LINKMAP = {};
   var WONGA_ROWS = [], WONGA_HDR = [], WONGA_NAMES = {}, WONGA_ROWMAP = {};   // 리모컨(원가파일) 전체 행/헤더/상품명셋/상품명→행 — 엑셀 생성용
+  // ===== ☁️ 원가 DB (2026-08-05 사장님): 리모컨 원가를 구글시트에 미러링 — 매번 파일 안 받아도 됨 =====
+  // 흐름: 최초 1회 [원가파일→DB 적재]로 시드 → 이후 원가는 DB에서 로드(②불러오기 때 자동) →
+  //       리모컨 변경분 엑셀 생성 때 DB도 동일하게 업데이트(신규 추가·공급가 수정·상품명변경은 옛 이름 행 삭제).
+  // ⚠️ 리모컨을 직접(수동) 수정하면 DB와 어긋남 — 엑셀 생성 때마다 경고로 확인. 어긋났으면 DB 수동 수정 or 파일 재적재.
+  var DB_ID = '', DB_TAB = '', DB_GID = 0, WONGA_SRC = '';   // WONGA_SRC: ''(없음)/'file'/'db'
 
   function pkey(s){ return String(s==null?'':s).toLowerCase().replace(/\s+/g,'').trim(); }
   // 정렬 순위: 출시0>재입고1>인상2>인하3>정보변경(스펙/마감/택배사/이벤트 등)4>품절5, 그룹 내 당일 먼저
@@ -366,6 +382,19 @@
     }
     return LINK_ID;
   }
+  // 원가 DB 시트(DB_ID) 확정 + 배지. 선택 항목 — 비면 ''(파일 모드 그대로).
+  function syncDb(){
+    var raw=(document.getElementById('dbSheet').value||'').trim();
+    var id=extractSheetId(raw);
+    DB_ID = id || '';
+    var el=document.getElementById('dbBadge');
+    if(el){
+      if(id)       el.innerHTML='☁️ 원가 DB: <b style="color:#2d6a4f">사용</b> <span style="color:#999">'+esc(id.slice(0,10))+'…</span> — ②불러오기 때 원가 자동 로드 · 엑셀 생성 때 DB 동시 업데이트';
+      else if(raw) el.innerHTML='⚠️ <b style="color:#c0392b">원가 DB 주소 인식 실패</b> — URL/ID 다시 확인';
+      else         el.innerHTML='원가 DB 미사용 (선택) — 넣으면 리모컨 파일을 매번 안 받아도 돼요';
+    }
+    return DB_ID;
+  }
   // ===== 동그라미(동기화 완료) 열 — 팀마다 위치 다름(마스터 S / 마우 X 등). 열문자 ↔ 0-based 인덱스 =====
   function colToIdx(s){ s=String(s||'').trim().toUpperCase(); if(!/^[A-Z]{1,3}$/.test(s)) return -1; var n=0; for(var i=0;i<s.length;i++){ n=n*26+(s.charCodeAt(i)-64); } return n-1; }
   function idxToCol(n){ n=Math.floor(n)+1; var s=''; while(n>0){ var r=(n-1)%26; s=String.fromCharCode(65+r)+s; n=Math.floor((n-1)/26); } return s; }
@@ -389,6 +418,8 @@
     updateTargetBadge();
     document.getElementById('linkSheet').value = localStorage.getItem('byd_linkSheet') || '';
     syncLink();
+    document.getElementById('dbSheet').value = localStorage.getItem('byd_dbSheet') || '';
+    syncDb();
     document.getElementById('syncCol').value = localStorage.getItem('byd_syncCol') || '';
     syncSyncCol();
     loadSheetStarts();
@@ -429,6 +460,12 @@
             : t.mode==='copy'  ? '✅ 반영 대상 저장됨 — 우리 팀 시트'
             :                    '🎯 반영 대상 저장됨 — 마스터 실전 시트';
     setStatus(msg, (t.mode==='copy'||t.mode==='live')?'ok':'warn');
+  });
+  document.getElementById('dbSheet').addEventListener('input', function(){ localStorage.setItem('byd_dbSheet', this.value.trim()); syncDb(); });
+  document.getElementById('saveDb').addEventListener('click', function(){
+    localStorage.setItem('byd_dbSheet', document.getElementById('dbSheet').value.trim());
+    var id=syncDb(), raw=(document.getElementById('dbSheet').value||'').trim();
+    setStatus(id ? '☁️ 원가 DB 저장됨 — 처음이면 ①에서 원가파일 넣고 <b>📤 원가파일 → DB 적재</b>로 시드하세요' : (raw ? '⚠️ 원가 DB 주소 인식 실패 — URL/ID 다시 확인' : '원가 DB 비움 — 파일 모드로 동작'), id?'ok':'warn');
   });
   document.getElementById('linkSheet').addEventListener('input', function(){ localStorage.setItem('byd_linkSheet', this.value.trim()); syncLink(); });
   document.getElementById('saveLink').addEventListener('click', function(){
@@ -477,7 +514,23 @@
     var hint=document.getElementById('startsHint'); if(hint) hint.textContent='✅ 저장됨 ('+Object.keys(SHEET_STARTS).length+'개 지정, 나머지는 기본값)';
   });
 
-  // ===== ① 원가 파일 파싱 (SheetJS) =====
+  // ===== ① 원가 적재 (파일/DB 공용) — rows[0]=헤더, 이후 데이터. src: 'file'|'db' =====
+  function ingestWonga(rows, label, src){
+    WONGA = {}; PRICE = {};
+    WONGA_HDR = rows[0] || []; WONGA_ROWS = []; WONGA_NAMES = {}; WONGA_ROWMAP = {};   // 엑셀 생성용 원본 보관
+    for (var i=1;i<rows.length;i++){
+      var r = rows[i]; if(!r) continue;
+      var nm = String(r[0]!=null?r[0]:'').trim(); if(!nm) continue;
+      var k = pkey(nm);
+      WONGA_ROWS.push(r); WONGA_NAMES[k] = 1; if(!WONGA_ROWMAP[k]) WONGA_ROWMAP[k]=r;   // 전체 행 + 상품명 + 상품명→행(원가 보존용)
+      var w = String(r[4]!=null?r[4]:'').trim();   // E 원가
+      var p = String(r[1]!=null?r[1]:'').trim();   // B 공급가(현재판매가)
+      if(w!=='') WONGA[k]=w;
+      if(p!=='') PRICE[k]=p;
+    }
+    WONGA_SRC = src;
+    wongaStatus((src==='db'?'☁️':'✅')+' 원가 <b>'+Object.keys(WONGA).length+'</b>개 로드됨 · 전체 <b>'+WONGA_ROWS.length+'</b>행 ('+esc(label)+')','ok');
+  }
   document.getElementById('wongaFile').addEventListener('change', function(e){
     var f = e.target.files[0]; if(!f) return;
     wongaStatus('<span class="spinner"></span> 원가 파일 읽는 중...');
@@ -487,23 +540,80 @@
         var wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
         var ws = wb.Sheets[wb.SheetNames[0]];
         var rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
-        WONGA = {}; PRICE = {};
-        WONGA_HDR = rows[0] || []; WONGA_ROWS = []; WONGA_NAMES = {}; WONGA_ROWMAP = {};   // 엑셀 생성용 원본 보관
-        for (var i=1;i<rows.length;i++){
-          var r = rows[i]; if(!r) continue;
-          var nm = String(r[0]!=null?r[0]:'').trim(); if(!nm) continue;
-          var k = pkey(nm);
-          WONGA_ROWS.push(r); WONGA_NAMES[k] = 1; if(!WONGA_ROWMAP[k]) WONGA_ROWMAP[k]=r;   // 전체 행 + 상품명 + 상품명→행(원가 보존용)
-          var w = String(r[4]!=null?r[4]:'').trim();   // E 원가
-          var p = String(r[1]!=null?r[1]:'').trim();   // B 공급가(현재판매가)
-          if(w!=='') WONGA[k]=w;
-          if(p!=='') PRICE[k]=p;
-        }
-        wongaStatus('✅ 원가 <b>'+Object.keys(WONGA).length+'</b>개 로드됨 · 전체 <b>'+WONGA_ROWS.length+'</b>행 ('+esc(f.name)+')','ok');
+        ingestWonga(rows, f.name, 'file');
       } catch(err){ wongaStatus('⚠️ 원가 파일 읽기 실패: '+esc(err.message),'warn'); }
     };
     reader.readAsArrayBuffer(f);
   });
+
+  // ===== ☁️ 원가 DB — 메타(첫 탭)/로드/초기적재/변경분 업데이트 =====
+  function dbMeta(){   // DB 시트의 첫 번째 탭을 DB로 사용 (탭이름 자유)
+    var url='https://sheets.googleapis.com/v4/spreadsheets/'+DB_ID+'?fields=sheets.properties(title,sheetId)';
+    return fetch(url,{headers:{Authorization:'Bearer '+accessToken}}).then(function(r){
+      if(!r.ok) throw new Error('DB 시트를 못 읽었어요 (HTTP '+r.status+') — 주소·접근권한 확인');
+      return r.json();
+    }).then(function(j){
+      if(!j.sheets || !j.sheets.length) throw new Error('DB 시트에 탭이 없어요');
+      var p=j.sheets[0].properties; DB_TAB=p.title; DB_GID=p.sheetId; return p;
+    });
+  }
+  function loadDbWonga(){   // DB → WONGA_* (토큰 있는 상태에서 호출)
+    return dbMeta().then(function(){ return readRange(DB_ID, "'"+DB_TAB+"'!A1:K"); })
+      .then(function(rows){
+        if(!rows.length || rows.length<2) throw new Error('DB가 비어 있어요 — ①에서 원가파일 넣고 [📤 원가파일 → DB 적재]로 먼저 채우세요');
+        ingestWonga(rows, 'DB: '+DB_TAB, 'db');
+        return true;
+      });
+  }
+  document.getElementById('dbLoadBtn').addEventListener('click', function(){
+    if(!syncDb()){ alert('⚙️ 설정에서 「원가 DB 시트」 주소를 먼저 넣어주세요.'); document.getElementById('cfg').open=true; syncDb(); return; }
+    wongaStatus('<span class="spinner"></span> ☁️ DB에서 원가 불러오는 중...');
+    withToken(function(){
+      loadDbWonga().catch(function(e){ wongaStatus('⚠️ DB 로드 실패: '+esc(e.message),'warn'); });
+    });
+  });
+  document.getElementById('dbSeedBtn').addEventListener('click', function(){
+    if(!syncDb()){ alert('⚙️ 설정에서 「원가 DB 시트」 주소를 먼저 넣어주세요.'); document.getElementById('cfg').open=true; syncDb(); return; }
+    if(WONGA_SRC!=='file' || !WONGA_ROWS.length){ alert('먼저 ① 원가 파일(리모컨 엑셀)을 넣어주세요.\n(그 파일 내용으로 DB를 채우는 초기 적재예요 — DB에서 불러온 걸 도로 넣는 건 의미 없음)'); return; }
+    if(!confirm('📤 원가파일 → DB 적재\n\n현재 원가파일 '+WONGA_ROWS.length+'행으로 DB 시트 첫 탭을 통째로 덮어씁니다.\nDB에 있던 기존 내용은 지워져요. 진행할까요?')) return;
+    wongaStatus('<span class="spinner"></span> 📤 DB 적재 중...');
+    withToken(function(){
+      dbMeta().then(function(){
+        var url='https://sheets.googleapis.com/v4/spreadsheets/'+DB_ID+'/values/'+encodeURIComponent("'"+DB_TAB+"'!A:Z")+':clear';
+        return fetch(url,{method:'POST',headers:{Authorization:'Bearer '+accessToken}}).then(function(r){ if(!r.ok) throw new Error('DB 비우기 실패 HTTP '+r.status); });
+      }).then(function(){ return writeRows(DB_ID, DB_TAB, 1, [WONGA_HDR].concat(WONGA_ROWS)); })
+      .then(function(){ wongaStatus('✅ DB 적재 완료 — <b>'+WONGA_ROWS.length+'</b>행 (탭: '+esc(DB_TAB)+')<br>이제부터 ①파일 대신 <b>☁️ DB에서 불러오기</b>(②불러오기 때 자동)로 쓰면 됩니다','ok'); })
+      .catch(function(e){ wongaStatus('⚠️ DB 적재 실패: '+esc(e.message),'warn'); });
+    });
+  });
+  // 리모컨 변경분(newRows)을 DB에 동일 반영: 기존행 수정 / 신규 추가 / 상품명변경 옛 이름 행 삭제
+  // 기존행 수정 시 원가 E·F·G는 값 있을 때만 씀 — 빈값으로 관리팀 원가를 지우는 사고 방지 (엑셀 규칙과 동일)
+  function updateDbSheet(newRows, renameOldPks){
+    return dbMeta().then(function(){ return readRange(DB_ID, "'"+DB_TAB+"'!A2:K"); }).then(function(rows){
+      var rowOf={}; rows.forEach(function(r,i){ var nm=cell(r,0); if(nm && rowOf[pkey(nm)]==null) rowOf[pkey(nm)]=i+2; });
+      var data=[], appends=[], delRows=[], updCnt=0;
+      newRows.forEach(function(nr){
+        var pk=pkey(nr[0]), row1=rowOf[pk];
+        if(row1==null){ appends.push(nr); return; }
+        updCnt++;
+        data.push({ range:"'"+DB_TAB+"'!B"+row1+":D"+row1, values:[[nr[1],nr[2],nr[3]]] });
+        if(String(nr[4]||'')!=='' || String(nr[5]||'')!=='' || String(nr[6]||'')!=='')
+          data.push({ range:"'"+DB_TAB+"'!E"+row1+":G"+row1, values:[[nr[4],nr[5],nr[6]]] });
+        data.push({ range:"'"+DB_TAB+"'!H"+row1+":K"+row1, values:[[nr[7],nr[8],nr[9],nr[10]]] });
+      });
+      (renameOldPks||[]).forEach(function(opk){ var r=rowOf[opk]; if(r!=null) delRows.push(r); });
+      var p = data.length
+        ? fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DB_ID+'/values:batchUpdate',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({valueInputOption:'USER_ENTERED',data:data})})
+            .then(function(r){ if(!r.ok) throw new Error('DB 값 수정 실패 HTTP '+r.status); })
+        : Promise.resolve();
+      return p.then(function(){
+        if(!appends.length) return true;
+        return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DB_ID+'/values/'+encodeURIComponent("'"+DB_TAB+"'!A:K")+':append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({values:appends})})
+          .then(function(r){ if(!r.ok) throw new Error('DB 신규 추가 실패 HTTP '+r.status); });
+      }).then(function(){ return deleteRowsDesc(DB_ID, DB_GID, delRows); })   // 삭제는 맨 마지막(행 밀림 방지)
+        .then(function(){ return {upd:updCnt, add:appends.length, del:delRows.length}; });
+    });
+  }
 
   // ===== 구글 로그인 =====
   function ensureClient(){
@@ -573,18 +683,28 @@
     var syncLetter = idxToCol(SYNC_COL);
     var dataRange = "'"+TAB+"'!A"+startAt+":"+syncLetter+(hasEnd?end:'');
     var offset = startAt;
-    if(Object.keys(WONGA).length===0) wongaStatus('⚠️ 원가 파일을 아직 안 넣었어요 — 원가/공급가 칸이 비어요 (①번 먼저)','warn');
+    // 원가 미로드 시: DB 설정돼 있으면 자동 로드(☁️), 없으면 안내만
+    var preWonga = Promise.resolve();
+    if(Object.keys(WONGA).length===0){
+      if(syncDb()){
+        wongaStatus('<span class="spinner"></span> ☁️ DB에서 원가 자동 로드 중...');
+        preWonga = loadDbWonga().catch(function(e){ wongaStatus('⚠️ DB 자동 로드 실패: '+esc(e.message)+' — 원가/공급가 칸이 비어요','warn'); });
+      } else {
+        wongaStatus('⚠️ 원가를 아직 안 넣었어요 — ①파일 선택 또는 ⚙️설정에 원가 DB 시트 (원가/공급가 칸이 비어요)','warn');
+      }
+    }
     setStatus('<span class="spinner"></span> 시트 읽는 중...');
     document.getElementById('actions').style.display='none';
     document.getElementById('result').innerHTML='';
     document.getElementById('applyReport').innerHTML='';
 
-    var pSrc = readRange(SPREADSHEET_ID, dataRange);
-    var pMag = MAGAM_LOADED ? Promise.resolve(null) : readRange(MAGAM_ID, "'"+MAGAM_TAB+"'!A2:J").then(function(v){
-      MAGAM={}; v.forEach(function(r){ var nm=cell(r,1); if(nm) MAGAM[pkey(nm)] = cell(r,9); }); MAGAM_LOADED=true; return null;
-    });
-    Promise.all([pSrc, pMag]).then(function(res){ render(res[0], offset, hasStart, start, hasEnd?end:null); })
-      .catch(function(e){ setStatus('⚠️ '+e.message,'warn'); });
+    preWonga.then(function(){
+      var pSrc = readRange(SPREADSHEET_ID, dataRange);
+      var pMag = MAGAM_LOADED ? Promise.resolve(null) : readRange(MAGAM_ID, "'"+MAGAM_TAB+"'!A2:J").then(function(v){
+        MAGAM={}; v.forEach(function(r){ var nm=cell(r,1); if(nm) MAGAM[pkey(nm)] = cell(r,9); }); MAGAM_LOADED=true; return null;
+      });
+      return Promise.all([pSrc, pMag]).then(function(res){ render(res[0], offset, hasStart, start, hasEnd?end:null); });
+    }).catch(function(e){ setStatus('⚠️ '+e.message,'warn'); });
   }
 
   function render(values, offset, hasStart, start, endCap){
@@ -1091,7 +1211,7 @@
     var items = readItems();
     if(items===null){ alert('먼저 ② 불러오기를 하세요.'); return; }
     if(!items.length){ alert('불러온 데이터가 없어요.'); return; }
-    if(!WONGA_HDR || !WONGA_HDR.length || !WONGA_ROWS.length){ alert('① 원가 파일(리모컨)을 먼저 넣어주세요 — 기존 목록 위에 새 상품을 얹어야 해요.'); return; }
+    if(!WONGA_HDR || !WONGA_HDR.length || !WONGA_ROWS.length){ alert('① 원가를 먼저 불러와 주세요 — 파일 선택 또는 ☁️ DB에서 불러오기.\n(기존 목록 위에 새 상품을 얹어야 해요)'); return; }
     items=dropCostRows(items);                   // ★원가 건은 리모컨에서도 제외(관리팀 몫) — 병합 전에 빼서 '인상 후 원가변경' 같은 조합에서 인상이 안 묻히게
     var mgX=mergeDupes(items); items=mgX.list;   // ★같은 상품 여러 건 → 마지막(최신) 건 기준 병합 (출시 있으면 출시 취급 → 원가 채움)
 
@@ -1113,7 +1233,7 @@
     var d=new Date(); function p2(n){ return (n<10?'0':'')+n; }
     var today = d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
 
-    var newRows=[], removeSet={}, seenPk={}, skipped=0, filledWonga=0, renamed=0, dupInNew=mgX.dup, renameNoCost=[];
+    var newRows=[], removeSet={}, seenPk={}, skipped=0, filledWonga=0, renamed=0, dupInNew=mgX.dup, renameNoCost=[], dbRenameOld=[];
     items.forEach(function(it){
       var v=it.v, byun=String(v[3]||'');
       if(byun.indexOf('품절')>=0){ skipped++; return; }                       // 품절 제외
@@ -1152,7 +1272,7 @@
       } else {                          // 기존 상품 → 원가는 관리팀 몫, 절대 안 건드림(전부 빈칸)
         E = ''; F = ''; G = '';
       }
-      if(rename){ renamed++; if(rename.old) removeSet[pkey(rename.old)]=1; }   // 옛 이름 행 제거 표시
+      if(rename){ renamed++; if(rename.old){ removeSet[pkey(rename.old)]=1; if(pkey(rename.old)!==pk) dbRenameOld.push(pkey(rename.old)); } }   // 옛 이름 행 제거 표시 (DB에선 실제 삭제)
 
       newRows.push([
         name,                    // A 공급상품명
@@ -1182,6 +1302,23 @@
     catch(e){ alert('엑셀 저장 실패: '+e.message); return; }
 
     setStatus('✅ 리모컨 <b>변경분</b> 엑셀 생성 완료 → <b>'+esc(fn)+'</b><br>· 업데이트 대상 <b>'+newRows.length+'</b>건만 (원가채움 '+filledWonga+' · 이름변경 '+renamed+')<br>· 제외 '+skipped+'건(품절/원가변경/정보변경) · 중복스킵 '+dupInNew+'건<br>· ✅ 기존 상품은 안 들어감 → 관리팀 원가 안 건드림'+(renamed?'<br>· ⚠️ 이름변경 '+renamed+'건은 리모컨에 옛 이름 행이 남아있을 수 있어요(수동 확인)':'')+(renameNoCost.length?'<br>· 🚨 이름변경인데 <b>원가를 못 채운</b> 상품 '+renameNoCost.length+'건: <b>'+esc(renameNoCost.join(', '))+'</b> — 엑셀 E열에 원가 직접 넣어주세요(새 슬롯이라 원가 필수)':''), 'ok');
+
+    // ===== ☁️ 원가 DB 동시 업데이트 — 엑셀과 같은 내용을 DB에도 반영 (2026-08-05 사장님) =====
+    if(syncDb()){
+      var doDb = confirm('☁️ 원가 DB도 같이 업데이트할까요?\n\n⚠️ 먼저 확인 — 리모컨에서 직접(수동) 수정하신 사항은 없나요?\n· 리모컨을 직접 고친 내용은 DB에 자동 반영이 안 돼요\n  → 그런 게 있다면 DB 시트에도 똑같이 수동 반영하거나, 리모컨 파일을 받아 [📤 DB 적재]로 다시 맞추세요\n· 베스트: 리모컨 직접 수정은 안 하기 (수정은 이 도구로만!)\n\n[확인] DB 업데이트 진행   /   [취소] 엑셀만');
+      if(doDb){
+        wongaStatus('<span class="spinner"></span> ☁️ DB 업데이트 중...');
+        withToken(function(){
+          updateDbSheet(newRows, dbRenameOld).then(function(r){
+            wongaStatus('☁️ DB 업데이트 완료 — 수정 <b>'+r.upd+'</b> · 신규 <b>'+r.add+'</b> · 옛이름 삭제 <b>'+r.del+'</b> (탭: '+esc(DB_TAB)+')'+(r.del?'<br>· ✅ 상품명변경 옛 이름 행은 DB에서 자동 삭제됨 (리모컨 엑셀 쪽만 수동 확인)':''),'ok');
+          }).catch(function(e){
+            wongaStatus('⚠️ DB 업데이트 실패: '+esc(e.message)+'<br>· 이번 엑셀 변경분이 DB에 빠졌어요 — 다시 시도하거나 리모컨 파일로 [📤 DB 적재] 하세요','warn');
+          });
+        });
+      } else {
+        wongaStatus('⚠️ DB는 업데이트 안 했어요 — 이번 엑셀 변경분이 DB에 빠져 있습니다.\n다음에 리모컨 파일 받아 [📤 DB 적재]로 다시 맞추거나 수동 반영하세요','warn');
+      }
+    }
   });
 </script>
 </body>
