@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>판매 캘린더 v1.5</title>
+<title>판매 캘린더 v1.6</title>
 <!-- 발주서 시트(읽기전용)에서 날짜 탭별 판매 데이터를 집계해 캘린더로 보여주는 도구.
      ★발주서 원본은 절대 수정하지 않음 — 읽기만 함. (2026-08-05 사장님 의뢰, 새벽소리팀용) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -45,6 +45,11 @@
   .prod.plan .pn { color:#c0561a; }
   .obox td.pl { color:#c0561a; font-weight:700; }
   .obox .chk { margin-right:6px; }
+  .chip { display:inline-block; font-size:9.5px; padding:0 5px; border-radius:7px; margin-left:3px; font-weight:700; line-height:15px; vertical-align:1px; }
+  .tchip { cursor:pointer; opacity:.3; user-select:none; }
+  .tchip.on { opacity:1; }
+  th.sth { cursor:pointer; white-space:nowrap; }
+  th.sth:hover { color:#2d6a4f; }
   .more { color:#999; font-size:11px; margin-top:3px; }
   .src { position:absolute; bottom:4px; right:8px; font-size:10px; color:#bbb; }
   .ovl { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:50; }
@@ -63,7 +68,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>📅 판매 캘린더 <span class="mini">v1.5</span></h1>
+  <h1>📅 판매 캘린더 <span class="mini">v1.6</span></h1>
   <div class="sub">발주서 시트에서 판매 데이터를 자동으로 끌어와 날짜별로 보여줍니다 — 발주서 원본은 읽기만 하고 절대 건드리지 않아요.</div>
 
   <div class="cfg">
@@ -107,6 +112,8 @@
     · 불러온 데이터는 이 컴퓨터에 저장돼서 다음에 열어도 그대로 보여요 (고객 정보는 저장하지 않고 상품별 집계만 저장).<br>
     · <b>날짜 칸 클릭</b> → 그날 판 전체 상품 목록. <b>🔍 검색</b>에 상품명을 치면 판매한 날이 노랗게 표시됩니다.<br>
     · <b>📣 기획 상품 표시</b>: 내가 기획·제안해서 판 상품은 주황색으로 표시돼요. 매일 흐름 = 🔄 데이터 업데이트 → <b>⭐ 오늘 기획상품 선택</b> → 오늘 판 상품 중 기획한 것 체크 → <b>⭐ 결정</b>. 과거분은 <b>📋 판매일정 기획 가져오기</b> 한 번이면 판매일정 탭에 적어뒀던 상품들이 자동 표시됩니다 (판매 데이터를 먼저 불러온 기간만 매칭돼요).<br>
+    · <b>판매 채널 카드</b>: 상품 끝에 <b>매크로/플친/밴드/문자</b> 배지가 붙어요 (매크로1·2는 매크로로, 플친·정통은 플친으로 합침, 당근은 무시). 과거분은 기획 가져오기 때 자동으로 붙고, 새 날짜는 날짜 팝업에서 채널 칩을 클릭해 켠 뒤 ⭐ 결정하면 됩니다.<br>
+    · <b>기간 집계 정렬</b>: 📋 기간 상품별 집계에서 <b>열 제목(판매량/매출/마진/마진율)을 클릭</b>하면 그 기준으로 정렬되고, 다시 클릭하면 오름/내림이 바뀝니다.<br>
     · <b>마진</b> = 판매가 합계 − 공급가 합계. 공급가 빈 날(발주 전 등)은 그날 것만 '-'로 나오고, 합계·집계는 <b>있는 것만 더한 값</b>에 * 표시가 붙어요. 공급가 채워진 뒤 그 날짜를 다시 업데이트하면 * 없이 정확해집니다.<br>
     · 한 주문에 상품이 여러 개(예: A × 1 / B × 2)면 금액은 수량 비율로 나눠 집계합니다.<br>
     · <b>과거 데이터 엑셀 업로드 양식</b> (📤 엑셀 양식 버튼으로 다운로드): 첫 행 제목 그대로 두고
@@ -142,6 +149,24 @@
   try { PLAN = JSON.parse(localStorage.getItem('scal_plan')||'{}'); } catch(e){ PLAN={}; }
   function savePlan(){ localStorage.setItem('scal_plan', JSON.stringify(PLAN)); }
   function isPlanned(key, name){ return (PLAN[key]||[]).indexOf(name)>=0; }
+  // 판매 채널: 날짜 → { 상품명: ['매크로','플친','밴드','문자'] } — 상품 맨 끝에 카드(배지)로 표시
+  var PCH = {};
+  try { PCH = JSON.parse(localStorage.getItem('scal_pch')||'{}'); } catch(e){ PCH={}; }
+  function savePch(){ localStorage.setItem('scal_pch', JSON.stringify(PCH)); }
+  function chansOf(key, name){ return (PCH[key] && PCH[key][name]) || []; }
+  var CHANNELS=['매크로','플친','밴드','문자'];
+  var CHCOLOR={ '매크로':['#dbeafe','#1d4ed8'], '플친':['#dcfce7','#15803d'], '밴드':['#ede9fe','#6d28d9'], '문자':['#f1f5f9','#475569'] };
+  function chipHtml(ch){ var c=CHCOLOR[ch]||['#eee','#555']; return '<span class="chip" style="background:'+c[0]+';color:'+c[1]+'">'+ch+'</span>'; }
+  // 판매일정 그룹 제목 → 채널 (매크로1·2→매크로 / 플친·정통→플친 / 밴드1~3→밴드 / 문자 / 당근=무시)
+  function chFromTitle(t){
+    t=String(t||'');
+    if(/당근/.test(t)) return 'SKIP';
+    if(/플친|정통/.test(t)) return '플친';
+    if(/매크로/.test(t)) return '매크로';
+    if(/밴드/.test(t)) return '밴드';
+    if(/문자/.test(t)) return '문자';
+    return null;
+  }
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -275,18 +300,34 @@
         var tab=null;
         (j.sheets||[]).forEach(function(s){ if(!tab && s.properties.title.indexOf('판매일정')>=0) tab=s.properties.title; });
         if(!tab) throw new Error('"판매일정" 들어간 탭을 못 찾았어요');
-        return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+id+'/values/'+encodeURIComponent("'"+tab+"'!A1:Z")+'?majorDimension=ROWS',{headers:{Authorization:'Bearer '+accessToken}});
+        return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+id+'/values/'+encodeURIComponent("'"+tab+"'!A1:AZ")+'?majorDimension=ROWS',{headers:{Authorization:'Bearer '+accessToken}});
       })
       .then(function(r){ if(!r.ok) throw new Error('판매일정을 못 읽었어요 (HTTP '+r.status+')'); return r.json(); })
       .then(function(j){
         var rows=j.values||[];
         // 발주명 열 찾기: 상단 몇 행에서 '발주명' 든 셀의 열 번호들
-        var nameCols={};
+        var nameCols={}, maxCol=0;
         for(var hr=0;hr<Math.min(rows.length,6);hr++){
-          (rows[hr]||[]).forEach(function(c,ci){ if(String(c).indexOf('발주명')>=0) nameCols[ci]=1; });
+          (rows[hr]||[]).forEach(function(c,ci){ if(String(c).indexOf('발주명')>=0) nameCols[ci]=1; if(ci>maxCol) maxCol=ci; });
         }
         var cols=Object.keys(nameCols).map(Number);
         if(!cols.length) throw new Error('판매일정에서 "공급사/발주명" 열을 못 찾았어요');
+        // 그룹 제목 행(매크로1/플친매크로/밴드1...) 찾아 열→채널 매핑 (병합 셀은 앞 값 이어받음)
+        var bestRow=-1, bestCnt=0;
+        for(var tr0=0;tr0<Math.min(rows.length,6);tr0++){
+          var cnt=0;
+          (rows[tr0]||[]).forEach(function(c){ var s=String(c||''); if(/매크로|밴드|문자|당근|플친/.test(s) && s.indexOf('발주명')<0) cnt++; });
+          if(cnt>bestCnt){ bestCnt=cnt; bestRow=tr0; }
+        }
+        var colChan={};
+        if(bestRow>=0){
+          var cur=null, grow=rows[bestRow]||[];
+          for(var gc=0;gc<=maxCol;gc++){
+            var gt=String(grow[gc]||'').trim();
+            if(gt){ var ch=chFromTitle(gt); if(ch!==null) cur=ch; }
+            colChan[gc]=cur;
+          }
+        }
         var addedDays=0, matched=0, planTot=0;
         rows.forEach(function(r){
           if(!r) return;
@@ -298,29 +339,37 @@
           if(!dstr || !DATA[dstr]) return;   // 판매 데이터가 있는 날만 대조 가능
           var plans=[];
           cols.forEach(function(ci){
+            var chn=colChan[ci];
+            if(chn==='SKIP') return;   // 당근마켓 열은 무시
             var v=String(r[ci]||'').trim(); if(!v) return;
             v.split(/\r?\n/).forEach(function(line){
               line=line.trim(); if(!line) return;
               if(line.indexOf('/')>=0) line=line.slice(line.indexOf('/')+1).trim();   // 공급사/ 접두 제거
-              if(line) plans.push(line);
+              if(line) plans.push({n:line, ch:chn});
             });
           });
           if(!plans.length) return;
           planTot+=plans.length;
           var names=PLAN[dstr]||[];
-          plans.forEach(function(pn){
-            var pk=pkey(pn), hit=null;
+          plans.forEach(function(pl){
+            var pk=pkey(pl.n), hit=null;
             DATA[dstr].forEach(function(p){
               if(hit) return;
               var sk=pkey(p.n);
               if(sk===pk || sk.indexOf(pk)>=0 || pk.indexOf(sk)>=0) hit=p.n;
             });
-            if(hit && names.indexOf(hit)<0){ names.push(hit); matched++; }
+            if(!hit) return;
+            if(names.indexOf(hit)<0){ names.push(hit); matched++; }
+            if(pl.ch){   // 채널 배지 저장
+              if(!PCH[dstr]) PCH[dstr]={};
+              if(!PCH[dstr][hit]) PCH[dstr][hit]=[];
+              if(PCH[dstr][hit].indexOf(pl.ch)<0) PCH[dstr][hit].push(pl.ch);
+            }
           });
           if(names.length){ PLAN[dstr]=names; addedDays++; }
         });
         if(!matched) throw new Error('판매일정 기획 상품과 판매 데이터가 매칭된 게 없어요 — 먼저 그 기간 데이터를 불러왔는지 확인');
-        savePlan(); render();
+        savePlan(); savePch(); render();
         setStatus('📋 판매일정 기획 가져오기 완료 — <b>'+addedDays+'</b>일 / 기획 '+planTot+'건 중 <b>'+matched+'</b>건 매칭·표시','ok');
       })
       .catch(function(e){ setStatus('⚠️ '+esc(e.message),'warn'); });
@@ -408,16 +457,19 @@
     var ty=parseInt(rv.to.slice(0,4),10), tm=parseInt(rv.to.slice(5,7),10);
     var totRev=0, totMg=0, totRevM=0, mgAll=true, daysWith=0;
     var h='';
+    var fromD=parseInt(rv.from.slice(8,10),10), toD=parseInt(rv.to.slice(8,10),10);
     var y=fy, m=fm, guard=0;
     while((y<ty || (y===ty && m<=tm)) && guard++<36){
-      var first=new Date(y,m-1,1), last=new Date(y,m,0).getDate();
+      var last=new Date(y,m,0).getDate();
+      // ★지정한 시작일부터 바로 보이게 — 1일부터 깔고 스크롤시키지 않는다 (2026-08-05 사장님)
+      var dStart=(y===fy && m===fm)?fromD:1;
+      var dEnd=(y===ty && m===tm)?Math.min(toD,last):last;
+      if(dStart>dEnd){ m++; if(m>12){ m=1; y++; } continue; }
       h+='<div style="grid-column:1/-1;font-weight:800;font-size:15px;margin:8px 2px 0">'+y+'년 '+m+'월</div>';
       ['일','월','화','수','목','금','토'].forEach(function(d,i){ h+='<div class="dow'+(i===0?' sun':i===6?' sat':'')+'">'+d+'</div>'; });
-      for(var b=0;b<first.getDay();b++) h+='<div class="day blank"></div>';
-      for(var d=1;d<=last;d++){
+      for(var b=0;b<new Date(y,m-1,dStart).getDay();b++) h+='<div class="day blank"></div>';
+      for(var d=dStart;d<=dEnd;d++){
         var dt=new Date(y,m-1,d), key=ymd(dt), dow=dt.getDay();
-        var inRange = key>=rv.from && key<=rv.to;
-        if(!inRange){ h+='<div class="day blank" style="background:#fafbfc;border:1px dashed #eee"></div>'; continue; }
         // ★정렬은 항상 그리는 시점에 — 예전에 저장된 데이터(매출순)도 수량순으로 보이게 (2026-08-05 사장님 지적)
         var list=(DATA[key]||[]).slice().sort(function(a,b){ return (b.q-a.q) || (b.r-a.r); });
         if(PLAN_ONLY) list=list.filter(function(p){ return isPlanned(key,p.n); });   // 📣 기획상품만 모드
@@ -437,8 +489,9 @@
         shown.forEach(function(p){
           var ph = q && p.n.toLowerCase().indexOf(q)>=0;
           var pl = isPlanned(key,p.n);
+          var chips=chansOf(key,p.n).map(chipHtml).join('');   // 판매 채널 카드 (맨 끝)
           h+='<div class="prod'+(ph?' hitp':'')+(pl?' plan':'')+'"><span class="pn" title="'+esc(p.n)+(pl?' (기획 상품)':'')+'">'+(pl?'📣 ':'')+esc(p.n)+'</span>'
-            +'<span class="pv">'+p.q+'개 · <b>'+comma(p.r)+'</b>'+(p.m!=null?' · 마진 '+comma(p.m)+(rate(p.m,p.r)?' ('+rate(p.m,p.r)+')':''):'')+'</span></div>';
+            +'<span class="pv">'+p.q+'개 · <b>'+comma(p.r)+'</b>'+(p.m!=null?' · 마진 '+comma(p.m)+(rate(p.m,p.r)?' ('+rate(p.m,p.r)+')':''):'')+chips+'</span></div>';
         });
         if(list.length>shown.length) h+='<div class="more">+'+(list.length-shown.length)+'개 더 (클릭)</div>';
         h+='</div>';
@@ -468,12 +521,26 @@
     return { rv:rv, list:Object.keys(by).map(function(k){ var o=by[k]; return {n:o.n,q:o.q,r:o.r,m:o.mAny?o.m:null,rm:o.rm,part:o.mAny&&o.mMiss,d:o.d}; })
       .sort(function(a,b){ return (b.q-a.q)||(b.r-a.r); }) };
   }
-  document.addEventListener('click', function(e){
-    var b=e.target.closest?e.target.closest('#aggBtn'):null;
-    if(!b) return;
-    var ag=rangeAgg(); if(!ag || !ag.list.length) return;
+  // 집계 정렬: 열 제목 클릭 → 그 열 기준, 다시 클릭 → 오름/내림 전환 (기본: 판매량 내림차순)
+  var AGG_SORT={k:'q', dir:-1};
+  function aggVal(p,k){
+    if(k==='d') return p.d;
+    if(k==='q') return p.q;
+    if(k==='r') return p.r;
+    if(k==='m') return (p.m==null)?-Infinity:p.m;
+    if(k==='rt') return (p.m==null||!p.rm)?-Infinity:p.m/p.rm;
+    return 0;
+  }
+  function renderAgg(){
+    var ag=rangeAgg(); if(!ag || !ag.list.length) return false;
+    ag.list.sort(function(a,b){
+      var av=aggVal(a,AGG_SORT.k), bv=aggVal(b,AGG_SORT.k);
+      if(av===bv) return b.q-a.q;
+      return AGG_SORT.dir * (av>bv?1:-1);
+    });
     $('obTitle').textContent=ag.rv.from+' ~ '+ag.rv.to+' 상품별 집계 ('+ag.list.length+'개 상품)';
-    var t='<tr><th>상품명</th><th>판매일</th><th>판매량</th><th>매출</th><th>마진</th><th>마진율</th></tr>';
+    function th(k,label){ var on=AGG_SORT.k===k; return '<th class="sth" data-k="'+k+'" title="클릭해서 정렬 (다시 클릭=반대로)">'+label+(on?(AGG_SORT.dir<0?' ▼':' ▲'):'')+'</th>'; }
+    var t='<tr><th>상품명</th>'+th('d','판매일')+th('q','판매량')+th('r','매출')+th('m','마진')+th('rt','마진율')+'</tr>';
     var tq=0, tr=0, tm=0, trm=0, anyPart=false;
     ag.list.forEach(function(p){
       tq+=p.q; tr+=p.r; if(p.m!=null){ tm+=p.m; trm+=p.rm; }
@@ -484,7 +551,17 @@
     if(anyPart) t+='<tr><td colspan="6" class="mini" style="text-align:left;border:none">* 공급가 빈 날(예: 아직 발주 전)은 마진에서 빼고, 있는 것만 더한 값이에요 (마진율도 그 날들 기준)</td></tr>';
     $('obTbl').innerHTML=t;
     OB_KEY=''; $('obPlanSave').style.display='none';   // 집계 팝업엔 기획 저장 버튼 없음
-    $('ovl').style.display='block';
+    return true;
+  }
+  document.addEventListener('click', function(e){
+    var b=e.target.closest?e.target.closest('#aggBtn'):null;
+    if(b){ if(renderAgg()) $('ovl').style.display='block'; return; }
+    var s=e.target.closest?e.target.closest('th.sth'):null;
+    if(s && !OB_KEY){   // 집계 팝업이 떠 있을 때만 (날짜 팝업은 OB_KEY 있음)
+      var k=s.getAttribute('data-k');
+      if(AGG_SORT.k===k) AGG_SORT.dir*=-1; else { AGG_SORT.k=k; AGG_SORT.dir=-1; }
+      renderAgg();
+    }
   });
   // 날짜 칸 클릭 → 그날 전체 목록
   document.addEventListener('click', function(e){
@@ -511,8 +588,10 @@
     list.forEach(function(p){
       tr+=p.r; if(p.m==null) mok=false; else { tm+=p.m; trm+=p.r; }   // 마진: 있는 것만 합산
       var pl=isPlanned(key,p.n);
+      var myCh=chansOf(key,p.n);
+      var chChips=CHANNELS.map(function(ch){ var c=CHCOLOR[ch]; return '<span class="chip tchip'+(myCh.indexOf(ch)>=0?' on':'')+'" data-ch="'+ch+'" style="background:'+c[0]+';color:'+c[1]+'" title="판매 채널 (클릭해서 켜고 끄기)">'+ch+'</span>'; }).join('');
       t+='<tr><td style="text-align:center"><input type="checkbox" class="chk" data-nm="'+esc(p.n)+'"'+(pl?' checked':'')+'></td>'
-        +'<td class="'+(pl?'pl':'')+'">'+(pl?'📣 ':'')+esc(p.n)+' <button class="cpbtn" data-nm="'+esc(p.n)+'" title="상품명 복사">📋</button></td>'
+        +'<td class="'+(pl?'pl':'')+'">'+(pl?'📣 ':'')+esc(p.n)+' <button class="cpbtn" data-nm="'+esc(p.n)+'" title="상품명 복사">📋</button><br>'+chChips+'</td>'
         +'<td>'+p.q+'</td><td>'+comma(p.r)+'</td><td>'+(p.m!=null?comma(p.m):'-')+'</td><td>'+(p.m!=null?rate(p.m,p.r):'-')+'</td></tr>';
     });
     t+='<tr><th></th><th>합계</th><th></th><th>'+comma(tr)+'</th><th>'+comma(tm)+(mok?'':' *')+'</th><th>'+rate(tm,trm)+'</th></tr>';
@@ -520,14 +599,25 @@
     $('obPlanSave').style.display='';
     $('ovl').style.display='block';
   }
+  document.addEventListener('click', function(e){   // 채널 칩 토글
+    var tc=e.target.closest?e.target.closest('.tchip'):null;
+    if(tc) tc.classList.toggle('on');
+  });
   $('obPlanSave').addEventListener('click', function(){
     if(!OB_KEY) return;
-    var names=[];
-    document.querySelectorAll('#obTbl .chk').forEach(function(c){ if(c.checked) names.push(c.getAttribute('data-nm')); });
+    var names=[], chMap={};
+    document.querySelectorAll('#obTbl tr').forEach(function(row){
+      var chk=row.querySelector('.chk'); if(!chk) return;
+      var nm=chk.getAttribute('data-nm');
+      if(chk.checked) names.push(nm);
+      var arr=[]; row.querySelectorAll('.tchip.on').forEach(function(c){ arr.push(c.getAttribute('data-ch')); });
+      if(arr.length) chMap[nm]=arr;   // 채널은 기획 체크와 무관하게 저장 (기획 아니어도 채널 기록 가능)
+    });
     if(names.length) PLAN[OB_KEY]=names; else delete PLAN[OB_KEY];
-    savePlan(); render();
+    if(Object.keys(chMap).length) PCH[OB_KEY]=chMap; else delete PCH[OB_KEY];
+    savePlan(); savePch(); render();
     $('ovl').style.display='none';
-    setStatus('⭐ '+OB_KEY+' 기획 상품 <b>'+names.length+'</b>개 저장 — 캘린더에 📣 표시됨','ok');
+    setStatus('⭐ '+OB_KEY+' 저장 — 기획 <b>'+names.length+'</b>개 · 채널 표시 '+Object.keys(chMap).length+'개','ok');
   });
   $('obClose').addEventListener('click', function(){ $('ovl').style.display='none'; });
   $('ovl').addEventListener('click', function(e){ if(e.target===this) this.style.display='none'; });
