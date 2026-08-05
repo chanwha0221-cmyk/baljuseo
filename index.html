@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.571</title>
+<title>발주서 변환기 v22.572</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -55,7 +55,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.571</span>
+  <span class="ver">v22.572</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -214,7 +214,10 @@ const UNIT_QTY_RE=new RegExp('\\d+\\s*(?:'+UNIT_WORDS+')(?:급|짜리)?(?![가-�
 let wc=0;
 function sl(m,t){const e=document.getElementById('log');e.textContent=m;e.className='log-pill'+(t?' '+t:'');if(t==='warn')wc++;}
 function fp(t){
-  if(!t)return"";const n=String(t).replace(/[^0-9]/g,'');if(!n)return"";
+  if(!t)return"";let n=String(t).replace(/[^0-9]/g,'');if(!n)return"";
+  // 엑셀 복사시 앞 0 소실 복원 (2026-08-05): 한국 번호는 8자리 대표번호(1577·1833 등)만 빼고 전부 0 시작.
+  // 1039727072→010-3972-7072, 5024433375→0502-443-3375, 서울 23456789→02-345-6789, 지역번호(31/53…)도 동일
+  if(!n.startsWith('0')&&n.length>=8&&!(n.length===8&&n.startsWith('1')))n='0'+n;
   if(n.length===12&&n.startsWith('050'))return n.slice(0,4)+'-'+n.slice(4,8)+'-'+n.slice(8);
   if(n.length===8&&n.startsWith('1'))return n.slice(0,4)+'-'+n.slice(4);
   // 서울 02 9자리 (02-XXX-XXXX) — 기존 length>=10 조건에 안 걸려 하이픈 다 빠지던 버그 fix (2026-06-19)
