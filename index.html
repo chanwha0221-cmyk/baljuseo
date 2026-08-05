@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.576</title>
+<title>발주서 변환기 v22.577</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -55,7 +55,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.576</span>
+  <span class="ver">v22.577</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -448,12 +448,14 @@ function pp(cl,pr,qty){
   }
   let r=pr.replace(/\*/g,'x');
   // 🐍 민물장어 괄호 = 옵션 (2026-08-05 사장님, 킹콩에프앤비 건): 괄호에 "장어뼈 주세요"를 안 쓰면 뼈·머리를 안 줌.
-  //    홍어 삭힘괄호와 같은 개념 — 절대 지우지 말고 들어온 그대로 유지. 수량(x N)만 뽑아내고 이름은 괄호 포함 원본.
+  //    홍어 삭힘괄호와 같은 개념 — 절대 지우지 말고 입력 그대로 "이름 x N (괄호)" 순서 유지.
+  //    괄호는 suffix로 분리 반환 → 출력 조립에서 수량 '뒤'에 붙음 (이름에 넣으면 "(괄호) x 2"로 순서가 뒤집힘).
   if(/민물\s*장어/.test(r)&&/[\(（]/.test(r)){
-    let _nm=r,_q=qty;
+    let _nm=r,_q=qty;const _sfx=[];
+    _nm=_nm.replace(/\s*[\(（][^\(（\)）]*[\)）]\s*/g,(m)=>{_sfx.push(m.trim());return ' ';});
     const _xm=_nm.match(/\s*[xX×]\s*(\d+)\s*/);
-    if(_xm){_q=parseInt(_xm[1]);_nm=(_nm.slice(0,_xm.index)+' '+_nm.slice(_xm.index+_xm[0].length)).replace(/\s+/g,' ').trim();}
-    return{name:_nm,qty:_q,maxB:999};
+    if(_xm){_q=parseInt(_xm[1]);_nm=_nm.slice(0,_xm.index)+' '+_nm.slice(_xm.index+_xm[0].length);}
+    return{name:_nm.replace(/\s+/g,' ').trim(),qty:_q,maxB:999,suffix:_sfx.join(' ')};
   }
   // 합포장 멀티상품을 업체가 콤마(,)로 구분해 줄 때 → 우리 합포장 구분자 '/'로 변환 (천단위 1,000 은 보존). 2026-06-09 사장님 요청
   r=r.replace(/\s*,\s*/g,(m,off,str)=>{const pv=str[off-1]||'',nx=str[off+m.length]||'';return (/\d/.test(pv)&&/\d/.test(nx))?m:' / ';});
@@ -1513,7 +1515,7 @@ function runSingle(){
     if(client==='식봄'&&address.includes('동해시 대학로 16')){sl('식봄 대표님 주소 제외: '+nameRaw,'warn');continue;}
     let cfg=CC[client]||{};if(!CC[client])sl('미등록 업체: '+client,'warn');
     const iv=cfg.insert||'';
-    const{name:rawName,qty:fq,maxB}=pp(client,prod,qty);
+    const{name:rawName,qty:fq,maxB,suffix}=pp(client,prod,qty);   // suffix = 수량 뒤에 붙는 보존 괄호 (민물장어 옵션 등)
     const finalQty=fq*(qtyColValue||1);let name=rawName;
     for(const rule of rules){if(name.includes(rule.from))name=name.replace(rule.from,rule.to);}
     const dupKey=(nameRaw+'|'+address).replace(/\s/g,'');
@@ -1521,8 +1523,9 @@ function runSingle(){
     const salesClient=cfg.insert||client;
     pendingHistory.push({client:salesClient,product:name,qty:finalQty,nameRaw,address,key:dupKey});
     const ord={address,custPhone,msg,ca:cla,cp};
-    if(name.includes(' / ')){out.push(br(client,cfg,name,nameRaw,ord,iv));}
-    else{let rem=finalQty;while(rem>0){const cur=Math.min(rem,maxB);out.push(br(client,cfg,name+' x '+cur,nameRaw,ord,iv));rem-=cur;}}
+    const sfx=suffix?' '+suffix:'';
+    if(name.includes(' / ')){out.push(br(client,cfg,name+sfx,nameRaw,ord,iv));}
+    else{let rem=finalQty;while(rem>0){const cur=Math.min(rem,maxB);out.push(br(client,cfg,name+' x '+cur+sfx,nameRaw,ord,iv));rem-=cur;}}
   }
   document.getElementById('out').value=applyClientAlias(out.join('\n'));
   document.getElementById('s-out').textContent=out.length;
