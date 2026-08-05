@@ -980,7 +980,7 @@
   // 창고 탭(A유통기한 B창고명 C상품명 D공급가 E택배사 F택배비 G면과세 H마감 I스펙)에서
   // 창고명(B) 일치 행의 택배사(E)를 새 값으로 바꾸고 스펙(I)에 변경 문구 append.
   // ★반드시 그 탭의 삽입·삭제가 다 끝난 뒤 호출(최신 상태 재독이라 행 밀림 무관).
-  // ★변동 칸에 '택배사' 있을 때만 실행 — 그 외(마감시간 등)는 안전 스킵+리포트 (2026-06-10 전상품 덮어쓰기 사고 교훈)
+  // ★변동 칸 '택배사'(E+I 변경) 또는 '특이사항/스펙'(I 문구만 append) 때만 실행 — 그 외(마감시간 등)는 안전 스킵+리포트 (2026-06-10 전상품 덮어쓰기 사고 교훈)
   function applyBulkAll(tab, readStart1, bulks){
     return readRange(APPLY_ID, "'"+tab+"'!A"+readStart1+":I").then(function(rows){
       var data=[], notes=[];
@@ -990,8 +990,11 @@
         var newCourier=String(b.v[11]||'').trim();
         // 스펙 문구: 원가 든 줄만 제거(줄 단위 — stripCost는 '/'도 구분자로 봐서 "로젠택배/우체국택배"가 변조됨)
         var note=String(b.v[14]==null?'':b.v[14]).split(/\r?\n/).filter(function(l){ return l.trim()!=='' && !/원가/.test(l); }).join('\n').trim();
-        if(String(b.byun||'').indexOf('택배사')<0 || !wh || !newCourier){
-          notes.push({tab:tab, wh:wh||b.name, n:0, skip:'변동「'+(b.byun||'?')+'」은 전상품 자동변경 미지원(택배사만 됨) — 수동 확인'});
+        // 지원 모드 ①택배사: E열 실제 변경+스펙 문구 ②특이사항(2026-08-05 사장님 — 생고/단독 여름 발송불가 건): I열 문구만 append, 다른 칸 안 건드림
+        var isCourier=String(b.byun||'').indexOf('택배사')>=0;
+        var isNoteOnly=!isCourier && /특이사항|스펙/.test(String(b.byun||'')) && !!note;
+        if(!wh || (isCourier && !newCourier) || (!isCourier && !isNoteOnly)){
+          notes.push({tab:tab, wh:wh||b.name, n:0, skip:'변동「'+(b.byun||'?')+'」은 전상품 자동변경 미지원(택배사·특이사항만 됨) — 수동 확인'});
           return;
         }
         var whK=pkey(wh), n=0;
@@ -999,12 +1002,12 @@
           var wc=pkey(cell(rr,1));                       // B 창고명 (공백 무시 비교)
           if(!wc || (wc!==whK && wc!==whK+'창고' && wc+'창고'!==whK)) return;
           var row1=readStart1+idx;
-          data.push({ range:"'"+tab+"'!E"+row1, values:[[newCourier]] });
+          if(isCourier) data.push({ range:"'"+tab+"'!E"+row1, values:[[newCourier]] });
           var spec=String(cell(rr,8)||'');               // I 스펙 — 같은 문구 이미 있으면 중복 안 붙임
           if(note && spec.indexOf(note)<0) data.push({ range:"'"+tab+"'!I"+row1, values:[[ spec ? spec+'\n'+note : note ]] });
           n++;
         });
-        notes.push({tab:tab, wh:wh, n:n, courier:newCourier});
+        notes.push({tab:tab, wh:wh, n:n, label:isCourier?('택배사 '+newCourier):'특이사항 문구'});
       });
       if(!data.length) return notes;
       var url='https://sheets.googleapis.com/v4/spreadsheets/'+APPLY_ID+'/values:batchUpdate';
@@ -1033,7 +1036,7 @@
     var nDay=uni.filter(function(it){return it.day.indexOf('당일')>=0;}).length;
     var nPoom=uni.filter(function(it){return it.poom;}).length;
     var nBulk=uni.filter(function(it){return it.day.indexOf('당일')<0 && isBulkAll(it);}).length;
-    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 전체 '+items.length+'건\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제'+(nBulk?'\n· <창고 전상품> 일괄 '+nBulk+'건 → 그 창고 상품 택배사 실제 변경+스펙 문구':'')+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건 → 마지막(최신) 건 기준 병합 (출시 있으면 최종가 출시로)':'')+(costDrop?'\n· 🚫 원가 관련 '+costDrop+'건 제외 — 업체 비노출(어떤 탭에도 안 넣음)':'')+'\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
+    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 전체 '+items.length+'건\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제'+(nBulk?'\n· <창고 전상품> 일괄 '+nBulk+'건 → 그 창고 상품 택배사 변경 또는 특이사항 문구':'')+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건 → 마지막(최신) 건 기준 병합 (출시 있으면 최종가 출시로)':'')+(costDrop?'\n· 🚫 원가 관련 '+costDrop+'건 제외 — 업체 비노출(어떤 탭에도 안 넣음)':'')+'\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
     var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
     var rep={ vari:0, notice:0, wh:{}, whGid:{}, poomDel:0, unmatched:[], variGid:0, variTab:'', noticeGid:0, noticeTab:'', bulk:[] };
     function setBtn(t){ btn.innerHTML=t; }
@@ -1077,23 +1080,41 @@
         var sisi=uni.filter(function(it){ return it.day.indexOf('당일')<0; });   // uni=같은 상품 최신 건만
         var supTab={}, supList=[];
         sisi.forEach(function(it){ if(supList.indexOf(it.sup)<0) supList.push(it.sup); });
-        supList.forEach(function(sup){
-          var tab = (TABG[sup]!==undefined) ? sup
-                  : ((WHMAP[sup] && TABG[WHMAP[sup]]!==undefined) ? WHMAP[sup] : null);
-          if(!tab){   // 어느 탭인지 모름 → 사장님/팀에게 물어봄
-            var ans = prompt('「'+sup+'」공급처는 어느 탭에 넣을까요?\n\n반영 시트 탭 목록:\n'+Object.keys(TABG).join('  /  ')+'\n\n(위 이름 중 하나를 정확히 입력 · 비우면 이 공급처는 건너뜁니다)', WHMAP[sup]||'');
-            if(ans!==null){ ans=ans.trim(); if(ans && TABG[ans]!==undefined){ WHMAP[sup]=ans; localStorage.setItem('byd_whMap', JSON.stringify(WHMAP)); tab=ans; } }
+        // 공급처 1개 → 탭 여러 개 지원 (2026-08-05 사장님): '생고/단독'처럼 슬래시 복수 표기는 쪼개서 각각 해석,
+        // '단독'처럼 괄호 변형 탭(단독(유)·단독(무))이 있으면 전부 포함. 물어볼 때도 쉼표로 복수 답 가능.
+        function resolvePart(p){
+          if(TABG[p]!==undefined) return [p];
+          var mapped=WHMAP[p];
+          if(mapped){
+            var arr=(Array.isArray(mapped)?mapped:String(mapped).split(',')).map(function(s){return s.trim();}).filter(function(t){return TABG[t]!==undefined;});
+            if(arr.length) return arr;
           }
-          supTab[sup]=tab;   // null이면 미매칭(리포트)
+          var ex=Object.keys(TABG).filter(function(t){ return t.indexOf(p+'(')===0; });   // 생고/단독 → '단독'은 단독(유)+단독(무) 둘 다
+          if(ex.length) return ex;
+          var ans = prompt('「'+p+'」공급처는 어느 탭에 넣을까요?\n\n반영 시트 탭 목록:\n'+Object.keys(TABG).join('  /  ')+'\n\n(위 이름 중 입력 · 여러 탭이면 쉼표로 구분 — 예: 생고, 단독(유), 단독(무) · 비우면 이 공급처는 건너뜁니다)', '');
+          if(ans!==null){
+            var arr2=ans.split(/[,、]/).map(function(s){return s.trim();}).filter(function(t){return t&&TABG[t]!==undefined;});
+            if(arr2.length){ WHMAP[p]=(arr2.length===1?arr2[0]:arr2); localStorage.setItem('byd_whMap', JSON.stringify(WHMAP)); return arr2; }
+          }
+          return [];
+        }
+        supList.forEach(function(sup){
+          var tabs=[];
+          String(sup||'').split('/').map(function(s){return s.trim();}).filter(Boolean).forEach(function(p){
+            resolvePart(p).forEach(function(t){ if(tabs.indexOf(t)<0) tabs.push(t); });
+          });
+          supTab[sup]=tabs;   // 빈 배열이면 미매칭(리포트)
         });
         var byT={};
         sisi.forEach(function(it){
-          var tab=supTab[it.sup];
-          if(!tab){ if(rep.unmatched.indexOf(it.sup)<0) rep.unmatched.push(it.sup); return; }
-          if(!byT[tab]) byT[tab]={ tab:tab, gid:TABG[tab], add:[], addPk:{}, delPk:{}, bulk:[], bulkPk:{} };
-          if(isBulkAll(it)){ byT[tab].bulk.push(it); byT[tab].bulkPk[pkey(it.name)]=1; byT[tab].delPk[pkey(it.name)]=1; }   // 상품으로 안 넣음 + 예전에 상품행으로 잘못 들어간 <전상품> 행 있으면 청소
-          else if(it.poom){ byT[tab].delPk[pkey(it.name)]=1; }
-          else { byT[tab].add.push(it); byT[tab].addPk[pkey(it.name)]=1; }
+          var tabs=supTab[it.sup]||[];
+          if(!tabs.length){ if(rep.unmatched.indexOf(it.sup)<0) rep.unmatched.push(it.sup); return; }
+          tabs.forEach(function(tab){
+            if(!byT[tab]) byT[tab]={ tab:tab, gid:TABG[tab], add:[], addPk:{}, delPk:{}, bulk:[], bulkPk:{} };
+            if(isBulkAll(it)){ byT[tab].bulk.push(it); byT[tab].bulkPk[pkey(it.name)]=1; byT[tab].delPk[pkey(it.name)]=1; }   // 상품으로 안 넣음 + 예전에 상품행으로 잘못 들어간 <전상품> 행 있으면 청소
+            else if(it.poom){ byT[tab].delPk[pkey(it.name)]=1; }
+            else { byT[tab].add.push(it); byT[tab].addPk[pkey(it.name)]=1; }
+          });
         });
         var tkeys=Object.keys(byT), i=0;
         function nextTab(){
@@ -1125,7 +1146,7 @@
         rh+='<li>품절 삭제: <b>'+rep.poomDel+'</b>건</li>';
         rep.bulk.forEach(function(b){
           if(b.skip) rh+='<li style="color:#c0392b">⚠️ 전상품 일괄 스킵 · '+esc(b.tab)+' 「'+esc(b.wh)+'」: '+esc(b.skip)+'</li>';
-          else rh+='<li>🚚 전상품 일괄 · '+esc(b.tab)+' 「'+esc(b.wh)+'」창고 → 택배사 <b>'+esc(b.courier)+'</b> <b>'+b.n+'</b>건 변경+스펙 문구'+(b.n===0?' <b style="color:#c0392b">(그 창고 상품 0건 — 창고명 확인!)</b>':'')+'</li>';
+          else rh+='<li>🚚 전상품 일괄 · '+esc(b.tab)+' 「'+esc(b.wh)+'」창고 → <b>'+esc(b.label)+'</b> <b>'+b.n+'</b>건 변경+스펙 문구'+(b.n===0?' <b style="color:#c0392b">(그 창고 상품 0건 — 창고명 확인!)</b>':'')+'</li>';
         });
         if(rep.unmatched.length) rh+='<li style="color:#c0392b">⚠️ 미매칭 공급처(못 넣음): <b>'+esc(rep.unmatched.join(', '))+'</b> — 공급처 이름이 창고 탭 이름과 달라요. 수동 확인!</li>';
         rh+='</ul></div>';
@@ -1135,7 +1156,7 @@
         rh+='</div></div>';
         document.getElementById('applyReport').innerHTML=rh;
         var whSum=Object.keys(rep.wh).map(function(t){return t+'('+rep.wh[t]+')';}).join(', ')||'없음';
-        var bulkSum=rep.bulk.map(function(b){ return b.skip ? (b.tab+' 「'+b.wh+'」스킵(수동 확인)') : (b.tab+' 「'+b.wh+'」'+b.n+'건→'+b.courier); }).join('\n   ');
+        var bulkSum=rep.bulk.map(function(b){ return b.skip ? (b.tab+' 「'+b.wh+'」스킵(수동 확인)') : (b.tab+' 「'+b.wh+'」'+b.n+'건→'+b.label); }).join('\n   ');
         setStatus('✅ 각 시트 적용 완료 (변동'+rep.vari+'·당일'+rep.notice+'·창고'+Object.keys(rep.wh).length+'탭·품절삭제'+rep.poomDel+(rep.bulk.length?'·전상품일괄'+rep.bulk.length:'')+(dupSkip?'·중복스킵'+dupSkip:'')+(rep.unmatched.length?'·미매칭'+rep.unmatched.length:'')+') — 아래 리포트 확인','ok');
         alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건'+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건은 마지막(최신) 건 기준으로 병합 반영':'')+(costDrop?'\n· 🚫 원가 관련 '+costDrop+'건은 업체 비노출로 제외됨':'')+(bulkSum?'\n· 🚚 전상품 일괄(택배사 변경+스펙):\n   '+bulkSum:'')+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
       }).catch(function(e){ btn.disabled=false; btn.innerHTML=o; setStatus('⚠️ 적용 실패: '+e.message,'warn'); alert('적용 실패: '+e.message+'\n(일부만 적용됐을 수 있어요. 시트 확인 후 재시도)'); });
