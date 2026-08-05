@@ -243,7 +243,7 @@
       <div class="step2"><b>④</b> <b>🔀 각 시트 적용</b> — 상품변동사항·당일생물·창고 탭에 자동으로 들어가요.<br>
         · 창고 공급처를 어느 탭에 넣을지 모르면 <b>물어봐요</b> (한 번 답하면 저장).<br>
         · <b>&lt;○○창고 전상품&gt; 택배사 변경</b> 행은 상품으로 안 넣고, 창고 탭에서 <b>그 창고 상품들의 택배사를 실제로 바꾸고 스펙에 변경 문구</b>를 달아줘요.</div>
-      <div class="step2"><b>⑤ (선택)</b> <b>📗 엑셀 생성</b> — 리모컨 업데이트용 <b>변경분만</b> 엑셀로 뽑아요. ☁️ 원가 DB를 쓰면 <b>DB도 같은 내용으로 동시 업데이트</b>돼요 (상품명변경은 DB에서 옛 이름 행 자동 삭제).</div>
+      <div class="step2"><b>⑤ (선택)</b> <b>📗 엑셀 생성</b> — 리모컨 업데이트용 <b>변경분만</b> 엑셀로 뽑아요. ☁️ 원가 DB를 쓰면 <b>DB도 같은 내용으로 동시 업데이트</b>돼요 (상품명변경은 DB에서 옛 이름 행 자동 삭제). 🅧 화면에서 <b>✕제외한 상품도 리모컨엔 포함</b>돼요 — 시트엔 안 넣어도 업체가 당일로 발주 줄 수 있어서 미리 등록해두는 거예요.</div>
       <div class="step2"><b>⑥ (선택)</b> <b>🔗 링크 업데이트</b> — 링크 시트 + 그룹웨어 문서복사를 새 창으로 열어줘요.</div>
     </div>
 
@@ -881,13 +881,16 @@
   // ===== 통합 헬퍼 =====
   function linkName(nm){ var u=LINKMAP[pkey(nm)]; return u ? '=HYPERLINK("'+u+'","'+String(nm).replace(/"/g,'""')+'")' : nm; }
   // 표 한 행(tr) → 값객체 {v:[16칸텍스트], gong, name, sup(공급처), byun(변동), day(상시당일), poom(품절여부)}
-  function readItems(){
+  // includeExcluded=true면 ✕제외 행도 포함해 읽음(item.ex=true 표시) — 리모컨 엑셀용 (2026-08-05 사장님:
+  // 상시에서 뺀 생물도 업체가 "그럼 당일로 팔게" 발주 줄 수 있어서 리모컨엔 등록돼 있어야 함)
+  function readItems(includeExcluded){
     var tbl=document.getElementById('qtytable'); if(!tbl) return null;
     var trs=tbl.tBodies[0].querySelectorAll('tr'); if(!trs.length) return [];
     function norm(s){ return String(s||'').replace(/[^0-9]/g,''); }
     var items=[];
     for(var r=0;r<trs.length;r++){
-      if(trs[r].classList.contains('excluded')) continue;   // ✕로 제외된 행은 빼고 읽음
+      var isEx=trs[r].classList.contains('excluded');
+      if(isEx && !includeExcluded) continue;   // ✕로 제외된 행은 기본은 빼고 읽음 (각 시트 적용·복사)
       var tds=trs[r].children;
       var txt=function(i){ var td=tds[i]; if(!td) return ''; var inp=td.querySelector('input,textarea'); if(inp) return inp.value; var pnm=td.querySelector('.pnm'); return pnm?pnm.textContent:td.textContent; };
       var v=[]; for(var i=0;i<16;i++) v.push(txt(i));
@@ -895,7 +898,7 @@
       // 가격은 항상 천단위 콤마(12,000 > 11,000) — 숫자 조각만 콤마 포맷, 그 외 글자는 보존
       var fmtWon=function(s){ return String(s==null?'':s).trim().replace(/\d[\d,]*/g, function(m){ var n=num(m); return n==null?m:comma(n); }); };
       var gong=(won && norm(won)!=='' && norm(won)!==norm(sae)) ? (fmtWon(won)+' > '+fmtWon(sae)) : fmtWon(sae);  // 변동있으면 a>b
-      items.push({ v:v, gong:gong, name:v[7], sup:String(v[0]).trim(), byun:v[3], day:v[4], poom:String(v[3]).indexOf('품절')>=0 });
+      items.push({ v:v, gong:gong, name:v[7], sup:String(v[0]).trim(), byun:v[3], day:v[4], poom:String(v[3]).indexOf('품절')>=0, ex:isEx });
     }
     return items;
   }
@@ -926,7 +929,7 @@
       var won=v[9], sae=v[8];
       var gong=(hasLaunch && !last.poom) ? fmt(sae)
              : ((won && nrm(won)!=='' && nrm(won)!==nrm(sae)) ? (fmt(won)+' > '+fmt(sae)) : fmt(sae));
-      return { v:v, gong:gong, name:last.name, sup:last.sup, byun:byun, day:last.day, poom:last.poom };
+      return { v:v, gong:gong, name:last.name, sup:last.sup, byun:byun, day:last.day, poom:last.poom, ex:!!last.ex };
     });
     return { list:list, dup:dup };
   }
@@ -1236,6 +1239,9 @@
 
   // ===== 📗 리모컨(원가파일) 업데이트 엑셀 생성 =====
   // 규칙: 품절·원가변경·순수 정보변경 제외 / 출시·재입고·인상·인하(+상품명변경) 포함.
+  //       ★ ✕제외 상품도 리모컨엔 포함 (2026-08-05 사장님): 상시에서 뺀 상품(재고 뒤죽박죽 생물 등)도
+  //         업체가 "그럼 당일로 팔게" 발주 줄 수 있음 — 리모컨에 없으면 그때 수동 입력해야 하니 미리 등록.
+  //         규칙은 시트 들어가는 상품과 동일(출시=원가+공급가 / 인상·인하=공급가만). 각 시트 적용·복사는 기존대로 제외 유지.
   //       출시·리모컨에없던 신규 → 원가 E·F·G 채움, 나머지 → 원가 빈칸(관리팀 원가 안 건드림).
   //       ★ 상품명변경도 원가 E·F·G 채움 (2026-08-04 사장님): 리모컨 입장에선 새 이름 = 새 슬롯(신규 등록과 동일)이라
   //         원가 없이 들어가면 반쪽짜리 슬롯이 됨. 변동공지 원가칸 우선, 없으면 옛 이름 행에서 승계(이름만 바뀐 거라 원가 동일).
@@ -1243,7 +1249,7 @@
   //         원가까지 옛 값으로 엎어져 사고나던 문제 때문. 업데이트할 상품 행만 뽑아 그것만 리모컨에 반영.
   document.getElementById('excelBtn').addEventListener('click', function(){
     if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로드 실패 — 새로고침 후 다시.'); return; }
-    var items = readItems();
+    var items = readItems(true);   // ★✕제외 행도 포함 — 리모컨엔 제외 상품도 등록 (2026-08-05 사장님)
     if(items===null){ alert('먼저 ② 불러오기를 하세요.'); return; }
     if(!items.length){ alert('불러온 데이터가 없어요.'); return; }
     if(!WONGA_HDR || !WONGA_HDR.length || !WONGA_ROWS.length){ alert('① 원가를 먼저 불러와 주세요 — 파일 선택 또는 ☁️ DB에서 불러오기.\n(기존 목록 위에 새 상품을 얹어야 해요)'); return; }
@@ -1281,7 +1287,7 @@
     });
     var costList=Object.keys(costUpds).map(function(k){ return costUpds[k]; });
 
-    var newRows=[], removeSet={}, seenPk={}, skipped=0, filledWonga=0, renamed=0, dupInNew=mgX.dup, renameNoCost=[], dbRenameOld=[];
+    var newRows=[], removeSet={}, seenPk={}, skipped=0, filledWonga=0, renamed=0, dupInNew=mgX.dup, renameNoCost=[], dbRenameOld=[], exIncluded=0;
     items.forEach(function(it){
       var v=it.v, byun=String(v[3]||'');
       if(byun.indexOf('품절')>=0){ skipped++; return; }                       // 품절 제외
@@ -1336,6 +1342,7 @@
         today                    // K 등록일시
       ]);
       removeSet[pk]=1;           // 같은 상품 기존 행 제거(맨 위 새것만 남김)
+      if(it.ex) exIncluded++;    // ✕제외 상품인데 리모컨엔 들어간 건 (카운트 표시용)
     });
 
     if(!newRows.length && !costList.length){ alert('리모컨에 넣을 상품이 없어요.\n(전부 품절/원가변경/정보변경으로 제외됨)'); return; }
@@ -1349,7 +1356,7 @@
       var fn = '리모컨_변경분_'+today.replace(/-/g,'')+'.xlsx';
       try { XLSX.writeFile(wb, fn); }
       catch(e){ alert('엑셀 저장 실패: '+e.message); return; }
-      setStatus('✅ 리모컨 <b>변경분</b> 엑셀 생성 완료 → <b>'+esc(fn)+'</b><br>· 업데이트 대상 <b>'+newRows.length+'</b>건만 (원가채움 '+filledWonga+' · 이름변경 '+renamed+')<br>· 제외 '+skipped+'건(품절/원가변경/정보변경) · 중복스킵 '+dupInNew+'건'+(costList.length?'<br>· 💰 원가변경 '+costList.length+'건 → 엑셀엔 안 넣고 DB에만 반영':'')+'<br>· ✅ 기존 상품은 안 들어감 → 관리팀 원가 안 건드림'+(renamed?'<br>· ⚠️ 이름변경 '+renamed+'건은 리모컨에 옛 이름 행이 남아있을 수 있어요(수동 확인)':'')+(renameNoCost.length?'<br>· 🚨 이름변경인데 <b>원가를 못 채운</b> 상품 '+renameNoCost.length+'건: <b>'+esc(renameNoCost.join(', '))+'</b> — 엑셀 E열에 원가 직접 넣어주세요(새 슬롯이라 원가 필수)':''), 'ok');
+      setStatus('✅ 리모컨 <b>변경분</b> 엑셀 생성 완료 → <b>'+esc(fn)+'</b><br>· 업데이트 대상 <b>'+newRows.length+'</b>건만 (원가채움 '+filledWonga+' · 이름변경 '+renamed+')<br>· 제외 '+skipped+'건(품절/원가변경/정보변경) · 중복스킵 '+dupInNew+'건'+(exIncluded?'<br>· 🅧 화면에서 ✕제외한 상품도 <b>'+exIncluded+'</b>건 포함 — 시트엔 안 들어가도 리모컨엔 등록(업체가 당일로 발주 줄 수 있음)':'')+(costList.length?'<br>· 💰 원가변경 '+costList.length+'건 → 엑셀엔 안 넣고 DB에만 반영':'')+'<br>· ✅ 기존 상품은 안 들어감 → 관리팀 원가 안 건드림'+(renamed?'<br>· ⚠️ 이름변경 '+renamed+'건은 리모컨에 옛 이름 행이 남아있을 수 있어요(수동 확인)':'')+(renameNoCost.length?'<br>· 🚨 이름변경인데 <b>원가를 못 채운</b> 상품 '+renameNoCost.length+'건: <b>'+esc(renameNoCost.join(', '))+'</b> — 엑셀 E열에 원가 직접 넣어주세요(새 슬롯이라 원가 필수)':''), 'ok');
     } else {
       setStatus('📗 엑셀로 뽑을 변경분은 없어요 — 💰 <b>원가변경 '+costList.length+'</b>건만 있어서 DB 반영으로 넘어갑니다 (리모컨 엑셀·원가는 안 건드림)', 'ok');
     }
