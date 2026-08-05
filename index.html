@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.572</title>
+<title>발주서 변환기 v22.573</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -55,7 +55,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.572</span>
+  <span class="ver">v22.573</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -645,6 +645,8 @@ function preprocessNahaengJaeun(line){
     name='초특가 국내산 등갈비 1kg';
   }else if(name.includes('가브리살')){
     name='녹돈 담백 가브리살 500g';   // 전라남도 특산물 녹차 먹고자란 녹돈 가브리살 → 표준명 치환 (2026-07-21)
+  }else if(name.includes('고바멸치')){
+    name='프리미엄 햇고바멸치 1박스';   // "26년 7월 첫조업한 고바멸치 1박스(1.5kg)" 등 수식어 제각각 → 표준명 치환 (2026-08-05 사장님 지시)
   }else if(name.includes('유정란')){
     // 유정란 옵션 "난각2번/ 유정란/ 60구" → 표준명 (2026-08-03 사장님 지시). 몰 상품명(20구/40구/60구 나열)이 아니라 옵션 칸이 실제 발주
     const _gu=name.match(/(\d+)\s*구/);const _n=_gu?' '+_gu[1]+'구':'';
