@@ -62,6 +62,8 @@
   #applyReport a { color:#2d6a4f; font-weight:600; }
   #applyReport .pnmlist { max-height:240px; overflow:auto; margin-top:6px; font-size:13px; }
   #applyReport .pnmrow { padding:2px 0; }
+  #applyReport .pnminfo { color:#8a7f6d; font-size:12px; }
+  #applyReport .pnmbadge { display:inline-block; background:#f0e9db; color:#7a5c1e; border-radius:4px; padding:0 6px; font-size:11px; font-weight:700; vertical-align:middle; }
   .actions { margin: 10px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid #cfe0d8; border-top-color:#2d6a4f; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -1107,6 +1109,7 @@
     if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 전체 '+items.length+'건\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제'+(nBulk?'\n· <창고 전상품> 일괄 '+nBulk+'건 → 그 창고 상품 택배사 변경 또는 특이사항 문구':'')+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건 → 마지막(최신) 건 기준 병합 (출시 있으면 최종가 출시로)':'')+(costDrop?'\n· 🚫 원가 관련 '+costDrop+'건 제외 — 업체 비노출(어떤 탭에도 안 넣음)':'')+'\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
     var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
     var rep={ vari:0, notice:0, wh:{}, whGid:{}, poomDel:0, unmatched:[], variGid:0, variTab:'', noticeGid:0, noticeTab:'', bulk:[] };
+    var supTabG={};   // 공급처→창고탭(배열) — 리포트 써머리에서 "어느 탭에 들어갔는지" 표기용
     function setBtn(t){ btn.innerHTML=t; }
     withToken(function(){
       syncLink();   // 링크 시트(LINK_ID) 확정 — 상품명 하이퍼링크 읽기용
@@ -1173,6 +1176,7 @@
           });
           supTab[sup]=tabs;   // 빈 배열이면 미매칭(리포트)
         });
+        supTabG=supTab;   // 리포트 써머리용으로 바깥에 공유
         var byT={};
         sisi.forEach(function(it){
           var tabs=supTab[it.sup]||[];
@@ -1219,9 +1223,34 @@
         if(rep.unmatched.length) rh+='<li style="color:#c0392b">⚠️ 미매칭 공급처(못 넣음): <b>'+esc(rep.unmatched.join(', '))+'</b> — 공급처 이름이 창고 탭 이름과 달라요. 수동 확인!</li>';
         rh+='</ul></div>';
         // 적용된 상품명 목록 + 복사 버튼(시트에서 검색 확인용)
-        rh+='<div class="card"><b>🔎 상품명 (복사해서 시트에서 검색)</b><div class="pnmlist">';
-        items.forEach(function(it){ var nm=String(it.v[7]||'').trim(); if(nm) rh+='<div class="pnmrow"><button class="cpbtn" data-nm="'+esc(nm)+'" title="복사">📋</button> '+esc(nm)+'</div>'; });
-        rh+='</div></div>';
+        // 🔎 적용 써머리 (2026-08-05 사장님: "뭐가 수정된 건지 다시 안 올라가봐도 되게") — 상품명 옆에
+        //    [변동] → 들어간 곳 · 시트에 올라간 값(공급가/마감/택배사). uni 기준 = 실제 반영된 최신 병합 건.
+        rh+='<div class="card"><b>🔎 상품명 · 적용 써머리</b> <span class="mini">(📋 복사해 시트에서 검색 — 오른쪽이 시트에 올라간 내용)</span><div class="pnmlist">';
+        uni.forEach(function(it){
+          var nm=String(it.v[7]||'').trim(); if(!nm) return;
+          var v=it.v, tabs=(supTabG[it.sup]||[]).filter(Boolean), dest, extra=[];
+          if(isBulkAll(it)){
+            dest='전상품 일괄 → 창고 '+(tabs.length?tabs.join('·'):'⚠️미매칭');
+            var bn=String(v[14]||'').split(/\r?\n/).filter(function(l){return l.trim()&&!/원가/.test(l);}).join(' ').trim();
+            if(bn) extra.push(bn.length>60?bn.slice(0,60)+'…':bn);
+          } else if(it.poom){
+            dest=(String(it.day).indexOf('당일')>=0?'당일생물':'창고 '+(tabs.join('·')||'?'))+'에서 삭제';
+          } else if(String(it.day).indexOf('당일')>=0){
+            dest='당일생물 탭';
+          } else {
+            dest=tabs.length?('창고 '+tabs.join('·')):'⚠️ 미매칭(수동 확인)';
+          }
+          if(!it.poom && !isBulkAll(it)){
+            if(it.gong) extra.push('공급가 '+it.gong);
+            var mg=String(v[15]||'').trim(); if(mg) extra.push('마감 '+mg);
+            var tb=String(v[11]||'').trim(); if(tb) extra.push('택배사 '+tb);
+            var tbi=String(v[12]||'').trim(); if(tbi) extra.push('택배비 '+tbi);
+          }
+          rh+='<div class="pnmrow"><button class="cpbtn" data-nm="'+esc(nm)+'" title="복사">📋</button> <b>'+esc(nm)+'</b> '
+            +'<span class="pnmbadge">'+esc(String(it.byun||'').trim()||'?')+'</span> '
+            +'<span class="pnminfo">→ '+esc(dest)+(extra.length?' · '+esc(extra.join(' · ')):'')+'</span></div>';
+        });
+        rh+='</div><div class="mini" style="margin-top:4px">· 여긴 실제 반영 기준(같은 상품 여러 건은 최신 병합 1건) — 변동 이력 전체 '+items.length+'건은 상품변동사항 탭에</div></div>';
         document.getElementById('applyReport').innerHTML=rh;
         var whSum=Object.keys(rep.wh).map(function(t){return t+'('+rep.wh[t]+')';}).join(', ')||'없음';
         var bulkSum=rep.bulk.map(function(b){ return b.skip ? (b.tab+' 「'+b.wh+'」스킵(수동 확인)') : (b.tab+' 「'+b.wh+'」'+b.n+'건→'+b.label); }).join('\n   ');
