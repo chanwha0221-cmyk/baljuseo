@@ -94,6 +94,7 @@
   <div class="tabs">
     <div class="tab active" data-view="tool">🛠 도구</div>
     <div class="tab" data-view="manual">📖 매뉴얼</div>
+    <div class="tab" data-view="request">📮 업데이트 요청</div>
   </div>
 
   <div id="view-tool">
@@ -301,6 +302,30 @@
     </div>
   </div>
 
+  <!-- ===== 📮 업데이트 요청 뷰 ===== -->
+  <div id="view-request" style="display:none">
+    <div class="man">
+      <h2>📮 업데이트 요청</h2>
+      도구에 넣고 싶은 규칙·불편한 점·버그를 여기에 올려주세요. 마스터가 확인하면 <b>✅ 확인 완료</b>가 붙어요.
+      내용이 애매하거나 물리적으로 안 되는 요청이면 <b>댓글로 되물어볼 수 있으니</b> 올린 뒤에도 가끔 들어와서 댓글을 확인해주세요.
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <label style="font-weight:700">내 이름(팀명)</label>
+        <input id="reqName" type="text" placeholder="예: 새벽소리 최지훈" style="width:180px">
+        <button class="ghost" id="reqReload" type="button">🔄 새로고침</button>
+        <span id="reqStatus" class="mini"></span>
+      </div>
+    </div>
+
+    <div class="man">
+      <h3 style="margin-top:0">✍️ 새 요청 올리기</h3>
+      <input id="reqTitle" type="text" placeholder="제목 — 예: 팡팡창고도 슬래시 공급처로 와요" style="width:100%;margin-bottom:6px">
+      <textarea id="reqBody" placeholder="내용 — 어떤 상황에서 뭐가 불편한지, 원하는 동작을 적어주세요. 예시 데이터가 있으면 최고!" style="width:100%;height:70px"></textarea>
+      <div style="text-align:right;margin-top:6px"><button class="ghost" id="reqPost" type="button" style="background:#2d6a4f;color:#fff;border:none">📮 요청 올리기</button></div>
+    </div>
+
+    <div id="reqList"></div>
+  </div>
+
   <!-- ③ 마감시간 입력 팝업 -->
   <div id="mgov" class="ovl">
     <div class="ovbox">
@@ -472,6 +497,8 @@
       var v=t.getAttribute('data-view');
       document.getElementById('view-tool').style.display=(v==='tool')?'':'none';
       document.getElementById('view-manual').style.display=(v==='manual')?'':'none';
+      document.getElementById('view-request').style.display=(v==='request')?'':'none';
+      if(v==='request') reqLoad();   // 탭 열 때마다 최신 목록
       window.scrollTo(0,0);
     });
   });
@@ -1414,6 +1441,114 @@
       } else {
         wongaStatus('⚠️ DB는 업데이트 안 했어요 — 이번 엑셀 변경분이 DB에 빠져 있습니다.\n다음에 리모컨 파일 받아 [📤 DB 적재]로 다시 맞추거나 수동 반영하세요','warn');
       }
+    }
+  });
+
+  // ===== 📮 업데이트 요청 (2026-08-05 사장님: 팀들이 요청 올리고, 마스터가 확인완료 누르고, 애매하면 댓글로 소통) =====
+  // 저장소: 변동공지 원본 시트(SPREADSHEET_ID)의 '업데이트요청'·'업데이트댓글' 탭 — 팀 전원이 동그라미 쓰느라 이미 편집권한 있음.
+  // 탭 없으면 처음 쓸 때 자동 생성. 요청: ID/날짜/작성자/제목/내용/상태/완료일 · 댓글: 요청ID/날짜/작성자/내용.
+  var REQ_TAB='업데이트요청', REQ_CMT='업데이트댓글', REQ_READY=false, REQ_ROWS=[], REQ_CMTS={};
+  function reqSt(h,warn){ var e=document.getElementById('reqStatus'); if(e){ e.textContent=h; e.style.color=warn?'#c0392b':'#666'; } }
+  function reqNow(){ var d=new Date(); function p(n){return (n<10?'0':'')+n;} return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+  function reqEnsure(){
+    if(REQ_READY) return Promise.resolve();
+    var url='https://sheets.googleapis.com/v4/spreadsheets/'+SPREADSHEET_ID+'?fields=sheets.properties.title';
+    return fetch(url,{headers:{Authorization:'Bearer '+accessToken}}).then(function(r){ if(!r.ok) throw new Error('원본 시트 접근 실패 HTTP '+r.status); return r.json(); })
+    .then(function(j){
+      var have={}; (j.sheets||[]).forEach(function(s){ have[s.properties.title]=1; });
+      var reqs=[]; if(!have[REQ_TAB]) reqs.push({addSheet:{properties:{title:REQ_TAB,gridProperties:{frozenRowCount:1}}}});
+      if(!have[REQ_CMT]) reqs.push({addSheet:{properties:{title:REQ_CMT,gridProperties:{frozenRowCount:1}}}});
+      if(!reqs.length){ REQ_READY=true; return; }
+      return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SPREADSHEET_ID+':batchUpdate',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({requests:reqs})})
+        .then(function(r){ if(!r.ok) throw new Error('요청 탭 생성 실패 HTTP '+r.status+' — 원본 시트 수정권한 확인'); })
+        .then(function(){
+          return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SPREADSHEET_ID+'/values:batchUpdate',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+            body:JSON.stringify({valueInputOption:'RAW',data:[
+              {range:"'"+REQ_TAB+"'!A1:G1",values:[['ID','날짜','작성자','제목','내용','상태','완료일']]},
+              {range:"'"+REQ_CMT+"'!A1:D1",values:[['요청ID','날짜','작성자','내용']]}]})});
+        }).then(function(){ REQ_READY=true; });
+    });
+  }
+  function reqAppend(tab, row){
+    return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SPREADSHEET_ID+'/values/'+encodeURIComponent("'"+tab+"'!A:G")+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({values:[row]})})
+      .then(function(r){ if(!r.ok) throw new Error('저장 실패 HTTP '+r.status); });
+  }
+  function reqLoad(){
+    reqSt('불러오는 중...');
+    withToken(function(){
+      reqEnsure().then(function(){
+        return Promise.all([readRange(SPREADSHEET_ID,"'"+REQ_TAB+"'!A2:G"), readRange(SPREADSHEET_ID,"'"+REQ_CMT+"'!A2:D")]);
+      }).then(function(rr){
+        REQ_ROWS=(rr[0]||[]).map(function(v,i){ return {row:i+2, id:cell(v,0), date:cell(v,1), name:cell(v,2), title:cell(v,3), body:cell(v,4), status:cell(v,5)||'대기', done:cell(v,6)}; }).filter(function(x){ return x.id; });
+        REQ_CMTS={}; (rr[1]||[]).forEach(function(v){ var k=cell(v,0); if(!k) return; if(!REQ_CMTS[k]) REQ_CMTS[k]=[]; REQ_CMTS[k].push({date:cell(v,1),name:cell(v,2),body:cell(v,3)}); });
+        reqRender(); reqSt('요청 '+REQ_ROWS.length+'건 · '+reqNow().slice(11)+' 기준');
+      }).catch(function(e){ reqSt('⚠️ '+e.message, true); });
+    });
+  }
+  function reqRender(){
+    var box=document.getElementById('reqList'); if(!box) return;
+    if(!REQ_ROWS.length){ box.innerHTML='<div class="man" style="color:#888">아직 요청이 없어요 — 첫 요청을 올려보세요!</div>'; return; }
+    var list=REQ_ROWS.slice().sort(function(a,b){ var s=(a.status==='대기'?0:1)-(b.status==='대기'?0:1); if(s) return s; return b.row-a.row; });   // 대기 먼저, 그 안에서 최신순
+    var h='';
+    list.forEach(function(q){
+      var isDone=q.status!=='대기';
+      var cs=(REQ_CMTS[q.id]||[]).map(function(c){ return '<div style="padding:4px 0;border-top:1px dashed #e0d9cc"><b>'+esc(c.name||'?')+'</b> <span class="mini">'+esc(c.date)+'</span><br>'+esc(c.body).replace(/\n/g,'<br>')+'</div>'; }).join('');
+      h+='<div class="man" style="'+(isDone?'opacity:.65':'')+'">'
+        +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+        +(isDone?'<span style="background:#2d6a4f;color:#fff;border-radius:4px;padding:1px 8px;font-size:12px">✅ 확인완료'+(q.done?' · '+esc(q.done):'')+'</span>':'<span style="background:#b45309;color:#fff;border-radius:4px;padding:1px 8px;font-size:12px">🟡 대기</span>')
+        +'<b>'+esc(q.title||'(제목 없음)')+'</b>'
+        +'<span class="mini">'+esc(q.name||'?')+' · '+esc(q.date)+'</span>'
+        +(isDone?'':'<button class="ghost" data-act="done" data-id="'+esc(q.id)+'" style="margin-left:auto">✔ 확인 완료 (마스터)</button>')
+        +'</div>'
+        +'<div style="margin:6px 0;white-space:pre-wrap">'+esc(q.body)+'</div>'
+        +(cs?'<div style="margin:6px 0 0;background:#faf7f0;border:1px solid #eee5d5;border-radius:6px;padding:4px 10px">💬 댓글'+cs+'</div>':'')
+        +'<div style="display:flex;gap:6px;margin-top:6px"><input type="text" data-cmtinp="'+esc(q.id)+'" placeholder="댓글 — 질문/답변/보충 설명" style="flex:1"><button class="ghost" data-act="cmt" data-id="'+esc(q.id)+'">💬 등록</button></div>'
+        +'</div>';
+    });
+    box.innerHTML=h;
+  }
+  function reqGetName(){
+    var el=document.getElementById('reqName'); var n=(el.value||'').trim();
+    if(!n){ alert('먼저 위에 내 이름(팀명)을 넣어주세요 — 누가 올렸는지 알아야 소통이 돼요.'); el.focus(); return null; }
+    localStorage.setItem('byd_reqName', n); return n;
+  }
+  document.getElementById('reqName').value=localStorage.getItem('byd_reqName')||'';
+  document.getElementById('reqReload').addEventListener('click', reqLoad);
+  document.getElementById('reqPost').addEventListener('click', function(){
+    var n=reqGetName(); if(!n) return;
+    var t=(document.getElementById('reqTitle').value||'').trim();
+    var b=(document.getElementById('reqBody').value||'').trim();
+    if(!t&&!b){ alert('제목이나 내용을 적어주세요.'); return; }
+    var btn=this; btn.disabled=true;
+    withToken(function(){
+      reqEnsure().then(function(){ return reqAppend(REQ_TAB, ['r'+Date.now(), reqNow(), n, t, b, '대기', '']); })
+      .then(function(){ document.getElementById('reqTitle').value=''; document.getElementById('reqBody').value=''; btn.disabled=false; reqLoad(); })
+      .catch(function(e){ btn.disabled=false; reqSt('⚠️ '+e.message, true); alert('요청 저장 실패: '+e.message); });
+    });
+  });
+  document.getElementById('reqList').addEventListener('click', function(ev){
+    var b=ev.target && ev.target.closest ? ev.target.closest('button[data-act]') : null; if(!b) return;
+    var act=b.getAttribute('data-act'), id=b.getAttribute('data-id');
+    if(act==='cmt'){
+      var n=reqGetName(); if(!n) return;
+      var inp=document.querySelector('input[data-cmtinp="'+id+'"]');
+      var txt=inp?(inp.value||'').trim():''; if(!txt){ alert('댓글 내용을 적어주세요.'); return; }
+      b.disabled=true;
+      withToken(function(){
+        reqAppend(REQ_CMT, [id, reqNow(), n, txt]).then(function(){ reqLoad(); }).catch(function(e){ b.disabled=false; alert('댓글 저장 실패: '+e.message); });
+      });
+    } else if(act==='done'){
+      var q=null; REQ_ROWS.forEach(function(x){ if(x.id===id) q=x; }); if(!q) return;
+      if(!confirm('「'+(q.title||q.body.slice(0,30))+'」\n확인 완료로 표시할까요?\n(요청 반영/답변이 끝났을 때 마스터가 누르는 버튼이에요)')) return;
+      b.disabled=true;
+      withToken(function(){
+        // 그 사이 다른 사람이 요청을 올려 행이 밀렸을 수 있으니 ID 재확인 후 씀
+        readRange(SPREADSHEET_ID,"'"+REQ_TAB+"'!A"+q.row).then(function(v){
+          if(!v.length || cell(v[0],0)!==id){ alert('목록이 바뀌었어요 — 새로고침 후 다시 눌러주세요.'); reqLoad(); return; }
+          return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SPREADSHEET_ID+'/values/'+encodeURIComponent("'"+REQ_TAB+"'!F"+q.row+":G"+q.row)+'?valueInputOption=RAW',{method:'PUT',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({values:[['확인완료', reqNow()]]})})
+            .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); reqLoad(); });
+        }).catch(function(e){ b.disabled=false; alert('완료 표시 실패: '+e.message); });
+      });
     }
   });
 </script>
