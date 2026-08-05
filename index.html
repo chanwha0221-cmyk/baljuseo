@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.575</title>
+<title>발주서 변환기 v22.576</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -55,7 +55,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.575</span>
+  <span class="ver">v22.576</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -82,6 +82,7 @@ textarea::placeholder{color:var(--text3)}
   <summary style="cursor:pointer;font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:11px;user-select:none">📖 자동 예외 규칙 (도구가 알아서 처리 — "왜 이렇게 나왔지?" 싶을 때)</summary>
   <div style="padding:6px 0 8px;line-height:1.7">
     · <b>전화번호 앞 0 복원</b> — 엑셀 복사로 앞 0이 잘린 번호(<code>1039727072</code>)는 자동으로 0을 붙여 <code>010-3972-7072</code>로 복원. 지역번호(02/031…)·안심번호(0502/0504)·070 다 커버, 1577·1833 같은 8자리 대표번호는 그대로.<br>
+    · <b>민물장어 괄호 유지</b> — 민물장어는 괄호가 옵션(예: <code>(장어뼈 주세요)</code> 없으면 뼈·머리 안 줌)이라 홍어 삭힘 괄호처럼 절대 안 지우고 들어온 그대로 유지.<br>
     · <b>나행상회·자은엔앤피 상품명 표준 치환</b> — 발주명이 제각각이라 키워드로 고정: 고바멸치→<b>프리미엄 햇고바멸치 1박스</b> · 대극천 복숭아→프리미엄 대극천 복숭아(무게 유지) · 등갈비→초특가 국내산 등갈비 1kg · 가브리살→녹돈 담백 가브리살 500g · 유정란→난각 1번=자연방사/2번=동물복지 표준명(○구 유지) · 사과 3kg→꼬마 부사사과 3kg. 옵션칸이 '기본'류면 상품명 기준.<br>
     · 그 외 업체별 규칙(무료배송 상자분리·옥돔 마리 통일·신선한아침 등)은 코드 주석 참고. 일회성 이름 바꾸기는 위 <b>임시 규칙</b> 칸을 쓰세요.
   </div>
