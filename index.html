@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.574</title>
+<title>발주서 변환기 v22.575</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -55,7 +55,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.574</span>
+  <span class="ver">v22.575</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -446,6 +446,14 @@ function pp(cl,pr,qty){
     if(_np.includes('통실바다장어')||(_np.includes('통실')&&_np.includes('바다장어'))){const _wm=_np.match(/([\d.]+)\s*kg/);return{name:'통통 바다장어 1kg',qty:Math.max(1,Math.round(qty*(_wm?parseFloat(_wm[1]):1))),maxB:999};}
   }
   let r=pr.replace(/\*/g,'x');
+  // 🐍 민물장어 괄호 = 옵션 (2026-08-05 사장님, 킹콩에프앤비 건): 괄호에 "장어뼈 주세요"를 안 쓰면 뼈·머리를 안 줌.
+  //    홍어 삭힘괄호와 같은 개념 — 절대 지우지 말고 들어온 그대로 유지. 수량(x N)만 뽑아내고 이름은 괄호 포함 원본.
+  if(/민물\s*장어/.test(r)&&/[\(（]/.test(r)){
+    let _nm=r,_q=qty;
+    const _xm=_nm.match(/\s*[xX×]\s*(\d+)\s*/);
+    if(_xm){_q=parseInt(_xm[1]);_nm=(_nm.slice(0,_xm.index)+' '+_nm.slice(_xm.index+_xm[0].length)).replace(/\s+/g,' ').trim();}
+    return{name:_nm,qty:_q,maxB:999};
+  }
   // 합포장 멀티상품을 업체가 콤마(,)로 구분해 줄 때 → 우리 합포장 구분자 '/'로 변환 (천단위 1,000 은 보존). 2026-06-09 사장님 요청
   r=r.replace(/\s*,\s*/g,(m,off,str)=>{const pv=str[off-1]||'',nx=str[off+m.length]||'';return (/\d/.test(pv)&&/\d/.test(nx))?m:' / ';});
   // 숙성도/등급 괄호 보존 (중수·고수·저수 등 숙성 단계, 냉동·냉장·생물 등 보관 상태)
