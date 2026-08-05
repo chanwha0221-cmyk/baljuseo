@@ -425,9 +425,12 @@ function loadToOut(id){ const it=DATA.find(x=>String(x.id)===String(id)); if(!it
 //    지우면/수정하면 사진 없이 복사됨("사진 정보 없음"). 결과창 <img>가 진실의 원천.
 function harvestImgs(){
   const el=$('out');
-  let L=el?[...el.querySelectorAll('img')].map(im=>im.getAttribute('src')||'').filter(u=>u&&!u.startsWith('data:image/gif')):[];
+  // 밴드 UI 잡티 제외 (2026-08-05 백조기 건): 밴드 글 긁어올 때 로딩 스피너(ssl.pstatic.net/static/... loading.gif)가
+  // 사진으로 섞여 들어와 가짜 1장이 첨부되던 문제 — 정적 리소스·gif는 상품 사진이 아니므로 거른다.
+  const junk=u=>u.startsWith('data:image/gif')||/loading\.gif|pstatic\.net\/static\//.test(u);
+  let L=el?[...el.querySelectorAll('img')].map(im=>im.getAttribute('src')||'').filter(u=>u&&!junk(u)):[];
   L=L.filter((u,i)=>L.indexOf(u)===i);
-  return L.length?L:IMGS.slice();
+  return L.length?L:IMGS.filter(u=>!junk(u));
 }
 async function copyRich(){
   const el=$('out');
