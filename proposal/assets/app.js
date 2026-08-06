@@ -449,21 +449,14 @@
   }
 
   function loadSheet() {
-    var id = (CFG.sheetId || "").trim();
-    if (!id) return Promise.reject("no-sheet");
-    var gid = (CFG.sheetGid || "0").trim();
-    var url = "https://docs.google.com/spreadsheets/d/" + id +
-              "/gviz/tq?tqx=out:csv&gid=" + encodeURIComponent(gid) + "&headers=1";
-    return fetch(url, { cache: "no-store" })
-      .then(function (r) {
-        if (!r.ok) throw new Error("sheet " + r.status);
-        return r.text();
-      })
-      .then(function (t) {
-        var prods = rowsToProducts(parseCSV(t));
-        if (!prods.length) throw new Error("sheet empty");
-        return prods;
-      });
+    // 도구 시트 '제안서상품' 탭을 서비스계정으로 읽음 (원본의 공개시트 gviz 방식 대체)
+    // 실패하면 아래 체인이 data/products.json(스냅샷)으로 폴백
+    if (!(CFG.dataSheet && CFG.dataSheet.id && window.svcReadRows)) return Promise.reject("no-sheet");
+    return window.svcReadRows().then(function (rows) {
+      var prods = rowsToProducts(rows);
+      if (!prods.length) throw new Error("sheet empty");
+      return prods;
+    });
   }
 
   document.getElementById("app").innerHTML =

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.578</title>
+<title>발주서 변환기 v22.579</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -55,7 +55,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.578</span>
+  <span class="ver">v22.579</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -310,7 +310,7 @@ function csvParseRows(input){
 // 게시판 텍스트 형식 fallback: "업체명  주소  전화  상품 x N  수령인  주소  전화  [메모]"
 // 공백 개수 상관없이 전화번호 2개를 앵커로 분해 (1칸 공백이든 3칸이든 무관)
 function parseLooseBoardRow(line){
-  const phoneRe=/0\d{1,3}-\d{3,4}-\d{4}/g;   // 0\d{1,3} = 안심번호(0508 등 앞 4자리) 포함 — 2026-08-03 전 파서 통일
+  const phoneRe=/0\d{1,3}-\d{3,5}-\d{4}/g;   // 0\d{1,3} = 안심번호(0508 등 앞 4자리) 포함 — 2026-08-03 전 파서 통일. 가운데 5자리(050-22514-7658 안심번호) 허용 — 2026-08-06
   const phones=[...line.matchAll(phoneRe)];
   if(phones.length<2)return null;
   // 상품 경계 앵커: 'x N'(명시 수량) 또는 단위 수량(5kg·500g·1팩 등). 둘 다 없으면 상품/수령인 경계를 못 잡으니 패스
@@ -610,7 +610,7 @@ function br(cl,cfg,nq,nr,ord,iv){
   // 일반 행: 9칸 (F~N). 주문처(F) + 주소(G) + 연락처(H) + 창고명(I,빈칸) + 상품명+수량(J) + 상품명raw(K) + 고객주소(L) + 고객연락처(M) + 배송메시지(N)
   return[cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
 }
-function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,4}-\d{4,5}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));} // 끝 5자리 허용 (테오푸드 070-8028-78757, 2026-07-02)
+function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,5}-\d{4,5}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));} // 끝 5자리 허용 (테오푸드 070-8028-78757, 2026-07-02) / 가운데 5자리 안심번호 허용 (050-22514-7658, 2026-08-06)
 function isHumanName(s){return /^[가-힣]{2,6}$/.test((s||'').trim());}
 function isHyeinBuyer(s){s=(s||'').trim();return isHumanName(s)||/^[A-Za-z][A-Za-z0-9]{1,19}$/.test(s);} // 혜인 선물 주문자: 한글 이름 또는 jjj2829 같은 영문시작 아이디 (2026-07-29)
 function preprocessHyeinGift(line){
@@ -634,26 +634,28 @@ function preprocessHyein(line){
     const maIdx=line.indexOf('[마스터]');const beforeMa=line.slice(0,maIdx).trim();
     const firstWord=beforeMa.split(/\s+/)[0].replace(/\s+/g,'');
     if(isKnownClient(firstWord))return null;
-    const preMaPhoneM=beforeMa.match(/(0\d{1,3}-\d{3,4}-\d{4})/);
+    const preMaPhoneM=beforeMa.match(/(0\d{1,3}-\d{3,5}-\d{4})/);
     const preMaPhone=preMaPhoneM?preMaPhoneM[1]:'';
     const after=line.slice(maIdx+'[마스터]'.length).trim();
-    const m=after.match(/^(.*?[xX×]\s*\d+)\s+([가-힣]{2,6})\(\d+\)\s+(.+)$/);
+    const m=after.match(/^(.*?[xX×]\s*\d+)\s+([가-힣]{1,6}\*{0,3})\(\d+\)\s+(.+)$/);
     if(!m)return null;
     const product=m[1].trim();const custName=m[2].trim();const rest=m[3].trim();
-    const pm=rest.match(/(0\d{1,3}-\d{3,4}-\d{4})/);
+    const pm=rest.match(/(0\d{1,3}-\d{3,5}-\d{4})/);
     let addr=rest,custPhone=preMaPhone,msg='';
     if(pm){const idx=rest.indexOf(pm[1]);addr=rest.slice(0,idx).trim();msg=rest.slice(idx+pm[1].length).trim();custPhone=pm[1];}
     return`혜인건강\t\t\t\t${product}\t${custName}\t${addr}\t${custPhone}\t${msg}`;
   }
   // 형식 2: 이름 전화번호 상품명 x N 이름(N) 주소 전화번호 (탭 없는 공백 구분)
-  const m2=line.match(/^([가-힣]{2,6}|[A-Za-z][A-Za-z0-9]{1,19})\s+(0\d{1,3}-\d{3,4}-\d{4})\s+(.*?[xX×]\s*\d+)\s+([가-힣]{2,6})\(\d+\)\s+(.+)$/);
+  // 이름 마스킹 별표(김미*)·가운데 5자리 안심번호(050-22514-7658) 허용 — 2026-08-06 김미* 건
+  const m2=line.match(/^([가-힣]{1,6}\*{0,3}|[A-Za-z][A-Za-z0-9]{1,19})\s+(0\d{1,3}-\d{3,5}-\d{4})\s+(.*?[xX×]\s*\d+)\s+([가-힣]{1,6}\*{0,3})\(\d+\)\s+(.+)$/);
   if(m2){
     const firstWord=m2[1].replace(/\s+/g,'');
     if(isKnownClient(firstWord))return null;
     const product=m2[3].trim();const custName=m2[4].trim();const rest=m2[5].trim();
-    const pm=rest.match(/(0\d{1,3}-\d{3,4}-\d{4})/);
+    const pm=rest.match(/(0\d{1,3}-\d{3,5}-\d{4})/);
     let addr=rest,custPhone=m2[2],msg='';
     if(pm){const idx=rest.lastIndexOf(pm[0]);addr=rest.slice(0,idx).trim();custPhone=pm[0];msg=rest.slice(idx+pm[0].length).trim();}
+    if(/^\d{1,2}$/.test(msg))msg='';  // 전화 뒤에 눌어붙은 수량 잔여 숫자(…-76581의 '1') 제거
     return`혜인건강\t\t\t\t${product}\t${custName}\t${addr}\t${custPhone}\t${msg}`;
   }
   return null;
@@ -700,7 +702,7 @@ function preprocessNahaengJaeun(line){
 }
 function isPureNum(s){return !!(s.match(/^\d{1,6}$/))}
 function extractPhoneFromAddr(addr){
-  const m=addr.match(/(?<!\d)0\d{1,3}-\d{3,4}-\d{4}(?!\d)/);  // 0\d{1,3} = 안심번호(0508 등 4자리 앞번호) 포함, 앞뒤 (?<!\d)(?!\d)로 숫자 중간 매칭 방지 (2026-07-28 0508 05 잘림 fix)
+  const m=addr.match(/(?<!\d)0\d{1,3}-\d{3,5}-\d{4}(?!\d)/);  // 0\d{1,3} = 안심번호(0508 등 4자리 앞번호) 포함, 앞뒤 (?<!\d)(?!\d)로 숫자 중간 매칭 방지 (2026-07-28 0508 05 잘림 fix)
   if(!m)return{addr,phone:''};
   const phone=m[0];const cleaned=addr.replace(phone,'').replace(/\s+/g,' ').trim();
   return{addr:cleaned,phone};
@@ -850,7 +852,7 @@ function isKakaoOrderFormat(raw){
     if(line.includes('\t'))return false;
     const firstWord=line.split(/\s+/)[0];
     if(!CC[firstWord])return false;
-    const phones=line.match(/0\d{1,3}-\d{3,4}-\d{4}/g);
+    const phones=line.match(/0\d{1,3}-\d{3,5}-\d{4}/g);
     if(!phones||phones.length<1)return false;
     if(!/[Xx×]\s*\d+/.test(line))return false;
   }
@@ -866,7 +868,7 @@ function preprocessKakaoOrder(raw){
     let rest=line.slice(client.length).trim();
     // 2) 업체 주문번호/전화 스킵 — 대시 전화면 보관(폴백), 무대시 9~11자리 숫자(주문번호 등)면 버림
     let inlinePhone='';
-    let mDash=rest.match(/^(0\d{1,3}-\d{3,4}-\d{4})\s+/);
+    let mDash=rest.match(/^(0\d{1,3}-\d{3,5}-\d{4})\s+/);
     if(mDash){inlinePhone=mDash[1];rest=rest.slice(mDash[0].length).trim();}
     else{const mNum=rest.match(/^\d{9,11}\s+/);if(mNum)rest=rest.slice(mNum[0].length).trim();}
     // 3) 상품 (x N 까지)
@@ -879,7 +881,7 @@ function preprocessKakaoOrder(raw){
     if(m3){custName=m3[1];addrAndRest=m3[2];}
     else{const m3b=after.match(/^(\S+)\s+(.+)$/);if(!m3b)continue;custName=m3b[1];addrAndRest=m3b[2];}
     // 5) 받는분 전화로 주소/메모 분리
-    const phM=addrAndRest.match(/(0\d{1,3}-\d{3,4}-\d{4})/);
+    const phM=addrAndRest.match(/(0\d{1,3}-\d{3,5}-\d{4})/);
     if(!phM)continue;
     const phIdx=addrAndRest.indexOf(phM[1]);
     const address=addrAndRest.slice(0,phIdx).trim();
@@ -964,7 +966,7 @@ function _preprocessBigfishLine(line){
   const cells = line.split('\t').map(c=>c.trim())
     .filter(c=>c && c!=='출고지주소' && c!=='빅피쉬마켓');
   if(cells.length<3) return null;
-  const phoneRe=/^0\d{1,3}-?\d{3,4}-?\d{4}$/;
+  const phoneRe=/^0\d{1,3}-?\d{3,5}-?\d{4}$/;
   const phones = cells.filter(c=>phoneRe.test(c));
   if(phones.length<1) return null;
   const sendPhone = phones[0];
@@ -1120,7 +1122,7 @@ function normSikbomProd(raw){return raw.replace(/^버피\s+/,'').trim();} // '�
 function normLine(l){const t=l.trim();return t.includes('\t')?t:t.replace(/ {2,}/g,'\t');}
 function isOrderHdr(l){return /^\d{9}[\t ]/.test(l)&&/GP[A-Z]/.test(l);}
 function extractAddrPhone(a){
-  const m=a.match(/(?<!\d)(0\d{1,3}[\s]?\d{3,4}[\s]?\d{4})(?!\d)/);  // 0\d{1,3} = 안심번호(0508 등) 포함 (2026-07-28 fix)
+  const m=a.match(/(?<!\d)(0\d{1,3}[\s]?\d{3,5}[\s]?\d{4})(?!\d)/);  // 0\d{1,3} = 안심번호(0508 등) 포함 (2026-07-28 fix), 가운데 5자리 허용 (2026-08-06)
   if(!m)return{addr:a.trim(),msg:''};
   const ix=a.indexOf(m[1]);
   return{addr:a.slice(0,ix).trim(),msg:a.slice(ix+m[1].length).trim()};
@@ -1371,7 +1373,7 @@ function isKingkongVertical(raw){
 }
 function parseKingkongVertical(raw){
   const KK={insert:'킹콩에프앤비',client:'킹콩농수산',addr:'경기도 화성시 동탄구 동탄기흥로 594-7, 1214호 주식회사 킹콩에프앤비',phone:'031-8043-2244'};
-  const phoneRe=/0\d{1,3}-?\d{3,4}-?\d{4,5}/;
+  const phoneRe=/0\d{1,3}-?\d{3,5}-?\d{4,5}/;
   const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
   let i=0;
   if(lines[i]&&lines[i].replace(/\s+/g,'')==='킹콩농수산')i++;   // 주문처명 스킵

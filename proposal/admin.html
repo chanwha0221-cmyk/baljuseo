@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>제안서 상품 관리</title>
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f7f6;--surface:#fff;--border:#e3e6e3;--text:#20241f;--text3:#8a908a;--accent:#2d6a4f;--accent-light:#eaf3ee;--warn:#c0392b;--ok:#2d6a4f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px}
+header{position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-weight:900;font-size:16px}
+.logo span{color:var(--accent)}
+.pill{font-size:11px;background:var(--accent-light);color:var(--accent);border:1px solid #b7ddc8;padding:2px 9px;border-radius:20px;font-weight:700}
+#status{flex:1;min-width:200px;font-size:12px;color:var(--text3)}
+#status.ok{color:var(--ok)} #status.warn{color:var(--warn);font-weight:700}
+.btn{border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:7px 14px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--text)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:hover{filter:brightness(.97)}
+main{max-width:1280px;margin:0 auto;padding:16px}
+.hint{font-size:11.5px;color:var(--text3);line-height:1.7;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+th{background:#eef1ee;font-size:11px;padding:7px 6px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{border-bottom:1px solid var(--border);padding:4px 5px;vertical-align:middle}
+tr.hidden-row td{background:#fafafa;opacity:.55}
+input[type=text],input[type=number],select{width:100%;border:1px solid var(--border);border-radius:5px;padding:5px 7px;font-family:inherit;font-size:12.5px;background:#fff;color:var(--text)}
+input:focus,select:focus{outline:2px solid #b7ddc8}
+.w-num{width:74px}
+.mini-btn{border:none;background:none;cursor:pointer;font-size:13px;padding:2px 4px;color:var(--text3)}
+.mini-btn:hover{color:var(--text)}
+.imgprev{width:34px;height:34px;object-fit:cover;border-radius:5px;border:1px solid var(--border);background:#f2f2f2}
+.footer-bar{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 18px;display:flex;gap:10px;align-items:center;justify-content:flex-end}
+a.link{color:var(--accent);font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">제안서 <span>상품 관리</span></span>
+  <span class="pill">로그인 없음 · 시트 직저장</span>
+  <div id="status">불러오는 중...</div>
+  <button class="btn" onclick="addRow()">➕ 상품 추가</button>
+  <button class="btn" onclick="loadAll()">🔄 다시 불러오기</button>
+  <a class="btn" href="index.html" target="_blank">👁 제안서 보기</a>
+</header>
+<main>
+  <div class="hint">
+    · 여기서 고치고 <b>💾 저장</b>을 눌러야 제안서에 반영돼요 (저장 = 시트의 '제안서상품' 탭을 통째로 덮어씀).<br>
+    · <b>사진</b> 칸: ① 기존 파일명(예: <code>fish-1.webp</code>) ② 이미지 주소(http…) ③ <b>구글드라이브 공유 링크</b>(보기 권한 공개) 전부 돼요.<br>
+    · <b>노출</b>을 끄면 목록에서 사라지지 않고 제안서에서만 숨겨져요. 순서는 ↑↓로.
+  </div>
+  <table>
+    <thead><tr>
+      <th style="width:86px">카테고리</th><th>상품명</th><th style="width:70px">창고</th><th>설명</th>
+      <th style="width:80px">공급가</th><th style="width:110px">택배사</th><th style="width:70px">택배비</th>
+      <th style="width:64px">면과세</th><th style="width:44px">사진</th><th style="width:180px">사진 값</th>
+      <th style="width:40px">노출</th><th style="width:70px">순서/삭제</th>
+    </tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</main>
+<div class="footer-bar">
+  <span id="count" style="font-size:12px;color:var(--text3)"></span>
+  <button class="btn primary" style="padding:9px 26px" onclick="saveAll()">💾 저장 (제안서에 반영)</button>
+</div>
+
+<script src="config.js"></script>
+<script src="assets/svc.js"></script>
+<script>
+"use strict";
+var CATS=[["fish","수산물"],["meal","간편식품"],["living","생활용품"]];
+var HDR=['카테고리','상품명','창고','설명','공급가','택배사','택배비','면과세','사진','노출'];
+
+function st(h,c){var e=document.getElementById('status');e.className=c||'';e.innerHTML=h;}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function imgSrc(v){
+  v=String(v||'').trim(); if(!v)return'';
+  if(/^https?:\/\//i.test(v)){
+    var m=v.match(/drive\.google\.com\/file\/d\/([^/]+)/)||v.match(/[?&]id=([^&]+)/);
+    if(m&&/drive\.google\.com/.test(v))return'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w200';
+    return v;
+  }
+  return'images/products/'+v.replace(/^\/+/,'');
+}
+
+function rowHTML(p){
+  var catOpts=CATS.map(function(c){return'<option value="'+c[0]+'"'+(p.category===c[0]?' selected':'')+'>'+c[1]+'</option>';}).join('');
+  return'<tr'+(p.show===false?' class="hidden-row"':'')+'>'+
+    '<td><select data-k="category" onchange="mark(this)">'+catOpts+'</select></td>'+
+    '<td style="display:flex;gap:3px;align-items:center"><input type="text" data-k="name" value="'+esc(p.name)+'" oninput="mark(this)">'+
+      '<button class="mini-btn" title="상품명 복사" onclick="copyName(this)">📋</button></td>'+
+    '<td><input type="text" data-k="warehouse" value="'+esc(p.warehouse)+'" oninput="mark(this)"></td>'+
+    '<td><input type="text" data-k="spec" value="'+esc(p.spec)+'" oninput="mark(this)"></td>'+
+    '<td><input type="number" class="w-num" data-k="supplyPrice" value="'+esc(p.supplyPrice)+'" oninput="mark(this)"></td>'+
+    '<td><input type="text" data-k="courier" value="'+esc(p.courier)+'" oninput="mark(this)"></td>'+
+    '<td><input type="number" class="w-num" data-k="shipFee" value="'+esc(p.shipFee)+'" oninput="mark(this)"></td>'+
+    '<td><select data-k="tax" onchange="mark(this)"><option'+(p.tax==='면세'?' selected':'')+'>면세</option><option'+(p.tax==='과세'?' selected':'')+'>과세</option></select></td>'+
+    '<td>'+(p.image?'<img class="imgprev" src="'+esc(imgSrc(p.image))+'" onerror="this.style.opacity=.2" alt="">':'')+'</td>'+
+    '<td><input type="text" data-k="image" value="'+esc(p.image)+'" oninput="mark(this)" placeholder="파일명 / URL / 드라이브링크"></td>'+
+    '<td style="text-align:center"><input type="checkbox" data-k="show"'+(p.show===false?'':' checked')+' onchange="toggleShow(this)"></td>'+
+    '<td style="white-space:nowrap;text-align:center">'+
+      '<button class="mini-btn" title="위로" onclick="move(this,-1)">↑</button>'+
+      '<button class="mini-btn" title="아래로" onclick="move(this,1)">↓</button>'+
+      '<button class="mini-btn" title="삭제" style="color:var(--warn)" onclick="delRow(this)">✕</button></td>'+
+  '</tr>';
+}
+
+var DIRTY=false;
+function mark(){DIRTY=true;st('수정됨 — 저장을 눌러야 반영돼요','warn');}
+function toggleShow(el){var tr=el.closest('tr');tr.classList.toggle('hidden-row',!el.checked);mark();}
+function copyName(b){var inp=b.closest('td').querySelector('input');navigator.clipboard.writeText(inp.value);var o=b.textContent;b.textContent='✓';setTimeout(function(){b.textContent=o;},800);}
+function move(b,d){var tr=b.closest('tr'),tb=tr.parentNode;var ref=d<0?tr.previousElementSibling:tr.nextElementSibling;if(!ref)return;tb.insertBefore(tr,d<0?ref:ref.nextElementSibling);mark();}
+function delRow(b){var tr=b.closest('tr');var nm=tr.querySelector('[data-k=name]').value;if(!confirm('「'+nm+'」 행을 삭제할까요? (저장해야 확정)'))return;tr.remove();refreshCount();mark();}
+function addRow(){var tb=document.getElementById('tbody');tb.insertAdjacentHTML('beforeend',rowHTML({category:'fish',name:'',warehouse:'',spec:'',supplyPrice:'',courier:'씨제이대한통운',shipFee:4000,tax:'면세',image:'',show:true}));refreshCount();mark();}
+function refreshCount(){document.getElementById('count').textContent=document.querySelectorAll('#tbody tr').length+'개 상품';}
+
+function readTable(){
+  var out=[];
+  document.querySelectorAll('#tbody tr').forEach(function(tr){
+    var g=function(k){var el=tr.querySelector('[data-k='+k+']');return el?(el.type==='checkbox'?el.checked:el.value):'';};
+    var name=String(g('name')).trim(); if(!name)return;
+    out.push([g('category'),name,g('warehouse'),g('spec'),g('supplyPrice'),g('courier'),g('shipFee'),g('tax'),g('image'),g('show')?'표시':'숨김']);
+  });
+  return out;
+}
+
+function loadAll(){
+  if(DIRTY&&!confirm('저장 안 한 수정이 있어요. 버리고 다시 불러올까요?'))return;
+  st('불러오는 중...');
+  svcReadRows().then(function(rows){
+    if(!rows.length){document.getElementById('tbody').innerHTML='';refreshCount();st('시트가 비어 있어요 — ➕상품 추가로 시작','warn');return;}
+    var hdr=rows[0],idx={};hdr.forEach(function(h,i){idx[String(h).trim()]=i;});
+    var html='';
+    rows.slice(1).forEach(function(r){
+      var c=function(k){var i=idx[k];return i==null?'':(r[i]==null?'':r[i]);};
+      if(!String(c('상품명')).trim())return;
+      html+=rowHTML({category:c('카테고리')||'fish',name:c('상품명'),warehouse:c('창고'),spec:c('설명'),supplyPrice:c('공급가'),courier:c('택배사'),shipFee:c('택배비'),tax:c('면과세')||'면세',image:c('사진'),show:String(c('노출')).trim()!=='숨김'});
+    });
+    document.getElementById('tbody').innerHTML=html;refreshCount();DIRTY=false;
+    st('✅ '+document.querySelectorAll('#tbody tr').length+'개 상품 로드됨','ok');
+  }).catch(function(e){st('⚠️ 불러오기 실패: '+esc(e.message),'warn');});
+}
+
+function saveAll(){
+  var rows=readTable();
+  var shown=rows.filter(function(r){return r[9]==='표시';}).length;
+  if(!confirm('시트에 저장할까요?\n\n· 전체 '+rows.length+'개 (제안서 노출 '+shown+'개 · 숨김 '+(rows.length-shown)+'개)\n· 시트의 제안서상품 탭을 통째로 덮어씁니다\n· 제안서 사이트에 바로 반영돼요'))return;
+  st('저장 중...');
+  svcWriteRows([HDR].concat(rows)).then(function(){
+    DIRTY=false;st('✅ 저장 완료 — 제안서에 반영됨 ('+rows.length+'개)','ok');
+  }).catch(function(e){st('⚠️ 저장 실패: '+esc(e.message)+' — 다시 시도해 주세요','warn');});
+}
+
+window.addEventListener('beforeunload',function(e){if(DIRTY){e.preventDefault();e.returnValue='';}});
+loadAll();
+</script>
+</body>
+</html>
