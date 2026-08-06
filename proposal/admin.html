@@ -13,6 +13,11 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Noto Sans KR',
 header{position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .logo{font-weight:900;font-size:16px}
 .logo span{color:var(--accent)}
+.tabbar{display:flex;gap:4px;background:#eef1ee;border-radius:8px;padding:3px}
+.tab{border:none;background:none;font-family:inherit;font-size:12.5px;font-weight:700;padding:6px 16px;border-radius:6px;cursor:pointer;color:var(--text3)}
+.tab.active{background:var(--surface);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+#view-preview{display:none}
+#pvframe{width:100%;height:calc(100vh - 60px);border:none;display:block;background:#fff}
 .pill{font-size:11px;background:var(--accent-light);color:var(--accent);border:1px solid #b7ddc8;padding:2px 9px;border-radius:20px;font-weight:700}
 #status{flex:1;min-width:200px;font-size:12px;color:var(--text3)}
 #status.ok{color:var(--ok)} #status.warn{color:var(--warn);font-weight:700}
@@ -38,13 +43,16 @@ a.link{color:var(--accent);font-weight:700;text-decoration:none}
 <body>
 <header>
   <span class="logo">제안서 <span>상품 관리</span></span>
+  <div class="tabbar">
+    <button class="tab active" id="tab-manage" onclick="showView('manage')">🛠 상품 관리</button>
+    <button class="tab" id="tab-preview" onclick="showView('preview')">👁 제안서 미리보기</button>
+  </div>
   <span class="pill">로그인 없음 · 시트 직저장</span>
   <div id="status">불러오는 중...</div>
-  <button class="btn" onclick="addRow()">➕ 상품 추가</button>
-  <button class="btn" onclick="loadAll()">🔄 다시 불러오기</button>
-  <a class="btn" href="index.html" target="_blank">👁 제안서 보기</a>
+  <button class="btn" id="btn-add" onclick="addRow()">➕ 상품 추가</button>
+  <button class="btn" id="btn-reload" onclick="loadAll()">🔄 다시 불러오기</button>
 </header>
-<main>
+<main id="view-manage">
   <div class="hint">
     · 여기서 고치고 <b>💾 저장</b>을 눌러야 제안서에 반영돼요 (저장 = 시트의 '제안서상품' 탭을 통째로 덮어씀).<br>
     · <b>사진</b> 칸: ① 기존 파일명(예: <code>fish-1.webp</code>) ② 이미지 주소(http…) ③ <b>구글드라이브 공유 링크</b>(보기 권한 공개) 전부 돼요.<br>
@@ -60,9 +68,12 @@ a.link{color:var(--accent);font-weight:700;text-decoration:none}
     <tbody id="tbody"></tbody>
   </table>
 </main>
-<div class="footer-bar">
+<div class="footer-bar" id="manage-footer">
   <span id="count" style="font-size:12px;color:var(--text3)"></span>
   <button class="btn primary" style="padding:9px 26px" onclick="saveAll()">💾 저장 (제안서에 반영)</button>
+</div>
+<div id="view-preview">
+  <iframe id="pvframe" title="제안서 미리보기"></iframe>
 </div>
 
 <script src="config.js"></script>
@@ -104,6 +115,22 @@ function rowHTML(p){
       '<button class="mini-btn" title="아래로" onclick="move(this,1)">↓</button>'+
       '<button class="mini-btn" title="삭제" style="color:var(--warn)" onclick="delRow(this)">✕</button></td>'+
   '</tr>';
+}
+
+// 탭 전환: 관리 ↔ 제안서 미리보기 (미리보기 열 때마다 새로 로드 — 방금 저장분 바로 보임)
+function showView(v){
+  var manage=(v==='manage');
+  document.getElementById('view-manage').style.display=manage?'':'none';
+  document.getElementById('manage-footer').style.display=manage?'':'none';
+  document.getElementById('btn-add').style.display=manage?'':'none';
+  document.getElementById('btn-reload').style.display=manage?'':'none';
+  document.getElementById('view-preview').style.display=manage?'none':'';
+  document.getElementById('tab-manage').classList.toggle('active',manage);
+  document.getElementById('tab-preview').classList.toggle('active',!manage);
+  if(!manage){
+    if(DIRTY) st('⚠️ 저장 안 한 수정이 있어요 — 미리보기엔 저장된 내용만 보입니다','warn');
+    document.getElementById('pvframe').src='index.html?pv='+Date.now();   // 캐시 우회 재로드
+  }
 }
 
 var DIRTY=false;
@@ -149,6 +176,7 @@ function saveAll(){
   st('저장 중...');
   svcWriteRows([HDR].concat(rows)).then(function(){
     DIRTY=false;st('✅ 저장 완료 — 제안서에 반영됨 ('+rows.length+'개)','ok');
+    showView('preview');   // 저장하면 바로 결과 확인 (팀장님 요청: 한 사이트에서 탭으로)
   }).catch(function(e){st('⚠️ 저장 실패: '+esc(e.message)+' — 다시 시도해 주세요','warn');});
 }
 
