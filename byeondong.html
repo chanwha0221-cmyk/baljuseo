@@ -246,7 +246,7 @@
       <div class="step2"><b>④</b> <b>🔀 각 시트 적용</b> — 상품변동사항·당일생물·창고 탭에 자동으로 들어가요.<br>
         · 창고 공급처를 어느 탭에 넣을지 모르면 <b>물어봐요</b> (한 번 답하면 저장 · <b>여러 탭이면 쉼표로</b> 답해요).<br>
         · <b>&lt;○○창고 전상품&gt;</b> 행은 상품으로 안 넣고, 창고 탭에서 <b>그 창고 상품들을 일괄 처리</b>해요 (아래 ⚡ 예외 규칙 참고).</div>
-      <div class="step2"><b>⑤ (선택)</b> <b>📗 엑셀 생성</b> — 리모컨 업데이트용 <b>변경분만</b> 엑셀로 뽑아요. ☁️ 원가 DB를 쓰면 <b>DB도 같은 내용으로 동시 업데이트</b>돼요 (상품명변경은 DB에서 옛 이름 행 자동 삭제). 🅧 화면에서 <b>✕제외한 상품도 리모컨엔 포함</b>돼요 — 시트엔 안 넣어도 업체가 당일로 발주 줄 수 있어서 미리 등록해두는 거예요.</div>
+      <div class="step2"><b>⑤ (선택)</b> <b>📗 엑셀 생성</b> — 리모컨 업데이트용 <b>변경분만</b> 엑셀로 뽑아요. ☁️ 원가 DB를 쓰면 <b>DB도 같은 내용으로 동시 업데이트</b>돼요 (상품명변경은 DB에서 옛 이름 행 자동 삭제). <b>기존 상품도 공지 원가칸에 값이 있으면 DB엔 원가까지 갱신</b>돼요 — 리모컨 원가는 관리팀이 고쳐주지만 DB는 관리팀 손이 안 닿아서 여기서 챙깁니다 (엑셀엔 여전히 공급가만). <b>재입고인데 리모컨에 없던 상품은 출시처럼 신규 등록</b>(원가까지 채움)돼요. 🅧 화면에서 <b>✕제외한 상품도 리모컨엔 포함</b>돼요 — 시트엔 안 넣어도 업체가 당일로 발주 줄 수 있어서 미리 등록해두는 거예요.</div>
       <div class="step2"><b>⑥ (선택)</b> <b>🔗 링크 업데이트</b> — 링크 시트 + 그룹웨어 문서복사를 새 창으로 열어줘요.</div>
     </div>
 
@@ -660,7 +660,8 @@
   });
   // 리모컨 변경분(newRows)을 DB에 동일 반영: 기존행 수정 / 신규 추가 / 상품명변경 옛 이름 행 삭제
   // 기존행 수정 시 원가 E·F·G는 값 있을 때만 씀 — 빈값으로 관리팀 원가를 지우는 사고 방지 (엑셀 규칙과 동일)
-  // costUpds: 원가변경 건 — DB는 리모컨 미러라 원가(E)를 갱신 (리모컨 엑셀엔 절대 안 들어감. 2026-08-05 사장님)
+  // costUpds: 원가변경 건 + 기존상품 공지 원가칸 건 — DB는 관리팀이 원가 관리를 안 해주므로 원가(E)를 여기서 갱신
+  //           (리모컨 엑셀엔 절대 안 들어감. 원가변경 2026-08-05 / 기존상품 원가칸 2026-08-06 팀장님)
   function updateDbSheet(newRows, renameOldPks, costUpds){
     return dbMeta().then(function(){ return readRange(DB_ID, "'"+DB_TAB+"'!A2:K"); }).then(function(rows){
       var rowOf={}; rows.forEach(function(r,i){ var nm=cell(r,0); if(nm && rowOf[pkey(nm)]==null) rowOf[pkey(nm)]=i+2; });
@@ -1337,6 +1338,10 @@
   //         업체가 "그럼 당일로 팔게" 발주 줄 수 있음 — 리모컨에 없으면 그때 수동 입력해야 하니 미리 등록.
   //         규칙은 시트 들어가는 상품과 동일(출시=원가+공급가 / 인상·인하=공급가만). 각 시트 적용·복사는 기존대로 제외 유지.
   //       출시·리모컨에없던 신규 → 원가 E·F·G 채움, 나머지 → 원가 빈칸(관리팀 원가 안 건드림).
+  //       ★재입고인데 리모컨에 없던 상품 = 출시와 동일 취급 (2026-08-06 팀장님) — !inRemote 조건이 커버, 건수 별도 표시.
+  //       ★기존 상품이라도 공지 원가칸에 값이 있으면 "DB에만" 원가 갱신 (2026-08-06 팀장님):
+  //         리모컨(엑셀)은 관리팀이 원가를 직접 관리하지만 백데이터(DB)는 관리팀 손이 안 닿음 —
+  //         여기서 안 넣으면 DB 원가가 영영 옛값으로 남는다. 엑셀 E·F·G는 지금대로 빈칸 유지.
   //       ★ 상품명변경도 원가 E·F·G 채움 (2026-08-04 사장님): 리모컨 입장에선 새 이름 = 새 슬롯(신규 등록과 동일)이라
   //         원가 없이 들어가면 반쪽짜리 슬롯이 됨. 변동공지 원가칸 우선, 없으면 옛 이름 행에서 승계(이름만 바뀐 거라 원가 동일).
   //       ★ 변경분만 출력 — 기존 리모컨 전체는 붙이지 않는다. 전체를 덮어쓰면 그 사이 관리팀이 고친
@@ -1379,9 +1384,8 @@
       var mTW=String(v[14]||'').match(/택배비\s*원가\s*[:：]\s*([\d,]+)/);
       costUpds[pkey(name)]={pk:pkey(name), n:name, E:E, G:mTW?mTW[1].replace(/,/g,''):'', K:today};
     });
-    var costList=Object.keys(costUpds).map(function(k){ return costUpds[k]; });
 
-    var newRows=[], removeSet={}, seenPk={}, skipped=0, filledWonga=0, renamed=0, dupInNew=mgX.dup, renameNoCost=[], dbRenameOld=[], exIncluded=0;
+    var newRows=[], removeSet={}, seenPk={}, skipped=0, filledWonga=0, renamed=0, dupInNew=mgX.dup, renameNoCost=[], dbRenameOld=[], exIncluded=0, dbCostCol=0, restockNew=[];
     items.forEach(function(it){
       var v=it.v, byun=String(v[3]||'');
       if(byun.indexOf('품절')>=0){ skipped++; return; }                       // 품절 제외
@@ -1409,6 +1413,7 @@
       var E, F, G;
       if(isNew){                        // 출시/신규 → 원가 E·F·G 채움 (F는 공급가쪽과 동일, G는 원가 택배비 우선)
         E = sani(v[10]); F = gwaSe; G = taekBiWonga;
+        if(/재입고/.test(byun) && !inRemote) restockNew.push(name);   // ★재입고인데 리모컨에 없음 = 출시 취급 (2026-08-06 팀장님) — 건수 표시용
         if(E!=='') filledWonga++; else if(rename) renameNoCost.push(name);   // 이름변경인데 옛 이름도 리모컨에 없고 원가칸도 빈 경우
       } else if(rename){                // ★상품명변경 = 리모컨엔 새 슬롯(신규와 동일) → 원가 필수 (2026-08-04)
         var oldRow = WONGA_ROWMAP[oldPk] || WONGA_ROWMAP[pk] || null;   // 옛 이름 행에서 원가 승계
@@ -1417,8 +1422,12 @@
         F = oc(5) || gwaSe;                             // 원가 과세: 옛 행 우선, 없으면 공급가쪽
         G = mTW ? taekBiWonga : (oc(6) || taekBi);      // 참고사항 명시 > 옛 행 G > 공급가 택배비
         if(E!=='') filledWonga++; else renameNoCost.push(name);   // 원가 못 구함 → 아래 경고
-      } else {                          // 기존 상품 → 원가는 관리팀 몫, 절대 안 건드림(전부 빈칸)
+      } else {                          // 기존 상품 → 리모컨(엑셀) 원가는 관리팀 몫, 절대 안 건드림(전부 빈칸)
         E = ''; F = ''; G = '';
+        // ★단 DB(백데이터)는 관리팀이 원가 관리를 안 해줌 (2026-08-06 팀장님) —
+        //   공지 원가칸에 값이 있으면 DB에만 원가 갱신. 원가변경 건(costSrc)이 이미 있으면 그쪽(명시적 지시) 우선.
+        var eCol = sani(v[10]);
+        if(eCol!=='' && !costUpds[pk]){ costUpds[pk]={pk:pk, n:name, E:eCol, G:mTW?taekBiWonga:'', K:today}; dbCostCol++; }
       }
       if(rename){ renamed++; if(rename.old){ removeSet[pkey(rename.old)]=1; if(pkey(rename.old)!==pk) dbRenameOld.push(pkey(rename.old)); } }   // 옛 이름 행 제거 표시 (DB에선 실제 삭제)
 
@@ -1438,6 +1447,8 @@
       removeSet[pk]=1;           // 같은 상품 기존 행 제거(맨 위 새것만 남김)
       if(it.ex) exIncluded++;    // ✕제외 상품인데 리모컨엔 들어간 건 (카운트 표시용)
     });
+    // DB 원가 갱신 목록 확정 — 원가변경 건 + 기존상품 원가칸 건 (forEach에서 채워지므로 여기서 뽑음)
+    var costList=Object.keys(costUpds).map(function(k){ return costUpds[k]; });
 
     if(!newRows.length && !costList.length){ alert('리모컨에 넣을 상품이 없어요.\n(전부 품절/원가변경/정보변경으로 제외됨)'); return; }
 
@@ -1450,19 +1461,19 @@
       var fn = '리모컨_변경분_'+today.replace(/-/g,'')+'.xlsx';
       try { XLSX.writeFile(wb, fn); }
       catch(e){ alert('엑셀 저장 실패: '+e.message); return; }
-      setStatus('✅ 리모컨 <b>변경분</b> 엑셀 생성 완료 → <b>'+esc(fn)+'</b><br>· 업데이트 대상 <b>'+newRows.length+'</b>건만 (원가채움 '+filledWonga+' · 이름변경 '+renamed+')<br>· 제외 '+skipped+'건(품절/원가변경/정보변경) · 중복스킵 '+dupInNew+'건'+(exIncluded?'<br>· 🅧 화면에서 ✕제외한 상품도 <b>'+exIncluded+'</b>건 포함 — 시트엔 안 들어가도 리모컨엔 등록(업체가 당일로 발주 줄 수 있음)':'')+(costList.length?'<br>· 💰 원가변경 '+costList.length+'건 → 엑셀엔 안 넣고 DB에만 반영':'')+'<br>· ✅ 기존 상품은 안 들어감 → 관리팀 원가 안 건드림'+(renamed?'<br>· ⚠️ 이름변경 '+renamed+'건은 리모컨에 옛 이름 행이 남아있을 수 있어요(수동 확인)':'')+(renameNoCost.length?'<br>· 🚨 이름변경인데 <b>원가를 못 채운</b> 상품 '+renameNoCost.length+'건: <b>'+esc(renameNoCost.join(', '))+'</b> — 엑셀 E열에 원가 직접 넣어주세요(새 슬롯이라 원가 필수)':''), 'ok');
+      setStatus('✅ 리모컨 <b>변경분</b> 엑셀 생성 완료 → <b>'+esc(fn)+'</b><br>· 업데이트 대상 <b>'+newRows.length+'</b>건만 (원가채움 '+filledWonga+' · 이름변경 '+renamed+')<br>· 제외 '+skipped+'건(품절/원가변경/정보변경) · 중복스킵 '+dupInNew+'건'+(exIncluded?'<br>· 🅧 화면에서 ✕제외한 상품도 <b>'+exIncluded+'</b>건 포함 — 시트엔 안 들어가도 리모컨엔 등록(업체가 당일로 발주 줄 수 있음)':'')+(restockNew.length?'<br>· ♻️ 재입고인데 리모컨에 없던 상품 <b>'+restockNew.length+'</b>건 → 출시(신규)와 동일 처리(원가 채움): '+esc(restockNew.join(', ')):'')+(costList.length?'<br>· 💰 DB 원가 갱신 '+costList.length+'건 — 원가변경 '+(costList.length-dbCostCol)+' · 기존상품 원가칸 '+dbCostCol+' (엑셀엔 안 넣고 DB에만)':'')+'<br>· ✅ 기존 상품 원가는 엑셀에 안 들어감 → 관리팀 원가 안 건드림'+(renamed?'<br>· ⚠️ 이름변경 '+renamed+'건은 리모컨에 옛 이름 행이 남아있을 수 있어요(수동 확인)':'')+(renameNoCost.length?'<br>· 🚨 이름변경인데 <b>원가를 못 채운</b> 상품 '+renameNoCost.length+'건: <b>'+esc(renameNoCost.join(', '))+'</b> — 엑셀 E열에 원가 직접 넣어주세요(새 슬롯이라 원가 필수)':''), 'ok');
     } else {
-      setStatus('📗 엑셀로 뽑을 변경분은 없어요 — 💰 <b>원가변경 '+costList.length+'</b>건만 있어서 DB 반영으로 넘어갑니다 (리모컨 엑셀·원가는 안 건드림)', 'ok');
+      setStatus('📗 엑셀로 뽑을 변경분은 없어요 — 💰 <b>DB 원가 갱신 '+costList.length+'</b>건만 있어서 DB 반영으로 넘어갑니다 (리모컨 엑셀·원가는 안 건드림)', 'ok');
     }
 
     // ===== ☁️ 원가 DB 동시 업데이트 — 엑셀과 같은 내용을 DB에도 반영 (2026-08-05 사장님) =====
     if(syncDb()){
-      var doDb = confirm('☁️ 원가 DB도 같이 업데이트할까요?\n'+(costList.length?'\n💰 원가변경 '+costList.length+'건은 리모컨 엑셀엔 안 들어가고 DB 원가만 갱신됩니다.\n':'')+'\n⚠️ 먼저 확인 — 리모컨에서 직접(수동) 수정하신 사항은 없나요?\n· 리모컨을 직접 고친 내용은 DB에 자동 반영이 안 돼요\n  → 그런 게 있다면 [🔗 DB 시트 열기]로 가서 똑같이 수동 반영하거나, 리모컨 파일을 받아 [📤 DB 적재]로 다시 맞추세요\n· 베스트: 리모컨 직접 수정은 안 하기 (수정은 이 도구로만!)\n\n[확인] DB 업데이트 진행   /   [취소] 엑셀만');
+      var doDb = confirm('☁️ 원가 DB도 같이 업데이트할까요?\n'+(costList.length?'\n💰 DB 원가 갱신 '+costList.length+'건(원가변경·기존상품 원가칸)은 리모컨 엑셀엔 안 들어가고 DB 원가만 갱신됩니다.\n':'')+'\n⚠️ 먼저 확인 — 리모컨에서 직접(수동) 수정하신 사항은 없나요?\n· 리모컨을 직접 고친 내용은 DB에 자동 반영이 안 돼요\n  → 그런 게 있다면 [🔗 DB 시트 열기]로 가서 똑같이 수동 반영하거나, 리모컨 파일을 받아 [📤 DB 적재]로 다시 맞추세요\n· 베스트: 리모컨 직접 수정은 안 하기 (수정은 이 도구로만!)\n\n[확인] DB 업데이트 진행   /   [취소] 엑셀만');
       if(doDb){
         wongaStatus('<span class="spinner"></span> ☁️ DB 업데이트 중...');
         withToken(function(){
           updateDbSheet(newRows, dbRenameOld, costList).then(function(r){
-            wongaStatus('☁️ DB 업데이트 완료 — 수정 <b>'+r.upd+'</b> · 신규 <b>'+r.add+'</b> · 옛이름 삭제 <b>'+r.del+'</b>'+(r.cost?' · 💰 원가변경 <b>'+r.cost+'</b>':'')+' (탭: '+esc(DB_TAB)+')'+(r.del?'<br>· ✅ 상품명변경 옛 이름 행은 DB에서 자동 삭제됨 (리모컨 엑셀 쪽만 수동 확인)':'')+(r.costMiss&&r.costMiss.length?'<br>· ⚠️ 원가변경인데 DB에 없는 상품 '+r.costMiss.length+'건: '+esc(r.costMiss.join(', '))+' — 이름 확인 필요':''),'ok');
+            wongaStatus('☁️ DB 업데이트 완료 — 수정 <b>'+r.upd+'</b> · 신규 <b>'+r.add+'</b> · 옛이름 삭제 <b>'+r.del+'</b>'+(r.cost?' · 💰 DB 원가 갱신 <b>'+r.cost+'</b>':'')+' (탭: '+esc(DB_TAB)+')'+(r.del?'<br>· ✅ 상품명변경 옛 이름 행은 DB에서 자동 삭제됨 (리모컨 엑셀 쪽만 수동 확인)':'')+(r.costMiss&&r.costMiss.length?'<br>· ⚠️ 원가변경인데 DB에 없는 상품 '+r.costMiss.length+'건: '+esc(r.costMiss.join(', '))+' — 이름 확인 필요':''),'ok');
           }).catch(function(e){
             wongaStatus('⚠️ DB 업데이트 실패: '+esc(e.message)+'<br>· 이번 엑셀 변경분이 DB에 빠졌어요 — 다시 시도하거나 리모컨 파일로 [📤 DB 적재] 하세요','warn');
           });
