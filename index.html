@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.577</title>
+<title>발주서 변환기 v22.578</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -55,7 +55,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.577</span>
+  <span class="ver">v22.578</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -113,6 +113,26 @@ async function checkSheetAccess(){var st=document.getElementById('sheetStatus');
 initSheetUrl();
 let pendingHistory=[];
 let dayHistory=[];
+// 🔄 구버전 감지 — 배포가 잦아서 열어둔 탭/캐시가 옛 버전으로 변환하면 결과가 미묘하게 달라지는 사고 방지 (2026-08-06)
+let _staleLast=0;
+async function checkStale(force){
+  const now=Date.now();
+  if(!force&&now-_staleLast<300000)return;
+  _staleLast=now;
+  try{
+    const r=await fetch(location.href.split('#')[0].split('?')[0]+'?nocache='+now,{cache:'no-store'});
+    if(!r.ok)return;
+    const m=(await r.text()).match(/<title>[^<]*?(v\d+\.\d+)/);
+    const cur=(document.title.match(/v\d+\.\d+/)||[])[0];
+    if(!m||!cur||m[1]===cur)return;
+    let b=document.getElementById('staleBar');
+    if(!b){b=document.createElement('div');b.id='staleBar';b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#c0392b;color:#fff;font-size:13px;font-weight:700;padding:9px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.25)';document.body.appendChild(b);}
+    b.innerHTML='🔄 새 버전 '+m[1]+' 배포됨 — 지금 화면은 '+cur+' 구버전이라 변환 결과가 다를 수 있어요 <button onclick="location.reload()" style="margin-left:10px;padding:3px 14px;border:none;border-radius:4px;background:#fff;color:#c0392b;font-weight:700;cursor:pointer;font-size:13px">새로고침</button>';
+    sl('⚠️ 구버전 화면('+cur+') — 새 버전 '+m[1]+' 배포됨, 새로고침 필요','warn');
+  }catch(e){}
+}
+checkStale(true);
+window.addEventListener('focus',function(){checkStale(false);});
 async function getAccessToken(){
   const header={alg:'RS256',typ:'JWT'};
   const now=Math.floor(Date.now()/1000);
@@ -1385,6 +1405,7 @@ function autoSplitByHeader(text){
   return blocks.map(function(b){return b.trim();}).filter(Boolean);
 }
 function run(){
+  checkStale(false);
   // 다업체 취합 입력을 블록으로 나눠 업체별 개별 변환(폭 다른 양식 섞임→오배분 방지)
   const inpEl=document.getElementById('inp');
   const full=inpEl.value;
@@ -1398,15 +1419,19 @@ function run(){
   if(!blocks){ runSingle(); return; }            // 단일 업체 = 기존 로직 그대로(무위험)
   const outEl=document.getElementById('out');
   const outs=[];
-  for(const b of blocks){
-    inpEl.value=b; outEl.value='';
-    runSingle();
-    // 🚨 .trim() 금지 (2026-08-03 청년수산 10칸→9칸 사고): 배송메시지가 빈 마지막 셀이면
-    //    줄 끝 탭까지 잘려 시트에서 칸이 밀린다. 줄바꿈만 제거하고 탭은 보존.
-    const o=(outEl.value||'').replace(/^[\r\n]+|[\r\n]+$/g,'');
-    if(o.trim()) outs.push(o);
+  // try/finally — 블록 변환 중 에러가 나도 입력칸이 일부 블록만 남은 채 방치되지 않게 원본 복원
+  try{
+    for(const b of blocks){
+      inpEl.value=b; outEl.value='';
+      runSingle();
+      // 🚨 .trim() 금지 (2026-08-03 청년수산 10칸→9칸 사고): 배송메시지가 빈 마지막 셀이면
+      //    줄 끝 탭까지 잘려 시트에서 칸이 밀린다. 줄바꿈만 제거하고 탭은 보존.
+      const o=(outEl.value||'').replace(/^[\r\n]+|[\r\n]+$/g,'');
+      if(o.trim()) outs.push(o);
+    }
+  }finally{
+    inpEl.value=full;
   }
-  inpEl.value=full;
   const merged=outs.join('\n');
   outEl.value=merged;
   const outN=merged.split('\n').filter(function(l){return l.trim();}).length;
@@ -1566,7 +1591,7 @@ document.getElementById('inp').addEventListener('input',function(){
   document.getElementById('in-count').textContent=n+' 행';
 });
 document.addEventListener('keydown',function(e){
-  if(e.target.tagName==='TEXTAREA')return;
+  if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT')return;
   if(e.key==='1'){run();}else if(e.key==='2'){copyOut();}else if(e.key==='3'){saveToSheet();}else if(e.key==='4'){clearAll();}
 });
 </script>
