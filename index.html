@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.580</title>
+<title>발주서 변환기 v22.581</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -55,7 +55,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.580</span>
+  <span class="ver">v22.581</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -613,6 +613,7 @@ function br(cl,cfg,nq,nr,ord,iv){
 function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,5}-\d{4,5}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));} // 끝 5자리 허용 (테오푸드 070-8028-78757, 2026-07-02) / 가운데 5자리 안심번호 허용 (050-22514-7658, 2026-08-06)
 function isHumanName(s){return /^[가-힣]{2,6}$/.test((s||'').trim());}
 function isHyeinBuyer(s){s=(s||'').trim();return isHumanName(s)||/^[A-Za-z][A-Za-z0-9]{1,19}$/.test(s);} // 혜인 선물 주문자: 한글 이름 또는 jjj2829 같은 영문시작 아이디 (2026-07-29)
+function hgPhone(){return (CC['혜인건강']&&CC['혜인건강'].phone)||'070-4473-7196';} // HG 10칸 H칸 = 혜인건강 업체 전화 고정 (2026-08-06 사장님 지적 — 주문자 안심번호 넣지 말 것)
 function preprocessHyeinGift(line){
   // 혜인건강 선물 발주: 앞(주문자)·뒤(수령인)가 둘 다 사람 이름인 형식 → 혜인건강 10칸으로 인식.
   // 사는사람(주문자)·받는사람(수령인) 이름 둘 다 보존. 내용은 그대로 두고 맨 앞에 혜인건강만 붙임.
@@ -626,7 +627,7 @@ function preprocessHyeinGift(line){
   const buyerPhone=c[1],product=c[2],recvName=c[3],addr=c[4],recvPhone=c[5];
   const memo=c.slice(6).filter(Boolean).join(' ');
   // 완성 10칸(마커 ⟪HG⟫로 표시 → run에서 pr2 안 거치고 그대로 출력): 혜인건강 · 사는사람 · 출고지'' · 주문자연락처 · 창고'' · 상품 · 받는사람 · 고객주소 · 고객연락처 · 메모
-  return '⟪HG⟫'+['혜인건강',buyer,'',buyerPhone,'',product,recvName,addr,recvPhone,memo].join('\t');
+  return '⟪HG⟫'+['혜인건강',buyer,'',hgPhone(),'',product,recvName,addr,recvPhone,memo].join('\t');
 }
 function preprocessHyein(line){
   // 형식 1: [마스터] 포함 형식
@@ -645,7 +646,7 @@ function preprocessHyein(line){
     if(pm){const idx=rest.indexOf(pm[1]);addr=rest.slice(0,idx).trim();msg=rest.slice(idx+pm[1].length).trim();custPhone=pm[1];}
     if(/^\d{1,2}$/.test(msg))msg='';
     // 혜인건강은 선물 발주 多 → 사는사람(주문자) 이름·전화 보존 10칸 ⟪HG⟫로 출력 (2026-08-06 사장님 지적 — 선물 규칙은 형식 불문)
-    return '⟪HG⟫'+['혜인건강',firstWord,'',preMaPhone,'',product,custName,addr,custPhone,msg].join('\t');
+    return '⟪HG⟫'+['혜인건강',firstWord,'',hgPhone(),'',product,custName,addr,custPhone,msg].join('\t');
   }
   // 형식 2: 이름 전화번호 상품명 x N 이름(N) 주소 전화번호 (탭 없는 공백 구분)
   // 이름 마스킹 별표(김미*)·가운데 5자리 안심번호(050-22514-7658) 허용 — 2026-08-06 김미* 건
@@ -659,7 +660,7 @@ function preprocessHyein(line){
     if(pm){const idx=rest.lastIndexOf(pm[0]);addr=rest.slice(0,idx).trim();custPhone=pm[0];msg=rest.slice(idx+pm[0].length).trim();}
     if(/^\d{1,2}$/.test(msg))msg='';  // 전화 뒤에 눌어붙은 수량 잔여 숫자(…-76581의 '1') 제거
     // 혜인건강은 선물 발주 多 → 사는사람(주문자) 이름·전화 보존 10칸 ⟪HG⟫로 출력 (2026-08-06 사장님 지적 — 선물 규칙은 형식 불문)
-    return '⟪HG⟫'+['혜인건강',m2[1].trim(),'',m2[2],'',product,custName,addr,custPhone,msg].join('\t');
+    return '⟪HG⟫'+['혜인건강',m2[1].trim(),'',hgPhone(),'',product,custName,addr,custPhone,msg].join('\t');
   }
   return null;
 }
