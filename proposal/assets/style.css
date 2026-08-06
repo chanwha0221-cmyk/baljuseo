@@ -1,0 +1,370 @@
+/* =========================================================
+   상품 제안서 인포그래픽 — 스타일
+   디자인 토큰은 원본 핸드오프 스펙 그대로.
+   ========================================================= */
+
+:root {
+  --navy: #08324B;
+  --teal: #0E8A8F;
+  --coral: #FF5B39;
+  --green: #3BA559;
+  --amber: #FFB020;
+  --cream: #FFF6EA;
+  --sand: #E8DFCF;
+  --card-border: #EFE3CF;
+  --dashed: #E3D8C4;
+  --muted: #4a5a63;
+  --muted2: #6b7a82;
+  --muted3: #7a8891;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+html, body { margin: 0; }
+body {
+  background: #DCE3DF;   /* 컨테이너 바깥: 바다 안개빛 모래톤 */
+  background-image: linear-gradient(180deg, #D6E0DE 0%, #E8DFCF 100%);
+  background-attachment: fixed;
+  font-family: 'Noto Sans KR', sans-serif;
+  color: var(--navy);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--coral); text-decoration: none; }
+a:hover { color: var(--navy); }
+.display { font-family: 'Black Han Sans', sans-serif; font-weight: 400; }
+
+/* 1080px 고정 컨테이너 (반응형은 아래 미디어쿼리) */
+.page {
+  width: 1080px;
+  max-width: 100%;
+  margin: 0 auto;
+  /* 크림 바탕 + 아주 옅은 물빛이 은은하게 도는 배경 */
+  background:
+    radial-gradient(80% 40% at 100% 12%, rgba(14,138,143,0.055) 0%, rgba(14,138,143,0) 60%),
+    radial-gradient(70% 35% at 0% 55%, rgba(14,138,143,0.045) 0%, rgba(14,138,143,0) 60%),
+    var(--cream);
+  overflow: hidden;
+}
+.section { padding: 64px 72px 20px; }
+
+/* ---------------- Hero ---------------- */
+/* 배경 사진: images/sea-hero.jpg 를 올리면 자동 적용됩니다.
+   파일이 없으면 아래 그라디언트가 그대로 보이므로 사이트는 깨지지 않습니다. */
+.hero {
+  position: relative;
+  padding: 70px 72px 130px;
+  background:
+    /* 1) 어둡게 덮는 막 — 흰 글씨 가독성 확보 */
+    linear-gradient(102deg, rgba(4,26,40,0.92) 0%, rgba(5,38,58,0.80) 42%, rgba(7,58,84,0.52) 100%),
+    /* 2) 실제 바다 사진 (없으면 이 층은 무시됨) */
+    url("../images/sea-hero.jpg") center 40% / cover no-repeat,
+    /* 3) 폴백 그라디언트 */
+    radial-gradient(60% 55% at 12% 88%, rgba(14,138,143,0.35) 0%, rgba(14,138,143,0) 70%),
+    radial-gradient(120% 120% at 85% -10%, #0E8A8F 0%, #08324B 60%);
+  color: var(--cream);
+  overflow: hidden;
+}
+/* 사진 위에서도 제목이 또렷하게 */
+.hero h1 { text-shadow: 0 2px 22px rgba(0,0,0,0.42); }
+.hero-lead { text-shadow: 0 1px 12px rgba(0,0,0,0.38); }
+/* 배경 사진이 있으므로 장식 원은 숨김 (사진이 지저분해 보이는 것 방지) */
+.hero-circle { display: none; }
+.hero > *:not(.hero-circle):not(.hero-wave) { position: relative; }
+
+/* 표지 아래 파도 곡선 */
+.hero .hero-wave {
+  position: absolute; left: 0; right: 0; bottom: -1px;
+  width: 100%; height: 92px; display: block; pointer-events: none;
+}
+.hero-wave .w-back { fill: var(--cream); opacity: 0.28; }
+.hero-wave .w-front { fill: var(--cream); }
+.eyebrow { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: 2px; font-size: 15px; color: var(--amber); }
+.eyebrow .bar { width: 34px; height: 4px; background: var(--amber); border-radius: 2px; }
+.hero h1 { font-size: 88px; line-height: 0.98; margin: 26px 0 0; letter-spacing: -1px; }
+.hero h1 .hl { color: var(--amber); }
+.hero-lead { max-width: 640px; margin: 26px 0 0; font-size: 19px; line-height: 1.6; color: rgba(255,246,234,0.9); }
+.stats { display: flex; gap: 40px; margin-top: 46px; }
+.stats .num { font-size: 46px; color: var(--amber); line-height: 1; }
+.stats .lbl { font-size: 14px; margin-top: 6px; color: rgba(255,246,234,0.85); }
+.stats .divider { width: 1px; background: rgba(255,246,234,0.25); }
+.owner-chip {
+  display: inline-flex; align-items: center; gap: 14px; margin-top: 44px;
+  padding: 14px 22px; background: rgba(255,246,234,0.1);
+  border: 1px solid rgba(255,246,234,0.25); border-radius: 14px;
+}
+.owner-chip .avatar {
+  width: 46px; height: 46px; border-radius: 50%; background: var(--amber); color: var(--navy);
+  font-size: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.owner-chip .name { font-weight: 700; font-size: 16px; }
+.owner-chip .sub { font-size: 13px; color: rgba(255,246,234,0.8); }
+
+/* ---------------- Category overview ---------------- */
+.cat-head { text-align: center; }
+.cat-head .kicker { font-weight: 700; letter-spacing: 2px; font-size: 14px; color: var(--teal); }
+.cat-head h2 { font-size: 46px; margin: 10px 0 0; color: var(--navy); }
+.cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 44px; }
+.cat-card { display: block; border-radius: 20px; padding: 30px 26px; color: var(--navy); }
+.cat-card .tile {
+  width: 58px; height: 58px; border-radius: 16px; color: #fff; font-size: 30px;
+  display: flex; align-items: center; justify-content: center;
+}
+.cat-card h3 { font-size: 27px; margin: 20px 0 6px; }
+.cat-card p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--muted); }
+.cat-card .go { margin-top: 18px; font-weight: 700; font-size: 13px; }
+
+/* ---------------- Product sections ---------------- */
+/* 카테고리 헤더 — 바다 사진 밴드 + 카테고리 색 오버레이.
+   사진이 없으면 카테고리 색 그라디언트만 보입니다. */
+.sec-head {
+  position: relative;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 20px;
+  padding: 22px 26px; border-radius: 18px; overflow: hidden;
+  background: var(--acc);            /* 카테고리 색이 바탕 */
+}
+/* 바다 사진을 카테고리 색에 은은히 녹여냄 (사진 없으면 그냥 색만) */
+.sec-head::before {
+  content: ""; position: absolute; inset: 0;
+  background: url("../images/sea-hero.jpg") center 45% / cover no-repeat;
+  opacity: 0.38; mix-blend-mode: soft-light;
+}
+/* 왼쪽을 어둡게 깔아 글씨 가독성 확보 */
+.sec-head::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(100deg, rgba(3,22,33,0.62) 0%, rgba(3,22,33,0.30) 52%, rgba(3,22,33,0) 100%);
+}
+.sec-head > * { position: relative; z-index: 1; }
+.sec-head .left { display: flex; align-items: center; gap: 16px; }
+.sec-head .tile {
+  width: 52px; height: 52px; border-radius: 14px; font-size: 28px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  background: rgba(255,255,255,0.18) !important; color: #fff;
+  border: 1px solid rgba(255,255,255,0.35);
+}
+.sec-head .kicker { font-weight: 700; letter-spacing: 2px; font-size: 13px; color: rgba(255,255,255,0.9); }
+.sec-head h2 { font-size: 40px; margin: 2px 0 0; color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,0.3); }
+.sec-head .meta { font-size: 14px; color: rgba(255,255,255,0.9); padding-bottom: 6px; text-align: right; }
+
+.prod-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 34px; }
+.prod-card {
+  border-radius: 20px; overflow: hidden; background: #fff;
+  box-shadow: 0 10px 30px rgba(8,50,75,0.08); border: 1px solid var(--card-border);
+  display: flex; flex-direction: column;
+}
+.prod-img { position: relative; height: 190px; }
+.prod-img img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.prod-img.contain { background: #fff; padding: 14px; }
+.prod-img.contain img { object-fit: contain; }
+.badge-tag {
+  position: absolute; top: 12px; left: 12px; color: #fff; font-size: 12px; font-weight: 700;
+  padding: 5px 11px; border-radius: 999px;
+}
+.badge-tax {
+  position: absolute; top: 12px; right: 12px; background: rgba(8,50,75,0.75); color: #fff;
+  font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px;
+}
+.prod-body { padding: 18px 20px 20px; flex: 1; display: flex; flex-direction: column; }
+/* 상품명은 2줄 자리를 늘 확보 → 이름 길이가 달라도 아래 요소가 흔들리지 않음 */
+.prod-body h3 {
+  font-size: 18px; font-weight: 700; margin: 0; color: var(--navy); line-height: 1.35;
+  min-height: calc(18px * 1.35 * 2);
+}
+/* 설명은 최대 2줄까지만 (그 이상은 말줄임) — 카드 높이가 들쭉날쭉해지는 것 방지 */
+.prod-spec {
+  font-size: 12px; color: var(--muted3); margin-top: 5px; line-height: 1.45;
+  min-height: calc(12px * 1.45);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* 공급가·택배 블록은 카드 아래쪽에 고정 → 같은 줄 카드끼리 높이 일치 */
+.price-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-top: auto; padding-top: 13px; border-top: 1px dashed var(--dashed);
+}
+.price-row .lbl { font-size: 13px; font-weight: 700; color: var(--navy); }
+.price-row .val { font-size: 27px; color: var(--coral); }
+/* 공급가 숨김 모드 — 가격 대신 문의 버튼 */
+.val-ask {
+  display: block; width: 100%; text-align: center;
+  background: var(--navy); color: var(--amber);
+  font-size: 14px; font-weight: 700; padding: 11px 12px; border-radius: 10px;
+  text-decoration: none; transition: background .15s;
+}
+.val-ask:hover { background: #0a4059; color: var(--amber); }
+.ship-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 13px;
+  border-radius: 10px; padding: 9px 12px;
+}
+.ship-row .pill { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+.ship-row .txt { font-size: 13px; color: var(--muted); }
+
+/* ---------------- Full-catalog banner ---------------- */
+.callout-sec { margin: 46px 0 0; padding: 46px 72px; background: var(--cream); border-bottom: 1px solid #EFE1C9; }
+.callout {
+  display: flex; align-items: center; gap: 26px;
+  background: #E4F1F1; border: 2px dashed var(--teal); border-radius: 20px; padding: 30px 34px;
+}
+.callout .tile {
+  width: 64px; height: 64px; border-radius: 16px; background: var(--teal); color: #fff; font-size: 30px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+/* 본문용 굵은 글씨 — 획이 뭉치지 않아 또렷하게 읽힙니다 */
+.callout .title {
+  font-family: 'Noto Sans KR', sans-serif; font-weight: 800;
+  font-size: 22px; color: var(--navy); line-height: 1.35;
+  white-space: nowrap; letter-spacing: -0.3px;
+}
+.callout p { margin: 8px 0 0; font-size: 15px; color: var(--muted); line-height: 1.6; }
+.callout .cta {
+  background: var(--navy); color: var(--amber); font-weight: 700; font-size: 15px;
+  padding: 14px 22px; border-radius: 12px; white-space: nowrap;
+  text-decoration: none; display: inline-block; transition: background .15s, transform .15s;
+}
+.callout .cta:hover { background: #0a4059; color: var(--amber); }
+
+/* ---------------- Contact ---------------- */
+.contact { padding: 60px 72px 70px; background: var(--amber); }
+.contact-in { display: flex; align-items: center; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
+.contact h2 { font-size: 40px; color: var(--navy); line-height: 1.1; margin: 0; }
+.contact .lead { font-size: 16px; color: #5a4a1a; margin: 18px 0 0; max-width: 420px; line-height: 1.6; }
+.contact-card { background: var(--navy); color: var(--cream); border-radius: 20px; padding: 32px 36px; min-width: 340px; }
+.contact-card .who { display: flex; align-items: center; gap: 14px; }
+.contact-card .avatar {
+  width: 52px; height: 52px; border-radius: 50%; background: var(--amber); color: var(--navy);
+  font-size: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.contact-card .who .name { font-weight: 700; font-size: 18px; }
+.contact-card .who .name small { font-size: 14px; color: rgba(255,246,234,0.7); font-weight: 400; }
+.contact-card .who .org { font-size: 14px; color: rgba(255,246,234,0.7); }
+.contact-lines { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; font-size: 15px; }
+.contact-lines .line { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,246,234,0.15); padding-bottom: 10px; }
+.contact-lines .line:last-child { border-bottom: none; padding-bottom: 0; }
+.contact-lines .k { color: var(--amber); }
+.contact-lines .v { text-align: right; }
+.contact-lines a.v { color: var(--cream); }
+.contact-lines a.v:hover { color: var(--amber); }
+
+/* ---------------- Loading / error notice ---------------- */
+.notice { text-align: center; padding: 40px; color: var(--muted2); font-size: 15px; }
+
+/* =========================================================
+   반응형
+   ========================================================= */
+@media (max-width: 1079px) {
+  .page { width: 100%; }
+  .section, .hero, .callout-sec, .contact { padding-left: 40px; padding-right: 40px; }
+  .prod-grid { grid-template-columns: repeat(2, 1fr); }
+  .callout .title { font-size: 21px; white-space: normal; }
+}
+@media (max-width: 767px) {
+  .section, .callout-sec { padding-left: 20px; padding-right: 20px; }
+  .hero { padding: 48px 20px 60px; }
+  .contact { padding: 44px 20px 52px; }
+  .hero h1 { font-size: 44px; }
+  .hero-lead { font-size: 16px; }
+  .stats { gap: 22px; flex-wrap: wrap; }
+  .stats .num { font-size: 36px; }
+  .cat-head h2 { font-size: 30px; }
+  .cat-grid { grid-template-columns: 1fr; gap: 16px; }
+  .sec-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .sec-head .meta { text-align: left; padding-bottom: 0; }
+  .sec-head h2 { font-size: 28px; }
+  .prod-grid { grid-template-columns: 1fr; }
+  .price-row .val { font-size: 24px; }
+  .callout { flex-direction: column; align-items: flex-start; gap: 18px; }
+  .callout .title { font-size: 20px; white-space: normal; }
+  .contact-in { flex-direction: column; align-items: stretch; }
+  .contact h2 { font-size: 30px; }
+  .contact-card { min-width: 0; }
+}
+
+/* =========================================================
+   PDF 저장 버튼
+   ========================================================= */
+.pdf-btn {
+  position: fixed; right: 22px; bottom: 22px; z-index: 50;
+  background: var(--navy); color: var(--amber);
+  font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700;
+  border: none; border-radius: 999px; padding: 13px 20px; cursor: pointer;
+  box-shadow: 0 8px 24px rgba(8,50,75,0.28);
+  transition: background .15s, transform .15s;
+}
+.pdf-btn:hover { background: #0a4059; transform: translateY(-2px); }
+.pdf-btn:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+@media (max-width: 767px) { .pdf-btn { right: 14px; bottom: 14px; padding: 11px 16px; font-size: 13px; } }
+
+/* =========================================================
+   인쇄 / PDF 저장
+   ========================================================= */
+@media print {
+  @page { size: A4; margin: 9mm; }
+
+  /* 배경색·사진이 인쇄에도 그대로 나오게 */
+  *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  html, body { background: #fff !important; }
+  html { scroll-behavior: auto; }
+  .page { width: 100% !important; max-width: 100% !important; box-shadow: none !important; }
+
+  /* 화면 전용 요소 숨김 */
+  .pdf-btn { display: none !important; }
+
+  /* 여백 축소 — 종이 낭비 방지 */
+  .hero { padding: 34px 30px 70px !important; }
+  .section { padding: 26px 30px 8px !important; }
+  .callout-sec { margin-top: 18px !important; padding: 22px 30px !important; }
+  .contact { padding: 28px 30px 30px !important; }
+
+  /* 글자 크기 조정 (A4 폭에 맞춤) */
+  .hero h1 { font-size: 46px !important; }
+  .hero-lead { font-size: 14px !important; }
+  .stats .num { font-size: 30px !important; }
+  .cat-head h2 { font-size: 28px !important; }
+  .sec-head h2 { font-size: 26px !important; }
+  .prod-body h3 { font-size: 14px !important; min-height: 0 !important; }
+  .prod-spec { font-size: 10px !important; }
+  .price-row .val { font-size: 19px !important; }
+  .ship-row .txt, .ship-row .pill { font-size: 10px !important; }
+  .prod-img { height: 104px !important; }
+  .prod-body { padding: 10px 12px 12px !important; }
+  .prod-body h3 { min-height: calc(14px * 1.3 * 2) !important; line-height: 1.3 !important; }
+  .price-row { padding-top: 8px !important; }
+  .ship-row { margin-top: 8px !important; padding: 6px 9px !important; }
+  .badge-tag { font-size: 9px !important; padding: 3px 7px !important; top: 7px !important; left: 7px !important; }
+  .badge-tax { font-size: 9px !important; padding: 3px 6px !important; top: 7px !important; right: 7px !important; }
+  .contact h2 { font-size: 27px !important; }
+  .callout .title { font-size: 17px !important; white-space: normal !important; }
+  .callout p { font-size: 12px !important; }
+
+  /* 요소가 페이지 경계에서 잘리지 않도록 */
+  .prod-card, .cat-card, .callout, .contact-card, .sec-head { break-inside: avoid; page-break-inside: avoid; }
+  section { break-inside: auto; }
+  .sec-head { break-after: avoid; page-break-after: avoid; }
+  .prod-grid { gap: 12px !important; margin-top: 16px !important; }
+  .cat-grid { gap: 12px !important; margin-top: 20px !important; }
+  .prod-card { box-shadow: none !important; }
+
+  a[href]::after { content: none !important; }
+
+  /* A4 폭이 좁아 모바일 1열 규칙이 걸리는 것을 되돌림 — 인쇄는 3열 유지 */
+  .prod-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  .cat-grid  { grid-template-columns: repeat(3, 1fr) !important; }
+  .sec-head { flex-direction: row !important; align-items: flex-end !important; }
+  .sec-head .meta { text-align: right !important; padding-bottom: 6px !important; }
+  .callout { flex-direction: row !important; align-items: center !important; }
+  .contact-in { flex-direction: row !important; align-items: center !important; }
+  .contact-card { min-width: 0 !important; }
+  .cat-card { padding: 16px 14px !important; }
+  .cat-card h3 { font-size: 17px !important; margin: 10px 0 4px !important; }
+  .cat-card p { font-size: 11px !important; }
+  .cat-card .tile { width: 38px !important; height: 38px !important; font-size: 20px !important; }
+  .cat-card .go { font-size: 10px !important; margin-top: 8px !important; }
+  .stats { gap: 22px !important; }
+  .owner-chip { margin-top: 22px !important; padding: 10px 16px !important; }
+
+  /* 인쇄에서는 섹션 헤더 사진을 빼고 단색으로 — 파일 용량과 선명도 모두 유리 */
+  .sec-head::before { display: none !important; }
+  .sec-head::after { background: linear-gradient(100deg, rgba(3,22,33,0.35) 0%, rgba(3,22,33,0) 70%) !important; }
+}
