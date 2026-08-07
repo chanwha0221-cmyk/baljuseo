@@ -241,10 +241,14 @@ function clen(s){
   return [...s].length; // 폴백: 최소한 code point 기준(이모지 1자)
 }
 // 순수 본문 글자수 = 잠금 블록(====박스·하단 고정부) 내용과 토큰 전부 제외 (사장님 기준: 본문만 1,000~1,100)
+// ⚠️ 잠금 원문 exact-match만으론 부족: finalizeBand 안전망이 잠금 내용을 고치면(실금액→*가격 등) 매칭이 깨져
+//    가격박스가 본문으로 잡힘(2026-08-07 삼치 1098→1208 오탐) → 구조 기준 제외를 겸한다.
 function bodyLen(t){
   let s=t;
   LOCKS.forEach(blk=>{ s=s.split(blk).join(''); });
   s=s.replace(/【\s*잠금\s*\d+\s*】/g,'');
+  s=s.replace(/^={6,}[^\n]*\n[\s\S]*?^={6,}[^\n]*$/gm,'');        // ====== 가격박스 (잠금 변형돼도 구조로 제거)
+  const fi=s.search(/^[^\n]*🔽[^\n]*$/m); if(fi>=0) s=s.slice(0,fi); // 하단 고정부 = 첫 🔽 줄부터 끝
   return clen(plainOf(s));
 }
 
