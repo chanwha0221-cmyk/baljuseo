@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.581</title>
+<title>발주서 변환기 v22.582</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -55,7 +55,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.581</span>
+  <span class="ver">v22.582</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -310,7 +310,7 @@ function csvParseRows(input){
 // 게시판 텍스트 형식 fallback: "업체명  주소  전화  상품 x N  수령인  주소  전화  [메모]"
 // 공백 개수 상관없이 전화번호 2개를 앵커로 분해 (1칸 공백이든 3칸이든 무관)
 function parseLooseBoardRow(line){
-  const phoneRe=/0\d{1,3}-\d{3,5}-\d{4}/g;   // 0\d{1,3} = 안심번호(0508 등 앞 4자리) 포함 — 2026-08-03 전 파서 통일. 가운데 5자리(050-22514-7658 안심번호) 허용 — 2026-08-06
+  const phoneRe=/(?:0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11})(?!\d)/g;   // 0\d{1,3} = 안심번호(0508 등 앞 4자리) 포함 — 2026-08-03 전 파서 통일. 가운데 5자리(050-22514-7658) 허용 — 2026-08-06. 하이픈 없는 안심번호(050876756516)도 앵커로 인식 — 2026-08-07 에버몰 행 누락 사고
   const phones=[...line.matchAll(phoneRe)];
   if(phones.length<2)return null;
   // 상품 경계 앵커: 'x N'(명시 수량) 또는 단위 수량(5kg·500g·1팩 등). 둘 다 없으면 상품/수령인 경계를 못 잡으니 패스
@@ -408,6 +408,9 @@ function mergeLines(raw){
       if(firstCol)lastClient=firstCol;
       if(firstCol&&!unitPat.test(firstCol))lastKnownClient=firstCol;
     }
+    // 수량(x N)과 전화형 토큰이 둘 다 있으면 발주 한 건짜리 줄이다 — 파싱 실패로 앞 행에
+    // 흡수시키면 발주가 통째로 증발하므로 독립 행으로 남긴다(pr2가 처리하거나 '파싱 실패' 경고로 드러남)
+    else if(/[xX×]\s*\d+/.test(pp2)&&/(?:0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11})(?!\d)/.test(pp2)){merged.push(pp2);}
     else{merged[merged.length-1]=merged[merged.length-1]+'\t'+pp2;}
   }
   return merged;
@@ -856,7 +859,7 @@ function isKakaoOrderFormat(raw){
     if(line.includes('\t'))return false;
     const firstWord=line.split(/\s+/)[0];
     if(!CC[firstWord])return false;
-    const phones=line.match(/0\d{1,3}-\d{3,5}-\d{4}/g);
+    const phones=line.match(/(?:0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11})(?!\d)/g);
     if(!phones||phones.length<1)return false;
     if(!/[Xx×]\s*\d+/.test(line))return false;
   }
@@ -885,7 +888,7 @@ function preprocessKakaoOrder(raw){
     if(m3){custName=m3[1];addrAndRest=m3[2];}
     else{const m3b=after.match(/^(\S+)\s+(.+)$/);if(!m3b)continue;custName=m3b[1];addrAndRest=m3b[2];}
     // 5) 받는분 전화로 주소/메모 분리
-    const phM=addrAndRest.match(/(0\d{1,3}-\d{3,5}-\d{4})/);
+    const phM=addrAndRest.match(/(0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11}(?!\d))/);
     if(!phM)continue;
     const phIdx=addrAndRest.indexOf(phM[1]);
     const address=addrAndRest.slice(0,phIdx).trim();
