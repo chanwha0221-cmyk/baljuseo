@@ -119,10 +119,11 @@ async function loadCatalog(){
     const disp=rows.map(r=>r.map(c=>(c&&c.formattedValue)||''));
     // 당일생물 탭: 표가 아니라 I열(9번째 칸)에 상품명만 나열된 특수 구조 — 단가 없음, 수량·단가 문의
     if(name==='공지_당일생물'){
-      const products=[];
+      const products=[];let gap=0;
       for(let r=2;r<disp.length;r++){
         const nm=(disp[r][8]||'').trim();
-        if(!nm)continue;
+        if(!nm){if(++gap>=2)break;continue;}  // 빈 줄 연속 = 상품 목록 끝(그 아래는 '기타내용' 같은 구역 라벨)
+        gap=0;
         products.push({name:nm,url:linkOf(rows[r][8]),price:{old:null,cur:null,dir:''},ship:-1,courier:'',tax:'',cut:'',ref:'',ask:true});
       }
       if(products.length)groups.push({wh:(RENAME[name]||name),products,ask:true});
