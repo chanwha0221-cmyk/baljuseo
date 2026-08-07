@@ -519,6 +519,23 @@ function finalizeBand(out){
   // 🚨 *가격 절대규칙 (2026-08-03 사장님): 가격줄(★)에 실금액이 박혀 있으면 무조건 *가격 토큰으로 강제 — 본문에 가격 정보가 있어도 예외 없음
   //   ⚠️ 《큰》 마커는 [《》] 문자만 벗기면 '큰' 글자가 남아 ★ 감지 실패 (항정살 건에서 실측) → 《큰》《작》을 통째로 벗겨 판정
   out=out.split('\n').map(l=>{const t=l.replace(/《\/?[큰작]》/g,'').replace(/[*_\s]/g,'');return (t.startsWith('★')&&/\d[\d,]{2,}\s*원/.test(l))?l.replace(/\d[\d,]*\s*원/,'*가격'):l;}).join('\n');
+  // 🔴 아웃트로 표준형 강제 (2026-08-07 사장님: "뭐가 있어도 우리 아웃트로는 이거야" — 삼치 잠금에 새벽소리 쇼핑몰·채널 실URL이 섞여 든 사고)
+  //   표준: ======박스(★상품명 - *가격 / 설명줄) → 멘트 → 🔽쇼핑몰+*쇼핑몰url → 🔽채팅+누르시고+*채팅방url → *사업자/*사칭img
+  //   고정부(첫 🔽 이후)의 실URL 줄은 무조건 토큰으로 치환 — 타팀 주소가 잠금에 섞여 와도 우리 토큰으로 나감
+  {
+    const ls=out.split('\n'); const fi=ls.findIndex(l=>l.includes('🔽'));
+    if(fi>=0){ let sect='shop';
+      for(let i=fi;i<ls.length;i++){
+        if(/쇼핑몰 간편 (결제|주문)/.test(ls[i])) sect='shop';
+        else if(ls[i].includes('🔽')&&/채팅|주문|문의/.test(ls[i])) sect='chat';
+        const bare=ls[i].replace(/《\/?[큰작]》/g,'').trim();
+        if(/^https?:\/\/\S+$/.test(bare)) ls[i]=(sect==='chat')?'*채팅방url':'*쇼핑몰url';
+      }
+      out=ls.join('\n');
+    }
+    if(!/\*사업자/.test(out)) out=out.replace(/\n+$/,'')+'\n\n*사업자';
+    if(!/\*사칭img/.test(out)) out=out.replace(/\n+$/,'')+'\n*사칭img';
+  }
   // 하단 *사업자·*사칭img 줄 《작》 자동 처리
   out=out.split('\n').map(l=>{const t=l.trim();return (/^\*(사업자|사칭img)\s*$/.test(t)&&!/《작》/.test(l))?'《작》'+t+'《/작》':l;}).join('\n');
   // *사업자·*사칭img는 항상 붙여서 — 사이 빈 줄 금지 (2026-08-03 사장님 지시)
