@@ -187,6 +187,16 @@ const whrow=$('whrow'),catrow=$('catrow'),view=$('view'),empty=$('empty');
 function won(n){return(n||0).toLocaleString('ko-KR');}
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(m){const t=$('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',1800);}
+// 원본 사진이 장당 0.3~1MB라 그대로 쓰면 거래처 휴대폰에서 느림 → 리사이즈 프록시로 썸네일(약 30KB).
+// 프록시가 죽으면 원본으로, 원본도 실패하면 '사진 준비중'으로 단계 폴백.
+function thumbUrl(u){
+  return 'https://images.weserv.nl/?url='+encodeURIComponent(u.replace(/^https?:\/\//,''))+'&w=440&h=330&fit=cover&output=webp&q=72';
+}
+function thumbFail(el){
+  const full=el.getAttribute('data-full');
+  if(full&&el.src!==full){el.src=full;el.removeAttribute('data-full');return;}
+  el.outerHTML='<div class="nothumb">사진 준비중</div>';
+}
 function priceHtml(p){
   if(p.cur==null)return '<div class="price" style="font-size:13px;color:var(--gold)">수량·단가 문의</div>';
   const cls='price'+(p.dir==='up'?' up':(p.dir==='down'?' down':''));
@@ -200,7 +210,7 @@ function card(p,showWh){
   const sh=p.ship<0?'':(p.ship>0?(cr+'<b>'+won(p.ship)+'원</b>'):cr+'<span class="free">무료배송</span>');
   const whName=showWh?p.wh:(p.srcWh||'');
   const m=p.url?(MEDIA[(p.url.match(/(\d{5,})/)||[])[1]]||null):null;
-  const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(m.img)+'" alt="'+esc(p.name)+'" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;nothumb&quot;>사진 준비중</div>\'">')
+  const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(thumbUrl(m.img))+'" data-full="'+esc(m.img)+'" alt="'+esc(p.name)+'" loading="lazy" onerror="thumbFail(this)">')
                         :'<div class="nothumb">사진 준비중</div>';
   const spec=(m&&m.spec&&m.spec.length)?('<div class="spec">'+m.spec.map(s=>'<div>'+esc(s)+'</div>').join('')+'</div>'):'';
   return '<div class="card">'+thumb+'<div class="bd">'
