@@ -10,7 +10,7 @@ if(window.__mediaUpdater){window.__mediaUpdater.open();return;}
 var YUTONG='1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';   // 유통시트(상품 목록)
 var LINKSS='1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';   // 상품정보 업데이트(링크 정본)
 var DOGU='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';     // 도구시트(캐시·대기목록)
-var TAB='상품이미지_v2', QTAB='상품이미지대기';
+var TAB='상품이미지_v2', QTAB='상품이미지대기', DTAB='상품삭제요청';
 var EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
 const PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n";
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
@@ -104,6 +104,25 @@ async function loadQueue(){
   for(const r of (v.values||[])){const nm=(r[0]||'').trim();if(nm)out.push({name:nm,at:r[1]||'',src:r[2]||''});}
   return out;
 }
+/* 삭제 요청 — 이 도구는 유통시트에 쓰기 권한이 없다(서비스계정=읽기 전용, 키가 공개라 일부러 안 올림).
+   그래서 여기서는 "삭제할 상품"만 적어두고, 실제 행 삭제는 팀장님 구글 계정으로 도는
+   상품정보 업데이트(byeondong)의 [🗑 삭제 대기 처리] 버튼이 한다. */
+async function loadDelReq(){
+  const v=await api(DOGU,'/values/'+q("'"+DTAB+"'!A2:E400"));
+  const out=[];
+  for(const r of (v.values||[])){
+    const nm=(r[0]||'').trim();
+    if(nm&&(r[4]||'')!=='완료')out.push({name:nm,tab:r[1]||'',cell:r[2]||'',at:r[3]||''});
+  }
+  return out;
+}
+async function addDelReq(p){
+  const now=new Date();
+  const p2=n=>(n<10?'0':'')+n;
+  const at=now.getFullYear()+'-'+p2(now.getMonth()+1)+'-'+p2(now.getDate())+' '+p2(now.getHours())+':'+p2(now.getMinutes());
+  return api(DOGU,'/values/'+q("'"+DTAB+"'!A:E")+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[[p.name,p.tab||'',p.cell||'',at,'']]})});
+}
 async function saveCache(){
   const rows=[['상품명','id','img','spec','updated','link']];
   Object.keys(CACHE).sort().forEach(function(k){
@@ -174,6 +193,7 @@ S.textContent='#mu-wrap{position:fixed;right:16px;bottom:16px;width:430px;max-he
 +'.mu-it .wh{color:#8a9a92;font-size:10.5px}'
 +'.mu-go{border:1px solid #cfd6d1;background:#fff;border-radius:6px;padding:2px 6px;font-size:10.5px;cursor:pointer;color:#5d6d66;white-space:nowrap;text-decoration:none}'
 +'.mu-go:hover{border-color:#0f7a5a;color:#0f7a5a}'
++'.mu-go.del:hover{border-color:#c0392b;color:#c0392b}'
 +'.mu-badge{font-size:10px;padding:1px 5px;border-radius:4px;background:#f0f2ef;color:#7b8a83;white-space:nowrap}'
 +'.mu-badge.no{background:#fde9e9;color:#c0392b}'
 +'.mu-badge.q{background:#fff6e5;color:#8a5a00}'
@@ -211,7 +231,8 @@ const $=function(id){return document.getElementById(id);};
 const log=function(m,keep){$('mu-log').textContent=keep?($('mu-log').textContent+'\n'+m):m;};
 $('mu-x').onclick=function(){W.style.display='none';};
 
-let PRODUCTS=[],CACHE={},LINKS={},QUEUE=[],SEL={},BUSY=false,LASTFAIL=[],FILTER='';
+let PRODUCTS=[],CACHE={},LINKS={},QUEUE=[],SEL={},BUSY=false,LASTFAIL=[],FILTER='',DELREQ=[];
+const inDel=p=>DELREQ.some(x=>pkey(x.name)===pkey(p.name));
 const cacheOf=p=>CACHE[pkey(p.name)];
 const linkOf=p=>{const c=cacheOf(p);return LINKS[pkey(p.name)]||(c&&c.link)||p.sheetUrl||'';};
 const noImg=p=>{const c=cacheOf(p);return !c||!c.img;};
@@ -252,8 +273,11 @@ function renderList(){
     if(c&&c.img&&c.spec.length)b.push('<span class="mu-badge">'+(c.updated||'')+'</span>');
     const su=sheetLink(p);
     const go=su?('<a class="mu-go" href="'+su+'" target="_blank" rel="noopener" title="유통시트 '+p.tab+' 탭 '+p.cell+'칸으로 이동">시트↗</a>'):'';
+    // 🗑 = 유통시트에서 이 상품 행을 지우도록 요청(운영 안 할 상품). 링크 없는 상품에만 노출.
+    const del=inDel(p)?'<span class="mu-badge no">삭제대기</span>'
+              :(!linkOf(p)&&p.tab?('<button class="mu-go del" data-del="'+pkey(p.name)+'" title="유통시트에서 이 상품 행 삭제 요청">🗑</button>'):'');
     return '<div class="mu-it"><input type="checkbox" data-k="'+pkey(p.name)+'"'+(SEL[pkey(p.name)]?' checked':'')+'>'
-      +'<label>'+p.name.replace(/</g,'&lt;')+'<br><span class="wh">'+p.wh+(p.tab?(' · '+p.tab+' '+p.cell):'')+'</span></label>'+b.join('')+go+'</div>';
+      +'<label>'+p.name.replace(/</g,'&lt;')+'<br><span class="wh">'+p.wh+(p.tab?(' · '+p.tab+' '+p.cell):'')+'</span></label>'+b.join('')+go+del+'</div>';
   }).join('')||'<div class="mu-it">해당 상품 없음</div>';
   if(hit.length>list.length)$('mu-list').innerHTML+='<div class="mu-it" style="color:#8a9a92">…외 '+(hit.length-list.length)+'건 (검색으로 좁혀 보세요)</div>';
   const cbs=$('mu-list').querySelectorAll('input[type=checkbox]');
@@ -262,6 +286,21 @@ function renderList(){
       const k=this.getAttribute('data-k');
       if(this.checked)SEL[k]=1;else delete SEL[k];
       renderRun();
+    };
+  }
+  const dels=$('mu-list').querySelectorAll('button[data-del]');
+  for(let i=0;i<dels.length;i++){
+    dels[i].onclick=async function(){
+      const k=this.getAttribute('data-del');
+      const p=PRODUCTS.filter(x=>pkey(x.name)===k)[0];
+      if(!p)return;
+      if(!confirm('유통시트에서 이 상품 행을 삭제할까요?\n\n'+p.name+'\n위치: '+p.tab+' 탭 '+p.cell+'\n\n지금 바로 지워지는 건 아니고 삭제 대기에 올라갑니다.\n실제 삭제는 상품정보 업데이트(변동가) 도구에서 [🗑 삭제 대기 처리]를 누르면 팀장님 계정으로 실행됩니다.'))return;
+      this.disabled=true;this.textContent='…';
+      const j=await addDelReq(p);
+      if(j&&j.error){alert('삭제 요청 실패: '+j.error.message);this.disabled=false;this.textContent='🗑';return;}
+      DELREQ.push({name:p.name,tab:p.tab,cell:p.cell});
+      renderList();
+      log('🗑 삭제 대기에 올렸습니다 — '+p.name+' ('+p.tab+' '+p.cell+')\n실제 삭제는 상품정보 업데이트 도구의 [🗑 삭제 대기 처리] 버튼에서 실행됩니다. (현재 대기 '+DELREQ.length+'건)');
     };
   }
 }
@@ -396,8 +435,8 @@ $('mu-failcp').onclick=function(){
 (async function(){
   try{
     log('유통시트·링크시트·캐시 불러오는 중…');
-    const r=await Promise.all([loadProducts(),loadCache(),loadLinks(),loadQueue().catch(function(){return [];})]);
-    PRODUCTS=r[0];CACHE=r[1];LINKS=r[2];QUEUE=r[3];
+    const r=await Promise.all([loadProducts(),loadCache(),loadLinks(),loadQueue().catch(function(){return [];}),loadDelReq().catch(function(){return [];})]);
+    PRODUCTS=r[0];CACHE=r[1];LINKS=r[2];QUEUE=r[3];DELREQ=r[4];
     renderSum();renderList();renderRun();
     const nq=PRODUCTS.filter(inQueue).length;
     log(nq?('📮 상품정보 업데이트에서 넘어온 대기 '+nq+'건이 있습니다. [📮 업데이트 대기]로 한 번에 고를 수 있어요.')
