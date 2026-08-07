@@ -191,8 +191,9 @@ W.id='mu-wrap';
 W.innerHTML='<div id="mu-hd"><b>📸 상품 사진·스펙 업데이트</b><button id="mu-x">×</button></div>'
 +'<div id="mu-body">'
 +'<div class="mu-sum" id="mu-sum"><span>불러오는 중…</span></div>'
++'<div class="mu-row"><button class="mu-btn go" id="mu-runq" style="width:100%">⚡ 오늘 변경분(대기) 한번에 업데이트</button></div>'
 +'<div class="mu-row">'
-+'<button class="mu-btn q" data-pick="queue">📮 업데이트 대기</button>'
++'<button class="mu-btn q" data-pick="queue">📮 대기만 선택</button>'
 +'<button class="mu-btn" data-pick="missing">사진·스펙 없는 것</button>'
 +'<button class="mu-btn" data-pick="all">전체</button>'
 +'<button class="mu-btn" data-pick="none">선택 해제</button>'
@@ -268,6 +269,9 @@ function renderRun(){
   const n=Object.keys(SEL).length;
   $('mu-run').textContent='선택 '+n+'건 업데이트';
   $('mu-run').disabled=(n===0||BUSY);
+  const nq=PRODUCTS.filter(inQueue).length;
+  $('mu-runq').textContent=nq?('⚡ 오늘 변경분 '+nq+'건 한번에 업데이트'):'⚡ 오늘 변경분 없음 (대기 0건)';
+  $('mu-runq').disabled=(nq===0||BUSY);
 }
 const picks=W.querySelectorAll('[data-pick]');
 for(let i=0;i<picks.length;i++){
@@ -312,7 +316,8 @@ $('mu-link').onclick=async function(){
 };
 
 /* 선택분만 수집 → 캐시 병합 저장 → 대기 목록에서 성공분 제거 → 실패 목록 표시 */
-$('mu-run').onclick=async function(){
+$('mu-run').onclick=function(){runSelected();};
+async function runSelected(){
   const keys=Object.keys(SEL);
   if(!keys.length||BUSY)return;
   BUSY=true;renderRun();
@@ -370,6 +375,16 @@ $('mu-run').onclick=async function(){
     }).join('<br>');
   }
   renderRun();
+}
+
+/* ⚡ 오늘 변경분 한번에 — 상품정보 업데이트(byeondong 엑셀 생성)에서 쌓인 대기 목록을 고르고 바로 실행 */
+$('mu-runq').onclick=function(){
+  if(BUSY)return;
+  const q=PRODUCTS.filter(inQueue);
+  if(!q.length){log('📮 대기 목록이 비어 있습니다. (상품정보 업데이트에서 📗 엑셀 생성을 하면 여기에 쌓입니다)');return;}
+  SEL={};q.forEach(p=>SEL[pkey(p.name)]=1);
+  FILTER='queue';renderSum();renderList();renderRun();
+  runSelected();
 };
 $('mu-failcp').onclick=function(){
   const txt=LASTFAIL.map(function(t){return '['+t.wh+'] '+t.name+(t.tab?('  (시트 '+t.tab+' '+t.cell+')'):'')+(t.url?('  → '+t.url):'  → 링크 없음');}).join('\n');
