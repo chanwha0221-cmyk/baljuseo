@@ -342,6 +342,11 @@
   var APPLY_GID = 548798859;                                       // 상품변동사항 탭 gid
   var LINK_ID = '';  // 링크 읽기 + 링크업데이트 버튼 대상 — 설정 '링크 시트'에 팀별 주소를 넣어야 함(기본값 없음, 비면 막힘)
   var LINK_TAB = '링크';                                            // A열 상품명 → B열 URL (중복이면 위=첫 번째 우선)
+  // 📸 카탈로그 사진·스펙 업데이트 대기 목록 — 엑셀 생성(=리모컨 업데이트)한 상품을 여기에 쌓아둔다.
+  //    media-updater(북마클릿)에서 [📮 업데이트 대기]로 한 번에 골라 사진·스펙을 새로 받고,
+  //    실제로 받아온 상품은 거기서 목록에서 지운다 → 여기 남아있는 건 "아직 안 받은 것".
+  var MEDIA_Q_ID = '1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';   // 도구시트
+  var MEDIA_Q_TAB = '상품이미지대기';
   var NOTICE_TAB = '공지_당일생물';   // 당일 상품 공지 (같은 사본 APPLY_ID)
   var NOTICE_GID = 322594718;         // 공지_당일생물 탭 gid
   var NOTICE_HDR = 23;                // 헤더 23행, 데이터 24행부터
@@ -1210,6 +1215,36 @@
     var o=b.textContent; b.textContent='✓'; setTimeout(function(){ b.textContent=o; }, 900);
   });
 
+  // ===== 📸 카탈로그 사진·스펙 업데이트 대기 등록 =====
+  // 엑셀 생성한 상품(=리모컨에 반영할 변경분)은 상세페이지도 새로 만들어지거나 바뀌는 경우가 많다.
+  // 그래서 여기에 쌓아두고, media-updater 북마클릿에서 [📮 업데이트 대기]로 골라 사진·스펙을 새로 받는다.
+  // 이미 대기에 있는 상품은 중복으로 넣지 않는다. 실패해도 엑셀 생성 자체는 이미 끝났으니 조용히 넘어간다.
+  function queueMedia(names){
+    if(!names || !names.length) return;
+    var base='https://sheets.googleapis.com/v4/spreadsheets/'+MEDIA_Q_ID+'/values/'+encodeURIComponent("'"+MEDIA_Q_TAB+"'!A2:A400");
+    fetch(base, { headers:{ Authorization:'Bearer '+accessToken } })
+      .then(function(r){ return r.ok ? r.json() : {values:[]}; })
+      .then(function(j){
+        var have={}; (j.values||[]).forEach(function(r){ var n=cell(r,0); if(n) have[pkey(n)]=1; });
+        var add=[], seen={};
+        names.forEach(function(n){
+          var k=pkey(n);
+          if(!n || have[k] || seen[k]) return;
+          seen[k]=1; add.push([n, reqNow(), '상품정보 업데이트']);
+        });
+        if(!add.length) return;
+        var url='https://sheets.googleapis.com/v4/spreadsheets/'+MEDIA_Q_ID+'/values/'+encodeURIComponent("'"+MEDIA_Q_TAB+"'!A:C")+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS';
+        return fetch(url, { method:'POST', headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' }, body: JSON.stringify({values:add}) })
+          .then(function(r){
+            if(r.ok){
+              var e=document.getElementById('status');
+              if(e) e.innerHTML += '<br>📸 사진·스펙 업데이트 대기에 <b>'+add.length+'</b>건 등록 — masterc.kr에서 <b>📸 사진 업데이트</b> 북마클릿 → [📮 업데이트 대기]';
+            }
+          });
+      })
+      .catch(function(){});
+  }
+
   // ===== 📗 리모컨(원가파일) 업데이트 엑셀 생성 =====
   // 규칙: 품절·원가변경·순수 정보변경 제외 / 출시·재입고·인상·인하(+상품명변경) 포함.
   //       ★ ✕제외 상품도 리모컨엔 포함 (2026-08-05 사장님): 상시에서 뺀 상품(재고 뒤죽박죽 생물 등)도
@@ -1319,6 +1354,7 @@
     var fn = '리모컨_변경분_'+today.replace(/-/g,'')+'.xlsx';
     try { XLSX.writeFile(wb, fn); }
     catch(e){ alert('엑셀 저장 실패: '+e.message); return; }
+    queueMedia(newRows.map(function(r){ return String(r[0]||'').trim(); }).filter(Boolean));   // 📸 사진·스펙 업데이트 대기에 쌓기(엑셀 저장은 이미 끝났으니 실패해도 안 막음)
     setStatus('✅ 리모컨 <b>변경분</b> 엑셀 생성 완료 → <b>'+esc(fn)+'</b><br>· 업데이트 대상 <b>'+newRows.length+'</b>건만 (원가채움 '+filledWonga+' · 이름변경 '+renamed+')<br>· 제외 '+skipped+'건(품절/원가변경/정보변경) · 중복스킵 '+dupInNew+'건'+(exIncluded?'<br>· 🅧 화면에서 ✕제외한 상품도 <b>'+exIncluded+'</b>건 포함 — 시트엔 안 들어가도 리모컨엔 등록(업체가 당일로 발주 줄 수 있음)':'')+(restockNew.length?'<br>· ♻️ 재입고인데 리모컨에 없던 상품 <b>'+restockNew.length+'</b>건 → 출시(신규)와 동일 처리(원가 채움): '+esc(restockNew.join(', ')):'')+'<br>· ✅ 기존 상품 원가는 안 들어감 → 관리팀 원가 안 건드림'+(renamed?'<br>· ⚠️ 이름변경 '+renamed+'건은 리모컨에 옛 이름 행이 남아있을 수 있어요(수동 확인)':'')+(renameNoCost.length?'<br>· 🚨 이름변경인데 <b>원가를 못 채운</b> 상품 '+renameNoCost.length+'건: <b>'+esc(renameNoCost.join(', '))+'</b> — 엑셀 E열에 원가 직접 넣어주세요(새 슬롯이라 원가 필수)':''), 'ok');
   });
 

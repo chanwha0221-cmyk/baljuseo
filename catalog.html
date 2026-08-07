@@ -171,20 +171,25 @@ async function loadCatalog(){
   groups.sort((a,b)=>(a.wh==='당일생물'?-1:0)-(b.wh==='당일생물'?-1:0));
   return groups;
 }
-// 사진·스펙 캐시는 도구시트 '상품이미지' 탭 — media-updater(북마클릿)가 갱신한다
+// 사진·스펙 캐시는 도구시트 '상품이미지_v2' 탭 — media-updater(북마클릿)가 갱신한다.
+// 상품명 기준으로 찾는다(유통시트 하이퍼링크는 낡은 게 섞여 있어 id로 맞추면 어긋남 — 2026-08-07).
 const DOGU_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
+const pkey=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 async function loadMedia(){
   const token=await getAccessToken();
   if(!token)return {};
-  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품이미지'!A1:D3000"),{headers:{Authorization:'Bearer '+token}});
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품이미지_v2'!A1:F3000"),{headers:{Authorization:'Bearer '+token}});
   const j=await r.json();
   if(j.error)return {};
   const m={};
   const rows=j.values||[];
   for(let i=1;i<rows.length;i++){
     const v=rows[i]||[];
-    if(!v[0])continue;
-    m[String(v[0]).trim()]={img:v[1]||'',spec:(v[2]?String(v[2]).split('\n'):[])};
+    const nm=(v[0]||'').trim();
+    if(!nm)continue;
+    const rec={img:v[2]||'',spec:(v[3]?String(v[3]).split('\n'):[]),link:v[5]||''};
+    m['n:'+pkey(nm)]=rec;
+    if(v[1])m[String(v[1]).trim()]=rec;   // id로도 찾을 수 있게(예전 방식 호환)
   }
   return m;
 }
@@ -222,11 +227,12 @@ function priceHtml(p){
 }
 function card(p,showWh){
   const taxc=(p.tax&&p.tax.indexOf('과세')>=0&&p.tax.indexOf('면')<0)?'tx':'tax';
-  const nm=p.url?('<a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+esc(p.name)+'</a>'):esc(p.name);
+  const href=(m&&m.link)||p.url||'';   // 캐시의 링크가 최신(링크 시트 정본) — 유통시트 링크보다 우선
+  const nm=href?('<a href="'+esc(href)+'" target="_blank" rel="noopener">'+esc(p.name)+'</a>'):esc(p.name);
   const cr=p.courier?esc(p.courier)+' ':'';
   const sh=p.ship<0?'':(p.ship>0?(cr+'<b>'+won(p.ship)+'원</b>'):cr+'<span class="free">무료배송</span>');
   const whName=showWh?p.wh:(p.srcWh||'');
-  const m=p.url?(MEDIA[(p.url.match(/(\d{5,})/)||[])[1]]||null):null;
+  const m=MEDIA['n:'+pkey(p.name)]||(p.url?(MEDIA[(p.url.match(/(\d{5,})/)||[])[1]]||null):null);
   const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(thumbUrl(m.img))+'" data-full="'+esc(m.img)+'" alt="'+esc(p.name)+'" loading="lazy" onerror="thumbFail(this)">')
                         :'<div class="nothumb">사진 준비중</div>';
   const spec=(m&&m.spec&&m.spec.length)?('<div class="spec">'+m.spec.map(s=>'<div>'+esc(s)+'</div>').join('')+'</div>'):'';
