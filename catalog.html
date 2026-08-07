@@ -117,26 +117,14 @@ async function loadCatalog(){
     const rows=((sh.data&&sh.data[0]&&sh.data[0].rowData)||[]).map(r=>r.values||[]);
     if(rows.length<2)continue;
     const disp=rows.map(r=>r.map(c=>(c&&c.formattedValue)||''));
-    // 당일생물 탭: 표가 아니라 I열(9번째 칸)에 상품명만 나열된 특수 구조 — 단가 없음, 수량·단가 문의
-    if(name==='공지_당일생물'){
-      const products=[];let gap=0;
-      for(let r=2;r<disp.length;r++){
-        const nm=(disp[r][8]||'').trim();
-        if(!nm){if(++gap>=2)break;continue;}  // 빈 줄 연속 = 상품 목록 끝(그 아래는 '기타내용' 같은 구역 라벨)
-        gap=0;
-        products.push({name:nm,url:linkOf(rows[r][8]),price:{old:null,cur:null,dir:''},ship:-1,courier:'',tax:'',cut:'',ref:'',ask:true});
-      }
-      if(products.length)groups.push({wh:(RENAME[name]||name),products,ask:true});
-      continue;
-    }
-    // 헤더행: 상단 6행 내 '상품명'+'공급가'
+    // 헤더행: '상품명'+'공급가' 있는 행 탐색 (당일생물 탭은 공지 텍스트 아래 22행쯤에 표가 있어 넉넉히 훑는다)
     let hr=-1;
-    for(let r=0;r<Math.min(6,disp.length);r++){const j=disp[r].join('|');if(j.indexOf('상품명')>=0&&j.indexOf('공급가')>=0){hr=r;break;}}
+    for(let r=0;r<Math.min(40,disp.length);r++){const j=disp[r].join('|');if(j.indexOf('상품명')>=0&&j.indexOf('공급가')>=0){hr=r;break;}}
     if(hr<0)continue;
     const H=disp[hr];
     if(/원가|공급처|기존가/.test(H.join('|')))continue; // 내부 작업탭 가드
     const col=labels=>{for(let i=0;i<H.length;i++)for(const k of labels)if(H[i].indexOf(k)>=0)return i;return -1;};
-    const ci={name:col(['상품명']),price:col(['공급가']),tax:col(['면과세','면/과세','과세']),cut:col(['발주마감','마감']),exp:col(['유통기한'])};
+    const ci={name:col(['상품명']),price:col(['공급가']),tax:col(['면과세','면/과세','과세']),cut:col(['발주마감','마감']),exp:col(['유통기한']),wh:col(['창고명'])};
     if(ci.name<0||ci.price<0)continue;
     // '택배비' 헤더가 두 번(택배사명/금액)인 탭이 있음 → 값을 보고 판별: 숫자면 배송비, 택배사명이면 택배사
     const shipIdxs=[];for(let i=0;i<H.length;i++)if(H[i].indexOf('택배')>=0)shipIdxs.push(i);
@@ -167,10 +155,13 @@ async function loadCatalog(){
         courier:(courierCol>=0?(row[courierCol]||'').trim():''),
         tax:(ci.tax>=0?(row[ci.tax]||'').trim():''),
         cut:(ci.cut>=0?(row[ci.cut]||'').trim():''),
-        ref:(refCol>=0&&refCol<row.length?(row[refCol]||'').trim():'')
+        ref:(refCol>=0&&refCol<row.length?(row[refCol]||'').trim():''),
+        srcWh:(ci.wh>=0?(row[ci.wh]||'').trim():'')
       });
     }
-    if(products.length)groups.push({wh:(RENAME[name]||name),products});
+    // 당일생물처럼 한 탭에 여러 창고 상품이 섞인 경우 — 상품마다 창고 배지를 달아준다
+    const mixed=new Set(products.map(p=>p.srcWh).filter(Boolean)).size>1;
+    if(products.length)groups.push({wh:(RENAME[name]||name),products,mixed});
   }
   // 당일생물을 맨 앞으로
   groups.sort((a,b)=>(a.wh==='당일생물'?-1:0)-(b.wh==='당일생물'?-1:0));
@@ -203,8 +194,9 @@ function card(p,showWh){
   const nm=p.url?('<a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+esc(p.name)+'</a>'):esc(p.name);
   const cr=p.courier?esc(p.courier)+' ':'';
   const sh=p.ship<0?'':(p.ship>0?(cr+'<b>'+won(p.ship)+'원</b>'):cr+'<span class="free">무료배송</span>');
+  const whName=showWh?p.wh:(p.srcWh||'');
   return '<div class="card"><div class="bd">'
-    +(showWh?'<span class="whb">📦 '+esc(p.wh)+'</span>':'')
+    +(whName?'<span class="whb">📦 '+esc(whName)+'</span>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
     +(p.tax?'<span class="tg '+taxc+'">'+esc(p.tax)+'</span>':'')
     +(p.ref?'<div class="rf">'+esc(p.ref.slice(0,55))+'</div>':'')
@@ -234,15 +226,11 @@ function render(){
   catrow.innerHTML=cats.map(c=>{const n=(c==='전체')?items.length:items.filter(p=>p.cat===c).length;return '<button class="chip sm'+(c===st.cat?' on':'')+'" data-c="'+c+'">'+(c==='전체'?('전체 '+n):(c+' '+n))+'</button>';}).join('');
   catrow.querySelectorAll('.chip').forEach(b=>{b.onclick=()=>{st.cat=b.getAttribute('data-c');render();};});
   const list=items.filter(p=>st.cat==='전체'||p.cat===st.cat);
-  let sht;
-  if(g.ask){sht='당일 조업 생물 — <b>수량·단가는 문의</b> (010-2455-4156)';}
-  else{
-    const ships={};items.forEach(p=>{ships[p.ship]=(ships[p.ship]||0)+1;});
-    let sh=Object.keys(ships).sort((a,b)=>ships[b]-ships[a])[0];sh=parseInt(sh,10)||0;
-    sht=sh>0?('기본 배송비 <b>'+won(sh)+'원</b>'):'<b class="free">무료배송</b>';
-  }
+  const ships={};items.forEach(p=>{ships[p.ship]=(ships[p.ship]||0)+1;});
+  let sh=Object.keys(ships).sort((a,b)=>ships[b]-ships[a])[0];sh=parseInt(sh,10)||0;
+  const sht=sh>0?('기본 배송비 <b>'+won(sh)+'원</b>'):'<b class="free">무료배송</b>';
   empty.style.display='none';
-  view.innerHTML='<div class="banner"><span class="wn">📦 '+esc(g.wh)+(g.ask?'':' 창고')+'</span><span class="pk">'+(g.ask?'오늘 들어온 생물':'이 창고 상품끼리만 합포장')+'</span><span class="sp">'+sht+' · 상품 '+items.length+'개</span></div>'
+  view.innerHTML='<div class="banner"><span class="wn">📦 '+esc(g.wh)+(g.mixed?'':' 창고')+'</span><span class="pk">'+(g.mixed?'상품마다 창고가 달라요 — 합포장은 같은 창고끼리만':'이 창고 상품끼리만 합포장')+'</span><span class="sp">'+sht+' · 상품 '+items.length+'개</span></div>'
     +'<div class="meta"><div><b>'+won(list.length)+'</b>개 상품</div><div>가격은 거래처 공급가</div></div>'
     +'<div class="grid">'+list.map(p=>card(p,false)).join('')+'</div>';
 }
