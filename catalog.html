@@ -171,6 +171,23 @@ async function loadCatalog(){
   groups.sort((a,b)=>(a.wh==='당일생물'?-1:0)-(b.wh==='당일생물'?-1:0));
   return groups;
 }
+// 사진·스펙 캐시는 도구시트 '상품이미지' 탭 — media-updater(북마클릿)가 갱신한다
+const DOGU_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
+async function loadMedia(){
+  const token=await getAccessToken();
+  if(!token)return {};
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품이미지'!A1:D3000"),{headers:{Authorization:'Bearer '+token}});
+  const j=await r.json();
+  if(j.error)return {};
+  const m={};
+  const rows=j.values||[];
+  for(let i=1;i<rows.length;i++){
+    const v=rows[i]||[];
+    if(!v[0])continue;
+    m[String(v[0]).trim()]={img:v[1]||'',spec:(v[2]?String(v[2]).split('\n'):[])};
+  }
+  return m;
+}
 // ── 렌더링 ──
 const CATRULES=[
 ['수산','갈치|오징어|새우|게장|꽃게|대게|킹크랩|조개|굴|홍합|담치|문어|낙지|주꾸미|쭈꾸미|장어|고등어|가자미|민어|박대|전복|꼬막|바지락|멸치|미역|다시마|해삼|성게|가리비|어묵|명태|코다리|황태|아귀|삼치|조기|참치|연어|방어|전어|숭어|병어|서대|우럭|광어|넙치|볼락|명란|창난|오징|매생이|파래|톳|하모|바리|갑오징어|한치|쥐포|먹태|과메기|굴비|젓|소라|참소라|해신탕'],
@@ -260,8 +277,12 @@ document.addEventListener('click',e=>{
 $('q').addEventListener('input',e=>{st.q=e.target.value.trim();render();});
 (async()=>{
   try{
-    // 상품 사진·스펙(masterc.kr 상세페이지에서 수집한 스냅샷) — 없어도 카탈로그는 동작
-    try{ MEDIA=await(await fetch('data/product-media.json',{cache:'no-cache'})).json(); }catch(e){ MEDIA={}; }
+    // 상품 사진·스펙 — 시트('상품이미지' 탭)가 최신본. 도구로 업데이트하면 여기 바로 반영된다.
+    // 시트를 못 읽으면 배포된 스냅샷(JSON)으로, 그것도 없으면 사진 없이 동작.
+    try{ MEDIA=await loadMedia(); }catch(e){ MEDIA={}; }
+    if(!Object.keys(MEDIA).length){
+      try{ MEDIA=await(await fetch('data/product-media.json',{cache:'no-cache'})).json(); }catch(e){ MEDIA={}; }
+    }
     GROUPS=await loadCatalog();
     GROUPS.forEach(g=>g.products.forEach(p=>{p.cat=catOf(p.name);}));
     let total=0;GROUPS.forEach(g=>total+=g.products.length);

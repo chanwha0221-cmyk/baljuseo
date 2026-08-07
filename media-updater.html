@@ -1,0 +1,71 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>상품 사진·스펙 업데이트 도구 설치</title>
+<style>
+:root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
+@media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;line-height:1.6;padding:28px 16px 70px}
+main{max-width:680px;margin:0 auto}
+h1{font-size:21px;letter-spacing:-.4px;margin-bottom:4px}
+.sub{color:var(--muted);font-size:12.5px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:18px 20px;margin-bottom:14px}
+h2{font-size:15px;margin-bottom:8px}
+p,li{font-size:13.5px}
+ol{margin:8px 0 0 18px}
+li{margin-bottom:6px}
+.bm{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;font-size:15px;padding:11px 22px;border-radius:10px;margin:10px 0 6px;cursor:grab}
+.hint{background:var(--soft);border-radius:9px;padding:10px 13px;font-size:12.5px;color:var(--accent-d);margin-top:10px}
+code{background:var(--line);padding:1px 5px;border-radius:4px;font-size:12px}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:11px;word-break:break-all;background:var(--line);padding:10px;border-radius:8px;margin-top:8px;color:var(--ink)}
+button.cp{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;margin-top:8px;font-weight:600}
+button.cp:hover{border-color:var(--accent);color:var(--accent)}
+a{color:var(--accent)}
+</style></head><body><main>
+<h1>📸 상품 사진·스펙 업데이트 도구</h1>
+<div class="sub">카탈로그에 뜨는 상품 사진과 스펙을 masterc.kr에서 다시 긁어옵니다 · 마스터 유통</div>
+
+<div class="card">
+  <h2>1. 즐겨찾기에 한 번만 등록</h2>
+  <p>아래 초록 버튼을 <b>즐겨찾기 바로 끌어다 놓으세요.</b> (Ctrl+Shift+B 로 즐겨찾기 바 켜기)</p>
+  <a class="bm" id="bm" href="#">📸 사진 업데이트</a>
+  <p style="font-size:12.5px;color:var(--muted)">끌어다 놓기가 안 되면 즐겨찾기를 새로 추가하고 URL 칸에 아래 주소를 붙여넣으세요.</p>
+  <div class="mono" id="code"></div>
+  <button class="cp" id="cp">📋 주소 복사</button>
+</div>
+
+<div class="card">
+  <h2>2. 쓰는 법</h2>
+  <ol>
+    <li><b>masterc.kr에 로그인된 탭</b>을 엽니다 (아무 페이지나 상관없음). 사진은 로그인해야 보이기 때문에 꼭 이 사이트 위에서 실행해야 합니다.</li>
+    <li>즐겨찾기의 <b>📸 사진 업데이트</b>를 누르면 오른쪽 아래에 패널이 뜹니다.</li>
+    <li>업데이트할 상품을 고릅니다.
+      <ul style="margin:6px 0 0 16px">
+        <li><b>누락만</b> — 사진이나 스펙이 비어 있는 상품</li>
+        <li><b>신규만</b> — 시트에 새로 올라와 아직 한 번도 안 긁은 상품</li>
+        <li><b>오늘 변동</b> — 상품변동사항에 오늘 날짜로 올라온 상품</li>
+        <li>검색창에 상품명을 넣어 <b>개별로 여러 개 체크</b>도 됩니다 (카탈로그에서 📋로 복사한 이름 붙여넣기)</li>
+      </ul>
+    </li>
+    <li><b>선택 N건 업데이트</b>를 누르면 진행률이 돌고, 끝나면 시트에 저장됩니다.</li>
+    <li>카탈로그를 새로고침하면 바로 반영됩니다.</li>
+  </ol>
+  <div class="hint">💡 아침에 유통시트를 정리한 뒤라면 <b>신규만 + 오늘 변동</b>만 돌리면 됩니다. 전체(600여 건)는 2~3분 걸리니 필요할 때만 쓰세요.</div>
+</div>
+
+<div class="card">
+  <h2>3. 어디에 저장되나</h2>
+  <p>사진 주소와 스펙은 <b>도구시트의 <code>상품이미지</code> 탭</b>에 쌓입니다. 카탈로그는 이 탭을 읽어서 그립니다. 시트에서 직접 고쳐도 되고, 특정 상품 사진을 지우고 싶으면 그 행의 사진 칸만 비우면 "사진 준비중"으로 표시됩니다.</p>
+  <p style="margin-top:8px"><a href="catalog.html">→ 카탈로그 열기</a></p>
+</div>
+</main>
+<script>
+var SRC='https://chanwha0221-cmyk.github.io/baljuseo/media-updater.js';
+var BM="javascript:(function(){var s=document.createElement('script');s.src='"+SRC+"?'+Date.now();document.body.appendChild(s);})()";
+document.getElementById('bm').href=BM;
+document.getElementById('code').textContent=BM;
+document.getElementById('cp').onclick=function(){
+  navigator.clipboard.writeText(BM).then(function(){var b=document.getElementById('cp');b.textContent='복사됨!';setTimeout(function(){b.textContent='📋 주소 복사';},2000);});
+};
+</script>
+</body></html>
