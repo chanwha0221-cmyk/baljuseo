@@ -30,7 +30,11 @@ h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .meta{display:flex;justify-content:space-between;margin-top:11px;font-size:11.5px;color:var(--muted)}.meta b{color:var(--ink)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:11px;margin-top:10px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.thumb{aspect-ratio:4/3;background:var(--chip);display:block;width:100%;object-fit:cover}
+.nothumb{aspect-ratio:4/3;background:var(--chip);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px}
 .bd{padding:12px 12px 12px;display:flex;flex-direction:column;gap:5px;flex:1}
+.spec{font-size:10.5px;color:var(--muted);line-height:1.55;border-top:1px dashed var(--line);padding-top:6px;margin-top:2px}
+.spec div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .whb{align-self:flex-start;font-size:10px;font-weight:700;color:var(--gold);background:color-mix(in srgb,var(--gold) 12%,transparent);padding:2px 7px;border-radius:5px}
 .pn{font-size:13.5px;font-weight:700;letter-spacing:-.3px;line-height:1.3;display:flex;align-items:flex-start;gap:5px}
 .pn a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted)}
@@ -176,7 +180,7 @@ const CATRULES=[
 ['가공·기타','떡|만두|치약|세제|장갑|핸드워시|즉석|국거리|찌개|소스|참기름|들기름|견과|밤|고구마|양파|마늘|대파|버섯|호두|아몬드|누룽지']
 ];
 function catOf(n){for(const[c,re]of CATRULES){if(new RegExp(re).test(n))return c;}return'기타';}
-let GROUPS=[];
+let GROUPS=[],MEDIA={};
 const st={q:'',wi:0,cat:'전체'};
 const $=id=>document.getElementById(id);
 const whrow=$('whrow'),catrow=$('catrow'),view=$('view'),empty=$('empty');
@@ -195,11 +199,16 @@ function card(p,showWh){
   const cr=p.courier?esc(p.courier)+' ':'';
   const sh=p.ship<0?'':(p.ship>0?(cr+'<b>'+won(p.ship)+'원</b>'):cr+'<span class="free">무료배송</span>');
   const whName=showWh?p.wh:(p.srcWh||'');
-  return '<div class="card"><div class="bd">'
+  const m=p.url?(MEDIA[(p.url.match(/(\d{5,})/)||[])[1]]||null):null;
+  const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(m.img)+'" alt="'+esc(p.name)+'" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;nothumb&quot;>사진 준비중</div>\'">')
+                        :'<div class="nothumb">사진 준비중</div>';
+  const spec=(m&&m.spec&&m.spec.length)?('<div class="spec">'+m.spec.map(s=>'<div>'+esc(s)+'</div>').join('')+'</div>'):'';
+  return '<div class="card">'+thumb+'<div class="bd">'
     +(whName?'<span class="whb">📦 '+esc(whName)+'</span>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
     +(p.tax?'<span class="tg '+taxc+'">'+esc(p.tax)+'</span>':'')
     +(p.ref?'<div class="rf">'+esc(p.ref.slice(0,55))+'</div>':'')
+    +spec
     +'<div class="prow"><div>'+priceHtml(p.price)+'</div><div class="ship">'+sh+(p.cut?'<br>'+esc(p.cut):'')+'</div></div>'
     +'</div></div>';
 }
@@ -241,6 +250,8 @@ document.addEventListener('click',e=>{
 $('q').addEventListener('input',e=>{st.q=e.target.value.trim();render();});
 (async()=>{
   try{
+    // 상품 사진·스펙(masterc.kr 상세페이지에서 수집한 스냅샷) — 없어도 카탈로그는 동작
+    try{ MEDIA=await(await fetch('data/product-media.json',{cache:'no-cache'})).json(); }catch(e){ MEDIA={}; }
     GROUPS=await loadCatalog();
     GROUPS.forEach(g=>g.products.forEach(p=>{p.cat=catOf(p.name);}));
     let total=0;GROUPS.forEach(g=>total+=g.products.length);
