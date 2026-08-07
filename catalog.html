@@ -1,0 +1,267 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>마스터 유통 상품 카탈로그</title>
+<style>
+:root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
+--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
+--shadow:0 1px 2px rgba(20,40,30,.05),0 6px 20px rgba(20,40,30,.05);--radius:14px}
+@media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--line2:#222925;
+--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a;--up:#ef6b6b;--down:#6ba8ef;--gold:#d6a34a;--chip:#232a26;
+--shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:60px;line-height:1.4}
+.wrap{max-width:1120px;margin:0 auto;padding:0 15px}
+header{padding:18px 0 4px}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--accent-d));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:17px;box-shadow:var(--shadow)}
+h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
+.sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.note{margin-top:11px;background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:9px 12px;font-size:11.5px;color:var(--accent-d);line-height:1.5}
+.controls{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 93%,transparent);backdrop-filter:blur(10px);padding:10px 0;border-bottom:1px solid var(--line);margin-top:11px}
+.search{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:11px 13px;font-size:15px;background:var(--card);color:var(--ink);outline:none}
+.search:focus{border-color:var(--accent)}
+.lbl{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.4px;margin:10px 0 5px}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{border:1.5px solid var(--line);background:var(--card);color:var(--muted);padding:6px 12px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.12s;white-space:nowrap}
+.chip:hover{border-color:var(--accent)}.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip.sm{padding:4px 10px;font-size:11.5px}
+.banner{margin-top:13px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:11px;padding:11px 14px;display:flex;flex-wrap:wrap;gap:5px 14px;align-items:center;box-shadow:var(--shadow)}
+.banner .wn{font-size:15px;font-weight:800}.banner .pk{font-size:11.5px;font-weight:700;color:var(--accent-d);background:var(--soft);padding:3px 9px;border-radius:20px}.banner .sp{font-size:12px;color:var(--muted)}.banner .sp b{color:var(--ink)}
+.meta{display:flex;justify-content:space-between;margin-top:11px;font-size:11.5px;color:var(--muted)}.meta b{color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:11px;margin-top:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.bd{padding:12px 12px 12px;display:flex;flex-direction:column;gap:5px;flex:1}
+.whb{align-self:flex-start;font-size:10px;font-weight:700;color:var(--gold);background:color-mix(in srgb,var(--gold) 12%,transparent);padding:2px 7px;border-radius:5px}
+.pn{font-size:13.5px;font-weight:700;letter-spacing:-.3px;line-height:1.3;display:flex;align-items:flex-start;gap:5px}
+.pn a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted)}
+.cpbtn{border:1px solid var(--line);background:var(--chip);border-radius:6px;font-size:10.5px;padding:1px 6px;cursor:pointer;color:var(--muted);flex:none;line-height:1.5}
+.cpbtn:hover{border-color:var(--accent);color:var(--accent)}
+.tg{font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;background:var(--chip);color:var(--muted);align-self:flex-start}
+.tg.tax{background:var(--soft);color:var(--accent-d)}.tg.tx{color:var(--up)}
+.rf{font-size:10.5px;color:var(--muted);line-height:1.4}
+.prow{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;padding-top:4px;gap:6px}
+.price{font-size:18px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.price small{font-size:11.5px;font-weight:600;color:var(--muted)}
+.old{font-size:11px;color:var(--muted);text-decoration:line-through;font-variant-numeric:tabular-nums;display:block;line-height:1}
+.price.up{color:var(--up)}.price.down{color:var(--down)}
+.ship{font-size:10.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}.ship b{color:var(--ink)}.free{color:var(--accent);font-weight:700}
+.empty{text-align:center;padding:60px 0;color:var(--muted)}
+.load{text-align:center;padding:80px 0;color:var(--muted);font-size:14px}
+footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted);text-align:center;line-height:1.7}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 18px;border-radius:20px;font-size:12.5px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
+</style></head><body><div class="wrap">
+<header><div class="brand"><div class="mark">마</div><div><h1>마스터 유통 상품</h1><div class="sub" id="sub">거래처용 카탈로그 · 불러오는 중…</div></div></div>
+<div class="note">🚚 <b>합포장(합배송)은 같은 창고 상품끼리만 됩니다.</b> 서로 다른 창고 상품은 각각 배송비가 붙어요. 창고를 골라 보세요.<br>💬 상품 문의 · 수량 문의 : <b>010-2455-4156 홍찬화 팀장</b></div></header>
+<div class="controls">
+<input class="search" id="q" type="search" placeholder="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…" autocomplete="off">
+<div class="lbl">창고 선택</div><div class="row" id="whrow"></div>
+<div class="row" id="catrow" style="margin-top:8px"></div>
+</div>
+<div class="load" id="load">⏳ 상품을 불러오는 중입니다…</div>
+<div id="view"></div><div class="empty" id="empty" style="display:none">검색 결과가 없습니다.</div>
+<footer id="ft">마스터 유통 · 거래처 상품 카탈로그</footer>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+// ── 시트 읽기 (서비스계정 읽기전용, secretary.html 패턴) ──
+const SHEET_ID='1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';
+const EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
+const RENAME={'공지_당일생물':'당일생물'};
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
+const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+async function getAccessToken(){
+  const now=Math.floor(Date.now()/1000);
+  const enc=o=>btoa(JSON.stringify(o)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const toSign=enc({alg:'RS256',typ:'JWT'})+'.'+enc({iss:CLIENT_EMAIL,scope:'https://www.googleapis.com/auth/spreadsheets.readonly',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now});
+  const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(toSign));
+  const jwt=toSign+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const res=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`});
+  const d=await res.json();return d.access_token;
+}
+function parsePrice(s){
+  s=(s==null?'':s).toString().trim();
+  if(!s)return null;
+  const parts=s.split(/>|＞|→/).map(x=>x.trim());
+  const num=x=>{const m=(x.match(/[\d,]+/)||[''])[0].replace(/,/g,'');return m?parseInt(m,10):null;};
+  if(parts.length>=2){
+    const o=num(parts[0]),c=num(parts[parts.length-1]);
+    return{old:o,cur:c,dir:(c!=null&&o!=null)?(c>o?'up':(c<o?'down':'')):''};
+  }
+  return{old:null,cur:num(s),dir:''};
+}
+function parseNum(x){const m=((x==null?'':x).toString().match(/[\d,]+/)||[''])[0].replace(/,/g,'');return m?parseInt(m,10):0;}
+function linkOf(cell){
+  if(!cell)return'';
+  if(cell.hyperlink)return cell.hyperlink;
+  if(cell.textFormatRuns){for(const r of cell.textFormatRuns){if(r.format&&r.format.link&&r.format.link.uri)return r.format.link.uri;}}
+  const f=cell.userEnteredValue&&cell.userEnteredValue.formulaValue;
+  if(f){const m=f.match(/HYPERLINK\(\s*"([^"]+)"/i);if(m)return m[1];}
+  return'';
+}
+async function loadCatalog(){
+  const token=await getAccessToken();
+  if(!token)throw new Error('토큰 발급 실패');
+  const meta=await(await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties(title,hidden)`,{headers:{Authorization:'Bearer '+token}})).json();
+  if(meta.error)throw new Error('시트 접근 실패 ('+meta.error.status+') — 공유 권한을 확인해 주세요');
+  const tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0).map(p=>p.title);
+  const ranges=tabs.map(t=>'ranges='+encodeURIComponent(`'${t.replace(/'/g,"''")}'!A1:N400`)).join('&');
+  const fields='sheets(properties.title,data.rowData.values(formattedValue,hyperlink,textFormatRuns(format.link.uri),userEnteredValue.formulaValue))';
+  const grid=await(await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?${ranges}&fields=${encodeURIComponent(fields)}`,{headers:{Authorization:'Bearer '+token}})).json();
+  if(grid.error)throw new Error('데이터 로드 실패 ('+grid.error.status+')');
+  const groups=[];
+  for(const sh of (grid.sheets||[])){
+    const name=sh.properties.title;
+    const rows=((sh.data&&sh.data[0]&&sh.data[0].rowData)||[]).map(r=>r.values||[]);
+    if(rows.length<2)continue;
+    const disp=rows.map(r=>r.map(c=>(c&&c.formattedValue)||''));
+    // 당일생물 탭: 표가 아니라 I열(9번째 칸)에 상품명만 나열된 특수 구조 — 단가 없음, 수량·단가 문의
+    if(name==='공지_당일생물'){
+      const products=[];
+      for(let r=2;r<disp.length;r++){
+        const nm=(disp[r][8]||'').trim();
+        if(!nm)continue;
+        products.push({name:nm,url:linkOf(rows[r][8]),price:{old:null,cur:null,dir:''},ship:-1,courier:'',tax:'',cut:'',ref:'',ask:true});
+      }
+      if(products.length)groups.push({wh:(RENAME[name]||name),products,ask:true});
+      continue;
+    }
+    // 헤더행: 상단 6행 내 '상품명'+'공급가'
+    let hr=-1;
+    for(let r=0;r<Math.min(6,disp.length);r++){const j=disp[r].join('|');if(j.indexOf('상품명')>=0&&j.indexOf('공급가')>=0){hr=r;break;}}
+    if(hr<0)continue;
+    const H=disp[hr];
+    if(/원가|공급처|기존가/.test(H.join('|')))continue; // 내부 작업탭 가드
+    const col=labels=>{for(let i=0;i<H.length;i++)for(const k of labels)if(H[i].indexOf(k)>=0)return i;return -1;};
+    const ci={name:col(['상품명']),price:col(['공급가']),tax:col(['면과세','면/과세','과세']),cut:col(['발주마감','마감']),exp:col(['유통기한'])};
+    if(ci.name<0||ci.price<0)continue;
+    // '택배비' 헤더가 두 번(택배사명/금액)인 탭이 있음 → 값을 보고 판별: 숫자면 배송비, 택배사명이면 택배사
+    const shipIdxs=[];for(let i=0;i<H.length;i++)if(H[i].indexOf('택배')>=0)shipIdxs.push(i);
+    let shipCol=-1,courierCol=-1;
+    for(const idx of shipIdxs){
+      let num=0,courier=0;
+      for(let r=hr+1;r<Math.min(hr+12,disp.length);r++){
+        const v=(disp[r][idx]||'').trim();if(!v)continue;
+        if(/택배|통운|로젠|우체국|경동|천일|합동|화물/.test(v))courier++;
+        else if(/[\d,]/.test(v)||v.indexOf('무료')>=0)num++;
+      }
+      if(courier>num){if(courierCol<0)courierCol=idx;}
+      else if(shipCol<0)shipCol=idx;
+    }
+    const refCol=(ci.cut>=0)?ci.cut+1:-1;
+    const products=[];
+    for(let r=hr+1;r<disp.length;r++){
+      const row=disp[r];
+      const nm=(row[ci.name]||'').trim();
+      if(!nm||nm==='상품명')continue;
+      const pr=parsePrice(row[ci.price]);
+      if(!pr||pr.cur==null)continue;
+      products.push({
+        name:nm,
+        url:linkOf(rows[r][ci.name]),
+        price:pr,
+        ship:(shipCol>=0?parseNum(row[shipCol]):0),
+        courier:(courierCol>=0?(row[courierCol]||'').trim():''),
+        tax:(ci.tax>=0?(row[ci.tax]||'').trim():''),
+        cut:(ci.cut>=0?(row[ci.cut]||'').trim():''),
+        ref:(refCol>=0&&refCol<row.length?(row[refCol]||'').trim():'')
+      });
+    }
+    if(products.length)groups.push({wh:(RENAME[name]||name),products});
+  }
+  // 당일생물을 맨 앞으로
+  groups.sort((a,b)=>(a.wh==='당일생물'?-1:0)-(b.wh==='당일생물'?-1:0));
+  return groups;
+}
+// ── 렌더링 ──
+const CATRULES=[
+['수산','갈치|오징어|새우|게장|꽃게|대게|킹크랩|조개|굴|홍합|담치|문어|낙지|주꾸미|쭈꾸미|장어|고등어|가자미|민어|박대|전복|꼬막|바지락|멸치|미역|다시마|해삼|성게|가리비|어묵|명태|코다리|황태|아귀|삼치|조기|참치|연어|방어|전어|숭어|병어|서대|우럭|광어|넙치|볼락|명란|창난|오징|매생이|파래|톳|하모|바리|갑오징어|한치|쥐포|먹태|과메기|굴비|젓|소라|참소라|해신탕'],
+['과일','사과|복숭아|포도|샤인|한라봉|딸기|수박|참외|메론|멜론|망고|바나나|블루베리|자두|체리|키위|단감|홍시|무화과|석류|레몬|오렌지|파인애플|천도|자몽'],
+['축산','한우|돼지|한돈|흑돼지|소고기|삼겹|목살|족발|계란|달걀|오리|육사시미|뭉티기|불고기|갈비|양념육|스테이크|정육|우삼겹|차돌|막창|곱창|대창|육회|등심|안심|사태|양지|닭발|보쌈'],
+['김치·반찬','김치|반찬|장아찌|무침|나물|절임|깍두기|겉절이|총각|열무|된장|고추장|쌈장|명이'],
+['가공·기타','떡|만두|치약|세제|장갑|핸드워시|즉석|국거리|찌개|소스|참기름|들기름|견과|밤|고구마|양파|마늘|대파|버섯|호두|아몬드|누룽지']
+];
+function catOf(n){for(const[c,re]of CATRULES){if(new RegExp(re).test(n))return c;}return'기타';}
+let GROUPS=[];
+const st={q:'',wi:0,cat:'전체'};
+const $=id=>document.getElementById(id);
+const whrow=$('whrow'),catrow=$('catrow'),view=$('view'),empty=$('empty');
+function won(n){return(n||0).toLocaleString('ko-KR');}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(m){const t=$('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',1800);}
+function priceHtml(p){
+  if(p.cur==null)return '<div class="price" style="font-size:13px;color:var(--gold)">수량·단가 문의</div>';
+  const cls='price'+(p.dir==='up'?' up':(p.dir==='down'?' down':''));
+  const oldh=(p.old!=null&&p.old!==p.cur)?'<span class="old">'+won(p.old)+'원</span>':'';
+  return oldh+'<div class="'+cls+'">'+won(p.cur)+'<small>원</small></div>';
+}
+function card(p,showWh){
+  const taxc=(p.tax&&p.tax.indexOf('과세')>=0&&p.tax.indexOf('면')<0)?'tx':'tax';
+  const nm=p.url?('<a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+esc(p.name)+'</a>'):esc(p.name);
+  const cr=p.courier?esc(p.courier)+' ':'';
+  const sh=p.ship<0?'':(p.ship>0?(cr+'<b>'+won(p.ship)+'원</b>'):cr+'<span class="free">무료배송</span>');
+  return '<div class="card"><div class="bd">'
+    +(showWh?'<span class="whb">📦 '+esc(p.wh)+'</span>':'')
+    +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
+    +(p.tax?'<span class="tg '+taxc+'">'+esc(p.tax)+'</span>':'')
+    +(p.ref?'<div class="rf">'+esc(p.ref.slice(0,55))+'</div>':'')
+    +'<div class="prow"><div>'+priceHtml(p.price)+'</div><div class="ship">'+sh+(p.cut?'<br>'+esc(p.cut):'')+'</div></div>'
+    +'</div></div>';
+}
+function buildWhChips(){
+  whrow.innerHTML='';
+  GROUPS.forEach((g,i)=>{
+    const b=document.createElement('button');b.className='chip'+(i===st.wi?' on':'');
+    b.textContent=g.wh+' '+g.products.length;b.onclick=()=>{st.wi=i;st.cat='전체';buildWhChips();render();};whrow.appendChild(b);
+  });
+}
+function render(){
+  const q=st.q.toLowerCase();
+  if(q){
+    catrow.style.display='none';
+    const hits=[];GROUPS.forEach(g=>g.products.forEach(p=>{if(p.name.toLowerCase().indexOf(q)>=0)hits.push(Object.assign({wh:g.wh},p));}));
+    empty.style.display=hits.length?'none':'block';
+    view.innerHTML='<div class="meta"><div><b>'+won(hits.length)+'</b>개 · 전체 창고 검색</div><div>합포장은 같은 창고끼리만</div></div><div class="grid">'+hits.map(p=>card(p,true)).join('')+'</div>';
+    return;
+  }
+  catrow.style.display='flex';
+  const g=GROUPS[st.wi];if(!g){view.innerHTML='';return;}
+  const items=g.products;
+  const cats=['전체'];items.forEach(p=>{if(cats.indexOf(p.cat)<0)cats.push(p.cat);});
+  catrow.innerHTML=cats.map(c=>{const n=(c==='전체')?items.length:items.filter(p=>p.cat===c).length;return '<button class="chip sm'+(c===st.cat?' on':'')+'" data-c="'+c+'">'+(c==='전체'?('전체 '+n):(c+' '+n))+'</button>';}).join('');
+  catrow.querySelectorAll('.chip').forEach(b=>{b.onclick=()=>{st.cat=b.getAttribute('data-c');render();};});
+  const list=items.filter(p=>st.cat==='전체'||p.cat===st.cat);
+  let sht;
+  if(g.ask){sht='당일 조업 생물 — <b>수량·단가는 문의</b> (010-2455-4156)';}
+  else{
+    const ships={};items.forEach(p=>{ships[p.ship]=(ships[p.ship]||0)+1;});
+    let sh=Object.keys(ships).sort((a,b)=>ships[b]-ships[a])[0];sh=parseInt(sh,10)||0;
+    sht=sh>0?('기본 배송비 <b>'+won(sh)+'원</b>'):'<b class="free">무료배송</b>';
+  }
+  empty.style.display='none';
+  view.innerHTML='<div class="banner"><span class="wn">📦 '+esc(g.wh)+(g.ask?'':' 창고')+'</span><span class="pk">'+(g.ask?'오늘 들어온 생물':'이 창고 상품끼리만 합포장')+'</span><span class="sp">'+sht+' · 상품 '+items.length+'개</span></div>'
+    +'<div class="meta"><div><b>'+won(list.length)+'</b>개 상품</div><div>가격은 거래처 공급가</div></div>'
+    +'<div class="grid">'+list.map(p=>card(p,false)).join('')+'</div>';
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.cpbtn');if(!b)return;
+  navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast('상품명 복사됨'));
+});
+$('q').addEventListener('input',e=>{st.q=e.target.value.trim();render();});
+(async()=>{
+  try{
+    GROUPS=await loadCatalog();
+    GROUPS.forEach(g=>g.products.forEach(p=>{p.cat=catOf(p.name);}));
+    let total=0;GROUPS.forEach(g=>total+=g.products.length);
+    $('sub').textContent='거래처용 카탈로그 · 창고 '+GROUPS.length+'곳 · 상품 '+total.toLocaleString()+'개';
+    const now=new Date();
+    $('ft').innerHTML='마스터 유통 · 거래처 상품 카탈로그<br>불러온 시각 '+now.toLocaleString('ko-KR',{dateStyle:'short',timeStyle:'short'})+' · 새로고침하면 시트 최신 내용이 반영됩니다';
+    $('load').style.display='none';
+    buildWhChips();render();
+  }catch(e){
+    $('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
+  }
+})();
+</script></body></html>
