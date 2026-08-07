@@ -50,17 +50,20 @@ async function loadLinks(){
   }
   return m;
 }
-/* 유통시트 상품 목록(창고·상품명) */
+/* 유통시트 상품 목록(창고·상품명 + 그 상품이 시트 어디에 있는지) */
+const colLetter=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
+const sheetLink=p=>p.gid?('https://docs.google.com/spreadsheets/d/'+YUTONG+'/edit#gid='+p.gid+'&range='+p.cell):'';
 async function loadProducts(){
   const meta=await api(YUTONG,'?fields=sheets.properties(title,hidden)');
   if(meta.error)throw new Error('유통시트 접근 실패: '+meta.error.status);
   const tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0).map(p=>p.title);
   const ranges=tabs.map(t=>'ranges='+q("'"+t.replace(/'/g,"''")+"'!A1:N400")).join('&');
-  const fields=q('sheets(properties.title,data.rowData.values(formattedValue,hyperlink,textFormatRuns(format.link.uri),userEnteredValue.formulaValue))');
+  const fields=q('sheets(properties(title,sheetId),data.rowData.values(formattedValue,hyperlink,textFormatRuns(format.link.uri),userEnteredValue.formulaValue))');
   const grid=await api(YUTONG,'?'+ranges+'&fields='+fields);
   const out=[],seen={};
   for(const sh of (grid.sheets||[])){
     const tabName=sh.properties.title;
+    const gid=sh.properties.sheetId;
     const rows=((sh.data&&sh.data[0]&&sh.data[0].rowData)||[]).map(r=>r.values||[]);
     const disp=rows.map(r=>r.map(c=>(c&&c.formattedValue)||''));
     let hr=-1;
@@ -79,7 +82,8 @@ async function loadProducts(){
       let su=cell.hyperlink||'';
       if(!su&&cell.textFormatRuns)for(const t of cell.textFormatRuns){if(t.format&&t.format.link&&t.format.link.uri){su=t.format.link.uri;break;}}
       if(!su&&cell.userEnteredValue&&cell.userEnteredValue.formulaValue){const m=cell.userEnteredValue.formulaValue.match(/HYPERLINK\(\s*"([^"]+)"/i);if(m)su=m[1];}
-      out.push({name:nm,wh:((cw>=0?(disp[i][cw]||'').trim():'')||tabName),sheetUrl:su});
+      out.push({name:nm,wh:((cw>=0?(disp[i][cw]||'').trim():'')||tabName),sheetUrl:su,
+                tab:tabName,gid:gid,cell:colLetter(ci)+(i+1)});
     }
   }
   return out;
@@ -151,7 +155,10 @@ S.textContent='#mu-wrap{position:fixed;right:16px;bottom:16px;width:430px;max-he
 +'#mu-x{border:none;background:#f0f2ef;border-radius:7px;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}'
 +'#mu-body{padding:12px 14px;overflow-y:auto;flex:1}'
 +'.mu-sum{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}'
-+'.mu-sum span{background:#f0f2ef;border-radius:7px;padding:4px 9px;font-size:11.5px}'
++'.mu-sum span{background:#f0f2ef;border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer;border:1px solid transparent}'
++'.mu-sum span:hover{border-color:#0f7a5a}'
++'.mu-sum span.on{background:#0f7a5a;color:#fff}'
++'.mu-sum span.on b{color:#fff}'
 +'.mu-sum span b{color:#0f7a5a}'
 +'.mu-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}'
 +'.mu-btn{border:1px solid #cfd6d1;background:#fff;border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;font-weight:600;color:#18211f}'
@@ -165,6 +172,8 @@ S.textContent='#mu-wrap{position:fixed;right:16px;bottom:16px;width:430px;max-he
 +'.mu-it:last-child{border-bottom:none}'
 +'.mu-it label{flex:1;cursor:pointer;line-height:1.35}'
 +'.mu-it .wh{color:#8a9a92;font-size:10.5px}'
++'.mu-go{border:1px solid #cfd6d1;background:#fff;border-radius:6px;padding:2px 6px;font-size:10.5px;cursor:pointer;color:#5d6d66;white-space:nowrap;text-decoration:none}'
++'.mu-go:hover{border-color:#0f7a5a;color:#0f7a5a}'
 +'.mu-badge{font-size:10px;padding:1px 5px;border-radius:4px;background:#f0f2ef;color:#7b8a83;white-space:nowrap}'
 +'.mu-badge.no{background:#fde9e9;color:#c0392b}'
 +'.mu-badge.q{background:#fff6e5;color:#8a5a00}'
@@ -201,7 +210,7 @@ const $=function(id){return document.getElementById(id);};
 const log=function(m,keep){$('mu-log').textContent=keep?($('mu-log').textContent+'\n'+m):m;};
 $('mu-x').onclick=function(){W.style.display='none';};
 
-let PRODUCTS=[],CACHE={},LINKS={},QUEUE=[],SEL={},BUSY=false,LASTFAIL=[];
+let PRODUCTS=[],CACHE={},LINKS={},QUEUE=[],SEL={},BUSY=false,LASTFAIL=[],FILTER='';
 const cacheOf=p=>CACHE[pkey(p.name)];
 const linkOf=p=>{const c=cacheOf(p);return LINKS[pkey(p.name)]||(c&&c.link)||p.sheetUrl||'';};
 const noImg=p=>{const c=cacheOf(p);return !c||!c.img;};
@@ -209,16 +218,29 @@ const noSpec=p=>{const c=cacheOf(p);return !c||!c.spec.length;};
 const isMissing=p=>noImg(p)||noSpec(p);
 const inQueue=p=>QUEUE.some(x=>pkey(x.name)===pkey(p.name));
 
+/* 요약 칩 = 목록 필터. 누르면 아래 목록이 그 상품들만 보여준다(뭐가 문제인지 바로 확인). */
+const FILTERS={'':()=>true,queue:inQueue,noimg:noImg,nospec:noSpec,nolink:p=>!linkOf(p)};
 function renderSum(){
-  $('mu-sum').innerHTML='<span>상품 <b>'+PRODUCTS.length+'</b></span>'
-    +'<span>📮 대기 <b>'+PRODUCTS.filter(inQueue).length+'</b></span>'
-    +'<span>사진없음 <b>'+PRODUCTS.filter(noImg).length+'</b></span>'
-    +'<span>스펙없음 <b>'+PRODUCTS.filter(noSpec).length+'</b></span>'
-    +'<span>링크없음 <b>'+PRODUCTS.filter(p=>!linkOf(p)).length+'</b></span>';
+  const chip=(k,label,n)=>'<span data-f="'+k+'"'+(FILTER===k?' class="on"':'')+'>'+label+' <b>'+n+'</b></span>';
+  $('mu-sum').innerHTML=chip('','상품',PRODUCTS.length)
+    +chip('queue','📮 대기',PRODUCTS.filter(inQueue).length)
+    +chip('noimg','사진없음',PRODUCTS.filter(noImg).length)
+    +chip('nospec','스펙없음',PRODUCTS.filter(noSpec).length)
+    +chip('nolink','링크없음',PRODUCTS.filter(p=>!linkOf(p)).length);
+  const chips=$('mu-sum').querySelectorAll('span[data-f]');
+  for(let i=0;i<chips.length;i++){
+    chips[i].onclick=function(){
+      const f=this.getAttribute('data-f');
+      FILTER=(FILTER===f)?'':f;
+      renderSum();renderList();
+    };
+  }
 }
 function renderList(){
   const kw=($('mu-q').value||'').trim().toLowerCase();
-  const list=PRODUCTS.filter(p=>!kw||p.name.toLowerCase().indexOf(kw)>=0||p.wh.toLowerCase().indexOf(kw)>=0).slice(0,300);
+  const pass=FILTERS[FILTER]||FILTERS[''];
+  const hit=PRODUCTS.filter(p=>pass(p)).filter(p=>!kw||p.name.toLowerCase().indexOf(kw)>=0||p.wh.toLowerCase().indexOf(kw)>=0);
+  const list=hit.slice(0,300);
   $('mu-list').innerHTML=list.map(function(p){
     const c=cacheOf(p);
     const b=[];
@@ -227,9 +249,12 @@ function renderList(){
     if(!c||!c.img)b.push('<span class="mu-badge no">사진X</span>');
     if(!c||!c.spec.length)b.push('<span class="mu-badge no">스펙X</span>');
     if(c&&c.img&&c.spec.length)b.push('<span class="mu-badge">'+(c.updated||'')+'</span>');
+    const su=sheetLink(p);
+    const go=su?('<a class="mu-go" href="'+su+'" target="_blank" rel="noopener" title="유통시트 '+p.tab+' 탭 '+p.cell+'칸으로 이동">시트↗</a>'):'';
     return '<div class="mu-it"><input type="checkbox" data-k="'+pkey(p.name)+'"'+(SEL[pkey(p.name)]?' checked':'')+'>'
-      +'<label>'+p.name.replace(/</g,'&lt;')+'<br><span class="wh">'+p.wh+'</span></label>'+b.join('')+'</div>';
-  }).join('')||'<div class="mu-it">검색 결과 없음</div>';
+      +'<label>'+p.name.replace(/</g,'&lt;')+'<br><span class="wh">'+p.wh+(p.tab?(' · '+p.tab+' '+p.cell):'')+'</span></label>'+b.join('')+go+'</div>';
+  }).join('')||'<div class="mu-it">해당 상품 없음</div>';
+  if(hit.length>list.length)$('mu-list').innerHTML+='<div class="mu-it" style="color:#8a9a92">…외 '+(hit.length-list.length)+'건 (검색으로 좁혀 보세요)</div>';
   const cbs=$('mu-list').querySelectorAll('input[type=checkbox]');
   for(let i=0;i<cbs.length;i++){
     cbs[i].onchange=function(){
@@ -296,7 +321,7 @@ $('mu-run').onclick=async function(){
   const bar=$('mu-bar').firstElementChild;
   const targets=keys.map(function(k){
     const p=PRODUCTS.filter(function(x){return pkey(x.name)===k;})[0];
-    return p?{key:k,name:p.name,wh:p.wh,url:linkOf(p)}:null;
+    return p?{key:k,name:p.name,wh:p.wh,url:linkOf(p),sheet:sheetLink(p),tab:p.tab,cell:p.cell}:null;
   }).filter(Boolean);
   const done0=[];let done=0,i=0;
   async function worker(){
@@ -340,13 +365,14 @@ $('mu-run').onclick=async function(){
     $('mu-fail').style.display='block';
     $('mu-faillist').innerHTML=fails.map(function(t){
       const why=!t.url?'링크 없음':'링크는 있는데 상품정보를 못 읽음(글이 삭제·이동됐을 수 있음)';
-      return '· ['+t.wh+'] '+t.name.replace(/</g,'&lt;')+'<br>&nbsp;&nbsp;'+(t.url?('<a href="'+t.url+'" target="_blank">'+t.url+'</a> — '):'')+why;
+      const go=t.sheet?(' <a class="mu-go" href="'+t.sheet+'" target="_blank" rel="noopener">시트↗ '+t.tab+' '+t.cell+'</a>'):'';
+      return '· ['+t.wh+'] '+t.name.replace(/</g,'&lt;')+go+'<br>&nbsp;&nbsp;'+(t.url?('<a href="'+t.url+'" target="_blank">'+t.url+'</a> — '):'')+why;
     }).join('<br>');
   }
   renderRun();
 };
 $('mu-failcp').onclick=function(){
-  const txt=LASTFAIL.map(function(t){return '['+t.wh+'] '+t.name+(t.url?('  → '+t.url):'  → 링크 없음');}).join('\n');
+  const txt=LASTFAIL.map(function(t){return '['+t.wh+'] '+t.name+(t.tab?('  (시트 '+t.tab+' '+t.cell+')'):'')+(t.url?('  → '+t.url):'  → 링크 없음');}).join('\n');
   navigator.clipboard.writeText(txt).then(function(){
     const b=$('mu-failcp');b.textContent='복사됨!';setTimeout(function(){b.textContent='📋 목록 복사';},2000);
   });
