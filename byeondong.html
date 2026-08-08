@@ -711,11 +711,33 @@
             supply, wonPrice, (wnum!=null?comma(wnum):''), cell(v,9), cell(v,11), cell(v,12), spec, magam ]
       });
     }
+    // ★같은 상품 여러 건 → 표에서도 1건 병합 (2026-08-08 사장님: "2개를 주면 어떻게해, 합쳐서 줘").
+    //   규칙은 mergeDupes(2026-08-05)와 동일: 마지막(최신) 건 기준, 빈칸은 앞 건에서 승계, 출시 있으면 변동=출시.
+    //   원가 건(변동에 '원가')은 병합 안 함 — 화면 전용이라 따로 두고, 적용 땐 dropCostRows로 걸러짐.
+    //   병합으로 접힌 앞 건들은 r.hist에 보관 → 상품변동사항(로그) 탭엔 이력 전 건 그대로 들어감(2026-08-05 규칙 유지).
+    var byPk={}, order=[], dupN=0, uq=0;
+    rows.forEach(function(r){
+      var k = (String(r.c[3]||'').indexOf('원가')>=0) ? ('cost'+(uq++)) : r.pk;   // 원가 건은 각자 독립
+      if(!byPk[k]){ byPk[k]=[]; order.push(k); } else dupN++;
+      byPk[k].push(r);
+    });
+    if(dupN>0){
+      rows = order.map(function(k){
+        var L=byPk[k]; if(L.length===1) return L[0];
+        var last=L[L.length-1], c=last.c.slice();
+        [5,6,8,10,11,12,13,14,15].forEach(function(ci){   // 유통기한/창고/공급가/원가/택배사/택배비/면과세/스펙/마감 — 최종값, 비면 앞 건에서 승계
+          if(String(c[ci]||'').trim()==='') for(var j=L.length-2;j>=0;j--){ var pv=L[j].c[ci]; if(String(pv||'').trim()!==''){ c[ci]=pv; break; } }
+        });
+        var hasLaunch=L.some(function(x){ return String(x.c[3]||'').indexOf('출시')>=0; });
+        if(hasLaunch && String(c[3]||'').indexOf('품절')<0) c[3]='출시';
+        return { pk:last.pk, disp:last.disp, row:last.row, c:c, hist:L.slice(0,-1).map(function(x){ return x.c; }) };
+      });
+    }
     LAST=rows;
 
     var lastSheetRow = offset+values.length-1;
-    var endRow = rows.length ? rows[rows.length-1].row : lastSheetRow;   // 마지막 신규 상품 행(ㅇ 표시 끝행)
-    setStatus('✅ <b>'+rows.length+'건</b> 발견 · <b>시작행 '+floor+' ~ 끝행 '+endRow+'</b> (이 구간에 ㅇ 표시)'+(endCap!=null?' · <b style="color:#b45309">끝 행 '+endCap+'까지 컷(내일치 제외)</b>':' · 읽은 마지막행 '+lastSheetRow), 'ok');
+    var endRow = rows.length ? rows.reduce(function(m,r){ return Math.max(m,r.row); }, 0) : lastSheetRow;   // 마지막 신규 상품 행(ㅇ 표시 끝행) — 병합 후 순서 무관하게 최대 행번호
+    setStatus('✅ <b>'+rows.length+'건</b> 발견 · <b>시작행 '+floor+' ~ 끝행 '+endRow+'</b> (이 구간에 ㅇ 표시)'+(dupN?' · <b style="color:#0369a1">같은 상품 '+dupN+'건 병합(최신 건 기준)</b>':'')+(endCap!=null?' · <b style="color:#b45309">끝 행 '+endCap+'까지 컷(내일치 제외)</b>':' · 읽은 마지막행 '+lastSheetRow), 'ok');
     if(rows.length===0){ document.getElementById('result').innerHTML='<div style="padding:20px;color:#888">신규 변동이 없어요. 시작 행을 위로 낮춰보세요.</div>'; return; }
 
     var h='<table id="qtytable"><thead><tr>';
@@ -854,7 +876,8 @@
       // 가격은 항상 천단위 콤마(12,000 > 11,000) — 숫자 조각만 콤마 포맷, 그 외 글자는 보존
       var fmtWon=function(s){ return String(s==null?'':s).trim().replace(/\d[\d,]*/g, function(m){ var n=num(m); return n==null?m:comma(n); }); };
       var gong=(won && norm(won)!=='' && norm(won)!==norm(sae)) ? (fmtWon(won)+' > '+fmtWon(sae)) : fmtWon(sae);  // 변동있으면 a>b
-      items.push({ v:v, gong:gong, name:v[7], sup:String(v[0]).trim(), byun:v[3], day:v[4], poom:String(v[3]).indexOf('품절')>=0, ex:isEx });
+      // hist = 표 병합으로 접힌 이력 건들(render에서 보관) — tr 순서=LAST 순서라 인덱스로 매칭
+      items.push({ v:v, gong:gong, name:v[7], sup:String(v[0]).trim(), byun:v[3], day:v[4], poom:String(v[3]).indexOf('품절')>=0, ex:isEx, hist:(LAST && LAST[r] && LAST[r].hist) || null });
     }
     return items;
   }
@@ -900,6 +923,14 @@
       var prot=line.replace(/(\d),(?=\d)/g,'$1'+P);
       return prot.split(/\s*[,/·|]\s*/).filter(function(seg){ return seg.trim()!=='' && !/원가/.test(seg); }).join(', ').split(P).join(',');
     }).filter(function(line){ return line.trim()!==''; }).join('\n').trim();
+  }
+  // 표 병합으로 접힌 이력 건(c배열) → rowVari용 유사 item (상품변동사항 로그에 이력 전 건 넣을 때 사용)
+  function histToItem(hc){
+    var norm=function(s){ return String(s||'').replace(/[^0-9]/g,''); };
+    var fmtWon=function(s){ return String(s==null?'':s).trim().replace(/\d[\d,]*/g, function(m){ var n=num(m); return n==null?m:comma(n); }); };
+    var won=hc[9], sae=hc[8];
+    var gong=(won && norm(won)!=='' && norm(won)!==norm(sae)) ? (fmtWon(won)+' > '+fmtWon(sae)) : fmtWon(sae);
+    return { v:hc, gong:gong, name:hc[7], sup:String(hc[0]).trim(), byun:hc[3], day:hc[4], poom:String(hc[3]).indexOf('품절')>=0, ex:false };
   }
   // 목적지별 행 빌더 (상품명은 하이퍼링크 적용)
   function rowVari(it){   var v=it.v; return [ v[0],v[1],v[2],v[3],v[4],v[5],v[6], linkName(v[7]), it.gong, v[11],v[12],v[13], stripCost(v[14]) ]; }   // 13칸, 공급가 idx8
@@ -1018,7 +1049,15 @@
         var vt=findTabByKeyword(TABG,'상품변동');
         if(!vt) throw new Error('반영 시트에서 "상품변동" 들어간 탭을 못 찾았어요 — 반영 시트가 맞는지, 그 탭 이름을 확인하세요.');
         var vi=sortItems(items.slice());
-        var vRows=vi.map(rowVari);
+        // 표에서 병합된 상품도 로그 탭엔 이력 전 건 그대로 (2026-08-05 규칙): 병합본 아래에 접힌 앞 건들 복원. 원가 든 건은 제외(원천 차단).
+        var vRows=[];
+        vi.forEach(function(it){
+          vRows.push(rowVari(it));
+          if(it.hist) it.hist.slice().reverse().forEach(function(hc){   // 최신이 위로 오게 역순
+            if(String(hc[3]||'').indexOf('원가')>=0) return;
+            vRows.push(rowVari(histToItem(hc)));
+          });
+        });
         rep.vari=vRows.length; rep.variGid=vt.gid; rep.variTab=vt.tab;
         var spV=startPair(vt.tab, 4, 5);   // 지정값 있으면 그 행, 없으면 기본 5행
         return applyToTab(vt.gid, vt.tab, spV.ins, spV.read, 'H', 8, vRows, {}, {}, false);   // 중복삭제X(로그)
