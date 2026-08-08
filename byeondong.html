@@ -38,6 +38,7 @@
   td.spec { white-space: pre-wrap; max-width: 260px; color:#555; font-size:12px; }
   .sg-in { width: 92px; font-size: 13px; padding: 4px 6px; border:1px solid #b45309; border-radius:5px; font-weight:700; color:#b45309; }
   .byun-in { width: 88px; font-size: 13px; padding: 4px 6px; border:1px solid #999; border-radius:5px; }
+  .day-in { width: 52px; font-size: 13px; padding: 4px 6px; border:1px solid #999; border-radius:5px; text-align:center; }
   #allBtn { border:none; border-radius:6px; padding:8px 15px; font-weight:700; cursor:pointer; }
   .cpbtn { border:none; background:#eef2f0; color:#2d6a4f; border-radius:4px; padding:1px 5px; font-size:11px; cursor:pointer; vertical-align:middle; }
   .cpbtn:hover { background:#dfeae5; }
@@ -750,6 +751,8 @@
         var cls = NEWCOLS[i]?'new':''; if(i===14) cls+=' spec';
         if(i===3){ // 변동 = 수정 가능 (재입고+인상 등 여러 변동 합치기)
           h+='<td class="'+cls+'"><input class="byun-in" value="'+esc(r.c[3])+'"></td>';
+        } else if(i===4){ // 상시/당일 = 수정 가능 (상시 상품을 당일로 쓰는 담당 대응 — 여기 값 기준으로 당일생물/창고 라우팅)
+          h+='<td class="'+cls+'"><input class="day-in" value="'+esc(r.c[4])+'"></td>';
         } else if(i===8){ // 공급가변동 = 수정 가능 입력칸
           h+='<td class="'+cls+'"><input class="sg-in" value="'+esc(r.c[8])+'"></td>';
         } else if(i===14){ // 스펙변동/참고사항 = 직접 입력 가능
