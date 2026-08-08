@@ -689,8 +689,9 @@
       var name=cell(v,NAME_COL), sync=cell(v,SYNC_COL);
       if(name==='' || sync!=='') continue;
       var pk=pkey(name);
-      // 원가(표시·판단용): 변동공지 K열 우선, 없으면 원가파일
-      var wongaRaw = cell(v,WONGA_COL); var wnum = num(wongaRaw);
+      // 원가(표시·판단용): 변동공지 K열 우선, 없으면 원가파일. "A > B" 표기면 뒤(새 값) 사용 — 안 하면 num()이 두 숫자를 이어붙여 48억처럼 나옴
+      var wongaRaw = cell(v,WONGA_COL); if(wongaRaw.indexOf('>')>=0) wongaRaw = wongaRaw.split('>').pop();
+      var wnum = num(wongaRaw);
       if(wnum==null){ wnum = num(WONGA[pk]); }
       // 공급가변동 = 변동공지 공급가변동(I열=idx8) + 마진. "A > B"면 뒤(새 값) 사용. 만원↑+1000 / 만원↓+500 (I값 기준)
       var gongRaw = cell(v,8); var gparts = gongRaw.split('>'); var gnum = num(gparts[gparts.length-1]);
