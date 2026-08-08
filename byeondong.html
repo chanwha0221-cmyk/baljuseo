@@ -145,7 +145,7 @@
       </div>
       <div id="syncBadge" class="mini" style="margin-top:6px"></div>
       <div class="row" style="margin-top:8px">
-        <label>시트별 시작 행</label>
+        <label>시트별 시작 행·열</label>
         <button class="ghost" id="scanSheets" type="button">🔎 시트 탐색</button>
         <span class="mini">반영 시트의 탭을 불러와 각 탭 시작행 지정 (팀 구조가 다를 때만)</span>
       </div>
@@ -374,11 +374,20 @@
     return null;
   }
   var SHEET_STARTS = {};                          // 팀이 지정한 값 {탭이름: 시작행}
-  function loadSheetStarts(){ try{ SHEET_STARTS=JSON.parse(localStorage.getItem('byd_sheetStarts')||'{}'); }catch(e){ SHEET_STARTS={}; } }
+  var SHEET_COLS = {};                            // 팀이 지정한 값 {탭이름: 시작열(1=A)} — 1열(A)을 딴 섹션으로 쓰는 팀은 2(B)부터
+  function loadSheetStarts(){
+    try{ SHEET_STARTS=JSON.parse(localStorage.getItem('byd_sheetStarts')||'{}'); }catch(e){ SHEET_STARTS={}; }
+    try{ SHEET_COLS=JSON.parse(localStorage.getItem('byd_sheetStartCols')||'{}'); }catch(e){ SHEET_COLS={}; }
+  }
+  function colLetter(n0){ var s=''; n0=Math.floor(n0); do{ s=String.fromCharCode(65+(n0%26))+s; n0=Math.floor(n0/26)-1; }while(n0>=0); return s; }   // 0→A, 1→B, 26→AA
   var WHMAP = {};                                 // 공급처명 → 탭이름 매핑(이름 다를 때: 단독(유)→단독 등). 한 번 답하면 저장.
   function loadWhMap(){ try{ WHMAP=JSON.parse(localStorage.getItem('byd_whMap')||'{}'); }catch(e){ WHMAP={}; } }
-  // 지정값 있으면 {ins:S-1, read:S}, 없으면 기본값 리턴
-  function startPair(tab, defIns0, defRead1){ var s=parseInt(SHEET_STARTS[tab],10); return (!isNaN(s)&&s>=1)?{ins:s-1,read:s}:{ins:defIns0,read:defRead1}; }
+  // 지정값 있으면 {ins:S-1, read:S}, 없으면 기본값 리턴. col0=시작열 0-based 오프셋(기본 0=A열)
+  function startPair(tab, defIns0, defRead1){
+    var s=parseInt(SHEET_STARTS[tab],10);
+    var c=parseInt(SHEET_COLS[tab],10); var col0=(!isNaN(c)&&c>=2)?c-1:0;
+    return (!isNaN(s)&&s>=1)?{ins:s-1,read:s,col0:col0}:{ins:defIns0,read:defRead1,col0:col0};
+  }
   // 반영 시트의 실제 {탭이름: gid} 로드 — 팀마다 탭이름·gid가 달라 하드코딩 대신 실제로 가져와 씀
   function loadTabGids(){
     var url='https://sheets.googleapis.com/v4/spreadsheets/'+APPLY_ID+'?fields=sheets.properties(title,sheetId)';
@@ -540,12 +549,14 @@
   function renderSheetRows(tabs){
     var box=document.getElementById('sheetRowsBox');
     if(!tabs.length){ box.innerHTML='<span class="warn">탭이 없어요. 반영 시트 주소 확인.</span>'; return; }
-    var h='<div class="card" style="margin-top:8px"><b>시트별 시작 행</b> <span class="mini">(변경값이 들어갈 첫 행 · 비우면 기본값 그대로)</span><div style="margin-top:6px">';
+    var h='<div class="card" style="margin-top:8px"><b>시트별 시작 행·열</b> <span class="mini">(변경값이 들어갈 첫 행/첫 열 · 비우면 기본값 그대로 · 열은 1=A열, 1열을 딴 데 쓰는 팀은 2=B열)</span><div style="margin-top:6px">';
     tabs.forEach(function(t){
       var role=tabRole(t), def=role?role.def:null;   // 역할 있으면 기본행 힌트만 — 막지는 않음(모든 탭 입력 가능)
       var cur=(SHEET_STARTS[t]!=null?String(SHEET_STARTS[t]):'');
+      var curC=(SHEET_COLS[t]!=null?String(SHEET_COLS[t]):'');
       h+='<div class="srow"><span class="sname">'+esc(t)+'</span>'
-        +'<input class="startin" data-tab="'+esc(t)+'" type="number" min="1" value="'+esc(cur)+'" placeholder="'+(def!=null?('기본 '+def):'시작행(선택)')+'"></div>';
+        +'<span class="mini">행</span><input class="startin" data-tab="'+esc(t)+'" type="number" min="1" value="'+esc(cur)+'" placeholder="'+(def!=null?('기본 '+def):'시작행(선택)')+'">'
+        +'<span class="mini">열</span><input class="startcolin" data-tab="'+esc(t)+'" type="number" min="1" value="'+esc(curC)+'" placeholder="기본 1(A)"></div>';
     });
     h+='</div><button class="ghost" id="saveStarts" type="button">저장</button> <span class="mini" id="startsHint"></span></div>';
     box.innerHTML=h;
@@ -557,7 +568,10 @@
     var ins=document.querySelectorAll('#sheetRowsBox .startin'); SHEET_STARTS={};
     for(var i=0;i<ins.length;i++){ var v=(ins[i].value||'').trim(); if(v!==''){ var n=parseInt(v,10); if(n>=1) SHEET_STARTS[ins[i].getAttribute('data-tab')]=n; } }
     localStorage.setItem('byd_sheetStarts', JSON.stringify(SHEET_STARTS));
-    var hint=document.getElementById('startsHint'); if(hint) hint.textContent='✅ 저장됨 ('+Object.keys(SHEET_STARTS).length+'개 지정, 나머지는 기본값)';
+    var cins=document.querySelectorAll('#sheetRowsBox .startcolin'); SHEET_COLS={};
+    for(var j=0;j<cins.length;j++){ var cv=(cins[j].value||'').trim(); if(cv!==''){ var cn=parseInt(cv,10); if(cn>=2) SHEET_COLS[cins[j].getAttribute('data-tab')]=cn; } }   // 1(=A열)은 기본이라 저장 안 함
+    localStorage.setItem('byd_sheetStartCols', JSON.stringify(SHEET_COLS));
+    var hint=document.getElementById('startsHint'); if(hint) hint.textContent='✅ 저장됨 (행 '+Object.keys(SHEET_STARTS).length+'개 · 열 '+Object.keys(SHEET_COLS).length+'개 지정, 나머지는 기본값)';
   });
 
   // ===== ① 원가 적재 (리모컨 파일) — rows[0]=헤더, 이후 데이터 =====
@@ -819,12 +833,13 @@
   function cssq(s){ return String(s).replace(/["\\]/g,'\\$&'); }
 
   // ===== 변동사항 적용 — 사본테스트 상품변동사항 5행에 끼워넣기 =====
-  function batchInsertRows(sheetId, gid, startRow0, count){
+  function batchInsertRows(sheetId, gid, startRow0, count, col0){
+    col0=col0||0;
     var url = 'https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+':batchUpdate';
     var body = { requests: [
       { insertDimension: { range: { sheetId: gid, dimension:'ROWS', startIndex:startRow0, endIndex:startRow0+count }, inheritFromBefore:false } },
-      { repeatCell: {   // 끼운 행 A~M 흰 배경 + 가운데 정렬 + 폰트 12 (주황 배경 상속 방지)
-        range: { sheetId: gid, startRowIndex:startRow0, endRowIndex:startRow0+count, startColumnIndex:0, endColumnIndex:13 },
+      { repeatCell: {   // 끼운 행 (시작열부터) 13칸 흰 배경 + 가운데 정렬 + 폰트 12 (주황 배경 상속 방지)
+        range: { sheetId: gid, startRowIndex:startRow0, endRowIndex:startRow0+count, startColumnIndex:col0, endColumnIndex:col0+13 },
         cell: { userEnteredFormat: { backgroundColor:{red:1,green:1,blue:1}, horizontalAlignment:'CENTER', verticalAlignment:'MIDDLE', textFormat:{ fontSize:12 } } },
         fields: 'userEnteredFormat(backgroundColor,horizontalAlignment,verticalAlignment,textFormat.fontSize)'
       } }
@@ -832,18 +847,19 @@
     return fetch(url, {method:'POST', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'}, body:JSON.stringify(body)})
       .then(function(r){ if(!r.ok) throw new Error('행 삽입 실패 HTTP '+r.status); return true; });
   }
-  function writeRows(sheetId, tab, startRow1, rows){
-    var url='https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+'/values/'+encodeURIComponent("'"+tab+"'!A"+startRow1)+'?valueInputOption=USER_ENTERED';
+  function writeRows(sheetId, tab, startRow1, rows, col0){
+    var url='https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+'/values/'+encodeURIComponent("'"+tab+"'!"+colLetter(col0||0)+startRow1)+'?valueInputOption=USER_ENTERED';
     return fetch(url, {method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'}, body:JSON.stringify({values:rows})})
       .then(function(r){ if(!r.ok) throw new Error('값 기록 실패 HTTP '+r.status); return true; });
   }
-  // 공급가 글자색(gongIdx 열): 변경있음(">") 빨강 / 변경없음 검정
-  function colorFmt(sheetId, gid, startRow0, rows, gongIdx){
+  // 공급가 글자색(gongIdx 열): 변경있음(">") 빨강 / 변경없음 검정. gongIdx=데이터 배열 안 위치, col0=시트 시작열 오프셋
+  function colorFmt(sheetId, gid, startRow0, rows, gongIdx, col0){
+    col0=col0||0;
     var reqs=[];
     for(var i=0;i<rows.length;i++){
       var changed = String(rows[i][gongIdx]||'').indexOf('>')>=0;
       var col = changed ? {red:0.8, green:0.0, blue:0.0} : {red:0.0, green:0.0, blue:0.0};
-      reqs.push({ repeatCell: { range:{ sheetId:gid, startRowIndex:startRow0+i, endRowIndex:startRow0+i+1, startColumnIndex:gongIdx, endColumnIndex:gongIdx+1 }, cell:{ userEnteredFormat:{ textFormat:{ foregroundColor:col } } }, fields:'userEnteredFormat.textFormat.foregroundColor' } });
+      reqs.push({ repeatCell: { range:{ sheetId:gid, startRowIndex:startRow0+i, endRowIndex:startRow0+i+1, startColumnIndex:col0+gongIdx, endColumnIndex:col0+gongIdx+1 }, cell:{ userEnteredFormat:{ textFormat:{ foregroundColor:col } } }, fields:'userEnteredFormat.textFormat.foregroundColor' } });
     }
     if(!reqs.length) return Promise.resolve(true);
     var url='https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+':batchUpdate';
@@ -941,7 +957,9 @@
   function rowWh(it){     var v=it.v; return [ v[5], v[6], linkName(v[7]), it.gong, v[11],v[12],v[13], v[15], stripCost(v[14]) ]; }        // 9칸, 공급가 idx3
   // 한 탭에 적용: 삽입(addRows) + 중복정리(addPk) + 품절삭제(delPk). hdr1=헤더 1-based행, nameCol=상품명 열문자, gongIdx=공급가 0based열.
   // insertIdx0=삽입 0-based위치(그 앞에 끼움), readStart1=상품명 읽기 시작 1-based행, rmBlanks=빈 상품명 행도 삭제
-  function applyToTab(gid, tab, insertIdx0, readStart1, nameCol, gongIdx, addRows, addPk, delPk, rmBlanks){
+  function applyToTab(gid, tab, insertIdx0, readStart1, nameIdx, gongIdx, addRows, addPk, delPk, rmBlanks, col0){
+    col0=col0||0;
+    var nameCol=colLetter(col0+nameIdx);   // 상품명 열 = 시작열 오프셋 + 블록 내 위치
     return readRange(APPLY_ID, "'"+tab+"'!"+nameCol+readStart1+":"+nameCol).then(function(existing){
       var pre=[];   // 삭제 대상 기존행(1-based): 중복상품 / 품절 / (rmBlanks면)빈행
       existing.forEach(function(rr, idx){ var nm=cell(rr,0); var row1=readStart1+idx;
@@ -950,9 +968,9 @@
       });
       var N=addRows.length, writeRow1=insertIdx0+1;
       var chain = (N>0)
-        ? batchInsertRows(APPLY_ID, gid, insertIdx0, N)                 // insertIdx0 앞(=writeRow1 행)에 삽입
-            .then(function(){ return writeRows(APPLY_ID, tab, writeRow1, addRows); })
-            .then(function(){ return colorFmt(APPLY_ID, gid, insertIdx0, addRows, gongIdx); })
+        ? batchInsertRows(APPLY_ID, gid, insertIdx0, N, col0)           // insertIdx0 앞(=writeRow1 행)에 삽입
+            .then(function(){ return writeRows(APPLY_ID, tab, writeRow1, addRows, col0); })
+            .then(function(){ return colorFmt(APPLY_ID, gid, insertIdx0, addRows, gongIdx, col0); })
         : Promise.resolve(true);
       return chain.then(function(){
         var del = pre.map(function(r){ return (N>0 && (r-1)>=insertIdx0) ? r+N : r; });   // 삽입점 이하 행만 +N 밀림
@@ -974,8 +992,10 @@
   // 창고명(B) 일치 행의 택배사(E)를 새 값으로 바꾸고 스펙(I)에 변경 문구 append.
   // ★반드시 그 탭의 삽입·삭제가 다 끝난 뒤 호출(최신 상태 재독이라 행 밀림 무관).
   // ★변동 칸 '택배사'(E+I 변경) 또는 '특이사항/스펙'(I 문구만 append) 때만 실행 — 그 외(마감시간 등)는 안전 스킵+리포트 (2026-06-10 전상품 덮어쓰기 사고 교훈)
-  function applyBulkAll(tab, readStart1, bulks){
-    return readRange(APPLY_ID, "'"+tab+"'!A"+readStart1+":I").then(function(rows){
+  function applyBulkAll(tab, readStart1, bulks, col0){
+    col0=col0||0;
+    var cA=colLetter(col0), cI=colLetter(col0+8), cE=colLetter(col0+4);   // 시작열 오프셋 적용: A유통기한~I스펙, E택배사
+    return readRange(APPLY_ID, "'"+tab+"'!"+cA+readStart1+":"+cI).then(function(rows){
       var data=[], notes=[];
       bulks.forEach(function(b){
         var wh=String(b.v[6]||'').trim();
@@ -995,9 +1015,9 @@
           var wc=pkey(cell(rr,1));                       // B 창고명 (공백 무시 비교)
           if(!wc || (wc!==whK && wc!==whK+'창고' && wc+'창고'!==whK)) return;
           var row1=readStart1+idx;
-          if(isCourier) data.push({ range:"'"+tab+"'!E"+row1, values:[[newCourier]] });
+          if(isCourier) data.push({ range:"'"+tab+"'!"+cE+row1, values:[[newCourier]] });
           var spec=String(cell(rr,8)||'');               // I 스펙 — 같은 문구 이미 있으면 중복 안 붙임
-          if(note && spec.indexOf(note)<0) data.push({ range:"'"+tab+"'!I"+row1, values:[[ spec ? spec+'\n'+note : note ]] });
+          if(note && spec.indexOf(note)<0) data.push({ range:"'"+tab+"'!"+cI+row1, values:[[ spec ? spec+'\n'+note : note ]] });
           n++;
         });
         notes.push({tab:tab, wh:wh, n:n, label:isCourier?('택배사 '+newCourier):'특이사항 문구'});
@@ -1063,7 +1083,7 @@
         });
         rep.vari=vRows.length; rep.variGid=vt.gid; rep.variTab=vt.tab;
         var spV=startPair(vt.tab, 4, 5);   // 지정값 있으면 그 행, 없으면 기본 5행
-        return applyToTab(vt.gid, vt.tab, spV.ins, spV.read, 'H', 8, vRows, {}, {}, false);   // 중복삭제X(로그)
+        return applyToTab(vt.gid, vt.tab, spV.ins, spV.read, 7, 8, vRows, {}, {}, false, spV.col0);   // 중복삭제X(로그) · 상품명=8번째 칸(기본 H열)
       }).then(function(){
         // 2) 당일생물 — 실제 시트에서 '당일생물' 든 탭 자동 인식(★당일생물 등도 OK)
         setBtn('당일생물...');
@@ -1076,7 +1096,7 @@
         if(!nt) throw new Error('반영 시트에서 "당일생물" 들어간 탭을 못 찾았어요 — 그 탭 이름을 확인하세요.');
         rep.noticeGid=nt.gid; rep.noticeTab=nt.tab;
         var spN=startPair(nt.tab, NOTICE_HDR, NOTICE_HDR+1);   // 지정값 있으면 그 행, 없으면 기본 24행
-        return applyToTab(nt.gid, nt.tab, spN.ins, spN.read, 'B', 2, add.map(rowNotice), addPk, delPk, false);
+        return applyToTab(nt.gid, nt.tab, spN.ins, spN.read, 1, 2, add.map(rowNotice), addPk, delPk, false, spN.col0);   // 상품명=2번째 칸(기본 B열)
       }).then(function(){
         // 3) 창고 탭 — 공급처 → 탭 결정: ①이름 같으면 그대로 ②저장 매핑(단독(유)→단독 등) ③모르면 물어봄(한 번, 저장)
         var sisi=uni.filter(function(it){ return it.day.indexOf('당일')<0; });   // uni=같은 상품 최신 건만
@@ -1128,11 +1148,11 @@
           rep.wh[info.tab]=rows.length; rep.whGid[info.tab]=info.gid;
           rep.poomDel += Object.keys(info.delPk).filter(function(k){ return !info.bulkPk[k]; }).length;
           var spW=startPair(info.tab, 2, 3);   // 지정값 있으면 그 행, 없으면 기본(3행 삽입·3행부터 스캔 — 2행은 색칠 구분행이라 절대 안 건드림)
-          return applyToTab(info.gid, info.tab, spW.ins, spW.read, 'C', 3, rows, info.addPk, info.delPk, true)
+          return applyToTab(info.gid, info.tab, spW.ins, spW.read, 2, 3, rows, info.addPk, info.delPk, true, spW.col0)   // 상품명=3번째 칸(기본 C열)
             .then(function(){
               if(!info.bulk.length) return true;
               setBtn('창고: '+info.tab+' 전상품 일괄...');
-              return applyBulkAll(info.tab, spW.read, info.bulk).then(function(notes){ rep.bulk=rep.bulk.concat(notes); return true; });
+              return applyBulkAll(info.tab, spW.read, info.bulk, spW.col0).then(function(notes){ rep.bulk=rep.bulk.concat(notes); return true; });
             })
             .then(function(){ i++; return nextTab(); });
         }
