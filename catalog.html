@@ -66,11 +66,10 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   .note.open{display:block}
   .controls{margin-top:8px;padding:8px 0 6px}
   .search{padding:10px 12px;font-size:16px}
-  .lbl{display:none}
-  .row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-top:7px}
+  .lbl{margin:7px 0 4px;font-size:10px}
+  .row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .row::-webkit-scrollbar{display:none}
   .chip{flex:none}
-  #catrow{margin-top:0!important}
   .grid{grid-template-columns:repeat(2,1fr);gap:8px}
   .bd{padding:9px 9px;gap:4px}
   .pn{font-size:12.5px}
@@ -87,7 +86,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 <div class="controls">
 <input class="search" id="q" type="search" placeholder="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…" autocomplete="off">
 <div class="lbl">창고 선택</div><div class="row" id="whrow"></div>
-<div class="row" id="catrow" style="margin-top:8px"></div>
+<div class="lbl" id="catlbl">카테고리 선택</div><div class="row" id="catrow"></div>
 </div>
 <div class="load" id="load">⏳ 상품을 불러오는 중입니다…</div>
 <div id="view"></div><div class="empty" id="empty" style="display:none">검색 결과가 없습니다.</div>
@@ -313,13 +312,13 @@ function buildCatChips(){
 function render(){
   const q=st.q.toLowerCase();
   if(q){
-    catrow.style.display='none';
+    catrow.style.display='none';$('catlbl').style.display='none';
     const hits=ALL.filter(p=>p.name.toLowerCase().indexOf(q)>=0);
     empty.style.display=hits.length?'none':'block';
     view.innerHTML='<div class="meta"><div><b>'+won(hits.length)+'</b>개 · 전체 창고 검색</div><div>합포장은 같은 창고끼리만</div></div><div class="grid">'+hits.map(card).join('')+'</div>';
     return;
   }
-  catrow.style.display='flex';
+  catrow.style.display='flex';$('catlbl').style.display='';
   buildCatChips();
   let items,bannerHtml='';
   if(st.mode==='src'){
