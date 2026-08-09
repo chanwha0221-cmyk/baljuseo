@@ -387,7 +387,10 @@ async function runSelected(){
     const k=x.t.key;
     const c=CACHE[k]||(CACHE[k]={name:x.t.name,id:'',img:'',spec:[],updated:'',link:''});
     c.name=x.t.name;c.link=x.t.url;c.id=idOf(x.t.url);
-    c.img=x.r.img;c.spec=x.r.spec;c.updated=today;
+    // 수집 실패 시 기존 사진·스펙을 빈 값으로 덮어쓰지 않는다 (2026-08-09 왕갈치 사고)
+    if(x.r.img)c.img=x.r.img;
+    if(x.r.spec.length)c.spec=x.r.spec;
+    if(x.r.img||x.r.spec.length)c.updated=today;
     if(!x.r.img||!x.r.spec.length)fails.push(x.t);
   }
   const okNames={};
