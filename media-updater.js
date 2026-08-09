@@ -139,18 +139,33 @@ async function saveQueue(){
 }
 
 /* 상품 상세 1건 수집 — masterc.kr 위에서 도니까 로그인 세션이 그대로 붙는다 */
+/* 첫 번째 첨부 사진이 깨진 파일인 게시물이 있어(살치살 2026-08-09) 실제로 로드되는 첫 사진을 고른다 */
+function imgLoads(u){
+  return new Promise(function(res){
+    const im=new Image();
+    const t=setTimeout(function(){res(false);},6000);
+    im.onload=function(){clearTimeout(t);res(true);};
+    im.onerror=function(){clearTimeout(t);res(false);};
+    im.src=u;
+  });
+}
 async function scrape(url){
   const r=await fetch(url,{credentials:'include',redirect:'follow'});
   const h=await r.text();
   const doc=new DOMParser().parseFromString(h,'text/html');
-  let img='';
+  const cands=[];
   const imgs=doc.querySelectorAll('img');
   for(let i=0;i<imgs.length;i++){
-    const s=imgs[i].getAttribute('src')||'';
-    if(s.indexOf('/files/attach/')>=0){img=s;break;}
+    let s=imgs[i].getAttribute('src')||'';
+    if(s.indexOf('/files/attach/')<0)continue;
+    if(s.indexOf('http')!==0)s='https://masterc.co.kr'+(s.charAt(0)==='/'?'':'/')+s;
+    cands.push(s.replace('/./','/'));
   }
-  if(img&&img.indexOf('http')!==0)img='https://masterc.co.kr'+(img.charAt(0)==='/'?'':'/')+img;
-  img=img.replace('/./','/');
+  let img='';
+  for(let i=0;i<Math.min(5,cands.length);i++){
+    if(await imgLoads(cands[i])){img=cands[i];break;}
+  }
+  if(!img&&cands.length)img=cands[0];
   let spec=[];
   const txt=(doc.body?doc.body.textContent:'')||'';
   const si=txt.indexOf('상품 스펙');
