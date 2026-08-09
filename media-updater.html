@@ -35,6 +35,11 @@ a{color:var(--accent)}
 .ci .cw{display:block;font-size:10.5px;color:var(--muted)}
 .ci select{border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:12px;background:var(--card);color:var(--ink);max-width:130px}
 .ci.unset select{border-color:#d6a34a;background:color-mix(in srgb,#d6a34a 8%,var(--card))}
+.ci input[type=checkbox]{flex:none;width:15px;height:15px;accent-color:var(--accent)}
+.ct-bulk,.ct-mg{display:flex;gap:8px;align-items:center;margin:0 0 8px;flex-wrap:wrap}
+.ct-mg{margin:10px 0 0}
+.ct-bulk label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.ct-bulk select,.ct-mg select{border:1px solid var(--line);border-radius:7px;padding:5px 7px;font-size:12.5px;background:var(--card);color:var(--ink)}
 </style></head><body><main>
 <h1>📸 상품 사진·스펙 · 🏷️ 카테고리 도구</h1>
 <div class="sub">카탈로그에 뜨는 상품 사진·스펙·카테고리를 여기서 관리합니다 · 마스터 유통</div>
@@ -43,9 +48,11 @@ a{color:var(--accent)}
   <h2>🏷️ 카테고리 분류 <span id="ctStat" style="font-weight:400;font-size:12px;color:var(--muted)">불러오는 중…</span></h2>
   <p style="font-size:12.5px;color:var(--muted)">여기서 분류하면 <a href="catalog.html">카탈로그</a> 카테고리에 그대로 반영됩니다. 유통시트의 새 상품은 이 페이지를 열 때마다 자동으로 목록에 올라옵니다 — <b>주황 테두리 = 분류가 필요한 상품</b>입니다.</p>
   <div class="ct-chips" id="ctChips"></div>
+  <div class="ct-bulk"><label><input type="checkbox" id="ctAll"> 전체선택</label><select id="ctBulkSel"></select><button class="cp" id="ctBulkSave" style="margin-top:0">선택 0건 저장</button></div>
   <input id="catQ" placeholder="상품명·창고 검색" autocomplete="off">
   <div id="catList"><div class="ci">불러오는 중…</div></div>
-  <div style="display:flex;gap:8px;align-items:center"><button class="cp" id="ctNew">＋ 새 카테고리 만들기</button><span id="ctLog" style="font-size:11.5px;color:var(--muted)"></span></div>
+  <div class="ct-mg"><span style="font-size:12px;color:var(--muted);white-space:nowrap">카테고리 관리:</span><select id="ctMg"></select><button class="cp" id="ctNew" style="margin-top:0">＋ 추가</button><button class="cp" id="ctDel" style="margin-top:0">🗑 삭제</button></div>
+  <div id="ctLog" style="font-size:11.5px;color:var(--muted);margin-top:6px"></div>
 </div>
 
 <div class="card">
@@ -164,18 +171,46 @@ async function syncNew(){
   if(j.error)throw new Error('신규 등재 실패: '+j.error.message);
   return add.length;
 }
-async function saveCat(rec,cat){
-  return api(DOGU,'/values:batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({valueInputOption:'RAW',data:[
-      {range:"'"+CTAB+"'!B"+rec.row,values:[[cat]]},
-      {range:"'"+CTAB+"'!E"+rec.row,values:[[cat?today():'']]}]})});
+/* 상품 카테고리 일괄 반영 — 100행 단위로 끊어 저장 */
+async function batchSet(keys,cat){
+  const t=today();
+  for(let i=0;i<keys.length;i+=100){
+    const chunk=keys.slice(i,i+100),data=[];
+    chunk.forEach(k=>{const r=ROWMAP[k];if(!r)return;
+      data.push({range:"'"+CTAB+"'!B"+r.row,values:[[cat]]});
+      data.push({range:"'"+CTAB+"'!E"+r.row,values:[[cat?t:'']]});});
+    if(!data.length)continue;
+    const j=await api(DOGU,'/values:batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({valueInputOption:'RAW',data:data})});
+    if(j.error)throw new Error(j.error.message);
+    chunk.forEach(k=>{if(ROWMAP[k])ROWMAP[k].cat=cat;});
+    if(keys.length>100)$c('ctLog').textContent='저장 중… '+Math.min(i+100,keys.length)+'/'+keys.length;
+  }
 }
-let PRODUCTS=[],ROWMAP={},FILTER='미분류';
+async function saveCat(rec,cat){return batchSet([pkey(rec.name)],cat).then(()=>({}),e=>({error:{message:e.message}}));}
+/* 카테고리 목록은 상품분류 탭 G열에 저장 — 기본 카테고리도 지우면 그대로 유지된다 */
+async function loadCatList(){
+  const v=await api(DOGU,'/values/'+q1("'"+CTAB+"'!G2:G200"));
+  return ((v.values)||[]).map(r=>(r[0]||'').trim()).filter(Boolean);
+}
+async function saveCatList(){
+  const rows=[['카테고리목록']].concat(CATLIST.map(c=>[c]));
+  while(rows.length<200)rows.push(['']);
+  return api(DOGU,'/values/'+q1("'"+CTAB+"'!G1:G200")+'?valueInputOption=RAW',
+    {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+}
+let PRODUCTS=[],ROWMAP={},FILTER='미분류',CATLIST=[],SEL={};
 const $c=id=>document.getElementById(id);
-function catSet(){
-  const s=PRESET.slice();
-  Object.keys(ROWMAP).forEach(k=>{const c=ROWMAP[k].cat;if(c&&s.indexOf(c)<0)s.push(c);});
-  return s;
+function catSet(){return CATLIST;}
+function fillSelects(){
+  const opts=CATLIST.map(x=>'<option value="'+x.replace(/"/g,'&quot;')+'">'+x+'</option>').join('');
+  $c('ctBulkSel').innerHTML='<option value="">— 카테고리 선택 —</option>'+opts;
+  $c('ctMg').innerHTML=opts||'<option value="">(없음)</option>';
+}
+function renderBulk(){
+  const n=Object.keys(SEL).length;
+  $c('ctBulkSave').textContent='선택 '+n+'건 저장';
+  $c('ctBulkSave').disabled=!n;
 }
 function renderChips(){
   const counts={};let un=0;
@@ -184,30 +219,36 @@ function renderChips(){
     +'<span class="ct-chip'+(FILTER===''?' on':'')+'" data-f="">전체 <b>'+PRODUCTS.length+'</b></span>';
   Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).forEach(c=>{h+='<span class="ct-chip'+(FILTER===c?' on':'')+'" data-f="'+c.replace(/"/g,'&quot;')+'">'+c+' <b>'+counts[c]+'</b></span>';});
   $c('ctChips').innerHTML=h;
-  $c('ctChips').querySelectorAll('.ct-chip').forEach(el=>{el.onclick=()=>{FILTER=el.getAttribute('data-f');renderChips();renderList();};});
+  $c('ctChips').querySelectorAll('.ct-chip').forEach(el=>{el.onclick=()=>{FILTER=el.getAttribute('data-f');SEL={};if($c('ctAll'))$c('ctAll').checked=false;renderChips();renderList();};});
   $c('ctStat').textContent='— 상품 '+PRODUCTS.length+'개 · 미분류 '+un+'개';
 }
-function renderList(){
+function visibleHits(){
   const kw=($c('catQ').value||'').trim().toLowerCase();
-  const cats=catSet();
-  const hit=PRODUCTS.filter(p=>{
+  return PRODUCTS.filter(p=>{
     const r=ROWMAP[pkey(p.name)];const c=(r&&r.cat)||'';
     if(FILTER==='미분류'&&c)return false;
     if(FILTER&&FILTER!=='미분류'&&c!==FILTER)return false;
     return !kw||p.name.toLowerCase().indexOf(kw)>=0||p.wh.toLowerCase().indexOf(kw)>=0;
   });
+}
+function renderList(){
+  const hit=visibleHits();
   const list=hit.slice(0,300);
   $c('catList').innerHTML=list.map(function(p){
     const k=pkey(p.name);const r=ROWMAP[k];const c=(r&&r.cat)||'';
+    let cats=CATLIST.slice();if(c&&cats.indexOf(c)<0)cats.push(c);
     const opts='<option value="">— 분류 —</option>'+cats.map(x=>'<option value="'+x.replace(/"/g,'&quot;')+'"'+(x===c?' selected':'')+'>'+x+'</option>').join('');
-    return '<div class="ci'+(c?'':' unset')+'"><div class="cn">'+p.name.replace(/</g,'&lt;')+'<span class="cw">'+p.wh.replace(/</g,'&lt;')+'</span></div><select data-k="'+k+'">'+opts+'</select></div>';
+    return '<div class="ci'+(c?'':' unset')+'"><input type="checkbox" data-cb="'+k+'"'+(SEL[k]?' checked':'')+'><div class="cn">'+p.name.replace(/</g,'&lt;')+'<span class="cw">'+p.wh.replace(/</g,'&lt;')+'</span></div><select data-k="'+k+'">'+opts+'</select></div>';
   }).join('')||'<div class="ci">해당 상품 없음</div>';
   if(hit.length>list.length)$c('catList').innerHTML+='<div class="ci" style="color:var(--muted)">…외 '+(hit.length-list.length)+'건 — 검색으로 좁혀 보세요</div>';
+  $c('catList').querySelectorAll('input[data-cb]').forEach(function(cb){
+    cb.onchange=function(){const k=this.getAttribute('data-cb');if(this.checked)SEL[k]=1;else delete SEL[k];renderBulk();};
+  });
   $c('catList').querySelectorAll('select').forEach(function(sel){
     sel.onchange=async function(){
       const k=this.getAttribute('data-k');const rec=ROWMAP[k];if(!rec)return;
       const cat=this.value;const old=rec.cat;
-      rec.cat=cat;this.parentElement.classList.toggle('unset',!cat);
+      this.parentElement.classList.toggle('unset',!cat);
       $c('ctLog').textContent='저장 중… '+rec.name;
       const j=await saveCat(rec,cat);
       if(j&&j.error){rec.cat=old;$c('ctLog').textContent='❌ 저장 실패: '+j.error.message;this.value=old;return;}
@@ -216,22 +257,70 @@ function renderList(){
       if(FILTER==='미분류'&&cat)this.closest('.ci').style.opacity='.4';
     };
   });
+  renderBulk();
 }
-$c('catQ').oninput=function(){renderList();};
-$c('ctNew').onclick=function(){
+$c('catQ').oninput=function(){SEL={};$c('ctAll').checked=false;renderList();};
+$c('ctAll').onchange=function(){
+  SEL={};
+  if(this.checked)visibleHits().forEach(p=>SEL[pkey(p.name)]=1);
+  renderList();
+};
+$c('ctBulkSave').onclick=async function(){
+  const keys=Object.keys(SEL);if(!keys.length)return;
+  const cat=$c('ctBulkSel').value;
+  if(!cat){alert('위 드롭박스에서 카테고리를 먼저 골라 주세요.');return;}
+  this.disabled=true;
+  $c('ctLog').textContent='저장 중… '+keys.length+'건';
+  try{
+    await batchSet(keys,cat);
+    $c('ctLog').textContent='✅ '+keys.length+'건 → '+cat;
+    SEL={};$c('ctAll').checked=false;
+    renderChips();renderList();
+  }catch(e){$c('ctLog').textContent='❌ 저장 실패: '+(e.message||e);this.disabled=false;}
+};
+$c('ctNew').onclick=async function(){
   const c=prompt('새 카테고리 이름을 입력하세요 (예: 건강식품)');
   if(!c||!c.trim())return;
-  PRESET.push(c.trim());renderList();
-  $c('ctLog').textContent='"'+c.trim()+'" 추가됨 — 상품에 지정하면 시트에 저장됩니다.';
+  const v=c.trim();
+  if(CATLIST.indexOf(v)>=0){$c('ctLog').textContent='이미 있는 카테고리입니다: '+v;return;}
+  CATLIST.push(v);
+  const j=await saveCatList();
+  if(j&&j.error){CATLIST.pop();$c('ctLog').textContent='❌ 추가 실패: '+j.error.message;return;}
+  fillSelects();renderList();
+  $c('ctMg').value=v;$c('ctBulkSel').value=v;
+  $c('ctLog').textContent='✅ 카테고리 "'+v+'" 추가됨';
+};
+$c('ctDel').onclick=async function(){
+  const c=$c('ctMg').value;
+  if(!c)return;
+  const affected=Object.keys(ROWMAP).filter(k=>ROWMAP[k].cat===c);
+  if(!confirm('카테고리 "'+c+'"를 삭제할까요?\n\n이 카테고리에 분류된 상품 '+affected.length+'건은 모두 미분류로 돌아갑니다.'))return;
+  this.disabled=true;
+  $c('ctLog').textContent='삭제 중…';
+  try{
+    if(affected.length)await batchSet(affected,'');
+    CATLIST=CATLIST.filter(x=>x!==c);
+    const j=await saveCatList();
+    if(j&&j.error)throw new Error(j.error.message);
+    if(FILTER===c)FILTER='미분류';
+    fillSelects();renderChips();renderList();
+    $c('ctLog').textContent='🗑 카테고리 "'+c+'" 삭제 — 상품 '+affected.length+'건 미분류 처리';
+  }catch(e){$c('ctLog').textContent='❌ 삭제 실패: '+(e.message||e);}
+  this.disabled=false;
 };
 (async function(){
   try{
     await ensureTab();
-    const r=await Promise.all([loadProducts(),loadRows()]);
-    PRODUCTS=r[0];ROWMAP=r[1];
+    const r=await Promise.all([loadProducts(),loadRows(),loadCatList()]);
+    PRODUCTS=r[0];ROWMAP=r[1];CATLIST=r[2];
+    if(!CATLIST.length){
+      CATLIST=PRESET.slice();
+      Object.keys(ROWMAP).forEach(k=>{const c=ROWMAP[k].cat;if(c&&CATLIST.indexOf(c)<0)CATLIST.push(c);});
+      await saveCatList();
+    }
     const n=await syncNew();
     if(n)ROWMAP=await loadRows();
-    renderChips();renderList();
+    fillSelects();renderChips();renderList();
     if(n)$c('ctLog').textContent='📥 유통시트에서 새 상품 '+n+'건을 목록에 등재했습니다.';
   }catch(e){
     $c('ctStat').textContent='— ⚠️ '+(e.message||e);
