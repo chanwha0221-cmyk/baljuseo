@@ -496,15 +496,17 @@ function renderFx(){
     if(x.linked)b.push('<span class="fxb ok">링크교체됨 → 재수집 필요</span>');
     if(x.del)b.push('<span class="fxb q">삭제대기중</span>');
     const sheetGo='<a class="fxg" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/'+YUTONG+'/edit#gid='+p.gid+'&range='+colL(p.col)+p.row+'">시트↗</a>';
+    const linkGo='<a class="fxg" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/'+LINKSS+'/edit?gid=0#gid=0" title="링크 정본 시트 열기">링크↗</a>';
     const openGo=u?'<a class="fxg" target="_blank" rel="noopener" href="'+u.replace(/"/g,'&quot;')+'">상품↗</a>':'';
-    return '<div class="ci" data-x="'+xi+'"><div class="cn">'+p.name.replace(/</g,'&lt;')+'<span class="cw">'+p.wh.replace(/</g,'&lt;')+' · '+p.tab+' '+colL(p.col)+p.row+'</span></div>'
-      +b.join('')+openGo+sheetGo
+    return '<div class="ci" data-x="'+xi+'"><div class="cn">'+p.name.replace(/</g,'&lt;')+' <button class="fxg" data-fxcp="'+p.name.replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" title="상품명 복사">📋</button><span class="cw">'+p.wh.replace(/</g,'&lt;')+' · '+p.tab+' '+colL(p.col)+p.row+'</span></div>'
+      +b.join('')+openGo+sheetGo+linkGo
       +'<button class="fxg" data-fxlink="'+xi+'">🔗 새 링크</button>'
       +(x.del?'':'<button class="fxg del" data-fxdel="'+xi+'">🗑 삭제</button>')
       +'</div>';
   }).join('')||'<div class="ci">문제 상품이 없습니다 🎉</div>';
   $f('fxList').querySelectorAll('[data-fxdel]').forEach(el=>{el.onclick=()=>doDel(+el.getAttribute('data-fxdel'));});
   $f('fxList').querySelectorAll('[data-fxlink]').forEach(el=>{el.onclick=()=>doLink(+el.getAttribute('data-fxlink'));});
+  $f('fxList').querySelectorAll('[data-fxcp]').forEach(el=>{el.onclick=function(){navigator.clipboard.writeText(this.getAttribute('data-fxcp')).then(()=>{this.textContent='✓';setTimeout(()=>{this.textContent='📋';},1200);});};});
 }
 async function doDel(xi){
   const x=FX.probs[xi],p=x.p;
