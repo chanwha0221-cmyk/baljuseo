@@ -50,6 +50,8 @@ h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .old{font-size:11px;color:var(--muted);text-decoration:line-through;font-variant-numeric:tabular-nums;display:block;line-height:1}
 .price.up{color:var(--up)}.price.down{color:var(--down)}
 .ship{font-size:10.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}.ship b{color:var(--ink)}.free{color:var(--accent);font-weight:700}
+.lcbar{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:11px}
+.lcbar .lcn{font-size:11.5px;color:var(--muted);margin-right:5px}.lcbar .lcn b{color:var(--ink)}
 .empty{text-align:center;padding:60px 0;color:var(--muted)}
 .load{text-align:center;padding:80px 0;color:var(--muted);font-size:14px}
 footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted);text-align:center;line-height:1.7}
@@ -291,11 +293,12 @@ function buildWhChips(){
   whrow.innerHTML='';
   const mk=(label,on,fn)=>{const b=document.createElement('button');b.className='chip'+(on?' on':'');b.textContent=label;b.onclick=fn;whrow.appendChild(b);};
   // '전체' 칩 없음 — 선택된 창고를 다시 누르면 해제되어 전체로 (사장님 2026-08-09)
+  // 창고를 바꾸면 카테고리 필터는 초기화 (창고 안에서는 배너 아래 창고 내 카테고리 버튼을 쓴다)
   GROUPS.forEach(g=>{
     const on=st.mode==='group'&&st.wh===g.wh;
-    mk(g.wh+' '+g.products.length,on,()=>{if(on){st.wh='전체';}else{st.wh=g.wh;}st.mode='group';buildWhChips();render();});
+    mk(g.wh+' '+g.products.length,on,()=>{if(on){st.wh='전체';}else{st.wh=g.wh;}st.mode='group';st.cat='전체';buildWhChips();render();});
   });
-  if(st.mode==='src')mk('📦 '+st.wh+' ✕',true,()=>{st.wh='전체';st.mode='group';buildWhChips();render();});
+  if(st.mode==='src')mk('📦 '+st.wh+' ✕',true,()=>{st.wh='전체';st.mode='group';st.cat='전체';buildWhChips();render();});
 }
 // 카테고리 칩은 전체 상품 기준 — 창고 선택과 무관하게 항상 같은 분류를 보여준다 (사장님 2026-08-09)
 function buildCatChips(){
@@ -318,12 +321,15 @@ function render(){
     view.innerHTML='<div class="meta"><div><b>'+won(hits.length)+'</b>개 · 전체 창고 검색</div><div>합포장은 같은 창고끼리만</div></div><div class="grid">'+hits.map(card).join('')+'</div>';
     return;
   }
-  catrow.style.display='flex';$('catlbl').style.display='';
-  buildCatChips();
+  const whSel=(st.mode==='src')||(st.wh!=='전체');
+  // 창고 안에서는 상단(전체 기준) 카테고리 줄 대신, 배너 아래 창고 내 카테고리 버튼을 쓴다 (사장님 2026-08-09)
+  catrow.style.display=whSel?'none':'flex';
+  $('catlbl').style.display=whSel?'none':'';
+  if(!whSel)buildCatChips();
   let items,bannerHtml='';
   if(st.mode==='src'){
     items=ALL.filter(p=>p.effWh===st.wh);
-    bannerHtml='<div class="banner"><span class="wn">📦 '+esc(st.wh)+'</span><span class="pk">이 창고에서 판매하는 상품만 보는 중</span><span class="sp">상품 '+items.length+'개 · 위 [✕]를 누르면 전체로</span></div>';
+    bannerHtml='<div class="banner"><span class="wn">📦 '+esc(st.wh)+'</span><span class="pk">이 창고에서 판매하는 상품만 보는 중</span><span class="sp">위 [✕]를 누르면 전체로</span></div>';
   }else if(st.wh==='전체'){
     items=ALL;
   }else{
@@ -333,18 +339,30 @@ function render(){
       const ships={};items.forEach(p=>{ships[p.ship]=(ships[p.ship]||0)+1;});
       let sh=Object.keys(ships).sort((a,b)=>ships[b]-ships[a])[0];sh=parseInt(sh,10)||0;
       const sht=sh>0?('기본 배송비 <b>'+won(sh)+'원</b>'):'<b class="free">무료배송</b>';
-      bannerHtml='<div class="banner"><span class="wn">📦 '+esc(g.wh)+(g.mixed?'':' 창고')+'</span><span class="pk">'+(g.mixed?'상품마다 창고가 달라요 — 합포장은 같은 창고끼리만':'이 창고 상품끼리만 합포장')+'</span><span class="sp">'+sht+' · 상품 '+items.length+'개</span></div>';
+      bannerHtml='<div class="banner"><span class="wn">📦 '+esc(g.wh)+(g.mixed?'':' 창고')+'</span><span class="pk">'+(g.mixed?'상품마다 창고가 달라요 — 합포장은 같은 창고끼리만':'이 창고 상품끼리만 합포장')+'</span><span class="sp">'+sht+'</span></div>';
     }
   }
   const list=items.filter(p=>st.cat==='전체'||(st.cat==='미분류'?(!p.cat||p.cat==='미분류'):p.cat===st.cat));
   empty.style.display=list.length?'none':'block';
-  view.innerHTML=bannerHtml
-    +'<div class="meta"><div><b>'+won(list.length)+'</b>개 상품'+(st.cat!=='전체'?' · '+esc(st.cat):'')+'</div><div>'+(st.wh==='전체'&&st.mode==='group'?'합포장은 같은 창고끼리만':'가격은 거래처 공급가')+'</div></div>'
+  let headHtml;
+  if(whSel){
+    const counts={};let un=0;
+    items.forEach(p=>{if(!p.cat||p.cat==='미분류')un++;else counts[p.cat]=(counts[p.cat]||0)+1;});
+    let chips='';
+    Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).forEach(c=>{chips+='<button class="chip sm lcchip'+(st.cat===c?' on':'')+'" data-c="'+esc(c)+'">'+esc(c)+' '+counts[c]+'</button>';});
+    if(un)chips+='<button class="chip sm lcchip'+(st.cat==='미분류'?' on':'')+'" data-c="미분류" style="opacity:.55">미분류 '+un+'</button>';
+    headHtml='<div class="lcbar"><span class="lcn"><b>'+won(list.length)+'</b>개 상품</span>'+chips+'</div>';
+  }else{
+    headHtml='<div class="meta"><div><b>'+won(list.length)+'</b>개 상품'+(st.cat!=='전체'?' · '+esc(st.cat):'')+'</div><div>합포장은 같은 창고끼리만</div></div>';
+  }
+  view.innerHTML=bannerHtml+headHtml
     +'<div class="grid">'+list.map(card).join('')+'</div>';
 }
 document.addEventListener('click',e=>{
   const w=e.target.closest('.whb');
-  if(w){st.wh=w.getAttribute('data-wh');st.mode='src';st.q='';$('q').value='';buildWhChips();render();window.scrollTo({top:0,behavior:'smooth'});return;}
+  if(w){st.wh=w.getAttribute('data-wh');st.mode='src';st.cat='전체';st.q='';$('q').value='';buildWhChips();render();window.scrollTo({top:0,behavior:'smooth'});return;}
+  const lc=e.target.closest('.lcchip');
+  if(lc){const c=lc.getAttribute('data-c');st.cat=(st.cat===c)?'전체':c;render();return;}
   const b=e.target.closest('.cpbtn');if(!b)return;
   navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast('상품명 복사됨'));
 });
