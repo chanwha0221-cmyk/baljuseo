@@ -53,9 +53,36 @@ h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .load{text-align:center;padding:80px 0;color:var(--muted);font-size:14px}
 footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted);text-align:center;line-height:1.7}
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 18px;border-radius:20px;font-size:12.5px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
+.noteTg{display:none}
+/* ── 모바일: 검색·상품 우선 구조 (PC는 그대로) ── */
+@media(max-width:640px){
+  header{padding:10px 0 0}
+  .mark{width:32px;height:32px;font-size:13px;border-radius:9px}
+  h1{font-size:15.5px}
+  .sub{font-size:10px}
+  .noteTg{display:inline-block;margin-top:8px;border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:16px;padding:4px 11px;font-size:11px;cursor:pointer}
+  .note{display:none;margin-top:8px}
+  .note.open{display:block}
+  .controls{margin-top:8px;padding:8px 0 6px}
+  .search{padding:10px 12px;font-size:16px}
+  .lbl{display:none}
+  .row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-top:7px}
+  .row::-webkit-scrollbar{display:none}
+  .chip{flex:none}
+  #catrow{margin-top:0!important}
+  .grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .bd{padding:9px 9px;gap:4px}
+  .pn{font-size:12.5px}
+  .price{font-size:16px}
+  .spec{font-size:10px}
+  .banner{padding:9px 11px;margin-top:9px}
+  .banner .wn{font-size:13.5px}
+  body{padding-bottom:40px}
+}
 </style></head><body><div class="wrap">
 <header><div class="brand"><div class="mark">마</div><div><h1>마스터 유통 상품</h1><div class="sub" id="sub">거래처용 카탈로그 · 불러오는 중…</div></div></div>
-<div class="note">🚚 <b>합포장(합배송)은 같은 창고 상품끼리만 됩니다.</b> 서로 다른 창고 상품은 각각 배송비가 붙어요. 창고를 골라 보세요.<br>💬 상품 문의 · 수량 문의 : <b>010-2455-4156 홍찬화 팀장</b></div></header>
+<button class="noteTg" id="noteTg">🚚 합포장 · 문의 안내</button>
+<div class="note" id="note">🚚 <b>합포장(합배송)은 같은 창고 상품끼리만 됩니다.</b> 서로 다른 창고 상품은 각각 배송비가 붙어요. 창고를 골라 보세요.<br>💬 상품 문의 · 수량 문의 : <b>010-2455-4156 홍찬화 팀장</b></div></header>
 <div class="controls">
 <input class="search" id="q" type="search" placeholder="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…" autocomplete="off">
 <div class="lbl">창고 선택</div><div class="row" id="whrow"></div>
@@ -281,24 +308,40 @@ document.addEventListener('click',e=>{
   navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast('상품명 복사됨'));
 });
 $('q').addEventListener('input',e=>{st.q=e.target.value.trim();render();});
+$('noteTg').onclick=()=>$('note').classList.toggle('open');
+// ── 캐시 우선 표시: 한 번 본 기기는 직전 데이터로 즉시 그리고, 뒤에서 최신으로 갱신 ──
+const CK='catalog_cache_v1';
+function finishRender(atMs,fromCache){
+  if(st.wi>=GROUPS.length)st.wi=0;
+  let total=0;GROUPS.forEach(g=>total+=g.products.length);
+  $('sub').textContent='거래처용 카탈로그 · 창고 '+GROUPS.length+'곳 · 상품 '+total.toLocaleString()+'개';
+  const t=new Date(atMs).toLocaleString('ko-KR',{dateStyle:'short',timeStyle:'short'});
+  $('ft').innerHTML='마스터 유통 · 거래처 상품 카탈로그<br>'+(fromCache?('저장된 상품 기준 '+t+' · 최신 내용으로 갱신 중…'):('불러온 시각 '+t+' · 새로고침하면 시트 최신 내용이 반영됩니다'));
+  $('load').style.display='none';
+  buildWhChips();render();
+}
 (async()=>{
+  let usedCache=false;
+  try{
+    const c=JSON.parse(localStorage.getItem(CK)||'null');
+    if(c&&c.groups&&c.groups.length){GROUPS=c.groups;MEDIA=c.media||{};usedCache=true;finishRender(c.at,true);}
+  }catch(e){}
   try{
     // 상품 사진·스펙 — 시트('상품이미지' 탭)가 최신본. 도구로 업데이트하면 여기 바로 반영된다.
     // 시트를 못 읽으면 배포된 스냅샷(JSON)으로, 그것도 없으면 사진 없이 동작.
-    try{ MEDIA=await loadMedia(); }catch(e){ MEDIA={}; }
-    if(!Object.keys(MEDIA).length){
-      try{ MEDIA=await(await fetch('data/product-media.json',{cache:'no-cache'})).json(); }catch(e){ MEDIA={}; }
+    let media={};
+    try{ media=await loadMedia(); }catch(e){ media={}; }
+    if(!Object.keys(media).length){
+      try{ media=await(await fetch('data/product-media.json',{cache:'no-cache'})).json(); }catch(e){ media={}; }
     }
-    GROUPS=await loadCatalog();
-    GROUPS.forEach(g=>g.products.forEach(p=>{p.cat=catOf(p.name);}));
-    let total=0;GROUPS.forEach(g=>total+=g.products.length);
-    $('sub').textContent='거래처용 카탈로그 · 창고 '+GROUPS.length+'곳 · 상품 '+total.toLocaleString()+'개';
-    const now=new Date();
-    $('ft').innerHTML='마스터 유통 · 거래처 상품 카탈로그<br>불러온 시각 '+now.toLocaleString('ko-KR',{dateStyle:'short',timeStyle:'short'})+' · 새로고침하면 시트 최신 내용이 반영됩니다';
-    $('load').style.display='none';
-    buildWhChips();render();
+    const groups=await loadCatalog();
+    groups.forEach(g=>g.products.forEach(p=>{p.cat=catOf(p.name);}));
+    MEDIA=Object.keys(media).length?media:MEDIA;
+    GROUPS=groups;
+    finishRender(Date.now(),false);
+    try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA})); }catch(e){}
   }catch(e){
-    $('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
+    if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
   }
 })();
 </script></body></html>
