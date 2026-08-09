@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>상품 사진·스펙 업데이트 도구 설치</title>
+<title>마찬 유통 상품 도구</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -40,10 +40,18 @@ a{color:var(--accent)}
 .ct-mg{margin:10px 0 0}
 .ct-bulk label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap}
 .ct-bulk select,.ct-mg select{border:1px solid var(--line);border-radius:7px;padding:5px 7px;font-size:12.5px;background:var(--card);color:var(--ink)}
+.tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1.5px solid var(--line)}
+.tabbtn{border:none;background:none;color:var(--muted);font-size:14px;font-weight:700;padding:9px 14px;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1.5px;font-family:inherit}
+.tabbtn.on{color:var(--accent);border-bottom-color:var(--accent)}
 </style></head><body><main>
-<h1>📸 상품 사진·스펙 · 🏷️ 카테고리 도구</h1>
-<div class="sub">카탈로그에 뜨는 상품 사진·스펙·카테고리를 여기서 관리합니다 · 마스터 유통</div>
+<h1>🧰 마찬 유통 상품 도구</h1>
+<div class="sub">카탈로그에 뜨는 상품 사진·스펙·카테고리를 여기서 관리합니다</div>
+<div class="tabs">
+  <button class="tabbtn on" data-t="cat">🏷️ 카테고리 분류</button>
+  <button class="tabbtn" data-t="photo">📸 사진·스펙 업데이트</button>
+</div>
 
+<div id="tab-cat">
 <div class="card">
   <h2>🏷️ 카테고리 분류 <span id="ctStat" style="font-weight:400;font-size:12px;color:var(--muted)">불러오는 중…</span></h2>
   <p style="font-size:12.5px;color:var(--muted)">여기서 분류하면 <a href="catalog.html">카탈로그</a> 카테고리에 그대로 반영됩니다. 유통시트의 새 상품은 이 페이지를 열 때마다 자동으로 목록에 올라옵니다 — <b>주황 테두리 = 분류가 필요한 상품</b>입니다.</p>
@@ -54,7 +62,9 @@ a{color:var(--accent)}
   <div class="ct-mg"><span style="font-size:12px;color:var(--muted);white-space:nowrap">카테고리 관리:</span><select id="ctMg"></select><button class="cp" id="ctNew" style="margin-top:0">＋ 추가</button><button class="cp" id="ctDel" style="margin-top:0">🗑 삭제</button></div>
   <div id="ctLog" style="font-size:11.5px;color:var(--muted);margin-top:6px"></div>
 </div>
+</div>
 
+<div id="tab-photo" style="display:none">
 <div class="card">
   <h2>1. 즐겨찾기에 한 번만 등록</h2>
   <p>아래 초록 버튼을 <b>즐겨찾기 바로 끌어다 놓으세요.</b> (Ctrl+Shift+B 로 즐겨찾기 바 켜기)</p>
@@ -88,8 +98,18 @@ a{color:var(--accent)}
   <p>사진 주소와 스펙은 <b>도구시트의 <code>상품이미지</code> 탭</b>에 쌓입니다. 카탈로그는 이 탭을 읽어서 그립니다. 시트에서 직접 고쳐도 되고, 특정 상품 사진을 지우고 싶으면 그 행의 사진 칸만 비우면 "사진 준비중"으로 표시됩니다.</p>
   <p style="margin-top:8px"><a href="catalog.html">→ 카탈로그 열기</a></p>
 </div>
+</div>
 </main>
 <script>
+/* 탭 전환 */
+document.querySelectorAll('.tabbtn').forEach(function(b){
+  b.onclick=function(){
+    document.querySelectorAll('.tabbtn').forEach(x=>x.classList.toggle('on',x===b));
+    var t=b.getAttribute('data-t');
+    document.getElementById('tab-cat').style.display=(t==='cat')?'':'none';
+    document.getElementById('tab-photo').style.display=(t==='photo')?'':'none';
+  };
+});
 /* ── 🏷️ 카테고리 분류 — 유통시트 전체 상품을 도구시트 '상품분류' 탭에 자동 등재하고,
       분류는 사장님·원비가 여기서 직접 한다. 카탈로그는 이 탭을 읽어서 그대로 따른다. ── */
 (function(){
