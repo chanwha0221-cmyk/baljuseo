@@ -79,7 +79,7 @@ a{color:var(--accent)}
   <p style="font-size:12.5px;color:var(--muted)">카탈로그에서 <b>사진 준비중</b>이거나 <b>사진이 깨졌거나</b> <b>상품 링크가 없는</b> 상품만 모아줍니다.
   품절이면 🗑 삭제, 살아있는 상품이면 🔗 새 링크를 넣으세요 — 링크는 링크 정본 시트에 바로 저장되고 카탈로그에 즉시 반영됩니다.</p>
   <div id="fxPerm" style="font-size:11.5px;color:var(--muted);margin:6px 0"></div>
-  <div class="ct-bulk" style="margin-top:10px"><button class="cp" id="fxRun" style="margin-top:0">🔍 문제 상품 취합</button><a class="cp" id="fxQty" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none;display:none">📊 수량시트 열기</a></div>
+  <div class="ct-bulk" style="margin-top:10px"><a class="cp" id="fxQty" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none">📊 수량시트</a><button class="fxg" id="fxQtyEdit" title="수량시트 주소 변경 (매월 바뀔 때 여기서 교체)">✎</button><button class="cp" id="fxRun" style="margin-top:0">🔍 문제 상품 취합</button></div>
   <div id="fxList"></div>
 </div>
 
@@ -376,7 +376,8 @@ $c('ctDel').onclick=async function(){
 const YUTONG='1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';
 const LINKSS='1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';
 const DOGU='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
-const QTYS='1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI';
+/* 수량시트 = 사장님이 쓰는 월간 수량 시트. 매월 주소가 바뀌므로 도구시트 '설정' 탭 B1에 저장하고 ✎로 교체한다. */
+const QTY_DEFAULT='https://docs.google.com/spreadsheets/d/15sRFKlNPD-4rrarFTWJUfnYzrFD1A0eyB209pdIOm3I/edit?gid=413861981#gid=413861981';
 const EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
 const PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n";
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
@@ -548,6 +549,34 @@ async function doLink(xi){
   x.linked=true;renderFx();
   alert('✅ 링크 저장 완료'+(FX.writable?' (유통시트 하이퍼링크까지 변경)':' — 유통시트 하이퍼링크는 권한이 없어 그대로입니다.')+'\n사진·스펙은 아래 재수집 도구(⚡북마클릿)를 한 번 돌리면 채워집니다.');
 }
+/* 수량시트 버튼 — 주소는 도구시트 '설정' 탭 B1에 공유 저장 (기기 상관없이 동일) */
+async function ensureCfgTab(){
+  const meta=await api(DOGU,'?fields=sheets.properties.title');
+  if(((meta.sheets)||[]).some(s=>s.properties.title==='설정'))return;
+  await api(DOGU,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:'설정'}}}]})});
+  await api(DOGU,'/values/'+q1("'설정'!A1:B1")+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[['수량시트URL',QTY_DEFAULT]]})});
+}
+(async function(){
+  $f('fxQty').href=QTY_DEFAULT;
+  try{
+    const v=await api(DOGU,'/values/'+q1("'설정'!A1:B1"));
+    const u=v.values&&v.values[0]&&(v.values[0][1]||'').trim();
+    if(u&&/^https?:\/\//.test(u))$f('fxQty').href=u;
+    else await ensureCfgTab();
+  }catch(e){}
+})();
+$f('fxQtyEdit').onclick=async function(){
+  const u=(prompt('수량시트 주소를 붙여넣으세요.\n매월 시트가 바뀌면 여기서 교체하면 됩니다. (모든 기기에 같이 적용)',$f('fxQty').href)||'').trim();
+  if(!u||!/^https?:\/\//.test(u))return;
+  this.disabled=true;
+  try{
+    await ensureCfgTab();
+    const j=await api(DOGU,'/values/'+q1("'설정'!A1:B1")+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[['수량시트URL',u]]})});
+    if(j.error)alert('저장 실패: '+j.error.message);
+    else $f('fxQty').href=u;
+  }catch(e){alert('저장 실패: '+(e.message||e));}
+  this.disabled=false;
+};
 $f('fxRun').onclick=async function(){
   this.disabled=true;
   try{
@@ -569,12 +598,6 @@ $f('fxRun').onclick=async function(){
     cand.forEach(p=>{const c=FX.cache[pkey(p.name)];FX.probs.push({p,issue:(!c||!c.img)?'사진없음':'링크없음',del:FX.dels.indexOf(pkey(p.name))>=0});});
     broken.forEach(p=>{FX.probs.push({p,issue:'사진깨짐',del:FX.dels.indexOf(pkey(p.name))>=0});});
     FX.probs.sort((a,b)=>a.p.tab===b.p.tab?a.p.row-b.p.row:(a.p.tab<b.p.tab?-1:1));
-    try{
-      const qm=await api(QTYS,'?fields=sheets.properties(title,sheetId)');
-      const st=((qm.sheets)||[]).map(s=>s.properties).find(p=>p.title==='현황판');
-      $f('fxQty').href='https://docs.google.com/spreadsheets/d/'+QTYS+'/edit'+(st?('#gid='+st.sheetId):'');
-      $f('fxQty').style.display='';
-    }catch(e){}
     renderFx();
   }catch(e){$f('fxStat').textContent='— ⚠️ '+(e.message||e);}
   this.disabled=false;
