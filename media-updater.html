@@ -491,8 +491,14 @@ function renderFx(){
     const p=x.p,u=urlOf(p);
     const b=[];
     b.push('<span class="fxb no">'+x.issue+'</span>');
+    const cc=FX.cache[pkey(p.name)];
     if(!u)b.push('<span class="fxb no">링크없음</span>');
-    else if(x.issue==='사진없음')b.push('<span class="fxb q">링크 죽었을 수도</span>');
+    else if(x.issue==='사진없음'){
+      // 링크 정본이 캐시보다 새것 = 링크는 이미 고쳐짐 → 재수집만 하면 사진이 채워진다
+      if(cc&&cc.link&&cc.link!==u)b.push('<span class="fxb ok">🔄 새 링크 감지 — 재수집만 하면 됨</span>');
+      else if(!cc)b.push('<span class="fxb ok">신규 — 재수집 필요</span>');
+      else b.push('<span class="fxb q">링크 죽었을 수도</span>');
+    }
     if(x.linked)b.push('<span class="fxb ok">링크교체됨 → 재수집 필요</span>');
     if(x.del)b.push('<span class="fxb q">삭제대기중</span>');
     const sheetGo='<a class="fxg" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/'+YUTONG+'/edit#gid='+p.gid+'&range='+colL(p.col)+p.row+'">시트↗</a>';
