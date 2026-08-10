@@ -451,10 +451,7 @@ async function loadLinks(){
   ((v.values)||[]).forEach(function(r,i){const nm=pkey(r[0]);const u=(r[1]||'').trim();if(nm&&u&&!m[nm])m[nm]={url:u,row:i+2};});
   return m;
 }
-async function loadDels(){
-  const v=await api(DOGU,'/values/'+q1("'상품삭제요청'!A2:E400"));
-  return ((v.values)||[]).filter(r=>(r[0]||'').trim()&&(r[4]||'')!=='완료').map(r=>pkey(r[0]));
-}
+/* (삭제 대기 큐는 2026-08-10 은퇴 — 유통시트 편집 권한으로 🗑이 바로 지운다) */
 async function probeWrite(firstTab){
   const j=await api(YUTONG,'/values/'+q1("'"+firstTab.replace(/'/g,"''")+"'!Z999")+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[['']]})});
   return !(j.error&&j.error.status==='PERMISSION_DENIED');
@@ -525,10 +522,7 @@ async function doDel(xi){
     renderFx();
     return;
   }
-  if(!confirm('유통시트 쓰기 권한이 없어 바로는 못 지우고 삭제 대기에 올립니다.\n실제 삭제는 상품정보 업데이트(변동가) 도구의 [🗑 삭제 대기 처리]에서 실행됩니다.\n\n'+p.name+'\n올릴까요?'))return;
-  const j=await api(DOGU,'/values/'+q1("'상품삭제요청'!A:E")+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[[p.name,p.tab,colL(p.col)+p.row,today()+' '+new Date().toTimeString().slice(0,5),'']]})});
-  if(j.error){alert('요청 실패: '+j.error.message);return;}
-  x.del=true;renderFx();
+  alert('유통시트 쓰기 권한이 없어 삭제할 수 없습니다.\n유통시트 공유에서 '+CLIENT_EMAIL+'를 편집자로 올리면 바로 삭제가 됩니다.');
 }
 async function doLink(xi){
   const x=FX.probs[xi],p=x.p,k=pkey(p.name);
@@ -589,8 +583,8 @@ $f('fxRun').onclick=async function(){
   this.disabled=true;
   try{
     $f('fxStat').textContent='— 시트 읽는 중…';
-    const r=await Promise.all([loadYutong(),loadCache(),loadLinks(),loadDels().catch(()=>[])]);
-    FX.prods=r[0];FX.cache=r[1];FX.links=r[2];FX.dels=r[3];
+    const r=await Promise.all([loadYutong(),loadCache(),loadLinks()]);
+    FX.prods=r[0];FX.cache=r[1];FX.links=r[2];FX.dels=[];
     FX.writable=await probeWrite(FX.prods.length?FX.prods[0].tab:'군산');
     $f('fxPerm').innerHTML=FX.writable
       ?'🟢 유통시트 직접 수정 가능 — 🗑 삭제와 🔗 링크가 유통시트에 즉시 반영됩니다.'

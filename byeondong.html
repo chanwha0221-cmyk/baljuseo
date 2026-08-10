@@ -174,10 +174,6 @@
       <button id="excelBtn" class="ghost">📗 엑셀 생성 (리모컨)</button>
       <span class="mini">시작 비우면 처음부터(느림)·마지막 o 아래 자동 / 끝 행 넣으면 그 행까지만(내일치 제외용)</span>
     </div>
-    <div class="row" style="margin-top:8px">
-      <button id="delReqBtn" class="ghost">🗑 삭제 대기 처리</button>
-      <span class="mini">사진 업데이트 도구에서 🗑 표시한 <b>운영 안 하는 상품</b>을 유통시트에서 실제로 지웁니다 (팀장님 계정 권한으로 실행)</span>
-    </div>
   </div>
 
   <div id="status"></div>
@@ -773,6 +769,12 @@
           h+='<td class="'+cls+'"><textarea class="spec-in">'+esc(r.c[14])+'</textarea></td>';
         } else if(i===15){ // 마감시간
           h+='<td class="'+cls+' magam" data-k="'+esc(r.pk)+'">'+esc(r.c[15])+'</td>';
+        } else if(i===7 && r.hist && r.hist.length){
+          // ★병합된 상품은 상품명 옆에 📚배지 — 마우스 올리면 접힌 이력이 보여서
+          //   "왜 이 값이지?"를 표에서 바로 확인 가능 (2026-08-10 한상모듬 혼동 방지)
+          var tip = r.hist.map(function(hc){ return '['+(hc[2]||'?')+' '+(hc[3]||'')+'] 공급가:'+(hc[8]||'-')+' 원가:'+(hc[10]||'-')+' 택배비:'+(hc[12]||'-'); }).join('\n')
+                    + '\n→ 최종(맨아래 최신): ['+(r.c[2]||'?')+' '+(r.c[3]||'')+'] 공급가:'+(r.c[8]||'-')+' 원가:'+(r.c[10]||'-')+' 택배비:'+(r.c[12]||'-');
+          h+='<td class="'+cls+'">'+esc(r.c[7])+' <span style="cursor:help;font-size:11px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:0 4px" title="'+esc(tip)+'">📚'+(r.hist.length+1)+'건 병합</span></td>';
         } else {
           h+='<td class="'+cls+'">'+esc(r.c[i])+'</td>';
         }
@@ -1312,65 +1314,8 @@
       .catch(function(){});
   }
 
-  // ===== 🗑 상품 삭제 대기 처리 =====
-  // 사진 업데이트 도구(media-updater)는 유통시트에 쓰기 권한이 없다(서비스계정=읽기 전용, 키가 공개라 일부러 안 올림).
-  // 그래서 거기선 "지울 상품"만 도구시트 '상품삭제요청'에 적어두고, 실제 행 삭제는 여기서
-  // 팀장님 본인 구글 계정 권한으로 실행한다. 지우기 전에 그 셀에 그 상품명이 그대로 있는지 다시 확인하고,
-  // 같은 탭은 아래 행부터 지운다(위부터 지우면 행이 밀려 엉뚱한 줄이 지워짐).
-  var DEL_TAB='상품삭제요청';
-  document.getElementById('delReqBtn').addEventListener('click', function(){ withToken(doDelReq); });
-  function doDelReq(){
-    setStatus('🗑 삭제 대기 목록 확인 중…');
-    readRange(MEDIA_Q_ID, "'"+DEL_TAB+"'!A2:E400").then(function(rows){
-      var list=[];
-      (rows||[]).forEach(function(r,i){
-        var nm=cell(r,0), tab=cell(r,1), cel=cell(r,2), st=cell(r,4);
-        if(nm && tab && cel && st!=='완료') list.push({name:nm, tab:tab, cell:cel, row:i+2});
-      });
-      if(!list.length){ setStatus('🗑 삭제 대기가 없습니다.','warn'); return; }
-      if(!confirm('유통시트에서 아래 '+list.length+'개 상품 행을 삭제합니다.\n\n'
-        + list.map(function(x){return '· '+x.name+'  ('+x.tab+' '+x.cell+')';}).join('\n')
-        + '\n\n되돌릴 수 없습니다. 진행할까요?')) { setStatus('취소했습니다.'); return; }
-      // 탭 gid 조회
-      return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+APPLY_ID+'?fields=sheets.properties(title,sheetId)',{headers:{Authorization:'Bearer '+accessToken}})
-        .then(function(r){ return r.json(); })
-        .then(function(meta){
-          var gid={}; (meta.sheets||[]).forEach(function(s){ gid[s.properties.title]=s.properties.sheetId; });
-          // 셀 값 재확인 (그 사이 시트가 바뀌었으면 건너뛴다)
-          var checks=list.map(function(x){
-            return readRange(APPLY_ID, "'"+x.tab+"'!"+x.cell).then(function(v){
-              var got=(v && v[0] && v[0][0]) ? String(v[0][0]).trim() : '';
-              x.ok = (pkey(got)===pkey(x.name)) && (gid[x.tab]!=null);
-              x.got = got;
-              x.gid = gid[x.tab];
-              x.rowIdx = parseInt(String(x.cell).replace(/\D/g,''),10)-1;
-              return x;
-            }).catch(function(){ x.ok=false; return x; });
-          });
-          return Promise.all(checks);
-        })
-        .then(function(items){
-          var ok=items.filter(function(x){return x.ok;});
-          var bad=items.filter(function(x){return !x.ok;});
-          if(!ok.length){ setStatus('🗑 지울 수 있는 항목이 없습니다 — 시트가 바뀐 것 같아요. 사진 업데이트 도구를 다시 열어 확인해 주세요.','warn'); return; }
-          ok.sort(function(a,b){ return (a.gid===b.gid) ? (b.rowIdx-a.rowIdx) : (a.gid-b.gid); });   // 같은 탭은 아래 행부터
-          var reqs=ok.map(function(x){ return {deleteDimension:{range:{sheetId:x.gid,dimension:'ROWS',startIndex:x.rowIdx,endIndex:x.rowIdx+1}}}; });
-          return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+APPLY_ID+':batchUpdate',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({requests:reqs})})
-            .then(function(r){ return r.json(); })
-            .then(function(j){
-              if(j.error) throw new Error(j.error.message);
-              // 처리한 요청줄에 '완료' 표시
-              var marks=ok.map(function(x){ return {range:"'"+DEL_TAB+"'!E"+x.row, values:[['완료']]}; });
-              return fetch('https://sheets.googleapis.com/v4/spreadsheets/'+MEDIA_Q_ID+'/values:batchUpdate',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({valueInputOption:'RAW',data:marks})})
-                .then(function(){
-                  setStatus('🗑 유통시트에서 <b>'+ok.length+'</b>건 삭제 완료<br>'
-                    + ok.map(function(x){return '· '+esc(x.name)+' ('+esc(x.tab)+' '+esc(x.cell)+')';}).join('<br>')
-                    + (bad.length?('<br>⚠️ 건너뜀 '+bad.length+'건 — 그 칸의 상품명이 달라졌어요(시트가 바뀐 듯): '+esc(bad.map(function(x){return x.name;}).join(', '))):''), 'ok');
-                });
-            });
-        });
-    }).catch(function(e){ setStatus('🗑 삭제 처리 실패: '+esc(e.message||String(e)),'warn'); });
-  }
+  // (🗑 삭제 대기 처리는 2026-08-10 은퇴 — 서비스계정이 유통시트 편집자가 되면서
+  //  사진·링크 수정 도구가 유통시트에서 직접 삭제한다. 대기 큐 '상품삭제요청'도 더 이상 안 쓴다.)
 
   // ===== 📗 리모컨(원가파일) 업데이트 엑셀 생성 =====
   // 규칙: 품절·원가변경·순수 정보변경 제외 / 출시·재입고·인상·인하(+상품명변경) 포함.
