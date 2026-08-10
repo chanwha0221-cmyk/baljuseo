@@ -73,7 +73,8 @@ a{color:var(--accent)}
 <div class="card">
   <h2>🔧 사진·링크 수정 <span id="fxStat" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
   <p style="font-size:12.5px;color:var(--muted)">카탈로그에서 <b>사진 준비중</b>이거나 <b>사진이 깨졌거나</b> <b>상품 링크가 없는</b> 상품만 모아줍니다.
-  품절이면 🗑 삭제, 살아있는 상품이면 🔗 새 링크를 넣으세요 — 링크는 링크 정본 시트에 바로 저장되고 카탈로그에 즉시 반영됩니다.</p>
+  품절이면 🗑 삭제, 살아있는 상품이면 🔗 새 링크를 넣으세요 — 링크는 링크 정본 시트에 바로 저장되고 카탈로그에 즉시 반영됩니다.
+  열어 봤는데 실제로는 이상이 없으면 <b>✓ 문제없음</b>으로 넘기세요 — 다음 취합부터 빠집니다. 고친 뒤 다시 취합하면 해결된 상품을 알려줍니다.</p>
   <div id="fxPerm" style="font-size:11.5px;color:var(--muted);margin:6px 0"></div>
   <div class="ct-bulk" style="margin-top:10px"><a class="cp" id="fxQty" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none">📊 수량시트</a><button class="fxg" id="fxQtyEdit" title="수량시트 주소 변경 (매월 바뀔 때 여기서 교체)">✎</button><button class="cp" id="fxRun" style="margin-top:0">🔍 문제 상품 취합</button></div>
   <div id="fxList"></div>
@@ -367,7 +368,7 @@ const today=()=>new Date().toISOString().slice(0,10);
 const colL=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
 const thumb=u=>'https://images.weserv.nl/?url='+encodeURIComponent(u.replace(/^https?:\/\//,''))+'&w=16&h=12&fit=cover&output=webp&q=40';
 const $f=id=>document.getElementById(id);
-let FX={prods:[],cache:{},links:{},linkGid:null,dels:[],writable:false,probs:[]};
+let FX={prods:[],cache:{},links:{},linkGid:null,dels:[],writable:false,probs:[],ok:{},okRows:[],okGid:null};
 async function loadYutong(){
   const meta=await api(YUTONG,'?fields=sheets.properties(title,sheetId,hidden)');
   if(meta.error)throw new Error('유통시트 접근 실패: '+meta.error.status);
@@ -410,6 +411,55 @@ async function loadLinks(){
   ((v.values)||[]).forEach(function(r,i){const nm=pkey(r[0]);const u=(r[1]||'').trim();if(nm&&u&&!m[nm])m[nm]={url:u,row:i+2};});
   return m;
 }
+/* ✓ 문제없음 — 열어 봤는데 실제로는 멀쩡한 상품을 취합에서 빼는 목록. 도구시트 '문제없음' 탭에 공유 저장(모든 기기 동일). */
+async function loadOk(){
+  const meta=await api(DOGU,'?fields=sheets.properties(title,sheetId)');
+  const t=((meta.sheets)||[]).map(s=>s.properties).find(p=>p.title==='문제없음');
+  FX.okGid=t?t.sheetId:null;
+  const out={keys:{},rows:[]};
+  if(!t)return out;
+  const v=await api(DOGU,'/values/'+q1("'문제없음'!A2:A3000"));
+  ((v.values)||[]).forEach(function(r){const nm=(r[0]||'').trim();if(nm){out.keys[pkey(nm)]=1;out.rows.push({name:nm});}});
+  return out;
+}
+async function ensureOkTab(){
+  if(FX.okGid!=null)return;
+  const j=await api(DOGU,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:'문제없음'}}}]})});
+  if(j.error){
+    const meta=await api(DOGU,'?fields=sheets.properties(title,sheetId)');
+    const t=((meta.sheets)||[]).map(s=>s.properties).find(p=>p.title==='문제없음');
+    if(t){FX.okGid=t.sheetId;return;}
+    throw new Error(j.error.message);
+  }
+  FX.okGid=j.replies[0].addSheet.properties.sheetId;
+  await api(DOGU,'/values/'+q1("'문제없음'!A1:C1")+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[['상품명','넘긴날짜','당시문제']]})});
+}
+async function doOk(xi){
+  const x=FX.probs[xi],p=x.p,k=pkey(p.name);
+  try{
+    await ensureOkTab();
+    const j=await api(DOGU,'/values/'+q1("'문제없음'!A1:C1")+':append?valueInputOption=RAW',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[[p.name,today(),x.issue]]})});
+    if(j.error){alert('저장 실패: '+j.error.message);return;}
+  }catch(e){alert('저장 실패: '+(e.message||e));return;}
+  FX.ok[k]=1;FX.okRows.push({name:p.name});
+  FX.probs.splice(xi,1);renderFx();
+}
+async function doOkUndo(name){
+  const k=pkey(name);
+  try{
+    if(FX.okGid==null)throw new Error("'문제없음' 탭을 못 찾았습니다");
+    const v=await api(DOGU,'/values/'+q1("'문제없음'!A2:A3000"));
+    let row=-1;((v.values)||[]).forEach(function(r,i){if(pkey(r[0])===k)row=i+2;});
+    if(row>0){
+      const j=await api(DOGU,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:[{deleteDimension:{range:{sheetId:FX.okGid,dimension:'ROWS',startIndex:row-1,endIndex:row}}}]})});
+      if(j.error){alert('되돌리기 실패: '+j.error.message);return;}
+    }
+  }catch(e){alert('되돌리기 실패: '+(e.message||e));return;}
+  delete FX.ok[k];
+  FX.okRows=FX.okRows.filter(r=>pkey(r.name)!==k);
+  renderFx();
+  alert('↩ 되돌렸습니다. 다시 🔍 취합하면 이 상품도 같이 검사됩니다.');
+}
 /* (삭제 대기 큐는 2026-08-10 은퇴 — 유통시트 편집 권한으로 🗑이 바로 지운다) */
 async function probeWrite(firstTab){
   const j=await api(YUTONG,'/values/'+q1("'"+firstTab.replace(/'/g,"''")+"'!Z999")+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[['']]})});
@@ -450,12 +500,12 @@ function renderFx(){
     const cc=FX.cache[pkey(p.name)];
     if(!u)b.push('<span class="fxb no">링크없음</span>');
     else if(x.issue==='사진없음'){
-      // 링크 정본이 캐시보다 새것 = 링크는 이미 고쳐짐 → 재수집만 하면 사진이 채워진다
-      if(cc&&cc.link&&cc.link!==u)b.push('<span class="fxb ok">🔄 새 링크 감지 — 재수집만 하면 됨</span>');
-      else if(!cc)b.push('<span class="fxb ok">신규 — 재수집 필요</span>');
-      else b.push('<span class="fxb q">링크 죽었을 수도</span>');
+      // 링크 정본이 캐시보다 새것 = 링크는 이미 고쳐진 상태 — 사진만 아직 없는 것
+      if(cc&&cc.link&&cc.link!==u)b.push('<span class="fxb ok">링크는 새것 — 사진만 없음</span>');
+      else if(!cc)b.push('<span class="fxb q">신규 상품</span>');
+      else b.push('<span class="fxb q">링크 죽었을 수도 — 상품↗ 확인</span>');
     }
-    if(x.linked)b.push('<span class="fxb ok">링크교체됨 → 재수집 필요</span>');
+    if(x.linked)b.push('<span class="fxb ok">✓ 링크 교체됨</span>');
     if(x.del)b.push('<span class="fxb q">삭제대기중</span>');
     const sheetGo='<a class="fxg" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/'+YUTONG+'/edit#gid='+p.gid+'&range='+colL(p.col)+p.row+'">시트↗</a>';
     const linkGo='<a class="fxg" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/'+LINKSS+'/edit?gid=0#gid=0" title="링크 정본 시트 열기">링크↗</a>';
@@ -463,11 +513,17 @@ function renderFx(){
     return '<div class="ci" data-x="'+xi+'"><div class="cn">'+p.name.replace(/</g,'&lt;')+' <button class="fxg" data-fxcp="'+p.name.replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" title="상품명 복사">📋</button><span class="cw">'+p.wh.replace(/</g,'&lt;')+' · '+p.tab+' '+colL(p.col)+p.row+'</span></div>'
       +b.join('')+openGo+sheetGo+linkGo
       +'<button class="fxg" data-fxlink="'+xi+'">🔗 새 링크</button>'
+      +'<button class="fxg" data-fxok="'+xi+'" title="확인해 봤는데 실제로는 이상 없음 — 다음 취합부터 뺍니다">✓ 문제없음</button>'
       +(x.del?'':'<button class="fxg del" data-fxdel="'+xi+'">🗑 삭제</button>')
       +'</div>';
   }).join('')||'<div class="ci">문제 상품이 없습니다 🎉</div>';
+  if(FX.okRows.length)$f('fxList').innerHTML+='<div class="ci" style="display:block"><details><summary style="cursor:pointer;font-size:12px;color:var(--muted)">✓ 문제없음으로 넘긴 상품 '+FX.okRows.length+'개 — 취합에서 제외 중</summary>'
+    +FX.okRows.map(r=>'<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px"><span style="flex:1">'+r.name.replace(/</g,'&lt;')+'</span><button class="fxg" data-fxundo="'+r.name.replace(/"/g,'&quot;').replace(/</g,'&lt;')+'">↩ 되돌리기</button></div>').join('')
+    +'</details></div>';
   $f('fxList').querySelectorAll('[data-fxdel]').forEach(el=>{el.onclick=()=>doDel(+el.getAttribute('data-fxdel'));});
   $f('fxList').querySelectorAll('[data-fxlink]').forEach(el=>{el.onclick=()=>doLink(+el.getAttribute('data-fxlink'));});
+  $f('fxList').querySelectorAll('[data-fxok]').forEach(el=>{el.onclick=()=>doOk(+el.getAttribute('data-fxok'));});
+  $f('fxList').querySelectorAll('[data-fxundo]').forEach(el=>{el.onclick=()=>doOkUndo(el.getAttribute('data-fxundo'));});
   $f('fxList').querySelectorAll('[data-fxcp]').forEach(el=>{el.onclick=function(){navigator.clipboard.writeText(this.getAttribute('data-fxcp')).then(()=>{this.textContent='✓';setTimeout(()=>{this.textContent='📋';},1200);});};});
 }
 async function doDel(xi){
@@ -508,7 +564,7 @@ async function doLink(xi){
   FX.links[k]={url:u,row:lk?lk.row:2};
   if(!lk)Object.keys(FX.links).forEach(kk=>{if(kk!==k&&FX.links[kk].row>=2)FX.links[kk].row++;});
   x.linked=true;renderFx();
-  alert('✅ 링크 저장 완료'+(FX.writable?' (유통시트 하이퍼링크까지 변경)':' — 유통시트 하이퍼링크는 권한이 없어 그대로입니다.')+'\n사진·스펙은 masterc.kr에서 📸 사진 업데이트 북마클릿을 한 번 돌리면 채워집니다.');
+  alert('✅ 링크 저장 완료'+(FX.writable?' (유통시트 하이퍼링크까지 변경)':' — 유통시트 하이퍼링크는 권한이 없어 그대로입니다.')+'\n다시 🔍 취합하면 이 상품의 남은 문제만 표시됩니다.');
 }
 /* 수량시트 버튼 — 주소는 도구시트 '설정' 탭 B1에 공유 저장 (기기 상관없이 동일) */
 async function ensureCfgTab(){
@@ -542,13 +598,13 @@ $f('fxRun').onclick=async function(){
   this.disabled=true;
   try{
     $f('fxStat').textContent='— 시트 읽는 중…';
-    const r=await Promise.all([loadYutong(),loadCache(),loadLinks()]);
-    FX.prods=r[0];FX.cache=r[1];FX.links=r[2];FX.dels=[];
+    const r=await Promise.all([loadYutong(),loadCache(),loadLinks(),loadOk()]);
+    FX.prods=r[0];FX.cache=r[1];FX.links=r[2];FX.dels=[];FX.ok=r[3].keys;FX.okRows=r[3].rows;
     FX.writable=await probeWrite(FX.prods.length?FX.prods[0].tab:'군산');
     $f('fxPerm').innerHTML=FX.writable
       ?'🟢 유통시트 직접 수정 가능 — 🗑 삭제와 🔗 링크가 유통시트에 즉시 반영됩니다.'
       :'🟡 유통시트가 읽기 전용이라 🗑 삭제는 <b>삭제 대기</b>로 올라가고(변동가 도구에서 실행), 🔗 링크는 링크 정본·카탈로그에만 즉시 반영됩니다.<br>유통시트 공유에서 <b>'+CLIENT_EMAIL+'</b>를 편집자로 바꾸면 전부 즉시 처리로 바뀝니다.';
-    const cand=FX.prods.filter(p=>{const c=FX.cache[pkey(p.name)];return !c||!c.img||!urlOf(p);});
+    const cand=FX.prods.filter(p=>{if(FX.ok[pkey(p.name)])return false;const c=FX.cache[pkey(p.name)];return !c||!c.img||!urlOf(p);});
     const withImg=FX.prods.filter(p=>{const c=FX.cache[pkey(p.name)];return c&&c.img;});
     $f('fxStat').textContent='— 사진 검사 중… (0/'+withImg.length+')';
     const broken=[];const healed=[];let bi=0,done=0;
@@ -573,8 +629,16 @@ $f('fxRun').onclick=async function(){
     try{localStorage.setItem(IMGOK_KEY,JSON.stringify(IMGOK));}catch(e){}
     FX.probs=[];
     cand.forEach(p=>{const c=FX.cache[pkey(p.name)];FX.probs.push({p,issue:(!c||!c.img)?'사진없음':'링크없음',del:FX.dels.indexOf(pkey(p.name))>=0});});
-    broken.forEach(p=>{FX.probs.push({p,issue:'사진깨짐',del:FX.dels.indexOf(pkey(p.name))>=0});});
+    broken.filter(p=>!FX.ok[pkey(p.name)]).forEach(p=>{FX.probs.push({p,issue:'사진깨짐',del:FX.dels.indexOf(pkey(p.name))>=0});});
     FX.probs.sort((a,b)=>a.p.tab===b.p.tab?a.p.row-b.p.row:(a.p.tab<b.p.tab?-1:1));
+    // 지난 취합에서 문제였던 상품이 이번에 안 잡히면 = 고쳐진 것 — 사장님이 결과를 눈으로 확인할 수 있게 알려준다
+    try{
+      const prev=JSON.parse(localStorage.getItem('fx_last_probs')||'[]');
+      const now={};FX.probs.forEach(x=>{now[pkey(x.p.name)]=1;});
+      const fixed=prev.filter(n=>!now[pkey(n)]&&!FX.ok[pkey(n)]);
+      if(fixed.length)$f('fxPerm').innerHTML+='<br>🎉 지난 취합 때 문제였던 <b>'+fixed.length+'건</b>이 해결됐습니다: '+fixed.map(n=>String(n).replace(/</g,'&lt;')).join(', ');
+      localStorage.setItem('fx_last_probs',JSON.stringify(FX.probs.map(x=>x.p.name)));
+    }catch(e){}
     renderFx();
   }catch(e){$f('fxStat').textContent='— ⚠️ '+(e.message||e);}
   this.disabled=false;
