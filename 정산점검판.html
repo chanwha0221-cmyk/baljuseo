@@ -59,70 +59,80 @@
     font-family: var(--ui); font-size: 15px; line-height: 1.55;
     margin: 0; padding: 0 20px 96px; -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 1180px; margin: 0 auto; }
+  .wrap { max-width: 1240px; margin: 0 auto; }
 
-  .masthead { padding: 40px 0 22px; border-bottom: 2px solid var(--ink); }
-  .eyebrow { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin: 0 0 8px; }
-  h1 { font-size: clamp(26px, 4vw, 38px); line-height: 1.1; margin: 0 0 10px; letter-spacing: -.02em; text-wrap: balance; }
-  .sub { color: var(--ink-2); margin: 0; max-width: 62ch; font-size: 14px; }
+  .masthead { padding: 34px 0 18px; border-bottom: 2px solid var(--ink); display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+  .eyebrow { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin: 0 0 6px; }
+  h1 { font-size: clamp(24px, 3.6vw, 34px); line-height: 1.1; margin: 0; letter-spacing: -.02em; }
+  .mastright { font-family: var(--num); font-size: 12px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+  .mastright b { color: var(--ink); }
 
-  h2 { font-size: 13px; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-2); font-weight: 700; margin: 0; display: flex; align-items: baseline; gap: 10px; }
-  h2 .n { font-family: var(--num); font-size: 11px; color: var(--accent); border: 1px solid var(--rule); border-radius: 3px; padding: 1px 5px; letter-spacing: 0; flex: none; }
-  h3 { font-size: 15px; margin: 0 0 10px; letter-spacing: -.01em; }
-  section { padding: 34px 0 8px; border-top: 1px solid var(--rule); }
-  section:first-of-type { border-top: none; }
-  .sechead { margin-bottom: 18px; }
-  .sechead p { margin: 8px 0 0; color: var(--ink-2); font-size: 13.5px; max-width: 74ch; }
+  h2 { font-size: 19px; margin: 0; letter-spacing: -.02em; display: flex; align-items: center; gap: 9px; }
+  h2 .n { font-family: var(--num); font-size: 12px; color: var(--card); background: var(--accent); border-radius: 3px; padding: 2px 7px; flex: none; font-weight: 700; }
+  h3 { font-size: 14px; margin: 0 0 9px; letter-spacing: -.01em; }
+  section { padding: 32px 0 6px; }
+  section + section { border-top: 1px solid var(--rule); }
+  .sechead { margin-bottom: 16px; }
+  .sechead p { margin: 7px 0 0; color: var(--ink-2); font-size: 13.5px; max-width: 78ch; }
+  .askline { font-size: 14.5px; color: var(--ink-2); margin: 3px 0 0; font-style: italic; }
 
-  .grid { display: grid; gap: 14px; }
-  .g2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-  .g3 { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
-  .card { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .grid { display: grid; gap: 13px; }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .g3 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 15px 17px; box-shadow: var(--shadow); }
 
-  .drop { border: 1.5px dashed var(--rule); border-radius: 4px; background: var(--card); padding: 20px 18px; cursor: pointer; transition: border-color .15s, background .15s; display: block; position: relative; }
+  .drop { border: 1.5px dashed var(--rule); border-radius: 4px; background: var(--card); padding: 15px 16px; cursor: pointer; display: block; position: relative; transition: border-color .15s, background .15s; }
   .drop:hover, .drop:focus-visible { border-color: var(--accent); background: var(--accent-soft); }
   .drop.on { border-color: var(--accent); border-style: solid; background: var(--accent-soft); }
   .drop.done { border-style: solid; border-color: var(--good); background: var(--good-soft); }
   .drop input[type=file] { position: absolute; opacity: 0; width: 0; height: 0; }
-  .drop .dt { font-weight: 700; font-size: 15px; margin-bottom: 3px; }
-  .drop .dd { font-size: 12.5px; color: var(--ink-2); }
-  .drop .st { font-family: var(--num); font-size: 12px; margin-top: 9px; color: var(--good); font-weight: 700; }
+  .drop .dt { font-weight: 700; font-size: 14px; }
+  .drop .dd { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+  .drop .rng { font-family: var(--num); font-size: 12.5px; margin-top: 5px; font-weight: 700; }
+  .drop .st { font-family: var(--num); font-size: 11.5px; margin-top: 3px; color: var(--good); }
   .drop .st.err { color: var(--bad); }
-  .drop .rng { font-family: var(--num); font-size: 13px; margin-top: 5px; color: var(--ink); font-weight: 700; }
 
-  .verdicts { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-  .vc { border: 1px solid var(--rule); border-radius: 4px; padding: 18px 20px; background: var(--card); position: relative; overflow: hidden; }
+  /* 판정 헤드라인 */
+  .head2 { display: grid; gap: 13px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .vc { border: 1px solid var(--rule); border-radius: 4px; padding: 16px 18px; background: var(--card); position: relative; overflow: hidden; }
   .vc::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--ink-3); }
-  .vc.over::before { background: var(--bad); }
-  .vc.under::before { background: var(--good); }
-  .vc .who { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); font-weight: 700; }
-  .vc .big { font-family: var(--num); font-size: clamp(27px, 4.4vw, 38px); font-weight: 700; letter-spacing: -.02em; margin: 5px 0 2px; font-variant-numeric: tabular-nums; }
-  .vc.over .big { color: var(--bad); }
-  .vc.under .big { color: var(--good); }
-  .vc .verdictline { font-size: 13.5px; color: var(--ink-2); }
-  .vc .mini { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--rule-soft); display: grid; gap: 3px; }
+  .vc.bad::before { background: var(--bad); }
+  .vc.ok::before { background: var(--good); }
+  .vc.wa::before { background: var(--warn); }
+  .vc .q { font-size: 13px; color: var(--ink-2); font-weight: 700; }
+  .vc .big { font-family: var(--num); font-size: clamp(24px, 3.6vw, 32px); font-weight: 700; letter-spacing: -.02em; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+  .vc.bad .big { color: var(--bad); } .vc.ok .big { color: var(--good); } .vc.wa .big { color: var(--warn); }
+  .vc .sub { font-size: 13px; color: var(--ink-2); }
+  .vc .mini { margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--rule-soft); display: grid; gap: 3px; }
   .vc .mini div { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; color: var(--ink-2); }
   .vc .mini b { font-family: var(--num); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 
-  .tile { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 13px 15px; }
-  .tile .k { font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); font-weight: 700; }
-  .tile .v { font-family: var(--num); font-size: 21px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .tile { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 12px 14px; }
+  .tile .k { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); font-weight: 700; }
+  .tile .v { font-family: var(--num); font-size: 20px; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; }
   .tile .n { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
   .tile.hero { background: var(--accent-soft); border-color: var(--accent); }
-  .tile.hero .v { color: var(--accent); font-size: 27px; }
+  .tile.hero .v { color: var(--accent); font-size: 25px; }
 
   .scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 4px; background: var(--card); }
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { padding: 7px 11px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--rule-soft); }
+  th, td { padding: 7px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--rule-soft); }
   th:first-child, td:first-child { text-align: left; }
   th.l, td.l { text-align: left; }
-  thead th { background: var(--ink); color: var(--paper); font-size: 11px; letter-spacing: .05em; font-weight: 700; position: sticky; top: 0; z-index: 2; text-transform: uppercase; border-bottom: none; vertical-align: bottom; }
+  thead th { background: var(--ink); color: var(--paper); font-size: 11px; letter-spacing: .04em; font-weight: 700; position: sticky; top: 0; z-index: 2; border-bottom: none; vertical-align: bottom; }
   tbody tr:nth-child(even) { background: var(--paper-2); }
   tbody tr:hover { background: var(--accent-soft); }
-  tbody td.num, tbody th.num { font-family: var(--num); font-variant-numeric: tabular-nums; }
+  tbody tr.warnrow { background: var(--warn-soft); }
+  tbody tr.badrow { background: var(--bad-soft); }
+  td.num, th.num { font-family: var(--num); font-variant-numeric: tabular-nums; }
   tfoot td, tfoot th { font-family: var(--num); font-variant-numeric: tabular-nums; font-weight: 700; background: var(--paper-2); border-top: 2px solid var(--ink); border-bottom: none; }
   tfoot th:first-child { font-family: var(--ui); }
   .pos { color: var(--good); } .neg { color: var(--bad); } .zero { color: var(--ink-3); } .dim { color: var(--ink-3); }
+  td.memo { min-width: 190px; }
+  td.memo input { width: 100%; border: 1px solid transparent; background: transparent; font-family: var(--ui); font-size: 12.5px; padding: 3px 5px; border-radius: 3px; color: var(--ink); }
+  td.memo input:hover { border-color: var(--rule); }
+  td.memo input:focus { border-color: var(--accent); background: var(--paper); outline: none; }
+  td.memo input::placeholder { color: var(--ink-3); }
 
   .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; letter-spacing: .02em; }
   .pill.ok { background: var(--good-soft); color: var(--good); }
@@ -130,37 +140,43 @@
   .pill.wa { background: var(--warn-soft); color: var(--warn); }
   .pill.nu { background: var(--rule-soft); color: var(--ink-2); }
 
-  label.f { display: block; font-size: 12px; font-weight: 700; color: var(--ink-2); margin-bottom: 4px; letter-spacing: .03em; }
-  input[type=text], input[type=number], select { width: 100%; font-family: var(--num); font-size: 14px; padding: 7px 9px; border: 1px solid var(--rule); border-radius: 3px; background: var(--paper); color: var(--ink); font-variant-numeric: tabular-nums; }
+  label.f { display: block; font-size: 12px; font-weight: 700; color: var(--ink-2); margin-bottom: 4px; }
+  input[type=text], input[type=number], select { width: 100%; font-family: var(--num); font-size: 14px; padding: 6px 9px; border: 1px solid var(--rule); border-radius: 3px; background: var(--paper); color: var(--ink); font-variant-numeric: tabular-nums; }
   select, input.tx { font-family: var(--ui); }
-  input:focus-visible, select:focus-visible, .drop:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .fieldgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); }
+  input:focus-visible, select:focus-visible, .drop:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .fieldgrid { display: grid; gap: 11px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   button { font-family: var(--ui); font-size: 13px; font-weight: 700; padding: 7px 14px; border: 1px solid var(--rule); border-radius: 3px; background: var(--card); color: var(--ink); cursor: pointer; }
   button:hover { border-color: var(--accent); color: var(--accent); }
   button.danger:hover { border-color: var(--bad); color: var(--bad); }
+  button.primary, #btnCalc { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover, #btnCalc:hover { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .stalebar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 16px; padding: 12px 16px; border: 1px solid var(--warn); border-left-width: 4px; border-radius: 4px; background: var(--warn-soft); }
+  .stalebar .t { flex: 1 1 240px; font-size: 13.5px; font-weight: 700; color: var(--warn); }
+
+  details { border: 1px solid var(--rule); border-radius: 4px; background: var(--card); margin-bottom: 11px; }
+  details > summary { cursor: pointer; padding: 12px 16px; font-weight: 700; font-size: 14px; list-style: none; display: flex; align-items: center; gap: 9px; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: "▸"; color: var(--accent); font-size: 12px; }
+  details[open] > summary::before { content: "▾"; }
+  details > summary span { font-weight: 400; color: var(--ink-2); font-size: 12.5px; }
+  .dbody { padding: 0 16px 16px; }
 
   .empty { color: var(--ink-3); font-size: 14px; padding: 26px 0; text-align: center; border: 1px dashed var(--rule); border-radius: 4px; }
-  .note { font-size: 12.5px; color: var(--ink-2); margin: 10px 0 0; }
+  .note { font-size: 12.5px; color: var(--ink-2); margin: 9px 0 0; }
   .note b { color: var(--ink); }
   .hidden { display: none !important; }
-  .flowrow { display: flex; justify-content: space-between; gap: 14px; padding: 6px 0; border-bottom: 1px dotted var(--rule); font-size: 13.5px; }
+  .flowrow { display: flex; justify-content: space-between; gap: 14px; padding: 5px 0; border-bottom: 1px dotted var(--rule); font-size: 13.5px; }
   .flowrow:last-child { border-bottom: none; }
   .flowrow b { font-family: var(--num); font-variant-numeric: tabular-nums; }
-  .flowrow.tot { border-top: 2px solid var(--ink); border-bottom: none; margin-top: 6px; padding-top: 9px; font-weight: 700; }
+  .flowrow.tot { border-top: 2px solid var(--ink); border-bottom: none; margin-top: 5px; padding-top: 8px; font-weight: 700; }
+  .flowrow.ind { padding-left: 16px; font-size: 12.5px; color: var(--ink-2); border-bottom: none; padding-top: 2px; padding-bottom: 2px; }
 
-  /* coverage strip */
-  .cov { display: flex; flex-wrap: wrap; gap: 10px 26px; padding: 12px 16px; background: var(--card); border: 1px solid var(--rule); border-radius: 4px; margin-bottom: 16px; }
-  .cov div { font-size: 13px; }
-  .cov .lab { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); font-weight: 700; display: block; }
-  .cov .val { font-family: var(--num); font-weight: 700; font-variant-numeric: tabular-nums; }
-
-  /* charts */
   .chartbox { position: relative; }
   .chartbox svg { display: block; width: 100%; height: auto; overflow: visible; }
   .ct { font-size: 13.5px; font-weight: 700; margin: 0 0 2px; }
   .cs { font-size: 12px; color: var(--ink-2); margin: 0 0 12px; }
-  .tip { position: absolute; pointer-events: none; opacity: 0; transition: opacity .1s; background: var(--ink); color: var(--paper); font-size: 12px; padding: 6px 9px; border-radius: 3px; white-space: nowrap; transform: translate(-50%, -120%); z-index: 5; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
-  .tip .tv { font-family: var(--num); font-weight: 700; font-variant-numeric: tabular-nums; display: block; font-size: 13.5px; }
+  .tip { position: absolute; pointer-events: none; opacity: 0; transition: opacity .1s; background: var(--ink); color: var(--paper); font-size: 12px; padding: 6px 9px; border-radius: 3px; white-space: nowrap; transform: translate(-50%, -120%); z-index: 5; }
+  .tip .tv { font-family: var(--num); font-weight: 700; display: block; font-size: 13.5px; }
   .tip.on { opacity: 1; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -168,187 +184,177 @@
 <div class="wrap">
 
   <header class="masthead">
-    <p class="eyebrow">마스터 유통 · 네이버 ↔ 토스뱅크 대사</p>
-    <h1>정산 점검판</h1>
-    <p class="sub">토스뱅크 거래내역과 네이버 정산내역을 넣으면 월별 마진, 두 사람 몫, 실제로 가져간 돈, 재고, 그리고 통장이 0으로 맞아떨어지는지를 계산합니다. 파일은 이 브라우저 안에서만 처리되며 아무 데도 전송되지 않습니다.</p>
+    <div>
+      <p class="eyebrow">마스터 유통 · 통장 점검</p>
+      <h1>정산 점검판</h1>
+    </div>
+    <div class="mastright" id="mastRight"></div>
   </header>
 
-  <div id="shareBanner" class="hidden" style="margin-top:20px;padding:14px 18px;border:1px solid var(--accent);border-left-width:4px;border-radius:4px;background:var(--accent-soft)">
-    <div style="font-weight:700;font-size:15px">공유받은 정산 요약 — 읽기 전용</div>
-    <div class="note" style="margin:4px 0 0" id="shareBannerNote"></div>
+  <div id="shareBanner" class="hidden" style="margin-top:18px;padding:13px 17px;border:1px solid var(--accent);border-left-width:4px;border-radius:4px;background:var(--accent-soft)">
+    <div style="font-weight:700;font-size:15px" id="shareBannerTitle">공유받은 정산 요약 — 읽기 전용</div>
+    <div class="note" style="margin:3px 0 0" id="shareBannerNote"></div>
   </div>
 
   <section id="secInput">
-    <div class="sechead">
-      <h2><span class="n">1</span> 파일 넣기</h2>
-      <p>둘 다 여러 번 나눠서 넣으실 수 있습니다. 넣을 때마다 누적되고, 이미 있는 거래는 건너뛰고 새 것만 더합니다.</p>
-    </div>
-    <div class="grid g2">
-      <label class="drop" id="dropToss" tabindex="0">
-        <input type="file" id="fileToss" accept=".xlsx" multiple>
-        <div class="dt">토스뱅크 거래내역</div>
-        <div class="dd">토스뱅크_거래내역.xlsx — 클릭하거나 파일을 끌어다 놓으세요</div>
-        <div class="rng" id="rngToss"></div>
-        <div class="st" id="stToss"></div>
-      </label>
-      <label class="drop" id="dropNaver" tabindex="0">
-        <input type="file" id="fileNaver" accept=".xlsx" multiple>
-        <div class="dt">네이버 정산내역</div>
-        <div class="dd">paySettleDailyDetail.xlsx — 3개월씩 나눠 넣으셔도 됩니다</div>
-        <div class="rng" id="rngNaver"></div>
-        <div class="st" id="stNaver"></div>
-      </label>
-    </div>
-    <div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap">
-      <button id="btnClearToss" class="danger">토스 비우기</button>
-      <button id="btnClearNaver" class="danger">네이버 비우기</button>
-      <button id="btnClearAll" class="danger">전부 초기화</button>
-      <span class="note" style="margin:0;align-self:center" id="storeNote"></span>
-    </div>
-  </section>
-
-  <section id="secCfg">
-    <div class="sechead">
-      <h2><span class="n">2</span> 기준값</h2>
-      <p>배분율 60%는 2025년 7월 정산분 실지급액(879,590 ÷ 1,465,984)으로 검증된 값입니다. 11번가는 깍두기 매입으로 잡혀 있습니다.</p>
-    </div>
-    <div class="card">
-      <div class="fieldgrid">
-        <div><label class="f" for="setMe">본인 이름 (적요)</label><input type="text" class="tx" id="setMe" value="홍찬화"></div>
-        <div><label class="f" for="setPartner">파트너 이름 (적요)</label><input type="text" class="tx" id="setPartner" value="유성주"></div>
-        <div><label class="f" for="setRatio">파트너 배분율 (%)</label><input type="number" id="setRatio" value="60" min="0" max="100" step="0.1"></div>
-        <div><label class="f" for="setCost">포기김치 원가 (쿠팡)</label><input type="number" id="setCost" value="22900" step="100"></div>
-        <div><label class="f" for="setCost11">깍두기 원가 (11번가)</label><input type="number" id="setCost11" value="13900" step="100"></div>
-        <div><label class="f" for="setHi">판매가 상한 (수량 판정)</label><input type="number" id="setHi" value="64900" step="100"></div>
-        <div><label class="f" for="setReserve">최소 운영자금 (원)</label><input type="number" id="setReserve" value="2000000" step="100000"></div>
-        <div><label class="f" for="setEleven">11번가 출금 처리</label>
-          <select id="setEleven">
-            <option value="cost">깍두기 매입원가로</option>
-            <option value="me">본인 개인 지출로</option>
-            <option value="ignore">계산에서 제외</option>
-          </select>
+    <details id="dtInput">
+      <summary>자료 넣기 <span id="inputSummary">토스 거래내역 · 네이버 정산내역</span></summary>
+      <div class="dbody">
+        <div class="grid g2">
+          <label class="drop" id="dropToss" tabindex="0">
+            <input type="file" id="fileToss" accept=".xlsx" multiple>
+            <div class="dt">토스뱅크 거래내역</div>
+            <div class="dd">여러 번 나눠 넣어도 중복은 자동으로 걸러집니다</div>
+            <div class="rng" id="rngToss"></div>
+            <div class="st" id="stToss"></div>
+          </label>
+          <label class="drop" id="dropNaver" tabindex="0">
+            <input type="file" id="fileNaver" accept=".xlsx" multiple>
+            <div class="dt">네이버 정산내역</div>
+            <div class="dd">paySettleDailyDetail.xlsx · 3개월씩 이어붙습니다</div>
+            <div class="rng" id="rngNaver"></div>
+            <div class="st" id="stNaver"></div>
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap;align-items:center">
+          <button id="btnCalcInner" class="primary">계산하기</button>
+          <span style="flex:1"></span>
+          <button id="btnClearToss" class="danger">토스 비우기</button>
+          <button id="btnClearNaver" class="danger">네이버 비우기</button>
+          <button id="btnClearAll" class="danger">전부 초기화</button>
+        </div>
+        <div class="fieldgrid" style="margin-top:16px">
+          <div><label class="f" for="setMe">본인 이름</label><input type="text" class="tx" id="setMe" value="홍찬화"></div>
+          <div><label class="f" for="setPartner">파트너 이름</label><input type="text" class="tx" id="setPartner" value="유성주"></div>
+          <div><label class="f" for="setRatio">파트너 배분율 (%)</label><input type="number" id="setRatio" value="60" min="0" max="100" step="0.1"></div>
+          <div><label class="f" for="setCost">포기김치 원가</label><input type="number" id="setCost" value="22900" step="100"></div>
+          <div><label class="f" for="setCost11">깍두기 원가</label><input type="number" id="setCost11" value="13900" step="100"></div>
+          <div><label class="f" for="setHi">판매가 상한</label><input type="number" id="setHi" value="64900" step="100"></div>
+          <div><label class="f" for="setReserve">최소 운영자금</label><input type="number" id="setReserve" value="2000000" step="100000"></div>
+          <div><label class="f" for="setEleven">11번가 처리</label>
+            <select id="setEleven">
+              <option value="cost">깍두기 매입원가로</option>
+              <option value="me">본인 개인 지출로</option>
+              <option value="ignore">계산에서 제외</option>
+            </select>
+          </div>
+          <div><label class="f" for="mAmt">미정산 금액 (수동)</label><input type="number" id="mAmt" value="0" step="1000"></div>
+          <div><label class="f" for="mQty">미정산 수량 (수동)</label><input type="number" id="mQty" value="0" step="1"></div>
         </div>
       </div>
-      <p class="note">※ <b>최소 운영자금</b>은 통장에 항상 남겨둘 금액입니다. 매입 여력 계산에서 이만큼 빼고 보여줍니다.</p>
-    </div>
+    </details>
   </section>
 
-  <section id="secUns">
-    <div class="sechead">
-      <h2><span class="n">3</span> 아직 안 들어온 돈</h2>
-      <p>네이버 파일에 정산완료일이 비어 있는 건은 자동으로 잡습니다. 파일에 없는 예정분이 있으면 직접 넣으세요.</p>
-    </div>
-    <div class="card">
-      <div class="fieldgrid">
-        <div><label class="f" for="mAmt">미정산 금액 (원)</label><input type="number" id="mAmt" value="0" step="1000"></div>
-        <div><label class="f" for="mQty">미정산 수량 (개)</label><input type="number" id="mQty" value="0" step="1"></div>
-        <div><label class="f" for="mNote">메모</label><input type="text" class="tx" id="mNote" placeholder="예: 9월 1주차 예정"></div>
-      </div>
-      <div id="autoUnsettled" class="note"></div>
-    </div>
-  </section>
+  <div id="staleBar" class="stalebar hidden">
+    <div class="t">자료가 바뀌었습니다. 아래 숫자는 아직 옛 자료 기준입니다.</div>
+    <button id="btnRecalc" class="primary">다시 계산하기</button>
+  </div>
 
   <div id="results" class="hidden">
 
-    <div id="shareBar" class="card" style="margin-top:26px">
-      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-        <div style="flex:1 1 280px">
-          <div style="font-weight:700">파트너에게 보낼 링크</div>
-          <div class="note" style="margin:2px 0 0">집계 숫자만 담깁니다. <b>계좌번호·구매자명 같은 원본 거래는 들어가지 않습니다.</b> 데이터가 바뀌면 링크를 다시 만들어 보내세요.</div>
+    <section id="secHead">
+      <div class="head2" id="headBox"></div>
+      <div id="shareBar" class="card" style="margin-top:13px">
+        <div style="display:flex;gap:13px;align-items:center;flex-wrap:wrap">
+          <div style="flex:1 1 300px">
+            <div style="font-weight:700;font-size:14px">파트너에게 보낼 링크</div>
+            <div class="note" style="margin:2px 0 0">성주 정산 점검표와 월별 집계만 담깁니다. <b>내 개인 지출·입금 내역은 들어가지 않습니다.</b></div>
+          </div>
+          <button id="btnShare">공유 링크 만들기</button>
         </div>
-        <button id="btnShare">공유 링크 만들기</button>
+        <div id="shareOut" class="hidden" style="margin-top:11px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input type="text" class="tx" id="shareUrl" readonly style="flex:1 1 340px;font-size:12px">
+          <button id="btnCopy">복사</button>
+          <span class="note" style="margin:0" id="shareLen"></span>
+        </div>
       </div>
-      <div id="shareOut" class="hidden" style="margin-top:12px;display:flex;gap:9px;flex-wrap:wrap;align-items:center">
-        <input type="text" class="tx" id="shareUrl" readonly style="flex:1 1 340px;font-size:12px">
-        <button id="btnCopy">복사</button>
-        <span class="note" style="margin:0" id="shareLen"></span>
-      </div>
-    </div>
-
-    <section>
-      <div class="sechead">
-        <h2><span class="n">4</span> 판정</h2>
-        <p>현금 기준입니다. 통장에 들어온 네이버 정산금에서 매입을 뺀 것이 마진이고, 그 마진을 배분율로 나눈 몫과 실제로 각자가 통장에서 빼간 돈을 비교합니다.</p>
-      </div>
-      <div class="cov" id="covStrip"></div>
-      <div class="verdicts" id="verdictBox"></div>
-      <p class="note" id="verdictNote"></p>
     </section>
 
     <section>
       <div class="sechead">
-        <h2><span class="n">5</span> 0으로 닫히는지</h2>
-        <p>마진에서 두 사람이 가져간 돈을 빼면 통장 잔액만 남아야 합니다. 맨 아래 <b>남는 오차</b>가 0이면 설명되지 않는 돈이 없다는 뜻입니다.</p>
+        <h2><span class="n">점검 1</span> 성주한테 돈을 더 준 건 없나</h2>
+        <p class="askline">먼저 준 돈을 다음 정산에서 제대로 빼고 줬는지, 한 달씩 따로 봅니다.</p>
+      </div>
+      <div class="scroll"><table id="partnerCheck"></table></div>
+      <div id="partnerVerdict" style="margin-top:13px"></div>
+    </section>
+
+    <section>
+      <div class="sechead">
+        <h2><span class="n">점검 2</span> 통장 돈으로 따로 쓴 건 얼마인가</h2>
+        <p class="askline">정산과 상관없이 통장에서 나간 돈. 결국 내가 메꿔놔야 할 금액입니다.</p>
+      </div>
+      <div class="grid g3" id="spentTiles" style="margin-bottom:13px"></div>
+      <div class="scroll"><table id="spentTable"></table></div>
+    </section>
+
+    <section>
+      <div class="sechead">
+        <h2><span class="n">점검 3</span> 들어온 돈은 다시 나갔나</h2>
+        <p class="askline">정산과 무관하게 들어온 돈. 같은 금액이 나갔으면 제로섬입니다.</p>
+      </div>
+      <div class="scroll"><table id="inTable"></table></div>
+      <div id="zeroSum" style="margin-top:13px"></div>
+    </section>
+
+    <section>
+      <div class="sechead">
+        <h2><span class="n">점검 4</span> 내 계좌로 넣고 뺀 돈</h2>
+        <p class="askline">부족할 때 넣은 돈과 빼간 돈, 그리고 내 몫과의 차이.</p>
       </div>
       <div class="grid g2">
-        <div class="card"><h3>현금 흐름 검증</h3><div id="waterfall"></div></div>
-        <div class="card"><h3>본인 계정 상세</h3><div id="meDetail"></div></div>
+        <div class="card"><h3>내 계좌 이체 대사</h3><div id="meFlow"></div></div>
+        <div class="card"><h3>통장이 0으로 닫히는지</h3><div id="waterfall"></div></div>
       </div>
     </section>
 
     <section>
-      <div class="sechead">
-        <h2><span class="n">6</span> 월별 현황</h2>
-        <p>정산금이 통장에 들어온 달 기준입니다. 차이가 양수면 그 달에 몫보다 더 가져간 것입니다.</p>
-      </div>
-      <div class="scroll"><table id="monthTable"></table></div>
-    </section>
+      <div class="sechead"><h2 style="font-size:15px">참고 자료</h2></div>
 
-    <section>
-      <div class="sechead">
-        <h2><span class="n">7</span> 파트너 지급 이력 · 선지급 점검</h2>
-        <p>한 달에 두 번 이상 나간 경우 가장 큰 건을 정산 지급으로, 나머지를 선지급으로 봅니다.</p>
-      </div>
-      <div class="scroll"><table id="partnerTable"></table></div>
-      <div id="advanceBox" style="margin-top:14px"></div>
-    </section>
-
-    <section id="naverSection">
-      <div class="sechead">
-        <h2><span class="n">8</span> 네이버 발생 기준 · 마진 추이</h2>
-        <p>정산기준일이 속한 달로 묶은 것입니다. 통장 입금일과 며칠씩 어긋나므로 위의 현금 기준과는 달마다 조금씩 다릅니다.</p>
-      </div>
-      <div class="grid g2" style="margin-bottom:16px">
-        <div class="card">
-          <p class="ct">개당 마진</p>
-          <p class="cs">한 개 팔 때 실제로 남는 돈. 정산액에서 수수료와 원가를 뺀 값입니다.</p>
-          <div class="chartbox" id="chartMargin"></div>
+      <details id="dtCapacity">
+        <summary>통장 현황과 매입 여력 <span id="capSummary"></span></summary>
+        <div class="dbody">
+          <div class="grid g3" id="capacityBox"></div>
+          <div class="card" style="margin-top:12px"><h3>계산 근거</h3><div id="capacityFlow"></div></div>
         </div>
-        <div class="card">
-          <p class="ct">월별 판매 수량</p>
-          <p class="cs">정산기준일 기준으로 몇 개가 팔렸는지.</p>
-          <div class="chartbox" id="chartQty"></div>
+      </details>
+
+      <details id="dtMonth">
+        <summary>월별 현금 흐름 <span id="monthSummary"></span></summary>
+        <div class="dbody"><div class="scroll"><table id="monthTable"></table></div></div>
+      </details>
+
+      <details id="dtNaver">
+        <summary>네이버 발생 기준 · 마진 추이 <span id="naverSummary"></span></summary>
+        <div class="dbody">
+          <div class="grid g2" style="margin-bottom:13px">
+            <div class="card"><p class="ct">개당 마진</p><p class="cs">한 개 팔 때 실제로 남는 돈</p><div class="chartbox" id="chartMargin"></div></div>
+            <div class="card"><p class="ct">월별 판매 수량</p><p class="cs">정산기준일 기준</p><div class="chartbox" id="chartQty"></div></div>
+          </div>
+          <div class="scroll"><table id="naverTable"></table></div>
         </div>
-      </div>
-      <div class="scroll"><table id="naverTable"></table></div>
-    </section>
+      </details>
 
-    <section id="stockSection">
-      <div class="sechead">
-        <h2><span class="n">9</span> 재고 추정</h2>
-        <p>통장에서 나간 매입 건수와 네이버에서 팔린 수량의 차이입니다. 두 파일의 기간이 같아야 의미가 있습니다.</p>
-      </div>
-      <div class="grid g3" id="stockBox"></div>
-      <div id="stockNote" style="margin-top:14px"></div>
-    </section>
-
-    <section>
-      <div class="sechead">
-        <h2><span class="n">10</span> 통장 현황과 매입 여력</h2>
-        <p>파트너에게 아직 줄 돈과 최소 운영자금은 쓸 수 있는 돈이 아니므로 빼고 계산합니다.</p>
-      </div>
-      <div class="grid g3" id="capacityBox"></div>
-      <div class="card" style="margin-top:14px"><h3>계산 근거</h3><div id="capacityFlow"></div></div>
-    </section>
-
-    <section>
-      <div class="sechead"><h2><span class="n">11</span> 한 줄 요약</h2></div>
-      <div class="card" id="summaryBox"></div>
+      <details id="dtStock">
+        <summary>재고 추정 <span id="stockSummary"></span></summary>
+        <div class="dbody">
+          <div class="grid g3" id="stockBox"></div>
+          <div id="stockNote" style="margin-top:12px"></div>
+        </div>
+      </details>
     </section>
 
   </div>
 
-  <div id="placeholder" class="empty" style="margin-top:26px">토스뱅크 거래내역 파일을 넣으면 여기에 결과가 나옵니다.</div>
+  <div id="staging" class="hidden">
+    <div class="card" style="margin-top:22px;text-align:center;padding:28px 20px">
+      <div style="font-size:17px;font-weight:700" id="stagingTitle"></div>
+      <div class="note" style="margin:6px 0 0" id="stagingNote"></div>
+      <button id="btnCalc" style="margin-top:16px;font-size:16px;padding:12px 34px">계산하기</button>
+    </div>
+  </div>
+
+  <div id="placeholder" class="empty" style="margin-top:24px">위 «자료 넣기»를 열고 토스뱅크 거래내역을 넣으면 점검이 시작됩니다.</div>
 
 </div>
 
@@ -356,30 +362,22 @@
 (function () {
   "use strict";
 
-  /* ═══════════ xlsx 읽기 ═══════════ */
-
+  /* ═══════════ xlsx ═══════════ */
   async function unzip(ab, wanted) {
     const dv = new DataView(ab), u8 = new Uint8Array(ab);
     let eocd = -1;
     const floor = Math.max(0, u8.length - 65558);
-    for (let i = u8.length - 22; i >= floor; i--) {
-      if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
-    }
+    for (let i = u8.length - 22; i >= floor; i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
     if (eocd < 0) throw new Error("xlsx 파일이 아니거나 손상되었습니다.");
     const count = dv.getUint16(eocd + 10, true);
     let off = dv.getUint32(eocd + 16, true);
-    const dec = new TextDecoder("utf-8");
-    const entries = {};
+    const dec = new TextDecoder("utf-8"), entries = {};
     for (let n = 0; n < count; n++) {
       if (off + 46 > u8.length || dv.getUint32(off, true) !== 0x02014b50) break;
-      const method = dv.getUint16(off + 10, true);
-      const csize = dv.getUint32(off + 20, true);
       const nameLen = dv.getUint16(off + 28, true);
-      const extraLen = dv.getUint16(off + 30, true);
-      const commLen = dv.getUint16(off + 32, true);
-      const lho = dv.getUint32(off + 42, true);
-      entries[dec.decode(u8.subarray(off + 46, off + 46 + nameLen))] = { method, csize, lho };
-      off += 46 + nameLen + extraLen + commLen;
+      entries[dec.decode(u8.subarray(off + 46, off + 46 + nameLen))] =
+        { method: dv.getUint16(off + 10, true), csize: dv.getUint32(off + 20, true), lho: dv.getUint32(off + 42, true) };
+      off += 46 + nameLen + dv.getUint16(off + 30, true) + dv.getUint16(off + 32, true);
     }
     const out = {};
     for (const name of Object.keys(entries)) {
@@ -389,26 +387,20 @@
       const raw = u8.subarray(start, start + e.csize);
       if (e.method === 0) out[name] = dec.decode(raw);
       else {
-        if (typeof DecompressionStream === "undefined") throw new Error("이 브라우저는 압축 해제를 지원하지 않습니다. 크롬이나 엣지 최신 버전에서 열어주세요.");
+        if (typeof DecompressionStream === "undefined") throw new Error("크롬이나 엣지 최신 버전에서 열어주세요.");
         const s = new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
         out[name] = dec.decode(await new Response(s).arrayBuffer());
       }
     }
     return out;
   }
-
   function colIndex(ref) {
     let s = 0;
-    for (let i = 0; i < ref.length; i++) {
-      const c = ref.charCodeAt(i);
-      if (c >= 65 && c <= 90) s = s * 26 + (c - 64); else break;
-    }
+    for (let i = 0; i < ref.length; i++) { const c = ref.charCodeAt(i); if (c >= 65 && c <= 90) s = s * 26 + (c - 64); else break; }
     return s - 1;
   }
-
   async function readSheet(file) {
-    const parts = await unzip(await file.arrayBuffer(),
-      n => n === "xl/sharedStrings.xml" || n === "xl/worksheets/sheet1.xml");
+    const parts = await unzip(await file.arrayBuffer(), n => n === "xl/sharedStrings.xml" || n === "xl/worksheets/sheet1.xml");
     const sheetXml = parts["xl/worksheets/sheet1.xml"];
     if (!sheetXml) throw new Error(file.name + " : 시트를 찾지 못했습니다.");
     const P = new DOMParser();
@@ -416,12 +408,8 @@
     if (parts["xl/sharedStrings.xml"]) {
       const sd = P.parseFromString(parts["xl/sharedStrings.xml"], "application/xml");
       shared = Array.from(sd.getElementsByTagName("si")).map(si => {
-        let o = "";
-        const ts = si.getElementsByTagName("t");
-        for (let i = 0; i < ts.length; i++) {
-          if (ts[i].parentNode && ts[i].parentNode.nodeName === "rPh") continue;
-          o += ts[i].textContent;
-        }
+        let o = ""; const ts = si.getElementsByTagName("t");
+        for (let i = 0; i < ts.length; i++) { if (ts[i].parentNode && ts[i].parentNode.nodeName === "rPh") continue; o += ts[i].textContent; }
         return o;
       });
     }
@@ -435,13 +423,8 @@
         if (idx < 0) continue;
         const t = c.getAttribute("t");
         let v = "";
-        if (t === "inlineStr") {
-          const ts = c.getElementsByTagName("t");
-          for (let k = 0; k < ts.length; k++) v += ts[k].textContent;
-        } else {
-          const vn = c.getElementsByTagName("v")[0];
-          if (vn) { v = vn.textContent; if (t === "s") v = shared[+v] !== undefined ? shared[+v] : ""; }
-        }
+        if (t === "inlineStr") { const ts = c.getElementsByTagName("t"); for (let k = 0; k < ts.length; k++) v += ts[k].textContent; }
+        else { const vn = c.getElementsByTagName("v")[0]; if (vn) { v = vn.textContent; if (t === "s") v = shared[+v] !== undefined ? shared[+v] : ""; } }
         arr[idx] = v;
       }
       rows.push(arr);
@@ -450,50 +433,41 @@
   }
 
   /* ═══════════ 상태 ═══════════ */
-
   const S = {
-    toss: [], naver: [],
+    toss: [], naver: [], memo: {},
     cfg: { me: "홍찬화", partner: "유성주", ratio: 60, cost: 22900, cost11: 13900, hi: 64900, reserve: 2000000, eleven: "cost" },
-    man: { amt: 0, qty: 0, note: "" }
+    man: { amt: 0, qty: 0 }
   };
-  const KEY = "masterJeongsan.v2";
-
-  function mkToss(dt, desc, type, bank, acct, amt, bal) {
-    return { dt, desc, type, bank, acct, amt: +amt, bal, date: String(dt).slice(0, 10), ym: String(dt).slice(0, 7) };
-  }
-  function mkNaver(itemNo, orderNo, name, buyer, baseDate, doneDate, amt, fee1, fee2) {
-    return {
-      itemNo, orderNo, name, buyer, baseDate, doneDate, amt: +amt, fee1: +fee1, fee2: +fee2,
-      baseYm: String(baseDate).slice(0, 7), settled: !!String(doneDate || "").trim()
-    };
-  }
+  const KEY = "masterJeongsan.v3";
+  const mkToss = (dt, desc, type, bank, acct, amt, bal) =>
+    ({ dt, desc, type, bank, acct, amt: +amt, bal, date: String(dt).slice(0, 10), ym: String(dt).slice(0, 7) });
+  const mkNaver = (itemNo, orderNo, name, buyer, baseDate, doneDate, amt, fee1, fee2) =>
+    ({ itemNo, orderNo, name, buyer, baseDate, doneDate, amt: +amt, fee1: +fee1, fee2: +fee2, baseYm: String(baseDate).slice(0, 7), settled: !!String(doneDate || "").trim() });
   const tossKey = t => t.dt + "|" + t.desc + "|" + t.amt + "|" + t.bal;
+  const memoKey = t => t.date + "|" + t.desc + "|" + t.amt;
 
   function save() {
     try {
       localStorage.setItem(KEY, JSON.stringify({
         toss: S.toss.map(t => [t.dt, t.desc, t.type, t.bank, t.acct, t.amt, t.bal]),
         naver: S.naver.map(n => [n.itemNo, n.orderNo, n.name, n.buyer, n.baseDate, n.doneDate, n.amt, n.fee1, n.fee2]),
-        cfg: S.cfg, man: S.man
+        cfg: S.cfg, man: S.man, memo: S.memo
       }));
-    } catch (e) {
-      document.getElementById("storeNote").textContent = "저장 공간이 부족해 이번 세션에만 유지됩니다.";
-    }
+    } catch (e) { }
   }
   function load() {
     let raw = null;
-    try { raw = localStorage.getItem(KEY); } catch (e) { return; }
+    try { raw = localStorage.getItem(KEY) || localStorage.getItem("masterJeongsan.v2"); } catch (e) { return; }
     if (!raw) return;
     try {
       const d = JSON.parse(raw);
       if (d.cfg) Object.assign(S.cfg, d.cfg);
       if (d.man) Object.assign(S.man, d.man);
+      if (d.memo) S.memo = d.memo;
       if (d.toss) S.toss = d.toss.map(a => mkToss(a[0], a[1], a[2], a[3], a[4], a[5], a[6]));
       if (d.naver) S.naver = d.naver.map(a => mkNaver(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8]));
     } catch (e) { }
   }
-
-  /* ═══════════ 분류 ═══════════ */
 
   function classify(desc, amt) {
     const c = S.cfg;
@@ -506,9 +480,15 @@
     if (amt > 0 && (desc === "통장 이자" || desc === "카드 캐시백")) return "잡수입";
     return amt > 0 ? "기타입금" : "기타출금";
   }
+  function tagOut(t) {
+    if (/ANTHROPIC|CLAUDE/i.test(t.desc)) return "AI 구독";
+    if (/교통카드|티머니|택시/.test(t.desc)) return "교통";
+    if (/지에스25|GS25|씨유|세븐일레븐|카페인|치어스|클럽|토이팝|자동결제|배달|이츠/.test(t.desc)) return "생활·결제";
+    if (t.acct) return "개인 송금";
+    return "기타";
+  }
 
   /* ═══════════ 취합 ═══════════ */
-
   function findHeader(rows, must) {
     for (let r = 0; r < Math.min(rows.length, 40); r++) {
       const j = (rows[r] || []).join("|");
@@ -516,16 +496,11 @@
     }
     return -1;
   }
-  function colFinder(head) {
-    return frag => {
-      const f = frag.replace(/\s+/g, "");
-      for (let i = 0; i < head.length; i++) {
-        const h = String(head[i] || "").replace(/\s+/g, "");
-        if (h && h.indexOf(f) >= 0) return i;
-      }
-      return -1;
-    };
-  }
+  const colFinder = head => frag => {
+    const f = frag.replace(/\s+/g, "");
+    for (let i = 0; i < head.length; i++) { const h = String(head[i] || "").replace(/\s+/g, ""); if (h && h.indexOf(f) >= 0) return i; }
+    return -1;
+  };
   const numOf = v => parseFloat(String(v == null ? "" : v).replace(/[^0-9.\-]/g, ""));
 
   async function ingestToss(file) {
@@ -533,17 +508,14 @@
     const hr = findHeader(rows, ["거래", "적요", "금액"]);
     if (hr < 0) throw new Error(file.name + " : 거래내역 머리글을 찾지 못했습니다.");
     const f = colFinder(rows[hr]);
-    const iDt = f("거래일시"), iDesc = f("적요"), iType = f("거래유형"),
-      iBank = f("거래기관"), iAcct = f("계좌번호"), iAmt = f("거래금액"), iBal = f("거래후잔액");
-    if (iDt < 0 || iDesc < 0 || iAmt < 0) throw new Error(file.name + " : 거래 일시 / 적요 / 거래 금액 열을 찾지 못했습니다.");
+    const iDt = f("거래일시"), iDesc = f("적요"), iType = f("거래유형"), iBank = f("거래기관"), iAcct = f("계좌번호"), iAmt = f("거래금액"), iBal = f("거래후잔액");
+    if (iDt < 0 || iDesc < 0 || iAmt < 0) throw new Error(file.name + " : 필요한 열을 찾지 못했습니다.");
     const seen = new Set(S.toss.map(tossKey));
     let added = 0, dup = 0;
     for (let r = hr + 1; r < rows.length; r++) {
-      const row = rows[r] || [];
-      const dt = String(row[iDt] || "").trim(), amt = numOf(row[iAmt]);
+      const row = rows[r] || [], dt = String(row[iDt] || "").trim(), amt = numOf(row[iAmt]);
       if (!dt || !isFinite(amt)) continue;
-      const t = mkToss(dt, String(row[iDesc] || "").trim(), String(row[iType] || "").trim(),
-        String(row[iBank] || "").trim(), String(row[iAcct] || "").trim(), amt, String(row[iBal] || "").trim());
+      const t = mkToss(dt, String(row[iDesc] || "").trim(), String(row[iType] || "").trim(), String(row[iBank] || "").trim(), String(row[iAcct] || "").trim(), amt, String(row[iBal] || "").trim());
       const k = tossKey(t);
       if (seen.has(k)) { dup++; continue; }
       seen.add(k); S.toss.push(t); added++;
@@ -552,28 +524,24 @@
     S.toss.sort((a, b) => a.dt < b.dt ? -1 : a.dt > b.dt ? 1 : 0);
     return { added, dup };
   }
-
   async function ingestNaver(file) {
     const rows = await readSheet(file);
     const hr = findHeader(rows, ["정산기준일", "정산기준금액"]);
     if (hr < 0) throw new Error(file.name + " : 네이버 정산 머리글을 찾지 못했습니다.");
     const f = colFinder(rows[hr]);
     const iOrd = f("주문번호"), iItem = f("상품주문번호"), iName = f("상품명"), iBuy = f("구매자명"),
-      iBase = f("정산기준일"), iDone = f("정산완료일"),
-      iAmt = f("정산기준금액"), iFee1 = f("수수료(B)"), iFee2 = f("매출연동");
-    if (iBase < 0 || iAmt < 0) throw new Error(file.name + " : 정산기준일 또는 정산기준금액 열이 없습니다.");
+      iBase = f("정산기준일"), iDone = f("정산완료일"), iAmt = f("정산기준금액"), iFee1 = f("수수료(B)"), iFee2 = f("매출연동");
+    if (iBase < 0 || iAmt < 0) throw new Error(file.name + " : 정산기준일/정산기준금액 열이 없습니다.");
     const seen = new Set(S.naver.map(n => n.itemNo));
     let added = 0, dup = 0;
     for (let r = hr + 1; r < rows.length; r++) {
-      const row = rows[r] || [];
-      const base = String(row[iBase] || "").trim(), amt = numOf(row[iAmt]);
+      const row = rows[r] || [], base = String(row[iBase] || "").trim(), amt = numOf(row[iAmt]);
       if (!base || !isFinite(amt)) continue;
       const item = String(row[iItem >= 0 ? iItem : iOrd] || "").trim() || (base + "#" + r + "#" + amt);
       if (seen.has(item)) { dup++; continue; }
       seen.add(item);
-      S.naver.push(mkNaver(item, String(row[iOrd] || "").trim(), String(row[iName] || "").trim(),
-        String(row[iBuy] || "").trim(), base, String(row[iDone] || "").trim(), amt,
-        (iFee1 >= 0 ? numOf(row[iFee1]) : 0) || 0, (iFee2 >= 0 ? numOf(row[iFee2]) : 0) || 0));
+      S.naver.push(mkNaver(item, String(row[iOrd] || "").trim(), String(row[iName] || "").trim(), String(row[iBuy] || "").trim(),
+        base, String(row[iDone] || "").trim(), amt, (iFee1 >= 0 ? numOf(row[iFee1]) : 0) || 0, (iFee2 >= 0 ? numOf(row[iFee2]) : 0) || 0));
       added++;
     }
     S.naver.sort((a, b) => a.baseDate < b.baseDate ? -1 : a.baseDate > b.baseDate ? 1 : 0);
@@ -581,31 +549,25 @@
   }
 
   /* ═══════════ 계산 ═══════════ */
-
   const R = n => Math.round(n);
-  function won(n) {
-    if (!isFinite(n) || R(n) === 0) return "0";
-    return R(n).toLocaleString("ko-KR");
-  }
-  function signed(n) {
-    if (!isFinite(n)) return "0";
-    const v = R(n);
-    return v === 0 ? "0" : (v > 0 ? "+" : "−") + Math.abs(v).toLocaleString("ko-KR");
-  }
+  const won = n => (!isFinite(n) || R(n) === 0) ? "0" : R(n).toLocaleString("ko-KR");
+  const signed = n => { if (!isFinite(n)) return "0"; const v = R(n); return v === 0 ? "0" : (v > 0 ? "+" : "−") + Math.abs(v).toLocaleString("ko-KR"); };
   const cls = n => R(n) > 0 ? "pos" : R(n) < 0 ? "neg" : "zero";
-  const qtyOf = (amt, unit) => Math.max(1, Math.round(amt / (unit || 1)));
+  const qtyOf = (a, u) => Math.max(1, Math.round(a / (u || 1)));
+  function prevYm(ym) {
+    let y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1;
+    if (m < 1) { m = 12; y--; }
+    return y + "." + String(m).padStart(2, "0");
+  }
 
   function compute() {
     const c = S.cfg, ratio = c.ratio / 100;
     const M = new Map();
     const get = ym => {
-      if (!M.has(ym)) M.set(ym, {
-        ym, settle: 0, coupangIn: 0, buy: 0, buyQty: 0, kkak: 0, kkakQty: 0,
-        partner: 0, meIn: 0, meOut: 0, otherIn: 0, otherOut: 0, misc: 0,
-        inSum: 0, outSum: 0, partnerRows: []
-      });
+      if (!M.has(ym)) M.set(ym, { ym, settle: 0, coupangIn: 0, buy: 0, buyQty: 0, kkak: 0, kkakQty: 0, partner: 0, meIn: 0, meOut: 0, otherIn: 0, otherOut: 0, misc: 0, inSum: 0, outSum: 0 });
       return M.get(ym);
     };
+    const partnerRows = [], otherOutRows = [], otherInRows = [], meRows = [];
     for (const t of S.toss) {
       const m = get(t.ym), k = classify(t.desc, t.amt), a = Math.abs(t.amt);
       if (t.amt > 0) m.inSum += a; else m.outSum += a;
@@ -613,46 +575,38 @@
       else if (k === "쿠팡입금") m.coupangIn += a;
       else if (k === "매입") { m.buy += a; m.buyQty += qtyOf(a, c.cost); }
       else if (k === "깍두기매입") { m.kkak += a; m.kkakQty += qtyOf(a, c.cost11); }
-      else if (k === "파트너출금") { m.partner += a; m.partnerRows.push(t); }
-      else if (k === "본인입금") m.meIn += a;
-      else if (k === "본인출금") m.meOut += a;
+      else if (k === "파트너출금") { m.partner += a; partnerRows.push(t); }
+      else if (k === "본인입금") { m.meIn += a; meRows.push(t); }
+      else if (k === "본인출금") { m.meOut += a; meRows.push(t); }
       else if (k === "잡수입") m.misc += a;
-      else if (k === "기타입금") m.otherIn += a;
-      else if (k === "기타출금") m.otherOut += a;
+      else if (k === "기타입금") { m.otherIn += a; otherInRows.push(t); }
+      else if (k === "기타출금") { m.otherOut += a; otherOutRows.push(t); }
     }
 
     const months = Array.from(M.keys()).sort();
-    let bal = 0, cPS = 0, cPP = 0, cMS = 0, cMT = 0;
+    let bal = 0;
     const rows = [];
     for (const ym of months) {
       const m = M.get(ym);
-      const kkakCost = c.eleven === "cost" ? m.kkak : 0;
-      const kkakMe = c.eleven === "me" ? m.kkak : 0;
-      const revenue = m.settle + m.coupangIn;
-      const buyAll = m.buy + kkakCost;
-      const margin = revenue - buyAll;
-      const pShare = R(margin * ratio), mShare = margin - pShare;
+      const kkakCost = c.eleven === "cost" ? m.kkak : 0, kkakMe = c.eleven === "me" ? m.kkak : 0;
+      const revenue = m.settle + m.coupangIn, margin = revenue - m.buy - kkakCost;
       const meTook = m.meOut + m.otherOut + kkakMe - m.meIn - m.otherIn;
       bal += m.inSum - m.outSum;
-      cPS += pShare; cPP += m.partner; cMS += mShare; cMT += meTook;
       rows.push({
-        ym, revenue, buy: m.buy, kkak: m.kkak, buyAll, margin,
-        buyQty: m.buyQty, kkakQty: m.kkakQty,
-        pShare, pPaid: m.partner, pDiff: m.partner - pShare,
-        mShare, meIn: m.meIn, meOut: m.meOut, otherOut: m.otherOut, otherIn: m.otherIn,
-        meTook, mDiff: meTook - mShare, misc: m.misc, bal,
-        partnerRows: m.partnerRows, cumPDiff: cPP - cPS, cumMDiff: cMT - cMS
+        ym, revenue, buy: m.buy, kkak: m.kkak, buyAll: m.buy + kkakCost, margin,
+        buyQty: m.buyQty, kkakQty: m.kkakQty, pShare: R(margin * ratio), mShare: margin - R(margin * ratio),
+        pPaid: m.partner, meIn: m.meIn, meOut: m.meOut, otherIn: m.otherIn, otherOut: m.otherOut,
+        meTook, misc: m.misc, bal
       });
     }
     const KEYS = ["revenue", "buy", "kkak", "buyAll", "margin", "buyQty", "kkakQty", "pShare", "pPaid", "mShare", "meIn", "meOut", "otherOut", "otherIn", "meTook", "misc"];
-    const T = rows.reduce((a, r) => { KEYS.forEach(k => a[k] += r[k]); return a; },
-      KEYS.reduce((o, k) => (o[k] = 0, o), {}));
+    const T = rows.reduce((a, r) => { KEYS.forEach(k => a[k] += r[k]); return a; }, KEYS.reduce((o, k) => (o[k] = 0, o), {}));
     T.bal = rows.length ? rows[rows.length - 1].bal : 0;
-    T.pDiff = T.pPaid - T.pShare;
-    T.mDiff = T.meTook - T.mShare;
     T.residual = T.margin + T.misc - T.pPaid - T.meTook - T.bal;
+    T.kkakMe = c.eleven === "me" ? T.kkak : 0;
+    T.spent = T.otherOut + T.kkakMe;
 
-    /* 네이버 */
+    /* 네이버 발생 기준 */
     const N = new Map();
     let unsAmt = 0, unsQty = 0, unsCount = 0, soldQty = 0;
     for (const n of S.naver) {
@@ -668,144 +622,156 @@
     nRows.forEach(r => { r.pShare = R(r.margin * ratio); r.mShare = r.margin - r.pShare; r.per = r.qty ? r.margin / r.qty : 0; });
     const NK = ["cnt", "qty", "net", "cost", "margin", "pShare", "mShare"];
     const NT = nRows.reduce((a, r) => { NK.forEach(k => a[k] += r[k]); return a; }, NK.reduce((o, k) => (o[k] = 0, o), {}));
+    const marginBy = new Map(nRows.map(r => [r.ym, r.margin]));
 
-    /* 선지급 */
-    const pAll = [];
-    for (const r of rows) {
-      if (!r.partnerRows.length) continue;
-      r.partnerRows.slice().sort((a, b) => Math.abs(b.amt) - Math.abs(a.amt))
-        .forEach((t, i) => pAll.push({ date: t.date, amt: Math.abs(t.amt), ym: r.ym, kind: i === 0 ? "정산" : "선지급" }));
+    /* ── 성주 정산 점검 ── */
+    const byMonth = new Map();
+    for (const t of partnerRows) {
+      if (!byMonth.has(t.ym)) byMonth.set(t.ym, []);
+      byMonth.get(t.ym).push(t);
     }
-    pAll.sort((a, b) => a.date < b.date ? -1 : 1);
-    const advTotal = pAll.filter(p => p.kind === "선지급").reduce((a, p) => a + p.amt, 0);
+    const kindOf = new Map();
+    for (const [ym, list] of byMonth) {
+      const sorted = list.slice().sort((a, b) => Math.abs(b.amt) - Math.abs(a.amt));
+      sorted.forEach((t, i) => kindOf.set(tossKey(t), i === 0 ? "정산" : "선지급"));
+    }
+    const checks = [];
+    let pend = 0, pendList = [];
+    for (const t of partnerRows) {
+      const amt = Math.abs(t.amt);
+      if (kindOf.get(tossKey(t)) === "선지급") { pend += amt; pendList.push({ date: t.date, amt }); continue; }
+      const sm = prevYm(t.ym), margin = marginBy.has(sm) ? marginBy.get(sm) : null;
+      const share = margin != null ? R(margin * ratio) : null;
+      const should = share != null ? share - pend : null;
+      checks.push({
+        sm, payDate: t.date, paid: amt, adv: pend, advList: pendList,
+        margin, share, should, diff: should != null ? amt - should : null,
+        needIfDeducted: (amt + pend) / ratio, needIfNot: amt / ratio
+      });
+      pend = 0; pendList = [];
+    }
+    /* 아직 지급 안 된 정산월 */
+    const paidMonths = new Set(checks.map(x => x.sm));
+    for (const r of nRows) {
+      if (paidMonths.has(r.ym)) continue;
+      checks.push({ sm: r.ym, payDate: null, paid: null, adv: pend, advList: pendList, margin: r.margin, share: R(r.margin * ratio), should: R(r.margin * ratio) - pend, diff: null, pending: true });
+    }
+    checks.sort((a, b) => a.sm < b.sm ? -1 : a.sm > b.sm ? 1 : 0);
+    const verified = checks.filter(x => x.diff != null);
+    const unknown = checks.filter(x => x.diff == null && !x.pending);
+    const pcheck = {
+      checks, verified, unknown,
+      diffSum: verified.reduce((a, x) => a + x.diff, 0),
+      unknownPaid: unknown.reduce((a, x) => a + (x.paid || 0), 0),
+      advTotal: checks.reduce((a, x) => a + x.adv, 0) + pend,
+      pendingNow: pend, pendingList: pendList
+    };
 
     const tRange = S.toss.length ? [S.toss[0].date, S.toss[S.toss.length - 1].date] : null;
     const nRange = S.naver.length ? [S.naver[0].baseDate, S.naver[S.naver.length - 1].baseDate] : null;
-
-    return { rows, T, nRows, NT, pAll, advTotal, unsAmt, unsQty, unsCount, soldQty, ratio, tRange, nRange };
+    return {
+      rows, T, nRows, NT, pcheck, otherOutRows, otherInRows, meRows, partnerRows, kindOf,
+      unsAmt, unsQty, unsCount, soldQty, ratio, tRange, nRange,
+      counts: [S.toss.length, S.naver.length]
+    };
   }
 
-  /* ═══════════ 공유 스냅샷 ═══════════ */
-  /* 원본 거래(상대 계좌번호·구매자 실명)는 절대 담지 않는다. 집계 숫자만. */
-
-  const RF = ["ym", "revenue", "buy", "kkak", "margin", "pShare", "pPaid", "mShare",
-    "meIn", "meOut", "otherIn", "otherOut", "meTook", "misc", "buyQty", "kkakQty", "bal"];
+  /* ═══════════ 공유 스냅샷 (개인 지출·입금은 제외) ═══════════ */
+  const RF = ["ym", "revenue", "buy", "kkak", "margin", "pShare", "pPaid", "mShare", "meIn", "meOut", "otherIn", "otherOut", "meTook", "misc", "buyQty", "kkakQty", "bal"];
   const NF = ["ym", "cnt", "qty", "net", "cost", "margin"];
+  const CF = ["sm", "payDate", "paid", "adv", "margin", "share", "should", "diff"];
 
   function toSnapshot(D) {
     return {
-      v: 2, ts: new Date().toISOString().slice(0, 16).replace("T", " "),
-      cfg: S.cfg, man: S.man, tR: D.tRange, nR: D.nRange,
+      v: 3, ts: new Date().toISOString().slice(0, 16).replace("T", " "),
+      cfg: S.cfg, man: S.man, tR: D.tRange, nR: D.nRange, cnt: D.counts,
       rows: D.rows.map(r => RF.map(k => r[k])),
       nRows: D.nRows.map(r => NF.map(k => r[k])),
-      pAll: D.pAll.map(p => [p.date, p.amt, p.kind === "선지급" ? 1 : 0, p.ym]),
-      uns: [D.unsAmt, D.unsQty, D.unsCount], sold: D.soldQty,
-      cnt: [S.toss.length, S.naver.length]
+      checks: D.pcheck.checks.map(x => CF.map(k => x[k] === undefined ? null : x[k]).concat([x.advList ? x.advList.map(a => [a.date, a.amt]) : []])),
+      uns: [D.unsAmt, D.unsQty, D.unsCount], sold: D.soldQty
     };
   }
-
   function fromSnapshot(s) {
-    Object.assign(S.cfg, s.cfg || {});
-    Object.assign(S.man, s.man || {});
+    Object.assign(S.cfg, s.cfg || {}); Object.assign(S.man, s.man || {});
     const ratio = S.cfg.ratio / 100;
-    let cPS = 0, cPP = 0, cMS = 0, cMT = 0;
-    const rows = (s.rows || []).map(a => {
-      const r = {};
-      RF.forEach((k, i) => r[k] = a[i]);
-      r.buyAll = r.buy + (S.cfg.eleven === "cost" ? r.kkak : 0);
-      r.pDiff = r.pPaid - r.pShare; r.mDiff = r.meTook - r.mShare;
-      cPS += r.pShare; cPP += r.pPaid; cMS += r.mShare; cMT += r.meTook;
-      r.cumPDiff = cPP - cPS; r.cumMDiff = cMT - cMS;
-      return r;
-    });
+    let bal = 0;
+    const rows = (s.rows || []).map(a => { const r = {}; RF.forEach((k, i) => r[k] = a[i]); r.buyAll = r.buy + (S.cfg.eleven === "cost" ? r.kkak : 0); return r; });
     const KEYS = ["revenue", "buy", "kkak", "buyAll", "margin", "buyQty", "kkakQty", "pShare", "pPaid", "mShare", "meIn", "meOut", "otherOut", "otherIn", "meTook", "misc"];
     const T = rows.reduce((a, r) => { KEYS.forEach(k => a[k] += r[k]); return a; }, KEYS.reduce((o, k) => (o[k] = 0, o), {}));
     T.bal = rows.length ? rows[rows.length - 1].bal : 0;
-    T.pDiff = T.pPaid - T.pShare; T.mDiff = T.meTook - T.mShare;
     T.residual = T.margin + T.misc - T.pPaid - T.meTook - T.bal;
-    const nRows = (s.nRows || []).map(a => {
-      const r = {};
-      NF.forEach((k, i) => r[k] = a[i]);
-      r.pShare = R(r.margin * ratio); r.mShare = r.margin - r.pShare; r.per = r.qty ? r.margin / r.qty : 0;
-      return r;
-    });
+    T.kkakMe = S.cfg.eleven === "me" ? T.kkak : 0;
+    T.spent = T.otherOut + T.kkakMe;
+    const nRows = (s.nRows || []).map(a => { const r = {}; NF.forEach((k, i) => r[k] = a[i]); r.pShare = R(r.margin * ratio); r.mShare = r.margin - r.pShare; r.per = r.qty ? r.margin / r.qty : 0; return r; });
     const NK = ["cnt", "qty", "net", "cost", "margin", "pShare", "mShare"];
     const NT = nRows.reduce((a, r) => { NK.forEach(k => a[k] += r[k]); return a; }, NK.reduce((o, k) => (o[k] = 0, o), {}));
-    const pAll = (s.pAll || []).map(a => ({ date: a[0], amt: a[1], kind: a[2] ? "선지급" : "정산", ym: a[3] }));
+    const checks = (s.checks || []).map(a => {
+      const x = {}; CF.forEach((k, i) => x[k] = a[i]);
+      x.advList = (a[CF.length] || []).map(p => ({ date: p[0], amt: p[1] }));
+      x.pending = x.paid == null;
+      if (x.margin != null && x.paid != null) { x.needIfDeducted = (x.paid + x.adv) / ratio; x.needIfNot = x.paid / ratio; }
+      else if (x.paid != null) { x.needIfDeducted = (x.paid + x.adv) / ratio; x.needIfNot = x.paid / ratio; }
+      return x;
+    });
+    const verified = checks.filter(x => x.diff != null), unknown = checks.filter(x => x.diff == null && !x.pending);
     return {
-      rows, T, nRows, NT, pAll,
-      advTotal: pAll.filter(p => p.kind === "선지급").reduce((a, p) => a + p.amt, 0),
+      rows, T, nRows, NT,
+      pcheck: {
+        checks, verified, unknown,
+        diffSum: verified.reduce((a, x) => a + x.diff, 0),
+        unknownPaid: unknown.reduce((a, x) => a + (x.paid || 0), 0),
+        advTotal: checks.reduce((a, x) => a + (x.adv || 0), 0), pendingNow: 0, pendingList: []
+      },
+      otherOutRows: null, otherInRows: null, meRows: null,
       unsAmt: (s.uns || [0, 0, 0])[0], unsQty: (s.uns || [0, 0, 0])[1], unsCount: (s.uns || [0, 0, 0])[2],
-      soldQty: s.sold || 0, ratio, tRange: s.tR, nRange: s.nR, ts: s.ts,
-      counts: s.cnt || [0, 0]
+      soldQty: s.sold || 0, ratio, tRange: s.tR, nRange: s.nR, ts: s.ts, counts: s.cnt || [0, 0]
     };
   }
-
   const b64u = {
     enc: u8 => btoa(String.fromCharCode.apply(null, u8)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
-    dec: s => {
-      const b = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
-      const u = new Uint8Array(b.length);
-      for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
-      return u;
-    }
+    dec: s => { const b = atob(s.replace(/-/g, "+").replace(/_/g, "/")); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
   };
-  async function packShare(obj) {
-    const raw = new TextEncoder().encode(JSON.stringify(obj));
+  async function packShare(o) {
+    const raw = new TextEncoder().encode(JSON.stringify(o));
     if (typeof CompressionStream === "undefined") return "r" + b64u.enc(raw);
     const s = new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"));
     return "z" + b64u.enc(new Uint8Array(await new Response(s).arrayBuffer()));
   }
   async function unpackShare(str) {
-    const kind = str[0], body = b64u.dec(str.slice(1));
-    if (kind === "r") return JSON.parse(new TextDecoder().decode(body));
+    const k = str[0], body = b64u.dec(str.slice(1));
+    if (k === "r") return JSON.parse(new TextDecoder().decode(body));
     const s = new Blob([body]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
     return JSON.parse(new TextDecoder().decode(await new Response(s).arrayBuffer()));
   }
 
   /* ═══════════ 차트 ═══════════ */
-
   function niceTicks(lo, hi, want) {
-    if (hi === lo) { hi = lo + 1; }
-    const raw = (hi - lo) / (want || 4);
-    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-    const norm = raw / mag;
+    if (hi === lo) hi = lo + 1;
+    const raw = (hi - lo) / (want || 4), mag = Math.pow(10, Math.floor(Math.log10(raw))), norm = raw / mag;
     const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
-    const start = Math.floor(lo / step) * step, end = Math.ceil(hi / step) * step;
     const out = [];
-    for (let v = start; v <= end + step * 0.001; v += step) out.push(Math.round(v * 1e6) / 1e6);
+    for (let v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + step * 0.001; v += step) out.push(Math.round(v * 1e6) / 1e6);
     return out;
   }
   const shortYm = ym => ym.slice(2).replace(".", "/");
-
   function drawChart(box, data, kind, fmt) {
     box.innerHTML = "";
     if (!data.length) { box.innerHTML = "<p class='note' style='margin:0'>데이터가 없습니다.</p>"; return; }
-    const W = Math.max(260, box.clientWidth || 320), H = 190;
-    const PL = 54, PR = 14, PT = 14, PB = 30;
-    const iw = W - PL - PR, ih = H - PT - PB;
-    const vals = data.map(d => d.y);
-    let lo = Math.min(0, Math.min.apply(null, vals)), hi = Math.max.apply(null, vals);
-    if (kind === "line") { lo = Math.min.apply(null, vals); hi = Math.max.apply(null, vals); const pad = (hi - lo) * 0.18 || Math.abs(hi) * 0.1 || 1; lo -= pad; hi += pad; }
-    const ticks = niceTicks(lo, hi, 4);
-    lo = ticks[0]; hi = ticks[ticks.length - 1];
+    const W = Math.max(260, box.clientWidth || 320), H = 190, PL = 58, PR = 14, PT = 14, PB = 30;
+    const iw = W - PL - PR, ih = H - PT - PB, vals = data.map(d => d.y);
+    let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    if (kind === "line") { const pad = (hi - lo) * 0.18 || Math.abs(hi) * 0.1 || 1; lo -= pad; hi += pad; } else lo = Math.min(0, lo);
+    const ticks = niceTicks(lo, hi, 4); lo = ticks[0]; hi = ticks[ticks.length - 1];
     const X = i => data.length === 1 ? PL + iw / 2 : PL + (iw * i) / (data.length - 1);
     const XB = i => PL + (iw * (i + 0.5)) / data.length;
     const Y = v => PT + ih - ((v - lo) / (hi - lo)) * ih;
-
     let g = "";
-    for (const t of ticks) {
-      g += "<line x1='" + PL + "' y1='" + Y(t).toFixed(1) + "' x2='" + (W - PR) + "' y2='" + Y(t).toFixed(1) +
-        "' stroke='var(--rule-soft)' stroke-width='1'/>" +
-        "<text x='" + (PL - 8) + "' y='" + (Y(t) + 4).toFixed(1) + "' text-anchor='end' font-size='10' fill='var(--ink-3)' font-family='var(--num)'>" + fmt.axis(t) + "</text>";
-    }
+    for (const t of ticks) g += "<line x1='" + PL + "' y1='" + Y(t).toFixed(1) + "' x2='" + (W - PR) + "' y2='" + Y(t).toFixed(1) + "' stroke='var(--rule-soft)' stroke-width='1'/><text x='" + (PL - 8) + "' y='" + (Y(t) + 4).toFixed(1) + "' text-anchor='end' font-size='10' fill='var(--ink-3)' font-family='var(--num)'>" + fmt.axis(t) + "</text>";
     const every = data.length > 10 ? Math.ceil(data.length / 7) : 1;
     for (let i = 0; i < data.length; i++) {
       if (i % every !== 0 && i !== data.length - 1) continue;
-      const x = kind === "line" ? X(i) : XB(i);
-      g += "<text x='" + x.toFixed(1) + "' y='" + (H - 10) + "' text-anchor='middle' font-size='10' fill='var(--ink-3)' font-family='var(--num)'>" + shortYm(data[i].x) + "</text>";
+      g += "<text x='" + (kind === "line" ? X(i) : XB(i)).toFixed(1) + "' y='" + (H - 10) + "' text-anchor='middle' font-size='10' fill='var(--ink-3)' font-family='var(--num)'>" + shortYm(data[i].x) + "</text>";
     }
-
     let marks = "";
     if (kind === "line") {
       const pts = data.map((d, i) => X(i).toFixed(1) + "," + Y(d.y).toFixed(1));
@@ -816,264 +782,287 @@
       marks += "<text x='" + (X(li) - 8).toFixed(1) + "' y='" + (Y(data[li].y) - 10).toFixed(1) + "' text-anchor='end' font-size='11.5' font-weight='700' fill='var(--ink)' font-family='var(--num)'>" + fmt.label(data[li].y) + "</text>";
     } else {
       const bw = Math.min(52, Math.max(3, iw / data.length - 3));
-      for (let i = 0; i < data.length; i++) {
-        const h = Math.max(1, (PT + ih) - Y(data[i].y));
-        marks += "<rect x='" + (XB(i) - bw / 2).toFixed(1) + "' y='" + Y(data[i].y).toFixed(1) + "' width='" + bw.toFixed(1) +
-          "' height='" + h.toFixed(1) + "' rx='3' fill='var(--accent)'/>";
-      }
+      for (let i = 0; i < data.length; i++) marks += "<rect x='" + (XB(i) - bw / 2).toFixed(1) + "' y='" + Y(data[i].y).toFixed(1) + "' width='" + bw.toFixed(1) + "' height='" + Math.max(1, (PT + ih) - Y(data[i].y)).toFixed(1) + "' rx='3' fill='var(--accent)'/>";
     }
-
     let hit = "";
     for (let i = 0; i < data.length; i++) {
-      const x = kind === "line" ? X(i) : XB(i);
-      const w = kind === "line" ? (data.length === 1 ? iw : iw / (data.length - 1)) : iw / data.length;
+      const x = kind === "line" ? X(i) : XB(i), w = kind === "line" ? (data.length === 1 ? iw : iw / (data.length - 1)) : iw / data.length;
       hit += "<rect class='hit' data-i='" + i + "' x='" + Math.max(0, x - w / 2).toFixed(1) + "' y='" + PT + "' width='" + w.toFixed(1) + "' height='" + ih + "' fill='transparent'/>";
     }
-
-    box.innerHTML = "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='월별 추이 차트'>" +
-      g + marks +
-      "<line id='cross' x1='0' y1='" + PT + "' x2='0' y2='" + (PT + ih) + "' stroke='var(--ink-3)' stroke-width='1' stroke-dasharray='3 3' opacity='0'/>" +
-      hit + "</svg><div class='tip'></div>";
-
+    box.innerHTML = "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='추이 차트'>" + g + marks +
+      "<line id='cross' x1='0' y1='" + PT + "' x2='0' y2='" + (PT + ih) + "' stroke='var(--ink-3)' stroke-width='1' stroke-dasharray='3 3' opacity='0'/>" + hit + "</svg><div class='tip'></div>";
     const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), cross = box.querySelector("#cross");
     svg.addEventListener("mousemove", e => {
-      const el = e.target.closest(".hit");
-      if (!el) return;
-      const i = +el.dataset.i, d = data[i];
-      const x = kind === "line" ? X(i) : XB(i);
+      const el = e.target.closest(".hit"); if (!el) return;
+      const i = +el.dataset.i, d = data[i], x = kind === "line" ? X(i) : XB(i);
       cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("opacity", "1");
       tip.innerHTML = "<span>" + d.x + "</span><span class='tv'>" + fmt.tip(d.y) + "</span>";
-      tip.style.left = (x / W * 100) + "%";
-      tip.style.top = (kind === "line" ? Y(d.y) : Y(d.y)) / H * 100 + "%";
+      tip.style.left = (x / W * 100) + "%"; tip.style.top = (Y(d.y) / H * 100) + "%";
       tip.classList.add("on");
     });
     svg.addEventListener("mouseleave", () => { tip.classList.remove("on"); cross.setAttribute("opacity", "0"); });
   }
 
   /* ═══════════ 그리기 ═══════════ */
-
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
-  let LAST = null, SHARED = null;
+  let LAST = null, SHARED = null, CALC = false, STALE = false;
+  const row = (k, v, kl) => "<div class='flowrow'><span>" + k + "</span><b class='" + (kl || "") + "'>" + v + "</b></div>";
+  const ind = (k, v) => "<div class='flowrow ind'><span>" + k + "</span><b>" + v + "</b></div>";
+  const tile = (k, v, n, hero) => "<div class='tile" + (hero ? " hero" : "") + "'><div class='k'>" + k + "</div><div class='v'>" + v + "</div><div class='n'>" + (n || "") + "</div></div>";
+
+  function refreshInputUI() {
+    const tR = S.toss.length ? [S.toss[0].date, S.toss[S.toss.length - 1].date] : null;
+    const nR = S.naver.length ? [S.naver[0].baseDate, S.naver[S.naver.length - 1].baseDate] : null;
+    $("rngToss").textContent = tR ? tR[0] + " ~ " + tR[1] : "";
+    $("rngNaver").textContent = nR ? nR[0] + " ~ " + nR[1] : "";
+    $("inputSummary").textContent = S.toss.length || S.naver.length
+      ? "토스 " + S.toss.length.toLocaleString() + "건 · 네이버 " + S.naver.length.toLocaleString() + "건"
+      : "토스 거래내역 · 네이버 정산내역";
+    return { tR, nR };
+  }
 
   function render() {
-    $("storeNote").textContent = (S.toss.length || S.naver.length)
-      ? "이 브라우저에 저장됨 · 토스 " + S.toss.length.toLocaleString() + "건 / 네이버 " + S.naver.length.toLocaleString() + "건" : "";
-
-    if (!S.toss.length && !SHARED) {
-      $("results").classList.add("hidden"); $("placeholder").classList.remove("hidden");
-      $("rngToss").textContent = ""; $("rngNaver").textContent = "";
-      return;
+    if (!SHARED) {
+      const { tR, nR } = refreshInputUI();
+      if (!S.toss.length) {
+        $("results").classList.add("hidden"); $("staging").classList.add("hidden");
+        $("staleBar").classList.add("hidden"); $("placeholder").classList.remove("hidden");
+        $("dtInput").open = true; $("mastRight").innerHTML = "";
+        return;
+      }
+      $("placeholder").classList.add("hidden");
+      if (!CALC) {
+        $("results").classList.add("hidden"); $("staleBar").classList.add("hidden");
+        $("staging").classList.remove("hidden");
+        $("stagingTitle").textContent = "자료 " + (S.toss.length + S.naver.length).toLocaleString() + "건 준비됨";
+        $("stagingNote").innerHTML = "토스 <b>" + S.toss.length.toLocaleString() + "건</b>" + (tR ? " (" + tR[0] + " ~ " + tR[1] + ")" : "") +
+          " · 네이버 <b>" + S.naver.length.toLocaleString() + "건</b>" + (nR ? " (" + nR[0] + " ~ " + nR[1] + ")" : " — 없음") +
+          "<br>넣을 자료가 더 있으면 마저 넣고, 다 넣었으면 아래를 누르세요.";
+        $("mastRight").innerHTML = "";
+        return;
+      }
+      $("staging").classList.add("hidden");
+      $("staleBar").classList.toggle("hidden", !STALE);
     }
     $("results").classList.remove("hidden"); $("placeholder").classList.add("hidden");
+    const D = LAST = SHARED || compute(), c = S.cfg, T = D.T, P = D.pcheck;
+    $("mastRight").innerHTML = (D.tRange ? "토스 <b>" + D.tRange[0] + " ~ " + D.tRange[1] + "</b> · " + D.counts[0].toLocaleString() + "건<br>" : "") +
+      (D.nRange ? "네이버 <b>" + D.nRange[0] + " ~ " + D.nRange[1] + "</b> · " + D.counts[1].toLocaleString() + "건" : "네이버 자료 없음");
 
-    const D = LAST = SHARED || compute(), c = S.cfg, T = D.T;
-    $("rngToss").textContent = D.tRange ? D.tRange[0] + " ~ " + D.tRange[1] : "";
-    $("rngNaver").textContent = D.nRange ? D.nRange[0] + " ~ " + D.nRange[1] : "";
+    /* ── 헤드라인 2개 ── */
+    const unkN = P.unknown.length;
+    const pState = unkN ? "wa" : (R(P.diffSum) > 0 ? "bad" : R(P.diffSum) < 0 ? "wa" : "ok");
+    const pBig = unkN && !P.verified.length ? "판정 불가" : signed(P.diffSum) + (unkN ? " + ?" : "");
+    const pSub = !P.verified.length ? "마진을 알 수 있는 달이 없습니다"
+      : R(P.diffSum) > 0 ? "확인된 달에서 더 준 금액입니다"
+        : R(P.diffSum) < 0 ? "확인된 달에서 덜 준 금액입니다" : "확인된 달은 한 푼도 안 틀렸습니다";
+    let h = "<div class='vc " + pState + "'><div class='q'>성주한테 돈을 더 준 건 없나</div>" +
+      "<div class='big'>" + pBig + "</div><div class='sub'>" + pSub + "</div><div class='mini'>" +
+      "<div><span>확인된 달</span><b>" + P.verified.length + "개월</b></div>" +
+      "<div><span>판정 못 한 달</span><b>" + unkN + "개월 (" + won(P.unknownPaid) + "원)</b></div>" +
+      "<div><span>먼저 준 돈(선지급)</span><b>" + won(P.advTotal) + "원</b></div></div></div>";
 
-    const unsAmt = D.unsAmt + (+S.man.amt || 0);
-    const unsQty = D.unsQty + (+S.man.qty || 0);
-    const unsMargin = unsAmt - unsQty * c.cost;
+    const net = T.spent - T.otherIn;
+    h += "<div class='vc " + (R(net) > 0 ? "wa" : "ok") + "'><div class='q'>통장 돈으로 따로 쓴 건 얼마인가</div>" +
+      "<div class='big'>" + won(net) + "</div><div class='sub'>" + (R(net) > 0 ? "이만큼은 내가 메꿔놔야 할 돈입니다" : "따로 쓴 돈이 없습니다") + "</div><div class='mini'>" +
+      "<div><span>정산 무관 지출</span><b>" + won(T.spent) + "원</b></div>" +
+      "<div><span>정산 무관 입금</span><b>" + won(T.otherIn) + "원</b></div>" +
+      "<div><span>통장 잔액</span><b>" + won(T.bal) + "원</b></div></div></div>";
+    $("headBox").innerHTML = h;
 
-    $("autoUnsettled").innerHTML = D.unsCount
-      ? "파일에서 자동으로 잡힌 미정산 <b>" + D.unsCount + "건</b> · 정산액 <b>" + won(D.unsAmt) + "원</b> · 수량 <b>" + D.unsQty + "개</b>"
-      : "<span class='dim'>파일에서 자동으로 잡힌 미정산 건은 없습니다.</span>";
+    /* ── 점검 1 : 성주 ── */
+    let p = "<thead><tr><th class='l'>정산월</th><th>네이버 마진</th><th>" + esc(c.partner) + " 몫</th><th>먼저 준 돈</th><th>줬어야 할 금액</th><th class='l'>지급일</th><th>실제 지급</th><th>차이</th><th class='l'>판정</th></tr></thead><tbody>";
+    for (const x of P.checks) {
+      const known = x.margin != null;
+      let verdict, rowCls = "";
+      if (x.pending) { verdict = "<span class='pill nu'>아직 지급 전</span>"; }
+      else if (!known) { verdict = "<span class='pill wa'>판정 불가 — 네이버 자료 없음</span>"; rowCls = "warnrow"; }
+      else if (R(x.diff) === 0) verdict = "<span class='pill ok'>정확</span>";
+      else if (Math.abs(R(x.diff)) < 1000) verdict = "<span class='pill ok'>거의 일치 (" + signed(x.diff) + ")</span>";
+      else if (x.diff > 0) { verdict = "<span class='pill no'>" + won(x.diff) + "원 더 줌</span>"; rowCls = "badrow"; }
+      else { verdict = "<span class='pill wa'>" + won(-x.diff) + "원 덜 줌</span>"; rowCls = "warnrow"; }
+      p += "<tr class='" + rowCls + "'><td class='l num'>" + x.sm + "</td>" +
+        "<td class='num'>" + (known ? won(x.margin) : "<span class='dim'>—</span>") + "</td>" +
+        "<td class='num'>" + (known ? won(x.share) : "<span class='dim'>—</span>") + "</td>" +
+        "<td class='num'>" + (x.adv ? won(x.adv) : "<span class='dim'>-</span>") + "</td>" +
+        "<td class='num'>" + (known ? "<b>" + won(x.should) + "</b>" : "<span class='dim'>—</span>") + "</td>" +
+        "<td class='l num'>" + (x.payDate || "<span class='dim'>—</span>") + "</td>" +
+        "<td class='num'>" + (x.paid != null ? won(x.paid) : "<span class='dim'>—</span>") + "</td>" +
+        "<td class='num " + (x.diff != null ? cls(x.diff) : "") + "'>" + (x.diff != null ? signed(x.diff) : "<span class='dim'>?</span>") + "</td>" +
+        "<td class='l'>" + verdict + "</td></tr>";
+      if (!known && !x.pending) {
+        p += "<tr class='warnrow'><td></td><td colspan='8' class='l dim' style='font-size:12px;white-space:normal'>" +
+          (x.adv
+            ? "→ 이 달 네이버 마진이 <b>" + won(x.needIfDeducted) + "원</b>이면 먼저 준 " + won(x.adv) + "원을 <b>빼고</b> 준 것이고, " +
+            "<b>" + won(x.needIfNot) + "원</b>이면 <b>안 빼고</b> 준 것입니다. (먼저 준 건: " +
+            x.advList.map(a => a.date + " " + won(a.amt)).join(", ") + ")"
+            : "→ 이 달 네이버 마진이 <b>" + won(x.needIfNot) + "원</b>이면 정확히 맞게 준 것입니다.") +
+          "</td></tr>";
+      }
+    }
+    p += "</tbody></thead>";
+    $("partnerCheck").innerHTML = p;
 
-    /* 커버리지 */
-    const covItem = (l, v) => "<div><span class='lab'>" + l + "</span><span class='val'>" + v + "</span></div>";
-    const gap = D.nRange && D.tRange && D.nRange[1] < D.tRange[1];
-    const nT = D.counts ? D.counts[0] : S.toss.length, nN = D.counts ? D.counts[1] : S.naver.length;
-    $("covStrip").innerHTML =
-      covItem("토스 내역", D.tRange[0] + " ~ " + D.tRange[1] + "  (" + nT.toLocaleString() + "건)") +
-      covItem("네이버 내역", D.nRange ? D.nRange[0] + " ~ " + D.nRange[1] + "  (" + nN.toLocaleString() + "건)" : "없음") +
-      (gap ? "<div><span class='lab'>커버리지</span><span class='pill wa'>네이버가 " + D.nRange[1] + " 이후로 비어 있습니다</span></div>"
-        : D.nRange ? "<div><span class='lab'>커버리지</span><span class='pill ok'>기간 일치</span></div>" : "");
+    let pv = "";
+    if (!P.verified.length) {
+      pv = "<div class='card'><p class='note' style='margin:0'><span class='pill wa'>아직 판정 못 함</span> " +
+        "네이버 정산내역이 있어야 그 달 마진을 알 수 있고, 마진을 알아야 성주 님 몫이 나옵니다. " +
+        "위 표의 각 줄에 <b>역산값</b>을 적어뒀으니 네이버 파일을 넣는 순간 바로 갈립니다.</p></div>";
+    } else {
+      const bad = P.verified.filter(x => Math.abs(R(x.diff)) >= 1000);
+      pv = "<div class='card'><h3>확인된 " + P.verified.length + "개월 결과</h3>" +
+        (bad.length
+          ? "<p class='note' style='margin:0'><span class='pill no'>" + bad.length + "개월 어긋남</span> " +
+          bad.map(x => x.sm + "정산 " + signed(x.diff)).join(" · ") + ". 합계 <b>" + signed(P.diffSum) + "원</b>입니다.</p>"
+          : "<p class='note' style='margin:0'><span class='pill ok'>전부 일치</span> 확인된 달은 오차 합계 " + signed(P.diffSum) + "원으로, 선지급까지 정확히 차감하고 지급했습니다.</p>") +
+        (P.unknown.length ? "<p class='note'>다만 <b>" + P.unknown.length + "개월(" + won(P.unknownPaid) + "원)</b>은 네이버 자료가 없어 판정하지 못했습니다.</p>" : "") +
+        (P.pendingNow ? "<p class='note'><span class='pill wa'>미차감 선지급</span> 아직 정산에 반영 안 된 선지급 <b>" + won(P.pendingNow) + "원</b>이 있습니다 (" + P.pendingList.map(a => a.date).join(", ") + "). 다음 지급에서 빼세요.</p>" : "") +
+        "</div>";
+    }
+    $("partnerVerdict").innerHTML = pv;
 
-    /* 판정 */
-    const vcard = (who, diff, share, took, extra) => {
-      const st = R(diff) > 0 ? "over" : R(diff) < 0 ? "under" : "flat";
-      const line = R(diff) > 0 ? "몫보다 더 가져갔습니다" : R(diff) < 0 ? "아직 통장에서 가져갈 수 있습니다" : "정확히 맞습니다";
-      return "<div class='vc " + st + "'><div class='who'>" + esc(who) + "</div><div class='big'>" + signed(diff) + "</div>" +
-        "<div class='verdictline'>" + line + "</div><div class='mini'>" +
-        "<div><span>받아야 할 몫</span><b>" + won(share) + "</b></div>" +
-        "<div><span>실제 가져간 돈</span><b>" + won(took) + "</b></div>" + (extra || "") + "</div></div>";
-    };
-    $("verdictBox").innerHTML =
-      vcard(c.partner, T.pDiff, T.pShare, T.pPaid, "<div><span>그중 선지급</span><b>" + won(D.advTotal) + "</b></div>") +
-      vcard(c.me, T.mDiff, T.mShare, T.meTook,
-        "<div><span>본인 입금(투입)</span><b>" + won(T.meIn) + "</b></div>" +
-        "<div><span>정산과 무관한 지출</span><b>" + won(T.otherOut + (c.eleven === "me" ? T.kkak : 0)) + "</b></div>");
-    $("verdictNote").innerHTML = "배분율 " + esc(c.partner) + " " + (D.ratio * 100).toFixed(1) + "% / " + esc(c.me) + " " +
-      (100 - D.ratio * 100).toFixed(1) + "%. 두 사람 차이의 합 <b>" + signed(T.pDiff + T.mDiff) +
-      "원</b>은 잡수입 " + won(T.misc) + "원에서 통장 잔액 " + won(T.bal) + "원을 뺀 값과 같습니다.";
+    /* ── 점검 2 : 내가 쓴 돈 ── */
+    if (D.otherOutRows) {
+      const byTag = new Map();
+      for (const t of D.otherOutRows) {
+        const g = tagOut(t);
+        byTag.set(g, (byTag.get(g) || 0) + Math.abs(t.amt));
+      }
+      if (T.kkakMe) byTag.set("11번가", T.kkakMe);
+      const tags = Array.from(byTag.entries()).sort((a, b) => b[1] - a[1]);
+      $("spentTiles").innerHTML = tile("따로 쓴 돈 합계", won(T.spent) + "원", D.otherOutRows.length + "건", true) +
+        tags.slice(0, 5).map(([k, v]) => tile(k, won(v) + "원", Math.round(v / T.spent * 100) + "%")).join("");
 
-    /* 워터폴 */
-    const row = (k, v, kl) => "<div class='flowrow'><span>" + k + "</span><b class='" + (kl || "") + "'>" + v + "</b></div>";
+      let s = "<thead><tr><th class='l'>일자</th><th class='l'>적요</th><th class='l'>분류</th><th>금액</th><th>누적</th><th class='l'>기관</th><th class='l'>메모</th></tr></thead><tbody>";
+      let cum = 0;
+      for (const t of D.otherOutRows.slice().reverse()) {
+        const a = Math.abs(t.amt); cum += a;
+        const k = memoKey(t);
+        s += "<tr><td class='l num'>" + t.date + "</td><td class='l'>" + esc(t.desc) + "</td>" +
+          "<td class='l'><span class='pill nu'>" + tagOut(t) + "</span></td>" +
+          "<td class='num'>" + won(a) + "</td><td class='num dim'>" + won(cum) + "</td>" +
+          "<td class='l dim' style='font-size:12px'>" + esc([t.bank, t.acct].filter(Boolean).join(" ")) + "</td>" +
+          "<td class='memo'><input type='text' data-memo='" + esc(k) + "' value='" + esc(S.memo[k] || "") + "' placeholder='이건 뭐였지?'></td></tr>";
+      }
+      s += "</tbody><tfoot><tr><th class='l'>합계</th><td></td><td></td><td>" + won(T.spent) + "</td><td></td><td></td><td></td></tr></tfoot>";
+      $("spentTable").innerHTML = s;
+    }
+
+    /* ── 점검 3 : 들어온 돈 ── */
+    if (D.otherInRows) {
+      let s = "<thead><tr><th class='l'>일자</th><th class='l'>적요</th><th>금액</th><th class='l'>기관</th><th class='l'>메모</th></tr></thead><tbody>";
+      for (const t of D.otherInRows.slice().reverse()) {
+        const k = memoKey(t);
+        s += "<tr><td class='l num'>" + t.date + "</td><td class='l'>" + esc(t.desc) + "</td>" +
+          "<td class='num'>" + won(t.amt) + "</td>" +
+          "<td class='l dim' style='font-size:12px'>" + esc(t.bank || "") + "</td>" +
+          "<td class='memo'><input type='text' data-memo='" + esc(k) + "' value='" + esc(S.memo[k] || "") + "' placeholder='누구 돈이고 어떻게 됐나?'></td></tr>";
+      }
+      s += "</tbody><tfoot><tr><th class='l'>합계</th><td></td><td>" + won(T.otherIn) + "</td><td></td><td></td></tr></tfoot>";
+      $("inTable").innerHTML = s;
+      $("zeroSum").innerHTML = "<div class='card'>" +
+        row("들어온 돈 (정산 무관)", won(T.otherIn)) +
+        row("나간 돈 (정산 무관)", won(T.spent)) +
+        "<div class='flowrow tot'><span>차이 = 내가 메꿔야 할 돈</span><b class='" + cls(net) + "'>" + won(net) + "</b></div>" +
+        "<p class='note'>" + (R(net) === 0 ? "<span class='pill ok'>제로섬</span> 들어온 만큼 정확히 나갔습니다."
+          : "<span class='pill wa'>제로섬 아님</span> 들어온 " + won(T.otherIn) + "원보다 <b>" + won(net) + "원</b>을 더 썼습니다. 이 금액은 통장에 있어야 할 돈에서 나간 것이므로, 마지막에 내 몫에서 차감하거나 다시 채워 넣어야 맞습니다.") + "</p></div>";
+    }
+
+    /* ── 점검 4 : 내 계좌 ── */
+    $("meFlow").innerHTML =
+      row("내 계좌로 뺀 돈", won(T.meOut)) +
+      row("내 계좌에서 넣은 돈", "−" + won(T.meIn)) +
+      "<div class='flowrow tot'><span>순인출</span><b>" + won(T.meOut - T.meIn) + "</b></div>" +
+      row("+ 통장 돈으로 따로 쓴 돈", "+" + won(net)) +
+      "<div class='flowrow tot'><span>내가 실제로 가져간 총액</span><b>" + won(T.meTook) + "</b></div>" +
+      row("내 몫 (" + (100 - c.ratio).toFixed(1) + "%)", won(T.mShare)) +
+      "<div class='flowrow tot'><span>차이</span><b class='" + cls(T.meTook - T.mShare) + "'>" + signed(T.meTook - T.mShare) + "</b></div>" +
+      "<p class='note'>" + (R(T.meTook - T.mShare) < 0
+        ? "통장에 <b>" + won(T.mShare - T.meTook) + "원</b>만큼 아직 안 가져간 내 몫이 남아 있습니다."
+        : R(T.meTook - T.mShare) > 0 ? "내 몫보다 <b>" + won(T.meTook - T.mShare) + "원</b> 더 가져갔습니다." : "정확히 0입니다.") +
+      " 단, 이 몫은 전 기간 마진에 비율을 곱한 값이라 성주 님 정산처럼 달별로 확정된 숫자는 아닙니다.</p>";
+
     $("waterfall").innerHTML =
-      row("정산 입금 (네이버 → 통장)", won(T.revenue)) +
-      row("− 포기김치 매입 (쿠팡)", "−" + won(T.buy)) +
-      (c.eleven === "cost" ? row("− 깍두기 매입 (11번가)", "−" + won(T.kkak)) : "") +
+      row("정산 입금", won(T.revenue)) +
+      row("− 포기김치 매입", "−" + won(T.buy)) +
+      (c.eleven === "cost" ? row("− 깍두기 매입", "−" + won(T.kkak)) : "") +
       "<div class='flowrow tot'><span>현금 마진</span><b>" + won(T.margin) + "</b></div>" +
       row("+ 이자 · 캐시백", "+" + won(T.misc)) +
       row("− " + esc(c.partner) + " 지급", "−" + won(T.pPaid)) +
-      row("− " + esc(c.me) + " 실수령", "−" + won(T.meTook)) +
+      row("− 내가 가져간 총액", "−" + won(T.meTook)) +
       row("− 통장 잔액", "−" + won(T.bal)) +
       "<div class='flowrow tot'><span>남는 오차</span><b class='" + cls(T.residual) + "'>" + signed(T.residual) + "</b></div>" +
       "<p class='note'>" + (Math.abs(T.residual) < 1
-        ? "<span class='pill ok'>0으로 닫힘</span> 설명되지 않는 돈이 없습니다."
-        : "<span class='pill no'>오차 " + won(Math.abs(T.residual)) + "원</span> 분류되지 않은 거래가 있는지 확인이 필요합니다.") + "</p>";
+        ? "<span class='pill ok'>0으로 닫힘</span> 통장에서 설명 안 되는 돈은 없습니다. 새는 구멍은 없다는 뜻입니다."
+        : "<span class='pill no'>오차 " + won(Math.abs(T.residual)) + "원</span> 분류 안 된 거래가 있습니다.") + "</p>";
 
-    $("meDetail").innerHTML =
-      row("본인 계좌에서 넣은 돈", "−" + won(T.meIn)) +
-      row("기타 입금", "−" + won(T.otherIn)) +
-      row("본인 계좌로 뺀 돈", "+" + won(T.meOut)) +
-      row("정산과 무관한 지출", "+" + won(T.otherOut)) +
-      (c.eleven === "me" ? row("11번가 (개인 처리)", "+" + won(T.kkak)) : "") +
-      "<div class='flowrow tot'><span>실수령 합계</span><b>" + won(T.meTook) + "</b></div>" +
-      row("받아야 할 몫", won(T.mShare)) +
-      "<div class='flowrow tot'><span>차이</span><b class='" + cls(T.mDiff) + "'>" + signed(T.mDiff) + "</b></div>" +
-      "<p class='note'>" + (R(T.mDiff) < 0 ? "통장에 <b>" + won(-T.mDiff) + "원</b>만큼 아직 안 가져간 몫이 있습니다."
-        : R(T.mDiff) > 0 ? "몫보다 <b>" + won(T.mDiff) + "원</b> 더 가져갔습니다." : "정확히 0입니다.") + "</p>";
-
-    /* 월별 */
-    const th = ["월", "정산입금", "포기김치 매입", "깍두기 매입", "현금마진", c.partner + " 몫", c.partner + " 지급", "차이", "누적차이",
-      c.me + " 몫", c.me + " 실수령", "차이", "누적차이", "월말잔액"];
-    let h = "<thead><tr>" + th.map((t, i) => "<th" + (i === 0 ? " class='l'" : "") + ">" + esc(t) + "</th>").join("") + "</tr></thead><tbody>";
+    /* ── 참고 ── */
+    const th = ["월", "정산입금", "매입", "현금마진", esc(c.partner) + " 지급", "내 실수령", "따로 쓴 돈", "월말잔액"];
+    let mt = "<thead><tr>" + th.map((t, i) => "<th" + (i === 0 ? " class='l'" : "") + ">" + t + "</th>").join("") + "</tr></thead><tbody>";
     for (const r of D.rows) {
-      h += "<tr><td class='l num'>" + r.ym + "</td><td class='num'>" + won(r.revenue) + "</td>" +
-        "<td class='num'>" + won(r.buy) + "</td><td class='num'>" + won(r.kkak) + "</td>" +
-        "<td class='num'><b>" + won(r.margin) + "</b></td>" +
-        "<td class='num'>" + won(r.pShare) + "</td><td class='num'>" + won(r.pPaid) + "</td>" +
-        "<td class='num " + cls(r.pDiff) + "'>" + signed(r.pDiff) + "</td>" +
-        "<td class='num " + cls(r.cumPDiff) + "'>" + signed(r.cumPDiff) + "</td>" +
-        "<td class='num'>" + won(r.mShare) + "</td><td class='num'>" + won(r.meTook) + "</td>" +
-        "<td class='num " + cls(r.mDiff) + "'>" + signed(r.mDiff) + "</td>" +
-        "<td class='num " + cls(r.cumMDiff) + "'>" + signed(r.cumMDiff) + "</td>" +
-        "<td class='num'>" + won(r.bal) + "</td></tr>";
+      mt += "<tr><td class='l num'>" + r.ym + "</td><td class='num'>" + won(r.revenue) + "</td><td class='num'>" + won(r.buyAll) + "</td>" +
+        "<td class='num'><b>" + won(r.margin) + "</b></td><td class='num'>" + won(r.pPaid) + "</td><td class='num'>" + won(r.meTook) + "</td>" +
+        "<td class='num'>" + won(r.otherOut) + "</td><td class='num'>" + won(r.bal) + "</td></tr>";
     }
-    h += "</tbody><tfoot><tr><th class='l'>합계</th>" +
-      ["revenue", "buy", "kkak", "margin", "pShare", "pPaid"].map(k => "<td>" + won(T[k]) + "</td>").join("") +
-      "<td class='" + cls(T.pDiff) + "'>" + signed(T.pDiff) + "</td><td></td>" +
-      "<td>" + won(T.mShare) + "</td><td>" + won(T.meTook) + "</td>" +
-      "<td class='" + cls(T.mDiff) + "'>" + signed(T.mDiff) + "</td><td></td><td>" + won(T.bal) + "</td></tr></tfoot>";
-    $("monthTable").innerHTML = h;
+    mt += "</tbody><tfoot><tr><th class='l'>합계</th><td>" + won(T.revenue) + "</td><td>" + won(T.buyAll) + "</td><td>" + won(T.margin) +
+      "</td><td>" + won(T.pPaid) + "</td><td>" + won(T.meTook) + "</td><td>" + won(T.otherOut) + "</td><td>" + won(T.bal) + "</td></tr></tfoot>";
+    $("monthTable").innerHTML = mt;
+    $("monthSummary").textContent = D.rows.length + "개월 · 현금마진 " + won(T.margin) + "원";
 
-    /* 파트너 */
-    let p = "<thead><tr><th class='l'>일자</th><th class='l'>구분</th><th>금액</th><th>해당월 몫</th><th>누적 지급</th><th>누적 몫</th><th>누적 차이</th></tr></thead><tbody>";
-    const shareBy = new Map(D.rows.map(r => [r.ym, r.pShare]));
-    const cumBy = new Map(); let cs = 0;
-    for (const r of D.rows) { cs += r.pShare; cumBy.set(r.ym, cs); }
-    let cp = 0;
-    for (const x of D.pAll) {
-      cp += x.amt;
-      const cShare = cumBy.get(x.ym) || 0;
-      p += "<tr><td class='l num'>" + x.date + "</td><td class='l'><span class='pill " + (x.kind === "선지급" ? "wa" : "nu") + "'>" + x.kind + "</span></td>" +
-        "<td class='num'>" + won(x.amt) + "</td><td class='num dim'>" + won(shareBy.get(x.ym) || 0) + "</td>" +
-        "<td class='num'>" + won(cp) + "</td><td class='num'>" + won(cShare) + "</td>" +
-        "<td class='num " + cls(cp - cShare) + "'>" + signed(cp - cShare) + "</td></tr>";
-    }
-    p += "</tbody><tfoot><tr><th class='l'>합계</th><td></td><td>" + won(T.pPaid) + "</td><td></td><td></td><td>" + won(T.pShare) +
-      "</td><td class='" + cls(T.pDiff) + "'>" + signed(T.pDiff) + "</td></tr></tfoot>";
-    $("partnerTable").innerHTML = p;
-
-    $("advanceBox").innerHTML = "<div class='card'><h3>선지급 차감 점검</h3><p class='note' style='margin:0'>" +
-      (R(T.pDiff) > 0
-        ? "<span class='pill no'>차감 누락 의심</span> 선지급 <b>" + won(D.advTotal) + "원</b> 중 <b>" + won(T.pDiff) +
-        "원</b>이 정산에서 차감되지 않은 것으로 보입니다. 다음 지급에서 이만큼 빼면 맞습니다."
-        : R(T.pDiff) < 0
-          ? "<span class='pill ok'>차감 완료</span> 선지급 " + won(D.advTotal) + "원은 정산에 반영됐고, 오히려 <b>" + won(-T.pDiff) + "원</b>을 덜 줬습니다."
-          : "<span class='pill ok'>정확히 일치</span> 선지급까지 포함해 한 푼도 어긋나지 않습니다.") + "</p></div>";
-
-    /* 네이버 + 차트 */
-    if (!D.nRows.length) {
-      $("naverSection").classList.add("hidden");
-    } else {
-      $("naverSection").classList.remove("hidden");
-      let n = "<thead><tr><th class='l'>정산월</th><th>건수</th><th>수량</th><th>정산액</th><th>원가</th><th>마진</th><th>" +
-        esc(c.partner) + " 몫</th><th>" + esc(c.me) + " 몫</th><th>개당 마진</th></tr></thead><tbody>";
-      for (const r of D.nRows) {
-        n += "<tr><td class='l num'>" + r.ym + "</td><td class='num'>" + won(r.cnt) + "</td><td class='num'>" + won(r.qty) + "</td>" +
-          "<td class='num'>" + won(r.net) + "</td><td class='num'>" + won(r.cost) + "</td><td class='num'><b>" + won(r.margin) + "</b></td>" +
-          "<td class='num'>" + won(r.pShare) + "</td><td class='num'>" + won(r.mShare) + "</td><td class='num dim'>" + won(r.per) + "</td></tr>";
-      }
-      n += "</tbody><tfoot><tr><th class='l'>합계</th>" + ["cnt", "qty", "net", "cost", "margin", "pShare", "mShare"].map(k => "<td>" + won(D.NT[k]) + "</td>").join("") +
-        "<td>" + won(D.NT.qty ? D.NT.margin / D.NT.qty : 0) + "</td></tr></tfoot>";
+    if (D.nRows.length) {
+      let n = "<thead><tr><th class='l'>정산월</th><th>건수</th><th>수량</th><th>정산액</th><th>원가</th><th>마진</th><th>개당 마진</th></tr></thead><tbody>";
+      for (const r of D.nRows) n += "<tr><td class='l num'>" + r.ym + "</td><td class='num'>" + won(r.cnt) + "</td><td class='num'>" + won(r.qty) + "</td><td class='num'>" + won(r.net) + "</td><td class='num'>" + won(r.cost) + "</td><td class='num'><b>" + won(r.margin) + "</b></td><td class='num dim'>" + won(r.per) + "</td></tr>";
+      n += "</tbody><tfoot><tr><th class='l'>합계</th><td>" + won(D.NT.cnt) + "</td><td>" + won(D.NT.qty) + "</td><td>" + won(D.NT.net) + "</td><td>" + won(D.NT.cost) + "</td><td>" + won(D.NT.margin) + "</td><td>" + won(D.NT.qty ? D.NT.margin / D.NT.qty : 0) + "</td></tr></tfoot>";
       $("naverTable").innerHTML = n;
-      drawCharts();
-    }
+      $("naverSummary").textContent = D.nRows.length + "개월 · 개당 마진 평균 " + won(D.NT.qty ? D.NT.margin / D.NT.qty : 0) + "원";
+      $("dtNaver").classList.remove("hidden");
+      if ($("dtNaver").open) drawCharts();
+    } else { $("dtNaver").classList.add("hidden"); }
 
-    /* 재고 */
-    const boughtQty = T.buyQty + (c.eleven === "cost" ? T.kkakQty : 0);
-    const stock = boughtQty - D.soldQty;
-    const tile = (k, v, nn, hero) => "<div class='tile" + (hero ? " hero" : "") + "'><div class='k'>" + k + "</div><div class='v'>" + v + "</div><div class='n'>" + (nn || "") + "</div></div>";
-    $("stockBox").innerHTML =
-      tile("매입 수량", boughtQty.toLocaleString() + "개", "포기김치 " + T.buyQty.toLocaleString() + " + 깍두기 " + T.kkakQty.toLocaleString()) +
-      tile("판매 수량", D.soldQty.toLocaleString() + "개", "네이버 정산 기준 (미정산 포함)") +
-      tile("재고 추정", stock.toLocaleString() + "개", "매입 − 판매", true);
+    const boughtQty = T.buyQty + (c.eleven === "cost" ? T.kkakQty : 0), stock = boughtQty - D.soldQty;
+    const gap = D.nRange && D.tRange && D.nRange[1] < D.tRange[1];
+    $("stockBox").innerHTML = tile("매입 수량", boughtQty.toLocaleString() + "개", "포기김치 " + T.buyQty.toLocaleString() + " + 깍두기 " + T.kkakQty.toLocaleString()) +
+      tile("판매 수량", D.soldQty.toLocaleString() + "개", "네이버 기준") + tile("재고 추정", stock.toLocaleString() + "개", "매입 − 판매", true);
+    $("stockSummary").textContent = D.nRange ? "약 " + stock.toLocaleString() + "개" + (gap ? " (기간 불일치)" : "") : "네이버 자료 필요";
     $("stockNote").innerHTML = "<div class='card'><p class='note' style='margin:0'>" +
-      (!D.nRange ? "<span class='pill nu'>네이버 파일 필요</span> 판매 수량이 없어 재고를 낼 수 없습니다."
-        : gap ? "<span class='pill wa'>기간 불일치</span> 매입은 " + D.tRange[1] + "까지 잡혔는데 판매는 " + D.nRange[1] +
-          "까지만 있습니다. <b>그 사이에 팔린 물량이 통째로 빠져 있어 이 숫자는 실제 재고가 아닙니다.</b> " +
-          "네이버 파일을 " + D.tRange[1] + "까지 채우면 진짜 창고 재고가 나옵니다."
-          : "<span class='pill ok'>기간 일치</span> 매입 " + boughtQty.toLocaleString() + "개 중 " + D.soldQty.toLocaleString() +
-          "개가 팔려 <b>" + stock.toLocaleString() + "개</b>가 남아 있는 것으로 계산됩니다. 재고 금액으로는 약 " +
-          won(stock * c.cost) + "원입니다.") + "</p></div>";
+      (!D.nRange ? "<span class='pill nu'>네이버 자료 필요</span> 판매 수량이 없어 재고를 낼 수 없습니다."
+        : gap ? "<span class='pill wa'>기간 불일치</span> 매입은 " + D.tRange[1] + "까지인데 판매는 " + D.nRange[1] + "까지만 있습니다. <b>그 사이 팔린 물량이 빠져 있어 실제 재고가 아닙니다.</b>"
+          : "<span class='pill ok'>기간 일치</span> 매입 " + boughtQty.toLocaleString() + "개 중 " + D.soldQty.toLocaleString() + "개 판매, <b>" + stock.toLocaleString() + "개</b> 남았습니다 (약 " + won(stock * c.cost) + "원).") + "</p></div>";
 
-    /* 여력 */
-    const owed = Math.max(0, -T.pDiff) + Math.max(0, R(unsMargin * D.ratio));
-    const reserve = +c.reserve || 0;
-    const avail = T.bal + unsAmt - owed - reserve;
+    const unsAmt = D.unsAmt + (+S.man.amt || 0), unsQty = D.unsQty + (+S.man.qty || 0);
+    const unsMargin = unsAmt - unsQty * c.cost;
+    const owed = Math.max(0, R(P.diffSum) < 0 ? -P.diffSum : 0) + Math.max(0, R(unsMargin * D.ratio));
+    const reserve = +c.reserve || 0, avail = T.bal + unsAmt - owed - reserve;
     const canBuy = Math.floor(Math.max(0, avail) / (c.cost || 22900));
-    const nowBuy = Math.floor(Math.max(0, T.bal - reserve) / (c.cost || 22900));
-    $("capacityBox").innerHTML =
-      tile("현재 통장 잔액", won(T.bal) + "원", "마지막 거래 " + D.tRange[1]) +
-      tile("들어올 정산금", won(unsAmt) + "원", unsQty ? unsQty + "개분" + (S.man.note ? " · " + esc(S.man.note) : "") : "미정산 입력 없음") +
-      tile(esc(c.partner) + "에게 줄 돈", won(owed) + "원", "미지급분 + 미정산분 몫") +
-      tile("최소 운영자금", won(reserve) + "원", "항상 남겨둘 금액") +
-      tile("지금 매입 가능", nowBuy.toLocaleString() + "건", "잔액 − 운영자금 기준") +
-      tile("정산금 들어오면", canBuy.toLocaleString() + "건", won(c.cost) + "원 기준", true);
-    $("capacityFlow").innerHTML =
-      row("현재 통장 잔액", won(T.bal)) +
-      row("+ 파일에서 잡힌 미정산", "+" + won(D.unsAmt)) +
-      row("+ 직접 입력한 미정산", "+" + won(+S.man.amt || 0)) +
-      row("− " + esc(c.partner) + " 미지급분", "−" + won(Math.max(0, -T.pDiff))) +
-      row("− " + esc(c.partner) + " 미정산분 몫", "−" + won(Math.max(0, R(unsMargin * D.ratio)))) +
-      row("− 최소 운영자금", "−" + won(reserve)) +
+    $("capacityBox").innerHTML = tile("현재 통장 잔액", won(T.bal) + "원", D.tRange ? "마지막 거래 " + D.tRange[1] : "") +
+      tile("들어올 정산금", won(unsAmt) + "원", unsQty ? unsQty + "개분" : "없음") +
+      tile(esc(c.partner) + "에게 줄 돈", won(owed) + "원", "미지급 + 미정산분 몫") +
+      tile("최소 운영자금", won(reserve) + "원", "남겨둘 금액") +
+      tile("매입 가용 현금", won(Math.max(0, avail)) + "원", "") +
+      tile("매입 가능", canBuy.toLocaleString() + "건", won(c.cost) + "원 기준", true);
+    $("capacityFlow").innerHTML = row("통장 잔액", won(T.bal)) + row("+ 들어올 정산금", "+" + won(unsAmt)) +
+      row("− " + esc(c.partner) + " 줄 돈", "−" + won(owed)) + row("− 최소 운영자금", "−" + won(reserve)) +
       "<div class='flowrow tot'><span>매입 가용 현금</span><b>" + won(Math.max(0, avail)) + "</b></div>" +
-      "<div class='flowrow tot'><span>매입 가능 건수 (" + won(c.cost) + "원)</span><b>" + canBuy.toLocaleString() + "건</b></div>" +
-      "<p class='note'>" + esc(c.me) + " 님이 아직 안 가져간 몫 " + won(Math.max(0, -T.mDiff)) +
-      "원은 본인 돈이라 여기서 빼지 않았습니다. 실제로 인출하시면 그만큼 매입 여력이 줄어듭니다.</p>";
+      "<div class='flowrow tot'><span>매입 가능 건수</span><b>" + canBuy.toLocaleString() + "건</b></div>";
+    $("capSummary").textContent = "잔액 " + won(T.bal) + "원 · " + canBuy.toLocaleString() + "건 매입 가능";
 
-    /* 요약 */
-    const period = D.rows.length ? D.rows[0].ym + " ~ " + D.rows[D.rows.length - 1].ym : "";
-    const pWord = R(T.pDiff) > 0 ? esc(c.partner) + " 님이 <b>" + won(T.pDiff) + "원</b>을 더 가져갔습니다"
-      : R(T.pDiff) < 0 ? esc(c.partner) + " 님에게 <b>" + won(-T.pDiff) + "원</b>을 덜 줬습니다" : esc(c.partner) + " 님은 정확히 맞습니다";
-    const mWord = R(T.mDiff) > 0 ? "사장님은 <b>" + won(T.mDiff) + "원</b>을 더 가져갔습니다"
-      : R(T.mDiff) < 0 ? "사장님은 통장에서 <b>" + won(-T.mDiff) + "원</b>을 더 가져갈 수 있습니다" : "사장님도 정확히 맞습니다";
-    $("summaryBox").innerHTML =
-      "<p style='margin:0 0 10px'><b>" + period + "</b> 기간 동안 정산금 " + won(T.revenue) + "원이 들어왔고 매입에 " + won(T.buyAll) +
-      "원을 썼습니다. 현금 마진은 <b>" + won(T.margin) + "원</b>입니다.</p>" +
-      "<p style='margin:0 0 10px'>" + pWord + ". " + mWord + ".</p>" +
-      "<p style='margin:0'>통장에 " + won(T.bal) + "원이 남아 있고, 운영자금 " + won(reserve) + "원을 남기고 들어올 정산금까지 합치면 " +
-      won(c.cost) + "원짜리를 <b>" + canBuy.toLocaleString() + "건</b> 더 매입할 수 있습니다." +
-      (Math.abs(T.residual) >= 1 ? " <span class='pill no'>다만 오차 " + won(Math.abs(T.residual)) + "원이 남아 확인이 필요합니다.</span>"
-        : " <span class='pill ok'>계산은 0으로 닫힙니다.</span>") + "</p>";
+    document.querySelectorAll("input[data-memo]").forEach(el => {
+      el.addEventListener("change", function () { S.memo[this.dataset.memo] = this.value; save(); });
+    });
   }
 
   function drawCharts() {
     if (!LAST || !LAST.nRows.length) return;
-    drawChart($("chartMargin"), LAST.nRows.map(r => ({ x: r.ym, y: R(r.per) })), "line", {
-      axis: v => Math.round(v).toLocaleString(), label: v => won(v) + "원", tip: v => won(v) + "원"
-    });
-    drawChart($("chartQty"), LAST.nRows.map(r => ({ x: r.ym, y: r.qty })), "bar", {
-      axis: v => v.toLocaleString(), label: v => v.toLocaleString() + "개", tip: v => v.toLocaleString() + "개"
-    });
+    drawChart($("chartMargin"), LAST.nRows.map(r => ({ x: r.ym, y: R(r.per) })), "line",
+      { axis: v => Math.round(v).toLocaleString(), label: v => won(v) + "원", tip: v => won(v) + "원" });
+    drawChart($("chartQty"), LAST.nRows.map(r => ({ x: r.ym, y: r.qty })), "bar",
+      { axis: v => v.toLocaleString(), label: v => v.toLocaleString() + "개", tip: v => v.toLocaleString() + "개" });
   }
-  let rz;
-  window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(drawCharts, 180); });
+  $("dtNaver").addEventListener("toggle", function () { if (this.open) drawCharts(); });
+  let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if ($("dtNaver").open) drawCharts(); }, 180); });
 
   /* ═══════════ 이벤트 ═══════════ */
-
   function wire(dropId, inputId, statusId, handler) {
     const drop = $(dropId), input = $(inputId), st = $(statusId);
     const run = async files => {
@@ -1082,10 +1071,10 @@
       try {
         st.textContent = await handler(Array.from(files));
         drop.classList.add("done");
+        if (CALC) STALE = true;
         save(); render();
-      } catch (e) {
-        st.classList.add("err"); st.textContent = e.message || String(e);
       }
+      catch (e) { st.classList.add("err"); st.textContent = e.message || String(e); }
       input.value = "";
     };
     input.addEventListener("change", () => run(input.files));
@@ -1094,84 +1083,74 @@
     ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("on"); }));
     drop.addEventListener("drop", e => run(e.dataTransfer.files));
   }
-
   wire("dropToss", "fileToss", "stToss", async files => {
     let a = 0, d = 0;
     for (const f of files) { const r = await ingestToss(f); a += r.added; d += r.dup; }
-    return "새로 " + a.toLocaleString() + "건 추가" + (d ? " · 중복 " + d.toLocaleString() + "건 건너뜀" : "") + " · 누적 " + S.toss.length.toLocaleString() + "건";
+    return "새로 " + a.toLocaleString() + "건" + (d ? " · 중복 " + d.toLocaleString() + "건 제외" : "") + " · 누적 " + S.toss.length.toLocaleString() + "건";
   });
   wire("dropNaver", "fileNaver", "stNaver", async files => {
     let a = 0, d = 0;
     for (const f of files) { const r = await ingestNaver(f); a += r.added; d += r.dup; }
-    return "새로 " + a.toLocaleString() + "건 추가" + (d ? " · 중복 " + d.toLocaleString() + "건 건너뜀" : "") + " · 누적 " + S.naver.length.toLocaleString() + "건";
+    return "새로 " + a.toLocaleString() + "건" + (d ? " · 중복 " + d.toLocaleString() + "건 제외" : "") + " · 누적 " + S.naver.length.toLocaleString() + "건";
   });
 
   const cfgMap = { setMe: "me", setPartner: "partner", setRatio: "ratio", setCost: "cost", setCost11: "cost11", setHi: "hi", setReserve: "reserve", setEleven: "eleven" };
   const numKeys = { ratio: 1, cost: 1, cost11: 1, hi: 1, reserve: 1 };
-  for (const id in cfgMap) {
-    $(id).addEventListener("input", function () {
-      const k = cfgMap[id];
-      S.cfg[k] = numKeys[k] ? (parseFloat(this.value) || 0) : this.value;
-      save(); render();
-    });
+  for (const id in cfgMap) $(id).addEventListener("input", function () {
+    const k = cfgMap[id]; S.cfg[k] = numKeys[k] ? (parseFloat(this.value) || 0) : this.value; save(); render();
+  });
+  const manMap = { mAmt: "amt", mQty: "qty" };
+  for (const id in manMap) $(id).addEventListener("input", function () {
+    S.man[manMap[id]] = parseFloat(this.value) || 0; save(); render();
+  });
+
+  function runCalc() {
+    CALC = true; STALE = false;
+    render();
+    const el = $("results");
+    if (el && !el.classList.contains("hidden")) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
-  const manMap = { mAmt: "amt", mQty: "qty", mNote: "note" };
-  for (const id in manMap) {
-    $(id).addEventListener("input", function () {
-      const k = manMap[id];
-      S.man[k] = k === "note" ? this.value : (parseFloat(this.value) || 0);
-      save(); render();
-    });
-  }
+  ["btnCalc", "btnCalcInner", "btnRecalc"].forEach(id => $(id).addEventListener("click", runCalc));
 
   function reset(which) {
     if (which !== "naver") { S.toss = []; $("stToss").textContent = ""; $("rngToss").textContent = ""; $("dropToss").classList.remove("done"); }
     if (which !== "toss") { S.naver = []; $("stNaver").textContent = ""; $("rngNaver").textContent = ""; $("dropNaver").classList.remove("done"); }
+    if (CALC) STALE = true;
     save(); render();
   }
   $("btnClearToss").addEventListener("click", () => reset("toss"));
   $("btnClearNaver").addEventListener("click", () => reset("naver"));
   $("btnClearAll").addEventListener("click", () => {
-    S.toss = []; S.naver = [];
+    S.toss = []; S.naver = []; S.memo = {}; CALC = false; STALE = false;
     ["stToss", "stNaver", "rngToss", "rngNaver"].forEach(i => $(i).textContent = "");
     $("dropToss").classList.remove("done"); $("dropNaver").classList.remove("done");
-    try { localStorage.removeItem(KEY); } catch (e) { }
+    try { localStorage.removeItem(KEY); localStorage.removeItem("masterJeongsan.v2"); } catch (e) { }
     render();
   });
 
-  /* ── 공유 링크 ── */
   $("btnShare").addEventListener("click", async () => {
     if (!LAST) return;
     const btn = $("btnShare");
     btn.disabled = true; btn.textContent = "만드는 중…";
     try {
-      const payload = await packShare(toSnapshot(LAST));
-      const url = location.origin + location.pathname + "#s=" + payload;
-      $("shareUrl").value = url;
-      $("shareOut").classList.remove("hidden");
+      const url = location.origin + location.pathname + "#s=" + await packShare(toSnapshot(LAST));
+      $("shareUrl").value = url; $("shareOut").classList.remove("hidden");
       $("shareLen").textContent = Math.round(url.length / 1024 * 10) / 10 + "KB";
-      $("shareUrl").select();
-      btn.textContent = "다시 만들기";
-    } catch (e) {
-      $("shareLen").textContent = "만들지 못했습니다: " + (e.message || e);
-    }
+      $("shareUrl").select(); btn.textContent = "다시 만들기";
+    } catch (e) { $("shareLen").textContent = "만들지 못했습니다: " + (e.message || e); }
     btn.disabled = false;
   });
   $("btnCopy").addEventListener("click", async () => {
-    const el = $("shareUrl");
-    el.select();
-    try { await navigator.clipboard.writeText(el.value); $("btnCopy").textContent = "복사됨"; }
-    catch (e) { document.execCommand("copy"); $("btnCopy").textContent = "복사됨"; }
-    setTimeout(() => $("btnCopy").textContent = "복사", 1600);
+    const el = $("shareUrl"); el.select();
+    try { await navigator.clipboard.writeText(el.value); } catch (e) { document.execCommand("copy"); }
+    $("btnCopy").textContent = "복사됨"; setTimeout(() => $("btnCopy").textContent = "복사", 1600);
   });
 
-  function sharedMode(on) {
-    ["secInput", "secCfg", "secUns", "shareBar"].forEach(i => $(i).classList.toggle("hidden", on));
-    $("shareBanner").classList.toggle("hidden", !on);
-    if (on) {
-      document.querySelectorAll("input, select").forEach(el => el.disabled = true);
-      $("placeholder").classList.add("hidden");
-    }
+  function sharedMode() {
+    $("secInput").classList.add("hidden");
+    $("shareBar").classList.add("hidden");
+    $("shareBanner").classList.remove("hidden");
+    document.querySelectorAll("#secInput input, #secInput select").forEach(el => el.disabled = true);
   }
 
   async function boot() {
@@ -1179,16 +1158,19 @@
     if (m) {
       try {
         SHARED = fromSnapshot(await unpackShare(decodeURIComponent(m[1])));
-        sharedMode(true);
-        $("shareBannerNote").innerHTML = "만든 시각 <b>" + esc(SHARED.ts || "-") + "</b> 기준입니다. 원본 거래내역은 담겨 있지 않고 월별 집계와 정산 내역만 있습니다. " +
-          "최신 숫자가 필요하면 " + esc(S.cfg.me) + " 님께 링크를 다시 받으세요.";
+        sharedMode();
+        $("shareBannerNote").innerHTML = "만든 시각 <b>" + esc(SHARED.ts || "-") + "</b> 기준. 성주 정산 점검표와 월별 집계만 담겨 있고, 개별 거래는 들어 있지 않습니다.";
         render();
+        /* 공유 모드에선 개인 지출/입금 섹션 숨김 */
+        document.querySelectorAll("section").forEach(s => {
+          const t = s.querySelector("h2");
+          if (t && /점검 2|점검 3/.test(t.textContent)) s.classList.add("hidden");
+        });
         return;
       } catch (e) {
-        SHARED = null;
         $("shareBanner").classList.remove("hidden");
-        $("shareBanner").querySelector("div").textContent = "공유 링크를 읽지 못했습니다";
-        $("shareBannerNote").textContent = "링크가 중간에 잘렸을 수 있습니다. 전체 주소를 다시 받아주세요. (" + (e.message || e) + ")";
+        $("shareBannerTitle").textContent = "공유 링크를 읽지 못했습니다";
+        $("shareBannerNote").textContent = "링크가 중간에 잘렸을 수 있습니다. 전체 주소를 다시 받아주세요.";
       }
     }
     load();
@@ -1196,6 +1178,7 @@
     for (const id in manMap) $(id).value = S.man[manMap[id]];
     if (S.toss.length) { $("stToss").textContent = "저장분 " + S.toss.length.toLocaleString() + "건"; $("dropToss").classList.add("done"); }
     if (S.naver.length) { $("stNaver").textContent = "저장분 " + S.naver.length.toLocaleString() + "건"; $("dropNaver").classList.add("done"); }
+    CALC = S.toss.length > 0;   /* 이전에 넣어둔 자료가 있으면 바로 보여준다 */
     render();
   }
   boot();
