@@ -281,31 +281,37 @@
 
     <section>
       <div class="sechead">
-        <h2><span class="n">점검 2</span> 통장 돈으로 따로 쓴 건 얼마인가</h2>
-        <p class="askline">정산과 상관없이 통장에서 나간 돈. 결국 내가 메꿔놔야 할 금액입니다.</p>
+        <h2><span class="n">점검 2</span> 내 돈은 제로섬인가</h2>
+        <p class="askline">정산 배분과 무관하게 — 내가 넣은 돈 + 따로 들어온 돈 − 따로 쓴 돈. 0이면 빵꾸가 없다는 뜻입니다.</p>
       </div>
-      <div class="grid g3" id="spentTiles" style="margin-bottom:13px"></div>
+      <div id="zeroSum" style="margin-bottom:16px"></div>
+
+      <h3 style="margin:20px 0 8px">① 내가 넣은 돈 <span class="dim" style="font-weight:400;font-size:13px" id="cnt1"></span></h3>
+      <div class="scroll"><table id="meInTable"></table></div>
+
+      <h3 style="margin:22px 0 8px">② 정산과 무관하게 들어온 돈 <span class="dim" style="font-weight:400;font-size:13px" id="cnt2"></span></h3>
+      <div class="scroll"><table id="inTable"></table></div>
+
+      <h3 style="margin:22px 0 8px">③ 정산과 무관하게 나간 돈 <span class="dim" style="font-weight:400;font-size:13px" id="cnt3"></span></h3>
+      <div class="grid g3" id="spentTiles" style="margin-bottom:11px"></div>
       <div class="scroll"><table id="spentTable"></table></div>
     </section>
 
     <section>
       <div class="sechead">
-        <h2><span class="n">점검 3</span> 들어온 돈은 다시 나갔나</h2>
-        <p class="askline">정산과 무관하게 들어온 돈. 같은 금액이 나갔으면 제로섬입니다.</p>
+        <h2><span class="n">점검 3</span> 내 계좌로 빼간 돈</h2>
+        <p class="askline">내 몫을 회수한 내역입니다. 위 ①에서 넣은 돈이 여기로 되돌아왔는지 같이 보세요.</p>
       </div>
-      <div class="scroll"><table id="inTable"></table></div>
-      <div id="zeroSum" style="margin-top:13px"></div>
+      <div class="scroll"><table id="meOutTable"></table></div>
+      <div class="card" style="margin-top:13px"><h3>내 계좌 이체 대사</h3><div id="meFlow"></div></div>
     </section>
 
     <section>
       <div class="sechead">
-        <h2><span class="n">점검 4</span> 내 계좌로 넣고 뺀 돈</h2>
-        <p class="askline">부족할 때 넣은 돈과 빼간 돈, 그리고 내 몫과의 차이.</p>
+        <h2><span class="n">점검 4</span> 통장이 0으로 닫히는지</h2>
+        <p class="askline">전체가 맞아떨어지면 설명 안 되는 돈은 없습니다.</p>
       </div>
-      <div class="grid g2">
-        <div class="card"><h3>내 계좌 이체 대사</h3><div id="meFlow"></div></div>
-        <div class="card"><h3>통장이 0으로 닫히는지</h3><div id="waterfall"></div></div>
-      </div>
+      <div class="card"><div id="waterfall"></div></div>
     </section>
 
     <section>
@@ -434,7 +440,7 @@
 
   /* ═══════════ 상태 ═══════════ */
   const S = {
-    toss: [], naver: [], memo: {},
+    toss: [], naver: [], memo: {}, adj: {}, note: {},
     cfg: { me: "홍찬화", partner: "유성주", ratio: 60, cost: 22900, cost11: 13900, hi: 64900, reserve: 2000000, eleven: "cost" },
     man: { amt: 0, qty: 0 }
   };
@@ -451,7 +457,7 @@
       localStorage.setItem(KEY, JSON.stringify({
         toss: S.toss.map(t => [t.dt, t.desc, t.type, t.bank, t.acct, t.amt, t.bal]),
         naver: S.naver.map(n => [n.itemNo, n.orderNo, n.name, n.buyer, n.baseDate, n.doneDate, n.amt, n.fee1, n.fee2]),
-        cfg: S.cfg, man: S.man, memo: S.memo
+        cfg: S.cfg, man: S.man, memo: S.memo, adj: S.adj, note: S.note
       }));
     } catch (e) { }
   }
@@ -464,6 +470,8 @@
       if (d.cfg) Object.assign(S.cfg, d.cfg);
       if (d.man) Object.assign(S.man, d.man);
       if (d.memo) S.memo = d.memo;
+      if (d.adj) S.adj = d.adj;
+      if (d.note) S.note = d.note;
       if (d.toss) S.toss = d.toss.map(a => mkToss(a[0], a[1], a[2], a[3], a[4], a[5], a[6]));
       if (d.naver) S.naver = d.naver.map(a => mkNaver(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8]));
     } catch (e) { }
@@ -567,7 +575,7 @@
       if (!M.has(ym)) M.set(ym, { ym, settle: 0, coupangIn: 0, buy: 0, buyQty: 0, kkak: 0, kkakQty: 0, partner: 0, meIn: 0, meOut: 0, otherIn: 0, otherOut: 0, misc: 0, inSum: 0, outSum: 0 });
       return M.get(ym);
     };
-    const partnerRows = [], otherOutRows = [], otherInRows = [], meRows = [];
+    const partnerRows = [], otherOutRows = [], otherInRows = [], meInRows = [], meOutRows = [];
     for (const t of S.toss) {
       const m = get(t.ym), k = classify(t.desc, t.amt), a = Math.abs(t.amt);
       if (t.amt > 0) m.inSum += a; else m.outSum += a;
@@ -576,8 +584,8 @@
       else if (k === "매입") { m.buy += a; m.buyQty += qtyOf(a, c.cost); }
       else if (k === "깍두기매입") { m.kkak += a; m.kkakQty += qtyOf(a, c.cost11); }
       else if (k === "파트너출금") { m.partner += a; partnerRows.push(t); }
-      else if (k === "본인입금") { m.meIn += a; meRows.push(t); }
-      else if (k === "본인출금") { m.meOut += a; meRows.push(t); }
+      else if (k === "본인입금") { m.meIn += a; meInRows.push(t); }
+      else if (k === "본인출금") { m.meOut += a; meOutRows.push(t); }
       else if (k === "잡수입") m.misc += a;
       else if (k === "기타입금") { m.otherIn += a; otherInRows.push(t); }
       else if (k === "기타출금") { m.otherOut += a; otherOutRows.push(t); }
@@ -643,10 +651,11 @@
       const sm = prevYm(t.ym), margin = marginBy.has(sm) ? marginBy.get(sm) : null;
       const share = margin != null ? R(margin * ratio) : null;
       const should = share != null ? share - pend : null;
+      const adj = +(S.adj[sm] || 0), paidAdj = amt + adj;
       checks.push({
-        sm, payDate: t.date, paid: amt, adv: pend, advList: pendList,
-        margin, share, should, diff: should != null ? amt - should : null,
-        needIfDeducted: (amt + pend) / ratio, needIfNot: amt / ratio
+        sm, payDate: t.date, paid: amt, adj, paidAdj, adv: pend, advList: pendList,
+        margin, share, should, diff: should != null ? paidAdj - should : null,
+        needIfDeducted: (paidAdj + pend) / ratio, needIfNot: paidAdj / ratio
       });
       pend = 0; pendList = [];
     }
@@ -657,6 +666,8 @@
       checks.push({ sm: r.ym, payDate: null, paid: null, adv: pend, advList: pendList, margin: r.margin, share: R(r.margin * ratio), should: R(r.margin * ratio) - pend, diff: null, pending: true });
     }
     checks.sort((a, b) => a.sm < b.sm ? -1 : a.sm > b.sm ? 1 : 0);
+    let cum = 0;
+    for (const x of checks) { if (x.diff != null) { cum += x.diff; x.cum = cum; } else x.cum = null; }
     const verified = checks.filter(x => x.diff != null);
     const unknown = checks.filter(x => x.diff == null && !x.pending);
     const pcheck = {
@@ -670,7 +681,7 @@
     const tRange = S.toss.length ? [S.toss[0].date, S.toss[S.toss.length - 1].date] : null;
     const nRange = S.naver.length ? [S.naver[0].baseDate, S.naver[S.naver.length - 1].baseDate] : null;
     return {
-      rows, T, nRows, NT, pcheck, otherOutRows, otherInRows, meRows, partnerRows, kindOf,
+      rows, T, nRows, NT, pcheck, otherOutRows, otherInRows, meInRows, meOutRows, partnerRows, kindOf,
       unsAmt, unsQty, unsCount, soldQty, ratio, tRange, nRange,
       counts: [S.toss.length, S.naver.length]
     };
@@ -679,12 +690,12 @@
   /* ═══════════ 공유 스냅샷 (개인 지출·입금은 제외) ═══════════ */
   const RF = ["ym", "revenue", "buy", "kkak", "margin", "pShare", "pPaid", "mShare", "meIn", "meOut", "otherIn", "otherOut", "meTook", "misc", "buyQty", "kkakQty", "bal"];
   const NF = ["ym", "cnt", "qty", "net", "cost", "margin"];
-  const CF = ["sm", "payDate", "paid", "adv", "margin", "share", "should", "diff"];
+  const CF = ["sm", "payDate", "paid", "adv", "margin", "share", "should", "diff", "adj", "paidAdj", "cum"];
 
   function toSnapshot(D) {
     return {
       v: 3, ts: new Date().toISOString().slice(0, 16).replace("T", " "),
-      cfg: S.cfg, man: S.man, tR: D.tRange, nR: D.nRange, cnt: D.counts,
+      cfg: S.cfg, man: S.man, tR: D.tRange, nR: D.nRange, cnt: D.counts, note: S.note,
       rows: D.rows.map(r => RF.map(k => r[k])),
       nRows: D.nRows.map(r => NF.map(k => r[k])),
       checks: D.pcheck.checks.map(x => CF.map(k => x[k] === undefined ? null : x[k]).concat([x.advList ? x.advList.map(a => [a.date, a.amt]) : []])),
@@ -693,6 +704,7 @@
   }
   function fromSnapshot(s) {
     Object.assign(S.cfg, s.cfg || {}); Object.assign(S.man, s.man || {});
+    if (s.note) S.note = s.note;
     const ratio = S.cfg.ratio / 100;
     let bal = 0;
     const rows = (s.rows || []).map(a => { const r = {}; RF.forEach((k, i) => r[k] = a[i]); r.buyAll = r.buy + (S.cfg.eleven === "cost" ? r.kkak : 0); return r; });
@@ -722,7 +734,7 @@
         unknownPaid: unknown.reduce((a, x) => a + (x.paid || 0), 0),
         advTotal: checks.reduce((a, x) => a + (x.adv || 0), 0), pendingNow: 0, pendingList: []
       },
-      otherOutRows: null, otherInRows: null, meRows: null,
+      otherOutRows: null, otherInRows: null, meInRows: null, meOutRows: null,
       unsAmt: (s.uns || [0, 0, 0])[0], unsQty: (s.uns || [0, 0, 0])[1], unsCount: (s.uns || [0, 0, 0])[2],
       soldQty: s.sold || 0, ratio, tRange: s.tR, nRange: s.nR, ts: s.ts, counts: s.cnt || [0, 0]
     };
@@ -863,25 +875,28 @@
       "<div><span>판정 못 한 달</span><b>" + unkN + "개월 (" + won(P.unknownPaid) + "원)</b></div>" +
       "<div><span>먼저 준 돈(선지급)</span><b>" + won(P.advTotal) + "원</b></div></div></div>";
 
-    const net = T.spent - T.otherIn;
-    h += "<div class='vc " + (R(net) > 0 ? "wa" : "ok") + "'><div class='q'>통장 돈으로 따로 쓴 건 얼마인가</div>" +
-      "<div class='big'>" + won(net) + "</div><div class='sub'>" + (R(net) > 0 ? "이만큼은 내가 메꿔놔야 할 돈입니다" : "따로 쓴 돈이 없습니다") + "</div><div class='mini'>" +
-      "<div><span>정산 무관 지출</span><b>" + won(T.spent) + "원</b></div>" +
-      "<div><span>정산 무관 입금</span><b>" + won(T.otherIn) + "원</b></div>" +
-      "<div><span>통장 잔액</span><b>" + won(T.bal) + "원</b></div></div></div>";
+    const zero = T.meIn + T.otherIn - T.spent;
+    h += "<div class='vc " + (R(zero) === 0 ? "ok" : R(zero) > 0 ? "wa" : "bad") + "'><div class='q'>내 돈은 제로섬인가</div>" +
+      "<div class='big'>" + signed(zero) + "</div><div class='sub'>" +
+      (R(zero) === 0 ? "넣은 돈과 쓴 돈이 정확히 상쇄됩니다"
+        : R(zero) > 0 ? "넣은 돈이 이만큼 더 많습니다 — 더 빼가야 할 돈" : "이만큼 빵꾸 — 메꿔놔야 할 돈") + "</div><div class='mini'>" +
+      "<div><span>① 내가 넣은 돈</span><b>+" + won(T.meIn) + "원</b></div>" +
+      "<div><span>② 정산 무관 입금</span><b>+" + won(T.otherIn) + "원</b></div>" +
+      "<div><span>③ 따로 쓴 돈</span><b>−" + won(T.spent) + "원</b></div></div></div>";
     $("headBox").innerHTML = h;
 
     /* ── 점검 1 : 성주 ── */
-    let p = "<thead><tr><th class='l'>정산월</th><th>네이버 마진</th><th>" + esc(c.partner) + " 몫</th><th>먼저 준 돈</th><th>줬어야 할 금액</th><th class='l'>지급일</th><th>실제 지급</th><th>차이</th><th class='l'>판정</th></tr></thead><tbody>";
+    let p = "<thead><tr><th class='l'>정산월</th><th>네이버 마진</th><th>" + esc(c.partner) + " 몫</th><th>먼저 준 돈</th>" +
+      "<th>줬어야 할 금액</th><th class='l'>지급일</th><th>실제 지급</th><th>조정액</th><th>차이</th><th>누적 차이</th><th class='l'>판정</th><th class='l'>비고</th></tr></thead><tbody>";
     for (const x of P.checks) {
       const known = x.margin != null;
       let verdict, rowCls = "";
-      if (x.pending) { verdict = "<span class='pill nu'>아직 지급 전</span>"; }
-      else if (!known) { verdict = "<span class='pill wa'>판정 불가 — 네이버 자료 없음</span>"; rowCls = "warnrow"; }
-      else if (R(x.diff) === 0) verdict = "<span class='pill ok'>정확</span>";
-      else if (Math.abs(R(x.diff)) < 1000) verdict = "<span class='pill ok'>거의 일치 (" + signed(x.diff) + ")</span>";
-      else if (x.diff > 0) { verdict = "<span class='pill no'>" + won(x.diff) + "원 더 줌</span>"; rowCls = "badrow"; }
-      else { verdict = "<span class='pill wa'>" + won(-x.diff) + "원 덜 줌</span>"; rowCls = "warnrow"; }
+      if (x.pending) verdict = "<span class='pill nu'>아직 지급 전</span>";
+      else if (!known) { verdict = "<span class='pill wa'>판정 불가</span>"; rowCls = "warnrow"; }
+      else if (Math.abs(R(x.diff)) < 1000) verdict = "<span class='pill ok'>일치" + (R(x.diff) ? " (" + signed(x.diff) + ")" : "") + "</span>";
+      else if (x.diff > 0) { verdict = "<span class='pill no'>" + won(x.diff) + " 더 줌</span>"; rowCls = "badrow"; }
+      else { verdict = "<span class='pill wa'>" + won(-x.diff) + " 덜 줌</span>"; rowCls = "warnrow"; }
+      const adjV = S.adj[x.sm] || "";
       p += "<tr class='" + rowCls + "'><td class='l num'>" + x.sm + "</td>" +
         "<td class='num'>" + (known ? won(x.margin) : "<span class='dim'>—</span>") + "</td>" +
         "<td class='num'>" + (known ? won(x.share) : "<span class='dim'>—</span>") + "</td>" +
@@ -889,10 +904,13 @@
         "<td class='num'>" + (known ? "<b>" + won(x.should) + "</b>" : "<span class='dim'>—</span>") + "</td>" +
         "<td class='l num'>" + (x.payDate || "<span class='dim'>—</span>") + "</td>" +
         "<td class='num'>" + (x.paid != null ? won(x.paid) : "<span class='dim'>—</span>") + "</td>" +
+        "<td class='memo' style='min-width:110px'><input type='number' step='10000' data-adj='" + x.sm + "' value='" + adjV + "' placeholder='0'></td>" +
         "<td class='num " + (x.diff != null ? cls(x.diff) : "") + "'>" + (x.diff != null ? signed(x.diff) : "<span class='dim'>?</span>") + "</td>" +
-        "<td class='l'>" + verdict + "</td></tr>";
+        "<td class='num " + (x.cum != null ? cls(x.cum) : "") + "'>" + (x.cum != null ? signed(x.cum) : "<span class='dim'>—</span>") + "</td>" +
+        "<td class='l'>" + verdict + "</td>" +
+        "<td class='memo'><input type='text' data-note='" + x.sm + "' value='" + esc(S.note[x.sm] || "") + "' placeholder='이 달은 왜 이런가?'></td></tr>";
       if (!known && !x.pending) {
-        p += "<tr class='warnrow'><td></td><td colspan='8' class='l dim' style='font-size:12px;white-space:normal'>" +
+        p += "<tr class='warnrow'><td></td><td colspan='11' class='l dim' style='font-size:12px;white-space:normal'>" +
           (x.adv
             ? "→ 이 달 네이버 마진이 <b>" + won(x.needIfDeducted) + "원</b>이면 먼저 준 " + won(x.adv) + "원을 <b>빼고</b> 준 것이고, " +
             "<b>" + won(x.needIfNot) + "원</b>이면 <b>안 빼고</b> 준 것입니다. (먼저 준 건: " +
@@ -901,7 +919,10 @@
           "</td></tr>";
       }
     }
-    p += "</tbody></thead>";
+    p += "</tbody><tfoot><tr><th class='l'>합계</th><td></td><td></td><td></td><td></td><td></td><td>" +
+      won(P.checks.reduce((a, x) => a + (x.paid || 0), 0)) + "</td><td>" +
+      signed(P.checks.reduce((a, x) => a + (x.adj || 0), 0)) + "</td><td class='" + cls(P.diffSum) + "'>" + signed(P.diffSum) +
+      "</td><td></td><td></td><td></td></tr></tfoot>";
     $("partnerCheck").innerHTML = p;
 
     let pv = "";
@@ -949,39 +970,56 @@
       $("spentTable").innerHTML = s;
     }
 
-    /* ── 점검 3 : 들어온 돈 ── */
-    if (D.otherInRows) {
-      let s = "<thead><tr><th class='l'>일자</th><th class='l'>적요</th><th>금액</th><th class='l'>기관</th><th class='l'>메모</th></tr></thead><tbody>";
-      for (const t of D.otherInRows.slice().reverse()) {
+    /* ── 점검 2 : ① 내가 넣은 돈, ② 기타 입금 ── */
+    const simpleTable = (rows, ph, footAmt) => {
+      let s = "<thead><tr><th class='l'>일자</th><th class='l'>적요</th><th>금액</th><th>누적</th><th class='l'>기관 / 계좌</th><th class='l'>비고</th></tr></thead><tbody>";
+      let cum = 0;
+      for (const t of rows) {
+        const a = Math.abs(t.amt); cum += a;
         const k = memoKey(t);
         s += "<tr><td class='l num'>" + t.date + "</td><td class='l'>" + esc(t.desc) + "</td>" +
-          "<td class='num'>" + won(t.amt) + "</td>" +
-          "<td class='l dim' style='font-size:12px'>" + esc(t.bank || "") + "</td>" +
-          "<td class='memo'><input type='text' data-memo='" + esc(k) + "' value='" + esc(S.memo[k] || "") + "' placeholder='누구 돈이고 어떻게 됐나?'></td></tr>";
+          "<td class='num'>" + won(a) + "</td><td class='num dim'>" + won(cum) + "</td>" +
+          "<td class='l dim' style='font-size:12px'>" + esc([t.bank, t.acct].filter(Boolean).join(" ")) + "</td>" +
+          "<td class='memo'><input type='text' data-memo='" + esc(k) + "' value='" + esc(S.memo[k] || "") + "' placeholder='" + ph + "'></td></tr>";
       }
-      s += "</tbody><tfoot><tr><th class='l'>합계</th><td></td><td>" + won(T.otherIn) + "</td><td></td><td></td></tr></tfoot>";
-      $("inTable").innerHTML = s;
-      $("zeroSum").innerHTML = "<div class='card'>" +
-        row("들어온 돈 (정산 무관)", won(T.otherIn)) +
-        row("나간 돈 (정산 무관)", won(T.spent)) +
-        "<div class='flowrow tot'><span>차이 = 내가 메꿔야 할 돈</span><b class='" + cls(net) + "'>" + won(net) + "</b></div>" +
-        "<p class='note'>" + (R(net) === 0 ? "<span class='pill ok'>제로섬</span> 들어온 만큼 정확히 나갔습니다."
-          : "<span class='pill wa'>제로섬 아님</span> 들어온 " + won(T.otherIn) + "원보다 <b>" + won(net) + "원</b>을 더 썼습니다. 이 금액은 통장에 있어야 할 돈에서 나간 것이므로, 마지막에 내 몫에서 차감하거나 다시 채워 넣어야 맞습니다.") + "</p></div>";
-    }
+      return s + "</tbody><tfoot><tr><th class='l'>합계</th><td></td><td>" + won(footAmt) + "</td><td></td><td></td><td></td></tr></tfoot>";
+    };
 
-    /* ── 점검 4 : 내 계좌 ── */
+    if (D.meInRows) {
+      $("meInTable").innerHTML = simpleTable(D.meInRows.slice().reverse(), "왜 넣었나?", T.meIn);
+      $("cnt1").textContent = "· " + D.meInRows.length + "건 · " + won(T.meIn) + "원";
+      $("meOutTable").innerHTML = simpleTable(D.meOutRows.slice().reverse(), "무슨 명목인가?", T.meOut);
+    }
+    if (D.otherInRows) {
+      $("inTable").innerHTML = simpleTable(D.otherInRows.slice().reverse(), "누구 돈이고 어떻게 됐나?", T.otherIn);
+      $("cnt2").textContent = "· " + D.otherInRows.length + "건 · " + won(T.otherIn) + "원";
+    }
+    $("cnt3").textContent = D.otherOutRows ? "· " + D.otherOutRows.length + "건 · " + won(T.spent) + "원" : "";
+
+    $("zeroSum").innerHTML = "<div class='card'>" +
+      row("① 내가 넣은 돈 (" + esc(c.me) + " 입금)", "+" + won(T.meIn)) +
+      row("② 정산 무관 입금", "+" + won(T.otherIn)) +
+      row("③ 정산 무관 출금 (따로 쓴 돈)", "−" + won(T.spent)) +
+      "<div class='flowrow tot'><span>① + ② − ③</span><b class='" + cls(zero) + "'>" + signed(zero) + "</b></div>" +
+      "<p class='note'>" + (R(zero) === 0
+        ? "<span class='pill ok'>제로섬</span> 넣은 돈과 따로 쓴 돈이 정확히 상쇄됩니다."
+        : R(zero) > 0
+          ? "<span class='pill wa'>+" + won(zero) + "원</span> 넣은 돈이 따로 쓴 돈보다 <b>" + won(zero) + "원</b> 많습니다. " +
+          "이만큼은 내 몫과 <b>별개로</b> 통장에서 더 빼가야 할 돈입니다. 아래 «점검 3»의 회수 내역에 이미 섞여 나갔다면 그건 내 몫이 아니라 원금 회수입니다."
+          : "<span class='pill no'>" + won(-zero) + "원 부족</span> 넣은 돈보다 <b>" + won(-zero) + "원</b>을 더 썼습니다. 이만큼이 통장에 있어야 할 돈에서 나간 빵꾸입니다.") +
+      "</p></div>";
+
+    /* ── 점검 3 : 내 계좌 회수 ── */
     $("meFlow").innerHTML =
       row("내 계좌로 뺀 돈", won(T.meOut)) +
       row("내 계좌에서 넣은 돈", "−" + won(T.meIn)) +
       "<div class='flowrow tot'><span>순인출</span><b>" + won(T.meOut - T.meIn) + "</b></div>" +
-      row("+ 통장 돈으로 따로 쓴 돈", "+" + won(net)) +
+      row("+ 통장 돈으로 따로 쓴 돈", "+" + won(T.spent)) +
+      row("− 정산 무관 입금", "−" + won(T.otherIn)) +
       "<div class='flowrow tot'><span>내가 실제로 가져간 총액</span><b>" + won(T.meTook) + "</b></div>" +
       row("내 몫 (" + (100 - c.ratio).toFixed(1) + "%)", won(T.mShare)) +
       "<div class='flowrow tot'><span>차이</span><b class='" + cls(T.meTook - T.mShare) + "'>" + signed(T.meTook - T.mShare) + "</b></div>" +
-      "<p class='note'>" + (R(T.meTook - T.mShare) < 0
-        ? "통장에 <b>" + won(T.mShare - T.meTook) + "원</b>만큼 아직 안 가져간 내 몫이 남아 있습니다."
-        : R(T.meTook - T.mShare) > 0 ? "내 몫보다 <b>" + won(T.meTook - T.mShare) + "원</b> 더 가져갔습니다." : "정확히 0입니다.") +
-      " 단, 이 몫은 전 기간 마진에 비율을 곱한 값이라 성주 님 정산처럼 달별로 확정된 숫자는 아닙니다.</p>";
+      "<p class='note'>이 «내 몫»은 전 기간 마진에 비율을 곱한 값이라 성주 님 정산처럼 달별로 확정된 숫자가 아닙니다. 어차피 내 통장이니 참고용으로만 보세요.</p>";
 
     $("waterfall").innerHTML =
       row("정산 입금", won(T.revenue)) +
@@ -1049,6 +1087,16 @@
 
     document.querySelectorAll("input[data-memo]").forEach(el => {
       el.addEventListener("change", function () { S.memo[this.dataset.memo] = this.value; save(); });
+    });
+    document.querySelectorAll("input[data-note]").forEach(el => {
+      el.addEventListener("change", function () { S.note[this.dataset.note] = this.value; save(); });
+    });
+    document.querySelectorAll("input[data-adj]").forEach(el => {
+      el.addEventListener("change", function () {
+        const v = parseFloat(this.value);
+        if (v) S.adj[this.dataset.adj] = v; else delete S.adj[this.dataset.adj];
+        save(); render();
+      });
     });
   }
 
