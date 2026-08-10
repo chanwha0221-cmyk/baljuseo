@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v5.8</title>
+<title>통장 내역 조회 v5.9</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v5.8</span>
+  <span class="ver">v5.9</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -692,8 +692,10 @@ async function handleSettleFile(file){
     renderMisPanel(); misOpen();
     // 📚 이 정산시트의 전 셀을 정산내역 누적 시트에 저장 (전월 대조용). 실패해도 미정산 표시엔 무영향.
     const _histRecs=Object.values(_histAgg);   // (날짜|업체) 합산된 최종 레코드
-    try{ await saveSettleRecords(_histRecs, file.name); console.log('📚 정산내역 누적:', _histRecs.length, '건 저장, 총', SETTLE_HISTORY.length, '건'); }
-    catch(e){ console.warn('정산내역 누적 저장 실패',e); }
+    try{ await saveSettleRecords(_histRecs, file.name); console.log('📚 정산내역 누적:', _histRecs.length, '건 저장, 총', SETTLE_HISTORY.length, '건');
+      const _fi=document.getElementById('settleFileInfo'); if(_fi){_fi.style.display='';_fi.textContent='✅ '+file.name+' · ☁ 공유시트 저장됨 (누적 '+SETTLE_HISTORY.length+'건)';}
+    }
+    catch(e){ console.warn('정산내역 누적 저장 실패',e); _settleSaveFail(e); }
     try{
       const t=await getToken();
       await ensureSummaryTab(t);
@@ -869,6 +871,25 @@ function _showSettleSaved(){
   if(_a&&!_a.value&&_ds.length)_a.value=_ds[0];
   if(_b&&!_b.value)_b.value=new Date().toISOString().slice(0,10);
   if(MIS_BASIS){ const ms=document.getElementById('s-mis-sub'); if(ms) ms.textContent=MIS_BASIS+' 기준 · 클릭 → 현황'; }
+}
+// 🚨 정산내역 저장 실패 가시화 + 재시도 (2026-08-10 사장님 "왜 롤백돼 있냐" 사고 — 저장 실패가 console.warn으로만 삼켜져
+//    그 세션은 멀쩡해 보이다가 다음에 열면 옛 색칠 상태로 복원, 이미 처리한 색칠 지시가 다시 뜨던 것)
+function _settleSaveFail(e){
+  const fi=document.getElementById('settleFileInfo'); if(!fi) return;
+  fi.style.display='';
+  fi.innerHTML='<span style="color:#c0392b;font-weight:700">⚠ 공유시트 저장 실패 — 이대로 두면 다음에 열 때 이전 색칠 상태로 돌아갑니다!</span>'
+    +' <span style="color:var(--text3)">('+String((e&&e.message)||'네트워크/권한 오류').replace(/[<>]/g,'').slice(0,90)+')</span>'
+    +' <button onclick="retrySettleSave(event)" style="margin-left:6px;padding:2px 10px;border:1px solid #c0392b;background:#fff;color:#c0392b;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">🔁 다시 저장</button>';
+}
+async function retrySettleSave(ev){
+  if(ev) ev.stopPropagation();   // 업로드칸 클릭(파일창 열림) 전파 방지
+  const s=window._lastSettleSave; if(!s) return;
+  const fi=document.getElementById('settleFileInfo');
+  if(fi){ fi.style.display=''; fi.textContent='⏳ 다시 저장 중…'; }
+  try{ await saveSettleRecords(s.records, s.source);
+    if(fi) fi.textContent='✅ '+(s.source||'정산내역')+' · ☁ 공유시트 저장됨 (누적 '+SETTLE_HISTORY.length+'건)';
+    if(typeof showToast==='function') showToast('✅ 정산내역 저장 완료');
+  }catch(e){ _settleSaveFail(e); }
 }
 function clearSaved(e){e.stopPropagation();if(!confirm('이 PC의 캐시만 초기화합니다.\n공유 시트 원본은 지워지지 않아요 (원본 수정·삭제는 [📄 시트 열기]에서 직접).\n계속할까요?'))return;deleteSavedFile();deleteDataset();location.reload();}
 window.addEventListener('DOMContentLoaded',async()=>{
@@ -1636,28 +1657,35 @@ async function saveSettleAlias(){
 //    통장내역처럼 계속 쌓임 → 전월(6/30 등) 정산을 다음 달에도 대조 가능(7/1 입금이 6월 정산분인지 확인).
 //    키=날짜|업체(공백제거). 재업로드 시 최신 금액/입금완료로 갱신(색칠하면 paid=true로 바뀜).
 const _shKey=(d,c)=>`${d}|${String(c||'').replace(/\s+/g,'')}`;
-async function loadSettleHistory(){
+async function loadSettleHistory(strict){
+  // strict=true (저장 경로): 로드 실패를 조용히 넘기면 옛 메모리 상태로 시트를 덮어써 누적이 유실될 수 있음 → throw
   try{ const t=await getToken();
     const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산내역누적!A2:F100000')}`,{headers:{Authorization:`Bearer ${t}`}});
-    if(!r.ok) return;
+    if(!r.ok){ if(strict) throw new Error('기존 누적 로드 실패 HTTP '+r.status); return; }
     SETTLE_HISTORY=(((await r.json()).values)||[]).filter(x=>x[0]&&x[1]).map(x=>({
       date:String(x[0]).trim(), company:String(x[1]).trim(),
       amount:Number(String(x[2]||'0').replace(/[^0-9-]/g,''))||0,
       paid:String(x[3]||'')==='입금완료'||String(x[3]||'')==='true', source:x[4]||'', at:x[5]||''
     }));
-  }catch(e){ console.warn('정산내역누적 로드 실패',e); }
+  }catch(e){ console.warn('정산내역누적 로드 실패',e); if(strict) throw e; }
 }
 async function saveSettleRecords(records, source){
   if(!records||!records.length) return;
-  await loadSettleHistory();                                  // 최신본 먼저 (다른 PC가 올린 것 보존)
+  window._lastSettleSave={records,source};                    // 저장 실패 시 [🔁 다시 저장] 재시도용
+  await loadSettleHistory(true);                              // 최신본 먼저 (다른 PC가 올린 것 보존) — 실패 시 throw(덮어쓰기 방지)
   const map={}; SETTLE_HISTORY.forEach(x=>map[_shKey(x.date,x.company)]=x);
   const at=new Date().toLocaleString('ko-KR');
   records.forEach(r=>{ if(r.date&&r.company&&r.amount>0) map[_shKey(r.date,r.company)]={date:r.date,company:r.company,amount:r.amount,paid:!!r.paid,source:source||'',at}; });
   SETTLE_HISTORY=Object.values(map).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.company<b.company?-1:1));
   const t=await getToken(); await ensureTabNamed(t,'정산내역누적',['날짜','업체','정산금액','입금완료','출처','등록일시']);
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산내역누적!A2:F100000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+  // ⚠ fetch는 401/403이어도 throw 안 함 — res.ok 미확인이 "조용한 저장 실패 → 다음 세션 롤백"의 범인이었음 (2026-08-10)
+  const _cr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산내역누적!A2:F100000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+  if(!_cr.ok) throw new Error('누적시트 clear 실패 HTTP '+_cr.status);
   const rows=SETTLE_HISTORY.map(x=>[x.date,x.company,x.amount,x.paid?'입금완료':'미입금',x.source,x.at]);
-  if(rows.length) await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산내역누적!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+  if(rows.length){
+    const _pr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산내역누적!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+    if(!_pr.ok) throw new Error('누적시트 기록 실패 HTTP '+_pr.status+' — 🔁 다시 저장을 꼭 눌러주세요(시트가 비워진 상태)');
+  }
 }
 // 특정 업체의 특정 날짜 근처 정산금액 조회 (전월 대조용) — 입금일 이전 N일 안에서 금액 일치하는 정산 찾기
 function findPastSettlement(company, amount, beforeDate, windowDays){
