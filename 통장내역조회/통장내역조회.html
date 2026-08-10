@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v6.0</title>
+<title>통장 내역 조회 v6.1</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v6.0</span>
+  <span class="ver">v6.1</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1726,8 +1726,14 @@ function _paintAndComment(ws, row, col, comment){
   if(_isProtectedColor(curArgb)){
     return { painted:false, reason:`기존 색(${curArgb}) 보호` };
   }
-  // 빨강 칠
-  cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: MATCH_COLOR_RED } };
+  // 빨강 칠 — ⚠ 반드시 스타일을 복사해서 '이 셀만' 칠할 것 (2026-08-10 명안 사고)
+  //   exceljs는 같은 서식을 쓰는 셀들이 style 객체를 공유한다. cell.fill=... 로 바로 쓰면
+  //   같은 개나리색(FFC000) 서식을 공유하는 그 업체의 다른 날짜 셀까지 전부 빨강으로 변한다.
+  //   → 7/2 입금이 7/1을 칠하는 순간 7/2~7/30이 죄다 '입금완료'로 보여서, 뒤따르는 입금이
+  //     전부 ⊘(이미 입금완료)로 버려지고 색칠 목록에 첫 1건만 남았음(명안 14건 → 1건).
+  const _st = cell.style ? JSON.parse(JSON.stringify(cell.style)) : {};
+  _st.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: MATCH_COLOR_RED } };
+  cell.style = _st;
   // 메모 추가 (기존 메모 보존)
   const existing = cell.note ? (cell.note.texts ? cell.note.texts.map(t=>t.text).join('') : (cell.note.toString())) : '';
   const newNote = existing ? (existing + '\n' + comment) : comment;
