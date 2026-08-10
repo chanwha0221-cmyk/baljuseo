@@ -89,12 +89,12 @@ async function loadProducts(){
   return out;
 }
 async function loadCache(){
-  const v=await api(DOGU,'/values/'+q("'"+TAB+"'!A1:F3000"));
+  const v=await api(DOGU,'/values/'+q("'"+TAB+"'!A1:G3000"));
   const m={};
   for(const r of (v.values||[]).slice(1)){
     const nm=(r[0]||'').trim();
     if(!nm)continue;
-    m[pkey(nm)]={name:nm,id:r[1]||'',img:r[2]||'',spec:(r[3]?String(r[3]).split('\n'):[]),updated:r[4]||'',link:r[5]||''};
+    m[pkey(nm)]={name:nm,id:r[1]||'',img:r[2]||'',spec:(r[3]?String(r[3]).split('\n'):[]),updated:r[4]||'',link:r[5]||'',backs:(r[6]?String(r[6]).split('\n').filter(Boolean):[])};
   }
   return m;
 }
@@ -124,12 +124,12 @@ async function addDelReq(p){
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[[p.name,p.tab||'',p.cell||'',at,'']]})});
 }
 async function saveCache(){
-  const rows=[['상품명','id','img','spec','updated','link']];
+  const rows=[['상품명','id','img','spec','updated','link','예비사진']];
   Object.keys(CACHE).sort().forEach(function(k){
     const c=CACHE[k];
-    rows.push([c.name,c.id||'',c.img||'',(c.spec||[]).join('\n'),c.updated||'',c.link||'']);
+    rows.push([c.name,c.id||'',c.img||'',(c.spec||[]).join('\n'),c.updated||'',c.link||'',(c.backs||[]).join('\n')]);
   });
-  return api(DOGU,'/values/'+q("'"+TAB+"'!A1:F3000")+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+  return api(DOGU,'/values/'+q("'"+TAB+"'!A1:G3000")+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
 }
 async function saveQueue(){
   const rows=[['상품명','등록일시','출처']];
@@ -166,6 +166,7 @@ async function scrape(url){
     if(await imgLoads(cands[i])){img=cands[i];break;}
   }
   if(!img&&cands.length)img=cands[0];
+  const backs=cands.slice(0,6);   // 예비 사진 — 대표가 나중에 깨지면 취합 화면이 자동 교체한다
   let spec=[];
   const txt=(doc.body?doc.body.textContent:'')||'';
   const si=txt.indexOf('상품 스펙');
@@ -177,7 +178,7 @@ async function scrape(url){
       spec=d.split('※').slice(1).map(function(p){return '※ '+p.split(/○/)[0].replace(/\.\.\.$/,'').trim().replace(/\s+/g,' ');}).filter(function(s){return s.length>4&&s.length<80;}).slice(0,7);
     }
   }
-  return {img:img,spec:spec};
+  return {img:img,spec:spec,backs:backs};
 }
 
 /* ── 화면 ── */
@@ -405,6 +406,7 @@ async function runSelected(){
     // 수집 실패 시 기존 사진·스펙을 빈 값으로 덮어쓰지 않는다 (2026-08-09 왕갈치 사고)
     if(x.r.img)c.img=x.r.img;
     if(x.r.spec.length)c.spec=x.r.spec;
+    if(x.r.backs&&x.r.backs.length)c.backs=x.r.backs;
     if(x.r.img||x.r.spec.length)c.updated=today;
     if(!x.r.img||!x.r.spec.length)fails.push(x.t);
   }

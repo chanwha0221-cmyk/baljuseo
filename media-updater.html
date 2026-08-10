@@ -437,9 +437,9 @@ async function loadYutong(){
   return out;
 }
 async function loadCache(){
-  const v=await api(DOGU,'/values/'+q1("'상품이미지_v2'!A1:F3000"));
+  const v=await api(DOGU,'/values/'+q1("'상품이미지_v2'!A1:G3000"));
   const m={};
-  ((v.values)||[]).forEach(function(r,i){if(i===0)return;const nm=(r[0]||'').trim();if(nm)m[pkey(nm)]={row:i+1,img:(r[2]||'').trim(),link:(r[5]||'').trim()};});
+  ((v.values)||[]).forEach(function(r,i){if(i===0)return;const nm=(r[0]||'').trim();if(nm)m[pkey(nm)]={row:i+1,img:(r[2]||'').trim(),link:(r[5]||'').trim(),backs:(r[6]?String(r[6]).split('\n').filter(Boolean):[])};});
   return m;
 }
 async function loadLinks(){
@@ -598,9 +598,25 @@ $f('fxRun').onclick=async function(){
     const cand=FX.prods.filter(p=>{const c=FX.cache[pkey(p.name)];return !c||!c.img||!urlOf(p);});
     const withImg=FX.prods.filter(p=>{const c=FX.cache[pkey(p.name)];return c&&c.img;});
     $f('fxStat').textContent='— 사진 검사 중… (0/'+withImg.length+')';
-    const broken=[];let bi=0,done=0;
+    const broken=[];const healed=[];let bi=0,done=0;
     async function w(){ while(bi<withImg.length){ const p=withImg[bi++]; const ok=await imgTest(FX.cache[pkey(p.name)].img); done++; if(done%40===0)$f('fxStat').textContent='— 사진 검사 중… ('+done+'/'+withImg.length+')'; if(!ok)broken.push(p); } }
     await Promise.all(Array.from({length:20},(_, i)=>i).map(w));
+    // 대표 사진이 깨졌어도 예비 사진 중 살아있는 게 있으면 자동으로 교체하고 목록에 안 올린다 (사장님 2026-08-10)
+    for(let k2=broken.length-1;k2>=0;k2--){
+      const p=broken[k2];const c=FX.cache[pkey(p.name)];
+      if(!c||!c.backs||!c.backs.length)continue;
+      const strict=u=>new Promise(res=>{const im=new Image();const t2=setTimeout(()=>res(false),8000);im.onload=()=>{clearTimeout(t2);res(true);};im.onerror=()=>{clearTimeout(t2);res(false);};im.src=u;});
+      let picked='';
+      for(const b of c.backs){
+        if(b===c.img)continue;
+        if(await strict(b)){picked=b;break;}   // 예비 승격은 실제 로드 확인된 것만
+      }
+      if(picked){
+        const j=await api(DOGU,'/values:batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({valueInputOption:'RAW',data:[{range:"'상품이미지_v2'!C"+c.row,values:[[picked]]},{range:"'상품이미지_v2'!E"+c.row,values:[[today()]]}]})});
+        if(!(j&&j.error)){c.img=picked;broken.splice(k2,1);healed.push(p.name);}
+      }
+    }
+    if(healed.length)$f('fxPerm').innerHTML+=('<br>🩹 대표 사진이 깨져 있던 '+healed.length+'개 상품을 예비 사진으로 자동 교체했습니다: '+healed.map(n=>n.replace(/</g,'&lt;')).join(', '));
     try{localStorage.setItem(IMGOK_KEY,JSON.stringify(IMGOK));}catch(e){}
     FX.probs=[];
     cand.forEach(p=>{const c=FX.cache[pkey(p.name)];FX.probs.push({p,issue:(!c||!c.img)?'사진없음':'링크없음',del:FX.dels.indexOf(pkey(p.name))>=0});});
