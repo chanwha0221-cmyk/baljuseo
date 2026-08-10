@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v6.1</title>
+<title>통장 내역 조회 v6.2</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v6.1</span>
+  <span class="ver">v6.2</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -2260,7 +2260,20 @@ function _metaFromHistory(){
   const companyCols={}; companies.forEach((c,i)=>{ companyCols[c]={ vat:3+i*2, tax:0 }; });   // 합성: 업체마다 한 칸(면세칸)에 정산금액
   const cellMap={};                                                                             // 'row_col' → {value, paid}
   SETTLE_HISTORY.forEach(h=>{ const row=rowByIso[h.date], cc=companyCols[h.company]; if(row&&cc) cellMap[row+'_'+cc.vat]={ value:h.amount, paid:!!h.paid }; });
-  const ws={ getCell(r,c){ const e=cellMap[r+'_'+c]; return { value: e?e.value:0, fill: (e&&e.paid)?{type:'pattern',fgColor:{argb:'FFAEAAAA'}}:null, note:'' }; } };   // note는 쓰기 가능 데이터속성(버려지는 객체라 무해)
+  // ⚠ 셀 객체는 반드시 캐시해서 '같은 객체'를 돌려줄 것 (2026-08-10 명안 7/9 중복 사고)
+  //   예전엔 getCell이 매번 새 객체를 만들어 반환해서, 매칭이 칠한 색이 어디에도 남지 않았다
+  //   → 이미 배정한 셀이 계속 '미색칠'로 보여 다른 입금이 같은 날짜를 또 가져감
+  //     (7/10 입금 133,500 → 7/9 배정, 8/5 입금 133,500 → 7/9 또 배정 = 7/9을 두 번 칠하라고 표시).
+  //   style/fill을 연동해 둬야 _paintAndComment(style 통째 교체)와 _isCellPaintable(fill 조회)이 맞물린다.
+  const _cellCache={};
+  const _mkCell=(e)=>{
+    const o={ value: e?e.value:0, note:'' };
+    let _st={ fill: (e&&e.paid)?{type:'pattern',pattern:'solid',fgColor:{argb:'FFAEAAAA'}}:undefined };
+    Object.defineProperty(o,'style',{ get(){return _st;}, set(v){ _st=v||{}; } });
+    Object.defineProperty(o,'fill', { get(){return _st.fill||null;}, set(v){ _st.fill=v; } });
+    return o;
+  };
+  const ws={ getCell(r,c){ const k=r+'_'+c; if(!_cellCache[k]) _cellCache[k]=_mkCell(cellMap[k]); return _cellCache[k]; } };
   return { companyCols, dateRows, ws, wb:null, memoMap:{}, _fromHistory:true, _span: dateSet.length?(dateSet[0]+'~'+dateSet[dateSet.length-1]):'' };
 }
 // 메인 매칭 실행
@@ -2395,7 +2408,10 @@ async function runSettlementMatch(){
 
       // 1) 단일 셀 매칭 (금액 정확)
       //   ⏱ 시간 규칙: 입금은 미래 정산을 못 냄 → 입금일 이후 셀은 후보에서 제외 (2026-07-18 새로고침 6/16입금이 6/22정산에 붙던 버그)
-      const exact = cells.filter(c=>c.sum>0 && Math.abs(c.sum - tx.amount) <= tolerance && c.date<=tx.date);
+      //   🚫 이번 판에서 앞 입금이 이미 가져간 셀은 후보에서 뺀다 — 한 정산일을 두 입금이 나눠 갖는 일 없음
+      //      (2026-08-10 명안: 7/10·8/5 입금이 둘 다 7/9 정산분에 붙어 "7/9을 두 번 칠하라"고 나옴)
+      const exact = cells.filter(c=>c.sum>0 && Math.abs(c.sum - tx.amount) <= tolerance && c.date<=tx.date
+        && !(paintedKeys[matchedCompany] && paintedKeys[matchedCompany].has(c.key)));
       if(exact.length>0){
         // 입금일에 가까운 순으로, 미입금(색칠 가능) 셀을 찾을 때까지 순회 — 이미 입금완료(보호색)된 날짜는 건너뜀
         exact.sort((a,b)=>Math.abs(a.date - tx.date) - Math.abs(b.date - tx.date));
