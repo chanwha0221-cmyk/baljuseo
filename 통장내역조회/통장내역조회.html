@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v6.2</title>
+<title>통장 내역 조회 v6.3</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v6.2</span>
+  <span class="ver">v6.3</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -512,6 +512,15 @@ function recFromRow(r){
   return {date:dateStr,dateOnly,in:parseNum(r[1]),out:parseNum(r[2]),bal:parseNum(r[3]),desc:String(r[4]||'').trim(),bank:String(r[5]||'').trim(),name:String(r[6]||'').trim()};
 }
 function openDataSheet(e){if(e)e.stopPropagation();window.open('https://docs.google.com/spreadsheets/d/'+SHEET_ID,'_blank');}
+// 📅 마지막 거래일시 라벨 — 오랜만에 업데이트할 때 "어디서부터 올려야 하나"를 화면에서 바로 알게 (2026-08-10 사장님 요청)
+function _lastTxLabel(){
+  if(!allData || !allData.length) return '';
+  let mx='';
+  for(const r of allData){ const d=String(r.date||r.dateOnly||''); if(d>mx) mx=d; }
+  const m=mx.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if(!m) return '';
+  return ' · 📅 마지막 거래 '+(+m[2])+'/'+(+m[3])+(m[4]?' '+m[4]+':'+m[5]:'')+' (여기 다음부터 올리면 돼요)';
+}
 // ═════ 공유 시트 백엔드 끝 ═════
 let allData=[];
 let currentType='all';
@@ -921,7 +930,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
       }
     }
     if(allData.length){
-      document.getElementById('savedFileName').textContent='☁️ 공유 시트 · 총 '+allData.length+'건';
+      document.getElementById('savedFileName').textContent='☁️ 공유 시트 · 총 '+allData.length+'건'+_lastTxLabel();
       document.getElementById('savedFileInfo').style.display='block';
       renderAll('공유 시트 데이터');
       addBotMsg('☁️ 공유 시트에서 <b>'+allData.length+'건</b> 로드 완료! 새 파일을 올리면 새 거래만 시트에 추가돼요.');
@@ -935,7 +944,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
   if(localRecs.length){
     allData=localRecs;
     const d=new Date(ds.savedAt),label=(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0')+' 저장';
-    document.getElementById('savedFileName').textContent=(ds.name||'데이터')+' ('+label+', 총 '+allData.length+'건 · 로컬 캐시)';
+    document.getElementById('savedFileName').textContent=(ds.name||'데이터')+' ('+label+', 총 '+allData.length+'건 · 로컬 캐시)'+_lastTxLabel();
     document.getElementById('savedFileInfo').style.display='block';
     renderAll(ds.name||'저장된 데이터');
     return;
@@ -1046,7 +1055,7 @@ function parseRows(rows,filename,showChat=true){
       .catch(e=>addBotMsg('⚠️ 공유 시트 저장 실패('+e.message+') — 이 PC에만 저장됐어요. 인터넷 확인 후 같은 파일을 다시 올리면 자동 재시도됩니다.'));
   }
   const now=new Date(),label=(now.getMonth()+1)+'/'+now.getDate()+' '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0')+' 저장';
-  document.getElementById('savedFileName').textContent=filename+' ('+label+', 총 '+allData.length+'건)';
+  document.getElementById('savedFileName').textContent=filename+' ('+label+', 총 '+allData.length+'건)'+_lastTxLabel();
   document.getElementById('savedFileInfo').style.display='block';
   if(showChat){
     if(skipped===0&&added===allData.length) addBotMsg('파일 로드 완료! 📊 총 <b>'+allData.length+'건</b>의 거래 내역이 있어요. 궁금한 거 물어보세요!');
