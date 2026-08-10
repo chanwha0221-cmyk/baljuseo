@@ -296,10 +296,12 @@
 
     <section>
       <div class="sechead">
-        <h2><span class="n">점검 3</span> 내 계좌 이체 대사</h2>
-        <p class="askline">전체 합계로 본 넣은 돈과 뺀 돈.</p>
+        <h2><span class="n">점검 3</span> 정산할 때 내 비율만큼만 가져갔나</h2>
+        <p class="askline">성주에게 준 날 나도 같이 뺐습니다. 그때 내 비율(40%)보다 더 가져간 게 있으면 그게 투입금 회수입니다.</p>
       </div>
-      <div class="card"><div id="meFlow"></div></div>
+      <div class="scroll"><table id="shareTable"></table></div>
+      <div id="shareVerdict" style="margin-top:13px"></div>
+      <div class="card" style="margin-top:13px"><h3>내 계좌 이체 대사</h3><div id="meFlow"></div></div>
     </section>
 
     <section>
@@ -708,24 +710,31 @@
     const dNum = s => +String(s).replace(/\./g, "");
     const shareOut = new Set(), shareOutList = [];
     const usedMe = new Set();
-    for (const x of checks) {
-      if (!x.payDate) continue;
-      const target = dNum(x.payDate);
+    /* 정산 지급(월 최대 건)에만 짝을 짓는다. 선지급은 제외 — 성주만 미리 받아간 것이므로.
+       그리고 금액이 내 비율 기대치의 0.6~1.7배 안일 때만 «몫 인출»로 인정한다.
+       (예: 김찬영 70만 입금 → 같은 주 70만 출금은 통과 건이지 몫이 아니다) */
+    const settlePays = partnerRows.filter(t => kindOf.get(tossKey(t)) === "정산")
+      .sort((a, b) => Math.abs(b.amt) - Math.abs(a.amt));
+    for (const p of settlePays) {
+      const target = dNum(p.date), pAmt = Math.abs(p.amt), exp = pAmt * (1 - ratio) / ratio;
       let best = null;
       for (const t of meOutRows) {
         const k = tossKey(t);
         if (usedMe.has(k)) continue;
         if (/증권/.test(t.bank || "")) continue;
         if (Math.abs(dNum(t.date) - target) > 6) continue;
+        const a = Math.abs(t.amt);
+        if (a < exp * 0.6 || a > exp * 1.7) continue;
         if (!best || Math.abs(t.amt) > Math.abs(best.amt)) best = t;
       }
-      if (best) {
-        const k = tossKey(best);
-        usedMe.add(k); shareOut.add(k);
-        shareOutList.push({ date: best.date, amt: Math.abs(best.amt), payDate: x.payDate, partner: x.paid, sm: x.sm });
-      }
+      if (!best) { shareOutList.push({ date: null, amt: 0, payDate: p.date, partner: pAmt, exp, over: -exp }); continue; }
+      const k = tossKey(best), amt = Math.abs(best.amt);
+      usedMe.add(k); shareOut.add(k);
+      shareOutList.push({ date: best.date, amt, payDate: p.date, partner: pAmt, exp, over: amt - exp });
     }
+    shareOutList.sort((a, b) => a.payDate < b.payDate ? -1 : 1);
     const shareOutSum = shareOutList.reduce((a, x) => a + x.amt, 0);
+    const shareOverSum = shareOutList.reduce((a, x) => a + x.over, 0);
 
     /* ── 내 계좌 타임라인 · 통과 짝 탐지 ── */
     const mine = [];
@@ -738,13 +747,17 @@
     mine.sort((a, b) => a.dt < b.dt ? -1 : a.dt > b.dt ? 1 : 0);
     /* 딱 두 가지만: 들어오면 투입(+), 나가면 회수(−). 정산으로 성주와 같이 뺀 건만 별도. */
     const kindMine = t => t.amt > 0 ? "투입" : "회수";
-    const MT = { tin: 0, tout: 0, cnt: 0, share: shareOutSum, cntShare: shareOutList.length, shareList: shareOutList };
+    const MT = {
+      tin: 0, tout: 0, cnt: 0, share: shareOutSum, cntShare: shareOutList.length,
+      shareList: shareOutList, over: shareOverSum
+    };
     for (const t of mine) {
       const a = Math.abs(t.amt);
       if (t.amt > 0) MT.tin += a; else MT.tout += a;
       MT.cnt++;
     }
-    MT.net = MT.tout - MT.tin;   /* +면 많이 빼간 것, −면 덜 빼간 것 */
+    MT.net = MT.tout - MT.tin;        /* +면 많이 빼간 것, −면 덜 빼간 것 */
+    MT.final = MT.net + MT.over;      /* 정산 때 비율 초과로 이미 가져간 몫까지 반영한 최종 */
 
     const tRange = S.toss.length ? [S.toss[0].date, S.toss[S.toss.length - 1].date] : null;
     const nRange = S.naver.length ? [S.naver[0].baseDate, S.naver[S.naver.length - 1].baseDate] : null;
@@ -948,14 +961,14 @@
 
     const M0 = D.MT;
     if (M0) {
-      const n0 = M0.net;
-      h += "<div class='vc " + (Math.abs(R(n0)) < 100000 ? "ok" : R(n0) > 0 ? "bad" : "wa") + "'><div class='q'>내 돈은 맞아떨어지나 (정산 인출 제외)</div>" +
+      const n0 = M0.final;
+      h += "<div class='vc " + (Math.abs(R(n0)) < 100000 ? "ok" : R(n0) > 0 ? "bad" : "wa") + "'><div class='q'>내 돈은 맞아떨어지나</div>" +
         "<div class='big'>" + signed(n0) + "</div><div class='sub'>" +
-        (Math.abs(R(n0)) < 100000 ? "넣은 돈과 뺀 돈이 사실상 맞습니다"
+        (Math.abs(R(n0)) < 100000 ? "더 가져갈 것도 메꿀 것도 없습니다"
           : R(n0) > 0 ? "이만큼 통장에 넣어야 맞습니다" : "이만큼 더 빼가도 됩니다") + "</div><div class='mini'>" +
-        "<div><span>투입 (들어온 돈)</span><b>+" + won(M0.tin) + "원</b></div>" +
-        "<div><span>회수 (나간 돈)</span><b>−" + won(M0.tout) + "원</b></div>" +
-        "<div><span>정산으로 같이 뺀 돈</span><b>" + won(M0.share) + "원 (제외)</b></div></div></div>";
+        "<div><span>타임라인 누적</span><b>" + signed(M0.net) + "원</b></div>" +
+        "<div><span>정산 때 비율 초과분</span><b>" + signed(M0.over) + "원</b></div>" +
+        "<div><span>투입 " + won(M0.tin) + " / 회수 " + won(M0.tout) + "</span><b></b></div></div></div>";
     }
     $("headBox").innerHTML = h;
 
@@ -1052,20 +1065,24 @@
       $("mineTiles").innerHTML =
         tile("투입 (들어온 돈)", won(M.tin) + "원", "내가 넣은 돈 + 기타 입금") +
         tile("회수 (나간 돈)", won(M.tout) + "원", "내가 뺀 돈 + 따로 쓴 돈") +
-        tile("누적", signed(M.net) + "원", R(M.net) > 0 ? "이만큼 넣어야 함" : R(M.net) < 0 ? "이만큼 더 빼가도 됨" : "딱 맞음", true) +
-        tile("정산으로 같이 뺀 돈", won(M.share) + "원", M.cntShare + "번 · 성주와 같은 날, 계산 제외");
+        tile("타임라인 누적", signed(M.net) + "원", "정산 인출은 뺀 값") +
+        tile("정산 때 비율 초과분", signed(M.over) + "원", "이미 가져간 돈 (점검 3)") +
+        tile("최종", signed(M.final) + "원", R(M.final) > 0 ? "이만큼 넣어야 함" : R(M.final) < 0 ? "이만큼 더 빼가도 됨" : "딱 맞음", true) +
+        tile("정산으로 같이 뺀 돈", won(M.share) + "원", M.cntShare + "번 · 아래 점검 3 참조");
 
       $("zeroSum").innerHTML = "<div class='card'>" +
         row("투입 — 통장으로 들어온 돈", "+" + won(M.tin)) +
         row("회수 — 통장에서 나간 돈", "−" + won(M.tout)) +
-        "<div class='flowrow tot'><span>누적 (회수 − 투입)</span><b class='" + cls(M.net) + "'>" + signed(M.net) + "</b></div>" +
-        ind("· 정산으로 성주와 같이 뺀 " + won(M.share) + "원 (" + M.cntShare + "번)", "계산에서 제외") +
-        "<p class='note'>" + (Math.abs(R(M.net)) < 100000
-          ? "<span class='pill ok'>맞음</span> 넣은 돈과 뺀 돈이 " + won(Math.abs(M.net)) + "원 차이로 떨어집니다."
-          : R(M.net) > 0
-            ? "<span class='pill no'>+" + won(M.net) + "원</span> 뺀 돈이 더 많습니다. " + verdictWord(M.net) + "."
-            : "<span class='pill wa'>" + signed(M.net) + "원</span> 넣은 돈이 더 많습니다. " + verdictWord(M.net) + ".") +
-        "</p></div>";
+        "<div class='flowrow tot'><span>타임라인 누적 (회수 − 투입)</span><b class='" + cls(M.net) + "'>" + signed(M.net) + "</b></div>" +
+        row("정산할 때 내 비율보다 더 가져간 돈", signed(M.over)) +
+        "<div class='flowrow tot'><span>최종</span><b class='" + cls(M.final) + "'>" + signed(M.final) + "</b></div>" +
+        "<p class='note'>" + (Math.abs(R(M.final)) < 100000
+          ? "<span class='pill ok'>맞아떨어짐</span> " + won(Math.abs(M.final)) + "원 차이로 정리됩니다. 더 가져갈 것도, 메꿀 것도 사실상 없습니다."
+          : R(M.final) > 0
+            ? "<span class='pill no'>+" + won(M.final) + "원</span> " + verdictWord(M.final) + "."
+            : "<span class='pill wa'>" + signed(M.final) + "원</span> " + verdictWord(M.final) + ".") +
+        "<br>타임라인만 보면 " + signed(M.net) + "원이지만, 정산할 때 이미 <b>" + signed(M.over) +
+        "원</b>을 비율보다 더 가져가셨습니다. 그게 투입금 회수 역할을 한 겁니다.</p></div>";
 
       let tl = "<thead><tr><th class='l'>일자</th><th class='l'>구분</th><th class='l'>적요</th><th>투입 (+)</th><th>회수 (−)</th><th>누적</th><th class='l'>기관 / 계좌</th><th class='l'>비고</th></tr></thead><tbody>";
       let cum = 0;
@@ -1092,6 +1109,32 @@
 
     /* ── 점검 3 : 내 계좌 이체 대사 ── */
     const MM = D.MT || {};
+    if (MM.shareList) {
+      let st = "<thead><tr><th class='l'>성주 지급일</th><th>성주 지급</th><th class='l'>내 인출일</th><th>내 인출</th><th>기대 (" +
+        (100 - c.ratio).toFixed(0) + "%)</th><th>초과</th><th>내 비율</th></tr></thead><tbody>";
+      for (const x of MM.shareList) {
+        const tot = x.partner + x.amt;
+        const big = Math.abs(R(x.over)) >= 100000;
+        st += "<tr class='" + (big ? (x.over > 0 ? "badrow" : "warnrow") : "") + "'>" +
+          "<td class='l num'>" + x.payDate + "</td><td class='num'>" + won(x.partner) + "</td>" +
+          "<td class='l num'>" + (x.date || "<span class='dim'>없음</span>") + "</td>" +
+          "<td class='num'>" + (x.amt ? won(x.amt) : "<span class='dim'>-</span>") + "</td>" +
+          "<td class='num dim'>" + won(x.exp) + "</td>" +
+          "<td class='num " + cls(x.over) + "'>" + signed(x.over) + "</td>" +
+          "<td class='num dim'>" + (tot ? (x.amt / tot * 100).toFixed(1) + "%" : "-") + "</td></tr>";
+      }
+      st += "</tbody><tfoot><tr><th class='l'>합계</th><td>" + won(MM.shareList.reduce((a, x) => a + x.partner, 0)) +
+        "</td><td></td><td>" + won(MM.share) + "</td><td>" + won(MM.shareList.reduce((a, x) => a + x.exp, 0)) +
+        "</td><td class='" + cls(MM.over) + "'>" + signed(MM.over) + "</td><td></td></tr></tfoot>";
+      $("shareTable").innerHTML = st;
+      const bigOnes = MM.shareList.filter(x => Math.abs(R(x.over)) >= 100000);
+      $("shareVerdict").innerHTML = "<div class='card'><p class='note' style='margin:0'>" +
+        (Math.abs(R(MM.over)) < 100000
+          ? "<span class='pill ok'>비율대로</span> 정산 때마다 " + (100 - c.ratio).toFixed(0) + "% 그대로 가져가셨습니다."
+          : "<span class='pill wa'>초과 " + signed(MM.over) + "원</span> 비율보다 더 가져간 날이 있습니다: " +
+          bigOnes.map(x => x.payDate + " " + signed(x.over)).join(" · ") +
+          ". <b>이 돈이 통장에 넣었던 투입금을 회수한 것</b>으로 보입니다.") + "</p></div>";
+    }
     $("meFlow").innerHTML =
       row("내 계좌로 뺀 돈 (전체)", won(T.meOut)) +
       ind("· 정산일에 성주와 같이 뺀 몫 (" + (MM.cntShare || 0) + "번)", won(MM.share || 0)) +
