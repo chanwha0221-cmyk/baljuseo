@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v2.5</title>
+<title>외부 업체 등록 도구 v3.0</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -15,417 +15,193 @@
   --out-bg:#f8fffe;--out-text:#1a4a35;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
 header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;gap:12px;flex-shrink:0}
-.logo{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.03em}
+.logo{font-size:15px;font-weight:700;letter-spacing:-.03em}
 .logo span{color:var(--accent)}
 .ver{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:var(--accent-light);border:1px solid #b7ddc8;padding:2px 7px;border-radius:20px;font-weight:500}
 .subtitle{margin-left:auto;font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace}
-.main{flex:1;display:flex;flex-direction:column;padding:14px 18px;gap:12px}
-.defaults{padding:8px 12px;background:var(--accent-light);border:1px solid #b7ddc8;border-radius:6px;font-size:11px;color:var(--accent);display:flex;gap:14px;flex-wrap:wrap}
-.defaults strong{font-weight:700}
-.workspace{display:grid;grid-template-columns:0.95fr 1.05fr;gap:12px}
+.main{flex:1;display:flex;flex-direction:column;padding:14px 18px;gap:12px;max-width:1400px;width:100%;margin:0 auto}
+.flow{padding:8px 12px;background:var(--accent-light);border:1px solid #b7ddc8;border-radius:6px;font-size:11px;color:var(--accent);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.flow b{font-weight:700}
+.flow .arrow{color:#7fb99d}
+.workspace{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:900px){.workspace{grid-template-columns:1fr}}
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;overflow:hidden}
-.panel-head{padding:9px 14px;border-bottom:1px solid var(--border);background:var(--surface2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);display:flex;align-items:center;justify-content:space-between}
-.panel-body{padding:12px;flex:1;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
-.dropzone{border:2px dashed var(--border2);border-radius:8px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .15s;background:var(--surface2);min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
-.dropzone:hover,.dropzone.drag{border-color:var(--accent);background:var(--accent-light)}
-.dropzone .big{font-size:20px;color:var(--text3)}
-.dropzone .label{font-size:13px;color:var(--text2);font-weight:500}
-.dropzone .hint{font-size:11px;color:var(--text3)}
-#fileInput{display:none}
-.preview-wrap{display:none;flex-direction:column;gap:6px}
-.preview-wrap.show{display:flex}
-.preview-img{max-width:100%;max-height:260px;object-fit:contain;border:1px solid var(--border);border-radius:6px;background:#fff;align-self:center;cursor:zoom-in}
-.preview-img:hover{border-color:var(--accent)}
-.preview-meta{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;text-align:center}
-.ocr-row{display:flex;gap:8px;align-items:center}
-.ocr-status{flex:1;font-size:11px;color:var(--text2);font-family:'JetBrains Mono',monospace;padding:5px 10px;background:var(--surface2);border-radius:4px;min-height:24px;display:flex;align-items:center}
-.ocr-status.ok{color:var(--ok);background:var(--ok-bg)}
-.ocr-status.warn{color:var(--warn);background:var(--warn-bg)}
-.ocr-raw{display:none;margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);max-height:90px;overflow-y:auto;padding:8px;background:var(--surface2);border-radius:4px;white-space:pre-wrap}
-.ocr-raw.show{display:block}
-.toggle-raw{font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;text-align:right}
-.paste-area{display:flex;flex-direction:column;gap:6px}
-.paste-area label{font-size:11px;font-weight:500;color:var(--text2);display:flex;justify-content:space-between;align-items:center}
-.paste-area label .hint-inline{font-size:10px;color:var(--text3);font-weight:400;font-family:'JetBrains Mono',monospace}
-#pasteBox{width:100%;border:1px solid var(--border2);border-radius:5px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;resize:vertical;color:var(--text);background:var(--surface);outline:none;min-height:140px}
-#pasteBox:focus{border-color:var(--accent)}
-.parse-status{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;text-align:right}
+.panel-head{padding:9px 14px;border-bottom:1px solid var(--border);background:var(--surface2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)}
+.panel-body{padding:12px;flex:1;display:flex;flex-direction:column;gap:8px}
+.panel-body textarea{width:100%;border:1px solid var(--border2);border-radius:5px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;resize:vertical;color:var(--text);background:var(--surface);outline:none;min-height:170px}
+.panel-body textarea:focus{border-color:var(--accent)}
+.parse-status{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;text-align:right;min-height:16px}
 .parse-status.ok{color:var(--ok)}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.form-grid .full{grid-column:1/-1}
+.parse-status.warn{color:var(--warn)}
+.form-section{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3)}
+.form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:900px){.form-grid{grid-template-columns:repeat(2,1fr)}}
+.form-grid .span2{grid-column:span 2}
 .field{display:flex;flex-direction:column;gap:3px}
-.field label{font-size:11px;font-weight:500;color:var(--text2)}
+.field label{font-size:11px;font-weight:500;color:var(--text2);display:flex;justify-content:space-between;gap:6px}
 .field input{padding:8px 10px;border:1px solid var(--border2);border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);background:var(--surface);outline:none;transition:border .1s}
 .field input:focus{border-color:var(--accent)}
 .field.parsed input{background:#f5fbf7;border-color:#b7ddc8}
+.bizno-badge{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700}
+.bizno-badge.ok{color:var(--ok)}
+.bizno-badge.warn{color:var(--warn)}
+details.extra{border:1px dashed var(--border2);border-radius:6px;padding:8px 12px}
+details.extra summary{cursor:pointer;font-size:11px;color:var(--text3);font-weight:700;user-select:none}
+details.extra .form-grid{margin-top:10px}
 .output-section{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px}
-#tsvOutput{width:100%;border:1px solid var(--border2);border-radius:5px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;resize:none;color:var(--out-text);background:var(--out-bg);min-height:50px;outline:none}
+#tsvOutput{width:100%;border:1px solid var(--border2);border-radius:5px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;resize:none;color:var(--out-text);background:var(--out-bg);min-height:50px;outline:none;white-space:pre;overflow-x:auto}
+.preview-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:6px;display:none}
+.preview-wrap.show{display:block}
+.preview-wrap table{border-collapse:collapse;font-size:11px;white-space:nowrap}
+.preview-wrap th{background:var(--surface2);color:var(--text3);font-weight:700;padding:5px 10px;border:1px solid var(--border);font-size:10px}
+.preview-wrap td{padding:5px 10px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace}
+.preview-wrap td.empty{color:var(--text3);background:#fafaf8}
 .bottom{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .btn{padding:8px 16px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .1s}
 .btn:hover{background:var(--surface2);color:var(--text)}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;padding:8px 18px}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;padding:10px 26px;font-size:13px}
 .btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
 .btn.copy-btn{color:var(--accent);border-color:#b7ddc8;background:var(--accent-light)}
 .btn.copy-btn:hover{background:#d4ecdf}
-.btn.gw{background:#1a73e8;color:#fff;border-color:#1a73e8;font-weight:700}
-.btn.gw:hover{background:#0f5dbf;border-color:#0f5dbf}
-.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;color:#fff;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,.3);max-width:400px;animation:fadeIn .15s;line-height:1.5}
+.btn.mini{padding:2px 8px;font-size:10px;border-radius:4px}
+.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;color:#fff;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,.3);max-width:400px;animation:fadeIn .15s;line-height:1.5;white-space:pre-line}
 @keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
-.gw-hint{display:none;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;padding:10px 14px;font-size:12px;color:#9a3412;line-height:1.7}
-.gw-hint.show{display:block}
-.gw-hint b{color:#7c2d12}
-.gw-install{margin-top:10px;padding-top:10px;border-top:1px dashed #fdba74}
-.gw-install a{background:#1a4e8a;color:#fff;text-decoration:none;padding:4px 12px;border-radius:5px;font-weight:600}
-.gw-install a:hover{background:#0d2a4f}
-.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px}
-
-/* ========== 이미지 확대 패널 (왼쪽만 덮음 → 오른쪽 입력창 그대로 사용 가능) ========== */
-.img-modal{display:none;position:fixed;top:0;left:0;width:40%;max-width:500px;height:100%;background:rgba(0,0,0,.92);z-index:99998;align-items:center;justify-content:center;flex-direction:column;gap:10px;padding:14px;overflow:hidden}
-.img-modal.show{display:flex}
-.img-modal img{max-width:100%;max-height:82vh;object-fit:contain;cursor:zoom-in;transition:transform .3s;box-shadow:0 8px 32px rgba(0,0,0,.7);background:#fff;border-radius:4px}
-.img-modal img.zoomed{transform:scale(2);cursor:zoom-out}
-.img-modal-hint{color:#fff;font-size:11px;font-family:'JetBrains Mono',monospace;opacity:.75;text-align:center;background:rgba(0,0,0,.5);padding:6px 14px;border-radius:20px}
-.img-modal-hint b{color:#ffd166}
-.img-modal-close{position:absolute;top:12px;right:12px;color:#fff;font-size:24px;cursor:pointer;opacity:.7;background:rgba(0,0,0,.4);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1}
-.img-modal-close:hover{opacity:1}
 </style>
 </head>
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v2.5</span>
-  <span class="subtitle">사업자번호 OCR · 자동 양식 파싱 · 그룹웨어 연동</span>
+  <span class="ver">v3.0 통합등록</span>
+  <span class="subtitle">사업자등록증 + 업체자료 조합 → 리모컨 붙여넣기</span>
 </header>
 <div class="main">
-  <div class="defaults">
-    기본값 (자동 적용):
-    <span><strong>외부채널분류</strong> = 공란</span>
-    <span><strong>활성여부</strong> = TRUE</span>
-    <span><strong>정산주기</strong> = 일정산</span>
+  <div class="flow">
+    <b>① 사업자등록증 사본 → 하비서한테 전달</b><span class="arrow">▶</span>
+    <b>② 하비서가 뽑아준 정보를 왼쪽 칸에</b><span class="arrow">▶</span>
+    <b>③ 업체 회신 자료를 오른쪽 칸에</b><span class="arrow">▶</span>
+    <b>④ [조합] 클릭 = 복사까지 완료 → 리모컨에 Ctrl+V</b>
   </div>
 
   <div class="workspace">
-    <!-- LEFT: 사업자등록증 -->
+    <!-- ① 사업자등록증 정보 -->
     <div class="panel">
-      <div class="panel-head"><span>1. 사업자등록증 (그룹웨어 첨부용)</span><span id="fileSize" style="font-family:'JetBrains Mono',monospace;color:var(--text3);text-transform:none;letter-spacing:0;font-weight:400"></span></div>
+      <div class="panel-head">① 사업자등록증 정보 (하비서가 뽑아준 것 붙여넣기)</div>
       <div class="panel-body">
-        <div class="dropzone" id="dropzone">
-          <div class="big">📄</div>
-          <div class="label">사진 끌어다 놓거나 클릭</div>
-          <div class="hint">JPG · PNG · GIF</div>
-        </div>
-        <input type="file" id="fileInput" accept="image/*">
-        <div class="preview-wrap" id="previewWrap">
-          <img class="preview-img" id="previewImg" alt="preview" title="클릭하면 크게 봄">
-          <div class="preview-meta" id="previewMeta"></div>
-        </div>
-        <div class="ocr-row">
-          <button class="btn copy-btn" id="ocrBtn" disabled>사업자번호 OCR</button>
-          <div class="ocr-status" id="ocrStatus">사진 업로드 후 OCR (선택사항)</div>
-        </div>
-        <div class="toggle-raw" id="toggleRaw" style="display:none">▾ OCR 원문 보기</div>
-        <div class="ocr-raw" id="ocrRaw"></div>
+        <textarea id="certBox" placeholder="예시 (하비서 출력 그대로):&#10;사업자명: 주식회사 필름&#10;사업자번호: 123-45-67890&#10;대표자: 이윤석&#10;사업장주소: 서울시 강남구 …&#10;업태: 도매 및 소매업&#10;종목: 식품"></textarea>
+        <div class="parse-status" id="certStatus">붙여넣으면 자동 파싱</div>
       </div>
     </div>
 
-    <!-- RIGHT: 텍스트 붙여넣기 + 폼 -->
+    <!-- ② 업체 회신 자료 -->
     <div class="panel">
-      <div class="panel-head"><span>2. 업체 정보</span></div>
+      <div class="panel-head">② 업체 회신 자료 (받은 그대로 붙여넣기)</div>
       <div class="panel-body">
-        <div class="paste-area">
-          <label>업체가 보내준 정보 그대로 붙여넣기 <span class="hint-inline">자동 파싱 OK · 중단위 자동 인식</span></label>
-          <textarea id="pasteBox" placeholder="예시:&#10;업체명 : 필름&#10;대표명 : 이윤석&#10;아이디 : dldbstjr76&#10;연락처 : 010-3794-6086&#10;이메일 : dldbstjr7676@gmail.com&#10;사업자번호 : 000-00-00000  (선택)"></textarea>
-          <div class="parse-status" id="parseStatus">붙여넣으면 자동 파싱</div>
-        </div>
-
-        <div class="section-title">파싱 결과 (직접 수정 가능)</div>
-        <div class="form-grid">
-          <div class="field full" id="field-companyName">
-            <label>업체명 (외부채널명 + 사업자명)</label>
-            <input type="text" id="companyName" placeholder="예: 필름">
-          </div>
-          <div class="field" id="field-bizNumber">
-            <label>사업자번호 (이미지 OCR 또는 직접 입력)</label>
-            <input type="text" id="bizNumber" placeholder="000-00-00000">
-          </div>
-          <div class="field" id="field-repName">
-            <label>대표자 (담당자)</label>
-            <input type="text" id="repName" placeholder="예: 이윤석">
-          </div>
-          <div class="field" id="field-phone">
-            <label>연락처</label>
-            <input type="text" id="phone" placeholder="010-0000-0000">
-          </div>
-          <div class="field" id="field-email">
-            <label>이메일</label>
-            <input type="email" id="email" placeholder="example@gmail.com">
-          </div>
-          <div class="field full" id="field-userId">
-            <label>가입아이디</label>
-            <input type="text" id="userId" placeholder="아이디">
-          </div>
-        </div>
+        <textarea id="vendorBox" placeholder="예시 (받은 그대로 OK · 자동 파싱):&#10;업체명 : 필름&#10;담당자 : 이윤석&#10;아이디 : dldbstjr76&#10;연락처 : 010-3794-6086&#10;이메일 : dldbstjr7676@gmail.com&#10;계산서 이메일 : tax@film.co.kr  (선택)"></textarea>
+        <div class="parse-status" id="vendorStatus">붙여넣으면 자동 파싱</div>
       </div>
     </div>
+  </div>
+
+  <!-- 파싱 결과 폼 -->
+  <div class="form-section">
+    <div class="section-title">파싱 결과 (직접 수정 가능)</div>
+    <div class="form-grid">
+      <div class="field" id="field-chName"><label>외부채널명</label><input type="text" id="chName"></div>
+      <div class="field" id="field-chAlias"><label>외부채널별칭</label><input type="text" id="chAlias"></div>
+      <div class="field" id="field-bizName"><label>사업자명 (상호)</label><input type="text" id="bizName"></div>
+      <div class="field" id="field-bizNo"><label>사업자번호 <span class="bizno-badge" id="biznoBadge"></span></label><input type="text" id="bizNo" placeholder="000-00-00000"></div>
+      <div class="field" id="field-cycle"><label>정산주기</label><input type="text" id="cycle" value="일정산"></div>
+      <div class="field" id="field-rep"><label>대표자</label><input type="text" id="rep"></div>
+      <div class="field span2" id="field-addr"><label>사업장주소</label><input type="text" id="addr"></div>
+      <div class="field" id="field-uptae"><label>업태</label><input type="text" id="uptae"></div>
+      <div class="field" id="field-jongmok"><label>종목</label><input type="text" id="jongmok"></div>
+      <div class="field" id="field-mgr1"><label>담당자</label><input type="text" id="mgr1"></div>
+      <div class="field" id="field-tel1"><label>연락처</label><input type="text" id="tel1"></div>
+      <div class="field" id="field-mail1"><label>이메일(시트)</label><input type="text" id="mail1"></div>
+      <div class="field" id="field-uid1"><label>가입아이디</label><input type="text" id="uid1"></div>
+      <div class="field" id="field-taxMail"><label>이메일(계산서) <button class="btn mini" id="sameMailBtn" title="시트 이메일과 동일하게">시트와 동일</button></label><input type="text" id="taxMail"></div>
+      <div class="field" id="field-memo"><label>메모</label><input type="text" id="memo"></div>
+    </div>
+    <details class="extra">
+      <summary>담당자 2 · 3 (필요할 때만 펼치기)</summary>
+      <div class="form-grid">
+        <div class="field" id="field-mgr2"><label>담당자2</label><input type="text" id="mgr2"></div>
+        <div class="field" id="field-tel2"><label>연락처2</label><input type="text" id="tel2"></div>
+        <div class="field" id="field-mail2"><label>이메일(시트)2</label><input type="text" id="mail2"></div>
+        <div class="field" id="field-uid2"><label>가입아이디2</label><input type="text" id="uid2"></div>
+        <div class="field" id="field-mgr3"><label>담당자3</label><input type="text" id="mgr3"></div>
+        <div class="field" id="field-tel3"><label>연락처3</label><input type="text" id="tel3"></div>
+        <div class="field" id="field-mail3"><label>이메일(시트)3</label><input type="text" id="mail3"></div>
+        <div class="field" id="field-uid3"><label>가입아이디3</label><input type="text" id="uid3"></div>
+      </div>
+    </details>
   </div>
 
   <!-- 출력 -->
   <div class="output-section">
-    <div class="section-title">3. 결과 (TSV 한 줄)</div>
-    <textarea id="tsvOutput" readonly placeholder='"TSV 생성" 누르면 ERP 그리드 1번 칸에 붙여넣을 수 있는 한 줄이 나옵니다.'></textarea>
     <div class="bottom">
-      <button class="btn primary" id="generateBtn">TSV 생성</button>
-      <button class="btn copy-btn" id="copyBtn">복사</button>
-      <button class="btn gw" id="gwBtn">그룹웨어 등록 ▶</button>
+      <button class="btn primary" id="combineBtn">⚡ 조합 (생성 + 복사)</button>
+      <button class="btn copy-btn" id="copyBtn">복사만 다시</button>
       <button class="btn" id="clearBtn">초기화</button>
+      <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">리모컨 붙여넣기용 23칸 한 줄</span>
     </div>
-    <div class="gw-hint" id="gwHint">
-      <b>새 탭에서 즐겨찾기 [그룹웨어 자동입력] 을 한 번 클릭하세요.</b><br>
-      업체명·사진이 자동으로 채워집니다 → <b>등록</b> 버튼만 누르면 끝.
-      <div class="gw-install">
-        즐겨찾기에 아직 없나요? <a href="bookmarklet.html" target="_blank" rel="noopener">1분 설치 안내 ▶</a>
-        <span style="display:block;margin-top:4px">프로그램 설치가 아니라 <b>즐겨찾기에 드래그 한 번</b>입니다.</span>
-      </div>
-    </div>
-    <div class="gw-hint" id="gwManual">
-      <b>클립보드를 못 써서 수동 모드로 넘어갔습니다:</b><br>
-      1. 제목 칸 클릭 → <b>Ctrl+V</b> (업체명 자동 복사됨)<br>
-      2. 다운로드 폴더의 <code id="gwFileName"></code> 사진을 첨부 영역으로 <b>드래그</b><br>
-      3. 등록 클릭
+    <textarea id="tsvOutput" readonly placeholder="[조합] 누르면 리모컨에 붙여넣을 한 줄이 생기고, 클립보드에 자동 복사됩니다."></textarea>
+    <div class="preview-wrap" id="previewWrap">
+      <table>
+        <thead><tr id="previewHead"></tr></thead>
+        <tbody><tr id="previewRow"></tr></tbody>
+      </table>
     </div>
   </div>
 </div>
 
-<!-- 이미지 확대 모달 (OCR 실패 시 자동 또는 미리보기 클릭) -->
-<div class="img-modal" id="imgModal">
-  <div class="img-modal-close" id="imgModalClose">×</div>
-  <img id="imgModalImg" alt="확대 이미지">
-  <div class="img-modal-hint">이미지 <b>클릭</b>으로 확대/축소 · <b>×</b> 버튼이나 <b>ESC</b>로 닫기 · 오른쪽에서 바로 입력 OK</div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
-const GW_URL = 'https://masterc.co.kr/index.php?mid=board_WmLw11&act=dispBoardWrite';
+// 리모컨 컬럼 순서 (2026-08-10 사장님 헤더 그대로 — 활성여부 없음 주의, 옛 ERP 18칸과 다름)
+const COLS = [
+  ['외부채널명','chName'],['사업자명','bizName'],['외부채널별칭','chAlias'],['사업자번호','bizNo'],
+  ['정산주기','cycle'],['담당자','mgr1'],['연락처','tel1'],['이메일(시트)','mail1'],['가입아이디','uid1'],
+  ['담당자2','mgr2'],['연락처2','tel2'],['이메일(시트)2','mail2'],['가입아이디2','uid2'],
+  ['담당자3','mgr3'],['연락처3','tel3'],['이메일(시트)3','mail3'],['가입아이디3','uid3'],
+  ['대표자','rep'],['사업장주소','addr'],['업태','uptae'],['종목','jongmok'],
+  ['이메일(계산서)','taxMail'],['메모','memo']
+];
 
-let currentFile = null;
-
-// 클립보드는 image/png만 받으므로 캔버스로 축소 후 PNG로 변환
-function toPngBlob(file, maxSide) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
-      const w = Math.round(img.naturalWidth * scale);
-      const h = Math.round(img.naturalHeight * scale);
-      const cv = document.createElement('canvas');
-      cv.width = w; cv.height = h;
-      const ctx = cv.getContext('2d');
-      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
-      ctx.drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(img.src);
-      cv.toBlob(b => b ? resolve(b) : reject(new Error('canvas 변환 실패')), 'image/png');
-    };
-    img.onerror = () => reject(new Error('이미지 로드 실패'));
-    img.src = URL.createObjectURL(file);
-  });
+function g(id){ return document.getElementById(id).value.trim(); }
+function setField(id, val){
+  const el = document.getElementById(id);
+  el.value = val;
+  const wrap = document.getElementById('field-' + id);
+  if (wrap) wrap.classList.add('parsed');
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
+// ========== 사업자번호 체크섬 (국세청 검증식) ==========
+function validBizNo(v){
+  const d = (v || '').replace(/[^0-9]/g, '');
+  if (d.length !== 10) return null;
+  const w = [1,3,7,1,3,7,1,3,5];
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(d[i]) * w[i];
+  sum += Math.floor(parseInt(d[8]) * 5 / 10);
+  return (10 - sum % 10) % 10 === parseInt(d[9]);
+}
+function updateBiznoBadge(){
+  const badge = document.getElementById('biznoBadge');
+  const ok = validBizNo(g('bizNo'));
+  if (ok === null) { badge.textContent = ''; badge.className = 'bizno-badge'; return; }
+  if (ok) { badge.textContent = '✓ 검증통과'; badge.className = 'bizno-badge ok'; }
+  else { badge.textContent = '⚠️ 체크섬 불일치 — 숫자 확인!'; badge.className = 'bizno-badge warn'; }
+}
+document.getElementById('bizNo').addEventListener('input', updateBiznoBadge);
+
+function fmtBizNo(v){
+  const m = (v || '').match(/(\d{3})\s*[-\.\s]?\s*(\d{2})\s*[-\.\s]?\s*(\d{5})/);
+  return m ? m[1] + '-' + m[2] + '-' + m[3] : v;
 }
 
-function sendToExtension(payload) {
-  return new Promise((resolve) => {
-    const handler = (e) => {
-      if (e.source !== window) return;
-      if (e.data && e.data.type === 'VENDOR_REGISTER_READY') {
-        window.removeEventListener('message', handler);
-        resolve(true);
-      } else if (e.data && e.data.type === 'VENDOR_REGISTER_ERROR') {
-        window.removeEventListener('message', handler);
-        resolve(false);
-      }
-    };
-    window.addEventListener('message', handler);
-    window.postMessage(payload, '*');
-    setTimeout(() => {
-      window.removeEventListener('message', handler);
-      resolve(false);
-    }, 1200);
-  });
-}
-
-// ========== 파일 업로드 ==========
-const dropzone = document.getElementById('dropzone');
-const fileInput = document.getElementById('fileInput');
-const previewWrap = document.getElementById('previewWrap');
-const previewImg = document.getElementById('previewImg');
-const previewMeta = document.getElementById('previewMeta');
-
-dropzone.addEventListener('click', () => fileInput.click());
-dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
-dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
-dropzone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropzone.classList.remove('drag');
-  const f = e.dataTransfer.files[0];
-  if (f) handleFile(f);
-});
-fileInput.addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (f) handleFile(f);
-});
-
-function handleFile(file) {
-  if (!file.type.startsWith('image/')) { showToast('이미지 파일만 가능해요', '#b45309'); return; }
-  currentFile = file;
-  const r = new FileReader();
-  r.onload = e => {
-    previewImg.src = e.target.result;
-    previewWrap.classList.add('show');
-    dropzone.style.display = 'none';
-    previewMeta.textContent = `${file.name} · ${formatSize(file.size)}`;
-    document.getElementById('ocrBtn').disabled = false;
-    document.getElementById('ocrStatus').textContent = '"사업자번호 OCR" 눌러서 숫자 자동 추출 (선택)';
-    document.getElementById('ocrStatus').className = 'ocr-status';
-    document.getElementById('fileSize').textContent = formatSize(file.size);
-  };
-  r.readAsDataURL(file);
-}
-
-function formatSize(b) {
-  if (b < 1024) return b + ' B';
-  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
-  return (b/1024/1024).toFixed(2) + ' MB';
-}
-
-// ========== 이미지 확대 모달 ==========
-const imgModal = document.getElementById('imgModal');
-const imgModalImg = document.getElementById('imgModalImg');
-const imgModalClose = document.getElementById('imgModalClose');
-
-function openImgModal(src) {
-  if (!src) return;
-  imgModalImg.src = src;
-  imgModalImg.classList.remove('zoomed');
-  imgModal.classList.add('show');
-}
-function closeImgModal() {
-  imgModal.classList.remove('show');
-  imgModalImg.classList.remove('zoomed');
-}
-// 이미지 클릭 → 확대/축소 토글
-imgModalImg.addEventListener('click', (e) => {
-  e.stopPropagation();
-  imgModalImg.classList.toggle('zoomed');
-});
-// 닫기 버튼
-imgModalClose.addEventListener('click', closeImgModal);
-// 패널 배경 클릭 → 닫기 (이미지 클릭 제외)
-imgModal.addEventListener('click', (e) => {
-  if (e.target === imgModal) closeImgModal();
-});
-// ESC → 닫기
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && imgModal.classList.contains('show')) closeImgModal();
-});
-// 미리보기 이미지 클릭 → 모달 열기
-previewImg.addEventListener('click', () => openImgModal(previewImg.src));
-
-// ========== 사업자번호 OCR ==========
-document.getElementById('ocrBtn').addEventListener('click', runBizNumberOCR);
-
-async function runBizNumberOCR() {
-  if (!currentFile) return;
-  const btn = document.getElementById('ocrBtn');
-  const status = document.getElementById('ocrStatus');
-  btn.disabled = true;
-  status.className = 'ocr-status';
-  status.textContent = 'Tesseract 로딩... (첫 실행 시 모델 다운로드)';
-  try {
-    const worker = await Tesseract.createWorker('eng', 1, {
-      logger: m => {
-        if (m.status === 'recognizing text') {
-          status.textContent = `숫자 인식 중... ${Math.round((m.progress||0) * 100)}%`;
-        } else if (m.status === 'loading language traineddata' || m.status === 'initializing api') {
-          status.textContent = `${m.status}... ${Math.round((m.progress||0) * 100)}%`;
-        }
-      }
-    });
-    await worker.setParameters({ tessedit_char_whitelist: '0123456789-' });
-    const { data: { text } } = await worker.recognize(currentFile);
-    await worker.terminate();
-
-    document.getElementById('ocrRaw').textContent = text;
-    document.getElementById('toggleRaw').style.display = 'block';
-
-    const m = text.match(/(\d{3})\s*[-\.\s]\s*(\d{2})\s*[-\.\s]\s*(\d{5})/);
-    if (m) {
-      const num = m[1] + '-' + m[2] + '-' + m[3];
-      const inp = document.getElementById('bizNumber');
-      inp.value = num;
-      document.getElementById('field-bizNumber').classList.add('parsed');
-      status.className = 'ocr-status ok';
-      status.textContent = '✅ 사업자번호 추출: ' + num;
-    } else {
-      status.className = 'ocr-status warn';
-      status.textContent = '⚠️ 패턴 못 찾음 — 이미지 크게 보고 직접 입력 (모달 자동 열림)';
-      // ★ OCR 패턴 못 찾으면 자동으로 이미지 확대 모달 열기 (v1.9 복원)
-      setTimeout(() => openImgModal(previewImg.src), 200);
-    }
-  } catch (e) {
-    status.className = 'ocr-status warn';
-    status.textContent = '❌ OCR 오류: ' + (e.message || e);
-    // ★ OCR 에러도 모달 열어주기
-    setTimeout(() => openImgModal(previewImg.src), 200);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-document.getElementById('toggleRaw').addEventListener('click', () => {
-  document.getElementById('ocrRaw').classList.toggle('show');
-});
-
-// ========== 자유 형식 텍스트 파싱 ==========
-const pasteBox = document.getElementById('pasteBox');
-let parseTimer = null;
-pasteBox.addEventListener('input', () => {
-  clearTimeout(parseTimer);
-  parseTimer = setTimeout(parsePastedText, 300);
-});
-
-function parsePastedText() {
-  const text = pasteBox.value;
-  if (!text.trim()) {
-    document.getElementById('parseStatus').textContent = '붙여넣으면 자동 파싱';
-    document.getElementById('parseStatus').className = 'parse-status';
-    return;
-  }
-  const parsed = parseVendorInfo(text);
-  let filled = 0;
-  if (parsed.companyName) { setField('companyName', parsed.companyName); filled++; }
-  if (parsed.bizNumber) { setField('bizNumber', parsed.bizNumber); filled++; }
-  if (parsed.repName) { setField('repName', parsed.repName); filled++; }
-  if (parsed.phone) { setField('phone', parsed.phone); filled++; }
-  if (parsed.email) { setField('email', parsed.email); filled++; }
-  if (parsed.userId) { setField('userId', parsed.userId); filled++; }
-
-  let msg = '✅ ' + filled + '개 필드 자동 입력됨';
-  if (emailFixNote) msg += ' · ⚠️ 이메일 오타 보정: ' + emailFixNote;
-  document.getElementById('parseStatus').textContent = msg;
-  document.getElementById('parseStatus').className = 'parse-status ok';
-}
-
+// ========== 이메일 오타 보정 ==========
 const EMAIL_DOMAIN_FIX = {
   'gmal.com':'gmail.com','gmial.com':'gmail.com','gmaill.com':'gmail.com',
   'gnail.com':'gmail.com','gamil.com':'gmail.com','gmali.com':'gmail.com',
@@ -451,8 +227,7 @@ const EMAIL_DOMAIN_FIX = {
   'outlook.con':'outlook.com','outlok.com':'outlook.com'
 };
 let emailFixNote = '';
-
-function fixEmailTypos(email) {
+function fixEmailTypos(email){
   emailFixNote = '';
   if (!email || !email.includes('@')) return email;
   const parts = email.split('@');
@@ -466,94 +241,7 @@ function fixEmailTypos(email) {
   return local + '@' + domain;
 }
 
-function parseVendorInfo(text) {
-  const result = { companyName:'', bizNumber:'', repName:'', phone:'', email:'', userId:'' };
-  const lines = text.split('\n');
-  const patterns = [
-    ['companyName', /(?:업체명|사업자명|상호명|상호|회사명|회사)/],
-    ['phone',       /(?:연락처\s*번호|연락처|전화\s*번호|핸드폰\s*번호|휴대폰\s*번호|핸드폰|휴대폰|전화|폰)/],
-    ['repName',     /(?:대표자명|대표자|대표명|사장님|사장|대표)/],
-    ['bizNumber',   /(?:사업자\s*등록\s*번호|사업자\s*번호|등록\s*번호|사업자번호)/],
-    ['userId',      /(?:가입\s*아이디|가입\s*ID|아이디|ID)/i],
-    ['email',       /(?:이\s*메일\s*주소|메일|주소|이\s*메일|이메일|메일|email|e-mail|mail)/i]
-  ];
-  const usedLines = new Set();
-  for (let li = 0; li < lines.length; li++) {
-    const trimmed = lines[li].trim();
-    if (!trimmed) continue;
-    for (const [field, kw] of patterns) {
-      if (result[field]) continue;
-      // 라벨 뒤 구분자(: ： = > -) 우선, 없으면 공백으로 분리. 라벨은 줄 안 단어 끝에 위치 가능(예: "구글시트 사용할 주소 - ...")
-      let m = trimmed.match(new RegExp('^\\s*(?:.*?)' + kw.source + '\\s*[:：=>\\-]+\\s*(.+)$', kw.flags));
-      if (!m) m = trimmed.match(new RegExp('^\\s*(?:.*?)' + kw.source + '\\s+(.+)$', kw.flags));
-      if (!m) continue;
-      let v = (m[1] || '').trim().replace(/^[:：=>\-\s]+/, '').trim();
-      if (!v) continue;
-      if (field === 'email') {
-        const md = v.match(/\[([^\]]+)\]/);
-        if (md) v = md[1];
-        v = v.replace(/^mailto:/i, '').trim();
-        // 라벨 안내문구("(꼭 @gmail.com 으로 입력 부탁드립니다) : 실제주소")가 섞여 들어와도 진짜 이메일 주소만 추출
-        // @gmail.com 처럼 로컬파트가 없는 안내용은 매치 안 되고, dldbstjr7676@gmail.com 같은 실제 주소만 잡힘
-        const em = v.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
-        if (em) v = em[0];
-        v = fixEmailTypos(v);
-      }
-      if (field === 'bizNumber') {
-        const numM = v.match(/(\d{3})\s*[-\.\s]\s*(\d{2})\s*[-\.\s]\s*(\d{5})/);
-        if (numM) v = numM[1] + '-' + numM[2] + '-' + numM[3];
-      }
-      if (field === 'phone') {
-        const digits = v.replace(/[^0-9]/g, '');
-        v = formatPhone(digits) || v;
-      }
-      result[field] = v;
-      usedLines.add(li);
-      break;
-    }
-  }
-
-  // ===== v2.1: 라벨 없는 형식 폴백 =====
-  // 업체가 라벨 없이 "업체명/대표자/아이디/연락처/이메일" 줄만 보내는 경우:
-  // 이메일·사업자번호·연락처는 패턴으로 잡고, 남는 줄은 순서대로 업체명 -> 대표자 -> 아이디.
-  const leftovers = [];
-  for (let li = 0; li < lines.length; li++) {
-    const t = lines[li].trim();
-    if (!t || usedLines.has(li)) continue;
-    if (t.length > 30) continue;
-    if (/안녕|감사|부탁|주세요|입니다|할게요|드려요/.test(t)) continue;
-    leftovers.push(t);
-  }
-  const restLines = [];
-  for (const l of leftovers) {
-    if (!result.email && /@/.test(l)) {
-      const em = l.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
-      if (em) { result.email = fixEmailTypos(em[0]); continue; }
-    }
-    const digits = l.replace(/[^0-9]/g, '');
-    const numericOnly = /^[\d\s\-\.\(\)~]+$/.test(l);
-    if (!result.bizNumber && numericOnly && digits.length === 10 && /^\d{3}\s*[-\.\s]\s*\d{2}\s*[-\.\s]\s*\d{5}$/.test(l)) {
-      result.bizNumber = digits.slice(0,3) + '-' + digits.slice(3,5) + '-' + digits.slice(5);
-      continue;
-    }
-    if (!result.phone && numericOnly && digits.length >= 9 && digits.length <= 12 && (digits.startsWith('0') || digits.startsWith('1'))) {
-      result.phone = formatPhone(digits) || l;
-      continue;
-    }
-    restLines.push(l);
-  }
-  for (const l of restLines) {
-    const idLike = /^[A-Za-z0-9._-]+$/.test(l) && /\d/.test(l);
-    if (!result.userId && idLike) { result.userId = l; continue; }
-    if (!result.companyName) { result.companyName = l; continue; }
-    if (!result.repName) { result.repName = l; continue; }
-    if (!result.userId) { result.userId = l; continue; }
-  }
-
-  return result;
-}
-
-function formatPhone(n) {
+function formatPhone(n){
   if (!n) return '';
   if (n.length === 11) return n.slice(0,3) + '-' + n.slice(3,7) + '-' + n.slice(7);
   if (n.length === 10) {
@@ -566,154 +254,220 @@ function formatPhone(n) {
   return n;
 }
 
-function setField(id, val) {
-  const el = document.getElementById(id);
-  el.value = val;
-  document.getElementById('field-' + id).classList.add('parsed');
+// ========== ① 사업자등록증 칸 파싱 (하비서 표준 출력: "라벨: 값" 줄) ==========
+const CERT_PATTERNS = [
+  ['bizName', /(?:사업자명|법인명|상호명|상호)/],
+  ['bizNo',   /(?:사업자\s*등록\s*번호|사업자\s*번호|등록\s*번호)/],
+  ['rep',     /(?:대표자명|대표자|대표)/],
+  ['addr',    /(?:사업장\s*주소|사업장\s*소재지|소재지|주소)/],
+  ['uptae',   /(?:업태)/],
+  ['jongmok', /(?:종목)/]
+];
+function parseCertBox(){
+  const text = document.getElementById('certBox').value;
+  const status = document.getElementById('certStatus');
+  if (!text.trim()) { status.textContent = '붙여넣으면 자동 파싱'; status.className = 'parse-status'; return; }
+  let filled = 0;
+  for (const line of text.split('\n')) {
+    const t = line.trim().replace(/^[-•*·\s]+/, '');
+    if (!t) continue;
+    for (const [field, kw] of CERT_PATTERNS) {
+      const m = t.match(new RegExp('^' + kw.source + '\\s*[:：=\\-]\\s*(.+)$'));
+      if (!m) continue;
+      let v = m[1].trim();
+      if (field === 'bizNo') v = fmtBizNo(v);
+      setField(field, v);
+      filled++;
+      break;
+    }
+  }
+  // 라벨 없이 번호만 굴러다녀도 줍기
+  if (!g('bizNo')) {
+    const m = text.match(/(\d{3})\s*-\s*(\d{2})\s*-\s*(\d{5})/);
+    if (m) { setField('bizNo', m[1] + '-' + m[2] + '-' + m[3]); filled++; }
+  }
+  updateBiznoBadge();
+  if (filled) { status.textContent = '✅ ' + filled + '개 필드 인식'; status.className = 'parse-status ok'; }
+  else { status.textContent = '⚠️ 인식된 라벨 없음 — "사업자명: 값" 형식인지 확인'; status.className = 'parse-status warn'; }
 }
 
-// ========== TSV 생성 ==========
-document.getElementById('generateBtn').addEventListener('click', generate);
+// ========== ② 업체 회신 칸 파싱 (자유 형식) ==========
+const VENDOR_PATTERNS = [
+  ['chAlias', /(?:별칭|채널\s*별칭)/],
+  ['taxMail', /(?:계산서\s*이?\s*메일|세금\s*계산서\s*메일|계산서\s*용|세금\s*계산서)/i],
+  ['cycle',   /(?:정산\s*주기|정산)/],
+  ['memo',    /(?:메모|비고|특이사항)/],
+  ['chName',  /(?:업체명|사업자명|상호명|상호|회사명|회사|채널명)/],
+  ['tel1',    /(?:연락처\s*번호|연락처|전화\s*번호|핸드폰\s*번호|휴대폰\s*번호|핸드폰|휴대폰|전화|폰)/],
+  ['mgr1',    /(?:담당자명|담당자|대표자명|대표자|대표명|사장님|사장|대표)/],
+  ['bizNo2',  /(?:사업자\s*등록\s*번호|사업자\s*번호|등록\s*번호)/],
+  ['uid1',    /(?:가입\s*아이디|가입\s*ID|아이디|ID)/i],
+  ['mail1',   /(?:이\s*메일\s*주소|이\s*메일|이메일|메일|email|e-mail|mail|주소)/i]
+];
+function parseVendorBox(){
+  const text = document.getElementById('vendorBox').value;
+  const status = document.getElementById('vendorStatus');
+  if (!text.trim()) { status.textContent = '붙여넣으면 자동 파싱'; status.className = 'parse-status'; return; }
+  const lines = text.split('\n');
+  const usedLines = new Set();
+  const got = {};
+  let fixNote = '';
+  for (let li = 0; li < lines.length; li++) {
+    const t = lines[li].trim();
+    if (!t) continue;
+    for (const [field, kw] of VENDOR_PATTERNS) {
+      if (got[field]) continue;
+      let m = t.match(new RegExp('^\\s*(?:.*?)' + kw.source + '\\s*[:：=>\\-]+\\s*(.+)$', kw.flags));
+      if (!m) m = t.match(new RegExp('^\\s*(?:.*?)' + kw.source + '\\s+(.+)$', kw.flags));
+      if (!m) continue;
+      let v = (m[1] || '').trim().replace(/^[:：=>\-\s]+/, '').trim();
+      if (!v) continue;
+      if (field === 'mail1' || field === 'taxMail') {
+        const md = v.match(/\[([^\]]+)\]/);
+        if (md) v = md[1];
+        v = v.replace(/^mailto:/i, '').trim();
+        const em = v.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+        if (em) v = em[0]; else if (field === 'mail1') continue; // "주소" 라벨이 집주소 잡는 것 방지
+        v = fixEmailTypos(v);
+        if (emailFixNote) fixNote = emailFixNote;
+      }
+      if (field === 'bizNo2') v = fmtBizNo(v);
+      if (field === 'tel1') v = formatPhone(v.replace(/[^0-9]/g, '')) || v;
+      got[field] = v;
+      usedLines.add(li);
+      break;
+    }
+  }
+  // 라벨 없는 줄 폴백: 이메일/사업자번호/전화 → 나머지는 업체명 → 담당자 → 아이디
+  const leftovers = [];
+  for (let li = 0; li < lines.length; li++) {
+    const t = lines[li].trim();
+    if (!t || usedLines.has(li)) continue;
+    if (t.length > 30) continue;
+    if (/안녕|감사|부탁|주세요|입니다|할게요|드려요/.test(t)) continue;
+    leftovers.push(t);
+  }
+  const restLines = [];
+  for (const l of leftovers) {
+    if (!got.mail1 && /@/.test(l)) {
+      const em = l.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+      if (em) { got.mail1 = fixEmailTypos(em[0]); if (emailFixNote) fixNote = emailFixNote; continue; }
+    }
+    const digits = l.replace(/[^0-9]/g, '');
+    const numericOnly = /^[\d\s\-\.\(\)~]+$/.test(l);
+    if (!got.bizNo2 && numericOnly && digits.length === 10 && /^\d{3}\s*[-\.\s]\s*\d{2}\s*[-\.\s]\s*\d{5}$/.test(l)) {
+      got.bizNo2 = digits.slice(0,3) + '-' + digits.slice(3,5) + '-' + digits.slice(5);
+      continue;
+    }
+    if (!got.tel1 && numericOnly && digits.length >= 9 && digits.length <= 12 && (digits.startsWith('0') || digits.startsWith('1'))) {
+      got.tel1 = formatPhone(digits) || l;
+      continue;
+    }
+    restLines.push(l);
+  }
+  for (const l of restLines) {
+    const idLike = /^[A-Za-z0-9._-]+$/.test(l) && /\d/.test(l);
+    if (!got.uid1 && idLike) { got.uid1 = l; continue; }
+    if (!got.chName) { got.chName = l; continue; }
+    if (!got.mgr1) { got.mgr1 = l; continue; }
+    if (!got.uid1) { got.uid1 = l; continue; }
+  }
 
-function generate() {
-  const company = g('companyName');
-  // 컬럼 18개 (2026-06-10: 활성여부 TRUE 누락 복구 — v1.8엔 있었는데 v1.9에서 빠져 붙여넣기가 한 칸씩 밀린 사고)
-  // 외부채널명/사업자명/외부채널별칭/사업자번호/활성여부/정산주기/담당자/연락처/이메일/가입아이디
-  // /담당자2/연락처2/이메일2/가입아이디2/담당자3/연락처3/이메일3/가입아이디3
-  const cols = [
-    company,         // 1. 외부채널명
-    company,         // 2. 사업자명
-    '',              // 3. 외부채널별칭
-    g('bizNumber'),  // 4. 사업자번호
-    'TRUE',          // 5. 활성여부 (붙여넣기가 체크박스 칸도 한 칸 소비 — 빼면 뒤 칸 전부 한 칸씩 밀림)
-    '일정산',         // 6. 정산주기
-    g('repName'),    // 7. 담당자
-    g('phone'),      // 8. 연락처
-    g('email'),      // 9. 이메일
-    g('userId'),     // 10. 가입아이디
-    '',              // 11. 담당자2
-    '',              // 12. 연락처2
-    '',              // 13. 이메일2
-    '',              // 14. 가입아이디2
-    '',              // 15. 담당자3
-    '',              // 16. 연락처3
-    '',              // 17. 이메일3
-    ''               // 18. 가입아이디3
-  ];
-  const tsv = cols.join('\t');
+  let filled = 0;
+  for (const [field, v] of Object.entries(got)) {
+    if (field === 'bizNo2') {
+      // 사업자번호는 등록증(①)이 우선 — 비어 있을 때만 채움
+      if (!g('bizNo')) { setField('bizNo', v); filled++; updateBiznoBadge(); }
+      continue;
+    }
+    setField(field, v);
+    filled++;
+  }
+  let msg = filled ? '✅ ' + filled + '개 필드 인식' : '⚠️ 인식 실패 — 아래 칸에 직접 입력';
+  if (fixNote) msg += ' · ⚠️ 이메일 보정: ' + fixNote;
+  status.textContent = msg;
+  status.className = filled ? 'parse-status ok' : 'parse-status warn';
+}
+
+let certTimer = null, vendorTimer = null;
+document.getElementById('certBox').addEventListener('input', () => { clearTimeout(certTimer); certTimer = setTimeout(parseCertBox, 300); });
+document.getElementById('vendorBox').addEventListener('input', () => { clearTimeout(vendorTimer); vendorTimer = setTimeout(parseVendorBox, 300); });
+
+// ========== 조합 = 폴백 채움 + TSV 생성 + 자동 복사 ==========
+document.getElementById('combineBtn').addEventListener('click', async () => {
+  // 폴백: 채널명 없으면 상호로, 담당자 없으면 대표자로
+  if (!g('chName') && g('bizName')) setField('chName', g('bizName'));
+  if (!g('bizName') && g('chName')) setField('bizName', g('chName'));
+  if (!g('mgr1') && g('rep')) setField('mgr1', g('rep'));
+
+  const vals = COLS.map(([, id]) => g(id).replace(/[\t\n\r]+/g, ' '));
+  const tsv = vals.join('\t');
   document.getElementById('tsvOutput').value = tsv;
-  showToast('✅ TSV 생성 완료', 'var(--ok)');
-  return tsv;
+  renderPreview(vals);
+
+  const missing = [];
+  if (!vals[0]) missing.push('외부채널명');
+  if (!vals[3]) missing.push('사업자번호');
+  const biznoOk = validBizNo(vals[3]);
+
+  let copied = false;
+  try { await navigator.clipboard.writeText(tsv); copied = true; } catch (e) {}
+
+  let msg = copied ? '📋 복사 완료! 리모컨에 Ctrl+V' : '✅ 생성 완료 (복사는 아래 버튼으로)';
+  let color = 'var(--ok)';
+  if (missing.length) { msg += '\n⚠️ 빈 칸: ' + missing.join(', '); color = '#b45309'; }
+  if (biznoOk === false) { msg += '\n⚠️ 사업자번호 체크섬 불일치 — 확인 필요'; color = '#b45309'; }
+  showToast(msg, color, missing.length || biznoOk === false ? 6000 : 3500);
+});
+
+function renderPreview(vals){
+  const head = document.getElementById('previewHead');
+  const row = document.getElementById('previewRow');
+  head.innerHTML = '';
+  row.innerHTML = '';
+  COLS.forEach(([name], i) => {
+    const th = document.createElement('th');
+    th.textContent = name;
+    head.appendChild(th);
+    const td = document.createElement('td');
+    td.textContent = vals[i] || '·';
+    if (!vals[i]) td.className = 'empty';
+    row.appendChild(td);
+  });
+  document.getElementById('previewWrap').classList.add('show');
 }
 
-function g(id) { return document.getElementById(id).value.trim(); }
-
-// ========== 복사 ==========
 document.getElementById('copyBtn').addEventListener('click', async () => {
-  let tsv = document.getElementById('tsvOutput').value;
-  if (!tsv) tsv = generate();
+  const tsv = document.getElementById('tsvOutput').value;
+  if (!tsv) { showToast('먼저 [조합]을 눌러주세요', '#b45309'); return; }
   try {
     await navigator.clipboard.writeText(tsv);
-    showToast('📋 클립보드에 복사됨 - ERP 그리드 첫 칸에 Ctrl+V', 'var(--accent)');
+    showToast('📋 복사됨 - 리모컨에 Ctrl+V', 'var(--accent)');
   } catch (e) {
     showToast('복사 실패: ' + e.message, '#b45309');
   }
 });
 
-// ========== 그룹웨어 등록 ==========
-document.getElementById('gwBtn').addEventListener('click', uploadToGroupware);
-
-async function uploadToGroupware() {
-  const company = g('companyName');
-  if (!company) { showToast('업체명을 먼저 입력해주세요', '#b45309'); return; }
-  if (!currentFile) { showToast('사업자등록증 사진을 먼저 올려주세요', '#b45309'); return; }
-
-  const ext = (currentFile.name.match(/\.[a-z0-9]+$/i) || ['.jpg'])[0].toLowerCase();
-  const newName = company + ext;
-
-  // 사진을 클립보드에 담는다. 클릭 직후에 해야 브라우저가 허용하므로 다른 작업보다 먼저.
-  let clipOk = false;
-  try {
-    const png = await toPngBlob(currentFile, 1600);
-    await navigator.clipboard.write([new ClipboardItem({
-      'image/png': png,
-      'text/plain': new Blob([company], { type: 'text/plain' })
-    })]);
-    clipOk = true;
-  } catch (e) {
-    console.warn('[업체등록] 클립보드 담기 실패:', e.message);
-  }
-
-  // 1차: 확장 프로그램이 깔린 PC면 클릭 없이 자동
-  try {
-    const base64 = await fileToBase64(currentFile);
-    const ready = await sendToExtension({
-      type: 'VENDOR_REGISTER',
-      title: company,
-      imageBase64: base64,
-      imageName: newName
-    });
-    if (ready) {
-      window.open(GW_URL, '_blank');
-      showToast('✅ 그룹웨어 새 탭 열림\n제목·사진 자동 입력됨 → 등록 버튼만 클릭하세요', 'var(--ok)', 7000);
-      return;
-    }
-  } catch (e) {
-    console.warn('[업체등록] 확장 통신 오류:', e.message);
-  }
-
-  // 2차: 북마클릿 모드 — 사진은 클립보드로, 업체명은 주소 뒤 #vt= 로 넘어간다
-  if (clipOk) {
-    window.open(GW_URL + '#vt=' + encodeURIComponent(company), '_blank');
-    document.getElementById('gwHint').classList.add('show');
-    showToast('📋 사진을 클립보드에 담았습니다\n새 탭에서 즐겨찾기 [그룹웨어 자동입력] 클릭', 'var(--accent)', 8000);
-    return;
-  }
-
-  // 3차: 클립보드도 막혔을 때 — 예전 수동 모드
-  showToast('⚠️ 클립보드를 못 썼습니다 — 수동 모드\n사진을 다운로드했습니다', '#b45309', 5000);
-
-  const url = URL.createObjectURL(currentFile);
-  const a = document.createElement('a');
-  a.href = url; a.download = newName;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-  try { await navigator.clipboard.writeText(company); } catch (e) {}
-
-  document.getElementById('gwFileName').textContent = newName;
-  document.getElementById('gwManual').classList.add('show');
-
-  window.open(GW_URL, '_blank');
-}
-
-// ========== 초기화 ==========
-document.getElementById('clearBtn').addEventListener('click', () => {
-  if (!confirm('입력 내용을 모두 지울까요?')) return;
-  ['companyName','bizNumber','repName','phone','email','userId','tsvOutput','pasteBox'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  document.querySelectorAll('.field.parsed').forEach(f => f.classList.remove('parsed'));
-  currentFile = null;
-  previewWrap.classList.remove('show');
-  dropzone.style.display = '';
-  fileInput.value = '';
-  document.getElementById('ocrBtn').disabled = true;
-  document.getElementById('ocrStatus').textContent = '사진 업로드 후 OCR (선택사항)';
-  document.getElementById('ocrStatus').className = 'ocr-status';
-  document.getElementById('toggleRaw').style.display = 'none';
-  document.getElementById('ocrRaw').classList.remove('show');
-  document.getElementById('ocrRaw').textContent = '';
-  document.getElementById('gwHint').classList.remove('show');
-  document.getElementById('gwManual').classList.remove('show');
-  document.getElementById('fileSize').textContent = '';
-  document.getElementById('parseStatus').textContent = '붙여넣으면 자동 파싱';
-  document.getElementById('parseStatus').className = 'parse-status';
-  closeImgModal();
+document.getElementById('sameMailBtn').addEventListener('click', (e) => {
+  e.preventDefault();
+  if (g('mail1')) setField('taxMail', g('mail1'));
 });
 
-// ========== 토스트 ==========
-function showToast(msg, color, duration) {
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (!confirm('입력 내용을 모두 지울까요?')) return;
+  document.querySelectorAll('input[type=text], textarea').forEach(el => { el.value = ''; });
+  document.getElementById('cycle').value = '일정산';
+  document.querySelectorAll('.field.parsed').forEach(f => f.classList.remove('parsed'));
+  document.getElementById('previewWrap').classList.remove('show');
+  document.getElementById('certStatus').textContent = '붙여넣으면 자동 파싱';
+  document.getElementById('certStatus').className = 'parse-status';
+  document.getElementById('vendorStatus').textContent = '붙여넣으면 자동 파싱';
+  document.getElementById('vendorStatus').className = 'parse-status';
+  document.getElementById('biznoBadge').textContent = '';
+  document.getElementById('biznoBadge').className = 'bizno-badge';
+});
+
+function showToast(msg, color, duration){
   const existing = document.querySelector('.toast');
   if (existing) existing.remove();
   const el = document.createElement('div');
