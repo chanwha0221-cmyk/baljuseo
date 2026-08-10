@@ -282,28 +282,26 @@
     <section>
       <div class="sechead">
         <h2><span class="n">점검 2</span> 내 돈은 제로섬인가</h2>
-        <p class="askline">정산 배분과 무관하게 — 내가 넣은 돈 + 따로 들어온 돈 − 따로 쓴 돈. 0이면 빵꾸가 없다는 뜻입니다.</p>
+        <p class="askline">넣은 돈 · 뺀 돈 · 따로 쓴 돈을 시간 순서대로 한 줄씩. 같은 날 같은 금액으로 그대로 나간 건은 «통과»로 걸러냅니다.</p>
       </div>
+      <div class="grid g3" id="mineTiles" style="margin-bottom:13px"></div>
       <div id="zeroSum" style="margin-bottom:16px"></div>
-
-      <h3 style="margin:20px 0 8px">① 내가 넣은 돈 <span class="dim" style="font-weight:400;font-size:13px" id="cnt1"></span></h3>
-      <div class="scroll"><table id="meInTable"></table></div>
-
-      <h3 style="margin:22px 0 8px">② 정산과 무관하게 들어온 돈 <span class="dim" style="font-weight:400;font-size:13px" id="cnt2"></span></h3>
-      <div class="scroll"><table id="inTable"></table></div>
-
-      <h3 style="margin:22px 0 8px">③ 정산과 무관하게 나간 돈 <span class="dim" style="font-weight:400;font-size:13px" id="cnt3"></span></h3>
-      <div class="grid g3" id="spentTiles" style="margin-bottom:11px"></div>
-      <div class="scroll"><table id="spentTable"></table></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:9px">
+        <h3 style="margin:0">내 계좌 타임라인 <span class="dim" style="font-weight:400;font-size:13px" id="cntTL"></span></h3>
+        <span style="flex:1"></span>
+        <label style="font-size:12.5px;display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="tlFilterPass" checked style="width:auto"> 통과·파킹 접기
+        </label>
+      </div>
+      <div class="scroll"><table id="timeline"></table></div>
     </section>
 
     <section>
       <div class="sechead">
-        <h2><span class="n">점검 3</span> 내 계좌로 빼간 돈</h2>
-        <p class="askline">내 몫을 회수한 내역입니다. 위 ①에서 넣은 돈이 여기로 되돌아왔는지 같이 보세요.</p>
+        <h2><span class="n">점검 3</span> 내 계좌 이체 대사</h2>
+        <p class="askline">전체 합계로 본 넣은 돈과 뺀 돈.</p>
       </div>
-      <div class="scroll"><table id="meOutTable"></table></div>
-      <div class="card" style="margin-top:13px"><h3>내 계좌 이체 대사</h3><div id="meFlow"></div></div>
+      <div class="card"><div id="meFlow"></div></div>
     </section>
 
     <section>
@@ -445,6 +443,15 @@
     man: { amt: 0, qty: 0 }
   };
   const KEY = "masterJeongsan.v3";
+  /* 사장님이 알려주신 사유 — 처음 열 때만 채워지고, 지우거나 고치면 그대로 유지됩니다 */
+  const SEED_ADJ = { "2025.12": -500000 };
+  const SEED_NOTE = {
+    "2025.09": "덜 준 분 → 11월에 반영 (11번가 깍두기·쿠팡 판매분)",
+    "2025.10": "덜 준 분 → 11월에 반영 (11번가 깍두기·쿠팡 판매분)",
+    "2025.11": "9·10월 덜 준 분이 여기 더 준 걸로 상계됨",
+    "2025.12": "카카오페이로 500,000원 돌려받음 → 조정액에 반영",
+    "2026.04": "클레임 건으로 추정 — 확인 필요"
+  };
   const mkToss = (dt, desc, type, bank, acct, amt, bal) =>
     ({ dt, desc, type, bank, acct, amt: +amt, bal, date: String(dt).slice(0, 10), ym: String(dt).slice(0, 7) });
   const mkNaver = (itemNo, orderNo, name, buyer, baseDate, doneDate, amt, fee1, fee2) =>
@@ -457,7 +464,7 @@
       localStorage.setItem(KEY, JSON.stringify({
         toss: S.toss.map(t => [t.dt, t.desc, t.type, t.bank, t.acct, t.amt, t.bal]),
         naver: S.naver.map(n => [n.itemNo, n.orderNo, n.name, n.buyer, n.baseDate, n.doneDate, n.amt, n.fee1, n.fee2]),
-        cfg: S.cfg, man: S.man, memo: S.memo, adj: S.adj, note: S.note
+        cfg: S.cfg, man: S.man, memo: S.memo, adj: S.adj, note: S.note, seeded: true
       }));
     } catch (e) { }
   }
@@ -472,6 +479,7 @@
       if (d.memo) S.memo = d.memo;
       if (d.adj) S.adj = d.adj;
       if (d.note) S.note = d.note;
+      if (d.seeded) S.seeded = true;
       if (d.toss) S.toss = d.toss.map(a => mkToss(a[0], a[1], a[2], a[3], a[4], a[5], a[6]));
       if (d.naver) S.naver = d.naver.map(a => mkNaver(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8]));
     } catch (e) { }
@@ -678,10 +686,88 @@
       pendingNow: pend, pendingList: pendList
     };
 
+    /* ── 정산일에 성주와 같이 빼간 «몫 인출» 찾기 ── */
+    const dNum = s => +String(s).replace(/\./g, "");
+    const shareOut = new Set(), shareOutList = [];
+    const usedMe = new Set();
+    for (const x of checks) {
+      if (!x.payDate) continue;
+      const target = dNum(x.payDate);
+      let best = null;
+      for (const t of meOutRows) {
+        const k = tossKey(t);
+        if (usedMe.has(k)) continue;
+        if (/증권/.test(t.bank || "")) continue;
+        if (Math.abs(dNum(t.date) - target) > 6) continue;
+        if (!best || Math.abs(t.amt) > Math.abs(best.amt)) best = t;
+      }
+      if (best) {
+        const k = tossKey(best);
+        usedMe.add(k); shareOut.add(k);
+        shareOutList.push({ date: best.date, amt: Math.abs(best.amt), payDate: x.payDate, partner: x.paid, sm: x.sm });
+      }
+    }
+    const shareOutSum = shareOutList.reduce((a, x) => a + x.amt, 0);
+
+    /* ── 내 계좌 타임라인 · 통과 짝 탐지 ── */
+    const mine = [];
+    for (const t of S.toss) {
+      const k = classify(t.desc, t.amt);
+      if (k === "본인입금" || k === "본인출금" || k === "기타입금" || k === "기타출금" ||
+        (k === "깍두기매입" && c.eleven === "me")) mine.push(t);
+    }
+    mine.sort((a, b) => a.dt < b.dt ? -1 : a.dt > b.dt ? 1 : 0);
+    /* 같은 금액이 며칠 안에 그대로 나갔으면 상계(통과)로 본다 — 가까운 날짜 우선 */
+    const pairOf = new Map(), usedOut = new Set();
+    for (const a of mine) {
+      if (a.amt <= 0 || shareOut.has(tossKey(a))) continue;
+      let best = null, bestGap = 99;
+      for (const b of mine) {
+        const bk = tossKey(b);
+        if (b.amt >= 0 || usedOut.has(bk) || shareOut.has(bk)) continue;
+        if (Math.abs(b.amt) !== a.amt) continue;
+        const gap = Math.abs(dNum(b.date) - dNum(a.date));
+        if (gap > 3) continue;
+        if (gap < bestGap) { best = b; bestGap = gap; }
+      }
+      if (best) { usedOut.add(tossKey(best)); pairOf.set(tossKey(a), best); pairOf.set(tossKey(best), a); }
+    }
+    const kindMine = t => {
+      const k0 = tossKey(t);
+      if (shareOut.has(k0)) return "몫인출";
+      if (pairOf.has(k0)) return "상계";
+      if (/증권/.test(t.bank || "")) return "파킹";
+      const k = classify(t.desc, t.amt);
+      if (k === "본인입금") return "투입";
+      if (k === "본인출금") return "회수";
+      if (k === "기타입금") return "기타입금";
+      return "지출";
+    };
+    const MT = {
+      pureIn: 0, pureOut: 0, otherIn: 0, spent: 0, parkIn: 0, parkOut: 0,
+      pass: 0, cntPass: 0, cntPark: 0, share: shareOutSum, cntShare: shareOutList.length
+    };
+    for (const t of mine) {
+      const a = Math.abs(t.amt), k = kindMine(t);
+      if (k === "몫인출") continue;
+      if (k === "상계") { if (t.amt > 0) { MT.pass += a; MT.cntPass++; } }
+      else if (k === "파킹") { if (t.amt > 0) MT.parkIn += a; else MT.parkOut += a; MT.cntPark++; }
+      else if (k === "투입") MT.pureIn += a;
+      else if (k === "회수") MT.pureOut += a;
+      else if (k === "기타입금") MT.otherIn += a;
+      else MT.spent += a;
+    }
+    MT.parkNet = MT.parkOut - MT.parkIn;
+    MT.inSub = MT.pureIn + MT.otherIn;
+    MT.outSub = MT.spent + MT.parkNet + MT.pureOut;
+    MT.zero = MT.inSub - MT.outSub;
+    MT.shareList = shareOutList;
+
     const tRange = S.toss.length ? [S.toss[0].date, S.toss[S.toss.length - 1].date] : null;
     const nRange = S.naver.length ? [S.naver[0].baseDate, S.naver[S.naver.length - 1].baseDate] : null;
     return {
       rows, T, nRows, NT, pcheck, otherOutRows, otherInRows, meInRows, meOutRows, partnerRows, kindOf,
+      mine, pairOf, kindMine, MT,
       unsAmt, unsQty, unsCount, soldQty, ratio, tRange, nRange,
       counts: [S.toss.length, S.naver.length]
     };
@@ -875,14 +961,17 @@
       "<div><span>판정 못 한 달</span><b>" + unkN + "개월 (" + won(P.unknownPaid) + "원)</b></div>" +
       "<div><span>먼저 준 돈(선지급)</span><b>" + won(P.advTotal) + "원</b></div></div></div>";
 
-    const zero = T.meIn + T.otherIn - T.spent;
-    h += "<div class='vc " + (R(zero) === 0 ? "ok" : R(zero) > 0 ? "wa" : "bad") + "'><div class='q'>내 돈은 제로섬인가</div>" +
-      "<div class='big'>" + signed(zero) + "</div><div class='sub'>" +
-      (R(zero) === 0 ? "넣은 돈과 쓴 돈이 정확히 상쇄됩니다"
-        : R(zero) > 0 ? "넣은 돈이 이만큼 더 많습니다 — 더 빼가야 할 돈" : "이만큼 빵꾸 — 메꿔놔야 할 돈") + "</div><div class='mini'>" +
-      "<div><span>① 내가 넣은 돈</span><b>+" + won(T.meIn) + "원</b></div>" +
-      "<div><span>② 정산 무관 입금</span><b>+" + won(T.otherIn) + "원</b></div>" +
-      "<div><span>③ 따로 쓴 돈</span><b>−" + won(T.spent) + "원</b></div></div></div>";
+    const M0 = D.MT;
+    if (M0) {
+      const z = M0.zero;
+      h += "<div class='vc " + (Math.abs(R(z)) < 100000 ? "ok" : R(z) > 0 ? "wa" : "bad") + "'><div class='q'>내 돈은 상계되나 (정산으로 뺀 돈 제외)</div>" +
+        "<div class='big'>" + signed(z) + "</div><div class='sub'>" +
+        (Math.abs(R(z)) < 100000 ? "넣은 돈과 쓴 돈이 사실상 맞아떨어집니다"
+          : R(z) > 0 ? "아직 회수 못 한 원금입니다" : "이만큼 빵꾸 — 메꿔놔야 할 돈") + "</div><div class='mini'>" +
+        "<div><span>들어온 돈</span><b>+" + won(M0.inSub) + "원</b></div>" +
+        "<div><span>나간 돈</span><b>−" + won(M0.outSub) + "원</b></div>" +
+        "<div><span>정산으로 같이 뺀 돈</span><b>" + won(M0.share) + "원 (제외)</b></div></div></div>";
+    }
     $("headBox").innerHTML = h;
 
     /* ── 점검 1 : 성주 ── */
@@ -943,83 +1032,81 @@
     }
     $("partnerVerdict").innerHTML = pv;
 
-    /* ── 점검 2 : 내가 쓴 돈 ── */
-    if (D.otherOutRows) {
-      const byTag = new Map();
-      for (const t of D.otherOutRows) {
-        const g = tagOut(t);
-        byTag.set(g, (byTag.get(g) || 0) + Math.abs(t.amt));
-      }
-      if (T.kkakMe) byTag.set("11번가", T.kkakMe);
-      const tags = Array.from(byTag.entries()).sort((a, b) => b[1] - a[1]);
-      $("spentTiles").innerHTML = tile("따로 쓴 돈 합계", won(T.spent) + "원", D.otherOutRows.length + "건", true) +
-        tags.slice(0, 5).map(([k, v]) => tile(k, won(v) + "원", Math.round(v / T.spent * 100) + "%")).join("");
 
-      let s = "<thead><tr><th class='l'>일자</th><th class='l'>적요</th><th class='l'>분류</th><th>금액</th><th>누적</th><th class='l'>기관</th><th class='l'>메모</th></tr></thead><tbody>";
-      let cum = 0;
-      for (const t of D.otherOutRows.slice().reverse()) {
-        const a = Math.abs(t.amt); cum += a;
-        const k = memoKey(t);
-        s += "<tr><td class='l num'>" + t.date + "</td><td class='l'>" + esc(t.desc) + "</td>" +
-          "<td class='l'><span class='pill nu'>" + tagOut(t) + "</span></td>" +
-          "<td class='num'>" + won(a) + "</td><td class='num dim'>" + won(cum) + "</td>" +
+    /* ── 점검 2 : 내 계좌 타임라인 ── */
+    if (D.mine) {
+      const M = D.MT;
+      $("mineTiles").innerHTML =
+        tile("정산으로 같이 뺀 돈", won(M.share) + "원", M.cntShare + "번 · 성주와 같은 날, 계산 제외") +
+        tile("들어온 돈", won(M.inSub) + "원", "투입 " + won(M.pureIn) + " + 기타 " + won(M.otherIn)) +
+        tile("나간 돈", won(M.outSub) + "원", "지출·파킹·나머지 인출") +
+        tile("미상계 잔액", signed(M.zero) + "원", R(M.zero) > 0 ? "아직 회수 못 한 원금" : R(M.zero) < 0 ? "메꿔야 할 빵꾸" : "딱 맞음", true) +
+        tile("짝 맞은 통과", won(M.pass) + "원", M.cntPass + "건 · 양쪽 상계됨") +
+        tile("증권 파킹", signed(-M.parkNet) + "원", M.cntPark + "건 · 넣고 뺀 순액");
+
+      $("zeroSum").innerHTML = "<div class='card'>" +
+        "<h3>상계표 — 정산으로 뺀 돈은 빼고 나머지끼리만</h3>" +
+        row("들어온 돈 ① 내가 넣은 돈", "+" + won(M.pureIn)) +
+        row("들어온 돈 ② 정산 무관 입금", "+" + won(M.otherIn)) +
+        "<div class='flowrow tot'><span>들어온 돈 소계</span><b>" + won(M.inSub) + "</b></div>" +
+        row("나간 돈 ③ 따로 쓴 돈", "−" + won(M.spent)) +
+        row("나간 돈 ④ 증권 파킹 순유출", (M.parkNet >= 0 ? "−" : "+") + won(Math.abs(M.parkNet))) +
+        row("나간 돈 ⑤ 정산 외 계좌 인출", "−" + won(M.pureOut)) +
+        "<div class='flowrow tot'><span>나간 돈 소계</span><b>" + won(M.outSub) + "</b></div>" +
+        "<div class='flowrow tot'><span>미상계 잔액</span><b class='" + cls(M.zero) + "'>" + signed(M.zero) + "</b></div>" +
+        ind("· 정산으로 성주와 같이 뺀 " + won(M.share) + "원 (" + M.cntShare + "번)", "계산에서 제외") +
+        ind("· 같은 금액이 며칠 안에 그대로 나간 " + won(M.pass) + "원 (" + M.cntPass + "건)", "양쪽 상계 — 윤여준 등") +
+        "<p class='note'>" + (Math.abs(R(M.zero)) < 100000
+          ? "<span class='pill ok'>사실상 상계 완료</span> 넣은 돈과 쓴 돈이 " + won(Math.abs(M.zero)) + "원 차이로 맞아떨어집니다."
+          : R(M.zero) > 0
+            ? "<span class='pill wa'>+" + won(M.zero) + "원</span> 넣은 돈이 <b>" + won(M.zero) + "원</b> 더 많습니다. 아직 회수 못 한 원금입니다 — 통장에서 이만큼 더 빼가셔도 내 몫과 무관합니다."
+            : "<span class='pill no'>" + won(-M.zero) + "원</span> 넣은 돈보다 <b>" + won(-M.zero) + "원</b>을 더 썼습니다. 이만큼이 통장에 있어야 할 돈에서 나간 빵꾸이고, 메꿔놔야 할 금액입니다.") +
+        "</p></div>";
+
+      const badge = { "투입": "ok", "회수": "nu", "파킹": "nu", "상계": "wa", "몫인출": "nu", "기타입금": "ok", "지출": "no" };
+      const hide = $("tlFilterPass").checked;
+      let tl = "<thead><tr><th class='l'>일자</th><th class='l'>구분</th><th class='l'>적요</th><th>입금</th><th>출금</th><th>누적 순인출</th><th class='l'>기관 / 계좌</th><th class='l'>비고</th></tr></thead><tbody>";
+      let cum = 0, shown = 0;
+      for (const t of D.mine) {
+        const k = D.kindMine(t), a = Math.abs(t.amt);
+        cum += (t.amt > 0 ? -a : a);
+        if (hide && (k === "상계" || k === "파킹" || k === "몫인출")) continue;
+        shown++;
+        const mk = memoKey(t), mate = D.pairOf.get(tossKey(t));
+        tl += "<tr class='" + (k === "지출" ? "warnrow" : "") + "'>" +
+          "<td class='l num'>" + t.date + "</td>" +
+          "<td class='l'><span class='pill " + badge[k] + "'>" + k + "</span>" +
+          (mate ? " <span class='dim' style='font-size:11px'>↔ " + esc(mate.desc) + "</span>" : "") + "</td>" +
+          "<td class='l'>" + esc(t.desc) + "</td>" +
+          "<td class='num'>" + (t.amt > 0 ? won(a) : "<span class='dim'>-</span>") + "</td>" +
+          "<td class='num'>" + (t.amt < 0 ? won(a) : "<span class='dim'>-</span>") + "</td>" +
+          "<td class='num " + cls(cum) + "'>" + signed(cum) + "</td>" +
           "<td class='l dim' style='font-size:12px'>" + esc([t.bank, t.acct].filter(Boolean).join(" ")) + "</td>" +
-          "<td class='memo'><input type='text' data-memo='" + esc(k) + "' value='" + esc(S.memo[k] || "") + "' placeholder='이건 뭐였지?'></td></tr>";
+          "<td class='memo'><input type='text' data-memo='" + esc(mk) + "' value='" + esc(S.memo[mk] || "") + "' placeholder='이건 뭐였지?'></td></tr>";
       }
-      s += "</tbody><tfoot><tr><th class='l'>합계</th><td></td><td></td><td>" + won(T.spent) + "</td><td></td><td></td><td></td></tr></tfoot>";
-      $("spentTable").innerHTML = s;
+      tl += "</tbody></thead>";
+      $("timeline").innerHTML = tl;
+      $("cntTL").textContent = "· " + shown.toLocaleString() + "건 표시" +
+        (hide ? " (몫인출 " + M.cntShare + " · 상계 " + (M.cntPass * 2) + " · 파킹 " + M.cntPark + "건 숨김)" : "");
+      $("tlFilterPass").onchange = render;
     }
 
-    /* ── 점검 2 : ① 내가 넣은 돈, ② 기타 입금 ── */
-    const simpleTable = (rows, ph, footAmt) => {
-      let s = "<thead><tr><th class='l'>일자</th><th class='l'>적요</th><th>금액</th><th>누적</th><th class='l'>기관 / 계좌</th><th class='l'>비고</th></tr></thead><tbody>";
-      let cum = 0;
-      for (const t of rows) {
-        const a = Math.abs(t.amt); cum += a;
-        const k = memoKey(t);
-        s += "<tr><td class='l num'>" + t.date + "</td><td class='l'>" + esc(t.desc) + "</td>" +
-          "<td class='num'>" + won(a) + "</td><td class='num dim'>" + won(cum) + "</td>" +
-          "<td class='l dim' style='font-size:12px'>" + esc([t.bank, t.acct].filter(Boolean).join(" ")) + "</td>" +
-          "<td class='memo'><input type='text' data-memo='" + esc(k) + "' value='" + esc(S.memo[k] || "") + "' placeholder='" + ph + "'></td></tr>";
-      }
-      return s + "</tbody><tfoot><tr><th class='l'>합계</th><td></td><td>" + won(footAmt) + "</td><td></td><td></td><td></td></tr></tfoot>";
-    };
-
-    if (D.meInRows) {
-      $("meInTable").innerHTML = simpleTable(D.meInRows.slice().reverse(), "왜 넣었나?", T.meIn);
-      $("cnt1").textContent = "· " + D.meInRows.length + "건 · " + won(T.meIn) + "원";
-      $("meOutTable").innerHTML = simpleTable(D.meOutRows.slice().reverse(), "무슨 명목인가?", T.meOut);
-    }
-    if (D.otherInRows) {
-      $("inTable").innerHTML = simpleTable(D.otherInRows.slice().reverse(), "누구 돈이고 어떻게 됐나?", T.otherIn);
-      $("cnt2").textContent = "· " + D.otherInRows.length + "건 · " + won(T.otherIn) + "원";
-    }
-    $("cnt3").textContent = D.otherOutRows ? "· " + D.otherOutRows.length + "건 · " + won(T.spent) + "원" : "";
-
-    $("zeroSum").innerHTML = "<div class='card'>" +
-      row("① 내가 넣은 돈 (" + esc(c.me) + " 입금)", "+" + won(T.meIn)) +
-      row("② 정산 무관 입금", "+" + won(T.otherIn)) +
-      row("③ 정산 무관 출금 (따로 쓴 돈)", "−" + won(T.spent)) +
-      "<div class='flowrow tot'><span>① + ② − ③</span><b class='" + cls(zero) + "'>" + signed(zero) + "</b></div>" +
-      "<p class='note'>" + (R(zero) === 0
-        ? "<span class='pill ok'>제로섬</span> 넣은 돈과 따로 쓴 돈이 정확히 상쇄됩니다."
-        : R(zero) > 0
-          ? "<span class='pill wa'>+" + won(zero) + "원</span> 넣은 돈이 따로 쓴 돈보다 <b>" + won(zero) + "원</b> 많습니다. " +
-          "이만큼은 내 몫과 <b>별개로</b> 통장에서 더 빼가야 할 돈입니다. 아래 «점검 3»의 회수 내역에 이미 섞여 나갔다면 그건 내 몫이 아니라 원금 회수입니다."
-          : "<span class='pill no'>" + won(-zero) + "원 부족</span> 넣은 돈보다 <b>" + won(-zero) + "원</b>을 더 썼습니다. 이만큼이 통장에 있어야 할 돈에서 나간 빵꾸입니다.") +
-      "</p></div>";
-
-    /* ── 점검 3 : 내 계좌 회수 ── */
+    /* ── 점검 3 : 내 계좌 이체 대사 ── */
+    const MM = D.MT || {};
     $("meFlow").innerHTML =
-      row("내 계좌로 뺀 돈", won(T.meOut)) +
-      row("내 계좌에서 넣은 돈", "−" + won(T.meIn)) +
+      row("내 계좌로 뺀 돈 (전체)", won(T.meOut)) +
+      ind("· 정산일에 성주와 같이 뺀 몫", won(MM.share || 0) + " (" + (MM.cntShare || 0) + "번)") +
+      ind("· 증권 파킹으로 나간 돈", won(MM.parkOut || 0)) +
+      ind("· 짝 맞아 상계된 통과 건", won(MM.pass || 0)) +
+      ind("· 나머지 인출", won(MM.pureOut || 0)) +
+      row("내 계좌에서 넣은 돈 (전체)", "−" + won(T.meIn)) +
       "<div class='flowrow tot'><span>순인출</span><b>" + won(T.meOut - T.meIn) + "</b></div>" +
       row("+ 통장 돈으로 따로 쓴 돈", "+" + won(T.spent)) +
       row("− 정산 무관 입금", "−" + won(T.otherIn)) +
       "<div class='flowrow tot'><span>내가 실제로 가져간 총액</span><b>" + won(T.meTook) + "</b></div>" +
       row("내 몫 (" + (100 - c.ratio).toFixed(1) + "%)", won(T.mShare)) +
       "<div class='flowrow tot'><span>차이</span><b class='" + cls(T.meTook - T.mShare) + "'>" + signed(T.meTook - T.mShare) + "</b></div>" +
-      "<p class='note'>이 «내 몫»은 전 기간 마진에 비율을 곱한 값이라 성주 님 정산처럼 달별로 확정된 숫자가 아닙니다. 어차피 내 통장이니 참고용으로만 보세요.</p>";
+      "<p class='note'>이 «내 몫»은 전 기간 마진에 비율을 곱한 값이라 성주 님 정산처럼 달별로 확정된 숫자가 아닙니다. 실제 점검은 위 «점검 2» 상계표로 보세요.</p>";
 
     $("waterfall").innerHTML =
       row("정산 입금", won(T.revenue)) +
@@ -1222,6 +1309,11 @@
       }
     }
     load();
+    if (!S.seeded) {
+      for (const k in SEED_ADJ) if (!(k in S.adj)) S.adj[k] = SEED_ADJ[k];
+      for (const k in SEED_NOTE) if (!S.note[k]) S.note[k] = SEED_NOTE[k];
+      S.seeded = true;
+    }
     for (const id in cfgMap) $(id).value = S.cfg[cfgMap[id]];
     for (const id in manMap) $(id).value = S.man[manMap[id]];
     if (S.toss.length) { $("stToss").textContent = "저장분 " + S.toss.length.toLocaleString() + "건"; $("dropToss").classList.add("done"); }
