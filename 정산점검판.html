@@ -173,7 +173,12 @@
     <p class="sub">토스뱅크 거래내역과 네이버 정산내역을 넣으면 월별 마진, 두 사람 몫, 실제로 가져간 돈, 재고, 그리고 통장이 0으로 맞아떨어지는지를 계산합니다. 파일은 이 브라우저 안에서만 처리되며 아무 데도 전송되지 않습니다.</p>
   </header>
 
-  <section>
+  <div id="shareBanner" class="hidden" style="margin-top:20px;padding:14px 18px;border:1px solid var(--accent);border-left-width:4px;border-radius:4px;background:var(--accent-soft)">
+    <div style="font-weight:700;font-size:15px">공유받은 정산 요약 — 읽기 전용</div>
+    <div class="note" style="margin:4px 0 0" id="shareBannerNote"></div>
+  </div>
+
+  <section id="secInput">
     <div class="sechead">
       <h2><span class="n">1</span> 파일 넣기</h2>
       <p>둘 다 여러 번 나눠서 넣으실 수 있습니다. 넣을 때마다 누적되고, 이미 있는 거래는 건너뛰고 새 것만 더합니다.</p>
@@ -202,7 +207,7 @@
     </div>
   </section>
 
-  <section>
+  <section id="secCfg">
     <div class="sechead">
       <h2><span class="n">2</span> 기준값</h2>
       <p>배분율 60%는 2025년 7월 정산분 실지급액(879,590 ÷ 1,465,984)으로 검증된 값입니다. 11번가는 깍두기 매입으로 잡혀 있습니다.</p>
@@ -228,7 +233,7 @@
     </div>
   </section>
 
-  <section>
+  <section id="secUns">
     <div class="sechead">
       <h2><span class="n">3</span> 아직 안 들어온 돈</h2>
       <p>네이버 파일에 정산완료일이 비어 있는 건은 자동으로 잡습니다. 파일에 없는 예정분이 있으면 직접 넣으세요.</p>
@@ -244,6 +249,21 @@
   </section>
 
   <div id="results" class="hidden">
+
+    <div id="shareBar" class="card" style="margin-top:26px">
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <div style="flex:1 1 280px">
+          <div style="font-weight:700">파트너에게 보낼 링크</div>
+          <div class="note" style="margin:2px 0 0">집계 숫자만 담깁니다. <b>계좌번호·구매자명 같은 원본 거래는 들어가지 않습니다.</b> 데이터가 바뀌면 링크를 다시 만들어 보내세요.</div>
+        </div>
+        <button id="btnShare">공유 링크 만들기</button>
+      </div>
+      <div id="shareOut" class="hidden" style="margin-top:12px;display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+        <input type="text" class="tx" id="shareUrl" readonly style="flex:1 1 340px;font-size:12px">
+        <button id="btnCopy">복사</button>
+        <span class="note" style="margin:0" id="shareLen"></span>
+      </div>
+    </div>
 
     <section>
       <div class="sechead">
@@ -665,6 +685,84 @@
     return { rows, T, nRows, NT, pAll, advTotal, unsAmt, unsQty, unsCount, soldQty, ratio, tRange, nRange };
   }
 
+  /* ═══════════ 공유 스냅샷 ═══════════ */
+  /* 원본 거래(상대 계좌번호·구매자 실명)는 절대 담지 않는다. 집계 숫자만. */
+
+  const RF = ["ym", "revenue", "buy", "kkak", "margin", "pShare", "pPaid", "mShare",
+    "meIn", "meOut", "otherIn", "otherOut", "meTook", "misc", "buyQty", "kkakQty", "bal"];
+  const NF = ["ym", "cnt", "qty", "net", "cost", "margin"];
+
+  function toSnapshot(D) {
+    return {
+      v: 2, ts: new Date().toISOString().slice(0, 16).replace("T", " "),
+      cfg: S.cfg, man: S.man, tR: D.tRange, nR: D.nRange,
+      rows: D.rows.map(r => RF.map(k => r[k])),
+      nRows: D.nRows.map(r => NF.map(k => r[k])),
+      pAll: D.pAll.map(p => [p.date, p.amt, p.kind === "선지급" ? 1 : 0, p.ym]),
+      uns: [D.unsAmt, D.unsQty, D.unsCount], sold: D.soldQty,
+      cnt: [S.toss.length, S.naver.length]
+    };
+  }
+
+  function fromSnapshot(s) {
+    Object.assign(S.cfg, s.cfg || {});
+    Object.assign(S.man, s.man || {});
+    const ratio = S.cfg.ratio / 100;
+    let cPS = 0, cPP = 0, cMS = 0, cMT = 0;
+    const rows = (s.rows || []).map(a => {
+      const r = {};
+      RF.forEach((k, i) => r[k] = a[i]);
+      r.buyAll = r.buy + (S.cfg.eleven === "cost" ? r.kkak : 0);
+      r.pDiff = r.pPaid - r.pShare; r.mDiff = r.meTook - r.mShare;
+      cPS += r.pShare; cPP += r.pPaid; cMS += r.mShare; cMT += r.meTook;
+      r.cumPDiff = cPP - cPS; r.cumMDiff = cMT - cMS;
+      return r;
+    });
+    const KEYS = ["revenue", "buy", "kkak", "buyAll", "margin", "buyQty", "kkakQty", "pShare", "pPaid", "mShare", "meIn", "meOut", "otherOut", "otherIn", "meTook", "misc"];
+    const T = rows.reduce((a, r) => { KEYS.forEach(k => a[k] += r[k]); return a; }, KEYS.reduce((o, k) => (o[k] = 0, o), {}));
+    T.bal = rows.length ? rows[rows.length - 1].bal : 0;
+    T.pDiff = T.pPaid - T.pShare; T.mDiff = T.meTook - T.mShare;
+    T.residual = T.margin + T.misc - T.pPaid - T.meTook - T.bal;
+    const nRows = (s.nRows || []).map(a => {
+      const r = {};
+      NF.forEach((k, i) => r[k] = a[i]);
+      r.pShare = R(r.margin * ratio); r.mShare = r.margin - r.pShare; r.per = r.qty ? r.margin / r.qty : 0;
+      return r;
+    });
+    const NK = ["cnt", "qty", "net", "cost", "margin", "pShare", "mShare"];
+    const NT = nRows.reduce((a, r) => { NK.forEach(k => a[k] += r[k]); return a; }, NK.reduce((o, k) => (o[k] = 0, o), {}));
+    const pAll = (s.pAll || []).map(a => ({ date: a[0], amt: a[1], kind: a[2] ? "선지급" : "정산", ym: a[3] }));
+    return {
+      rows, T, nRows, NT, pAll,
+      advTotal: pAll.filter(p => p.kind === "선지급").reduce((a, p) => a + p.amt, 0),
+      unsAmt: (s.uns || [0, 0, 0])[0], unsQty: (s.uns || [0, 0, 0])[1], unsCount: (s.uns || [0, 0, 0])[2],
+      soldQty: s.sold || 0, ratio, tRange: s.tR, nRange: s.nR, ts: s.ts,
+      counts: s.cnt || [0, 0]
+    };
+  }
+
+  const b64u = {
+    enc: u8 => btoa(String.fromCharCode.apply(null, u8)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
+    dec: s => {
+      const b = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
+      const u = new Uint8Array(b.length);
+      for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+      return u;
+    }
+  };
+  async function packShare(obj) {
+    const raw = new TextEncoder().encode(JSON.stringify(obj));
+    if (typeof CompressionStream === "undefined") return "r" + b64u.enc(raw);
+    const s = new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+    return "z" + b64u.enc(new Uint8Array(await new Response(s).arrayBuffer()));
+  }
+  async function unpackShare(str) {
+    const kind = str[0], body = b64u.dec(str.slice(1));
+    if (kind === "r") return JSON.parse(new TextDecoder().decode(body));
+    const s = new Blob([body]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return JSON.parse(new TextDecoder().decode(await new Response(s).arrayBuffer()));
+  }
+
   /* ═══════════ 차트 ═══════════ */
 
   function niceTicks(lo, hi, want) {
@@ -756,20 +854,20 @@
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
-  let LAST = null;
+  let LAST = null, SHARED = null;
 
   function render() {
     $("storeNote").textContent = (S.toss.length || S.naver.length)
       ? "이 브라우저에 저장됨 · 토스 " + S.toss.length.toLocaleString() + "건 / 네이버 " + S.naver.length.toLocaleString() + "건" : "";
 
-    if (!S.toss.length) {
+    if (!S.toss.length && !SHARED) {
       $("results").classList.add("hidden"); $("placeholder").classList.remove("hidden");
-      $("rngToss").textContent = ""; $("rngNaver").textContent = S.naver.length ? "" : "";
+      $("rngToss").textContent = ""; $("rngNaver").textContent = "";
       return;
     }
     $("results").classList.remove("hidden"); $("placeholder").classList.add("hidden");
 
-    const D = LAST = compute(), c = S.cfg, T = D.T;
+    const D = LAST = SHARED || compute(), c = S.cfg, T = D.T;
     $("rngToss").textContent = D.tRange ? D.tRange[0] + " ~ " + D.tRange[1] : "";
     $("rngNaver").textContent = D.nRange ? D.nRange[0] + " ~ " + D.nRange[1] : "";
 
@@ -784,9 +882,10 @@
     /* 커버리지 */
     const covItem = (l, v) => "<div><span class='lab'>" + l + "</span><span class='val'>" + v + "</span></div>";
     const gap = D.nRange && D.tRange && D.nRange[1] < D.tRange[1];
+    const nT = D.counts ? D.counts[0] : S.toss.length, nN = D.counts ? D.counts[1] : S.naver.length;
     $("covStrip").innerHTML =
-      covItem("토스 내역", D.tRange[0] + " ~ " + D.tRange[1] + "  (" + S.toss.length.toLocaleString() + "건)") +
-      covItem("네이버 내역", D.nRange ? D.nRange[0] + " ~ " + D.nRange[1] + "  (" + S.naver.length.toLocaleString() + "건)" : "없음") +
+      covItem("토스 내역", D.tRange[0] + " ~ " + D.tRange[1] + "  (" + nT.toLocaleString() + "건)") +
+      covItem("네이버 내역", D.nRange ? D.nRange[0] + " ~ " + D.nRange[1] + "  (" + nN.toLocaleString() + "건)" : "없음") +
       (gap ? "<div><span class='lab'>커버리지</span><span class='pill wa'>네이버가 " + D.nRange[1] + " 이후로 비어 있습니다</span></div>"
         : D.nRange ? "<div><span class='lab'>커버리지</span><span class='pill ok'>기간 일치</span></div>" : "");
 
@@ -1040,12 +1139,66 @@
     render();
   });
 
-  load();
-  for (const id in cfgMap) $(id).value = S.cfg[cfgMap[id]];
-  for (const id in manMap) $(id).value = S.man[manMap[id]];
-  if (S.toss.length) { $("stToss").textContent = "저장분 " + S.toss.length.toLocaleString() + "건"; $("dropToss").classList.add("done"); }
-  if (S.naver.length) { $("stNaver").textContent = "저장분 " + S.naver.length.toLocaleString() + "건"; $("dropNaver").classList.add("done"); }
-  render();
+  /* ── 공유 링크 ── */
+  $("btnShare").addEventListener("click", async () => {
+    if (!LAST) return;
+    const btn = $("btnShare");
+    btn.disabled = true; btn.textContent = "만드는 중…";
+    try {
+      const payload = await packShare(toSnapshot(LAST));
+      const url = location.origin + location.pathname + "#s=" + payload;
+      $("shareUrl").value = url;
+      $("shareOut").classList.remove("hidden");
+      $("shareLen").textContent = Math.round(url.length / 1024 * 10) / 10 + "KB";
+      $("shareUrl").select();
+      btn.textContent = "다시 만들기";
+    } catch (e) {
+      $("shareLen").textContent = "만들지 못했습니다: " + (e.message || e);
+    }
+    btn.disabled = false;
+  });
+  $("btnCopy").addEventListener("click", async () => {
+    const el = $("shareUrl");
+    el.select();
+    try { await navigator.clipboard.writeText(el.value); $("btnCopy").textContent = "복사됨"; }
+    catch (e) { document.execCommand("copy"); $("btnCopy").textContent = "복사됨"; }
+    setTimeout(() => $("btnCopy").textContent = "복사", 1600);
+  });
+
+  function sharedMode(on) {
+    ["secInput", "secCfg", "secUns", "shareBar"].forEach(i => $(i).classList.toggle("hidden", on));
+    $("shareBanner").classList.toggle("hidden", !on);
+    if (on) {
+      document.querySelectorAll("input, select").forEach(el => el.disabled = true);
+      $("placeholder").classList.add("hidden");
+    }
+  }
+
+  async function boot() {
+    const m = /[#&]s=([^&]+)/.exec(location.hash || "");
+    if (m) {
+      try {
+        SHARED = fromSnapshot(await unpackShare(decodeURIComponent(m[1])));
+        sharedMode(true);
+        $("shareBannerNote").innerHTML = "만든 시각 <b>" + esc(SHARED.ts || "-") + "</b> 기준입니다. 원본 거래내역은 담겨 있지 않고 월별 집계와 정산 내역만 있습니다. " +
+          "최신 숫자가 필요하면 " + esc(S.cfg.me) + " 님께 링크를 다시 받으세요.";
+        render();
+        return;
+      } catch (e) {
+        SHARED = null;
+        $("shareBanner").classList.remove("hidden");
+        $("shareBanner").querySelector("div").textContent = "공유 링크를 읽지 못했습니다";
+        $("shareBannerNote").textContent = "링크가 중간에 잘렸을 수 있습니다. 전체 주소를 다시 받아주세요. (" + (e.message || e) + ")";
+      }
+    }
+    load();
+    for (const id in cfgMap) $(id).value = S.cfg[cfgMap[id]];
+    for (const id in manMap) $(id).value = S.man[manMap[id]];
+    if (S.toss.length) { $("stToss").textContent = "저장분 " + S.toss.length.toLocaleString() + "건"; $("dropToss").classList.add("done"); }
+    if (S.naver.length) { $("stNaver").textContent = "저장분 " + S.naver.length.toLocaleString() + "건"; $("dropNaver").classList.add("done"); }
+    render();
+  }
+  boot();
 })();
 </script>
 
