@@ -76,7 +76,8 @@ a{color:var(--accent)}
   <h2>🔧 사진·링크 수정 <span id="fxStat" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
   <p style="font-size:12.5px;color:var(--muted)">카탈로그에서 <b>사진 준비중</b>이거나 <b>사진이 깨졌거나</b> <b>상품 링크가 없는</b> 상품만 모아줍니다.
   품절이면 🗑 삭제, 살아있는 상품이면 🔗 새 링크를 넣으세요 — 링크는 링크 정본 시트에 바로 저장되고 카탈로그에 즉시 반영됩니다.
-  열어 봤는데 실제로는 이상이 없으면 <b>✓ 문제없음</b>으로 넘기세요 — 다음 취합부터 빠집니다. 고친 뒤 다시 취합하면 해결된 상품을 알려줍니다.</p>
+  열어 봤는데 실제로는 이상이 없으면 <b>✓ 문제없음</b>으로 넘기세요 — 다음 취합부터 빠집니다. 고친 뒤 다시 취합하면 해결된 상품을 알려줍니다.<br>
+  ※ <b>카탈로그 사진 못 불러옴</b>은 상품 페이지 문제가 아니라 <b>카탈로그용 사진 창고(도구시트)가 빈 것</b>입니다. 상품↗을 눌러 페이지가 멀쩡하면 하비서에게 "사진 채워줘" 한마디면 채워집니다 (로그인이 필요해 여기서 버튼으로는 못 가져옵니다).</p>
   <div id="fxPerm" style="font-size:11.5px;color:var(--muted);margin:6px 0"></div>
   <div class="ct-bulk" style="margin-top:10px"><a class="cp" id="fxQty" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none">📊 수량시트</a><button class="fxg" id="fxQtyEdit" title="수량시트 주소 변경 (매월 바뀔 때 여기서 교체)">✎</button><button class="cp" id="fxRun" style="margin-top:0">🔍 문제 상품 취합</button></div>
   <div id="fxList"></div>
@@ -493,19 +494,19 @@ function imgTest(url){
 function urlOf(p){const lk=FX.links[pkey(p.name)];const c=FX.cache[pkey(p.name)];return (lk&&lk.url)||(c&&c.link)||'';}
 function renderFx(){
   const P=FX.probs;
-  const n={노사진:P.filter(x=>x.issue==='사진없음').length,깨짐:P.filter(x=>x.issue==='사진깨짐').length,노링크:P.filter(x=>!urlOf(x.p)).length};
-  $f('fxStat').textContent='— 문제 상품 '+P.length+'개 (사진없음 '+n.노사진+' · 사진깨짐 '+n.깨짐+' · 링크없음 '+n.노링크+')';
+  const n={노사진:P.filter(x=>x.issue==='카탈로그 사진 못 불러옴').length,깨짐:P.filter(x=>x.issue==='사진깨짐').length,노링크:P.filter(x=>!urlOf(x.p)).length};
+  $f('fxStat').textContent='— 문제 상품 '+P.length+'개 (카탈로그 사진 못 불러옴 '+n.노사진+' · 사진깨짐 '+n.깨짐+' · 링크없음 '+n.노링크+')';
   $f('fxList').innerHTML=P.map(function(x,xi){
     const p=x.p,u=urlOf(p);
     const b=[];
     b.push('<span class="fxb no">'+x.issue+'</span>');
     const cc=FX.cache[pkey(p.name)];
     if(!u)b.push('<span class="fxb no">링크없음</span>');
-    else if(x.issue==='사진없음'){
+    else if(x.issue==='카탈로그 사진 못 불러옴'){
       // 링크 정본이 캐시보다 새것 = 링크는 이미 고쳐진 상태 — 사진만 아직 없는 것
       if(cc&&cc.link&&cc.link!==u)b.push('<span class="fxb ok">링크는 새것 — 사진만 없음</span>');
       else if(!cc)b.push('<span class="fxb q">신규 상품</span>');
-      else b.push('<span class="fxb q">링크 죽었을 수도 — 상품↗ 확인</span>');
+      else b.push('<span class="fxb q">상품↗ 눌러 확인 — 메인으로 튕기면 게시물 삭제된 것</span>');
     }
     if(x.linked)b.push('<span class="fxb ok">✓ 링크 교체됨</span>');
     if(x.del)b.push('<span class="fxb q">삭제대기중</span>');
@@ -630,7 +631,7 @@ $f('fxRun').onclick=async function(){
     if(healed.length)$f('fxPerm').innerHTML+=('<br>🩹 대표 사진이 깨져 있던 '+healed.length+'개 상품을 예비 사진으로 자동 교체했습니다: '+healed.map(n=>n.replace(/</g,'&lt;')).join(', '));
     try{localStorage.setItem(IMGOK_KEY,JSON.stringify(IMGOK));}catch(e){}
     FX.probs=[];
-    cand.forEach(p=>{const c=FX.cache[pkey(p.name)];FX.probs.push({p,issue:(!c||!c.img)?'사진없음':'링크없음',del:FX.dels.indexOf(pkey(p.name))>=0});});
+    cand.forEach(p=>{const c=FX.cache[pkey(p.name)];FX.probs.push({p,issue:(!c||!c.img)?'카탈로그 사진 못 불러옴':'링크없음',del:FX.dels.indexOf(pkey(p.name))>=0});});
     broken.filter(p=>!FX.ok[pkey(p.name)]).forEach(p=>{FX.probs.push({p,issue:'사진깨짐',del:FX.dels.indexOf(pkey(p.name))>=0});});
     FX.probs.sort((a,b)=>a.p.tab===b.p.tab?a.p.row-b.p.row:(a.p.tab<b.p.tab?-1:1));
     // 지난 취합에서 문제였던 상품이 이번에 안 잡히면 = 고쳐진 것 — 사장님이 결과를 눈으로 확인할 수 있게 알려준다
