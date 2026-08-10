@@ -772,9 +772,11 @@
         } else if(i===7 && r.hist && r.hist.length){
           // ★병합된 상품은 상품명 옆에 📚배지 — 마우스 올리면 접힌 이력이 보여서
           //   "왜 이 값이지?"를 표에서 바로 확인 가능 (2026-08-10 한상모듬 혼동 방지)
+          //   ⚠️ 상품명은 반드시 .pnm 안에만 — 엑셀·복사·적용은 .pnm 텍스트만 읽는다
+          //   (배지를 그냥 붙였다가 리모컨 엑셀 상품명에 "📚3건 병합"이 섞여 들어간 사고, 2026-08-10)
           var tip = r.hist.map(function(hc){ return '['+(hc[2]||'?')+' '+(hc[3]||'')+'] 공급가:'+(hc[8]||'-')+' 원가:'+(hc[10]||'-')+' 택배비:'+(hc[12]||'-'); }).join('\n')
                     + '\n→ 최종(맨아래 최신): ['+(r.c[2]||'?')+' '+(r.c[3]||'')+'] 공급가:'+(r.c[8]||'-')+' 원가:'+(r.c[10]||'-')+' 택배비:'+(r.c[12]||'-');
-          h+='<td class="'+cls+'">'+esc(r.c[7])+' <span style="cursor:help;font-size:11px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:0 4px" title="'+esc(tip)+'">📚'+(r.hist.length+1)+'건 병합</span></td>';
+          h+='<td class="'+cls+'"><span class="pnm">'+esc(r.c[7])+'</span> <span style="cursor:help;font-size:11px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:0 4px" title="'+esc(tip)+'">📚'+(r.hist.length+1)+'건 병합</span></td>';
         } else {
           h+='<td class="'+cls+'">'+esc(r.c[i])+'</td>';
         }
@@ -1248,7 +1250,8 @@
     var h='<div class="card"><b style="color:#c0392b">🗑 제외된 상품 '+ex.length+'건</b> <span class="mini">(잘못 뺐으면 ↩ 눌러 다시 올리기)</span><div style="margin-top:6px">';
     for(var i=0;i<ex.length;i++){
       var nmTd=ex[i].children[7];   // 상품명 칸(idx7)
-      var nm=nmTd?nmTd.textContent:'(이름?)';
+      var nmP=nmTd?nmTd.querySelector('.pnm'):null;
+      var nm=nmP?nmP.textContent:(nmTd?nmTd.textContent:'(이름?)');
       h+='<span class="exchip"><button class="restore" type="button" data-idx="'+i+'">↩</button>'+esc(nm)+'</span>';
     }
     h+='</div></div>';
