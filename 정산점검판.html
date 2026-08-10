@@ -676,9 +676,8 @@
       checks.push({ sm: r.ym, payDate: null, paid: null, adv: pend, advList: pendList, margin: r.margin, share: R(r.margin * ratio), should: R(r.margin * ratio) - pend, diff: null, pending: true });
     }
     checks.sort((a, b) => a.sm < b.sm ? -1 : a.sm > b.sm ? 1 : 0);
-    let cum = 0;
-    for (const x of checks) { if (x.diff != null) { cum += x.diff; x.cum = cum; } else x.cum = null; }
-    /* 묶음 상계 — 여러 달을 한 덩어리로 보고 합계가 0이면 퉁쳐진 것 */
+    /* 묶음 = 서로 퉁친 것으로 «인정». 묶는 순간 그 달들은 정리된 것으로 보고
+       누적에서도 빼고 미해결에도 안 넣는다. */
     const groups = new Map();
     checks.forEach((x, i) => {
       const g = String(S.grp[x.sm] || "").trim();
@@ -690,17 +689,21 @@
       if (x.pending) return;
       if (x.diff == null) G.known = false; else G.sum += x.diff;
     });
-    const TOL = 100000;
-    for (const G of groups.values()) G.ok = G.known && Math.abs(G.sum) < TOL;
+    for (const G of groups.values()) G.ok = G.known;   /* 묶으면 금액과 무관하게 상계 인정 */
+
+    let cum = 0;
+    for (const x of checks) {
+      if (x.diff != null && !x.grp) { cum += x.diff; x.cum = cum; } else x.cum = null;
+    }
 
     const verified = checks.filter(x => x.diff != null);
     const unknown = checks.filter(x => x.diff == null && !x.pending);
     const loose = verified.filter(x => !x.grp && Math.abs(R(x.diff)) >= 1000);
-    const badGroups = Array.from(groups.values()).filter(G => G.known && !G.ok);
+    const badGroups = Array.from(groups.values()).filter(G => !G.known);
     const pcheck = {
       checks, verified, unknown, groups, loose, badGroups,
       diffSum: verified.reduce((a, x) => a + x.diff, 0),
-      openSum: loose.reduce((a, x) => a + x.diff, 0) + badGroups.reduce((a, G) => a + G.sum, 0),
+      openSum: loose.reduce((a, x) => a + x.diff, 0),
       unknownPaid: unknown.reduce((a, x) => a + (x.paid || 0), 0),
       advTotal: checks.reduce((a, x) => a + x.adv, 0) + pend,
       pendingNow: pend, pendingList: pendList
@@ -744,6 +747,17 @@
       if (k === "본인입금" || k === "본인출금" || k === "기타입금" || k === "기타출금" ||
         (k === "깍두기매입" && c.eleven === "me")) mine.push(t);
     }
+    /* 정산일에 내 몫보다 더(덜) 가져간 만큼을 그 날짜에 끼워 넣는다.
+       더 가져갔으면 회수(−), 덜 가져갔으면 투입(+). */
+    for (const x of shareOutList) {
+      if (!x.date || Math.abs(R(x.over)) < 1) continue;
+      mine.push({
+        synth: true, dt: x.date + " 23:59:59", date: x.date, ym: x.date.slice(0, 7),
+        desc: x.over > 0 ? "정산에서 내 몫보다 더 가져감" : "정산에서 내 몫보다 덜 가져감",
+        amt: -x.over, bank: "", acct: "",
+        detail: "정산 " + x.payDate + " · 성주 " + won(x.partner) + " → 내 몫 " + won(x.exp) + " / 실제 " + won(x.amt)
+      });
+    }
     mine.sort((a, b) => a.dt < b.dt ? -1 : a.dt > b.dt ? 1 : 0);
     /* 딱 두 가지만: 들어오면 투입(+), 나가면 회수(−). 정산으로 성주와 같이 뺀 건만 별도. */
     const kindMine = t => t.amt > 0 ? "투입" : "회수";
@@ -756,8 +770,8 @@
       if (t.amt > 0) MT.tin += a; else MT.tout += a;
       MT.cnt++;
     }
-    MT.net = MT.tout - MT.tin;        /* +면 많이 빼간 것, −면 덜 빼간 것 */
-    MT.final = MT.net + MT.over;      /* 정산 때 비율 초과로 이미 가져간 몫까지 반영한 최종 */
+    MT.net = MT.tout - MT.tin;   /* 정산 초과분까지 이미 포함된 최종값 */
+    MT.final = MT.net;
 
     const tRange = S.toss.length ? [S.toss[0].date, S.toss[S.toss.length - 1].date] : null;
     const nRange = S.naver.length ? [S.naver[0].baseDate, S.naver[S.naver.length - 1].baseDate] : null;
@@ -1000,13 +1014,12 @@
         "<td class='memo' style='min-width:120px'><input type='text' data-grp='" + x.sm + "' value='" + esc(x.grp) + "' placeholder='같은 이름끼리 묶임'></td>" +
         "<td class='memo'><input type='text' data-note='" + x.sm + "' value='" + esc(S.note[x.sm] || "") + "' placeholder='이 달은 왜 이런가?'></td></tr>";
       if (G && G.last === xi) {
-        p += "<tr class='" + (G.ok ? "" : G.known ? "badrow" : "warnrow") + "' style='font-weight:700'>" +
+        p += "<tr class='" + (G.ok ? "" : "warnrow") + "' style='font-weight:700'>" +
           "<td class='l' colspan='8' style='text-align:right'>「" + esc(G.name) + "」 묶음 소계 — " + esc(G.months.join(" + ")) + "</td>" +
           "<td class='num " + (G.known ? cls(G.sum) : "") + "'>" + (G.known ? signed(G.sum) : "<span class='dim'>?</span>") + "</td>" +
-          "<td></td><td class='l'>" +
+          "<td class='num dim'>—</td><td class='l'>" +
           (!G.known ? "<span class='pill wa'>일부 판정 불가</span>"
-            : G.ok ? "<span class='pill ok'>상계 완료" + (R(G.sum) ? " (" + signed(G.sum) + ")" : "") + "</span>"
-              : "<span class='pill no'>" + signed(G.sum) + " 남음</span>") +
+            : "<span class='pill ok'>서로 퉁침 — 정리 완료</span>") +
           "</td><td colspan='2'></td></tr>";
       }
       if (!known && !x.pending) {
@@ -1036,11 +1049,12 @@
       pv = "<div class='card'><h3>확인된 " + P.verified.length + "개월 결과</h3>" +
         (okGroups.length
           ? "<p class='note' style='margin:0 0 6px'><span class='pill ok'>묶음 상계</span> " +
-          okGroups.map(G => "「" + esc(G.name) + "」 " + esc(G.months.join("+")) + " 합계 " + signed(G.sum)).join(" · ") + " → 서로 퉁쳐진 것으로 처리했습니다.</p>"
+          okGroups.map(G => "「" + esc(G.name) + "」 " + esc(G.months.join("+")) + " (소계 " + signed(G.sum) + ")").join(" · ") +
+          " → 서로 퉁친 것으로 <b>정리 완료</b> 처리했습니다.</p>"
           : "") +
         (P.badGroups.length
-          ? "<p class='note' style='margin:0 0 6px'><span class='pill no'>묶음 잔액</span> " +
-          P.badGroups.map(G => "「" + esc(G.name) + "」 " + signed(G.sum)).join(" · ") + "</p>"
+          ? "<p class='note' style='margin:0 0 6px'><span class='pill wa'>일부 판정 불가</span> " +
+          P.badGroups.map(G => "「" + esc(G.name) + "」").join(" · ") + " — 네이버 자료가 없는 달이 섞여 있습니다.</p>"
           : "") +
         (P.loose.length
           ? "<p class='note' style='margin:0 0 6px'><span class='pill no'>묶이지 않은 어긋남 " + P.loose.length + "개월</span> " +
@@ -1065,24 +1079,21 @@
       $("mineTiles").innerHTML =
         tile("투입 (들어온 돈)", won(M.tin) + "원", "내가 넣은 돈 + 기타 입금") +
         tile("회수 (나간 돈)", won(M.tout) + "원", "내가 뺀 돈 + 따로 쓴 돈") +
-        tile("타임라인 누적", signed(M.net) + "원", "정산 인출은 뺀 값") +
-        tile("정산 때 비율 초과분", signed(M.over) + "원", "이미 가져간 돈 (점검 3)") +
-        tile("최종", signed(M.final) + "원", R(M.final) > 0 ? "이만큼 넣어야 함" : R(M.final) < 0 ? "이만큼 더 빼가도 됨" : "딱 맞음", true) +
+        tile("그중 정산초과", signed(M.over) + "원", "정산일에 내 몫보다 더 가져간 것") +
+        tile("최종", signed(M.net) + "원", R(M.net) > 0 ? "이만큼 넣어야 함" : R(M.net) < 0 ? "이만큼 더 빼가도 됨" : "딱 맞음", true) +
         tile("정산으로 같이 뺀 돈", won(M.share) + "원", M.cntShare + "번 · 아래 점검 3 참조");
 
       $("zeroSum").innerHTML = "<div class='card'>" +
         row("투입 — 통장으로 들어온 돈", "+" + won(M.tin)) +
         row("회수 — 통장에서 나간 돈", "−" + won(M.tout)) +
-        "<div class='flowrow tot'><span>타임라인 누적 (회수 − 투입)</span><b class='" + cls(M.net) + "'>" + signed(M.net) + "</b></div>" +
-        row("정산할 때 내 비율보다 더 가져간 돈", signed(M.over)) +
-        "<div class='flowrow tot'><span>최종</span><b class='" + cls(M.final) + "'>" + signed(M.final) + "</b></div>" +
-        "<p class='note'>" + (Math.abs(R(M.final)) < 100000
-          ? "<span class='pill ok'>맞아떨어짐</span> " + won(Math.abs(M.final)) + "원 차이로 정리됩니다. 더 가져갈 것도, 메꿀 것도 사실상 없습니다."
-          : R(M.final) > 0
-            ? "<span class='pill no'>+" + won(M.final) + "원</span> " + verdictWord(M.final) + "."
-            : "<span class='pill wa'>" + signed(M.final) + "원</span> " + verdictWord(M.final) + ".") +
-        "<br>타임라인만 보면 " + signed(M.net) + "원이지만, 정산할 때 이미 <b>" + signed(M.over) +
-        "원</b>을 비율보다 더 가져가셨습니다. 그게 투입금 회수 역할을 한 겁니다.</p></div>";
+        ind("· 그중 «정산초과» — 정산일에 내 몫보다 더 가져간 것", signed(M.over)) +
+        "<div class='flowrow tot'><span>최종 (회수 − 투입)</span><b class='" + cls(M.net) + "'>" + signed(M.net) + "</b></div>" +
+        "<p class='note'>" + (Math.abs(R(M.net)) < 500000
+          ? "<span class='pill ok'>맞아떨어짐</span> " + won(Math.abs(M.net)) + "원 차이로 정리됩니다. 더 가져갈 것도, 메꿀 것도 사실상 없습니다."
+          : R(M.net) > 0
+            ? "<span class='pill no'>+" + won(M.net) + "원</span> " + verdictWord(M.net) + "."
+            : "<span class='pill wa'>" + signed(M.net) + "원</span> " + verdictWord(M.net) + ".") +
+        "<br>정산일에 내 몫보다 더 가져간 <b>" + signed(M.over) + "원</b>도 타임라인에 «정산초과»로 그날 날짜에 들어가 있습니다.</p></div>";
 
       let tl = "<thead><tr><th class='l'>일자</th><th class='l'>구분</th><th class='l'>적요</th><th>투입 (+)</th><th>회수 (−)</th><th>누적</th><th class='l'>기관 / 계좌</th><th class='l'>비고</th></tr></thead><tbody>";
       let cum = 0;
@@ -1090,15 +1101,18 @@
         const a = Math.abs(t.amt), isIn = t.amt > 0;
         cum += isIn ? -a : a;
         const mk = memoKey(t);
-        tl += "<tr class='" + (isIn ? "" : "warnrow") + "'>" +
+        tl += "<tr class='" + (t.synth ? "" : isIn ? "" : "warnrow") + "'" + (t.synth ? " style='background:var(--accent-soft)'" : "") + ">" +
           "<td class='l num'>" + t.date + "</td>" +
-          "<td class='l'><span class='pill " + (isIn ? "ok" : "no") + "'>" + (isIn ? "투입" : "회수") + "</span></td>" +
+          "<td class='l'><span class='pill " + (t.synth ? "wa" : isIn ? "ok" : "no") + "'>" +
+          (t.synth ? "정산초과" : isIn ? "투입" : "회수") + "</span></td>" +
           "<td class='l'>" + esc(t.desc) + "</td>" +
           "<td class='num'>" + (isIn ? won(a) : "<span class='dim'>-</span>") + "</td>" +
           "<td class='num'>" + (isIn ? "<span class='dim'>-</span>" : won(a)) + "</td>" +
           "<td class='num " + cls(cum) + "'>" + signed(cum) + "</td>" +
-          "<td class='l dim' style='font-size:12px'>" + esc([t.bank, t.acct].filter(Boolean).join(" ")) + "</td>" +
-          "<td class='memo'><input type='text' data-memo='" + esc(mk) + "' value='" + esc(S.memo[mk] || "") + "' placeholder='이건 뭐였지?'></td></tr>";
+          "<td class='l dim' style='font-size:12px'>" + esc(t.synth ? t.detail : [t.bank, t.acct].filter(Boolean).join(" ")) + "</td>" +
+          (t.synth ? "<td class='dim' style='font-size:12px'>자동</td>"
+            : "<td class='memo'><input type='text' data-memo='" + esc(mk) + "' value='" + esc(S.memo[mk] || "") + "' placeholder='이건 뭐였지?'></td>") +
+          "</tr>";
       }
       tl += "</tbody><tfoot><tr><th class='l'>합계</th><td></td><td></td><td>" + won(M.tin) + "</td><td>" + won(M.tout) +
         "</td><td class='" + cls(M.net) + "'>" + signed(M.net) + "</td><td colspan='2' class='l' style='font-weight:400;font-size:12px'>" +
