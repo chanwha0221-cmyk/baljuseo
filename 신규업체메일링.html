@@ -80,8 +80,7 @@
 
   <!-- 📑 상단 섹션 탭 -->
   <div class="tabbar">
-    <button class="tab active" data-tab="manage" onclick="switchTab('manage')">📮 메일링 관리</button>
-    <button class="tab" data-tab="prospect" onclick="switchTab('prospect')">🔍 신규 발굴 <span class="badge green" id="tab-p-count" style="margin-left:5px">…</span></button>
+    
   </div>
 
   <div id="tab-manage">
@@ -102,11 +101,9 @@
       <div><label>상태</label>
         <select id="f-stat"><option>진행중</option><option>회신</option><option>보류</option><option>종료</option></select>
       </div>
-      <div><label>🔑 검색키워드 <span class="muted">(어느 카페 키워드로 찾았나)</span></label><input id="f-kw" list="kw-list" placeholder="예: 수산물 위탁"><datalist id="kw-list"></datalist></div>
-      <div style="grid-column:span 2"><label>메모 <span class="muted">(본문 작성 후 [메모 취합] 누르면 AI가 보낸 내용 한 줄 요약)</span></label>
+            <div style="grid-column:span 2"><label>메모 <span class="muted">(본문 작성 후 [메모 취합] 누르면 AI가 보낸 내용 한 줄 요약)</span></label>
         <div style="display:flex;gap:6px">
           <input id="f-memo" placeholder="자유 메모" style="flex:1">
-          <button class="btn ghost" type="button" onclick="summarizeMemo()" style="white-space:nowrap">🧠 메모 취합</button>
         </div>
       </div>
       <div style="align-self:end"><button class="btn brand" onclick="addRow()">추가</button></div>
@@ -211,21 +208,17 @@
   </div>
 
   <!-- 🔑 키워드별 성과 -->
-  <div class="card" id="kw-card" style="display:none">
-    <h2>🔑 키워드별 성과 <span class="muted" style="font-weight:400">— 어느 카페 키워드가 신규 업체를 데려왔나</span></h2>
-    <div id="kw-stats"></div>
-  </div>
+  
 
   <!-- 전체 리스트 -->
   <div class="card">
-    <h2>전체 업체 <span class="badge green" id="total-count">0</span></h2>
-    <div style="margin-bottom:10px"><button class="btn brand sm" onclick="pushToSecretary()">🤝 오늘 영업 비서에 반영</button> <span class="muted" style="font-size:11.5px">오늘 보낸/연락한 업체를 비서 '신규영업'에 한 번에 기록 (중복 제외)</span></div>
-    <div style="margin-bottom:10px"><button class="btn brand sm" onclick="pushKeywordResults()">🔑 오늘 키워드 결과 반영</button> <span class="muted" style="font-size:11.5px">오늘 등록 업체를 검색키워드별로 묶어 '키워드이력' 시트에 기록 (어느 키워드가 몇 곳 데려왔나)</span></div>
+    <h2>전체 업체 <span class="badge green" id="total-count">0</span> <span class="muted" style="font-weight:400;font-size:12px">— 찬화·원비 합친 목록 (내 것만 수정·삭제 가능)</span></h2>
     <table>
       <thead><tr>
+        <th style="width:7%">담당</th>
         <th style="width:13%">업체명</th><th style="width:8%">채널</th><th style="width:14%">연락처</th>
         <th style="width:8%">보낸날짜</th><th style="width:8%">마지막연락</th>
-        <th style="width:5%">경과</th><th style="width:6%">상태</th><th style="width:14%">메모</th><th style="width:10%">🔑 키워드</th><th style="width:190px"></th>
+        <th style="width:5%">경과</th><th style="width:6%">상태</th><th style="width:14%">메모</th><th style="width:190px"></th>
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
@@ -233,48 +226,10 @@
   </div>
   </div><!-- /tab-manage -->
 
-  <div id="tab-prospect" style="display:none">
-  <!-- 🔍 신규 발굴 DB (서울 식품 셀러) -->
-  <div class="card" id="prospect-card">
-    <h2>🔍 신규 발굴 — 식품 셀러 DB <span class="badge green" id="p-total">…</span> <span class="muted" id="p-build" style="font-weight:400;font-size:11.5px"></span>
-      <span class="muted" style="font-weight:400">— 공정위 통신판매사업자 · 사람별 전용 DB · 사이트 투명도순(🟢홈피 → ⚪마켓명만) · 사이트 확인 후 [폼에 넣기]</span>
-      <button class="btn ghost sm" style="margin-left:auto" onclick="syncRequest()">🔄 DB 동기화 (하비서)</button></h2>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-      <input id="p-q" placeholder="상호·대표 검색" style="flex:1;min-width:150px">
-      <select id="p-gu"><option value="">전체 지역</option></select>
-      <select id="p-grade"><option value="">전체 등급</option><option value="0">🟢 홈페이지/도메인</option><option value="2">🔵 식별가능</option><option value="3">⚪ 마켓명만</option></select>
-      <select id="p-cat"><option value="">전체 품목</option><option value="농수산">🐟 농수산 추정</option><option value="no-beauty">뷰티·건기식 빼기</option></select>
-      <label class="muted" style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="p-hidedone">검토 숨기기</label>
-      <label class="muted" style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="p-hidesent" checked>보낸 곳 숨기기</label>
-      <span class="muted" id="p-stat" style="font-size:11.5px"></span>
-    </div>
-    <div id="p-loading" class="muted">데이터 불러오는 중… (신규발굴_데이터.js)</div>
-    <table id="p-table" style="display:none">
-      <thead><tr>
-        <th style="width:30px">#</th><th style="width:22%">상호 / 취급품목</th><th style="width:8%">대표</th>
-        <th style="width:8%">자치구</th><th style="width:74px">신고일</th><th>사이트 / 검색</th><th style="width:20%">이메일</th><th style="width:210px"></th>
-      </tr></thead>
-      <tbody id="p-tbody"></tbody>
-    </table>
-    <div class="empty" id="p-empty" style="display:none">결과 없음</div>
-    <div id="p-pg" style="display:flex;gap:6px;justify-content:center;align-items:center;margin-top:12px;flex-wrap:wrap"></div>
-  </div>
-  </div><!-- /tab-prospect -->
+  
 </div>
 
 <!-- 추가연락 초안 모달 -->
-<div class="modal-bg" id="modal">
-  <div class="modal">
-    <h3 id="m-title">추가연락 초안</h3>
-    <div class="muted" id="m-sub"></div>
-    <textarea id="m-text"></textarea>
-    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
-      <button class="btn ghost" onclick="closeModal()">닫기</button>
-      <button class="btn" onclick="copyText('m-text')">📋 복사</button>
-      <button class="btn brand" onclick="markSent()">보냄 처리 (마지막연락 오늘로)</button>
-    </div>
-  </div>
-</div>
 <div class="modal-bg" id="edit-modal">
   <div class="modal">
     <h3>✏️ 업체 정보 수정</h3>
@@ -285,7 +240,6 @@
       <div class="fld"><label>보낸 날짜</label><input id="e-sent" type="date"></div>
       <div class="fld"><label>마지막 연락</label><input id="e-last" type="date"></div>
       <div class="fld"><label>상태</label><select id="e-stat"><option>진행중</option><option>회신</option><option>보류</option><option>종료</option></select></div>
-      <div class="fld"><label>🔑 검색키워드</label><input id="e-kw" list="kw-list"></div>
       <div class="fld" style="grid-column:1/-1"><label>메모</label><textarea id="e-memo" style="min-height:70px"></textarea></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
@@ -311,22 +265,19 @@ const PERSON=(new URLSearchParams(location.search).get('u')==='wonbi')?'원비':
 const DATA_TAB=PERSON==='원비'?'신규업체메일링_원비':'신규업체메일링';
 const OTHER_TAB=PERSON==='원비'?'신규업체메일링':'신규업체메일링_원비';
 const OTHER_NAME=PERSON==='원비'?'찬화님':'원비님';
+// 템플릿 서명용 실명 — ?u=wonbi면 박원비, 아니면 홍찬화 (2026-08-11 사장님 지시: 각자 명함·서명이 자동으로 바뀌게)
+const ME=PERSON==='원비'?'박원비':'홍찬화';
+const CARD_KEY=PERSON==='원비'?'card_fileId_wonbi':'card_fileId';   // 명함은 사람별로 따로 저장(기존 키는 찬화 것 그대로 승계)
 const SET_TAB='메일설정';
 let OTHER_DATA=[];  // 상대방 목록 (겹침 체크용, 읽기전용)
 const HEADER=['업체명','연락방식','연락처','보낸날짜','마지막연락','상태','메모','검색키워드'];
-const KW_TAB='키워드이력';
-const KW_HEADER=['날짜','키워드','찾은수','업체명들','반영일시'];
-// datalist 시드 — 키워드 뱅크 자주 쓰는 것 (위탁/무재고 계열 우선) + 과거 입력값 자동 추가
-const KW_SEED=['수산물 위탁','위탁판매 수산물','무재고 위탁','위탁 셀러','위탁 상품 구합니다','수산물 공급처 구합니다','수산물 납품 구합니다','횟감 도매 구합니다','수산물 공구','소량 도매'];
 const OVERDUE_DAYS=14;
 const FOLLOWUP_DAYS=14;  // 14일+ 2차 메일 대상 (채널별 그룹 뷰) — 2026-06-09 14일로 변경
-const AI_PROXY_URL='https://script.google.com/macros/s/AKfycbwgjuzxTMxo8iDc-DYzFVNaPnpEePsnc0L4qTcu8EVQ9W0-ruiW64EVXyqkj6M8S1dmbw/exec';
-const AI_PROXY_TOKEN='mas-x9k3p2-secretary-token';
 // ⚡ 속도 (2026-07-24): Gemini 2.5 Flash 생각시간 컷. 0=생각 끔(가장 빠름). 얕아지면 512~1024로. (프록시 개정판이 이 값 전달)
 const AI_THINKING_BUDGET=0;
 
 const DEFAULT_TEMPLATE=`안녕하세요, 대표님.
-주식회사 마스터 홍찬화 팀장입니다. 처음 인사드립니다.
+주식회사 마스터 ${ME} 팀장입니다. 처음 인사드립니다.
 
 전국 산지 어판장에서 직접 수매하고, 창고를 자체 운영하며 빠르게 유통 대응하고 있는 수산물 전문 유통사입니다.
 
@@ -340,6 +291,9 @@ const DEFAULT_TEMPLATE=`안녕하세요, 대표님.
 [당일 공급 시트 이미지]
 
 해당 이미지는 마스터에서 공급 가능한 상품 일부입니다.
+
+마스터 상품 카탈로그
+https://wonbi.github.io/allproduct/
 ────────────────
 
 혹시 필요하실 때가 생기시면 명함 보관해두셨다가 전화나 카카오톡으로 편하게 연락 주세요.
@@ -348,13 +302,13 @@ const DEFAULT_TEMPLATE=`안녕하세요, 대표님.
 const DEFAULT_SUBJECT=`[주식회사 마스터] 상품 제안 드립니다.`;
 
 const DEFAULT_NOTE=`안녕하세요, 대표님.
-주식회사 마스터 홍찬화 팀장입니다.
+주식회사 마스터 ${ME} 팀장입니다.
 
 전국 산지에서 직접 수매해 상시 300~500종 농·축·수산물을 운영하는 수산물 전문 유통사입니다. 소량 한 건도 택배로 즉시 납품 가능합니다.
 
 필요하실 때 빠르고 정확하게 대응해 드리겠습니다. 관심 있으시면 편하게 답 주세요. 감사합니다.`;
 
-const DEFAULT_PERM=`안녕하세요. 주식회사 마스터 홍찬화 팀장입니다.
+const DEFAULT_PERM=`안녕하세요. 주식회사 마스터 ${ME} 팀장입니다.
 
 저희 시트가 권한이 있어야 확인이 가능한 구조인데, 시트 권한 요청을 주셔서 메일 드립니다.
 
@@ -362,7 +316,7 @@ const DEFAULT_PERM=`안녕하세요. 주식회사 마스터 홍찬화 팀장입�
 
 회신 주시면 확인해서 답변 드리겠습니다.`;
 
-const DEFAULT_KAKAO=`안녕하세요 대표님! 주식회사 마스터 홍찬화입니다.
+const DEFAULT_KAKAO=`안녕하세요 대표님! 주식회사 마스터 ${ME}입니다.
 전국 산지 직수매로 상시 300~500종 농·축·수산물 운영하고, 소량도 택배로 바로 보내드려요.
 당일 공급 가능한 상품시트랑 명함 보내드릴게요. 필요하실 때 편하게 연락 주세요!`;
 
@@ -423,14 +377,6 @@ async function driveBlobURL(id){
   const r=await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`,{headers:{Authorization:`Bearer ${t}`}});
   return URL.createObjectURL(await r.blob());
 }
-async function callAI(prompt,retry=0){
-  try{
-    const r=await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:AI_PROXY_TOKEN,prompt,attachments:[],thinkingBudget:AI_THINKING_BUDGET}),redirect:'follow'});
-    const d=await r.json();
-    if(d.error){ if(/high demand|overload|quota|rate limit|too many|503|429/i.test(d.error)&&retry<2){await new Promise(s=>setTimeout(s,3000));return callAI(prompt,retry+1);} throw new Error(d.error); }
-    return d.text||'';
-  }catch(e){ throw e; }
-}
 
 // ─── 상태/데이터 ───
 let DATA=[], modalIdx=-1, editIdx=-1, imgBlobs={daily:null,card:null};
@@ -448,24 +394,37 @@ function checkDuplicate(){
   if(!q){ out.textContent='← 메일주소나 아이디를 입력하세요'; out.style.color='var(--sub)'; return; }
   const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
   const nq=norm(q);
-  // 정확 일치(연락처/업체명) 우선, 없으면 부분 일치
-  let list=DATA.filter(r=> norm(r[2])===nq || norm(r[0])===nq);
-  if(!list.length && nq.length>=3) list=DATA.filter(r=> norm(r[2]).includes(nq) || norm(r[0]).includes(nq));
+  // 👥 두 사람 내역을 합쳐서 한 번에 본다 (2026-08-11 — 이게 이 도구의 존재 이유: 원비·찬화 중복 발송 방지)
+  const all=DATA.map(r=>({r,who:ME})).concat(OTHER_DATA.map(r=>({r,who:OTHER_NAME.replace('님','')})));
+  let list=all.filter(x=> norm(x.r[2])===nq || norm(x.r[0])===nq);
+  if(!list.length && nq.length>=3) list=all.filter(x=> norm(x.r[2]).includes(nq) || norm(x.r[0]).includes(nq));
   if(!list.length){
-    // 👥 상대방 목록도 체크 (2인 운영 — 업체 겹침 방지)
-    let ol=OTHER_DATA.filter(r=> norm(r[2])===nq || norm(r[0])===nq);
-    if(!ol.length && nq.length>=3) ol=OTHER_DATA.filter(r=> norm(r[2]).includes(nq) || norm(r[0]).includes(nq));
-    if(ol.length){ const r2=ol[0]; out.innerHTML='⚠️ <b>'+OTHER_NAME+' 목록에 있는 업체!</b> ['+esc(r2[0]||'(이름없음)')+'] '+esc(chanLabel(r2[1]))+' · '+esc(r2[4]||'?')+(ol.length>1?' · 외 '+(ol.length-1)+'건':''); out.style.color='var(--red)'; return; }
-    out.innerHTML='✅ <b>처음 보는 곳</b> — 둘 다 보낸 기록 없음 (발송 OK)'; out.style.color='var(--green)'; return;
+    out.innerHTML='✅ <b>처음 보는 곳</b> — 찬화·원비 둘 다 보낸 기록 없음 <b>(발송 OK)</b>'; out.style.color='var(--green)'; return;
   }
   // 가장 최근 연락순
-  list.sort((a,b)=>{ const da=daysSince(a[4]), db=daysSince(b[4]); if(da==null)return 1; if(db==null)return -1; return da-db; });
-  const r=list[0], d=daysSince(r[4]);
-  out.innerHTML='⚠️ <b>이미 보낸 곳!</b> ['+esc(r[0]||'(이름없음)')+'] '+esc(chanLabel(r[1]))+' · '+esc(r[4]||'?')+' (<b>'+(d==null?'?':d+'일')+' 전</b> 발송)'+(list.length>1?' · 외 '+(list.length-1)+'건':'');
+  list.sort((a,b)=>{ const da=daysSince(a.r[4]), db=daysSince(b.r[4]); if(da==null)return 1; if(db==null)return -1; return da-db; });
+  const x=list[0], r=x.r, d=daysSince(r[4]);
+  const mine=(x.who===ME);
+  out.innerHTML='🚨 <b>이미 보낸 곳!</b> <span class="badge '+(mine?'green':'')+'">'+esc(x.who)+'</span> ['+esc(r[0]||'(이름없음)')
+    +'] '+esc(chanLabel(r[1]))+' · '+esc(r[4]||'?')+' (<b>'+(d==null?'?':d+'일')+' 전</b> 발송)'
+    +(list.length>1?' · 외 '+(list.length-1)+'건':'');
   out.style.color='var(--red)';
 }
 function followWord(c){ return c==='이메일'?'추가 메일':c==='네이버쪽지'?'쪽지':'카톡'; }
 
+const CATALOG_URL='https://wonbi.github.io/allproduct/';
+// 저장된 템플릿에도 ①현재 사용자 이름 ②카탈로그 링크가 항상 들어가게 보정 (2026-08-11)
+function fixName(t){ return (t||'').replace(/주식회사 마스터s+(홍찬화|박원비)/g,'주식회사 마스터 '+ME); }
+function fixTemplate(t){
+  if(!t)return t;
+  t=t.replace(/주식회사 마스터\s+(홍찬화|박원비)(\s*팀장)?/g,'주식회사 마스터 '+ME+'$2');
+  if(t.indexOf(CATALOG_URL)<0){
+    const line='\n마스터 상품 카탈로그\n'+CATALOG_URL;
+    const i=t.lastIndexOf('────────────────');
+    t = i>0 ? t.slice(0,i)+line+'\n'+t.slice(i) : t+line;
+  }
+  return t;
+}
 async function loadAll(){
   try{
     setStatus('동기화 중…');
@@ -473,16 +432,17 @@ async function loadAll(){
     if(!tabs.includes(DATA_TAB)) await addTab(DATA_TAB,HEADER); else await sheetPut(DATA_TAB,'A1',[HEADER]);
     if(!tabs.includes(SET_TAB)) await addTab(SET_TAB,null);
     await loadSettings();
-    // 템플릿
-    $('tpl').value = SET.template || DEFAULT_TEMPLATE;
+    // 템플릿 — 시트 저장본이 우선이지만, 서명 이름과 카탈로그 링크는 열 때마다 보정한다
+    // (2026-08-11 사장님 지시: 사람에 따라 팀장 이름이 자동으로 바뀌고, 가운데에 카탈로그 링크가 들어가야 함)
+    $('tpl').value = fixTemplate(SET.template || DEFAULT_TEMPLATE);
     if(!SET.template) await setSetting('template',DEFAULT_TEMPLATE);
     $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT;
-    $('tpl-note').value = SET.template_note || DEFAULT_NOTE;
-    $('tpl-perm').value = SET.template_perm || DEFAULT_PERM;
-    $('tpl-kakao').value = SET.template_kakao || DEFAULT_KAKAO;
+    $('tpl-note').value = fixName(SET.template_note || DEFAULT_NOTE);
+    $('tpl-perm').value = fixName(SET.template_perm || DEFAULT_PERM);
+    $('tpl-kakao').value = fixName(SET.template_kakao || DEFAULT_KAKAO);
     renderTplButtons();
-    // 명함
-    if(SET.card_fileId){ try{ const u=await driveBlobURL(SET.card_fileId); showImg('card',u,false);}catch(e){console.warn('명함 로드 실패',e);} }
+    // 명함 — 사람별 저장 (2026-08-11)
+    if(SET[CARD_KEY]){ try{ const u=await driveBlobURL(SET[CARD_KEY]); showImg('card',u,false);}catch(e){console.warn('명함 로드 실패',e);} }
     // 데이터
     DATA=(await sheetGet(DATA_TAB,'A2:H100000')).map(r=>{const x=r.slice(0,8);while(x.length<8)x.push('');return x.map(v=>(v||'').toString().trim());}).filter(r=>r[2]||r[0]);
     // 상대방(2인 운영) 목록 — 업체 겹침 경고용 (읽기전용)
@@ -516,37 +476,29 @@ function chanHint(){
   if(ic) ic.style.display = isNote?'none':'';   // 네이버쪽지는 이미지 없음
   if(ct) ct.textContent = isEmail?'✉️ 이메일 작성':isNote?'📨 네이버쪽지 작성':'📱 카톡 작성';
   if(ch) ch.innerHTML = isEmail
-    ? '<b>썬더버드 원클릭:</b> 위 폼에 받는사람(연락처)·제목 넣고 → 오른쪽에 시트 이미지 올리고 → <b>[📧 썬더버드로 보내기]</b> 누르면 → 썬더버드가 <b>받는사람·제목 채워진 채로</b> 열려요. 본문 클릭하고 <b>Ctrl+V</b>만 하면 본문+시트가 들어가고 명함은 서명에서 자동! (썬더버드가 기본 메일앱으로 지정돼 있어야 열림)'
+    ? '<b>썬더버드 원클릭:</b> 위 폼에 받는사람(연락처)·제목 넣고 → 오른쪽에 시트 이미지 올리고 → <b>[📧 썬더버드로 보내기]</b> 누르면 → 썬더버드가 <b>받는사람·제목 채워진 채로</b> 열려요. 본문 클릭하고 <b>Ctrl+V</b>만 하면 <b>본문+시트+명함까지</b> 한 번에 들어갑니다. (썬더버드가 기본 메일앱으로 지정돼 있어야 열림)'
     : isKakao
     ? '카톡: [복사]해서 붙여넣고 → <b>명함·상품시트는 [이미지 복사]</b> 눌러 카톡에 직접 <b>Ctrl+V</b>로 붙여넣기.'
     : '네이버쪽지: [복사]해서 쪽지 본문에 붙여넣기 (이미지 첨부 없음).';
 }
 // 🧠 작성한 본문을 AI가 한 줄로 축약해서 메모에 채움
-async function summarizeMemo(){
-  const c=$('f-chan').value;
-  const body = (c==='이메일'?$('tpl').value : c==='네이버쪽지'?$('tpl-note').value : $('tpl-kakao').value)||'';
-  if(!body.trim()){ toast('먼저 본문을 작성해 주세요'); return; }
-  const name=$('f-name').value.trim();
-  setStatus('메모 취합 중…');
-  try{
-    const prompt=`아래는 신규 거래처에게 ${chanLabel(c)}(으)로 보낸 영업 메시지야. "무엇을 보냈는지"를 한국어 한 줄(최대 35자)로 축약해줘. 부가 설명/따옴표 없이 요약문 한 줄만 출력. 예시: 회사소개+당일공급시트+명함 발송 / 신규 거래 제안 + 상품리스트 안내\n[대상] ${name||'(미상)'}\n[채널] ${chanLabel(c)}\n[본문]\n${body.slice(0,1200)}`;
-    let r=(await callAI(prompt)).trim().split('\n')[0].replace(/^["'\s\-·]+|["'\s]+$/g,'');
-    $('f-memo').value = r.slice(0,60);
-    setStatus('취합됨'); toast('메모 취합 완료 — 필요하면 수정하세요');
-  }catch(e){ setStatus('오류'); toast('메모 취합 실패: '+(e.message||e)); }
-}
 
 function render(){
   const tb=$('tbody'); tb.innerHTML=''; const overdue=[];
   // 날짜수 적은(최근 연락) 업체부터 위로 — 표시 순서만 정렬, onclick은 원본 DATA 인덱스 유지 (2026-06-09 사장님 지시)
-  const _view=DATA.map((r,i)=>({r,i,ds:daysSince(r[4])}));
+  // 👥 두 사람 내역을 한 목록으로 (2026-08-11 사장님 지시 — 중복 방지가 목적).
+  //    내 행(own)만 수정·삭제 가능. 상대 행은 읽기전용 — save()는 DATA만 쓰므로 상대 탭은 절대 안 건드린다.
+  const _view=DATA.map((r,i)=>({r,i,own:true,who:ME,ds:daysSince(r[4])}))
+    .concat(OTHER_DATA.map(r=>({r,i:-1,own:false,who:OTHER_NAME.replace('님',''),ds:daysSince(r[4])})));
   _view.sort((a,b)=>{ if(a.ds===null) return 1; if(b.ds===null) return -1; return a.ds-b.ds; });
-  _view.forEach(({r,i})=>{
-    const [name,chan,contact,sent,last,stat,memo,kw]=r;
+  _view.forEach(({r,i,own,who})=>{
+    const [name,chan,contact,sent,last,stat,memo]=r;
     const ds=daysSince(last), isDone=(stat==='종료'||stat==='회신');
-    const isOver=(ds!==null&&ds>=OVERDUE_DAYS&&!isDone); if(isOver)overdue.push(i);
+    const isOver=(ds!==null&&ds>=OVERDUE_DAYS&&!isDone); if(isOver&&own)overdue.push(i);
     const tr=document.createElement('tr'); tr.className=isOver?'overdue':(isDone?'done':'');
+    if(!own)tr.style.opacity='.72';
     tr.innerHTML=`
+      <td><span class="badge ${own?'green':''}" style="font-size:11px">${esc(who)}</span></td>
       <td><b>${esc(name)||'<span class="muted">(이름없음)</span>'}</b></td>
       <td><span class="chan ${chan==='카톡전화'?'카톡전화':esc(chan)}">${esc(chanLabel(chan))||'—'}</span></td>
       <td>${esc(contact)||'—'}</td>
@@ -554,18 +506,15 @@ function render(){
       <td class="days ${isOver?'hot':''}">${ds===null?'—':ds+'일'}</td>
       <td><span class="pill ${esc(stat)}">${esc(stat)||'—'}</span></td>
       <td class="muted memo">${esc(memo)}</td>
-      <td class="muted">${esc(kw)||'—'}</td>
       <td><div class="row-actions">
-        ${(!isDone)?`<button class="btn brand sm" onclick="draft(${i})">${followWord(chan)} 초안</button>`:''}
-        <button class="btn sm" onclick="markContact(${i})">연락함</button>
+        ${own?`<button class="btn sm" onclick="markContact(${i})">연락함</button>
         <button class="btn ghost sm" onclick="editRow(${i})">수정</button>
-        <button class="btn ghost sm" onclick="delRow(${i})">삭제</button>
+        <button class="btn ghost sm" onclick="delRow(${i})">삭제</button>`:'<span class="muted" style="font-size:11.5px">읽기전용</span>'}
       </div></td>`;
     tb.appendChild(tr);
   });
-  $('empty').style.display=DATA.length?'none':'block';
-  $('total-count').textContent=DATA.length;
-  renderKwStats(); seedKwList();
+  $('empty').style.display=_view.length?'none':'block';
+  $('total-count').textContent=_view.length+' (내 '+DATA.length+' · '+OTHER_NAME.replace('님','')+' '+OTHER_DATA.length+')';
   // 📮 20일+ 추가연락 대상 — 채널별 그룹
   const oc=$('overdue-card');
   const fups=DATA.map((r,i)=>({r,i,ds:daysSince(r[4])}))
@@ -592,7 +541,6 @@ function render(){
         <input type="checkbox" class="fu-chk" data-chan="${key}" data-i="${x.i}" style="cursor:pointer;width:15px;height:15px;padding:0;margin:0;flex:0 0 auto">
         <b style="min-width:110px">${esc(x.r[0])||'(이름없음)'}</b>
         <span class="muted" style="flex:1">${esc(x.r[2])} · 마지막 ${esc(x.r[4])||'?'} (<b class="days hot">${x.ds}일</b>)</span>
-        <button class="btn sm" onclick="draft(${x.i})">${followWord(x.r[1])} 초안</button>
         <button class="btn ghost sm" title="목록에서 삭제 (메일 거부 등)" onclick="delRow(${x.i})">🗑</button>
       </div>`).join('');
       html+=`</div>`;
@@ -636,9 +584,9 @@ async function addRow(){
     if(!confirm('⚠️ '+OTHER_NAME+' 목록에 이미 있는 업체예요!\n\n['+(dup2[0]||'(이름없음)')+'] '+dup2[2]+'\n채널: '+chanLabel(dup2[1])+' · 마지막연락 '+(dup2[4]||'?')+'\n\n업체가 겹칩니다. 그래도 내 목록에 추가할까요?')) return;
   }
   const date=$('f-date').value||todayKST();
-  DATA.push([name,$('f-chan').value,contact,date,date,$('f-stat').value,$('f-memo').value.trim(),$('f-kw').value.trim()]);
+  DATA.push([name,$('f-chan').value,contact,date,date,$('f-stat').value,$('f-memo').value.trim(),'']);
   setStatus('저장 중…'); await save();
-  $('f-name').value=$('f-contact').value=$('f-memo').value=$('f-kw').value=''; $('f-date').value=todayKST();
+  $('f-name').value=$('f-contact').value=$('f-memo').value=''; $('f-date').value=todayKST();
   render(); setStatus('저장됨'); toast('추가 완료');
 }
 async function markContact(i){ DATA[i][4]=todayKST(); render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('마지막 연락일 → 오늘'); }
@@ -662,88 +610,22 @@ async function delRow(i){ if(!confirm(`'${DATA[i][0]||DATA[i][2]}' 삭제할까�
 function editRow(i){
   const r=DATA[i]; editIdx=i;
   $('e-name').value=r[0]||''; $('e-chan').value=r[1]||'이메일'; $('e-contact').value=r[2]||'';
-  $('e-sent').value=r[3]||''; $('e-last').value=r[4]||''; $('e-stat').value=r[5]||'진행중'; $('e-memo').value=r[6]||''; $('e-kw').value=r[7]||'';
+  $('e-sent').value=r[3]||''; $('e-last').value=r[4]||''; $('e-stat').value=r[5]||'진행중'; $('e-memo').value=r[6]||''; 
   $('edit-modal').classList.add('on');
 }
 function saveEdit(){
   if(editIdx<0)return;
-  DATA[editIdx]=[$('e-name').value.trim(),$('e-chan').value,$('e-contact').value.trim(),$('e-sent').value.trim(),$('e-last').value.trim(),$('e-stat').value,$('e-memo').value.trim(),$('e-kw').value.trim()];
+  DATA[editIdx]=[$('e-name').value.trim(),$('e-chan').value,$('e-contact').value.trim(),$('e-sent').value.trim(),$('e-last').value.trim(),$('e-stat').value,$('e-memo').value.trim(),DATA[editIdx][7]||''];
   $('edit-modal').classList.remove('on'); editIdx=-1;
   render(); setStatus('저장 중…'); save().then(()=>{setStatus('저장됨');toast('수정됨');});
 }
 // 🤝 오늘 영업한 업체를 비서 '신규영업'(업무관리 탭)에 한 번에 반영 (같은 비서 시트라 append만)
-const PROSPECT_PREFIX='🤝 신규영업';
-async function pushToSecretary(){
-  const today=todayKST();
-  const mine=DATA.filter(r=> r[3]===today || r[4]===today);
-  if(!mine.length){ toast('오늘 보낸/연락한 업체가 없어요'); return; }
-  if(!confirm(`오늘 영업 ${mine.length}곳을 비서 '신규영업'에 반영할까요? (중복 제외)`)) return;
-  setStatus('비서 반영 중…');
-  try{
-    const rows=await sheetGet('업무관리','A2:J');
-    const has=new Set(rows.filter(r=>r[0] && String(r[4]||'').startsWith(PROSPECT_PREFIX) && r[2]===today && String(r[8]||'').toUpperCase()!=='TRUE').map(r=>String(r[1]||'').trim()));
-    const ts=new Date().toISOString(); let n=0; const add=[];
-    mine.forEach(r=>{
-      const client=String(r[0]||r[2]||'').trim(); if(!client||has.has(client)) return;
-      const content=String(r[6]||'신규 영업 메일 발송').trim();
-      add.push([Date.now()+(n++), client, today, '2', `${PROSPECT_PREFIX}: ${content}`, 'TRUE', JSON.stringify([{text:'🤝 신규영업 (메일링)',ts}]), '메모', 'FALSE', ts]);
-      has.add(client);
-    });
-    if(!add.length){ toast('이미 비서에 다 반영돼 있어요'); setStatus('완료'); return; }
-    const t=await getToken();
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('업무관리!A:J')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:add})});
-    toast(`비서에 ${add.length}곳 반영됨 — 비서 새로고침하면 '오늘 영업'에 떠요`); setStatus('완료');
-  }catch(e){ toast('반영 실패: '+e.message); setStatus('오류'); }
-}
 
 // 🔑 오늘 등록 업체를 검색키워드별로 묶어 '키워드이력' 시트에 기록 (같은 날·같은 키워드면 덮어쓰기)
-async function pushKeywordResults(){
-  const today=todayKST();
-  const mine=DATA.filter(r=> (r[3]===today||r[4]===today) && (r[7]||'').trim());
-  if(!mine.length){ toast('오늘 등록 업체 중 검색키워드 적힌 게 없어요'); return; }
-  const byKw={};
-  mine.forEach(r=>{ const k=(r[7]||'').trim(); (byKw[k]||(byKw[k]=[])).push((r[0]||r[2]||'').trim()); });
-  const kws=Object.keys(byKw);
-  if(!confirm("오늘 키워드 결과를 '키워드이력' 시트에 반영할까요?\n\n"+kws.map(k=>`· ${k} — ${byKw[k].length}곳`).join('\n'))) return;
-  setStatus('키워드 결과 반영 중…');
-  try{
-    const tabs=await listTabs();
-    if(!tabs.includes(KW_TAB)) await addTab(KW_TAB,KW_HEADER);
-    const all=(await sheetGet(KW_TAB,'A2:E100000'))||[];
-    // 오늘 + 이번에 미는 키워드와 겹치는 기존 행은 제외(=덮어쓰기), 나머지는 보존
-    const kept=all.filter(r=> !(String(r[0]||'').trim()===today && byKw[String(r[1]||'').trim()]));
-    const ts=new Date().toISOString();
-    const add=kws.map(k=>[today,k,String(byKw[k].length),byKw[k].filter(Boolean).join(', '),ts]);
-    const t=await getToken();
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(KW_TAB)}!A2:E100000:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
-    const out=kept.concat(add);
-    if(out.length) await sheetPut(KW_TAB,'A2',out);
-    toast(`키워드이력에 ${kws.length}개 키워드 / ${mine.length}곳 반영됨`); setStatus('완료');
-  }catch(e){ toast('반영 실패: '+e.message); setStatus('오류'); console.error(e); }
-}
 
 // 🔑 키워드별 성과 집계 (현재 DATA 기준 — 키워드별 업체수 + 상태 분포)
-function renderKwStats(){
-  const card=$('kw-card'), box=$('kw-stats'); if(!card||!box) return;
-  const agg={};
-  DATA.forEach(r=>{ const k=(r[7]||'').trim(); if(!k) return; const a=agg[k]||(agg[k]={n:0,reply:0,prog:0,closed:0}); a.n++; const s=r[5]; if(s==='회신')a.reply++; else if(s==='종료')a.closed++; else a.prog++; });
-  const keys=Object.keys(agg).sort((x,y)=>agg[y].n-agg[x].n);
-  if(!keys.length){ card.style.display='none'; return; }
-  card.style.display='block';
-  box.innerHTML=keys.map(k=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
-    <b style="min-width:160px">${esc(k)}</b>
-    <span class="badge green">${agg[k].n}곳</span>
-    <span class="muted" style="flex:1">회신 ${agg[k].reply} · 진행중 ${agg[k].prog} · 종료 ${agg[k].closed}</span>
-  </div>`).join('');
-}
 
 // 검색키워드 입력 자동완성 — 과거 입력값 + 키워드 뱅크 시드
-function seedKwList(){
-  const dl=$('kw-list'); if(!dl) return;
-  const used=[...new Set(DATA.map(r=>(r[7]||'').trim()).filter(Boolean))];
-  const all=[...new Set([...used,...KW_SEED])];
-  dl.innerHTML=all.map(k=>`<option value="${esc(k)}"></option>`).join('');
-}
 
 // ─── 템플릿 ───
 async function saveTemplate(){ setStatus('저장 중…'); SET.subject=$('tpl-subject').value; await setSetting('template',$('tpl').value); setStatus('저장됨'); toast('제목·본문 저장됨'); }
@@ -821,10 +703,12 @@ function imgDataURL(which){
   c.getContext('2d').drawImage(img,0,0);
   try{ return c.toDataURL('image/png'); }catch(e){ return null; }
 }
-// 본문 + 공급시트 이미지를 합친 HTML 생성 (명함은 썬더버드 '서명'에 넣어두므로 본문엔 안 넣음 → 중복 방지)
+// 본문 + 공급시트 이미지 + 맨 끝 명함까지 한 덩어리로 (2026-08-11 사장님 지시:
+// "마지막에 명함까지 해서 붙여넣기 해줄 수 있게" — 서명 설정에 의존하지 않고 본문에 직접 붙인다)
 function buildMailHTML(){
   const text=$('tpl').value;
   const daily=imgDataURL('daily');
+  const card=imgDataURL('card');
   const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   let html='<div style="font-family:\'Malgun Gothic\',Apple SD Gothic Neo,sans-serif;font-size:14px;line-height:1.7;color:#222">';
   text.split('\n').forEach(ln=>{
@@ -834,19 +718,22 @@ function buildMailHTML(){
     } else if(ln.trim()===''){ html+='<div><br></div>'; }
     else { html+='<div>'+esc(ln)+'</div>'; }
   });
+  if(card) html+='<div><br></div><div><img src="'+card+'" style="max-width:420px;width:100%;height:auto"></div>';
   html+='</div>';
-  return {html, hasDaily:!!daily};
+  return {html, hasDaily:!!daily, hasCard:!!card};
 }
 // 📋 전체 복사 — 합치기 안 눌렀어도 본문+시트를 바로 만들어 HTML째 클립보드에 (썬더버드 인라인 유지)
 async function copyPreview(){
-  const {html,hasDaily}=buildMailHTML();
+  const {html,hasDaily,hasCard}=buildMailHTML();
   const plain=$('tpl').value;
   try{
     await navigator.clipboard.write([new ClipboardItem({
       'text/html': new Blob([html],{type:'text/html'}),
       'text/plain': new Blob([plain],{type:'text/plain'})
     })]);
-    toast(hasDaily ? '✅ 전체 복사됨 — 썬더버드 새 메일 본문에 Ctrl+V (명함은 서명 자동)' : '복사는 됐지만 시트 이미지가 없어요 — 오른쪽에서 먼저 올리세요');
+    const miss=[!hasDaily?'시트 이미지':'',!hasCard?'명함':''].filter(Boolean);
+    toast(miss.length ? '복사됐지만 '+miss.join('·')+'이(가) 없어요 — 오른쪽에서 올리세요'
+                      : '✅ 본문 + 시트 + 명함까지 복사됨 — 메일 본문에 Ctrl+V 한 번이면 끝');
   }catch(e){
     toast('복사 실패 — 다시 시도해 주세요 (브라우저 권한 확인)');
   }
@@ -868,31 +755,11 @@ async function openInThunderbird(){
 }
 async function saveCard(){
   if(!imgBlobs.card){ toast('먼저 이미지를 올려주세요'); return; }
-  setStatus('명함 저장 중…'); try{ const id=await driveUpload(imgBlobs.card,'masterc_명함.png'); await setSetting('card_fileId',id); $('card-save').style.display='none'; setStatus('저장됨'); toast('명함 고정 저장됨 — 다음에도 자동으로 떠요'); }
+  setStatus('명함 저장 중…'); try{ const id=await driveUpload(imgBlobs.card,'masterc_명함_'+PERSON+'.png'); await setSetting(CARD_KEY,id); $('card-save').style.display='none'; setStatus('저장됨'); toast('명함 고정 저장됨 — 다음에도 자동으로 떠요'); }
   catch(e){ setStatus('오류'); toast('명함 저장 실패: '+e.message); }
 }
 
 // ─── 추가연락 초안 (채널별 톤) ───
-async function draft(i){
-  modalIdx=i; const r=DATA[i], ds=daysSince(r[4]), chan=r[1];
-  $('m-title').textContent=`${followWord(chan)} 초안 — ${r[0]||r[2]}`;
-  $('m-sub').textContent=`${chanLabel(chan)} · ${r[2]} · 마지막연락 ${r[4]||'?'} (${ds}일 경과)`;
-  $('m-text').value='초안 생성 중…'; $('modal').classList.add('on');
-  const tone = chan==='이메일'
-      ? '정중한 이메일. 첫 줄 "제목: ..." 그다음 빈 줄, 본문 6~9문장.'
-      : chan==='네이버쪽지'
-      ? '네이버 카페 쪽지. 제목 없이, 짧고 정중하게 3~5문장.'
-      : '카카오톡 메시지. 짧고 친근하지만 정중하게 3~5문장, 너무 딱딱하지 않게.';
-  const prompt=`너는 B2B 수산·식자재 도매업체 '주식회사 마스터'의 영업담당 홍찬화 팀장이야. 아래 신규 거래처 후보에게 보낼 '추가 안부+재안내' 메시지를 한국어로 써줘.
-- 대상: ${r[0]||'(상호 미상)'} / 연락 채널: ${chanLabel(chan)}
-- 이전 연락 후 ${ds}일 경과, 아직 회신/거래 진전 없음. 가볍게 안부 + "필요하시면 언제든" 톤. 부담 X, 과장 영업멘트 X.
-- 우리 강점: 전국 산지 직수매, 자체 창고 운영, 상시 300~500종 농축수산물, 소량도 택배 즉시 납품.
-- 형식/톤: ${tone}`;
-  try{ $('m-text').value=(await callAI(prompt)).trim(); }
-  catch(e){ $('m-text').value='[AI 초안 실패] '+e.message+'\n\n직접 작성하거나 다시 시도해 주세요.'; }
-}
-function closeModal(){ $('modal').classList.remove('on'); modalIdx=-1; }
-async function markSent(){ if(modalIdx<0)return; DATA[modalIdx][4]=todayKST(); render(); await save(); toast('보냄 처리 — 마지막연락 오늘로'); closeModal(); }
 
 // 이미지 슬롯 Ctrl+V 붙여넣기 — 마지막 클릭한 슬롯에 (기본 공급시트). 슬롯 클릭 시 초록 테두리로 타겟 표시
 let pasteTarget='daily';
@@ -916,119 +783,5 @@ document.title='신규업체 메일링 — '+PERSON;
 loadAll();
 </script>
 
-<!-- 🔍 신규 발굴 DB 데이터 + 로직 — 사람별 전용 파일 (2026-06-11): 찬화=신규발굴_홍찬화.js / 원비=신규발굴_원비.js -->
-<script>document.write('<script src="신규발굴_'+((new URLSearchParams(location.search).get('u')==='wonbi')?'원비':'홍찬화')+'.js"><\/script>');</script>
-<script>
-(function(){
-  const P=window.PROSPECTS||[]; const PER=100; let page=1, filt=P;
-  const $=id=>document.getElementById(id);
-  const rev=JSON.parse(localStorage.getItem('prospect_reviewed')||'{}');
-  const bd=$('p-build'); if(bd&&window.PROSPECTS_BUILD) bd.textContent='('+window.PROSPECTS_BUILD+')';
-  if(!P.length){ const l=$('p-loading'); if(l)l.textContent='아직 발굴 DB가 비어있어요 (0건) — 구글드라이브 [신규업체메일링] 내 본인 폴더에 공정위 CSV를 넣고 [🔄 DB 동기화] 버튼대로 하비서에게 요청하세요.'; const t=$('p-total'); if(t)t.textContent='0곳'; return; }
-  const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
-  const fmtD=d=>(d&&d.length===8)?d.slice(0,4)+'.'+d.slice(4,6)+'.'+d.slice(6,8):(d||'');
-  const gus=[...new Set(P.map(r=>r[2]).filter(Boolean))].sort();
-  gus.forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;$('p-gu').appendChild(o);});
-  $('p-total').textContent=P.length.toLocaleString()+'곳';
-  $('p-loading').style.display='none'; $('p-table').style.display='';
-  function sentSet(){ const s=new Set(); const D=((typeof DATA!=='undefined'&&DATA)||[]).concat((typeof OTHER_DATA!=='undefined'&&OTHER_DATA)||[]); D.forEach(r=>{ if(r[2]) s.add(norm(r[2])); }); return s; }
-  function dot(g){ const c=g<=1?'#1f9d57':(g===2?'#2b63d9':'#c4cad2'); return '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;background:'+c+'"></span>'; }
-  function siteCell(site,sang,rep,g){
-    var q=encodeURIComponent((sang+' '+(rep||'')).trim());
-    let h=dot(g), u=site;
-    if(g<=1 && !/^https?:\/\//i.test(site)) u='http://'+site;
-    if(g<=1) h+='<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:#2b63d9;text-decoration:none">'+esc(site.replace(/^https?:\/\//,'').slice(0,38))+'↗</a>';
-    else if(site) h+='<span>'+esc(site)+'</span>';
-    h+='<div style="margin-top:3px;line-height:1.7">'
-      +'<a href="https://search.naver.com/search.naver?query='+q+'" target="_blank" rel="noopener" style="color:#188a42;font-size:12px;text-decoration:none">🔍 네이버 검색</a><br>'
-      +'<a href="https://www.google.com/search?q='+q+'" target="_blank" rel="noopener" style="color:#2b63d9;font-size:12px;text-decoration:none">🔍 구글 검색</a>'
-      +'</div>';
-    return h;
-  }
-  function apply(){
-    const q=norm($('p-q').value), gu=$('p-gu').value, gr=$('p-grade').value, ct=$('p-cat').value,
-      hd=$('p-hidedone').checked, hs=$('p-hidesent').checked, sent=sentSet();
-    filt=P.filter(r=>{
-      const [sang,rep,g2,email,site,pum,grade,sd,cat]=r;
-      if(gu&&g2!==gu)return false;
-      if(gr==='0'&&grade>1)return false;
-      if(gr==='2'&&grade!==2)return false;
-      if(gr==='3'&&grade<3)return false;
-      if(ct==='농수산'&&cat!=='농수산')return false;
-      if(ct==='no-beauty'&&cat==='뷰티건기식')return false;
-      if(hd&&rev[email])return false;
-      if(hs&&sent.has(norm(email)))return false;
-      if(q&&!(norm(sang).includes(q)||norm(rep).includes(q)))return false;
-      return true;
-    });
-    page=1; render();
-  }
-  function render(){
-    const sent=sentSet(), tb=$('p-tbody'); tb.innerHTML='';
-    const tot=filt.length, pages=Math.max(1,Math.ceil(tot/PER));
-    if(page>pages)page=pages;
-    const start=(page-1)*PER, slice=filt.slice(start,start+PER);
-    $('p-empty').style.display=tot?'none':'block';
-    $('p-stat').textContent=tot.toLocaleString()+'곳 표시 · 검토 '+Object.keys(rev).length;
-    slice.forEach((r,i)=>{
-      const [sang,rep,gu,email,site,pum,g,sdate,cat]=r;
-      const isSent=sent.has(norm(email)), isRev=rev[email];
-      const tr=document.createElement('tr'); if(isRev)tr.className='done';
-      tr.innerHTML='<td>'+(start+i+1)+'</td>'
-        +'<td><b>'+esc(sang)+'</b>'+(isSent?' <span class="pill" style="background:var(--redbg);color:var(--red)">이미 보냄</span>':'')+(cat==='농수산'?' <span class="pill" style="background:#e7f6ec;color:#13a04a">🐟농수산</span>':cat==='뷰티건기식'?' <span class="pill" style="background:#fdeef6;color:#b83280">💄뷰티/건기</span>':'')+'<div class="muted" style="font-size:12px">'+esc(pum)+'</div></td>'
-        +'<td>'+esc(rep)+'</td><td>'+esc(gu)+'</td>'
-        +'<td style="white-space:nowrap;font-size:12px;color:#6b6760">'+fmtD(sdate)+'</td>'
-        +'<td>'+siteCell(site,sang,rep,g)+'</td>'
-        +'<td style="font-family:ui-monospace,monospace;font-size:12px;color:#2b63d9;word-break:break-all">'+esc(email)+'</td>'
-        +'<td><div class="row-actions">'
-          +'<button class="btn sm" data-copy="'+esc(email)+'">복사</button>'
-          +'<button class="btn brand sm" data-fill="'+esc(email)+'" data-name="'+esc(sang)+'">폼에 넣기</button>'
-          +'<button class="btn ghost sm" data-rev="'+esc(email)+'">'+(isRev?'✓검토':'검토')+'</button>'
-        +'</div></td>';
-      tb.appendChild(tr);
-    });
-    renderPg(pages);
-  }
-  function renderPg(pages){
-    const pg=$('p-pg'); pg.innerHTML=''; if(pages<=1)return;
-    const mk=(t,p,dis)=>{const b=document.createElement('button');b.className='btn sm';b.textContent=t;b.disabled=!!dis;if(dis)b.style.opacity=.4;b.onclick=()=>{page=p;render();$('prospect-card').scrollIntoView({behavior:'smooth'});};return b;};
-    pg.appendChild(mk('‹',page-1,page<=1));
-    let s=Math.max(1,page-2),e=Math.min(pages,s+4);s=Math.max(1,e-4);
-    for(let p=s;p<=e;p++){const b=mk(p,p);if(p===page){b.classList.add('brand');}pg.appendChild(b);}
-    pg.appendChild(mk('›',page+1,page>=pages));
-    const inf=document.createElement('span');inf.className='muted';inf.style.cssText='font-size:12px;margin-left:8px';inf.textContent=page+' / '+pages;pg.appendChild(inf);
-  }
-  function fillForm(email,name){
-    const fn=$('f-name'), fc=$('f-contact'), fch=$('f-chan');
-    if(fch){ fch.value='이메일'; if(typeof chanHint==='function')chanHint(); }
-    if(fn)fn.value=name; if(fc)fc.value=email;
-    window.scrollTo({top:0,behavior:'smooth'});
-    if(typeof toast==='function')toast('"'+name+'" 폼에 넣었어요 — 메일 작성 후 [추가]로 기록');
-  }
-  $('p-tbody').addEventListener('click',e=>{
-    const cp=e.target.closest('[data-copy]'), fl=e.target.closest('[data-fill]'), rv=e.target.closest('[data-rev]');
-    if(cp){ const v=cp.dataset.copy; (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>{cp.textContent='✓';setTimeout(()=>cp.textContent='복사',1000);}).catch(()=>{const t=document.createElement('textarea');t.value=v;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(_){}t.remove();cp.textContent='✓';setTimeout(()=>cp.textContent='복사',1000);}); }
-    if(fl){ fillForm(fl.dataset.fill, fl.dataset.name); }
-    if(rv){ const em=rv.dataset.rev; if(rev[em])delete rev[em]; else rev[em]=1; localStorage.setItem('prospect_reviewed',JSON.stringify(rev)); render(); }
-  });
-  ['p-q','p-gu','p-grade','p-cat','p-hidedone','p-hidesent'].forEach(id=>{ const el=$(id); el.addEventListener(id==='p-q'?'input':'change',apply); });
-  apply();
-  // 보낸기록(DATA)이 비동기로 로드되면 '이미 보냄' 표시 갱신
-  let tries=0; const iv=setInterval(()=>{ if(((typeof DATA!=='undefined')&&DATA&&DATA.length)||tries++>40){ clearInterval(iv); apply(); } },500);
-})();
-</script>
-
-<!-- 📑 상단 섹션 탭 전환 -->
-<script>
-function switchTab(t){
-  var m=document.getElementById('tab-manage'), p=document.getElementById('tab-prospect');
-  if(m)m.style.display = t==='manage'?'':'none';
-  if(p)p.style.display = t==='prospect'?'':'none';
-  document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===t); });
-  window.scrollTo({top:0});
-}
-(function(){ var c=document.getElementById('tab-p-count'); if(c&&window.PROSPECTS)c.textContent=window.PROSPECTS.length.toLocaleString(); })();
-</script>
 </body>
 </html>
