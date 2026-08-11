@@ -1,16 +1,22 @@
-/* 마스터 유통 — 상품 사진·스펙 업데이트 도구 (v2)
+/* 마스터 유통 — 상품 사진·스펙 업데이트 도구 (v3)
    masterc.kr 페이지 위에서 북마클릿으로 실행한다.
    여기서 도는 이유: 상품 사진은 masterc.kr 로그인 세션이 있어야 보이고,
    카탈로그(github.io)는 도메인이 달라 그 페이지를 읽을 수 없다.
 
    상품 기준 = 상품명. 링크는 '상품정보 업데이트' 시트의 링크 탭이 정본이다
-   (유통시트 하이퍼링크는 낡아서 죽은 링크가 섞여 있음 — 2026-08-07 확인). */
+   (유통시트 하이퍼링크는 낡아서 죽은 링크가 섞여 있음 — 2026-08-07 확인).
+
+   v3 (2026-08-11) — 링크 없는 상품 자동 찾기.
+   게시판 제목 검색(`/<mid>?search_target=title&search_keyword=`)이 공백 토큰 AND로 걸려서,
+   상품명을 통째로 넣으면 그 상품 글만 나온다. 찾으면 링크 정본 시트에 바로 등록하고
+   사진·스펙까지 이어서 받는다 → 링크 없던 상품(예: 너비아니)도 사람 손 없이 채워진다. */
 (function(){
 if(window.__mediaUpdater){window.__mediaUpdater.open();return;}
 var YUTONG='1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';   // 유통시트(상품 목록)
 var LINKSS='1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';   // 상품정보 업데이트(링크 정본)
 var DOGU='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';     // 도구시트(캐시·대기목록)
 var TAB='상품이미지_v2', QTAB='상품이미지대기';
+var MID='board_eJGl96';   // 상품 게시판(제목 검색용). 아래 ensureMid()가 실제 링크로 다시 확인한다.
 var EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
 const PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n";
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
@@ -39,6 +45,117 @@ async function api(ss,path,opt){
 const q=s=>encodeURIComponent(s);
 const pkey=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 const idOf=u=>{const m=(u||'').match(/(\d{5,})/);return m?m[1]:'';};
+
+/* ── 🔎 링크 없는 상품 자동 찾기 (게시판 제목 검색) ──────────────────────────
+   · 검색은 공백으로 나뉜 낱말 AND — 상품명을 통째로 넣으면 그 낱말이 전부 든 제목만 나온다.
+     그래서 통짜 검색으로 나온 건 거의 확실 → 낮은 문턱(0.5)으로 받는다.
+   · 통짜로 0건이면 긴 낱말 몇 개로만 다시 찾는데, 이건 엉뚱한 상품이 섞일 수 있어
+     문턱을 0.75로 높인다 (예: '주먹참소라'를 '연평참소라'로 잘못 받지 않게).
+   · 무게·단위가 서로 다르면(1kg vs 450g) 점수를 크게 깎는다. */
+const normNm=s=>String(s||'').replace(/\[[^\]]*\]/g,' ').replace(/[^0-9A-Za-z가-힣]+/g,'').toLowerCase();
+function bigrams(s){const a=[];for(let i=0;i<s.length-1;i++)a.push(s.slice(i,i+2));return a;}
+function simScore(a,b){
+  a=normNm(a);b=normNm(b);
+  if(!a||!b)return 0;
+  if(a===b)return 1;
+  const A=bigrams(a),B=bigrams(b);
+  if(!A.length||!B.length)return 0;
+  const m={};A.forEach(function(x){m[x]=(m[x]||0)+1;});
+  let hit=0;B.forEach(function(x){if(m[x]>0){m[x]--;hit++;}});
+  return 2*hit/(A.length+B.length);
+}
+function units(s){
+  const out=[],re=/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|미|말|팩|봉|입|과|구|장|매|개)/gi;
+  let m;while((m=re.exec(String(s||''))))out.push((m[1]+m[2]).toLowerCase());
+  return out;
+}
+function unitOk(a,b){
+  const A=units(a),B=units(b);
+  if(!A.length||!B.length)return true;   // 한쪽에 단위가 없으면 판단 보류
+  return A.some(function(x){return B.indexOf(x)>=0;});
+}
+let MIDdone=false;
+async function ensureMid(){   // 상품 링크 하나를 따라가 실제 게시판 주소(mid)를 확인 — 게시판이 바뀌어도 따라간다
+  if(MIDdone)return MID;
+  MIDdone=true;
+  try{
+    const any=Object.keys(LINKS).map(function(k){return LINKS[k];}).filter(function(u){return /masterc/.test(u||'');})[0];
+    if(any){
+      const r=await fetch(any,{credentials:'include',redirect:'follow'});
+      const m=(r.url||'').match(/\/(board_[A-Za-z0-9]+)\//);
+      if(m)MID=m[1];
+    }
+  }catch(e){}
+  return MID;
+}
+async function searchBoard(kw){
+  const r=await fetch(location.origin+'/'+MID+'?search_target=title&search_keyword='+encodeURIComponent(kw),{credentials:'include'});
+  const h=await r.text();
+  const d=new DOMParser().parseFromString(h,'text/html');
+  const out=[],seen={},as=d.querySelectorAll('a');
+  for(let i=0;i<as.length;i++){
+    const href=as[i].getAttribute('href')||'';
+    const m=href.match(/document_srl=(\d{4,})/);
+    if(!m||seen[m[1]])continue;
+    const t=(as[i].textContent||'').replace(/\s+/g,' ').trim();
+    if(t.length<2)continue;
+    seen[m[1]]=1;
+    out.push({srl:m[1],title:t});
+  }
+  return out;
+}
+async function findLink(name){
+  const base=String(name||'').replace(/\[[^\]]*\]/g,' ').replace(/[()]/g,' ').replace(/\s+/g,' ').trim();
+  if(!base)return null;
+  const toks=base.split(' ').filter(function(t){return t.length>1;});
+  const longFirst=toks.slice().sort(function(a,b){return b.length-a.length;});
+  const tries=[base];
+  if(longFirst.length>2)tries.push(longFirst.slice(0,2).join(' '));
+  if(longFirst.length>1)tries.push(longFirst[0]);
+  for(let i=0;i<tries.length;i++){
+    const kw=tries[i];
+    let cands=[];
+    try{cands=await searchBoard(kw);}catch(e){}
+    if(!cands.length)continue;
+    let best=null;
+    cands.forEach(function(c){
+      let sc=simScore(name,c.title);
+      if(!unitOk(name,c.title))sc*=0.45;
+      if(!best||sc>best.score||(sc===best.score&&+c.srl>+best.srl))best={srl:c.srl,title:c.title,score:sc};
+    });
+    const need=(kw===base)?0.5:0.75;   // 통짜 검색은 낱말 AND라 이미 걸러짐 / 줄인 검색은 엄격하게
+    if(best&&best.score>=need)return{url:'https://masterc.kr/'+best.srl,title:best.title,score:best.score,kw:kw};
+  }
+  return null;
+}
+/* 찾은 링크를 링크 정본 시트에 저장 — 이미 줄이 있으면 그 줄 B칸을 갈아끼우고,
+   없으면 맨 위(2행부터)에 한꺼번에 끼워 넣는다(위쪽이 최신 = loadLinks 규칙 유지). */
+async function saveFoundLinks(found){
+  if(!found.length)return{};
+  const v=await api(LINKSS,'/values/'+q("'링크'!A2:A3000"));
+  const rowOf={};
+  ((v.values)||[]).forEach(function(r,i){const k=pkey(r[0]);if(k&&!rowOf[k])rowOf[k]=i+2;});
+  const upd=[],add=[];
+  found.forEach(function(f){
+    const r=rowOf[pkey(f.name)];
+    if(r)upd.push({range:"'링크'!B"+r,values:[[f.url]]});
+    else add.push([f.name,f.url]);
+  });
+  if(upd.length){
+    const j=await api(LINKSS,'/values:batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({valueInputOption:'RAW',data:upd})});
+    if(j.error)return j;
+  }
+  if(add.length){
+    const meta=await api(LINKSS,'?fields=sheets.properties(title,sheetId)');
+    const lk=((meta.sheets)||[]).map(function(s){return s.properties;}).filter(function(p){return p.title==='링크';})[0];
+    if(!lk)return{error:{message:'링크 탭을 못 찾았습니다'}};
+    let j=await api(LINKSS,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:[{insertDimension:{range:{sheetId:lk.sheetId,dimension:'ROWS',startIndex:1,endIndex:1+add.length}}}]})});
+    if(j.error)return j;
+    j=await api(LINKSS,'/values/'+q("'링크'!A2:B"+(1+add.length))+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:add})});
+    if(j.error)return j;
+  }
+  return{};
+}
 
 /* 링크 정본 — 상품정보 업데이트 시트의 링크 탭 (위쪽이 최신) */
 async function loadLinks(){
@@ -225,6 +342,7 @@ W.id='mu-wrap';
 W.innerHTML='<div id="mu-hd"><b>📸 상품 사진·스펙 업데이트</b><button id="mu-x">×</button></div>'
 +'<div id="mu-body">'
 +'<div class="mu-sum" id="mu-sum"><span>불러오는 중…</span></div>'
++'<div class="mu-row"><button class="mu-btn go" id="mu-fill" style="width:100%">🖼 사진 없는 상품 전부 채우기</button></div>'
 +'<div class="mu-row"><button class="mu-btn go" id="mu-runq" style="width:100%">⚡ 오늘 변경분(대기) 한번에 업데이트</button></div>'
 +'<div class="mu-row">'
 +'<button class="mu-btn q" data-pick="queue">📮 대기만 선택</button>'
@@ -322,6 +440,9 @@ function renderRun(){
   const nq=PRODUCTS.filter(inQueue).length;
   $('mu-runq').textContent=nq?('⚡ 오늘 변경분 '+nq+'건 한번에 업데이트'):'⚡ 오늘 변경분 없음 (대기 0건)';
   $('mu-runq').disabled=(nq===0||BUSY);
+  const nf=PRODUCTS.filter(noImg).length;
+  $('mu-fill').textContent=nf?('🖼 사진 없는 상품 '+nf+'건 전부 채우기 (링크 없으면 게시판에서 자동으로 찾음)'):'🖼 사진 없는 상품 없음 🎉';
+  $('mu-fill').disabled=(nf===0||BUSY);
 }
 const picks=W.querySelectorAll('[data-pick]');
 for(let i=0;i<picks.length;i++){
@@ -378,6 +499,34 @@ async function runSelected(){
     const p=PRODUCTS.filter(function(x){return pkey(x.name)===k;})[0];
     return p?{key:k,name:p.name,wh:p.wh,url:linkOf(p),sheet:sheetLink(p),tab:p.tab,cell:p.cell}:null;
   }).filter(Boolean);
+  /* 🔎 링크 없는 상품은 게시판 제목 검색으로 먼저 찾는다 (masterc 위에서만 가능).
+     찾은 링크는 링크 정본 시트에 바로 등록하고, 이어서 사진·스펙까지 받는다. */
+  const found=[];
+  const noLink=targets.filter(function(t){return !t.url;});
+  if(noLink.length){
+    if(!/masterc/.test(location.hostname)){
+      log('⚠️ 링크 없는 '+noLink.length+'건은 masterc 페이지 위에서 눌러야 자동으로 찾을 수 있습니다.');
+    }else{
+      log('🔎 링크 없는 '+noLink.length+'건 게시판에서 찾는 중…');
+      await ensureMid();
+      let fi=0;
+      async function fw(){
+        while(fi<noLink.length){
+          const t=noLink[fi++];
+          let f=null;
+          try{f=await findLink(t.name);}catch(e){}
+          if(f){t.url=f.url;t.foundTitle=f.title;found.push({name:t.name,url:f.url});}
+          log('🔎 링크 찾는 중 '+Math.min(fi,noLink.length)+'/'+noLink.length+' — 찾음 '+found.length+'건');
+        }
+      }
+      await Promise.all([0,1,2].map(fw));
+      if(found.length){
+        const jl=await saveFoundLinks(found);
+        if(jl&&jl.error)log('⚠️ 찾은 링크 저장 실패: '+jl.error.message,true);
+        else found.forEach(function(f){LINKS[pkey(f.name)]=f.url;});
+      }
+    }
+  }
   const done0=[];let done=0,i=0;
   async function worker(){
     while(i<targets.length){
@@ -415,6 +564,7 @@ async function runSelected(){
   else{
     const gi=done0.filter(x=>x.r.img).length,gs=done0.filter(x=>x.r.spec.length).length;
     log('✅ 완료 — '+done0.length+'건 처리 (사진 '+gi+' · 스펙 '+gs+')'
+      +(found.length?('\n🔎 링크 없던 '+found.length+'건은 게시판에서 찾아 링크까지 등록했습니다 — '+found.map(f=>f.name).join(', ')):'')
       +(jq&&jq.error?'\n⚠️ 대기 목록 정리 실패':'')
       +'\n카탈로그를 새로고침하면 반영됩니다.',true);
     SEL={};
@@ -430,6 +580,17 @@ async function runSelected(){
   }
   renderRun();
 }
+
+/* 🖼 사진 없는 상품 전부 채우기 — 사장님이 누르는 기본 버튼.
+   링크 있는 건 그 페이지에서, 링크 없는 건 게시판 제목 검색으로 찾아서 채운다. */
+$('mu-fill').onclick=function(){
+  if(BUSY)return;
+  const t=PRODUCTS.filter(noImg);
+  if(!t.length){log('🎉 사진 없는 상품이 없습니다.');return;}
+  SEL={};t.forEach(p=>SEL[pkey(p.name)]=1);
+  FILTER='noimg';renderSum();renderList();renderRun();
+  runSelected();
+};
 
 /* ⚡ 오늘 변경분 한번에 — 상품정보 업데이트(byeondong 엑셀 생성)에서 쌓인 대기 목록을 고르고 바로 실행 */
 $('mu-runq').onclick=function(){

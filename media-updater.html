@@ -50,6 +50,8 @@ a{color:var(--accent)}
 .tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1.5px solid var(--line)}
 .tabbtn{border:none;background:none;color:var(--muted);font-size:14px;font-weight:700;padding:9px 14px;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1.5px;font-family:inherit}
 .tabbtn.on{color:var(--accent);border-bottom-color:var(--accent)}
+.bmlet{display:inline-block;background:var(--accent);color:#fff;border-radius:9px;padding:9px 16px;font-weight:700;font-size:14px;text-decoration:none;cursor:grab}
+.bmlet:hover{background:var(--accent-d)}
 </style></head><body><main>
 <h1>🧰 마찬 유통 상품 도구</h1>
 <div class="sub">카탈로그에 뜨는 상품 사진·스펙·카테고리를 여기서 관리합니다</div>
@@ -72,12 +74,24 @@ a{color:var(--accent)}
 </div>
 
 <div id="tab-photo" style="display:none">
+<div class="card" style="border-color:var(--accent)">
+  <h2>📸 사진 채우기 = 북마크릿 한 번</h2>
+  <p style="font-size:12.5px;color:var(--muted)">상품 사진은 <b>masterc 로그인 상태</b>에서만 보여서 이 페이지(다른 주소)에서는 못 가져옵니다. 대신 <b>masterc 위에서 도는 북마크릿</b>이 대신 합니다 — 사진 없는 상품을 스스로 찾아 채우고, <b>링크가 없는 상품은 게시판 제목 검색으로 글을 찾아 링크까지 등록</b>합니다.</p>
+  <ol style="font-size:13px">
+    <li>아래 <b>📸 상품사진 채우기</b>를 <b>즐겨찾기 바로 드래그</b> (한 번만. 즐겨찾기 바는 <b>Ctrl+Shift+B</b>)</li>
+    <li><a href="https://masterc.kr/" target="_blank" rel="noopener">masterc</a> 아무 페이지에서 그 즐겨찾기를 클릭</li>
+    <li>오른쪽 아래 창에서 <b>[🖼 사진 없는 상품 전부 채우기]</b> 클릭 → 끝나면 이 카탈로그 새로고침</li>
+  </ol>
+  <p style="margin-top:10px"><a class="bmlet" href="javascript:(function(){var s=document.createElement('script');s.src='https://chanwha0221-cmyk.github.io/baljuseo/media-updater.js?v='+Date.now();document.body.appendChild(s);})();">📸 상품사진 채우기</a> <span style="font-size:12px;color:var(--muted)">← 이 버튼을 즐겨찾기 바로 끌어다 놓으세요 (여기서 눌러도 동작 안 함)</span></p>
+  <button class="cp" id="bmCopy">📋 북마크릿 주소 복사</button>
+  <span style="font-size:11.5px;color:var(--muted)">드래그가 안 되면 복사 → 즐겨찾기 추가 → URL 칸에 붙여넣기</span>
+</div>
 <div class="card">
   <h2>🔧 사진·링크 수정 <span id="fxStat" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
   <p style="font-size:12.5px;color:var(--muted)">카탈로그에서 <b>사진 준비중</b>이거나 <b>사진이 깨졌거나</b> <b>상품 링크가 없는</b> 상품만 모아줍니다.
   품절이면 🗑 삭제, 살아있는 상품이면 🔗 새 링크를 넣으세요 — 링크는 링크 정본 시트에 바로 저장되고 카탈로그에 즉시 반영됩니다.
   열어 봤는데 실제로는 이상이 없으면 <b>✓ 문제없음</b>으로 넘기세요 — 다음 취합부터 빠집니다. 고친 뒤 다시 취합하면 해결된 상품을 알려줍니다.<br>
-  ※ <b>카탈로그 사진 못 불러옴</b>은 상품 페이지 문제가 아니라 <b>카탈로그용 사진 창고(도구시트)가 빈 것</b>입니다. 상품↗을 눌러 페이지가 멀쩡하면 하비서에게 "사진 채워줘" 한마디면 채워집니다 (로그인이 필요해 여기서 버튼으로는 못 가져옵니다).</p>
+  ※ <b>카탈로그 사진 못 불러옴</b>은 상품 페이지 문제가 아니라 <b>카탈로그용 사진 창고(도구시트)가 빈 것</b>입니다. 상품↗을 눌러 페이지가 멀쩡하면 <b>아래 📸 북마크릿을 누르면</b> 채워집니다 (로그인이 필요해 이 페이지의 버튼으로는 못 가져옵니다).</p>
   <div id="fxPerm" style="font-size:11.5px;color:var(--muted);margin:6px 0"></div>
   <div class="ct-bulk" style="margin-top:10px"><a class="cp" id="fxQty" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none">📊 수량시트</a><button class="fxg" id="fxQtyEdit" title="수량시트 주소 변경 (매월 바뀔 때 여기서 교체)">✎</button><button class="cp" id="fxRun" style="margin-top:0">🔍 문제 상품 취합</button></div>
   <div id="fxList"></div>
@@ -94,6 +108,14 @@ document.querySelectorAll('.tabbtn').forEach(function(b){
     document.getElementById('tab-photo').style.display=(t==='photo')?'':'none';
   };
 });
+/* 📸 북마크릿 주소 복사 — 드래그가 안 되는 환경(원격·터치)에서 즐겨찾기 URL 칸에 붙여넣기용 */
+document.getElementById('bmCopy').onclick=function(){
+  var b=this,code=document.querySelector('.bmlet').getAttribute('href');
+  navigator.clipboard.writeText(code).then(function(){
+    b.textContent='복사됨! 즐겨찾기 추가 → URL 칸에 붙여넣기';
+    setTimeout(function(){b.textContent='📋 북마크릿 주소 복사';},2500);
+  }).catch(function(){prompt('아래 주소를 복사해서 즐겨찾기 URL 칸에 넣으세요',code);});
+};
 /* ── 🏷️ 카테고리 분류 — 유통시트 전체 상품을 도구시트 '상품분류' 탭에 자동 등재하고,
       분류는 사장님·원비가 여기서 직접 한다. 카탈로그는 이 탭을 읽어서 그대로 따른다. ── */
 (function(){
@@ -504,9 +526,9 @@ function renderFx(){
     if(!u)b.push('<span class="fxb no">링크없음</span>');
     else if(x.issue==='카탈로그 사진 못 불러옴'){
       // 링크 정본이 캐시보다 새것 = 링크는 이미 고쳐진 상태 — 사진만 아직 없는 것
-      if(cc&&cc.link&&cc.link!==u)b.push('<span class="fxb ok">링크는 새것 — 사진만 없음</span>');
-      else if(!cc)b.push('<span class="fxb q">신규 상품</span>');
-      else b.push('<span class="fxb q">상품↗ 눌러 확인 — 메인으로 튕기면 게시물 삭제된 것</span>');
+      if(cc&&cc.link&&cc.link!==u)b.push('<span class="fxb ok">링크는 새것 — 📸 북마크릿 누르면 채워짐</span>');
+      else if(!cc)b.push('<span class="fxb q">신규 상품 — 📸 북마크릿 누르면 채워짐</span>');
+      else b.push('<span class="fxb q">상품↗ 눌러 확인 — 멀쩡하면 📸 북마크릿, 메인으로 튕기면 게시물 삭제된 것</span>');
     }
     if(x.linked)b.push('<span class="fxb ok">✓ 링크 교체됨</span>');
     if(x.del)b.push('<span class="fxb q">삭제대기중</span>');
