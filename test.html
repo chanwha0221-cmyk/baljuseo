@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧪 테스트본 — 발주서 변환기 v22.584</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --bg:#f5f4f0;--surface:#ffffff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;
+  --text:#1a1816;--text2:#6b6760;--text3:#a8a49e;
+  --accent:#2d6a4f;--accent-light:#e8f4ee;--accent-hover:#1e4d38;
+  --warn:#b45309;--warn-bg:#fef3c7;--ok:#2d6a4f;--ok-bg:#e8f4ee;
+  --out-bg:#f8fffe;--out-text:#1a4a35;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column;overflow-y:auto}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.logo{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.03em}
+.logo span{color:var(--accent)}
+.ver{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);background:var(--accent-light);border:1px solid #b7ddc8;padding:2px 7px;border-radius:20px;font-weight:500}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:20px}
+.stat-inline{display:flex;gap:16px}
+.stat-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+.stat-item strong{color:var(--text);font-weight:500}
+.stat-item.warn strong{color:var(--warn)}
+.stat-item.ok strong{color:var(--ok)}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--text3)}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}
+.workspace{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:visible;align-items:start}
+.panel{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface);overflow:visible}
+.panel:last-child{border-right:none}
+.panel-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);flex-shrink:0}
+.panel-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3)}
+.panel-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);background:var(--border);padding:1px 8px;border-radius:10px}
+textarea{width:100%;border:none;outline:none;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.75;resize:none;color:var(--text);background:var(--surface);min-height:200px;overflow:hidden;box-sizing:border-box;}
+textarea::placeholder{color:var(--text3)}
+#out{background:var(--out-bg);color:var(--out-text)}
+.bottom{background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.btn{padding:7px 16px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .1s}
+.btn:hover{background:var(--surface2);color:var(--text)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;padding:7px 22px}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn.copy-btn{color:var(--accent);border-color:#b7ddc8;background:var(--accent-light)}
+.btn.copy-btn:hover{background:#d4ecdf}
+.log-pill{flex:1;margin:0 12px;font-size:11px;padding:4px 12px;border-radius:20px;background:var(--surface2);color:var(--text3);font-family:'JetBrains Mono',monospace;border:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.log-pill.warn{background:var(--warn-bg);color:var(--warn);border-color:#fcd34d}
+.log-pill.ok{background:var(--ok-bg);color:var(--ok);border-color:#b7ddc8}
+/* 변환 대조 바 (2026-08-11 사장님 지시 — 임시규칙 칸 자리): 입력 주문건 ↔ 변환건 대조로 누락 즉시 발견 */
+.recon-bar{background:var(--surface2);border-top:1px solid var(--border);padding:6px 20px;display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
+.recon-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;padding-top:4px}
+.recon-body{flex:1;border:1px solid var(--border2);border-radius:5px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;color:var(--text3);background:var(--surface);min-height:30px;max-height:150px;overflow-y:auto}
+.recon-body.ok{background:var(--ok-bg);color:var(--ok);border-color:#b7ddc8}
+.recon-body.bad{background:#fef2f2;color:#b91c1c;border-color:#fca5a5;font-weight:700}
+.recon-list{margin-top:5px;font-weight:400;font-size:11px;color:#7f1d1d;line-height:1.7;word-break:break-all}
+.recon-note{margin-top:4px;font-weight:400;font-size:11px;color:var(--text3)}
+.testbadge{background:#dc2626;color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:.03em;white-space:nowrap}
+body{box-shadow:inset 0 0 0 3px #dc2626}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">발주서 <span>변환기</span></span><span class="testbadge">🧪 테스트본</span>
+  <span class="ver">v22.584</span>
+  <div class="header-right">
+    <div class="stat-inline">
+      <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
+      <div class="stat-item ok"><div class="dot ok"></div><span>출력</span><strong id="s-out">0</strong></div>
+      <div class="stat-item warn"><div class="dot warn"></div><span>주의</span><strong id="s-warn">0</strong></div>
+    </div>
+  </div>
+</header>
+<div class="workspace">
+  <div class="panel">
+    <div class="panel-head"><span class="panel-label">입력</span><span class="panel-count" id="in-count">0 행</span></div>
+    <textarea id="inp" placeholder="업체 발주 데이터를 여기에 붙여넣으세요.&#10;탭으로 구분된 데이터를 그대로 붙여넣으면 됩니다.&#10;헤더행 자동 제거 / 줄바꿈 자동 병합 지원"></textarea>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><span class="panel-label">출력</span><div class="log-pill" id="log">대기 중...</div><span class="panel-count" id="out-count">0 행</span></div>
+    <textarea id="out" readonly placeholder="변환 결과가 여기에 나타납니다.&#10;엑셀에 그대로 붙여넣으세요."></textarea>
+  </div>
+</div>
+<div class="recon-bar">
+  <span class="recon-label">변환 대조</span>
+  <div class="recon-body" id="recon">변환하면 여기서 <b>입력 주문건 ↔ 변환건</b>을 대조합니다. 빠진 주문이 있으면 원문을 그대로 띄웁니다.</div>
+</div>
+<details style="background:var(--surface2);border-top:1px solid var(--border);padding:4px 20px;flex-shrink:0;font-size:11px;color:var(--text3)">
+  <summary style="cursor:pointer;font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:11px;user-select:none">📖 자동 예외 규칙 (도구가 알아서 처리 — "왜 이렇게 나왔지?" 싶을 때)</summary>
+  <div style="padding:6px 0 8px;line-height:1.7">
+    · <b>전화번호 앞 0 복원</b> — 엑셀 복사로 앞 0이 잘린 번호(<code>1039727072</code>)는 자동으로 0을 붙여 <code>010-3972-7072</code>로 복원. 지역번호(02/031…)·안심번호(0502/0504)·070 다 커버, 1577·1833 같은 8자리 대표번호는 그대로.<br>
+    · <b>민물장어 괄호 유지</b> — 민물장어는 괄호가 옵션(예: <code>(장어뼈 주세요)</code> 없으면 뼈·머리 안 줌)이라 홍어 삭힘 괄호처럼 절대 안 지우고 들어온 그대로 유지.<br>
+    · <b>나행상회·자은엔앤피 상품명 표준 치환</b> — 발주명이 제각각이라 키워드로 고정: 고바멸치→<b>프리미엄 햇고바멸치 1박스</b> · 대극천 복숭아→프리미엄 대극천 복숭아(무게 유지) · 등갈비→초특가 국내산 등갈비 1kg · 가브리살→녹돈 담백 가브리살 500g · 유정란→난각 1번=자연방사/2번=동물복지 표준명(○구 유지) · 사과 3kg→꼬마 부사사과 3kg. 옵션칸이 '기본'류면 상품명 기준.<br>
+    · 그 외 업체별 규칙(무료배송 상자분리·옥돔 마리 통일·신선한아침 등)은 코드 주석 참고.
+  </div>
+</details>
+<div class="sheet-bar" style="background:var(--surface2);border-top:1px solid var(--border);padding:6px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+  <span style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">발주서 시트</span>
+  <input id="sheetUrl" type="text" oninput="onSheetUrlInput()" placeholder="이번 달 발주서 구글시트 주소를 붙여넣으세요 — https://docs.google.com/spreadsheets/d/..." style="flex:1;border:1px solid var(--border2);border-radius:5px;padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);background:var(--surface);outline:none">
+  <button class="btn" type="button" onclick="checkSheetAccess()" style="padding:5px 12px">접근 확인</button>
+  <span id="sheetStatus" style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;white-space:nowrap">기본값</span>
+</div>
+<div class="bottom">
+  <button class="btn primary" onclick="run()">변환 실행</button>
+  <button class="btn copy-btn" onclick="copyOut()">출력 복사</button>
+  <button class="btn" onclick="saveToSheet()" style="background:#1a73e8;color:#fff;border-color:#1a73e8;font-weight:700;">시트 저장</button>
+  <button class="btn" onclick="clearAll()">초기화</button>
+  <a href="sales.html" target="_blank" style="padding:7px 16px;border-radius:6px;border:1px solid #9b59b6;background:#7b2d8b;color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;">판매 분석 →</a>
+</div>
+<script>
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
+const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+let SPREADSHEET_ID='1OR-wm_JRo9aT4snvsoPCV8uFThqacpeI_1fQqpfXdIo';const DEFAULT_SPREADSHEET_ID=SPREADSHEET_ID;
+const SHEET_NAME='당일';
+
+function extractSheetId(s){if(!s)return'';s=String(s).trim();var m=s.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);if(m)return m[1];if(/^[a-zA-Z0-9_-]{25,}$/.test(s))return s;return'';}
+function onSheetUrlInput(){var el=document.getElementById('sheetUrl');var st=document.getElementById('sheetStatus');var id=extractSheetId(el.value);if(id){SPREADSHEET_ID=id;try{localStorage.setItem('baljuseo_sheet_id',id);localStorage.setItem('baljuseo_sheet_url',el.value.trim());}catch(e){}st.textContent='저장됨 ✓';st.style.color='var(--ok)';}else if(el.value.trim()===''){SPREADSHEET_ID=DEFAULT_SPREADSHEET_ID;try{localStorage.removeItem('baljuseo_sheet_id');localStorage.removeItem('baljuseo_sheet_url');}catch(e){}st.textContent='기본값';st.style.color='var(--text3)';}else{st.textContent='주소 인식 안됨';st.style.color='var(--warn)';}}
+function initSheetUrl(){var el=document.getElementById('sheetUrl');if(!el)return;var url='',id='';try{url=localStorage.getItem('baljuseo_sheet_url')||'';id=localStorage.getItem('baljuseo_sheet_id')||'';}catch(e){}if(id){SPREADSHEET_ID=id;el.value=url||id;var st=document.getElementById('sheetStatus');if(st){st.textContent='저장됨 ✓';st.style.color='var(--ok)';}}}
+async function checkSheetAccess(){var st=document.getElementById('sheetStatus');if(!SPREADSHEET_ID){st.textContent='주소 먼저 입력';st.style.color='var(--warn)';return;}st.textContent='확인 중...';st.style.color='var(--text3)';try{var token=await getAccessToken();var r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SPREADSHEET_ID+'?fields=sheets.properties.title',{headers:{'Authorization':'Bearer '+token}});var j=await r.json();if(j.error){st.textContent='접근 불가 — 시트 공유 권한 확인';st.style.color='var(--warn)';return;}var titles=(j.sheets||[]).map(function(s){return s.properties.title;});if(titles.indexOf(SHEET_NAME)<0){st.textContent="'"+SHEET_NAME+"' 탭 없음";st.style.color='var(--warn)';return;}st.textContent='접근 OK ✓ ('+SHEET_NAME+')';st.style.color='var(--ok)';}catch(e){st.textContent='확인 오류: '+e.message;st.style.color='var(--warn)';}}
+initSheetUrl();
+let pendingHistory=[];
+let dayHistory=[];
+// 🔄 구버전 감지 — 배포가 잦아서 열어둔 탭/캐시가 옛 버전으로 변환하면 결과가 미묘하게 달라지는 사고 방지 (2026-08-06)
+let _staleLast=0;
+async function checkStale(force){
+  const now=Date.now();
+  if(!force&&now-_staleLast<300000)return;
+  _staleLast=now;
+  try{
+    const r=await fetch(location.href.split('#')[0].split('?')[0]+'?nocache='+now,{cache:'no-store'});
+    if(!r.ok)return;
+    const m=(await r.text()).match(/<title>[^<]*?(v\d+\.\d+)/);
+    const cur=(document.title.match(/v\d+\.\d+/)||[])[0];
+    if(!m||!cur||m[1]===cur)return;
+    let b=document.getElementById('staleBar');
+    if(!b){b=document.createElement('div');b.id='staleBar';b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#c0392b;color:#fff;font-size:13px;font-weight:700;padding:9px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.25)';document.body.appendChild(b);}
+    b.innerHTML='🔄 새 버전 '+m[1]+' 배포됨 — 지금 화면은 '+cur+' 구버전이라 변환 결과가 다를 수 있어요 <button onclick="location.reload()" style="margin-left:10px;padding:3px 14px;border:none;border-radius:4px;background:#fff;color:#c0392b;font-weight:700;cursor:pointer;font-size:13px">새로고침</button>';
+    sl('⚠️ 구버전 화면('+cur+') — 새 버전 '+m[1]+' 배포됨, 새로고침 필요','warn');
+  }catch(e){}
+}
+checkStale(true);
+window.addEventListener('focus',function(){checkStale(false);});
+async function getAccessToken(){
+  const header={alg:'RS256',typ:'JWT'};
+  const now=Math.floor(Date.now()/1000);
+  const claim={iss:CLIENT_EMAIL,scope:'https://www.googleapis.com/auth/spreadsheets',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now};
+  const enc=(obj)=>btoa(JSON.stringify(obj)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const toSign=enc(header)+'.'+enc(claim);
+  const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(toSign));
+  const jwt=toSign+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const res=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`});
+  const d=await res.json();return d.access_token;
+}
+async function saveToSheet(){
+  // .trim()을 쓰면 마지막 행 끝 탭(빈 셀)이 잘려나가 칸이 안 맞춰지므로,
+  // 줄바꿈만 양끝에서 제거하고 탭은 보존
+  const val=document.getElementById('out').value.replace(/^[\r\n]+|[\r\n]+$/g,'');
+  if(!val){sl('출력 데이터가 없습니다.','warn');return;}
+  sl('시트에 저장 중...');
+  try{
+    const token=await getAccessToken();
+    const rRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A:N`,{headers:{'Authorization':`Bearer ${token}`}});
+    const rData=await rRes.json();
+    const lastRow=rData.values?rData.values.length:0;
+    const nextRow=Math.max(lastRow+1,8);
+    const lines=val.split('\n').filter(l=>l.trim());
+    let rows=lines.map(l=>l.split('\t'));
+    // 행마다 칸 수 다를 수 있으니 max 기준으로 시작 컬럼 결정
+    // 10칸 행이 하나라도 있으면 9칸 행은 앞에 빈칸 추가해 10칸으로 정렬 (E열 비우고 F부터 시작)
+    const maxCols=rows.length?Math.max(...rows.map(r=>r.length)):9;
+    if(maxCols>=10){
+      rows=rows.map(r=>r.length<maxCols?Array(maxCols-r.length).fill('').concat(r):r);
+    }
+    const firstCols=maxCols;
+    const startCol=firstCols>=10?'E':'F';
+    const range=`${SHEET_NAME}!${startCol}${nextRow}`;
+    const wRes=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,{method:'PUT',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+    const wData=await wRes.json();
+    if(wData.updatedCells){
+      let sheetId=1932703059;try{var _mr=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SPREADSHEET_ID+'?fields=sheets.properties(sheetId,title)',{headers:{'Authorization':'Bearer '+token}});var _mj=await _mr.json();var _si=(_mj.sheets||[]).find(function(s){return s.properties.title===SHEET_NAME;});if(_si)sheetId=_si.properties.sheetId;}catch(e){}
+      const endRow=nextRow+rows.length;
+      const startColIdx=firstCols>=10?4:5;
+      const endColIdx=startColIdx+firstCols;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{repeatCell:{range:{sheetId,startRowIndex:nextRow-1,endRowIndex:endRow-1,startColumnIndex:startColIdx,endColumnIndex:endColIdx},cell:{userEnteredFormat:{horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(horizontalAlignment,verticalAlignment)'}}]})});
+      dayHistory=dayHistory.concat(pendingHistory.map(h=>Object.assign({},h)));
+      pendingHistory=[];
+      sl('시트 저장 완료! '+wData.updatedRows+'행 추가됨 (히스토리 '+dayHistory.length+'건)','ok');
+    }else{sl('저장 실패: '+JSON.stringify(wData),'warn');}
+  }catch(e){sl('오류: '+e.message,'warn');}
+}
+const CC={
+  "싱싱마트":{phone:"010-3400-0066"},
+  "케이스타일":{phone:"010-8691-8389"},
+  "장씨네":{phone:"010-2458-1788",insert:"더본초",showInsert:true},
+  "강씨네밥상":{phone:"010-4883-8092"},
+  "지구식품":{phone:"070-4800-1166",insert:"동글지구",showInsert:true},
+  "비엠리테일":{phone:"010-7763-8654",insert:"에스에이치리테일",showInsert:true},
+  "청년어부":{phone:"010-2614-6813",insert:"마우셀"},
+  "청년수산":{phone:"010-2614-6813",insert:"마우셀",showInsert:true},
+  "혜인건강":{phone:"070-4473-7196",insert:"HN"},
+  "더바른곳간":{phone:"010-5158-1884",insert:"홈앤디자인",showInsert:true},
+  "또치네마켓":{address:"울산광역시 남구 도산로 107번길9 2층 a-255호",phone:"010-5497-3059",insert:"또치만물상",showInsert:true},
+  "파더그로브":{phone:"0502-2679-0637",insert:"퍼니밀"},
+  "김융환":{address:"경기도 남양주시 홍유릉로 309 401호",phone:"010-6533-1027",insert:"발볼"},
+  "발볼":{address:"경기도 남양주시 홍유릉로 309 401호",phone:"010-6533-1027"},
+  "대상수산":{address:"목포시 고하대로 597번길 1(죽교동)",phone:"010-3649-0583"},
+  "썬푸드마켓":{phone:"010-5679-8998"},
+  "거문도수산":{address:"여수시 이순신광장로 125-3",phone:"010-9325-9899"},
+  "아크미소프트":{address:"서울시 마포구 매봉산로 37",phone:"02-3706-6522"},
+  "서진농수산":{address:"서울 강남구 테헤란로 424",phone:"010-8050-4229",insert:"도리농수산"},
+  "다정한공간":{phone:"010-9318-0895"},
+  "인베스토어":{phone:"010-7772-2984"},
+  "와이플로우":{phone:"1833-2285"},
+  "미식탁":{address:"",phone:"010-9119-3158"},
+  "명가네농장":{phone:"010-6467-5832",insert:"명안",showInsert:true},
+  "천애부파미어스몰":{phone:"010-9077-4538"},
+  "춘식이네":{phone:"010-5882-7730",insert:"그록",showInsert:true},
+  "라파고척본점":{phone:"010-2762-9227"},
+  "배민대용량":{phone:"010-2455-4156"},
+  "삼월이농수산":{phone:"010-6652-1574",insert:"냠냠식탁",showInsert:true},
+  "냠냠식탁":{phone:"010-6652-1574"},
+  "식봄":{address:"",phone:"010-2455-4156"},
+  "신선한아침":{phone:"070-7761-7676"},
+  "우디":{phone:"010-7929-8080",insert:"우디디자인랩",showInsert:true},
+  "우디디자인랩":{phone:"010-7929-8080"},
+  "제이피컴퍼니":{address:"하남시 미사강변한강로 165",phone:"010-2843-3051",insert:"서율컴퍼니",showInsert:true},
+  "서율컴퍼니":{address:"하남시 미사강변한강로 165",phone:"010-2843-3051"},
+  "호호야채":{address:"부천시 소향로223 105호 호호야채",phone:"010-7241-1903"},
+  "맛있는상점":{address:"진주시 사들로20 맛있는상점",phone:"010-5566-5413"},
+  "지투지샵":{address:"서울특별시 금천구 서부샛길 606, A동 2610호 (가산동, 대성디폴리스지식산업센터)",phone:"010-2329-8991"},
+  "토리팜":{address:"경남 합천군 용주면 고품용덕길 38-1",phone:"010-5758-0367"},
+  "푸른결":{address:"",phone:"070-3177-8080"},
+  "더세븐홀딩스":{address:"",phone:"1577-0926"},
+  "엄자씨마켓":{address:"",phone:"1577-0926",insert:"더세븐홀딩스",showInsert:true},
+  "팍스리테일":{address:"대구시 남구 대명로 124KT&G 7층",phone:"053-942-5551"},
+  "영성":{address:"",phone:"1533-2981"},   // 업체 주소 안 씀 (2026-07-24 사장님)
+  "팡베베":{phone:"010-7153-3917"},
+  "킹콩농수산":{address:"경기도 화성시 동탄구 동탄기흥로 594-7, 1214호 주식회사 킹콩에프앤비",phone:"031-8043-2244",insert:"킹콩에프앤비",showInsert:true}
+};
+const RA="강원특별자치도 동해시 대학로 16";
+const HEADER_KEYWORDS=["주문처","업체명","거래처","공급사","상품명","고객명","수취인","연락처"];
+// 📏 단위 목록 단일화 (2026-08-03): 상품 판정 정규식 5곳(parseLooseBoardRow×2·mergeLines·pr2·preprocessBalbolLine)이
+//    제각각 복붙이라 목록이 어긋나 있던 것 통합. 새 단위는 UNIT_WORDS 한 곳만 추가하면 전 파서에 반영된다.
+//    (?:급|짜리)? = "5kg급" 접미사 허용, (?![가-힣]) = "1단지" 같은 주소 오인식 방지
+const UNIT_WORDS='kg|g|ea|팩|미|구|개|마리|인분|봉|통|박스|세트|셋트|리터|ml|L|판|대|장|줄|관|단|마|모|벌';
+const UNIT_QTY_RE=new RegExp('\\d+\\s*(?:'+UNIT_WORDS+')(?:급|짜리)?(?![가-힣])','i');
+let wc=0;
+function sl(m,t){const e=document.getElementById('log');e.textContent=m;e.className='log-pill'+(t?' '+t:'');if(t==='warn')wc++;}
+function fp(t){
+  if(!t)return"";let n=String(t).replace(/[^0-9]/g,'');if(!n)return"";
+  // 엑셀 복사시 앞 0 소실 복원 (2026-08-05): 한국 번호는 8자리 대표번호(1577·1833 등)만 빼고 전부 0 시작.
+  // 1039727072→010-3972-7072, 5024433375→0502-443-3375, 서울 23456789→02-345-6789, 지역번호(31/53…)도 동일
+  if(!n.startsWith('0')&&n.length>=8&&!(n.length===8&&n.startsWith('1')))n='0'+n;
+  if(n.length===12&&n.startsWith('050'))return n.slice(0,4)+'-'+n.slice(4,8)+'-'+n.slice(8);
+  if(n.length===8&&n.startsWith('1'))return n.slice(0,4)+'-'+n.slice(4);
+  // 서울 02 9자리 (02-XXX-XXXX) — 기존 length>=10 조건에 안 걸려 하이픈 다 빠지던 버그 fix (2026-06-19)
+  if(n.length===9&&n.startsWith('02'))return '02-'+n.slice(2,5)+'-'+n.slice(5);
+  if(n.length>=10){
+    if(n.startsWith('02'))return n.slice(0,2)+'-'+n.slice(2,6)+'-'+n.slice(6);
+    // 10자리 지역번호(053-942-5551 등)는 3-3-4. 기존엔 무조건 3-4-4로 잘라 '053-9425-551'로 깨졌음 (2026-07-24 fix)
+    if(n.length===10)return n.slice(0,3)+'-'+n.slice(3,6)+'-'+n.slice(6);
+    if(n.startsWith('0'))return n.slice(0,3)+'-'+n.slice(3,7)+'-'+n.slice(7);
+    return n.slice(0,3)+'-'+n.slice(3,7)+'-'+n.slice(7);
+  }
+  return n;
+}
+function ca(a){
+  if(!a)return"";
+  if(a.includes(RA))a=a.replace(RA,"").replace("(천곡동)","").trim();
+  return a.replace("출고지주소","").replace("공란","").replace(/\//g," ").trim();
+}
+function isKnownClient(s){return !!CC[s.replace(/\s+/g,'')];}
+function toTsv(line){return line.includes('\t')?line:line.replace(/ {3,}/g,'\t');}
+function isHeaderRow(line){const first=toTsv(line).split('\t')[0].trim();return HEADER_KEYWORDS.some(k=>first.includes(k));}
+function isDataHeader(line){const cols=toTsv(line).split('\t');return cols.length>=3&&cols[0].trim()==='주문처';}
+// CSV-style 파서: Excel/Sheets에서 복사한 멀티라인 셀("...\n..." 형태)을 한 셀로 인식
+// 셀 안의 줄바꿈은 ' / ' (슬래시 합포장)으로 변환해서 기존 슬래시 로직이 처리하게 함
+function csvParseRows(input){
+  const rows=[];let row=[];let cell='';let inQuotes=false;
+  for(let i=0;i<input.length;i++){
+    const c=input[i];
+    if(inQuotes){
+      if(c==='"'){
+        if(i+1<input.length&&input[i+1]==='"'){cell+='"';i++;}
+        else{inQuotes=false;}
+      }else{cell+=c;}
+    }else{
+      // 따옴표는 '셀 시작 위치'에서만 quote-opener로 인식 (mid-cell stray " 보호)
+      if(c==='"'&&cell===''){inQuotes=true;}
+      else if(c==='\t'){row.push(cell);cell='';}
+      else if(c==='\n'||c==='\r'){
+        if(c==='\r'&&input[i+1]==='\n')i++;
+        row.push(cell);cell='';
+        if(row.some(x=>x.trim()))rows.push(row);
+        row=[];
+      }else{cell+=c;}
+    }
+  }
+  if(cell||row.length>0){row.push(cell);if(row.some(x=>x.trim()))rows.push(row);}
+  // 셀 안의 잔여 줄바꿈을 슬래시(/)로 변환 + 셀 전체를 감싸는 따옴표는 방어적으로 제거
+  return rows.map(r=>r.map(c=>{
+    let t=c.replace(/[\r\n]+/g,' / ');
+    // 양 끝을 감싸는 " 또는 " (스마트따옴표 포함) 제거
+    const trimmed=t.trim();
+    if(trimmed.length>=2){
+      const f=trimmed[0],l=trimmed[trimmed.length-1];
+      if((f==='"'||f==='“'||f==='”')&&(l==='"'||l==='“'||l==='”')){
+        t=trimmed.slice(1,-1);
+      }
+    }
+    return t;
+  }));
+}
+// 게시판 텍스트 형식 fallback: "업체명  주소  전화  상품 x N  수령인  주소  전화  [메모]"
+// 공백 개수 상관없이 전화번호 2개를 앵커로 분해 (1칸 공백이든 3칸이든 무관)
+function parseLooseBoardRow(line){
+  const phoneRe=/(?:0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11})(?!\d)/g;   // 0\d{1,3} = 안심번호(0508 등 앞 4자리) 포함 — 2026-08-03 전 파서 통일. 가운데 5자리(050-22514-7658) 허용 — 2026-08-06. 하이픈 없는 안심번호(050876756516)도 앵커로 인식 — 2026-08-07 에버몰 행 누락 사고
+  const phones=[...line.matchAll(phoneRe)];
+  if(phones.length<2)return null;
+  // 상품 경계 앵커: 'x N'(명시 수량) 또는 단위 수량(5kg·500g·1팩 등). 둘 다 없으면 상품/수령인 경계를 못 잡으니 패스
+  const _unitRe=UNIT_QTY_RE;
+  if(!/[xX×]\s*\d+/.test(line)&&!_unitRe.test(line))return null;
+  const p1=phones[0],p2=phones[phones.length-1];
+  if(p1.index===p2.index)return null;
+  const orderPhone=p1[0],custPhone=p2[0];
+  const before=line.slice(0,p1.index).trim();
+  const middle=line.slice(p1.index+orderPhone.length,p2.index).trim();
+  const after=line.slice(p2.index+custPhone.length).trim();
+  // before = "업체명 [주소]" — 2공백+ 우선, 안되면 첫 단어
+  let orderClient='',orderAddr='';
+  const bp=before.split(/\s{2,}/);
+  if(bp.length>=2){orderClient=bp[0].trim();orderAddr=bp.slice(1).join(' ').trim();}
+  else{const bw=before.split(/\s+/);orderClient=bw[0]||'';orderAddr=bw.slice(1).join(' ');}
+  // middle = "상품명 ... x N  수령인  주소"  (수량이 'x N' 없이 단위만, 예: '동치미 5kg'면 첫 단위 토큰을 상품 끝 앵커로)
+  let xm=middle.match(/^(.+?[xX×]\s*\d+)\s+(.+)$/);
+  if(!xm)xm=middle.match(new RegExp('^(.+?\\d+\\s*(?:'+UNIT_WORDS+'))\\s+(.+)$','i'));
+  if(!xm)return null;
+  const product=xm[1].trim();const rest=xm[2].trim();
+  // rest = "수령인  주소" — 2공백+ 우선, 안되면 첫 한글이름(2-6자)
+  let custName='',custAddr='';
+  const rp=rest.split(/\s{2,}/);
+  if(rp.length>=2){custName=rp[0].trim();custAddr=rp.slice(1).join(' ').trim();}
+  else{const nm=rest.match(/^([가-힣]{2,6})\s+(.+)$/);if(nm){custName=nm[1];custAddr=nm[2];}else{custName=rest;custAddr='';}}
+  return[orderClient,orderAddr,orderPhone,'',product,custName,custAddr,custPhone,after].join('\t');
+}
+// 앞 행에 흡수된 줄 중 '발주 한 건'으로 보이는 것 (전화번호 or 수량 보유) — 대조 바에서 누락 후보로 표시
+var mergeSuspects=[];
+function mergeLines(raw){
+  mergeSuspects=[];
+  // CSV 스타일로 파싱 (멀티라인 따옴표 셀 처리) → 각 행을 탭 조인한 문자열로 변환
+  const csvRows=csvParseRows(raw);
+  const lines=csvRows.map(r=>r.join('\t'));
+  const merged=[];let lastClient='';let lastKnownClient='';
+  const hasDataHeader=lines.some(l=>isDataHeader(l.trim()));
+  let dataStart=!hasDataHeader;
+  // 1열에 같은 이름이 2번 이상 나오면 그건 업체명이다(발주는 업체명이 반복, 혜인건강 선물은 주문자가 매번 다름).
+  // → 혜인건강 선물 인식기가 미등록 업체를 '사람 이름'으로 오인해 혜인건강으로 바꿔치기하는 것 차단
+  //   (2026-07-24 '아이원' → 혜인건강 둔갑 건. 사장님이 적어준 업체명은 절대 안 바꾼다)
+  const firstColCount={};
+  for(const l of lines){const f=(toTsv(l.trim()).split('\t')[0]||'').trim().replace(/\s+/g,'');if(f)firstColCount[f]=(firstColCount[f]||0)+1;}
+  for(const line of lines){
+    const trimmed=line.trim();if(!trimmed)continue;
+    const normalized=toTsv(trimmed);
+    if(!dataStart){if(isDataHeader(normalized)){dataStart=true;}continue;}
+    if(isHeaderRow(normalized))continue;
+    const preprocessed=normalized.split('\t').map(c=>c.trim().replace(/^\.\s*/,'').replace(/(\d+)[kK]\b/g,'$1kg').replace(/한판/g,'1판')).join('\t');
+    const _f0=(normalized.split('\t')[0]||'').trim().replace(/\s+/g,'');
+    const _looksVendor=hasDataHeader||firstColCount[_f0]>1;   // 표 양식이거나 1열 반복 = 업체명
+    const hgift=_looksVendor?null:preprocessHyeinGift(trimmed);
+    if(hgift){merged.push(hgift);lastClient='혜인건강';lastKnownClient='혜인건강';continue;}
+    const nahaeng=preprocessNahaengJaeun(trimmed);
+    if(nahaeng){const _fw=nahaeng.split('\t')[0].replace(/\s+/g,'');merged.push(nahaeng);lastClient=_fw;lastKnownClient=_fw;continue;}
+    const balbol=preprocessBalbolLine(trimmed);
+    if(balbol){merged.push(balbol);lastClient='김융환';lastKnownClient='김융환';continue;}
+    const hyein=preprocessHyein(preprocessed);
+    if(hyein){merged.push(hyein);lastClient='혜인건강';lastKnownClient='혜인건강';continue;}
+    // 게시판 텍스트 fallback: 한 셀로 통째 들어온 한 줄 (3공백이 깨졌거나 1공백만 있는 경우)
+    if(preprocessed.split('\t').length<4){
+      const loose=parseLooseBoardRow(preprocessed.replace(/\t/g,' '));
+      if(loose){
+        const firstW=loose.split('\t')[0].replace(/\s+/g,'');
+        merged.push(loose);
+        lastClient=firstW;if(firstW)lastKnownClient=firstW;
+        continue;
+      }
+    }
+    // 세로형 입력 전처리
+    if(/^배송메모$/.test(preprocessed.trim()))continue;  // 레이블 행 스킵
+    if(/^[xX×]\d+$/.test(preprocessed.trim())&&merged.length>0){  // 독립 수량 행 → 직전 상품명에 붙임
+      const parts=merged[merged.length-1].split('\t');
+      parts[parts.length-1]=parts[parts.length-1]+' '+preprocessed.trim();
+      merged[merged.length-1]=parts.join('\t');
+      continue;
+    }
+    const pp2=preprocessed.replace(/^연락처/,'').replace(/^\(\d{5}\)\s*/,'');  // 연락처·우편번호 접두어 제거
+    const firstCol=pp2.split('\t')[0].trim().replace(/\s+/g,'');
+    const isFullRow=pp2.split('\t').length>=4;
+    const unitPat=UNIT_QTY_RE;
+    const firstColIsProduct=!isKnownClient(firstCol)&&unitPat.test(firstCol);
+    const isNew=isKnownClient(firstCol)||firstCol===lastClient||isFullRow;
+    if(merged.length===0||isNew){
+      let toPush=pp2;
+      // 🚨 절대규칙 (2026-07-24 사장님 지시): 사장님이 1열에 적어준 업체명은 절대 건드리지 않는다.
+      //    CC 등록 여부와 무관 — 등록 안 됐다고 앞 업체명을 끼워넣으면 칸이 한 칸씩 밀려
+      //    업체명이 앞 업체로 둔갑함('영성' 발주가 팍스리테일로 나간 사고).
+      //    앞 업체명을 채우는 건 1열이 '비었을 때'와 '상품명일 때'뿐:
+      //      · 1열이 빈칸  → 밀지 말고 그 빈칸만 채운다(칸 수 유지)
+      //      · 1열이 상품  → 업체명 칸 자체가 없는 행이므로 앞에 끼워넣는다
+      //    미등록 업체는 runSingle의 '미등록 업체' 경고로 알린다(조용히 바꾸지 않음).
+      if(lastKnownClient&&!isKnownClient(firstCol)&&firstCol!==lastClient){
+        if(!firstCol){const _c=pp2.split('\t');_c[0]=lastKnownClient;toPush=_c.join('\t');}
+        else if(firstColIsProduct){toPush=lastKnownClient+'\t'+pp2;}
+      }
+      merged.push(toPush);
+      if(firstCol)lastClient=firstCol;
+      if(firstCol&&!unitPat.test(firstCol))lastKnownClient=firstCol;
+    }
+    // 수량(x N)과 전화형 토큰이 둘 다 있으면 발주 한 건짜리 줄이다 — 파싱 실패로 앞 행에
+    // 흡수시키면 발주가 통째로 증발하므로 독립 행으로 남긴다(pr2가 처리하거나 '파싱 실패' 경고로 드러남)
+    else if(/[xX×]\s*\d+/.test(pp2)&&/(?:0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11})(?!\d)/.test(pp2)){merged.push(pp2);}
+    else{
+      // 조각(주소 뒷부분 등)이면 정상 병합이지만, 전화번호나 수량을 달고 있으면 발주 한 건이 통째로
+      // 앞 행에 먹혔을 수 있다 → 대조 바에 누락 후보로 올려 사장님이 눈으로 확인 (2026-08-11)
+      if(/[xX×]\s*\d+/.test(pp2)||/(?:0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11})(?!\d)/.test(pp2))mergeSuspects.push(pp2);
+      merged[merged.length-1]=merged[merged.length-1]+'\t'+pp2;
+    }
+  }
+  return merged;
+}
+function norm(s){return s.replace(/\s+/g,'');}
+function pp(cl,pr,qty){
+  // 공통 규칙 (2026-05-15): 시작 부분의 [업체명] 접두사 자동 제거 (굿수산/신선한아침/빅피쉬마켓 등)
+  pr = pr.replace(/^\s*\[[^\]]+\]\s*/, '');
+  // 📦 에보아르코리아 전용 (2026-07-15 사장님 지시): 상품을 'N개 (냉동)'으로 묶어 *1로 주는 케이스.
+  //  - 상품명 안 'N개' × 발주수량(*M) = 실제 수량으로 반영(안 하면 미출고 → 재발송 택배비 손실)
+  //  - 상품명 뒤 괄호(냉동/냉장·내용물 나열 등)는 제거. 단 홍어 삭힘/숙성도 괄호는 보존.
+  //  - 예: '기력회복 추어탕 500g 2개 (냉동) *1' → 기력회복 추어탕 500g × 2
+  //        '장수 염소탕 720g 2개 (냉동) *1' → (염소탕 매핑) 김대헌 장수 염소탕 1팩 × 2
+  //        '평양냉면 10인분 (메밀면 5팩+동치미 육수 10팩) *1' → 평양냉면 10인분 × 1 (동치미 오탐 방지)
+  if(norm(cl).includes('에보아르')){   // pp는 별칭 적용 전 원본('(주)에보아르코리아')을 받으므로 부분일치로 잡는다
+    let _e=pr.replace(/\*/g,'x');
+    let _base=1; const _xm=_e.match(/[xX×]\s*(\d+)/); if(_xm){_base=parseInt(_xm[1]);_e=_e.replace(_xm[0],' ');}
+    let _mult=1; const _gm=_e.match(/(\d+)\s*개/); if(_gm){_mult=parseInt(_gm[1]);_e=_e.replace(_gm[0],' ');}
+    _e=_e.replace(/[\(（][^\(（\)）]*[\)）]/g,(m)=>/삭힘|숙성|초고수|중수|고수|저수|특수/.test(m)?m:' ');
+    pr=_e.replace(/\s+/g,' ').trim()+' x'+(_base*_mult);
+  }
+  // 나행상회·자은엔앤피 공동 발주: 전처리(preprocessNahaengJaeun)에서 옵션판정·상품명 치환이 끝난 최종명이므로 pp 일반규칙(대극천 2kg 고정 등)을 타지 않고 무게 그대로 통과
+  if(cl==='나행상회'||cl==='자은np'||cl==='자은NP'||cl==='자은Np'||cl==='자은nP'||cl==='자은엔앤피'){
+    const _q=pr.match(/[xX×]\s*(\d+)\s*$/);
+    if(_q)return{name:pr.slice(0,_q.index).trim(),qty:parseInt(_q[1]),maxB:999};
+    return{name:pr.trim(),qty,maxB:999};
+  }
+  const FREE_SHIP_KEYWORDS=['동치미','옥돔','초당옥수수'];
+  for(const kw of FREE_SHIP_KEYWORDS){
+    if(norm(pr).includes(kw)){
+      let _r=pr.replace(/\*/g,'x');
+      const gaeM=_r.match(/(\d+)\s*개\s*$/);
+      const xM=!gaeM&&_r.match(/[xX×]\s*(\d+)\s*$/);
+      let _qty=qty,_cn=_r;
+      if(gaeM){_qty=parseInt(gaeM[1]);_cn=_r.slice(0,gaeM.index).trim();}
+      else if(xM){_qty=parseInt(xM[1]);_cn=_r.slice(0,xM.index).trim();}
+      _cn=_cn.replace(/(\d+(?:\.\d+)?)\s*(KG|MG|ML|G|L)\b/gi,(m,n,u)=>n+u.toLowerCase()).replace(/(\d+)[kK]\b/g,'$1kg').trim();
+      // 옥돔: 무료배송 상자분리(FREE_SHIP)이면서도 '미→마리' 정식명 통일 (2026-07-07 사장님 재요청 — 옥돔을 FREE_SHIP에 넣으며 아래 옥돔 규칙이 안 타게 됐던 것 보완)
+      if(norm(_cn).includes('옥돔')){const _om=_cn.match(/(\d+)\s*(?:미|마리)/);_cn='제주 반건조 옥돔 '+(_om?_om[1]:'5')+'마리';}
+      return{name:_cn,qty:_qty,maxB:1};
+    }
+  }
+  if(cl==='빅피쉬마켓'&&!pr.includes(' / ')){
+    const colonIdx=pr.indexOf(':');const _actual=norm(colonIdx>=0?pr.slice(colonIdx+1):pr);
+    const _all=norm(pr);
+    if(_actual.includes('알도루묵'))return{name:'알도루묵 1팩',qty,maxB:999};
+    if(_actual.includes('양미리'))return{name:'양미리 1kg',qty,maxB:999};
+    if(_all.includes('갑오징어'))return{name:'생물 갑오징어 1kg',qty,maxB:999};
+  }
+  // 신선한아침 단독 규칙 (2026-05-15)
+  if(cl==='신선한아침'){
+    const _np = norm(pr).replace(/\[신선한아침\]/g,'');
+    if(_np.includes('왕바지락'))return{name:'왕 바지락 1kg',qty,maxB:999};
+    if(_np.includes('임금님')&&_np.includes('전복')){const _wm=_np.match(/([\d.]+)\s*kg/);const _tk=Math.max(1,Math.round(qty*(_wm?parseFloat(_wm[1]):1)));if(_tk%2===0)return{name:'임금님 5-6미 전복 2kg',qty:_tk/2,maxB:999};return{name:'임금님 5-6미 전복 1kg',qty:_tk,maxB:999};}
+    if(_np.includes('멍게'))return{name:'통통 깐멍게 500g',qty,maxB:999};
+    if(_np.includes('통통생물오징어')||(_np.includes('통찜용')&&_np.includes('오징어')))return{name:'통통 생물 오징어 1kg',qty,maxB:999};
+    if(_np.includes('통실바다장어')||(_np.includes('통실')&&_np.includes('바다장어'))){const _wm=_np.match(/([\d.]+)\s*kg/);return{name:'통통 바다장어 1kg',qty:Math.max(1,Math.round(qty*(_wm?parseFloat(_wm[1]):1))),maxB:999};}
+  }
+  let r=pr.replace(/\*/g,'x');
+  // 🐍 민물장어 괄호 = 옵션 (2026-08-05 사장님, 킹콩에프앤비 건): 괄호에 "장어뼈 주세요"를 안 쓰면 뼈·머리를 안 줌.
+  //    홍어 삭힘괄호와 같은 개념 — 절대 지우지 말고 입력 그대로 "이름 x N (괄호)" 순서 유지.
+  //    괄호는 suffix로 분리 반환 → 출력 조립에서 수량 '뒤'에 붙음 (이름에 넣으면 "(괄호) x 2"로 순서가 뒤집힘).
+  if(/민물\s*장어/.test(r)&&/[\(（]/.test(r)){
+    let _nm=r,_q=qty;const _sfx=[];
+    _nm=_nm.replace(/\s*[\(（][^\(（\)）]*[\)）]\s*/g,(m)=>{_sfx.push(m.trim());return ' ';});
+    const _xm=_nm.match(/\s*[xX×]\s*(\d+)\s*/);
+    if(_xm){_q=parseInt(_xm[1]);_nm=_nm.slice(0,_xm.index)+' '+_nm.slice(_xm.index+_xm[0].length);}
+    return{name:_nm.replace(/\s+/g,' ').trim(),qty:_q,maxB:999,suffix:_sfx.join(' ')};
+  }
+  // 합포장 멀티상품을 업체가 콤마(,)로 구분해 줄 때 → 우리 합포장 구분자 '/'로 변환 (천단위 1,000 은 보존). 2026-06-09 사장님 요청
+  r=r.replace(/\s*,\s*/g,(m,off,str)=>{const pv=str[off-1]||'',nx=str[off+m.length]||'';return (/\d/.test(pv)&&/\d/.test(nx))?m:' / ';});
+  // 숙성도/등급 괄호 보존 (중수·고수·저수 등 숙성 단계, 냉동·냉장·생물 등 보관 상태)
+  const _parenPreserved=[];
+  r=r.replace(/\((초고수|초수|중수|고수|저수|특수|생물|냉동|냉장|반건조|건조|훈제)\)/g,(m)=>{const k=`__P${_parenPreserved.length}__`;_parenPreserved.push(m);return k;});
+  // 🐟 홍어 삭힘정도 괄호 보존 — '삭힘/숙성' 단어가 든 괄호는 무조건 유지 (2026-06-08 사장님 지시: 삭힘정도 없으면 홍어 발주 불가. 멋대로 지우지 말 것)
+  r=r.replace(/[\(（][^\(（\)）]*(?:삭힘|숙성)[^\(（\)）]*[\)）]/g,(m)=>{const k=`__P${_parenPreserved.length}__`;_parenPreserved.push(m);return k;});
+  // 🦆 양념(고추장/간장 등)은 상품 구분 기준 → 괄호에서 빼서 상품명 맨 앞 표준 접두어로 (2026-06-18 사장님 지시: "고추장 오리주물럭 300g" 형태. 멋대로 지우면 중복 발주로 잡힘)
+  let _saucePrefix='';
+  r=r.replace(/[\(（]\s*(고추장|간장|양념|된장|막장|쌈장|데리야끼|데리야키)\s*[\)）]/g,(m,s)=>{if(!_saucePrefix)_saucePrefix=s+' ';return ' ';});
+  // 괄호 처리 — 닫힌 (...) 그룹은 위치 무관 모두 제거 (멀티 상품에서 첫 괄호에서 잘리던 버그 fix)
+  // 단 닫힘 없는 미완성 괄호는 첫 ( 부터 끝까지 절단 (단 괄호로 시작하면 원본 유지)
+  r=r.replace(/\s*[\(（][^\(（\)）]*[\)）]\s*/g,' ');
+  // 미완성(닫힘 없는) 괄호만 절단 — 보존 플레이스홀더(__P__)엔 괄호가 없어 안전. 반드시 복원 '전'에 실행(홍어 삭힘정도 괄호가 piOpen에 잘리던 버그 fix 2026-06-09)
+  const piOpen=r.search(/[\(（]/);
+  if(piOpen>0){const cut=r.slice(0,piOpen).trim();if(cut)r=cut;}
+  // 보존했던 숙성도/삭힘정도 괄호 복원
+  _parenPreserved.forEach((p,i)=>{r=r.replace(`__P${i}__`,p);});
+  r=r.replace(/\s+/g,' ').trim();
+  // 끝에 'N개' 형태 수량 표기는 'N'으로 정리 (예: '2kg x 4개' → '2kg x 4')
+  // 단, 떡·인절미·만두 등 N개가 상품 단위인 카테고리는 보존 (예: '오디 인절미 12개')
+  const _PRESERVE_GAE = /인절미|떡|만두|꿀떡|쌀과자|호두과자|개입|박스|팩입/.test(norm(r));
+  if(!_PRESERVE_GAE) r=r.replace(/(\d+)\s*개\s*$/,'$1');
+  // 'x N세트/팩/봉/박스' 처럼 수량 뒤 단위가 붙으면 단위 제거 → 'x N' (2026-07-13 사고: '* 157세트'가 수량으로 안 잡힘)
+  r=r.replace(/([xX×]\s*\d+)\s*(?:세트|셋트|개|팩|봉지|봉|박스)\s*$/,'$1');
+  // 산청 흑돼지 불고기: 팍스리테일이 '1kg+1kg'로 발주하지만 실제는 단일상품 '1+1' (+분기로 쪼개지면 안 됨)
+  if(norm(r).includes('흑돼지불고기')){const _hm=r.match(/[xX×]\s*(\d+)\s*$/);return{name:'산청 흑돼지 불고기 1+1',qty:_hm?parseInt(_hm[1]):qty,maxB:999};}
+  // 한우 등급 표기(1++, 1+, 2+ 등)는 + 분기에서 제외
+  const hasMeatGrade=/\d\+\+?/.test(r);
+  if(r.includes('+')&&!hasMeatGrade){const it=r.split('+').map(i=>i.trim());return{name:it.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};}
+  if(r.includes('/')){const pt=r.split('/').map(s=>s.trim()).filter(Boolean);const hasDescriptor=pt.slice(1).some(s=>/~|내외|정도|이상|이하/.test(s));if(pt.length>1&&!hasDescriptor)return{name:pt.map(i=>/[xX×]\s*\d+/.test(i)?i:i+' x 1').join(' / '),qty,maxB:999};if(pt.length>1&&hasDescriptor){const xm=pt.slice(1).join(' ').match(/[xX×]\s*(\d+)/);r=xm?pt[0]+' x'+xm[1]:pt[0];}else{r=pt[0];}}
+  // 수량 추출 — x/X/× 패턴 우선, 못 잡으면 " - N" 패턴 (카톡 발주 "1k - 26" 같은 케이스, 2026-05-15 버그픽스)
+  const qm=r.match(/\s*[xX×]\s*(\d+)$/) || r.match(/\s+-\s+(\d+)$/);let cn=r;
+  if(qm){qty=parseInt(qm[1]);cn=r.slice(0,qm.index).trim();}
+  cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace('난간','난각').replace(/건갈지/g,'건갈치').replace(/알가\s+생물\s+호래기/g,'생물 호래기').replace(/(\d+(?:\.\d+)?)\s*(KG|MG|ML|G|L)\b/gi,(m,n,u)=>n+u.toLowerCase()).replace(/(\d+)[kK]\b/g,'$1kg').trim();
+  // 🦆 양념 접두어 복원 — 괄호에서 뺀 고추장/간장을 상품명 맨 앞에 붙여 표준 상품명화
+  if(_saucePrefix&&!cn.startsWith(_saucePrefix.trim()))cn=(_saucePrefix+cn).replace(/\s+/g,' ').trim();
+  if(cn.includes('자연산 급냉 대구'))cn='급냉 국내산 대구 1.5kg';
+  if(cn.includes('급냉 국내산 대구 1.5kg'))return{name:'급냉 국내산 대구 1.5kg',qty,maxB:6};
+  if(norm(cn).includes('참치오마카세'))cn='참치 오마카세 한판';
+  if(cl==='신선한아침'&&cn.includes('노르웨이 생연어')){const _sw=cn.match(/(\d+(?:\.\d+)?)\s*(kg|g)\b/i);cn='연안 생연어'+(_sw?' '+_sw[1]+_sw[2].toLowerCase():'');}
+  if(cn.includes('유정란')){const em=cn.match(/(\d+)\s*[구알]/);const en=em?em[1]:'';if(cn.includes('1번'))return{name:'자연방사 난각 1번 유정란 '+en+'구',qty,maxB:999};if(cn.includes('2번'))return{name:'동물복지 난각 2번 유정란 '+en+'구',qty,maxB:999};}
+  if(cl==='아크미소프트'&&cn.includes('홍어'))cn='아 '+cn;
+  if(cl==='서율컴퍼니'&&norm(cn).includes('거북손')&&!norm(cn).includes('1kg'))cn='연안 거북손 500g';
+  if(cl==='팡베베'&&norm(cn).includes('총알한치')){const wm=cn.match(/([\d.]+)\s*kg/i);if(wm){return{name:'총알한치 500g',qty:qty*Math.round(parseFloat(wm[1])/0.5),maxB:999};}}
+  if(cl==='팡베베'&&norm(cn).includes('통찜한치')){const wm=cn.match(/([\d.]+)\s*kg/i);const gm=!wm&&cn.match(/([\d.]+)\s*g\b/i);const w=wm?parseFloat(wm[1]):gm?parseFloat(gm[1])/1000:0.5;return{name:'통찜한치 1팩',qty:Math.max(1,qty*Math.round(w/0.5)),maxB:999};}
+  const wm=cn.match(/([\d.]+)kg/);const gm=!wm&&cn.match(/(\d+)g\b/);const wi=wm?parseFloat(wm[1]):gm?parseInt(gm[1])/1000:1;
+  const pn=qm?cn:cn.replace(/[xX×]\s*[\d.]+/g,'').trim();
+  if(cl==='대상수산'){
+    if(norm(pn).includes('해신탕')){const _hm=pn.match(/(\d+)\s*$/);return{name:'해신탕 1세트',qty:(qty>1)?qty:(_hm?Math.max(1,parseInt(_hm[1])):1),maxB:999};}
+    if(norm(pn).includes('살고동'))return{name:'동해 살고동 대짜 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
+    if(norm(pn).includes('곰치'))return{name:'생물 손질곰치 세트 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};   // 1kg 기준: 2kg→x2, 3kg→x3 (2026-07-16)
+    if(norm(pn).includes('대구'))return{name:'초대왕 생대구 5kg급',qty,maxB:999};
+    if(norm(pn).includes('참다랑어'))return{name:'130kg급 생참다랑어 필렛 500g',qty:Math.max(1,Math.round(qty*wi*2)),maxB:999};
+    // 반건조 오징어 피데기: 5미 단위로 발주 (5미=x1, 10미=x2). 마지막 'N미'가 발주 마릿수 (2026-07-30 사장님 지시)
+    if((norm(pn).includes('피데기')||norm(pn).includes('반건조오징어'))&&!norm(pn).includes('버터')){const _mi=norm(pn).match(/(\d+)미/g);const _n=_mi?parseInt(_mi[_mi.length-1]):5;return{name:'정품 반건조 오징어 1.2kg급',qty:Math.max(1,Math.round(qty*_n/5)),maxB:999};}
+    if(norm(pn).includes('호래기'))return{name:'횟감 대짜 호래기 500g',qty:Math.round(qty*wi*2),maxB:999};
+    if(norm(pn).includes('참소라'))return{name:'연안 주먹참소라 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('참가리비'))return{name:'국내산 참가리비 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
+    if(norm(pn).includes('주꾸미')||norm(pn).includes('쭈꾸미'))return{name:'연안 활 주꾸미 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('전복')){const _tk=Math.max(1,Math.round(qty*wi)); if(_tk%2===0) return{name:'임금님 5-6미 전복 2kg',qty:_tk/2,maxB:999}; return{name:'임금님 5-6미 전복 1kg',qty:_tk,maxB:999};}
+    if(norm(pn).includes('키조개'))return{name:'손질 키조개 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('명주조개'))return{name:'연안 명주조개 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
+    if(norm(pn).includes('담치'))return{name:'연안 끝판왕 담치 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};   // 1kg 기준: 2kg→x2 (2026-08-07)
+    if(norm(pn).includes('소머리반두'))return{name:'푸짐 소머리 반두 세트 7kg',qty:Math.max(1,Math.round(qty*wi/7)),maxB:999};
+    if(norm(pn).includes('참멍게'))return{name:'자연산 특대짜 참멍게 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('멍게'))return{name:'향긋 깐 멍게 500g',qty:Math.round(qty*wi*2),maxB:999};
+    if(norm(pn).includes('해삼'))return{name:'자연산 활 해삼 500g',qty:Math.round(qty*wi*2),maxB:999};
+    if(norm(pn).includes('바지락')&&!norm(pn).includes('깐'))return{name:'왕 바지락 1kg',qty:Math.round(qty*wi),maxB:999};
+    if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty:Math.round(qty*wi*2),maxB:999};
+  }
+  if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty:Math.round(qty*wi),maxB:999};
+  // 비단 가리비는 1kg 기준 (2k 들어오면 2개로 변환)
+  if(norm(pn).includes('비단')&&norm(pn).includes('가리비'))return{name:'큼직 비단 가리비 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
+  if(norm(pn).includes('생굴')&&!norm(pn).includes('kg'))return{name:'생굴 1kg',qty,maxB:999};
+  if(norm(pn).includes('꼼장어'))return{name:'생물 꼼장어 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
+  if(norm(pn).includes('염소탕'))return{name:'김대헌 장수 염소탕 1팩',qty,maxB:999};
+  if(norm(pn).includes('밥도둑')&&norm(pn).includes('건갈치'))return{name:'밥도둑 건갈치 1kg',qty,maxB:999};
+  if(norm(pn).includes('삼배체')&&norm(pn).includes('굴'))return{name:'통통 삼배체 굴 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
+  if(norm(pn).includes('도다리회')){const units=Math.max(1,Math.round(qty*wi*1000/250));return{name:'통통 활 도다리회 250g',qty:units,maxB:999};}
+  // 미더덕 회는 200g 기준 (600g x 1 → 200g x 3 으로 변환)
+  if(norm(pn).includes('미더덕')&&norm(pn).includes('회'))return{name:'통통 손질미더덕 회 200g',qty:Math.max(1,Math.round(qty*wi*5)),maxB:999};
+  // 미더덕 (회 없음)은 500g 기준
+  if(norm(pn).includes('미더덕'))return{name:'통통 미더덕 500g',qty:Math.max(1,Math.round(qty*wi*2)),maxB:999};
+  if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
+  if(norm(pn).includes('총알한치')&&norm(pn).includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
+  if(cl==='대상수산'&&(norm(pn).includes('바다장어')||norm(pn).includes('바다 장어')))return{name:'비만 바다장어 1kg',qty:Math.round(qty*wi),maxB:999};
+  // 초벌 고창 민물 장어 → 이름 그대로 유지 + 1kg 단위 (특왕 민물장어 규칙보다 먼저 처리 — 초벌·고창 있으면 특왕 아님)
+  if(cl==='대상수산'&&norm(pn).includes('초벌')&&norm(pn).includes('고창')&&norm(pn).includes('민물')&&norm(pn).includes('장어'))return{name:'초벌 고창 민물 장어 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
+  if(cl==='대상수산'&&(norm(pn).includes('생물 풍천 민물 장어')||(norm(pn).includes('민물')&&norm(pn).includes('장어'))))return{name:'특왕 민물장어 1kg',qty:Math.round(qty*wi),maxB:999};
+  // 초벌 고창 풍천 장어 → 1kg 기준 (2kg 들어오면 1kg x 2). 민물·바다 장어는 위에서 이미 처리 (2026-06-19)
+  if(cl==='대상수산'&&norm(pn).includes('풍천')&&norm(pn).includes('장어')&&!norm(pn).includes('민물'))return{name:'초벌 고창 풍천 장어 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
+  if(norm(pn).includes('풀도다리')){const isFrozen=norm(pn).includes('급냉');return{name:isFrozen?'연안 급냉 풀도다리 1kg':'연안 활 풀도다리 1kg',qty:Math.round(qty*wi),maxB:999};}
+  // 골뱅이 어묵탕은 완전 다른 상품 — 활 골뱅이 규칙보다 먼저 처리 (2026-07-13 사고: 157세트가 활 골뱅이 1kg으로 치환됨)
+  if(norm(pn).includes('골뱅이')&&(norm(pn).includes('어묵탕')||norm(pn).includes('어묵')))return{name:'골뱅이 어묵탕 1세트',qty,maxB:999};
+  // 자숙(삶은) 골뱅이는 활 골뱅이와 완전 다른 상품 — 이름·수량·중량 입력 그대로 (2026-07-28 사고: 자숙 골뱅이 500g x2가 활 골뱅이 1kg x1로 둔갑)
+  if(norm(pn).includes('골뱅이')&&norm(pn).includes('자숙'))return{name:pn,qty,maxB:999};
+  // 급냉 골뱅이는 활 골뱅이와 다른 상품 — 이름·수량 입력 그대로 (2026-07-29 식봄 급냉 골뱅이 1kg이 동해 활 골뱅이로 둔갑)
+  if(norm(pn).includes('골뱅이')&&norm(pn).includes('급냉'))return{name:pn,qty,maxB:999};
+  if(norm(pn).includes('골뱅이'))return{name:'동해 활 골뱅이 1kg',qty:Math.round(qty*wi),maxB:999};
+  if(norm(pn).includes('거북손')&&norm(pn).includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
+  if(norm(pn).includes('석화')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
+  if(norm(pn).includes('새꼬막'))return{name:pn,qty,maxB:qty>=2?1:999};
+  if(norm(pn).includes('박달홍게'))return{name:pn,qty,maxB:1};
+  if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};
+  if(norm(pn).includes('담양')&&norm(pn).includes('떡갈비')&&!norm(pn).includes('맛상'))return{name:'맛상 '+pn,qty,maxB:999};
+  if(norm(pn).includes('보리굴비'))return{name:pn.replace(/(\d+)\s*미/,'$1마리'),qty,maxB:999};
+  // ⚠️ 아래 옥돔 규칙은 현재 도달 불가 — FREE_SHIP_KEYWORDS의 '옥돔'이 위에서 항상 먼저 처리(803행 부근).
+  //    옥돔을 무료배송(FREE_SHIP)에서 빼는 날 다시 살아나는 백업 규칙이라 일부러 남겨둠 (2026-08-03 점검).
+  if(norm(pn).includes('옥돔')){const _m=pn.match(/(\d+)\s*(?:미|마리)/);return{name:'제주 반건조 옥돔 '+(_m?_m[1]:'5')+'마리',qty,maxB:999};}
+  // 마스터씨 자체 육류 표준 상품명 — 게시판 기준명으로 정규화 (인분/냉동 등 부가표기 제거. 2026-06-19 사장님 지시)
+  if(norm(pn).includes('도가니')&&norm(pn).includes('곰탕'))return{name:'도가니곰탕 600g',qty,maxB:999};
+  if(norm(pn).includes('흑돼지')&&norm(pn).includes('고추장'))return{name:'제주흑돼지 고추장불고기 400g',qty,maxB:999};
+  // 찐한국 시리즈 (자체제작, 상품명 미정의 → 오타 그대로 들어옴. 키워드 정규화)
+  {const _z=norm(pn).toLowerCase();
+    if(_z.includes('고무장갑')){
+      if(/퍼플|purple|보라/.test(_z))return{name:'찐한국 고무장갑 퍼플',qty,maxB:999};
+      if(/그레이|그래이|그레의|gray|grey|회색/.test(_z))return{name:'찐한국 고무장갑 그레이',qty,maxB:999};
+    }
+    if(_z.includes('주방')&&_z.includes('세'))return{name:'찐한국 주방세제 500ml',qty,maxB:999};
+    if(_z.includes('핸드')||_z.includes('손결')||_z.includes('handwash')||_z.includes('핸워'))return{name:'찐한국 손결 핸드워시 300ml',qty,maxB:999};
+    if(_z.includes('치약'))return{name:'찐한국 그냥치약 100g',qty,maxB:999};
+  }
+  return{name:pn,qty,maxB:999};
+}
+function br(cl,cfg,nq,nr,ord,iv){
+  const ph=fp(cfg.phone||ord.cp);
+  const sa='address' in cfg?(cfg.address||''):ca(ord.ca||'');
+  const cua=ca(ord.address||'');const cup=fp(ord.custPhone||'');const msg=ord.msg||'';
+  // insert 행: 10칸 (E~N). 삽입 업체명(E) + 주문처(F) + 주소(G) + 연락처(H) + 창고명(I,빈칸) + 상품명+수량(J) + 상품명raw(K) + 고객주소(L) + 고객연락처(M) + 배송메시지(N)
+  if(iv&&cfg.showInsert)return[iv,cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
+  // 일반 행: 9칸 (F~N). 주문처(F) + 주소(G) + 연락처(H) + 창고명(I,빈칸) + 상품명+수량(J) + 상품명raw(K) + 고객주소(L) + 고객연락처(M) + 배송메시지(N)
+  return[cl,sa,ph,'',nq,nr,cua,cup,msg].join('\t');
+}
+function isPhone(s){return !!(s.match(/^\d{2,4}-\d{3,5}-\d{4,5}$/)||s.match(/^\d{9,12}$/)||s.match(/^\d{4}-\d{4}$/));} // 끝 5자리 허용 (테오푸드 070-8028-78757, 2026-07-02) / 가운데 5자리 안심번호 허용 (050-22514-7658, 2026-08-06)
+function isHumanName(s){return /^[가-힣]{2,6}$/.test((s||'').trim());}
+function isHyeinBuyer(s){s=(s||'').trim();return isHumanName(s)||/^[A-Za-z][A-Za-z0-9]{1,19}$/.test(s);} // 혜인 선물 주문자: 한글 이름 또는 jjj2829 같은 영문시작 아이디 (2026-07-29)
+function hgPhone(){return (CC['혜인건강']&&CC['혜인건강'].phone)||'070-4473-7196';} // HG 10칸 H칸 = 혜인건강 업체 전화 고정 (2026-08-06 사장님 지적 — 주문자 안심번호 넣지 말 것)
+function preprocessHyeinGift(line){
+  // 혜인건강 선물 발주: 앞(주문자)·뒤(수령인)가 둘 다 사람 이름인 형식 → 혜인건강 10칸으로 인식.
+  // 사는사람(주문자)·받는사람(수령인) 이름 둘 다 보존. 내용은 그대로 두고 맨 앞에 혜인건강만 붙임.
+  const c=line.split('\t').map(x=>(x||'').trim());
+  if(c.length<6)return null;
+  const buyer=c[0];
+  if(!isHyeinBuyer(buyer)||isKnownClient(buyer)||isPhone(buyer))return null; // 첫 칸이 등록업체/전화면 제외
+  if(!isPhone(c[1]))return null;      // 주문자 연락처
+  if(!isHumanName(c[3]))return null;  // 수령인명 (뒤에도 사람 이름)
+  if(!isPhone(c[5]))return null;      // 수령인 연락처
+  const buyerPhone=c[1],product=c[2],recvName=c[3],addr=c[4],recvPhone=c[5];
+  const memo=c.slice(6).filter(Boolean).join(' ');
+  // 완성 10칸(마커 ⟪HG⟫로 표시 → run에서 pr2 안 거치고 그대로 출력): 혜인건강 · 사는사람 · 출고지'' · 주문자연락처 · 창고'' · 상품 · 받는사람 · 고객주소 · 고객연락처 · 메모
+  return '⟪HG⟫'+['혜인건강',buyer,'',hgPhone(),'',product,recvName,addr,recvPhone,memo].join('\t');
+}
+function preprocessHyein(line){
+  // 형식 1: [마스터] 포함 형식
+  if(line.includes('[마스터]')){
+    const maIdx=line.indexOf('[마스터]');const beforeMa=line.slice(0,maIdx).trim();
+    const firstWord=beforeMa.split(/\s+/)[0].replace(/\s+/g,'');
+    if(isKnownClient(firstWord))return null;
+    const preMaPhoneM=beforeMa.match(/(0\d{1,3}-\d{3,5}-\d{4})/);
+    const preMaPhone=preMaPhoneM?preMaPhoneM[1]:'';
+    const after=line.slice(maIdx+'[마스터]'.length).trim();
+    const m=after.match(/^(.*?[xX×]\s*\d+)\s+([가-힣]{1,6}\*{0,3})\(\d+\)\s+(.+)$/);
+    if(!m)return null;
+    const product=m[1].trim();const custName=m[2].trim();const rest=m[3].trim();
+    const pm=rest.match(/(0\d{1,3}-\d{3,5}-\d{4})/);
+    let addr=rest,custPhone=preMaPhone,msg='';
+    if(pm){const idx=rest.indexOf(pm[1]);addr=rest.slice(0,idx).trim();msg=rest.slice(idx+pm[1].length).trim();custPhone=pm[1];}
+    if(/^\d{1,2}$/.test(msg))msg='';
+    // 혜인건강은 선물 발주 多 → 사는사람(주문자) 이름·전화 보존 10칸 ⟪HG⟫로 출력 (2026-08-06 사장님 지적 — 선물 규칙은 형식 불문)
+    return '⟪HG⟫'+['혜인건강',firstWord,'',hgPhone(),'',product,custName,addr,custPhone,msg].join('\t');
+  }
+  // 형식 2: 이름 전화번호 상품명 x N 이름(N) 주소 전화번호 (탭 없는 공백 구분)
+  // 이름 마스킹 별표(김미*)·가운데 5자리 안심번호(050-22514-7658) 허용 — 2026-08-06 김미* 건
+  const m2=line.match(/^([가-힣]{1,6}\*{0,3}|[A-Za-z][A-Za-z0-9]{1,19})\s+(0\d{1,3}-\d{3,5}-\d{4})\s+(.*?[xX×]\s*\d+)\s+([가-힣]{1,6}\*{0,3})\(\d+\)\s+(.+)$/);
+  if(m2){
+    const firstWord=m2[1].replace(/\s+/g,'');
+    if(isKnownClient(firstWord))return null;
+    const product=m2[3].trim();const custName=m2[4].trim();const rest=m2[5].trim();
+    const pm=rest.match(/(0\d{1,3}-\d{3,5}-\d{4})/);
+    let addr=rest,custPhone=m2[2],msg='';
+    if(pm){const idx=rest.lastIndexOf(pm[0]);addr=rest.slice(0,idx).trim();custPhone=pm[0];msg=rest.slice(idx+pm[0].length).trim();}
+    if(/^\d{1,2}$/.test(msg))msg='';  // 전화 뒤에 눌어붙은 수량 잔여 숫자(…-76581의 '1') 제거
+    // 혜인건강은 선물 발주 多 → 사는사람(주문자) 이름·전화 보존 10칸 ⟪HG⟫로 출력 (2026-08-06 사장님 지적 — 선물 규칙은 형식 불문)
+    return '⟪HG⟫'+['혜인건강',m2[1].trim(),'',hgPhone(),'',product,custName,addr,custPhone,msg].join('\t');
+  }
+  return null;
+}
+function preprocessNahaengJaeun(line){
+  // 나행상회·자은엔앤피 공동 발주서 양식 (탭 15칸). 옵션명(주문번호 다음 칸)이 있으면 옵션명, 없으면 상품명 사용.
+  const cols=line.split('\t');
+  if(cols.length<11)return null;
+  const cl0=(cols[0]||'').trim();const cl=cl0.replace(/\s+/g,'');
+  if(cl!=='나행상회'&&cl!=='자은np'&&cl!=='자은NP'&&cl!=='자은Np'&&cl!=='자은nP'&&cl!=='자은엔앤피')return null;
+  const orderPhone=(cols[2]||'').trim();
+  const prodName=(cols[3]||'').trim();
+  const custName=(cols[4]||'').trim();
+  const custAddr=(cols[5]||'').trim();
+  const custPhone=(cols[6]||'').trim();
+  const memo=(cols[7]||'').replace(/\r?\n/g,' ').trim();
+  // 옵션명 = 주문번호(8) 다음 칸(9). "중량 : 대극천 복숭아 3kg" 같은 라벨 접두어(콜론 앞)는 제거
+  let option=(cols[9]||'').trim().replace(/^[^:：]*[:：]\s*/,'').trim();
+  const qm=(cols[10]||'').trim();const qty=/^\d+$/.test(qm)?parseInt(qm):1;
+  // 옵션 있으면 옵션명, 없으면 상품명. 단 '기본'류(옵션 미선택 기본값)는 진짜 상품명이 아니므로 상품명(cols[3])을 씀 (2026-07-21 — '기본 x N'으로 잘못 나가던 버그 fix)
+  const _isDefaultOpt=/^(기본|기본옵션|기본형|기본구성|단일상품|단일|본품|선택안함|선택|없음|-)$/.test(option);
+  let name=(option&&!_isDefaultOpt)?option:prodName;
+  // 나행상회·자은엔앤피 단독 상품명 치환 (판매상품 고정)
+  if(/대극천\s*복숭아/.test(name)){
+    const wm=name.match(/([\d.]+)\s*kg/i);
+    name='프리미엄 대극천 복숭아'+(wm?' '+wm[1]+'kg':'');
+  }else if(name.includes('등갈비')){
+    name='초특가 국내산 등갈비 1kg';
+  }else if(name.includes('가브리살')){
+    name='녹돈 담백 가브리살 500g';   // 전라남도 특산물 녹차 먹고자란 녹돈 가브리살 → 표준명 치환 (2026-07-21)
+  }else if(name.includes('고바멸치')){
+    name='프리미엄 햇고바멸치 1박스';   // "26년 7월 첫조업한 고바멸치 1박스(1.5kg)" 등 수식어 제각각 → 표준명 치환 (2026-08-05 사장님 지시)
+  }else if(name.includes('유정란')){
+    // 유정란 옵션 "난각2번/ 유정란/ 60구" → 표준명 (2026-08-03 사장님 지시). 몰 상품명(20구/40구/60구 나열)이 아니라 옵션 칸이 실제 발주
+    const _gu=name.match(/(\d+)\s*구/);const _n=_gu?' '+_gu[1]+'구':'';
+    if(/1\s*번/.test(name))name='자연방사 난각 1번 유정란'+_n;
+    else if(/2\s*번/.test(name))name='동물복지 난각 2번 유정란'+_n;
+    else name=name.split('/').map(function(s){return s.trim();}).filter(Boolean).join(' ');  // 1·2번 표기 없으면 슬래시만 정리
+  }else if(name.includes('사과')){
+    const wm=name.match(/([\d.]+)\s*kg/i);
+    if(wm&&parseFloat(wm[1])===3)name='꼬마 부사사과 3kg';
+  }
+  return `${cl0}\t\t${orderPhone}\t\t${name} x ${qty}\t${custName}\t${custAddr}\t${custPhone}\t${memo}`;
+}
+function isPureNum(s){return !!(s.match(/^\d{1,6}$/))}
+function extractPhoneFromAddr(addr){
+  const m=addr.match(/(?<!\d)0\d{1,3}-\d{3,5}-\d{4}(?!\d)/);  // 0\d{1,3} = 안심번호(0508 등 4자리 앞번호) 포함, 앞뒤 (?<!\d)(?!\d)로 숫자 중간 매칭 방지 (2026-07-28 0508 05 잘림 fix)
+  if(!m)return{addr,phone:''};
+  const phone=m[0];const cleaned=addr.replace(phone,'').replace(/\s+/g,' ').trim();
+  return{addr:cleaned,phone};
+}
+function pr2(line){
+  const cols=line.split('\t');if(cols.length<4)return null;
+  // '창고명' 레이블 컬럼이 첫 칸에 있으면 제거 (팡베베 등 창고명 포함 발주서 형식 대응)
+  if(cols[0].trim()==='창고명')cols.shift();
+  if(cols.length<4)return null;
+  const cl=cols[0].trim().replace(/\s+/g,'');
+  let trailingQty=null;
+  const lastCol=(cols[cols.length-1]||'').trim();
+  if(lastCol.match(/^\d{1,3}$/)&&parseInt(lastCol)>0&&parseInt(lastCol)<1000){trailingQty=parseInt(lastCol);cols.pop();}
+  // 단위 패턴: 숫자+단위 (단위 뒤에 한글이 더 붙으면 매치 안 함 — "1단지" 같은 주소 오인식 방지)
+  //          OR "숫자 x 숫자" (예: 500 x 2)
+  //          OR 문자열 끝의 "x N" (예: ...x 1)
+  const unitPattern=new RegExp('\\d+\\s*(?:'+UNIT_WORDS+')(?:급|짜리)?(?![가-힣])|\\d+\\s*[xX×]\\s*\\d+|[xX×]\\s*\\d+\\s*$','i');
+  // 단위 없는 숫자 상품('해신탕 1' 등)은 unitPattern에 안 걸려 주소가 상품으로 오인됨(2026-07-07 해신탕 건) — 키워드 우선 매칭
+  const UNITLESS_PRODUCTS=['해신탕'];
+  let pi=-1;
+  for(let i=1;i<cols.length;i++){const _c=norm(cols[i]||'');if(_c&&UNITLESS_PRODUCTS.some(k=>_c.includes(k))){pi=i;break;}}
+  if(pi===-1)for(let i=1;i<cols.length;i++){if(unitPattern.test((cols[i]||'').trim())){pi=i;break;}}
+  if(pi===-1){for(let i=1;i<cols.length;i++){const c=(cols[i]||'').trim();if(c&&!isPhone(c)&&!isPureNum(c)&&c.length>3){pi=i;break;}}}
+  if(pi===-1)pi=1;
+  let cp='';
+  for(let ci=pi-1;ci>=1&&ci>=pi-4;ci--){const cv=(cols[ci]||'').trim();if(isPhone(cv)){cp=cv;break;}}
+  const addrKeywords=['시','구','군','동','로','길','읍','면','리'];
+  const col1=(cols[1]||'').trim();
+  const col1isAddr=addrKeywords.some(k=>col1.includes(k))&&col1.length>5;
+  // col1이 명시적으로 빈칸이면 주문처 주소도 빈칸으로 처리 (전처리 함수들이 의도한 형식)
+  const ca2=col1isAddr?col1:(col1===''?'':(pi>=3?(cols[pi-2]||'').trim():''));
+  const prod=(cols[pi]||'').trim();
+  const nextCol=(cols[pi+1]||'').trim();
+  const hasQtyCol=isPureNum(nextCol)&&parseInt(nextCol)>0&&parseInt(nextCol)<1000;
+  const qtyColOffset=hasQtyCol?1:0;
+  const nr=(cols[pi+1+qtyColOffset]||'').trim();
+  // 시트에서 복사 시 칸 사이에 끼는 빈 스페이서 칸 건너뛰기: 이름 다음 칸이 비면 다음 비지 않은 칸을 주소로
+  let ai=pi+2+qtyColOffset;
+  while(ai<cols.length-1&&(cols[ai]||'').trim()==='')ai++;
+  // 🚨 [이름][전화][주소] 순서 대응 (2026-07-28): 이름 다음 칸이 통째로 전화번호면
+  //    그건 고객 전화(안심번호 0504·050X 포함)고, 진짜 주소는 그 다음 비지 않은 칸이다.
+  //    기존엔 전화칸을 주소로 오인 → 주소가 전화칸으로 밀려 fp()가 주소 숫자만 긁어 깨짐
+  //    (썬푸드마켓 오철규 0504-4984-3192 → 3831 사고).
+  let phoneBeforeAddr='';
+  if(isPhone((cols[ai]||'').trim().replace(/\s+/g,''))){
+    phoneBeforeAddr=(cols[ai]||'').trim();
+    ai++;
+    while(ai<cols.length-1&&(cols[ai]||'').trim()==='')ai++;
+  }
+  const rawAddr=(cols[ai]||'').trim();
+  const extracted=extractPhoneFromAddr(rawAddr);
+  let addr=extracted.addr;const addrPhone=extracted.phone;
+  const rest=cols.slice(ai+1).map(c=>(c||'').trim()).filter(Boolean);
+  const p1=rest[0]||'';const p2=rest[1]||'';const p3=rest[2]||'';
+  let custPhone='',msg='';
+  if(phoneBeforeAddr){custPhone=phoneBeforeAddr;msg=[p1,p2,p3].filter(x=>x&&!isPhone(x.replace(/\s+/g,''))).join(' ').trim();}
+  else if(isPhone(p1)){custPhone=p1;msg=p2+(p3?' '+p3:'');}
+  else if(isPhone(p2)){custPhone=p2;msg=p3;}
+  else{custPhone=p1||p2||addrPhone;msg=p3;}
+  const qm=prod.match(/[xX×]\s*(\d+)\s*$/);
+  let qty=1;
+  if(qm)qty=parseInt(qm[1]);else if(trailingQty)qty=trailingQty;
+  const qtyColValue=hasQtyCol?parseInt(nextCol):1;
+  // 🏷️ '이름:/성함:/받는분:' 라벨이 붙은 수령인 셀이 있으면 = 카카오 배송정보(이름이 주소 뒤·라벨로 오는) 형식.
+  //    이 형식은 [상품][주소][상세주소][이름:XXX][전화] 순서라 위 기본 파싱이 이름칸에 주소를 넣는 사고 발생(2026-07-16 자인한상 김승진 건).
+  //    라벨 기준으로 이름·주소·전화 재배치. ⚠️ 라벨 없는 기존 발주엔 전혀 영향 없음(라벨 존재 시에만 동작).
+  const _nameLabel=/^(?:이름|성함|받는분|받는사람|받으실\s*분|수령인|수취인)\s*[:：]\s*(.+)$/;
+  let _lblName='',_lblIdx=-1;
+  for(let i=pi+1;i<cols.length;i++){const _m=(cols[i]||'').trim().match(_nameLabel);if(_m){_lblName=_m[1].trim();_lblIdx=i;break;}}
+  if(_lblName){
+    const _addrParts=[];let _ph='';
+    for(let i=pi+1;i<cols.length;i++){
+      if(i===_lblIdx)continue;
+      const cv=(cols[i]||'').trim();if(!cv)continue;
+      if(i===pi+1&&isPureNum(cv)&&parseInt(cv)<1000)continue;   // 상품 뒤 수량칸 스킵
+      if(isPhone(cv)){if(!_ph)_ph=cv;continue;}
+      const _e=extractPhoneFromAddr(cv);
+      if(_e.phone&&!_ph)_ph=_e.phone;
+      if(_e.addr)_addrParts.push(_e.addr);
+    }
+    return{client:cl,ca:ca2,cp,prod,nameRaw:_lblName,address:_addrParts.join(' ').trim(),custPhone:_ph||custPhone,msg:'',qty,qtyColValue};
+  }
+  return{client:cl,ca:ca2,cp,prod,nameRaw:nr,address:addr,custPhone,msg,qty,qtyColValue};
+}
+// ─── 변환 대조 (2026-08-11 사장님 지시) ───────────────────────────────
+// 입력 주문건과 변환건이 안 맞으면 무조건 빨갛게 띄운다. 조용한 누락 = 미출고 사고.
+function _esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function _cut(s,n){s=String(s).replace(/\t/g,' │ ').replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n)+'…':s;}
+// 멀티 업체 블록 변환은 runSingle을 블록마다 호출하므로, 누적해서 마지막에 한 번만 렌더한다
+var _reconAcc=null;
+function showRecon(html,state){
+  const el=document.getElementById('recon');if(!el)return;
+  el.className='recon-body'+(state?' '+state:'');el.innerHTML=html;
+}
+// inN=인식한 주문건 / okN=출력에 반영된 주문건 / dropped=[{line,why}] / suspects=[원문줄] / outN=출력 행수
+function reconReport(inN,okN,dropped,suspects,outN){
+  if(_reconAcc){   // 블록 변환 중 — 누적만
+    _reconAcc.in+=inN;_reconAcc.ok+=okN;_reconAcc.out+=outN;
+    _reconAcc.dropped=_reconAcc.dropped.concat(dropped);_reconAcc.susp=_reconAcc.susp.concat(suspects);
+    return;
+  }
+  const missN=dropped.length+suspects.length;
+  if(missN===0){
+    showRecon('✅ 입력 주문 <b>'+inN+'건</b> → 변환 <b>'+okN+'건</b> · 출력 '+outN+'행 — <b>누락 없음</b>','ok');
+    return;
+  }
+  const items=dropped.map(d=>'· <b>['+_esc(d.why)+']</b> '+_esc(_cut(d.line,150)))
+    .concat(suspects.map(s=>'· <b>[앞 행에 붙어버림]</b> '+_esc(_cut(s,150))));
+  // 흡수된 줄은 인식 건수(inN)에 안 잡히므로 총 입력건에 더해 표기 ("1건 중 1건인데 1건 빠짐" 같은 어색함 방지)
+  showRecon('🚨 입력 주문 <b>'+(inN+suspects.length)+'건</b> 중 <b>'+okN+'건만 변환</b> — <b>'+missN+'건 빠짐</b> (출력 '+outN+'행)'
+    +'<div class="recon-list">'+items.join('<br>')+'</div>'
+    +'<div class="recon-note">빠진 건은 위 원문을 확인하고 따로 입력하세요.</div>','bad');
+}
+function preprocessBalbolLine(raw){
+  if(!raw.includes('///'))return null;
+  if(!raw.includes('김융환'))return null;
+  const tripleIdx=raw.indexOf('///');
+  const afterPart=raw.slice(tripleIdx+3).trim();
+  if(!afterPart)return null;
+  const allFields=afterPart.split(',').map(f=>f.trim()).filter(Boolean);
+  const headerKW=['받는 사람','전화','주소','상품','메모'];
+  let dataStart=0;
+  for(let i=0;i<Math.min(allFields.length,8);i++){
+    if(headerKW.includes(allFields[i]))dataStart=i+1;else break;
+  }
+  const data=allFields.slice(dataStart);
+  if(data.length<3)return null;
+  const custName=data[0];
+  const custPhone=fp((data[1]||'').replace(/\s/g,''));
+  let prodIdx=data.length-1;
+  while(prodIdx>2&&!UNIT_QTY_RE.test(data[prodIdx]))prodIdx--;
+  const product=data[prodIdx]||'';
+  if(!product)return null;
+  const address=data.slice(2,prodIdx).join(', ');
+  const memo=data.slice(prodIdx+1).join(' ').trim();
+  return['발볼','','010-6533-1027','',product,custName,address,custPhone,memo].join('\t');
+}
+function isBoardFormat(raw){
+  const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length<18)return false;
+  const expected=['no','주문처','주문연락처','상품명','수량','성함','주소','연락처','배송메모'];
+  for(let i=0;i<9;i++){if(lines[i]!==expected[i])return false;}
+  return true;
+}
+function preprocessBoardFormat(raw){
+  const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length<18)return '';
+  const data=lines.slice(9);
+  const rows=[];
+  for(let i=0;i+9<=data.length;i+=9){
+    const b=data.slice(i,i+9);
+    const orderClient=b[1]||'';
+    const orderPhone=b[2]||'';
+    const prodName=b[3]||'';
+    const qtyRaw=(b[4]||'').replace(/[xX×]/g,'').trim();
+    const qty=parseInt(qtyRaw)||1;
+    const custName=b[5]||'';
+    const address=b[6]||'';
+    const custPhone=b[7]||'';
+    const msg=b[8]||'';
+    rows.push([orderClient,'',orderPhone,'',prodName+' x '+qty,custName,address,custPhone,msg].join('\t'));
+  }
+  return rows.join('\n');
+}
+// 카톡 자유 형식 발주 — 한 줄에 "업체명 업체전화 상품명 X N 성함 (우편) 주소 고객전화 메모" 통째로
+function isKakaoOrderFormat(raw){
+  const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length===0)return false;
+  for(const line of lines){
+    if(line.includes('\t'))return false;
+    const firstWord=line.split(/\s+/)[0];
+    if(!CC[firstWord])return false;
+    const phones=line.match(/(?:0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11})(?!\d)/g);
+    if(!phones||phones.length<1)return false;
+    if(!/[Xx×]\s*\d+/.test(line))return false;
+  }
+  return true;
+}
+function preprocessKakaoOrder(raw){
+  const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+  const output=[];
+  for(const line of lines){
+    // 1) 업체명 (CC 등록된 첫 단어)
+    const client=line.split(/\s+/)[0];
+    if(!CC[client])continue;
+    let rest=line.slice(client.length).trim();
+    // 2) 업체 주문번호/전화 스킵 — 대시 전화면 보관(폴백), 무대시 9~11자리 숫자(주문번호 등)면 버림
+    let inlinePhone='';
+    let mDash=rest.match(/^(0\d{1,3}-\d{3,5}-\d{4})\s+/);
+    if(mDash){inlinePhone=mDash[1];rest=rest.slice(mDash[0].length).trim();}
+    else{const mNum=rest.match(/^\d{9,11}\s+/);if(mNum)rest=rest.slice(mNum[0].length).trim();}
+    // 3) 상품 (x N 까지)
+    const m2=rest.match(/^(.+?[Xx×]\s*\d+)\s+(.+)$/);
+    if(!m2)continue;
+    const product=m2[1].trim();const after=m2[2].trim();
+    // 4) 받는분 (+우편번호 옵션, 괄호 유무 무관)
+    let custName='',addrAndRest='';
+    const m3=after.match(/^(\S+?)\s*\(?\s*\d{5}\s*\)?\s+(.+)$/);
+    if(m3){custName=m3[1];addrAndRest=m3[2];}
+    else{const m3b=after.match(/^(\S+)\s+(.+)$/);if(!m3b)continue;custName=m3b[1];addrAndRest=m3b[2];}
+    // 5) 받는분 전화로 주소/메모 분리
+    const phM=addrAndRest.match(/(0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11}(?!\d))/);
+    if(!phM)continue;
+    const phIdx=addrAndRest.indexOf(phM[1]);
+    const address=addrAndRest.slice(0,phIdx).trim();
+    const custPhone=phM[1];
+    const msg=addrAndRest.slice(phIdx+phM[1].length).trim();
+    // 주문처 전화: CC 우선(신뢰), 없으면 인라인 대시폰
+    const orderPhone=(CC[client]&&CC[client].phone)||inlinePhone||'';
+    output.push([client,'',orderPhone,'',product,custName,address,custPhone,msg].join('\t'));
+  }
+  return output.join('\n');
+}
+// ===== 세로형 카톡 발주 (안심번호/배송주소/배송메모 라벨 포맷) =====
+// 형식 예시:
+//   업체명
+//   업체전화
+//   상품명 (여러 줄 가능)
+//   X1 또는 x1 (수량, 별도 줄)
+//   받는사람
+//   연락처(안심번호)
+//   고객전화
+//   배송주소
+//   (12345) 주소
+//   배송메모
+//   메모
+// 여러 주문은 구분선(— 또는 -, =, _ 3개 이상) 또는 빈 줄로 분리
+function isBigfishFormat(raw){
+  return raw.includes('빅피쉬마켓') && /합배송|출고지주소|급냉/.test(raw);
+}
+function _bigfishMapProd(c){
+  // 한 셀 안에 "알도루묵 양미리" 둘 다 있으면 두 상품으로 split (같은 수량)
+  const qm=c.match(/[xX×]\s*(\d+)/);
+  const q=qm?parseInt(qm[1]):1;
+  const actual=c.replace(/\s+/g,'');
+  // 숫꽃게 대 사이즈 → 연안 활 대숫게 1kg (박스 N kg = qty N). 일반 숫꽃게보다 먼저 판정 (2026-06-19)
+  if(actual.includes('숫꽃게')&&actual.includes('대사이즈')){
+    const kgM=c.match(/(\d+)\s*kg/i);
+    const kg=kgM?parseInt(kgM[1]):1;
+    return ['연안 활 대숫게 1kg x '+kg];
+  }
+  // [산지직송] 활꽃게·숫꽃게 → 연안 활 숫게 1kg (박스 무게 N kg = qty N) (숫꽃게 2026-06-15)
+  if(actual.includes('활꽃게')||actual.includes('숫꽃게')||(actual.includes('산지직송')&&actual.includes('꽃게'))){
+    const kgM = c.match(/(\d+)\s*kg/i);
+    const kg = kgM ? parseInt(kgM[1]) : 1;
+    return ['연안 활 숫게 1kg x '+kg];
+  }
+  // 홍새우 → 횟감 단새우 (빅피쉬마켓 전용). 중량 N kg = 1kg x N (2026-06-05)
+  if(actual.includes('홍새우')){
+    const kgM = c.match(/([\d.]+)\s*kg/i);
+    const kg = kgM ? Math.round(parseFloat(kgM[1])) : 1;
+    return ['횟감 단새우 1kg x '+(kg*q)];
+  }
+  // S급/A급 대게 → 러시아 대게 매핑 (빅피쉬마켓, 2026-06-19). 등급 없는 일반 '대게 Nkg'은 그대로 통과
+  if(actual.includes('대게')){
+    if(/[Ss]급/.test(actual)) return ['S급 러시아 박달대게 3kg x '+q];
+    if(/[Aa]급/.test(actual)) return ['A급 러시아 대게 3kg x '+q];
+  }
+  // ⚠️ 상품 판정은 '콜론 뒤 실제 상품'으로만 (2026-06-04 사고).
+  //    접두 라벨 "합배송 가능 생물 알도루묵 양미리:"에 두 키워드가 다 박혀 있어서
+  //    actual(셀 전체) 기준으로 보면 ① 알도루묵만 주문해도 양미리가 붙고
+  //    ② 양미리 셀이 알도루묵으로 오인됨. 콜론 뒤만 보면 둘 다 해결.
+  const colon=c.indexOf(':');
+  const part=(colon>=0?c.slice(colon+1):c).replace(/\s+/g,'');
+  // 콜론 뒤 실제 상품에 알도루묵·양미리 둘 다 있을 때만 두 상품으로 split
+  if(part.includes('알도루묵') && part.includes('양미리')){
+    return ['알도루묵 1팩 x '+q, '양미리 1kg x '+q];
+  }
+  let name;
+  if(part.includes('알도루묵')) name='알도루묵 1팩';
+  else if(part.includes('양미리')) name='양미리 1kg';
+  else if(part.includes('갑오징어')||actual.includes('갑오징어')) name='생물 갑오징어 1kg';
+  else {
+    // 임의 상품 (대게 6kg 등): 합배송/생물 prefix·괄호·수량 제거 후 그대로
+    name = (colon>=0?c.slice(colon+1):c)
+      .replace(/^\s*합배송\s*가능\s*/,'')
+      .replace(/\s*[\(（][^)）]*[\)）]\s*/g,' ')
+      .replace(/[xX×]\s*\d+/,'')
+      .replace(/\s+/g,' ').trim();
+  }
+  return [name+' x '+q];
+}
+function _preprocessBigfishLine(line){
+  const cells = line.split('\t').map(c=>c.trim())
+    .filter(c=>c && c!=='출고지주소' && c!=='빅피쉬마켓');
+  if(cells.length<3) return null;
+  const phoneRe=/^0\d{1,3}-?\d{3,5}-?\d{4}$/;
+  const phones = cells.filter(c=>phoneRe.test(c));
+  if(phones.length<1) return null;
+  const sendPhone = phones[0];
+  const recvPhone = phones.length>1 ? phones[phones.length-1] : '';
+  const addrRe=/(시|도|구|군|로|길|동|읍|면|아파트|오피스텔)/;
+  const prodKw=/급냉|합배송|산지직송|활꽃게|꽃게|알도루묵|양미리|갑오징어|당일조업|빙장|선별|고수율|홍새우/;
+  // 배송메모 판정 — 한글 + 영문(Doorstep delivery 등) 둘 다 거름 (2026-06-09)
+  const isMemo=c=>/^(문\s*앞|문앞|직접|경비실|부재|배송\s*전|빠른|놓아|꼭\s*연락|미리\s*문자)/.test(c)
+    || /보내시는|선물입니다|부탁드립니다|연락\s*부탁/.test(c)
+    || /현관|비밀번호|비번|버튼\s*누르|누르고|출입|도어\s*록|도어락|초인종/.test(c)
+    || /doorstep|leave|front\s*of|at\s*the\s*door|please|deliver|ring|door\b/i.test(c);
+  const addr = cells.find(c=>addrRe.test(c) && c.length>6 && !prodKw.test(c)) || '';
+  // 받는분 이름: ① 한글 2~4자 우선 ② 없으면 전화·주소·상품·메모 아닌 셀 (영문/공백 이름 'Keo soksommang' 등 — 2026-06-09 누락 fix)
+  let recvName = cells.find(c=>/^[가-힣]{2,4}$/.test(c) && !prodKw.test(c)) || '';
+  if(!recvName){
+    recvName = cells.find(c=>
+      !phoneRe.test(c) && c!==addr && c.length<=25
+      && !addrRe.test(c) && !prodKw.test(c) && !isMemo(c) && !/^\d/.test(c)
+    ) || '';
+  }
+  if(!recvName || !addr) return null;
+  // 상품 셀 = phone, recvName, addr, 메모 제외한 나머지
+  // 상품 셀 = 상품 키워드 있는 셀만 (배송메세지/특이사항이 상품으로 새는 것 차단 — 2026-06-16 한상혁·장석남 건)
+  let prodCells = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr && prodKw.test(c));
+  // 키워드 0건이면 옛 방식 폴백 (키워드 없는 임의 상품 대비)
+  if(prodCells.length===0) prodCells = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr && !isMemo(c));
+  if(prodCells.length===0) return null;
+  const products = prodCells.flatMap(_bigfishMapProd);
+  if(products.length===0) return null;
+  const combined = products.join(' / ');
+  // 배송메시지(9번째 칸): 전화·이름·주소·상품 아닌 나머지 셀 전부 = 배송메세지/특이사항 칸 (대문열고/성북동/문앞 등)
+  const memo = cells.filter(c => !phoneRe.test(c) && c!==recvName && c!==addr && prodCells.indexOf(c)<0).join(' ');
+  return `빅피쉬마켓\t\t${sendPhone}\t\t${combined}\t${recvName}\t${addr}\t${recvPhone}\t${memo}`;
+}
+function preprocessBigfish(raw){
+  // 빅피쉬마켓: 한 주문이 2줄로 쪼개져 옴 (1줄=업체+상품+성함, 2줄=주소+연락처)
+  // 빅피쉬마켓 시작 줄 기준으로 그룹화 → 그룹마다 한 주문 처리
+  if(!isBigfishFormat(raw)) return null;
+  const lines = raw.split(/\r?\n/).filter(l=>l.trim());
+  const groups = [];
+  let current = '';
+  for(const line of lines){
+    if(line.includes('빅피쉬마켓')){
+      if(current) groups.push(current);
+      current = line;
+    }else{
+      // 이전 빅피쉬 라인의 후속 (주소/연락처) → 탭으로 이어붙임
+      current = current ? current + '\t' + line : line;
+    }
+  }
+  if(current) groups.push(current);
+  const rows = [];
+  for(const grp of groups){
+    const r = _preprocessBigfishLine(grp);
+    if(r) rows.push(r);
+  }
+  return rows.length ? rows.join('\n') : null;
+}
+function isVerticalKakaoFormat(raw){
+  return /연락처\s*\(\s*안심번호\s*\)/.test(raw) && /배송\s*주소/.test(raw);
+}
+function preprocessVerticalKakao(raw){
+  // 블록 분리: 구분선(— - = _ 3개 이상) 또는 2줄 이상의 빈 줄
+  const blocks = raw.split(/\n\s*[—\-=_–ㅡ]{3,}\s*/).map(b=>b.trim()).filter(Boolean);  // ㅡ 등 구분선에서만 분리. 빈줄 분리는 블록 내 stray 빈줄(client뒤·안심번호뒤)을 오분리시켜 제거 2026-06-09
+  const rows = [];
+  for(const block of blocks){
+    const lines = block.split('\n').map(l=>l.trim()).filter(Boolean);
+    if(lines.length<4) continue;
+    let phoneLabelIdx=-1, addrLabelIdx=-1, memoLabelIdx=-1;
+    lines.forEach((l,i)=>{
+      if(phoneLabelIdx<0 && /^연락처\s*\(\s*안심번호\s*\)\s*$/.test(l)) phoneLabelIdx=i;
+      else if(addrLabelIdx<0 && /^배송\s*주소\s*$/.test(l)) addrLabelIdx=i;
+      else if(memoLabelIdx<0 && /^배송\s*메모\s*$/.test(l)) memoLabelIdx=i;
+    });
+    if(phoneLabelIdx<0 || addrLabelIdx<0) continue;
+    const client = lines[0].replace(/\s+/g,'');
+    const orderPhone = fp(lines[1]||'');
+    // 받는사람 = 안심번호 라벨 바로 윗줄
+    const recipientName = lines[phoneLabelIdx-1] || '';
+    // 상품 + 수량: line 2 ~ recipientName 직전
+    let product='';let qty=1;
+    for(let i=2;i<phoneLabelIdx-1;i++){
+      const p=lines[i].trim();
+      const qm=p.match(/^[xX×]\s*(\d+)\s*$/);
+      if(qm){qty=parseInt(qm[1]);}
+      else if(p) product = product? product+' '+p : p;
+    }
+    // 상품 끝에 "x N" 형태가 같은 줄에 붙어있는 경우도 처리
+    const inlineQm = product.match(/[xX×]\s*(\d+)\s*$/);
+    if(inlineQm && qty===1){qty=parseInt(inlineQm[1]);product=product.slice(0,inlineQm.index).trim();}
+    const custPhone = fp(lines[phoneLabelIdx+1]||'');
+    let addr = lines[addrLabelIdx+1]||'';
+    addr = addr.replace(/^\s*\(\d{5}\)\s*/,'').trim();  // (우편번호) 제거
+    const memo = (memoLabelIdx>=0 && lines[memoLabelIdx+1]) ? lines[memoLabelIdx+1] : '';
+    const productLine = product + ' x ' + qty;
+    rows.push([client,'',orderPhone,'',productLine,recipientName,addr,custPhone,memo].join('\t'));
+  }
+  return rows.join('\n');
+}
+// ===== 365바겐 전용 파서 =====
+function is365BagenFormat(raw){
+  return raw.includes('보내는 사람')&&raw.replace(/\s/g,'').includes('365바겐');
+}
+function preprocess365Bagen(raw){
+  const allLines=raw.split('\n').map(l=>l.trim());
+  const sepPositions=[];
+  for(let i=0;i<allLines.length;i++){if(allLines[i]==='보내는 사람')sepPositions.push(i);}
+  const output=[];
+  for(const sepIdx of sepPositions){
+    // 업체 정보 (보내는 사람 이후)
+    const vendorRaw=toTsv(allLines[sepIdx+1]||'');
+    const vendorCols=vendorRaw.split('\t');
+    const vendorName=vendorCols[vendorCols.length-1].trim().replace(/\s+/g,'');
+    const vendorAddr=vendorCols.slice(0,-1).join(' ').trim();
+    const vendorPhone=fp(allLines[sepIdx+2]||'');
+    // 상품 라인: 보내는 사람 바로 위 줄
+    let prodLineIdx=sepIdx-1;
+    while(prodLineIdx>=0&&!allLines[prodLineIdx])prodLineIdx--;
+    const prodRaw=toTsv(allLines[prodLineIdx]||'');
+    const prodCols=prodRaw.split('\t');
+    // 수량: (8팩요청드립니다) 패턴
+    const qtyM=prodRaw.match(/\((\d+)[팩개박스]/);
+    const qty=qtyM?parseInt(qtyM[1]):1;
+    // 상품명: 두 번째 컬럼부터 한글+무게단위 있는 것 (첫 컬럼=창고/지역명 제외)
+    let prodName='';
+    for(let k=1;k<prodCols.length;k++){
+      const c=prodCols[k].trim();
+      if(/[가-힣]/.test(c)&&/\d+(g|kg)/i.test(c)&&!c.endsWith('원')){prodName=c;break;}
+    }
+    if(!prodName&&prodCols.length>1)prodName=prodCols[1].trim();
+    if(!prodName)continue;
+    // 고객 정보: 상품라인 위 빈 줄 만날 때까지
+    const custLines=[];
+    for(let k=prodLineIdx-1;k>=0;k--){
+      if(!allLines[k])break;
+      custLines.unshift(allLines[k]);
+    }
+    let custPhone='',custName='',custAddr='';
+    for(const l of custLines){
+      if(isPhone(l)){if(!custPhone)custPhone=fp(l);}
+      else if(!custAddr)custAddr=l;
+      else if(!custName)custName=l;
+    }
+    output.push([vendorName,vendorAddr,vendorPhone,'',prodName+' x '+qty,custName,custAddr,custPhone,''].join('\t'));
+  }
+  return output.join('\n');
+}
+// ===== 365바겐 파서 끝 =====
+
+// 진입 게이트 = 줄 단위 게이트(isOrderHdr)를 그대로 재사용. 두 곳이 갈라져 식봄을 놓치는 일 방지 (2026-06-05)
+function isSikbomFormat(raw){return isOrderHdr(raw.trim().split('\n')[0].trim());}
+function normSikbomProd(raw){return raw.replace(/^버피\s+/,'').trim();} // '연안'은 상품명 일부라 보존 (2026-07-29 연안 홍합→홍합 둔갑 사고)
+function normLine(l){const t=l.trim();return t.includes('\t')?t:t.replace(/ {2,}/g,'\t');}
+function isOrderHdr(l){return /^\d{9}[\t ]/.test(l)&&/GP[A-Z]/.test(l);}
+function extractAddrPhone(a){
+  const m=a.match(/(?<!\d)(0\d{1,3}[\s]?\d{3,5}[\s]?\d{4})(?!\d)/);  // 0\d{1,3} = 안심번호(0508 등) 포함 (2026-07-28 fix), 가운데 5자리 허용 (2026-08-06)
+  if(!m)return{addr:a.trim(),msg:''};
+  const ix=a.indexOf(m[1]);
+  return{addr:a.slice(0,ix).trim(),msg:a.slice(ix+m[1].length).trim()};
+}
+// 식봄 단일라인 파서 — 한 주문이 한 줄에 40여개 컬럼으로 들어오는 신형식 (2026-05+ 신규)
+function parseSikbomSingleLine(line){
+  const cols=line.split('\t').map(c=>(c||'').trim());
+  if(cols.length<20)return null;
+  if(!isOrderHdr(line))return null;
+  let custName='',custPhone='',prodName='',qty=1,address='',msg='';
+  // 받는사람: "발주대기" 다음 셀
+  const bi=cols.findIndex(c=>c==='발주대기');
+  if(bi>=0&&cols[bi+1])custName=cols[bi+1];
+  // 고객 연락처: 010/011 패턴
+  for(const c of cols){
+    if(/^01\d{8,9}$/.test(c)){custPhone=fp(c);break;}
+  }
+  // 상품명: 상품코드(영문_숫자 SKU, 예 MASTER_mpgn1784_1425) 바로 앞 한글 셀이 정답.
+  // 식봄 신export 칼럼 순서 = …상품명 | 상품코드 | 옵션(330g 내외) | 1팩 | 면세…
+  // 상품명에 g/kg가 없을 수 있어(중량이 옵션 칼럼에 따로 빠짐) 코드 앵커를 먼저 시도.
+  const codeIdx=cols.findIndex(c=>/^[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]+$/.test(c));
+  if(codeIdx>0&&/[가-힣]/.test(cols[codeIdx-1])&&cols[codeIdx-1].length>=2){
+    prodName=normSikbomProd(cols[codeIdx-1]);
+  }
+  // 폴백: 한글 포함 + g/kg 단위 + 길이 5자+ (행정구역/영문ID/날짜 제외) — 코드 앵커 실패 시
+  if(!prodName)for(const c of cols){
+    if(!c||!/[가-힣]/.test(c))continue;
+    if(!/\d+\s*(g|kg)\b/i.test(c))continue;
+    if(c.length<5)continue;
+    // 행정구역 키워드 (시/도/구/군/면/읍/로/길/동/특별시/광역시) 있으면 주소일 가능성 → 제외
+    if(/[가-힣](시|도|군|구|면|읍|로|길)/.test(c))continue;
+    if(/특별시|광역시|특별자치|동\s*\d/.test(c))continue;
+    // 영문 ID 시작 제외 (예: MASTER_mpm...)
+    if(/^[A-Za-z]/.test(c))continue;
+    // 날짜 포맷 제외
+    if(/^\d{4}[-/.]\d{2}/.test(c))continue;
+    prodName=normSikbomProd(c);break;
+  }
+  // 수량: 과세구분(면세/과세) 앵커 → 뒤로 [단가][수량][배송비][합계]. 단가*수량+배송비==합계로 검증
+  // (2026-06-05 식봄 신export. "1팩"은 판매단위라 수량 아님 — 팩개 폴백이 오인하던 것 차단)
+  const taxIdx=cols.findIndex(c=>c==='면세'||c==='과세');
+  if(taxIdx>=0){
+    const unit=parseInt(cols[taxIdx+1]),q=parseInt(cols[taxIdx+2]),ship=parseInt(cols[taxIdx+3]),tot=parseInt(cols[taxIdx+4]);
+    if(q>0){
+      if(Number.isFinite(unit)&&Number.isFinite(tot)&&unit*q+(Number.isFinite(ship)?ship:0)===tot)qty=q;
+      else if(q<1000)qty=q;
+    }
+  }
+  // 수량: EA 마커 다음 첫 정수 (1-3자리, 1000 미만 — 단가 4-5자리와 구분)
+  const eaIdx=cols.findIndex(c=>/^\d*EA$/i.test(c));
+  if(eaIdx>=0){
+    for(let j=eaIdx+1;j<Math.min(eaIdx+8,cols.length);j++){
+      const c=cols[j];
+      if(/^\d{1,3}$/.test(c)){
+        const n=parseInt(c);
+        if(n>0&&n<1000){qty=n;break;}
+      }
+    }
+  }
+  // 폴백: "N팩"/"N개" 패턴 (EA 못 찾았을 때만)
+  if(qty===1&&eaIdx<0){
+    for(const c of cols){
+      const pm=c.match(/(\d+)\s*(팩|개)/);
+      if(pm&&parseInt(pm[1])>0){qty=parseInt(pm[1]);break;}
+    }
+  }
+  // 배송 주소 ① 우편번호(딱 5자리) 셀 바로 다음 셀 = 주소 (2026-07-03 fix — 식봄 export 고정 구조 …우편번호|주소|배송메모|공급사주소…)
+  //   기존 '행정구역 글자 첫 매칭' 방식은 배송지명 상호("러반로제레스토랑"의 '반+로')를 주소로 오인하는 사고 발생
+  const prodRaw=(codeIdx>0)?cols[codeIdx-1]:'';
+  for(let i=0;i<cols.length-1;i++){
+    if(!/^\d{5}$/.test(cols[i]))continue;
+    const nx=cols[i+1];
+    if(!nx||!/[가-힣]/.test(nx))continue;
+    if(!/[가-힣](시|도|군|구|면|읍|로|길)/.test(nx))continue;
+    if(nx.includes('동해시 대학로 16'))continue;
+    const r=extractAddrPhone(nx.replace(/^\[\d{5}\]\s*/,'').trim());
+    address=r.addr;msg=r.msg||'';
+    // 주소 다음 셀 = 배송메모 (식봄 고정 컬럼. 날짜/공급사주소/'-'는 제외)
+    if(!msg){
+      const nm=(cols[i+2]||'').trim();
+      if(nm&&nm!=='-'&&/[가-힣]/.test(nm)&&!nm.includes('동해시 대학로 16')&&!nm.startsWith('[')&&!/^\d{4}[-/.]\d{2}/.test(nm))msg=nm;
+    }
+    break;
+  }
+  // ② 폴백: 기존 행정구역 스캔 — 단 상호·상품명 오인 방지 가드 추가 (숫자+공백 있어야 주소로 인정, 상품명 셀 제외)
+  if(!address)for(const c of cols){
+    if(!c||!/[가-힣]/.test(c))continue;
+    if(!/[가-힣](시|도|군|구|면|읍|로|길)/.test(c))continue;
+    if(c.includes('동해시 대학로 16'))continue;
+    if(c.length<6)continue;  // 짧은 문자열 안전망 (예: 단순 "남구")
+    if(prodRaw&&c===prodRaw)continue;  // 상품명 셀 제외 (예: "연안 메로 스테이크 200g"의 '메+로')
+    if(!/\d/.test(c)||!c.includes(' '))continue;  // 주소는 번지수·공백 포함 — 상호("러반로제레스토랑") 차단
+    let cleaned=c.replace(/^\[\d{5}\]\s*/,'').trim();
+    if(!cleaned)continue;
+    const r=extractAddrPhone(cleaned);
+    address=r.addr;msg=r.msg||'';
+    break;
+  }
+  // msg 폴백: cols 전체에서 배송메시지 키워드 찾기 (주소 셀과 별도 셀에 있는 케이스)
+  if(!msg){
+    for(const c of cols){
+      if(!c||c===address)continue;
+      if(/부탁|놓아|문\s*앞|연락주세요|매장안|매장 안|건물|경비실|입구|벨\s*누르|보안/.test(c) && c.length>5){
+        msg=c;break;
+      }
+    }
+  }
+  if(prodName&&address&&custPhone){
+    return ['식봄','','010-2455-4156','',prodName+' x '+qty,custName,address,custPhone,msg].join('\t');
+  }
+  return null;
+}
+function preprocessSikbom(raw){
+  const lines=raw.trim().split('\n').map(normLine).filter(Boolean);
+  const output=[];
+  // 1) 단일라인 형식 우선 시도 (한 줄에 모든 정보 들어오는 신형식)
+  for(const ln of lines){
+    if(!isOrderHdr(ln))continue;
+    const parsed=parseSikbomSingleLine(ln);
+    if(parsed)output.push(parsed);
+  }
+  if(output.length>0)return output.join('\n');
+  // 2) 폴백: 멀티라인 형식 (헤더 + 블록 구조의 구형식)
+  let i=0;
+  while(i<lines.length){
+    if(!isOrderHdr(lines[i])){i++;continue;}
+    const h1=lines[i].split('\t');let custName='';
+    const bi=h1.findIndex(c=>c.trim()==='발주대기');
+    if(bi>=0&&h1[bi+1])custName=h1[bi+1].trim();
+    i++;
+    const block=[];
+    while(i<lines.length&&!isOrderHdr(lines[i])){block.push(lines[i]);i++;}
+    let custPhone='',prodName='',qty=1,address='',msg='';
+    for(const bl of block){
+      const cols=bl.split('\t');const c0=(cols[0]||'').trim();
+      if(/^01\d{8,9}$/.test(c0)){
+        if(!custPhone)custPhone=fp(c0);
+        for(let j=1;j<cols.length;j++){const c=(cols[j]||'').trim();if(!prodName&&/^(버피|연안)\s+/.test(c)&&/\d+(g|kg)/i.test(c)){prodName=normSikbomProd(c);}}
+        for(let j=1;j<cols.length;j++){const c=(cols[j]||'').trim();const pm=c.match(/(\d+)(팩|개)/);if(pm&&parseInt(pm[1])>0){qty=parseInt(pm[1]);break;}}
+      }else if(/^[가-힣]/.test(c0)&&/\d+(g|kg)/i.test(c0)){
+        if(!prodName)prodName=normSikbomProd(c0);
+        if(!address){const raw13=(cols[13]||'').trim();if(raw13&&!raw13.includes('동해시')){const r=extractAddrPhone(raw13);address=r.addr;msg=r.msg;}}
+      }else if(/^\d{5,}$/.test(c0)&&!address){
+        const raw2=(cols[2]||'').trim();
+        if(raw2&&/[가-힣]/.test(raw2)&&!raw2.includes('동해시')){const r=extractAddrPhone(raw2);address=r.addr;msg=r.msg;}
+        if(!address){
+          for(let j=1;j<cols.length;j++){
+            const c=(cols[j]||'').trim();
+            if(c&&/[가-힣]/.test(c)&&!c.includes('동해시')&&/(시|도|군|구|면|읍|로|길)/.test(c)){
+              const r=extractAddrPhone(c);address=r.addr;
+              if(r.msg){msg=r.msg;}
+              else if(j+1<cols.length){
+                const nxt=(cols[j+1]||'').trim();
+                if(nxt&&nxt!=='-'&&!nxt.includes('동해시')&&!nxt.startsWith('['))msg=nxt;
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+    if(prodName&&address&&custPhone){output.push(['식봄','','010-2455-4156','',prodName+' x '+qty,custName,address,custPhone,msg].join('\t'));}
+  }
+  return output.join('\n');
+}
+// 직접발주 (채팅 형식: [제품]...[수취인]...) 파싱
+function parseDirectOrders(input){
+  const orders=[];
+  const parts=input.split(/\[제품\]/);
+  for(let i=1;i<parts.length;i++){
+    const block=parts[i];
+    const recipIdx=block.indexOf('[수취인]');
+    if(recipIdx===-1)continue;
+    const prodSection=block.substring(0,recipIdx);
+    let recSection=block.substring(recipIdx+'[수취인]'.length);
+    const nextProdIdx=recSection.search(/\[제품\]/);
+    if(nextProdIdx>=0)recSection=recSection.substring(0,nextProdIdx);
+    // 상품 파싱: "상품명 N개 / 가격원" 패턴, 배송비/총합/별표 라인 스킵
+    // 상품명 앞의 "하남 " 접두어는 자동 제거
+    const products=[];
+    const prodLines=prodSection.split('\n').map(l=>l.trim()).filter(Boolean);
+    for(const line of prodLines){
+      if(/^(\*+\s*)?(배송비|총합|합계|결제금액|합산)/.test(line))continue;
+      const m=line.match(/^(.+?)\s+(\d+)\s*개\b/);
+      if(m){
+        let nm=m[1].trim().replace(/^하남\s+/,'');
+        products.push({name:nm,qty:parseInt(m[2])});
+      }
+    }
+    // 수취인 파싱: "이름 / 전화" 형태, 주소 라인
+    const recLines=recSection.split('\n').map(l=>l.trim()).filter(Boolean);
+    let name='',phone='',addr='';
+    for(const line of recLines){
+      const slashIdx=line.indexOf('/');
+      if(slashIdx>0){
+        const before=line.substring(0,slashIdx).trim();
+        const after=line.substring(slashIdx+1).trim();
+        const afterDigits=after.replace(/[^0-9]/g,'');
+        if(afterDigits.length>=9){name=before;phone=fp(after);continue;}
+      }
+      const lineDigits=line.replace(/[^0-9]/g,'');
+      if(/^[\d\s\-]+$/.test(line)&&lineDigits.length>=9){phone=fp(line);continue;}
+      if(line.length>5){addr=(addr?addr+' ':'')+line;}
+      else if(!name){name=line;}
+    }
+    if(products.length>0)orders.push({products,name,phone,addr});
+  }
+  return orders;
+}
+// 주문처명 별칭 — 출력 시 주문처 표기 치환 (CC조회·연락처는 그대로, 표기만 정리)
+// 배민 대용량 발주 — 헤더 탭표(주문번호…받는분 연락처…지번 주소). 주문처=배민대용량, 주문처연락처=010-2455-4156 고정
+function isBaeminLargeFormat(raw){
+  const first=(raw.trim().split('\n')[0]||'');
+  return first.includes('주문번호') && first.includes('받는분') && first.includes('지번 주소') && (first.includes('관리용상품명')||first.includes('상품명-옵션명'));
+}
+function parseBaeminLarge(raw){
+  const lines=raw.trim().split('\n').filter(l=>l.trim());
+  if(lines.length<2) return [];
+  const H=lines[0].split('\t').map(h=>h.trim());
+  const col=(n)=>H.findIndex(h=>h===n);
+  const iProd=col('관리용상품명')>=0?col('관리용상품명'):col('상품명-옵션명');
+  const iQty=col('수량'), iName=col('받는분'), iPhone=col('받는분 연락처');
+  const iJibun=col('지번 주소'), iDoro=col('도로명 주소'), iMsg=col('배송메시지');
+  const out=[];
+  for(let i=1;i<lines.length;i++){
+    const c=lines[i].split('\t'); if(c.length<3) continue;
+    let prod=(c[iProd]||'').trim(); if(!prod) continue;
+    const qty=parseInt(String(c[iQty]||'1').replace(/[^0-9]/g,''))||1;
+    const custName=(c[iName]||'').trim();
+    const phone=fp((c[iPhone]||'').trim());
+    let addr=((iJibun>=0?c[iJibun]:'')||(iDoro>=0?c[iDoro]:'')||'').trim()
+      .replace(/\s*(자택배송|직장배송|기타배송|경비실위탁|문앞|무인택배함|편의점)\s*$/,'').trim();
+    const msg=(iMsg>=0?(c[iMsg]||''):'').trim();
+    const {name:mName,qty:fq,maxB}=pp('배민대용량',prod,qty);
+    if(mName.includes(' / ')){ out.push(['배민대용량','','010-2455-4156','',mName,custName,addr,phone,msg].join('\t')); }
+    else { let rem=fq; const mb=maxB||999; while(rem>0){ const cur=Math.min(rem,mb); out.push(['배민대용량','','010-2455-4156','',mName+' x '+cur,custName,addr,phone,msg].join('\t')); rem-=cur; } }
+  }
+  return out;
+}
+const CLIENT_ALIAS={'(주)에보아르코리아':'에보아르코리아','자은np':'자은엔앤피','자은NP':'자은엔앤피','자은Np':'자은엔앤피','자은nP':'자은엔앤피'};
+function applyClientAlias(s){ let r=s; for(const k in CLIENT_ALIAS){ r=r.split(k).join(CLIENT_ALIAS[k]); } return r; }
+// 🐙 킹콩농수산 세로형 발주 (2026-07-22 신설): 업체가 상품을 세로로 나열(첫 발주라 합포장 '/' 안 넣고 옴).
+//   구조: [킹콩농수산][주문처주소][주문처전화] → 이후 [상품들…][받는사람][받는사람주소][전화] 반복(여러 건 몰아 가능).
+//   같은 받는사람에 상품 여러 줄이면 '/'로 합포장. E=킹콩에프앤비 자동 삽입.
+function isKingkongVertical(raw){
+  const first=(raw.trim().split('\n').map(l=>l.trim()).find(l=>l)||'');
+  return first.replace(/\s+/g,'')==='킹콩농수산';
+}
+function parseKingkongVertical(raw){
+  const KK={insert:'킹콩에프앤비',client:'킹콩농수산',addr:'경기도 화성시 동탄구 동탄기흥로 594-7, 1214호 주식회사 킹콩에프앤비',phone:'031-8043-2244'};
+  const phoneRe=/0\d{1,3}-?\d{3,5}-?\d{4,5}/;
+  const lines=raw.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+  let i=0;
+  if(lines[i]&&lines[i].replace(/\s+/g,'')==='킹콩농수산')i++;   // 주문처명 스킵
+  while(i<lines.length&&!phoneRe.test(lines[i]))i++;             // 주문처 주소줄(들) 스킵
+  if(i<lines.length&&phoneRe.test(lines[i]))i++;                // 주문처 전화 스킵
+  const rows=[];let buf=[];
+  for(;i<lines.length;i++){
+    const ln=lines[i];
+    if(phoneRe.test(ln)){                    // 전화 = 한 건의 끝 앵커
+      const addr=buf.pop()||'';              // 전화 앞줄 = 받는사람 주소
+      const name=buf.pop()||'';              // 그 앞줄 = 받는사람
+      const products=buf.slice();buf=[];     // 나머지 = 상품들
+      if(!products.length)continue;
+      const combined=products.join(' / ');   // 합포장: '/'로 묶음
+      // 10칸: E삽입 F주문처 G주문처주소 H주문처전화 I창고빈 J상품 K받는사람 L받는사람주소 M전화 N메시지
+      rows.push([KK.insert,KK.client,KK.addr,KK.phone,'',combined,name,addr,ln,''].join('\t'));
+    }else buf.push(ln);
+  }
+  return rows;
+}
+function autoSplitByHeader(text){
+  // 구분선 없어도 '주문처 …' 헤더줄을 업체 경계로 보고 자동 분리(안전망)
+  const lines=text.split(/\r?\n/);
+  const isHdr=function(l){const c=l.split('\t');return c[0].trim()==='주문처' && /(주소|연락처|상품)/.test(l);};
+  const blocks=[]; let cur=[];
+  for(const l of lines){
+    if(isHdr(l) && cur.some(function(x){return x.trim();})){ blocks.push(cur.join('\n')); cur=[]; }
+    cur.push(l);
+  }
+  if(cur.some(function(x){return x.trim();})) blocks.push(cur.join('\n'));
+  return blocks.map(function(b){return b.trim();}).filter(Boolean);
+}
+function run(){
+  checkStale(false);
+  // 다업체 취합 입력을 블록으로 나눠 업체별 개별 변환(폭 다른 양식 섞임→오배분 방지)
+  const inpEl=document.getElementById('inp');
+  const full=inpEl.value;
+  let blocks=null, mode='';
+  if(/^===발주구분===\s*$/m.test(full)){
+    blocks=full.split(/^===발주구분===\s*$/m).map(function(s){return s.trim();}).filter(Boolean); mode='구분선';
+  } else {
+    const ab=autoSplitByHeader(full);            // 안전망: 구분선 없어도 헤더줄 기준 자동 분리
+    if(ab.length>1){ blocks=ab; mode='헤더자동'; }
+  }
+  if(!blocks){ runSingle(); return; }            // 단일 업체 = 기존 로직 그대로(무위험)
+  const outEl=document.getElementById('out');
+  const outs=[];
+  _reconAcc={in:0,ok:0,out:0,dropped:[],susp:[]};   // 블록별 대조 결과 누적 (2026-08-11)
+  // try/finally — 블록 변환 중 에러가 나도 입력칸이 일부 블록만 남은 채 방치되지 않게 원본 복원
+  try{
+    for(const b of blocks){
+      inpEl.value=b; outEl.value='';
+      runSingle();
+      // 🚨 .trim() 금지 (2026-08-03 청년수산 10칸→9칸 사고): 배송메시지가 빈 마지막 셀이면
+      //    줄 끝 탭까지 잘려 시트에서 칸이 밀린다. 줄바꿈만 제거하고 탭은 보존.
+      const o=(outEl.value||'').replace(/^[\r\n]+|[\r\n]+$/g,'');
+      if(o.trim()) outs.push(o);
+    }
+  }finally{
+    inpEl.value=full;
+  }
+  const _acc=_reconAcc;_reconAcc=null;
+  if(_acc)reconReport(_acc.in,_acc.ok,_acc.dropped,_acc.susp,_acc.out);
+  const merged=outs.join('\n');
+  outEl.value=merged;
+  const outN=merged.split('\n').filter(function(l){return l.trim();}).length;
+  document.getElementById('s-out').textContent=outN;
+  document.getElementById('out-count').textContent=outN+' 행';
+  document.getElementById('s-in').textContent=blocks.length;
+  document.getElementById('in-count').textContent=blocks.length+' 업체';
+  autoResize(inpEl);autoResize(outEl);
+  const mcc=merged.split('\n').filter(function(l){return l.trim();}).map(function(l){return l.split('\t').length;});
+  const mBad=mcc.filter(function(n){return n!==9&&n!==10;}).length;
+  const mTxt=' [10칸 '+mcc.filter(function(n){return n===10;}).length+'·9칸 '+mcc.filter(function(n){return n===9;}).length+']';
+  if(mBad>0){sl('🚨 칸수 이상 '+mBad+'행 — 시트 붙여넣기 전 확인!'+mTxt,'warn');}
+  else{sl(blocks.length+'개 업체 블록 개별 변환('+mode+') — 총 '+outN+'행'+mTxt,'ok');}
+}
+function runSingle(){
+  wc=0;let input=document.getElementById('inp').value.trim();
+  if(!input){sl('입력 데이터가 없습니다.','warn');return;}
+  // 🐙 킹콩농수산 세로형 발주 자동 인식 (첫 줄이 '킹콩농수산')
+  if(isKingkongVertical(input)){
+    const out=parseKingkongVertical(input);
+    if(out.length===0){sl('킹콩농수산 발주 파싱 실패 — [상품…][받는사람][주소][전화] 순서 확인','warn');return;}
+    document.getElementById('out').value=applyClientAlias(out.join('\n'));
+    document.getElementById('s-in').textContent=out.length;
+    document.getElementById('s-out').textContent=out.length;
+    document.getElementById('in-count').textContent=out.length+' 건';
+    document.getElementById('out-count').textContent=out.length+' 행';
+    document.getElementById('s-warn').textContent=0;
+    autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
+    sl('킹콩농수산 발주 '+out.length+'행 출력 (합포장 자동 / 킹콩에프앤비 삽입)','ok');
+    return;
+  }
+  // 직접발주(채팅) 형식 자동 인식 — [제품] + [수취인] 마커
+  if(input.includes('[제품]')&&input.includes('[수취인]')){
+    const orders=parseDirectOrders(input);
+    if(orders.length===0){sl('직접발주 파싱 실패 — [제품]/[수취인] 포맷 확인','warn');return;}
+    const out=[];
+    for(const ord of orders){
+      // 합포장 — 한 수취인의 모든 상품을 한 줄로 슬래시 합침
+      const combinedName=ord.products.map(p=>p.name+' x '+p.qty).join(' / ');
+      // E=직접발주, F=수취인 이름, G=빈칸, H=수취인 전화, I=빈칸(창고명), J=합포장 상품, K=이름, L=주소, M=전화, N=빈칸
+      out.push(['직접발주',ord.name||'','',ord.phone||'','',combinedName,ord.name,ord.addr,ord.phone,''].join('\t'));
+    }
+    document.getElementById('out').value=applyClientAlias(out.join('\n'));
+    document.getElementById('s-in').textContent=orders.length;
+    document.getElementById('s-out').textContent=out.length;
+    document.getElementById('in-count').textContent=orders.length+' 건';
+    document.getElementById('out-count').textContent=out.length+' 행';
+    autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
+    sl('직접발주 '+orders.length+'건 / '+out.length+'행 출력','ok');
+    return;
+  }
+  if(isBaeminLargeFormat(input)){
+    const out=parseBaeminLarge(input);
+    if(out.length===0){sl('배민대용량 파싱 실패 — 헤더(주문번호/받는분/지번 주소) 확인','warn');return;}
+    document.getElementById('out').value=applyClientAlias(out.join('\n'));
+    document.getElementById('s-in').textContent=out.length;
+    document.getElementById('s-out').textContent=out.length;
+    document.getElementById('in-count').textContent=out.length+' 건';
+    document.getElementById('out-count').textContent=out.length+' 행';
+    document.getElementById('s-warn').textContent=0;
+    autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
+    reconReport(out.length,out.length,[],[],out.length);
+    sl('배민대용량 '+out.length+'행 출력','ok');
+    return;
+  }
+  if(isBigfishFormat(input)){
+    const _bf=preprocessBigfish(input);
+    if(_bf){ input=_bf; sl('빅피쉬마켓 형식 감지 — 자동 변환 중...'); }
+  }
+  if(is365BagenFormat(input)){
+    input=preprocess365Bagen(input);
+    if(!input){sl('365바겐 형식 파싱 실패','warn');return;}
+    sl('365바겐 형식 감지 — 자동 변환 중...');
+  }
+  if(isSikbomFormat(input)){
+    input=preprocessSikbom(input);
+    if(!input){sl('식봄 데이터 파싱 실패','warn');return;}
+    sl('식봄 형식 감지 — 자동 변환 중...');
+  }
+  if(isBoardFormat(input)){
+    input=preprocessBoardFormat(input);
+    if(!input){sl('게시판 발주 형식 파싱 실패','warn');return;}
+    sl('게시판 발주 형식 감지 — 자동 변환 중...');
+  }
+  if(isKakaoOrderFormat(input)){
+    input=preprocessKakaoOrder(input);
+    if(!input){sl('카톡 발주 형식 파싱 실패','warn');return;}
+    sl('카톡 발주 형식 감지 — 자동 변환 중...');
+  }
+  if(isVerticalKakaoFormat(input)){
+    input=preprocessVerticalKakao(input);
+    if(!input){sl('세로형 카톡 발주 파싱 실패','warn');return;}
+    sl('세로형 카톡 발주 감지 — 자동 변환 중...');
+  }
+  const lines=mergeLines(input);
+  document.getElementById('s-in').textContent=lines.length;
+  document.getElementById('in-count').textContent=lines.length+' 행';
+  sl(lines.length+'행 처리 중...');
+  const out=[];const dropped=[];let okOrders=0;   // 대조용 (2026-08-11)
+  if(pendingHistory.length>0){dayHistory=dayHistory.concat(pendingHistory.filter(p=>!dayHistory.some(h=>h.key===p.key)));}
+  pendingHistory=[];const dupNames=[];let lastRunClient='';
+  for(const line of lines){
+    if(line.indexOf('⟪HG⟫')===0){out.push(line.slice(4));okOrders++;lastRunClient='혜인건강';continue;}
+    const row=pr2(line);if(!row){sl('파싱 실패: '+line.slice(0,30),'warn');dropped.push({line:line,why:'파싱 실패'});continue;}
+    let{client,ca:cla,cp,prod,nameRaw,address,custPhone,msg,qty,qtyColValue}=row;
+    if(!client&&lastRunClient)client=lastRunClient;else if(client)lastRunClient=client;
+    if(client==='식봄'&&address.includes('동해시 대학로 16')){sl('식봄 대표님 주소 제외: '+nameRaw,'warn');dropped.push({line:line,why:'제외 — 식봄 대표님 주소'});continue;}
+    let cfg=CC[client]||{};if(!CC[client])sl('미등록 업체: '+client,'warn');
+    const iv=cfg.insert||'';
+    const{name:rawName,qty:fq,maxB,suffix}=pp(client,prod,qty);   // suffix = 수량 뒤에 붙는 보존 괄호 (민물장어 옵션 등)
+    const finalQty=fq*(qtyColValue||1);let name=rawName;
+    const dupKey=(nameRaw+'|'+address).replace(/\s/g,'');
+    if(dayHistory.some(h=>h.key===dupKey))dupNames.push(nameRaw);
+    const salesClient=cfg.insert||client;
+    pendingHistory.push({client:salesClient,product:name,qty:finalQty,nameRaw,address,key:dupKey});
+    const ord={address,custPhone,msg,ca:cla,cp};
+    const sfx=suffix?' '+suffix:'';
+    if(name.includes(' / ')){out.push(br(client,cfg,name+sfx,nameRaw,ord,iv));}
+    else{let rem=finalQty;while(rem>0){const cur=Math.min(rem,maxB);out.push(br(client,cfg,name+' x '+cur+sfx,nameRaw,ord,iv));rem-=cur;}}
+    okOrders++;
+  }
+  document.getElementById('out').value=applyClientAlias(out.join('\n'));
+  document.getElementById('s-out').textContent=out.length;
+  document.getElementById('out-count').textContent=out.length+' 행';
+  autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
+  document.getElementById('s-warn').textContent=wc;
+  // 칸수 자가검증 (2026-08-03 청년수산 사고): 일반 9칸·insert/직접발주 10칸 외엔 경고
+  const cc=out.map(function(r){return r.split('\t').length;});
+  const ccBad=cc.filter(function(n){return n!==9&&n!==10;}).length;
+  const ccTxt=' [10칸 '+cc.filter(function(n){return n===10;}).length+'·9칸 '+cc.filter(function(n){return n===9;}).length+']';
+  reconReport(lines.length,okOrders,dropped,mergeSuspects,out.length);   // 입력↔변환 대조 (2026-08-11)
+  if(ccBad>0){sl('🚨 칸수 이상 '+ccBad+'행 — 시트 붙여넣기 전 확인!'+ccTxt,'warn');}
+  else if(dupNames.length>0){sl('⚠️ 중복 발주 의심: '+dupNames.join(', ')+ccTxt,'warn');}
+  else{sl('완료 — '+out.length+'행 출력, 주의 '+wc+'건'+ccTxt,wc>0?'warn':'ok');}
+}
+function copyOut(){const v=document.getElementById('out').value;if(!v)return;navigator.clipboard.writeText(v).then(()=>sl('클립보드에 복사됐어요!','ok'));}
+function clearAll(){
+  document.getElementById('inp').value='';document.getElementById('out').value='';
+  ['s-in','s-out','s-warn'].forEach(id=>document.getElementById(id).textContent='0');
+  document.getElementById('in-count').textContent='0 행';document.getElementById('out-count').textContent='0 행';
+  autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
+  showRecon('변환하면 여기서 <b>입력 주문건 ↔ 변환건</b>을 대조합니다. 빠진 주문이 있으면 원문을 그대로 띄웁니다.','');
+  wc=0;sl('초기화됨');
+}
+function autoResize(el){
+  el.style.height='auto';
+  const maxH=Math.max(240,window.innerHeight*0.55); // 화면 55%까지만 자동 확장
+  const needH=Math.max(200,el.scrollHeight);
+  if(needH>maxH){el.style.height=maxH+'px';el.style.overflowY='auto';}
+  else{el.style.height=needH+'px';el.style.overflowY='hidden';}
+}
+window.addEventListener('resize',function(){const i=document.getElementById('inp'),o=document.getElementById('out');if(i)autoResize(i);if(o)autoResize(o);});
+document.addEventListener('DOMContentLoaded',function(){
+  const inp=document.getElementById('inp');
+  inp.addEventListener('input',function(){autoResize(inp);});
+  autoResize(inp);autoResize(document.getElementById('out'));
+});
+document.getElementById('inp').addEventListener('input',function(){
+  const n=this.value.trim().split('\n').filter(l=>l.trim()).length;
+  document.getElementById('in-count').textContent=n+' 행';
+});
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT')return;
+  if(e.key==='1'){run();}else if(e.key==='2'){copyOut();}else if(e.key==='3'){saveToSheet();}else if(e.key==='4'){clearAll();}
+});
+</script>
+</body>
+</html>
