@@ -215,6 +215,14 @@ async function loadCache(){
   }
   return m;
 }
+/* ✓ 문제없음 — 도구 페이지에서 "확인해 봤는데 이상 없음"으로 넘긴 상품(도구시트 '문제없음' 탭).
+   여기서도 똑같이 빼줘야 못 고치는 상품(예: 게시글 자체가 없는 추가옵션)이 버튼에 계속 남지 않는다. */
+async function loadOkList(){
+  const v=await api(DOGU,'/values/'+q("'문제없음'!A2:A3000"));
+  const m={};
+  ((v.values)||[]).forEach(function(r){const n=(r[0]||'').trim();if(n)m[pkey(n)]=1;});
+  return m;
+}
 async function loadQueue(){
   const v=await api(DOGU,'/values/'+q("'"+QTAB+"'!A2:C1000"));
   const out=[];
@@ -253,6 +261,35 @@ async function saveQueue(){
   return api(DOGU,'/values/'+q("'"+QTAB+"'!A1:C400")+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
 }
 
+/* 🩹 깨진 사진 검사 — 창고에 주소는 있는데 실제로는 안 열리는 사진.
+   '사진없음'(주소가 아예 없음)과 다른 문제라 따로 검사한다. 통과한 주소는 7일 기억(다음부턴 빠름).
+   응답이 없는 건(느린 것) 깨진 걸로 치지 않는다 — 오탐 방지. */
+const IMGOK_KEY='mu_imgok_v1';
+let IMGOK={};try{IMGOK=JSON.parse(localStorage.getItem(IMGOK_KEY)||'{}');}catch(e){}
+function imgTest(u){
+  if(IMGOK[u]&&Date.now()-IMGOK[u]<7*24*3600*1000)return Promise.resolve(true);
+  return new Promise(function(res){
+    const im=new Image();
+    const t=setTimeout(function(){res(true);},8000);
+    im.onload=function(){clearTimeout(t);IMGOK[u]=Date.now();res(true);};
+    im.onerror=function(){clearTimeout(t);res(false);};
+    im.src=u;
+  });
+}
+async function scanBroken(){
+  const list=PRODUCTS.filter(function(p){const c=cacheOf(p);return c&&c.img;});
+  let i=0;
+  async function w(){
+    while(i<list.length){
+      const p=list[i++],c=cacheOf(p);
+      const ok=await imgTest(c.img);
+      if(!ok)BROKEN[pkey(p.name)]=1;
+    }
+  }
+  await Promise.all(Array.from({length:20},function(_,k){return k;}).map(w));
+  try{localStorage.setItem(IMGOK_KEY,JSON.stringify(IMGOK));}catch(e){}
+}
+
 /* 상품 상세 1건 수집 — masterc.kr 위에서 도니까 로그인 세션이 그대로 붙는다 */
 /* 첫 번째 첨부 사진이 깨진 파일인 게시물이 있어(살치살 2026-08-09) 실제로 로드되는 첫 사진을 고른다 */
 function imgLoads(u){
@@ -280,7 +317,10 @@ async function scrape(url){
   for(let i=0;i<Math.min(5,cands.length);i++){
     if(await imgLoads(cands[i])){img=cands[i];break;}
   }
-  if(!img&&cands.length)img=cands[0];
+  /* 후보 5장이 전부 안 열리면(글의 첨부파일이 서버에서 사라진 경우) 일단 첫 장을 쓰되 '깨짐'으로 표시해,
+     이미 멀쩡한 사진이 있는 상품을 깨진 주소로 덮어쓰지 않게 한다. */
+  let bad=false;
+  if(!img&&cands.length){img=cands[0];bad=true;}
   const backs=cands.slice(0,6);   // 예비 사진 — 대표가 나중에 깨지면 취합 화면이 자동 교체한다
   let spec=[];
   const txt=(doc.body?doc.body.textContent:'')||'';
@@ -293,7 +333,7 @@ async function scrape(url){
       spec=d.split('※').slice(1).map(function(p){return '※ '+p.split(/○/)[0].replace(/\.\.\.$/,'').trim().replace(/\s+/g,' ');}).filter(function(s){return s.length>4&&s.length<80;}).slice(0,7);
     }
   }
-  return {img:img,spec:spec,backs:backs};
+  return {img:img,spec:spec,backs:backs,bad:bad};
 }
 
 /* ── 화면 ── */
@@ -342,8 +382,8 @@ W.id='mu-wrap';
 W.innerHTML='<div id="mu-hd"><b>📸 상품 사진·스펙 업데이트</b><button id="mu-x">×</button></div>'
 +'<div id="mu-body">'
 +'<div class="mu-sum" id="mu-sum"><span>불러오는 중…</span></div>'
-+'<div class="mu-row"><button class="mu-btn go" id="mu-fill" style="width:100%">🖼 사진 없는 상품 전부 채우기</button></div>'
-+'<div class="mu-row"><button class="mu-btn go" id="mu-runq" style="width:100%">⚡ 오늘 변경분(대기) 한번에 업데이트</button></div>'
++'<div class="mu-row"><button class="mu-btn go" id="mu-fill" style="width:100%">🖼 지금 손봐야 할 상품 전부 업데이트</button></div>'
++'<div id="mu-why" style="font-size:11px;color:#8a9a92;margin:-4px 0 9px;line-height:1.5"></div>'
 +'<div class="mu-row">'
 +'<button class="mu-btn q" data-pick="queue">📮 대기만 선택</button>'
 +'<button class="mu-btn" data-pick="missing">사진·스펙 없는 것</button>'
@@ -363,21 +403,26 @@ const $=function(id){return document.getElementById(id);};
 const log=function(m,keep){$('mu-log').textContent=keep?($('mu-log').textContent+'\n'+m):m;};
 $('mu-x').onclick=function(){W.style.display='none';};
 
-let PRODUCTS=[],CACHE={},LINKS={},QUEUE=[],SEL={},BUSY=false,LASTFAIL=[],FILTER='';
+let PRODUCTS=[],CACHE={},LINKS={},QUEUE=[],SEL={},BUSY=false,LASTFAIL=[],FILTER='',BROKEN={},OKLIST={};
 const cacheOf=p=>CACHE[pkey(p.name)];
 const linkOf=p=>{const c=cacheOf(p);return LINKS[pkey(p.name)]||(c&&c.link)||p.sheetUrl||'';};
 const noImg=p=>{const c=cacheOf(p);return !c||!c.img;};
 const noSpec=p=>{const c=cacheOf(p);return !c||!c.spec.length;};
 const isMissing=p=>noImg(p)||noSpec(p);
 const inQueue=p=>QUEUE.some(x=>pkey(x.name)===pkey(p.name));
+const isBroken=p=>!!BROKEN[pkey(p.name)];
+/* 🖼 큰 버튼이 고르는 대상 = 지금 손봐야 할 것 전부.
+   ① 사진 없음(창고가 빔) ② 사진 깨짐(주소는 있는데 안 열림) ③ 대기(엑셀 생성으로 값이 바뀐 상품 — 사진도 바뀌었을 수 있음) */
+const needsFix=p=>!OKLIST[pkey(p.name)]&&(noImg(p)||isBroken(p)||inQueue(p));
 
 /* 요약 칩 = 목록 필터. 누르면 아래 목록이 그 상품들만 보여준다(뭐가 문제인지 바로 확인). */
-const FILTERS={'':()=>true,queue:inQueue,noimg:noImg,nospec:noSpec,nolink:p=>!linkOf(p)};
+const FILTERS={'':()=>true,queue:inQueue,noimg:noImg,broken:isBroken,nospec:noSpec,nolink:p=>!linkOf(p)};
 function renderSum(){
   const chip=(k,label,n)=>'<span data-f="'+k+'"'+(FILTER===k?' class="on"':'')+'>'+label+' <b>'+n+'</b></span>';
   $('mu-sum').innerHTML=chip('','상품',PRODUCTS.length)
     +chip('queue','📮 대기',PRODUCTS.filter(inQueue).length)
     +chip('noimg','사진없음',PRODUCTS.filter(noImg).length)
+    +chip('broken','사진깨짐',PRODUCTS.filter(isBroken).length)
     +chip('nospec','스펙없음',PRODUCTS.filter(noSpec).length)
     +chip('nolink','링크없음',PRODUCTS.filter(p=>!linkOf(p)).length);
   const chips=$('mu-sum').querySelectorAll('span[data-f]');
@@ -400,6 +445,7 @@ function renderList(){
     if(inQueue(p))b.push('<span class="mu-badge q">대기</span>');
     if(!linkOf(p))b.push('<span class="mu-badge no">링크X</span>');
     if(!c||!c.img)b.push('<span class="mu-badge no">사진X</span>');
+    else if(isBroken(p))b.push('<span class="mu-badge no">사진깨짐</span>');
     if(!c||!c.spec.length)b.push('<span class="mu-badge no">스펙X</span>');
     if(c&&c.img&&c.spec.length)b.push('<span class="mu-badge">'+(c.updated||'')+'</span>');
     const su=sheetLink(p);
@@ -437,12 +483,13 @@ function renderRun(){
   const n=Object.keys(SEL).length;
   $('mu-run').textContent='선택 '+n+'건 업데이트';
   $('mu-run').disabled=(n===0||BUSY);
-  const nq=PRODUCTS.filter(inQueue).length;
-  $('mu-runq').textContent=nq?('⚡ 오늘 변경분 '+nq+'건 한번에 업데이트'):'⚡ 오늘 변경분 없음 (대기 0건)';
-  $('mu-runq').disabled=(nq===0||BUSY);
-  const nf=PRODUCTS.filter(noImg).length;
-  $('mu-fill').textContent=nf?('🖼 사진 없는 상품 '+nf+'건 전부 채우기 (링크 없으면 게시판에서 자동으로 찾음)'):'🖼 사진 없는 상품 없음 🎉';
+  const nq=PRODUCTS.filter(inQueue).length,ni=PRODUCTS.filter(noImg).length,nb=PRODUCTS.filter(isBroken).length;
+  const nf=PRODUCTS.filter(needsFix).length;
+  $('mu-fill').textContent=nf?('🖼 지금 손봐야 할 '+nf+'건 전부 업데이트'):'🖼 손봐야 할 상품 없음 🎉';
   $('mu-fill').disabled=(nf===0||BUSY);
+  $('mu-why').innerHTML=nf
+    ?('= 사진없음 '+ni+' · 사진깨짐 '+nb+' · 📮 대기 '+nq+' 중 ✓ 문제없음으로 넘긴 건 빼고 (겹치는 건 한 번만)<br>📮 대기 = 상품정보 업데이트에서 📗 엑셀 생성한 상품 — 값이 바뀌었으니 사진·스펙도 다시 받는 목록입니다. 이 버튼을 눌러야 줄어듭니다.')
+    :'사진없음·사진깨짐·📮 대기 모두 0건입니다.';
 }
 const picks=W.querySelectorAll('[data-pick]');
 for(let i=0;i<picks.length;i++){
@@ -548,15 +595,20 @@ async function runSelected(){
     const c=CACHE[k]||(CACHE[k]={name:x.t.name,id:'',img:'',spec:[],updated:'',link:''});
     c.name=x.t.name;c.link=x.t.url;c.id=idOf(x.t.url);
     // 수집 실패 시 기존 사진·스펙을 빈 값으로 덮어쓰지 않는다 (2026-08-09 왕갈치 사고)
-    if(x.r.img)c.img=x.r.img;
+    // 멀쩡한 사진을 '안 열리는 사진'으로 바꾸지도 않는다 (2026-08-11)
+    if(x.r.img&&!(x.r.bad&&c.img))c.img=x.r.img;
     if(x.r.spec.length)c.spec=x.r.spec;
     if(x.r.backs&&x.r.backs.length)c.backs=x.r.backs;
     if(x.r.img||x.r.spec.length)c.updated=today;
-    if(!x.r.img||!x.r.spec.length)fails.push(x.t);
+    if(x.r.bad)x.t.badImg=true;
+    if(!x.r.img||!x.r.spec.length||x.r.bad)fails.push(x.t);
   }
+  /* 대기에서 빼는 기준 = 사진을 새로 받아왔는가. (예전엔 스펙까지 있어야 빠져서,
+     ※ 스펙 문구가 없는 글은 대기에 영원히 남아 있었다 — 2026-08-11 사장님 지적) */
   const okNames={};
-  done0.forEach(function(x){if(x.r.img&&x.r.spec.length)okNames[x.t.key]=1;});
+  done0.forEach(function(x){if(x.r.img||x.r.spec.length)okNames[x.t.key]=1;});
   QUEUE=QUEUE.filter(function(x){return !okNames[pkey(x.name)];});
+  done0.forEach(function(x){if(x.r.img&&!x.r.bad)delete BROKEN[x.t.key];});
   const j=await saveCache();
   const jq=await saveQueue();
   BUSY=false;renderSum();renderList();
@@ -573,7 +625,9 @@ async function runSelected(){
   if(fails.length){
     $('mu-fail').style.display='block';
     $('mu-faillist').innerHTML=fails.map(function(t){
-      const why=!t.url?'링크 없음':'링크는 있는데 상품정보를 못 읽음(글이 삭제·이동됐을 수 있음)';
+      const why=!t.url?'링크 없음'
+        :(t.badImg?'글은 멀쩡한데 <b>붙어 있는 사진 파일이 서버에서 사라졌습니다</b> — 그 글에 사진을 다시 올려주셔야 합니다'
+                  :'링크는 있는데 상품정보를 못 읽음(글이 삭제·이동됐을 수 있음)');
       const go=t.sheet?(' <a class="mu-go" href="'+t.sheet+'" target="_blank" rel="noopener">시트↗ '+t.tab+' '+t.cell+'</a>'):'';
       return '· ['+t.wh+'] '+t.name.replace(/</g,'&lt;')+go+'<br>&nbsp;&nbsp;'+(t.url?('<a href="'+t.url+'" target="_blank">'+t.url+'</a> — '):'')+why;
     }).join('<br>');
@@ -581,24 +635,15 @@ async function runSelected(){
   renderRun();
 }
 
-/* 🖼 사진 없는 상품 전부 채우기 — 사장님이 누르는 기본 버튼.
+/* 🖼 지금 손봐야 할 것 전부 — 사장님이 누르는 단 하나의 버튼.
+   사진없음 + 사진깨짐 + 📮 대기를 한꺼번에 처리한다(예전엔 버튼 두 개로 나뉘어 있어 대기가 안 지워졌음).
    링크 있는 건 그 페이지에서, 링크 없는 건 게시판 제목 검색으로 찾아서 채운다. */
 $('mu-fill').onclick=function(){
   if(BUSY)return;
-  const t=PRODUCTS.filter(noImg);
-  if(!t.length){log('🎉 사진 없는 상품이 없습니다.');return;}
+  const t=PRODUCTS.filter(needsFix);
+  if(!t.length){log('🎉 손봐야 할 상품이 없습니다.');return;}
   SEL={};t.forEach(p=>SEL[pkey(p.name)]=1);
-  FILTER='noimg';renderSum();renderList();renderRun();
-  runSelected();
-};
-
-/* ⚡ 오늘 변경분 한번에 — 상품정보 업데이트(byeondong 엑셀 생성)에서 쌓인 대기 목록을 고르고 바로 실행 */
-$('mu-runq').onclick=function(){
-  if(BUSY)return;
-  const q=PRODUCTS.filter(inQueue);
-  if(!q.length){log('📮 대기 목록이 비어 있습니다. (상품정보 업데이트에서 📗 엑셀 생성을 하면 여기에 쌓입니다)');return;}
-  SEL={};q.forEach(p=>SEL[pkey(p.name)]=1);
-  FILTER='queue';renderSum();renderList();renderRun();
+  renderSum();renderList();renderRun();
   runSelected();
 };
 $('mu-failcp').onclick=function(){
@@ -611,12 +656,15 @@ $('mu-failcp').onclick=function(){
 (async function(){
   try{
     log('유통시트·링크시트·캐시 불러오는 중…');
-    const r=await Promise.all([loadProducts(),loadCache(),loadLinks(),loadQueue().catch(function(){return [];})]);
-    PRODUCTS=r[0];CACHE=r[1];LINKS=r[2];QUEUE=r[3];
+    const r=await Promise.all([loadProducts(),loadCache(),loadLinks(),loadQueue().catch(function(){return [];}),loadOkList().catch(function(){return {};})]);
+    PRODUCTS=r[0];CACHE=r[1];LINKS=r[2];QUEUE=r[3];OKLIST=r[4];
     renderSum();renderList();renderRun();
-    const nq=PRODUCTS.filter(inQueue).length;
-    log(nq?('📮 상품정보 업데이트에서 넘어온 대기 '+nq+'건이 있습니다. [📮 업데이트 대기]로 한 번에 고를 수 있어요.')
-         :'준비 완료. 업데이트할 상품을 고르세요.');
+    log('🩹 사진이 실제로 열리는지 검사 중… (처음 한 번만 오래 걸립니다)');
+    await scanBroken();
+    renderSum();renderList();renderRun();
+    const nf=PRODUCTS.filter(needsFix).length;
+    log(nf?('위의 [🖼 지금 손봐야 할 '+nf+'건 전부 업데이트]만 누르시면 됩니다.')
+         :'✅ 사진·스펙 모두 최신입니다. 손볼 게 없습니다.');
   }catch(e){log('❌ '+(e.message||e));}
 })();
 
