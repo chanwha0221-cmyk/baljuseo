@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.583</title>
+<title>발주서 변환기 v22.584</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -46,16 +46,20 @@ textarea::placeholder{color:var(--text3)}
 .log-pill{flex:1;margin:0 12px;font-size:11px;padding:4px 12px;border-radius:20px;background:var(--surface2);color:var(--text3);font-family:'JetBrains Mono',monospace;border:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
 .log-pill.warn{background:var(--warn-bg);color:var(--warn);border-color:#fcd34d}
 .log-pill.ok{background:var(--ok-bg);color:var(--ok);border-color:#b7ddc8}
-.rules-bar{background:var(--surface2);border-top:1px solid var(--border);padding:6px 20px;display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
-.rules-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;padding-top:4px}
-#rules{flex:1;border:1px solid var(--border2);border-radius:5px;padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;resize:none;height:52px;color:var(--text);background:var(--surface);outline:none;}
-#rules::placeholder{color:var(--text3)}
+/* 변환 대조 바 (2026-08-11 사장님 지시 — 임시규칙 칸 자리): 입력 주문건 ↔ 변환건 대조로 누락 즉시 발견 */
+.recon-bar{background:var(--surface2);border-top:1px solid var(--border);padding:6px 20px;display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
+.recon-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;padding-top:4px}
+.recon-body{flex:1;border:1px solid var(--border2);border-radius:5px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;color:var(--text3);background:var(--surface);min-height:30px;max-height:150px;overflow-y:auto}
+.recon-body.ok{background:var(--ok-bg);color:var(--ok);border-color:#b7ddc8}
+.recon-body.bad{background:#fef2f2;color:#b91c1c;border-color:#fca5a5;font-weight:700}
+.recon-list{margin-top:5px;font-weight:400;font-size:11px;color:#7f1d1d;line-height:1.7;word-break:break-all}
+.recon-note{margin-top:4px;font-weight:400;font-size:11px;color:var(--text3)}
 </style>
 </head>
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.583</span>
+  <span class="ver">v22.584</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -74,9 +78,9 @@ textarea::placeholder{color:var(--text3)}
     <textarea id="out" readonly placeholder="변환 결과가 여기에 나타납니다.&#10;엑셀에 그대로 붙여넣으세요."></textarea>
   </div>
 </div>
-<div class="rules-bar">
-  <span class="rules-label">임시 규칙</span>
-  <textarea id="rules" placeholder="후포리 박달홍게 4kg > 후후포리 박달홍게 4kg&#10;원래 상품명 > 바꿀 상품명  (한 줄에 하나, > 또는 →)"></textarea>
+<div class="recon-bar">
+  <span class="recon-label">변환 대조</span>
+  <div class="recon-body" id="recon">변환하면 여기서 <b>입력 주문건 ↔ 변환건</b>을 대조합니다. 빠진 주문이 있으면 원문을 그대로 띄웁니다.</div>
 </div>
 <details style="background:var(--surface2);border-top:1px solid var(--border);padding:4px 20px;flex-shrink:0;font-size:11px;color:var(--text3)">
   <summary style="cursor:pointer;font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:11px;user-select:none">📖 자동 예외 규칙 (도구가 알아서 처리 — "왜 이렇게 나왔지?" 싶을 때)</summary>
@@ -84,7 +88,7 @@ textarea::placeholder{color:var(--text3)}
     · <b>전화번호 앞 0 복원</b> — 엑셀 복사로 앞 0이 잘린 번호(<code>1039727072</code>)는 자동으로 0을 붙여 <code>010-3972-7072</code>로 복원. 지역번호(02/031…)·안심번호(0502/0504)·070 다 커버, 1577·1833 같은 8자리 대표번호는 그대로.<br>
     · <b>민물장어 괄호 유지</b> — 민물장어는 괄호가 옵션(예: <code>(장어뼈 주세요)</code> 없으면 뼈·머리 안 줌)이라 홍어 삭힘 괄호처럼 절대 안 지우고 들어온 그대로 유지.<br>
     · <b>나행상회·자은엔앤피 상품명 표준 치환</b> — 발주명이 제각각이라 키워드로 고정: 고바멸치→<b>프리미엄 햇고바멸치 1박스</b> · 대극천 복숭아→프리미엄 대극천 복숭아(무게 유지) · 등갈비→초특가 국내산 등갈비 1kg · 가브리살→녹돈 담백 가브리살 500g · 유정란→난각 1번=자연방사/2번=동물복지 표준명(○구 유지) · 사과 3kg→꼬마 부사사과 3kg. 옵션칸이 '기본'류면 상품명 기준.<br>
-    · 그 외 업체별 규칙(무료배송 상자분리·옥돔 마리 통일·신선한아침 등)은 코드 주석 참고. 일회성 이름 바꾸기는 위 <b>임시 규칙</b> 칸을 쓰세요.
+    · 그 외 업체별 규칙(무료배송 상자분리·옥돔 마리 통일·신선한아침 등)은 코드 주석 참고.
   </div>
 </details>
 <div class="sheet-bar" style="background:var(--surface2);border-top:1px solid var(--border);padding:6px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0">
@@ -339,7 +343,10 @@ function parseLooseBoardRow(line){
   else{const nm=rest.match(/^([가-힣]{2,6})\s+(.+)$/);if(nm){custName=nm[1];custAddr=nm[2];}else{custName=rest;custAddr='';}}
   return[orderClient,orderAddr,orderPhone,'',product,custName,custAddr,custPhone,after].join('\t');
 }
+// 앞 행에 흡수된 줄 중 '발주 한 건'으로 보이는 것 (전화번호 or 수량 보유) — 대조 바에서 누락 후보로 표시
+var mergeSuspects=[];
 function mergeLines(raw){
+  mergeSuspects=[];
   // CSV 스타일로 파싱 (멀티라인 따옴표 셀 처리) → 각 행을 탭 조인한 문자열로 변환
   const csvRows=csvParseRows(raw);
   const lines=csvRows.map(r=>r.join('\t'));
@@ -411,7 +418,12 @@ function mergeLines(raw){
     // 수량(x N)과 전화형 토큰이 둘 다 있으면 발주 한 건짜리 줄이다 — 파싱 실패로 앞 행에
     // 흡수시키면 발주가 통째로 증발하므로 독립 행으로 남긴다(pr2가 처리하거나 '파싱 실패' 경고로 드러남)
     else if(/[xX×]\s*\d+/.test(pp2)&&/(?:0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11})(?!\d)/.test(pp2)){merged.push(pp2);}
-    else{merged[merged.length-1]=merged[merged.length-1]+'\t'+pp2;}
+    else{
+      // 조각(주소 뒷부분 등)이면 정상 병합이지만, 전화번호나 수량을 달고 있으면 발주 한 건이 통째로
+      // 앞 행에 먹혔을 수 있다 → 대조 바에 누락 후보로 올려 사장님이 눈으로 확인 (2026-08-11)
+      if(/[xX×]\s*\d+/.test(pp2)||/(?:0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11})(?!\d)/.test(pp2))mergeSuspects.push(pp2);
+      merged[merged.length-1]=merged[merged.length-1]+'\t'+pp2;
+    }
   }
   return merged;
 }
@@ -795,11 +807,34 @@ function pr2(line){
   }
   return{client:cl,ca:ca2,cp,prod,nameRaw:nr,address:addr,custPhone,msg,qty,qtyColValue};
 }
-function parseRules(){
-  return (document.getElementById('rules').value||'').split('\n').map(l=>{
-    const parts=l.split(/→|->|>/).map(s=>s.trim());
-    return(parts.length===2&&parts[0]&&parts[1])?{from:parts[0],to:parts[1]}:null;
-  }).filter(Boolean);
+// ─── 변환 대조 (2026-08-11 사장님 지시) ───────────────────────────────
+// 입력 주문건과 변환건이 안 맞으면 무조건 빨갛게 띄운다. 조용한 누락 = 미출고 사고.
+function _esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function _cut(s,n){s=String(s).replace(/\t/g,' │ ').replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n)+'…':s;}
+// 멀티 업체 블록 변환은 runSingle을 블록마다 호출하므로, 누적해서 마지막에 한 번만 렌더한다
+var _reconAcc=null;
+function showRecon(html,state){
+  const el=document.getElementById('recon');if(!el)return;
+  el.className='recon-body'+(state?' '+state:'');el.innerHTML=html;
+}
+// inN=인식한 주문건 / okN=출력에 반영된 주문건 / dropped=[{line,why}] / suspects=[원문줄] / outN=출력 행수
+function reconReport(inN,okN,dropped,suspects,outN){
+  if(_reconAcc){   // 블록 변환 중 — 누적만
+    _reconAcc.in+=inN;_reconAcc.ok+=okN;_reconAcc.out+=outN;
+    _reconAcc.dropped=_reconAcc.dropped.concat(dropped);_reconAcc.susp=_reconAcc.susp.concat(suspects);
+    return;
+  }
+  const missN=dropped.length+suspects.length;
+  if(missN===0){
+    showRecon('✅ 입력 주문 <b>'+inN+'건</b> → 변환 <b>'+okN+'건</b> · 출력 '+outN+'행 — <b>누락 없음</b>','ok');
+    return;
+  }
+  const items=dropped.map(d=>'· <b>['+_esc(d.why)+']</b> '+_esc(_cut(d.line,150)))
+    .concat(suspects.map(s=>'· <b>[앞 행에 붙어버림]</b> '+_esc(_cut(s,150))));
+  // 흡수된 줄은 인식 건수(inN)에 안 잡히므로 총 입력건에 더해 표기 ("1건 중 1건인데 1건 빠짐" 같은 어색함 방지)
+  showRecon('🚨 입력 주문 <b>'+(inN+suspects.length)+'건</b> 중 <b>'+okN+'건만 변환</b> — <b>'+missN+'건 빠짐</b> (출력 '+outN+'행)'
+    +'<div class="recon-list">'+items.join('<br>')+'</div>'
+    +'<div class="recon-note">빠진 건은 위 원문을 확인하고 따로 입력하세요.</div>','bad');
 }
 function preprocessBalbolLine(raw){
   if(!raw.includes('///'))return null;
@@ -1429,6 +1464,7 @@ function run(){
   if(!blocks){ runSingle(); return; }            // 단일 업체 = 기존 로직 그대로(무위험)
   const outEl=document.getElementById('out');
   const outs=[];
+  _reconAcc={in:0,ok:0,out:0,dropped:[],susp:[]};   // 블록별 대조 결과 누적 (2026-08-11)
   // try/finally — 블록 변환 중 에러가 나도 입력칸이 일부 블록만 남은 채 방치되지 않게 원본 복원
   try{
     for(const b of blocks){
@@ -1442,6 +1478,8 @@ function run(){
   }finally{
     inpEl.value=full;
   }
+  const _acc=_reconAcc;_reconAcc=null;
+  if(_acc)reconReport(_acc.in,_acc.ok,_acc.dropped,_acc.susp,_acc.out);
   const merged=outs.join('\n');
   outEl.value=merged;
   const outN=merged.split('\n').filter(function(l){return l.trim();}).length;
@@ -1503,6 +1541,7 @@ function runSingle(){
     document.getElementById('out-count').textContent=out.length+' 행';
     document.getElementById('s-warn').textContent=0;
     autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
+    reconReport(out.length,out.length,[],[],out.length);
     sl('배민대용량 '+out.length+'행 출력','ok');
     return;
   }
@@ -1535,24 +1574,23 @@ function runSingle(){
     if(!input){sl('세로형 카톡 발주 파싱 실패','warn');return;}
     sl('세로형 카톡 발주 감지 — 자동 변환 중...');
   }
-  const rules=parseRules();const lines=mergeLines(input);
+  const lines=mergeLines(input);
   document.getElementById('s-in').textContent=lines.length;
   document.getElementById('in-count').textContent=lines.length+' 행';
   sl(lines.length+'행 처리 중...');
-  const out=[];
+  const out=[];const dropped=[];let okOrders=0;   // 대조용 (2026-08-11)
   if(pendingHistory.length>0){dayHistory=dayHistory.concat(pendingHistory.filter(p=>!dayHistory.some(h=>h.key===p.key)));}
   pendingHistory=[];const dupNames=[];let lastRunClient='';
   for(const line of lines){
-    if(line.indexOf('⟪HG⟫')===0){out.push(line.slice(4));lastRunClient='혜인건강';continue;}
-    const row=pr2(line);if(!row){sl('파싱 실패: '+line.slice(0,30),'warn');continue;}
+    if(line.indexOf('⟪HG⟫')===0){out.push(line.slice(4));okOrders++;lastRunClient='혜인건강';continue;}
+    const row=pr2(line);if(!row){sl('파싱 실패: '+line.slice(0,30),'warn');dropped.push({line:line,why:'파싱 실패'});continue;}
     let{client,ca:cla,cp,prod,nameRaw,address,custPhone,msg,qty,qtyColValue}=row;
     if(!client&&lastRunClient)client=lastRunClient;else if(client)lastRunClient=client;
-    if(client==='식봄'&&address.includes('동해시 대학로 16')){sl('식봄 대표님 주소 제외: '+nameRaw,'warn');continue;}
+    if(client==='식봄'&&address.includes('동해시 대학로 16')){sl('식봄 대표님 주소 제외: '+nameRaw,'warn');dropped.push({line:line,why:'제외 — 식봄 대표님 주소'});continue;}
     let cfg=CC[client]||{};if(!CC[client])sl('미등록 업체: '+client,'warn');
     const iv=cfg.insert||'';
     const{name:rawName,qty:fq,maxB,suffix}=pp(client,prod,qty);   // suffix = 수량 뒤에 붙는 보존 괄호 (민물장어 옵션 등)
     const finalQty=fq*(qtyColValue||1);let name=rawName;
-    for(const rule of rules){if(name.includes(rule.from))name=name.replace(rule.from,rule.to);}
     const dupKey=(nameRaw+'|'+address).replace(/\s/g,'');
     if(dayHistory.some(h=>h.key===dupKey))dupNames.push(nameRaw);
     const salesClient=cfg.insert||client;
@@ -1561,6 +1599,7 @@ function runSingle(){
     const sfx=suffix?' '+suffix:'';
     if(name.includes(' / ')){out.push(br(client,cfg,name+sfx,nameRaw,ord,iv));}
     else{let rem=finalQty;while(rem>0){const cur=Math.min(rem,maxB);out.push(br(client,cfg,name+' x '+cur+sfx,nameRaw,ord,iv));rem-=cur;}}
+    okOrders++;
   }
   document.getElementById('out').value=applyClientAlias(out.join('\n'));
   document.getElementById('s-out').textContent=out.length;
@@ -1571,6 +1610,7 @@ function runSingle(){
   const cc=out.map(function(r){return r.split('\t').length;});
   const ccBad=cc.filter(function(n){return n!==9&&n!==10;}).length;
   const ccTxt=' [10칸 '+cc.filter(function(n){return n===10;}).length+'·9칸 '+cc.filter(function(n){return n===9;}).length+']';
+  reconReport(lines.length,okOrders,dropped,mergeSuspects,out.length);   // 입력↔변환 대조 (2026-08-11)
   if(ccBad>0){sl('🚨 칸수 이상 '+ccBad+'행 — 시트 붙여넣기 전 확인!'+ccTxt,'warn');}
   else if(dupNames.length>0){sl('⚠️ 중복 발주 의심: '+dupNames.join(', ')+ccTxt,'warn');}
   else{sl('완료 — '+out.length+'행 출력, 주의 '+wc+'건'+ccTxt,wc>0?'warn':'ok');}
@@ -1581,6 +1621,7 @@ function clearAll(){
   ['s-in','s-out','s-warn'].forEach(id=>document.getElementById(id).textContent='0');
   document.getElementById('in-count').textContent='0 행';document.getElementById('out-count').textContent='0 행';
   autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
+  showRecon('변환하면 여기서 <b>입력 주문건 ↔ 변환건</b>을 대조합니다. 빠진 주문이 있으면 원문을 그대로 띄웁니다.','');
   wc=0;sl('초기화됨');
 }
 function autoResize(el){
