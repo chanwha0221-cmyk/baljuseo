@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.585</title>
+<title>발주서 변환기 v22.586</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -59,7 +59,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.585</span>
+  <span class="ver">v22.586</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -275,7 +275,8 @@ function isHeaderRow(line){const first=toTsv(line).split('\t')[0].trim();return 
 function isDataHeader(line){const cols=toTsv(line).split('\t');return cols.length>=3&&cols[0].trim()==='주문처';}
 // CSV-style 파서: Excel/Sheets에서 복사한 멀티라인 셀("...\n..." 형태)을 한 셀로 인식
 // 셀 안의 줄바꿈은 ' / ' (슬래시 합포장)으로 변환해서 기존 슬래시 로직이 처리하게 함
-function csvParseRows(input){
+// CSV 파싱 코어. useQuotes=false면 따옴표를 일반 문자로 취급한다(삼킴 사고 폴백용)
+function _csvParseCore(input,useQuotes){
   const rows=[];let row=[];let cell='';let inQuotes=false;
   for(let i=0;i<input.length;i++){
     const c=input[i];
@@ -286,7 +287,7 @@ function csvParseRows(input){
       }else{cell+=c;}
     }else{
       // 따옴표는 '셀 시작 위치'에서만 quote-opener로 인식 (mid-cell stray " 보호)
-      if(c==='"'&&cell===''){inQuotes=true;}
+      if(useQuotes&&c==='"'&&cell===''){inQuotes=true;}
       else if(c==='\t'){row.push(cell);cell='';}
       else if(c==='\n'||c==='\r'){
         if(c==='\r'&&input[i+1]==='\n')i++;
@@ -297,6 +298,34 @@ function csvParseRows(input){
     }
   }
   if(cell||row.length>0){row.push(cell);if(row.some(x=>x.trim()))rows.push(row);}
+  return rows;
+}
+// ══════════════════════════════════════════════════════════════════════
+// 🚨 2026-08-11 에버몰 40건 증발 사고 — 원문 중간의 짝 안 맞는 따옴표(") 하나가
+//    그 뒤 40개 발주 행을 통째로 한 셀에 삼켰다. 삼킨 셀은 줄바꿈이 ' / '로 치환돼
+//    상품명 뒤에 붙고(출력의 '/에버몰 … / 에버몰 공란' 행), 40건은 출력에서 사라진다.
+//    파싱 실패도 흡수도 아니라 경고조차 안 떴다 = 가장 위험한 조용한 누락.
+//  → 한 셀 안에 다른 주문이 섞여 들어온 게 보이면 따옴표를 무시하고 통째로 재파싱한다.
+//    (발주 데이터에서 따옴표 셀은 드물고, 삼킴 사고는 비교할 수 없이 치명적)
+// ══════════════════════════════════════════════════════════════════════
+var _quoteFallback=0;
+function _quoteSwallowed(rows){
+  const PH=/(?:0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11})(?!\d)/g;
+  for(const r of rows)for(const c of r){
+    if(String(c).indexOf('\n')<0)continue;              // 줄바꿈 없는 셀은 삼킴 아님
+    const n=(String(c).match(PH)||[]).length;
+    if(n>=2)return true;                                // 한 셀에 전화 2개 이상 = 다른 주문이 섞였다
+  }
+  return false;
+}
+function csvParseRows(input){
+  _quoteFallback=0;
+  let rows=_csvParseCore(input,true);
+  if(_quoteSwallowed(rows)){
+    const before=rows.length;
+    rows=_csvParseCore(input,false);
+    _quoteFallback=rows.length-before;                  // 따옴표 무시로 되살아난 행 수
+  }
   // 셀 안의 잔여 줄바꿈을 슬래시(/)로 변환 + 셀 전체를 감싸는 따옴표는 방어적으로 제거
   return rows.map(r=>r.map(c=>{
     let t=c.replace(/[\r\n]+/g,' / ');
@@ -840,12 +869,19 @@ function _phones(s){return (String(s).match(_PH_RE)||[]).map(_digits);}
 // 원문 한 줄에서 '이 주문을 식별하는 열쇠' = 마지막 전화번호(수령인). 주문처 전화는 전 행 공통이라 열쇠가 못 된다.
 function reconRaw(raw,outText){
   const outSet=new Set(_phones(outText));
+  const lines=String(raw).split('\n').map(l=>l.replace(/\r/g,'')).filter(l=>l.trim());
+  // 주문처 전화는 전 행에 반복되므로 열쇠가 못 된다 → 절반 이상 줄에 나오는 번호는 제외.
+  // (같은 수령인이 2건 주문한 경우는 이 문턱에 안 걸려 열쇠로 살아남는다)
+  const freq={};
+  lines.forEach(l=>{new Set(_phones(l)).forEach(p=>{freq[p]=(freq[p]||0)+1;});});
+  // 문턱 80% — 50%로 두면 3~4건짜리 소량 발주에서 '같은 수령인 2건'이 주문처 전화로 오인돼
+  // 그 사람 주문이 통째로 카운트·누락감지에서 빠진다(2026-08-11 검증 중 발견).
+  const th=Math.max(3,Math.ceil(lines.length*0.8));
+  const common=new Set(Object.keys(freq).filter(p=>freq[p]>=th));
   const seen=new Set(),missing=[];let orders=0;
-  for(const ln of String(raw).split('\n')){
-    const line=ln.replace(/\r/g,'');
-    if(!line.trim())continue;
-    const ph=_phones(line);
-    if(!ph.length)continue;                 // 전화 없는 줄 = 헤더·조각 → 주문으로 안 셈
+  for(const line of lines){
+    const ph=_phones(line).filter(p=>!common.has(p));
+    if(!ph.length)continue;                 // 수령인 전화가 없는 줄 = 헤더·조각 → 주문으로 안 셈
     const key=ph[ph.length-1];
     if(seen.has(key))continue;              // 같은 수령인 전화 = 같은 주문이 여러 줄로 감긴 것
     seen.add(key);orders++;
@@ -865,11 +901,13 @@ function finishRecon(){
   const r=reconRaw(_rawAll,outText);
   const p=reconProducts(_rawAll,outText);
   const okN=r.orders-r.missing.length;
+  const qLine=_quoteFallback>0
+    ?'<div class="recon-note">🔧 원문에 짝 안 맞는 따옴표(")가 있어 <b>'+_quoteFallback+'행이 한 칸에 뭉쳐 있었습니다</b> — 따옴표를 무시하고 다시 읽어 살렸습니다.</div>':'';
   const qtyLine=(p.inQty!==p.outQty)
     ?'<div class="recon-note">📦 상품 수량 <b>원문 '+p.inQty+'개 → 출력 '+p.outQty+'개</b> — 수량도 안 맞습니다.</div>'
     :'<div class="recon-note">📦 상품 수량 원문 '+p.inQty+'개 = 출력 '+p.outQty+'개 ✓</div>';
   if(r.missing.length===0){
-    showRecon('✅ 원문 주문 <b>'+r.orders+'건</b> → 변환 <b>'+okN+'건</b> · 출력 '+outN+'행 — <b>누락 없음</b>'+qtyLine,'ok');
+    showRecon('✅ 원문 주문 <b>'+r.orders+'건</b> → 변환 <b>'+okN+'건</b> · 출력 '+outN+'행 — <b>누락 없음</b>'+qLine+qtyLine,'ok');
     return;
   }
   const why={};
@@ -881,7 +919,7 @@ function finishRecon(){
   });
   showRecon('🚨 원문 주문 <b>'+r.orders+'건</b> 중 <b>'+okN+'건만 변환</b> — <b>'+r.missing.length+'건 누락</b> (출력 '+outN+'행)'
     +'<div class="recon-list">'+items.join('<br>')+'</div>'
-    +qtyLine
+    +qLine+qtyLine
     +'<div class="recon-note">⚠️ 위 원문 그대로 따로 변환해서 시트에 추가하세요.</div>','bad');
 }
 function preprocessBalbolLine(raw){
