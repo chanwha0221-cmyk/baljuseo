@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v3.0</title>
+<title>외부 업체 등록 도구 v3.1</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -44,7 +44,12 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 .field label{font-size:11px;font-weight:500;color:var(--text2);display:flex;justify-content:space-between;gap:6px}
 .field input{padding:8px 10px;border:1px solid var(--border2);border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);background:var(--surface);outline:none;transition:border .1s}
 .field input:focus{border-color:var(--accent)}
-.field.parsed input{background:#f5fbf7;border-color:#b7ddc8}
+.field select{padding:8px 10px;border:1px solid var(--border2);border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);background:var(--surface);outline:none}
+.field select:focus{border-color:var(--accent)}
+.chk{display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid var(--border2);border-radius:5px;background:var(--surface);font-size:12px;font-family:'JetBrains Mono',monospace;cursor:pointer;user-select:none}
+.chk input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;padding:0;flex:none}
+.chk b{color:var(--accent)}
+.field.parsed input,.field.parsed select{background:#f5fbf7;border-color:#b7ddc8}
 .bizno-badge{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700}
 .bizno-badge.ok{color:var(--ok)}
 .bizno-badge.warn{color:var(--warn)}
@@ -74,7 +79,7 @@ details.extra .form-grid{margin-top:10px}
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v3.0 통합등록</span>
+  <span class="ver">v3.1 통합등록</span>
   <span class="subtitle">사업자등록증 + 업체자료 조합 → 리모컨 붙여넣기</span>
 </header>
 <div class="main">
@@ -113,7 +118,8 @@ details.extra .form-grid{margin-top:10px}
       <div class="field" id="field-chAlias"><label>외부채널별칭</label><input type="text" id="chAlias"></div>
       <div class="field" id="field-bizName"><label>사업자명 (상호)</label><input type="text" id="bizName"></div>
       <div class="field" id="field-bizNo"><label>사업자번호 <span class="bizno-badge" id="biznoBadge"></span></label><input type="text" id="bizNo" placeholder="000-00-00000"></div>
-      <div class="field" id="field-cycle"><label>정산주기</label><input type="text" id="cycle" value="일정산"></div>
+      <div class="field" id="field-active"><label>활성여부 <span style="color:var(--text3)">자동</span></label><label class="chk"><input type="checkbox" id="active" checked><b>TRUE</b> (체크 = 활성)</label></div>
+      <div class="field" id="field-cycle"><label>정산주기 <span style="color:var(--text3)">기본 일정산</span></label><select id="cycle"><option value="일정산" selected>일정산</option><option value="주정산">주정산</option><option value="월정산">월정산</option></select></div>
       <div class="field" id="field-rep"><label>대표자</label><input type="text" id="rep"></div>
       <div class="field span2" id="field-addr"><label>사업장주소</label><input type="text" id="addr"></div>
       <div class="field" id="field-uptae"><label>업태</label><input type="text" id="uptae"></div>
@@ -146,7 +152,7 @@ details.extra .form-grid{margin-top:10px}
       <button class="btn primary" id="combineBtn">⚡ 조합 (생성 + 복사)</button>
       <button class="btn copy-btn" id="copyBtn">복사만 다시</button>
       <button class="btn" id="clearBtn">초기화</button>
-      <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">리모컨 붙여넣기용 23칸 한 줄</span>
+      <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">리모컨 붙여넣기용 24칸 한 줄 (활성여부 포함)</span>
     </div>
     <textarea id="tsvOutput" readonly placeholder="[조합] 누르면 리모컨에 붙여넣을 한 줄이 생기고, 클립보드에 자동 복사됩니다."></textarea>
     <div class="preview-wrap" id="previewWrap">
@@ -159,19 +165,27 @@ details.extra .form-grid{margin-top:10px}
 </div>
 
 <script>
-// 리모컨 컬럼 순서 (2026-08-10 사장님 헤더 그대로 — 활성여부 없음 주의, 옛 ERP 18칸과 다름)
+// 리모컨 컬럼 순서 (2026-08-11 v3.1: 사업자번호 뒤 활성여부 체크박스 칸 복구 = 24칸)
+// ⚠️ 활성여부는 헤더엔 안 보여도 그리드가 체크박스 칸을 한 칸 소비함 — 빼면 뒤 칸 전부 한 칸씩 밀림 (v1.9·v3.0 두 번 같은 사고)
 const COLS = [
   ['외부채널명','chName'],['사업자명','bizName'],['외부채널별칭','chAlias'],['사업자번호','bizNo'],
-  ['정산주기','cycle'],['담당자','mgr1'],['연락처','tel1'],['이메일(시트)','mail1'],['가입아이디','uid1'],
+  ['활성여부','active'],['정산주기','cycle'],['담당자','mgr1'],['연락처','tel1'],['이메일(시트)','mail1'],['가입아이디','uid1'],
   ['담당자2','mgr2'],['연락처2','tel2'],['이메일(시트)2','mail2'],['가입아이디2','uid2'],
   ['담당자3','mgr3'],['연락처3','tel3'],['이메일(시트)3','mail3'],['가입아이디3','uid3'],
   ['대표자','rep'],['사업장주소','addr'],['업태','uptae'],['종목','jongmok'],
   ['이메일(계산서)','taxMail'],['메모','memo']
 ];
 
-function g(id){ return document.getElementById(id).value.trim(); }
+function g(id){
+  const el = document.getElementById(id);
+  if (el.type === 'checkbox') return el.checked ? 'TRUE' : 'FALSE';
+  return el.value.trim();
+}
 function setField(id, val){
   const el = document.getElementById(id);
+  if (el.tagName === 'SELECT' && !Array.from(el.options).some(o => o.value === val)) {
+    el.appendChild(new Option(val, val));   // 파싱값이 목록에 없으면 그 값을 옵션으로 추가
+  }
   el.value = val;
   const wrap = document.getElementById('field-' + id);
   if (wrap) wrap.classList.add('parsed');
@@ -456,7 +470,10 @@ document.getElementById('sameMailBtn').addEventListener('click', (e) => {
 document.getElementById('clearBtn').addEventListener('click', () => {
   if (!confirm('입력 내용을 모두 지울까요?')) return;
   document.querySelectorAll('input[type=text], textarea').forEach(el => { el.value = ''; });
-  document.getElementById('cycle').value = '일정산';
+  document.getElementById('active').checked = true;
+  const cy = document.getElementById('cycle');
+  Array.from(cy.options).forEach(o => { if (!['일정산','주정산','월정산'].includes(o.value)) o.remove(); });
+  cy.value = '일정산';
   document.querySelectorAll('.field.parsed').forEach(f => f.classList.remove('parsed'));
   document.getElementById('previewWrap').classList.remove('show');
   document.getElementById('certStatus').textContent = '붙여넣으면 자동 파싱';
