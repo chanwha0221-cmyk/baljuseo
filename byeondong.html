@@ -964,11 +964,17 @@
   function applyToTab(gid, tab, insertIdx0, readStart1, nameIdx, gongIdx, addRows, addPk, delPk, rmBlanks, col0){
     col0=col0||0;
     var nameCol=colLetter(col0+nameIdx);   // 상품명 열 = 시작열 오프셋 + 블록 내 위치
-    return readRange(APPLY_ID, "'"+tab+"'!"+nameCol+readStart1+":"+nameCol).then(function(existing){
-      var pre=[];   // 삭제 대상 기존행(1-based): 중복상품 / 품절 / (rmBlanks면)빈행
-      existing.forEach(function(rr, idx){ var nm=cell(rr,0); var row1=readStart1+idx;
-        if(!nm){ if(rmBlanks) pre.push(row1); return; }
-        var k=pkey(nm); if(addPk[k]||delPk[k]) pre.push(row1);
+    // 🔴 중복 스캔은 '시작 행'과 무관하게 그 열 전체(1행~)를 본다 (2026-08-11 사장님: "당일생물만 같은 상품이 2개 남는다")
+    //   이유: 당일생물 섹션은 위쪽 공지 줄이 늘고 줄면서 시작 행이 계속 밀린다. 예전엔 시작 행(기본 24행)부터만 스캔해서
+    //   그 위로 밀려 올라간 기존 행은 못 보고 그냥 새 행을 얹었다 → 같은 상품 2줄. 창고 탭은 1행 헤더·2행 구분행 고정이라
+    //   안 밀려서 멀쩡했던 것. 이제 위치가 어디로 밀리든 같은 상품이면 무조건 지운다.
+    //   ※ 빈 행 청소(rmBlanks)는 위험하니 예전대로 시작 행 아래에서만 — 창고 탭 2행(색칠 구분행) 보호.
+    var scan1=1;
+    return readRange(APPLY_ID, "'"+tab+"'!"+nameCol+scan1+":"+nameCol).then(function(existing){
+      var pre=[], dupN=0;   // 삭제 대상 기존행(1-based): 중복상품 / 품절 / (rmBlanks면)빈행
+      existing.forEach(function(rr, idx){ var nm=cell(rr,0); var row1=scan1+idx;
+        if(!nm){ if(rmBlanks && row1>=readStart1) pre.push(row1); return; }
+        var k=pkey(nm); if(addPk[k]||delPk[k]){ pre.push(row1); if(addPk[k]) dupN++; }
       });
       var N=addRows.length, writeRow1=insertIdx0+1;
       var chain = (N>0)
@@ -977,8 +983,8 @@
             .then(function(){ return colorFmt(APPLY_ID, gid, insertIdx0, addRows, gongIdx, col0); })
         : Promise.resolve(true);
       return chain.then(function(){
-        var del = pre.map(function(r){ return (N>0 && (r-1)>=insertIdx0) ? r+N : r; });   // 삽입점 이하 행만 +N 밀림
-        return deleteRowsDesc(APPLY_ID, gid, del);
+        var del = pre.map(function(r){ return (N>0 && (r-1)>=insertIdx0) ? r+N : r; });   // 삽입점 이하 행만 +N 밀림 (위쪽 행은 안 밀림)
+        return deleteRowsDesc(APPLY_ID, gid, del).then(function(){ return { dup:dupN, del:pre.length }; });
       });
     }).catch(function(e){
       var m=String(e&&e.message||e);
@@ -987,6 +993,24 @@
       }
       throw e;
     });
+  }
+
+  // ===== 당일생물 섹션 위치 자동 인식 (2026-08-11) =====
+  // 팀마다·시기마다 위쪽 공지 줄 수가 달라 '당일생물' 섹션이 계속 위아래로 밀린다.
+  // 고정 숫자(기본 24행/설정 시작행) 대신 시트에서 '당일생물' 구분바를 찾아 그 아래 헤더 다음 행 = 첫 상품 행으로 본다.
+  // 못 찾으면 0 리턴 → 호출부가 기존 설정값으로 폴백.
+  function findNoticeStart(tab, col0){
+    col0=col0||0;
+    var cA=colLetter(col0), cB=colLetter(col0+1);
+    return readRange(APPLY_ID, "'"+tab+"'!"+cA+"1:"+cB).then(function(rows){
+      for(var i=0;i<rows.length;i++){
+        if(cell(rows[i],0).indexOf('당일생물')<0 && cell(rows[i],1).indexOf('당일생물')<0) continue;
+        var nx=rows[i+1]||[];
+        var isHdr=(cell(nx,0).indexOf('창고')>=0 || cell(nx,1).indexOf('상품명')>=0);   // 바 바로 아래가 제목줄이면 그 다음이 첫 상품
+        return (i+1) + (isHdr?2:1);   // 1-based
+      }
+      return 0;
+    }).catch(function(){ return 0; });
   }
 
   // ===== <○○창고 전상품> 일괄 변경 — 상품 행으로 안 넣고, 창고 탭에서 그 창고 상품들을 실제로 바꿈 =====
@@ -1055,7 +1079,7 @@
     var nBulk=uni.filter(function(it){return it.day.indexOf('당일')<0 && isBulkAll(it);}).length;
     if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 전체 '+items.length+'건\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제'+(nBulk?'\n· <창고 전상품> 일괄 '+nBulk+'건 → 그 창고 상품 택배사 변경 또는 특이사항 문구':'')+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건 → 마지막(최신) 건 기준 병합 (출시 있으면 최종가 출시로)':'')+(costDrop?'\n· 🚫 원가 관련 '+costDrop+'건 제외 — 업체 비노출(어떤 탭에도 안 넣음)':'')+'\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
     var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
-    var rep={ vari:0, notice:0, wh:{}, whGid:{}, poomDel:0, unmatched:[], variGid:0, variTab:'', noticeGid:0, noticeTab:'', bulk:[] };
+    var rep={ vari:0, notice:0, wh:{}, whGid:{}, poomDel:0, unmatched:[], variGid:0, variTab:'', noticeGid:0, noticeTab:'', bulk:[], dupDel:0 };
     var supTabG={};   // 공급처→창고탭(배열) — 리포트 써머리에서 "어느 탭에 들어갔는지" 표기용
     function setBtn(t){ btn.innerHTML=t; }
     withToken(function(){
@@ -1100,7 +1124,14 @@
         if(!nt) throw new Error('반영 시트에서 "당일생물" 들어간 탭을 못 찾았어요 — 그 탭 이름을 확인하세요.');
         rep.noticeGid=nt.gid; rep.noticeTab=nt.tab;
         var spN=startPair(nt.tab, NOTICE_HDR, NOTICE_HDR+1);   // 지정값 있으면 그 행, 없으면 기본 24행
-        return applyToTab(nt.gid, nt.tab, spN.ins, spN.read, 1, 2, add.map(rowNotice), addPk, delPk, false, spN.col0);   // 상품명=2번째 칸(기본 B열)
+        // 🔴 넣을 위치는 시트에서 직접 찾는다 (2026-08-11): '당일생물' 구분바 → 그 아래 헤더(창고명/상품명) → 첫 상품 행.
+        //    위쪽 공지 줄이 늘거나 줄면 시작 행 숫자가 낡아져서 새 상품이 엉뚱한 데(또는 기존 것 아래) 들어갔다.
+        //    못 찾으면 예전대로 설정값/기본값(24행).
+        return findNoticeStart(nt.tab, spN.col0).then(function(auto){
+          var ins=auto?auto-1:spN.ins, read=auto?auto:spN.read;
+          return applyToTab(nt.gid, nt.tab, ins, read, 1, 2, add.map(rowNotice), addPk, delPk, false, spN.col0)   // 상품명=2번째 칸(기본 B열)
+            .then(function(r){ if(r&&r.dup) rep.dupDel+=r.dup; return true; });
+        });
       }).then(function(){
         // 3) 창고 탭 — 공급처 → 탭 결정: ①이름 같으면 그대로 ②저장 매핑(단독(유)→단독 등) ③모르면 물어봄(한 번, 저장)
         var sisi=uni.filter(function(it){ return it.day.indexOf('당일')<0; });   // uni=같은 상품 최신 건만
@@ -1153,6 +1184,7 @@
           rep.poomDel += Object.keys(info.delPk).filter(function(k){ return !info.bulkPk[k]; }).length;
           var spW=startPair(info.tab, 2, 3);   // 지정값 있으면 그 행, 없으면 기본(3행 삽입·3행부터 스캔 — 2행은 색칠 구분행이라 절대 안 건드림)
           return applyToTab(info.gid, info.tab, spW.ins, spW.read, 2, 3, rows, info.addPk, info.delPk, true, spW.col0)   // 상품명=3번째 칸(기본 C열)
+            .then(function(r){ if(r&&r.dup) rep.dupDel+=r.dup; return true; })
             .then(function(){
               if(!info.bulk.length) return true;
               setBtn('창고: '+info.tab+' 전상품 일괄...');
@@ -1171,6 +1203,7 @@
         if(rep.noticeGid) rh+=li(rep.noticeGid,'당일생물 · '+rep.noticeTab,rep.notice);
         Object.keys(rep.wh).forEach(function(t){ rh+=li(rep.whGid[t],'창고 · '+t,rep.wh[t]); });
         rh+='<li>품절 삭제: <b>'+rep.poomDel+'</b>건</li>';
+        rh+='<li>기존 같은 상품 정리(위로 새로 올림): <b>'+rep.dupDel+'</b>건</li>';
         rep.bulk.forEach(function(b){
           if(b.skip) rh+='<li style="color:#c0392b">⚠️ 전상품 일괄 스킵 · '+esc(b.tab)+' 「'+esc(b.wh)+'」: '+esc(b.skip)+'</li>';
           else rh+='<li>🚚 전상품 일괄 · '+esc(b.tab)+' 「'+esc(b.wh)+'」창고 → <b>'+esc(b.label)+'</b> <b>'+b.n+'</b>건 변경+스펙 문구'+(b.n===0?' <b style="color:#c0392b">(그 창고 상품 0건 — 창고명 확인!)</b>':'')+'</li>';
@@ -1209,8 +1242,8 @@
         document.getElementById('applyReport').innerHTML=rh;
         var whSum=Object.keys(rep.wh).map(function(t){return t+'('+rep.wh[t]+')';}).join(', ')||'없음';
         var bulkSum=rep.bulk.map(function(b){ return b.skip ? (b.tab+' 「'+b.wh+'」스킵(수동 확인)') : (b.tab+' 「'+b.wh+'」'+b.n+'건→'+b.label); }).join('\n   ');
-        setStatus('✅ 각 시트 적용 완료 (변동'+rep.vari+'·당일'+rep.notice+'·창고'+Object.keys(rep.wh).length+'탭·품절삭제'+rep.poomDel+(rep.bulk.length?'·전상품일괄'+rep.bulk.length:'')+(dupSkip?'·중복스킵'+dupSkip:'')+(rep.unmatched.length?'·미매칭'+rep.unmatched.length:'')+') — 아래 리포트 확인','ok');
-        alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건'+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건은 마지막(최신) 건 기준으로 병합 반영':'')+(costDrop?'\n· 🚫 원가 관련 '+costDrop+'건은 업체 비노출로 제외됨':'')+(bulkSum?'\n· 🚚 전상품 일괄(택배사 변경+스펙):\n   '+bulkSum:'')+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
+        setStatus('✅ 각 시트 적용 완료 (변동'+rep.vari+'·당일'+rep.notice+'·창고'+Object.keys(rep.wh).length+'탭·품절삭제'+rep.poomDel+'·기존정리'+rep.dupDel+(rep.bulk.length?'·전상품일괄'+rep.bulk.length:'')+(dupSkip?'·중복스킵'+dupSkip:'')+(rep.unmatched.length?'·미매칭'+rep.unmatched.length:'')+') — 아래 리포트 확인','ok');
+        alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건\n· 기존에 있던 같은 상품 정리: '+rep.dupDel+'건 (새 건이 맨 위로)'+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건은 마지막(최신) 건 기준으로 병합 반영':'')+(costDrop?'\n· 🚫 원가 관련 '+costDrop+'건은 업체 비노출로 제외됨':'')+(bulkSum?'\n· 🚚 전상품 일괄(택배사 변경+스펙):\n   '+bulkSum:'')+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
       }).catch(function(e){ btn.disabled=false; btn.innerHTML=o; setStatus('⚠️ 적용 실패: '+e.message,'warn'); alert('적용 실패: '+e.message+'\n(일부만 적용됐을 수 있어요. 시트 확인 후 재시도)'); });
     });
   });
