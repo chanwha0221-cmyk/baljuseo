@@ -71,7 +71,7 @@
 <div class="wrap">
   <div class="topbar">
     <div>
-      <h1>📮 신규업체 메일링 관리 <span style="vertical-align:middle;font-size:13px;font-weight:400;margin-left:8px">작성자 <select id="who-sel" onchange="setPerson(this.value)" style="width:auto;display:inline-block;padding:3px 8px;font-size:13px"></select></span></h1>
+      <h1>📮 신규업체 메일링 관리 </h1>
       <div class="muted">신규 영업 메일 작성 + 보낸 곳 추적 · 2주 경과 시 추가연락 알림</div>
     </div>
     <span class="status" id="status">불러오는 중…</span>
@@ -97,39 +97,6 @@
   </div>
 
   <details style="margin-bottom:14px"><summary style="cursor:pointer;font-size:13px;color:var(--sub);padding:6px 0">⚙️ 기록 추가 · 목록 · 메일 작성 · 명함 (펼치기)</summary>
-  <!-- ① 보낸 업체 기록 (맨 위) — 채널 선택 시 아래 작성 폼이 바뀜 -->
-  <div class="card">
-    <h2>＋ 보낸 업체 기록</h2>
-    <div class="form-grid">
-      <div><label>업체명 <span class="muted">(선택)</span></label><input id="f-name" placeholder="모르면 비워도 됨"></div>
-      <div><label>연락 채널 <span class="muted">(선택 → 아래 폼 바뀜)</span></label>
-        <select id="f-chan" onchange="chanHint()">
-          <option value="이메일">이메일</option>
-          <option value="네이버쪽지">네이버쪽지</option>
-          <option value="카톡전화">카톡/전화</option>
-        </select>
-      </div>
-      <div><label id="f-contact-lbl">메일주소 *</label><input id="f-contact" placeholder="buyer@xxx.co.kr"></div>
-      <div><label>보낸 날짜</label><input id="f-date" type="date"></div>
-      <div><label>상태</label>
-        <select id="f-stat"><option>진행중</option><option>회신</option><option>보류</option><option>종료</option></select>
-      </div>
-            <div style="grid-column:span 2"><label>메모 <span class="muted">(본문 작성 후 [메모 취합] 누르면 AI가 보낸 내용 한 줄 요약)</span></label>
-        <div style="display:flex;gap:6px">
-          <input id="f-memo" placeholder="자유 메모" style="flex:1">
-        </div>
-      </div>
-      <div style="align-self:end"><button class="btn brand" onclick="addRow()">추가</button></div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px">
-      <span class="muted" style="font-size:11.5px;font-weight:700">🔎 중복 확인</span>
-      <input id="dup-check" placeholder="메일주소 또는 아이디 입력" style="flex:0 0 260px" onkeydown="if(event.key==='Enter'){event.preventDefault();checkDuplicate()}">
-      <button class="btn ghost" type="button" onclick="checkDuplicate()">중복확인</button>
-      <span id="dup-result" style="font-size:12.5px;font-weight:600"></span>
-    </div>
-  </div>
-
-  <!-- ② 채널별 메시지 작성 (위에서 고른 채널의 폼만 표시) -->
   <div class="card">
     <h2 id="compose-title">✉️ 이메일 작성</h2>
     <div class="compose-grid">
@@ -141,10 +108,9 @@
             <input id="tpl-subject" style="flex:1">
             <button class="btn ghost" type="button" onclick="copyText('tpl-subject')" style="white-space:nowrap">📋 제목 복사</button>
           </div>
-          <label>메일 본문 템플릿 <span class="muted">(편집하면 저장돼요 · <b>[당일 공급 시트 이미지]</b> = 시트가 들어갈 위치 표시)</span></label>
+          <label>메일 본문 템플릿 <span class="muted">(편집하면 저장돼요)</span></label>
           <textarea id="tpl" style="min-height:280px;line-height:1.7"></textarea>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-            <button class="btn brand" onclick="openInThunderbird()">📧 썬더버드로 보내기 (주소·제목·본문)</button>
             <button class="btn ghost" onclick="copyPreview()">📋 전체 복사</button>
             <button class="btn ghost" onclick="loadSavedTemplate()">📄 표준 템플릿 불러오기</button>
             <button class="btn ghost" onclick="saveNamedTemplate()">💾 템플릿 저장</button>
@@ -175,19 +141,10 @@
         <div class="hint" id="compose-hint"></div>
       </div>
       <div id="img-col">
+        
         <div class="img-slot">
-          <label style="font-weight:700;font-size:12.5px">📋 당일 공급 시트 이미지 <span class="muted">(매일 교체)</span></label>
-          <img id="daily-img"><div class="ph" id="daily-ph">오늘 시트 이미지를 올려주세요</div>
-          <div class="img-btns">
-            <input type="file" id="daily-file" accept="image/*" style="display:none" onchange="pickImg(this,'daily')">
-            <button class="btn sm" onclick="document.getElementById('daily-file').click()">이미지 가져오기</button>
-            <button class="btn sm" onclick="pasteImg('daily')">📋 붙여넣기</button>
-            <button class="btn sm" id="daily-copy" style="display:none" onclick="copyImg('daily')">이미지 복사</button>
-            <button class="btn ghost sm" id="daily-dl" style="display:none" onclick="dlImg('daily','당일공급시트')">저장</button>
-          </div>
-        </div>
-        <div class="img-slot">
-          <label style="font-weight:700;font-size:12.5px">💳 명함 <span class="muted">(고정 · 한번 올리면 유지)</span></label>
+          <label style="font-weight:700;font-size:12.5px">💳 명함 <span class="muted">(누구 명함이냐에 따라 본문 이름이 바뀝니다)</span></label>
+          <select id="who-sel" onchange="setPerson(this.value)" style="margin-bottom:6px;font-size:13px"></select>
           <img id="card-img"><div class="ph" id="card-ph">명함 이미지를 올려주세요</div>
           <div class="img-btns">
             <input type="file" id="card-file" accept="image/*" style="display:none" onchange="pickImg(this,'card')">
@@ -302,23 +259,36 @@ const DEFAULT_TEMPLATE=`안녕하세요, 대표님.
 
 전국 산지 어판장에서 직접 수매하고, 창고를 자체 운영하며 빠르게 유통 대응하고 있는 수산물 전문 유통사입니다.
 
-상시 300~500여 가지 이상의 농·축·수산물을 꾸준히 운영 중이며, 소량 한 건도 택배로 즉시 납품 가능합니다.
-
 이미 많은 거래처를 관리하고 계시겠지만, 현지에서 직접 움직이는 저희 같은 업체가 필요하실 때 더 빠르게 대응해드릴 수 있을 거라 생각합니다.
 
+저희는 전국 산지 상품을 중심으로 상시 300~500여 가지 이상의 농·축·수산물을 꾸준히 운영 중이며, 소량 한 건도 택배로 즉시 납품 가능합니다.
+
 ────────────────
-금일 공급 가능한 당일 상품 리스트입니다.
-
-[당일 공급 시트 이미지]
-
-해당 이미지는 마스터에서 공급 가능한 상품 일부입니다.
+하단 링크는 현재 위탁 공급이 가능한 상품 리스트 입니다.
 
 마스터 상품 카탈로그
 https://wonbi.github.io/allproduct/
 ────────────────
 
-혹시 필요하실 때가 생기시면 명함 보관해두셨다가 전화나 카카오톡으로 편하게 연락 주세요.
-빠르고 정확하게 응대드리겠습니다.`;
+1건의 발주도 처리가 가능하며, 발주 주시면 선 출고 해 드리고 그날 정산사이트에서 정산 금액 확인하시고
+이상 없으시면 입금처리 해주시면 됩니다.
+
+마스터 상품 카탈로그 내 상품 단가 및 사진, 상세정보가 필요하신 경우
+
+https://masterc.kr/page_LkOm07
+
+해당 사이트 가입해 주시고 (닉네임은 사업자명으로 부탁드립니다)
+
+업체명 : 
+대표명 : 
+아이디 : 
+대표님 연락처 : 
+구글시트 사용할 G메일 주소 (꼭 @gmail.com 으로 입력 부탁드립니다) : 
+계산서 발행할 이메일 주소: 
+
+사업자 사본 남겨 주시면 확인해서 권한 승인해드리겠습니다.
+
+메일도 수시로 확인하고 있지만 가입하시고 카톡이나 유선 연락 주시면 바로 확인해 드리겠습니다.`;
 
 const DEFAULT_SUBJECT=`[주식회사 마스터] 상품 제안 드립니다.`;
 
@@ -400,7 +370,7 @@ async function driveBlobURL(id){
 }
 
 // ─── 상태/데이터 ───
-let DATA=[], modalIdx=-1, editIdx=-1, imgBlobs={daily:null,card:null};
+let DATA=[], modalIdx=-1, editIdx=-1, imgBlobs={card:null};
 const $=id=>document.getElementById(id);
 function todayKST(){ return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'}); }
 function daysSince(d){ if(!d)return null; const a=new Date(d+'T00:00:00+09:00'),b=new Date(todayKST()+'T00:00:00+09:00'); return Math.floor((b-a)/86400000); }
@@ -488,8 +458,9 @@ async function loadAll(){
     await loadSettings();
     // 템플릿 — 시트 저장본이 우선이지만, 서명 이름과 카탈로그 링크는 열 때마다 보정한다
     // (2026-08-11 사장님 지시: 사람에 따라 팀장 이름이 자동으로 바뀌고, 가운데에 카탈로그 링크가 들어가야 함)
+    // 2026-08-11 사장님이 본문을 새로 확정 — 저장본이 구버전이면 새 기본값으로 갈아끼운다
+    if(SET.template_v!=='20260811'){ await setSetting('template',DEFAULT_TEMPLATE); await setSetting('template_v','20260811'); SET.template=DEFAULT_TEMPLATE; }
     $('tpl').value = fixTemplate(SET.template || DEFAULT_TEMPLATE);
-    if(!SET.template) await setSetting('template',DEFAULT_TEMPLATE);
     $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT;
     $('tpl-note').value = fixName(SET.template_note || DEFAULT_NOTE);
     $('tpl-perm').value = fixName(SET.template_perm || DEFAULT_PERM);
@@ -526,24 +497,6 @@ async function save(){ await dataReplace(DATA); }
 //    가공·갱신은 클로드(하비서)가 함. 이 버튼은 요청 문구 복사 + 안내.
 // ───────────────────────────────────────────────────────────
 
-function chanHint(){
-  const c=$('f-chan').value;
-  $('f-contact-lbl').innerHTML = c==='이메일'?'메일주소 *':c==='네이버쪽지'?'네이버/사이트 아이디 *':'전화번호(카톡) *';
-  $('f-contact').placeholder = c==='이메일'?'buyer@xxx.co.kr':c==='네이버쪽지'?'naver_id 또는 카페아이디':'010-0000-0000';
-  // 채널별 작성 폼 토글
-  const isEmail=c==='이메일', isNote=c==='네이버쪽지', isKakao=!isEmail&&!isNote;
-  const fe=$('form-email'), fn=$('form-note'), fk=$('form-kakao'), ic=$('img-col'), ct=$('compose-title'), ch=$('compose-hint');
-  if(fe) fe.style.display = isEmail?'':'none';
-  if(fn) fn.style.display = isNote?'':'none';
-  if(fk) fk.style.display = isKakao?'':'none';
-  if(ic) ic.style.display = isNote?'none':'';   // 네이버쪽지는 이미지 없음
-  if(ct) ct.textContent = isEmail?'✉️ 이메일 작성':isNote?'📨 네이버쪽지 작성':'📱 카톡 작성';
-  if(ch) ch.innerHTML = isEmail
-    ? '<b>썬더버드 원클릭:</b> 위 폼에 받는사람(연락처)·제목 넣고 → 오른쪽에 시트 이미지 올리고 → <b>[📧 썬더버드로 보내기]</b> 누르면 → 썬더버드가 <b>받는사람·제목 채워진 채로</b> 열려요. 본문 클릭하고 <b>Ctrl+V</b>만 하면 <b>본문+시트+명함까지</b> 한 번에 들어갑니다. (썬더버드가 기본 메일앱으로 지정돼 있어야 열림)'
-    : isKakao
-    ? '카톡: [복사]해서 붙여넣고 → <b>명함·상품시트는 [이미지 복사]</b> 눌러 카톡에 직접 <b>Ctrl+V</b>로 붙여넣기.'
-    : '네이버쪽지: [복사]해서 쪽지 본문에 붙여넣기 (이미지 첨부 없음).';
-}
 // 🧠 작성한 본문을 AI가 한 줄로 축약해서 메모에 채움
 
 function render(){
@@ -590,8 +543,7 @@ function render(){
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
           <b style="font-size:13px">${label} <span class="badge red">${arr.length}</span></b>`;
       if(key==='이메일'){
-        html+=`<button class="btn brand sm" onclick="sendEmailFollowupBatch()">📧 메일 한번에 보내기 (BCC)</button>
-               <button class="btn ghost sm" onclick="copyFollowupEmails()">📋 메일주소 ${arr.length}개 복사</button>`;
+        html+=``;
       }
       // 체크 일괄 처리 — ✅ 보냄(마지막연락 오늘=0일) / 🗑 삭제(메일 거부 업체 등)
       html+=`<label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto;white-space:nowrap"><input type="checkbox" style="width:15px;height:15px;padding:0;margin:0;flex:0 0 auto" onchange="fuToggleAll('${key}',this.checked)"> 전체선택</label>
@@ -610,43 +562,7 @@ function render(){
   } else oc.style.display='none';
 }
 // 20일+ 이메일 업체 주소만 추출
-function followupEmails(){
-  return DATA.filter(r=>r[1]==='이메일' && !(r[5]==='종료'||r[5]==='회신') && daysSince(r[4])!==null && daysSince(r[4])>=FOLLOWUP_DAYS)
-    .map(r=>(r[2]||'').trim()).filter(Boolean);
-}
-function copyFollowupEmails(){
-  const em=followupEmails(); if(!em.length){ toast('14일 지난 이메일 업체가 없어요'); return; }
-  navigator.clipboard.writeText(em.join(', ')).then(()=>toast(em.length+'개 메일주소 복사됨 — 받는사람/BCC에 붙여넣기'));
-}
-// 📧 20일+ 이메일 업체 전체에게 BCC로 한번에 — 본문+시트 복사 + 썬더버드 BCC 열기 (각자한테 따로 감)
-async function sendEmailFollowupBatch(){
-  const em=followupEmails(); if(!em.length){ toast('14일 지난 이메일 업체가 없어요'); return; }
-  const {html,hasDaily}=buildMailHTML();
-  try{ await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([$('tpl').value],{type:'text/plain'})})]); }catch(e){}
-  const subj=encodeURIComponent(($('tpl-subject').value||'').trim());
-  window.location.href='mailto:?bcc='+encodeURIComponent(em.join(','))+'&reply-to='+encodeURIComponent('chanwha0221@gmail.com,realionq@gmail.com')+'&subject='+subj;
-  toast(em.length+'곳 BCC로 썬더버드 열림 — 본문 클릭 후 Ctrl+V! (각자한테 따로 발송돼요)'+(hasDaily?'':' ⚠️시트이미지 확인'));
-}
 
-async function addRow(){
-  const contact=$('f-contact').value.trim();
-  if(!contact){ toast('연락처는 필수예요 (메일/아이디/번호)'); return; }
-  const name=$('f-name').value.trim();
-  // ⚠️ 중복 체크 — 통합 목록 전체에서(찬화·원비 구분 없이) 같은 연락처·업체명이 있으면 누가 언제 보냈는지 경고
-  const normC=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
-  const dup=DATA.find(r=> normC(r[2])===normC(contact) || (name && normC(r[0])===normC(name)));
-  if(dup){
-    const d=daysSince(dup[4]);
-    if(!confirm('🚨 이미 보낸 업체예요!\n\n담당: '+(dup[8]||'—')+'\n['+(dup[0]||'(이름없음)')+'] '+dup[2]
-      +'\n채널: '+chanLabel(dup[1])+' · 마지막연락 '+(dup[4]||'?')+(d==null?'':' ('+d+'일 전)')
-      +'\n\n그래도 추가할까요?')) return;
-  }
-  const date=$('f-date').value||todayKST();
-  DATA.push([name,$('f-chan').value,contact,date,date,$('f-stat').value,$('f-memo').value.trim(),'',PERSON]);
-  setStatus('저장 중…'); await save();
-  $('f-name').value=$('f-contact').value=$('f-memo').value=''; $('f-date').value=todayKST();
-  render(); setStatus('저장됨'); toast('추가 완료');
-}
 async function markContact(i){ DATA[i][4]=todayKST(); render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('마지막 연락일 → 오늘'); }
 // 📮 2차 메일 대상 패널 — 체크 일괄 처리 (2026-06-11)
 function fuChecked(chan){ return Array.from(document.querySelectorAll('.fu-chk[data-chan="'+chan+'"]:checked')).map(c=>parseInt(c.dataset.i,10)); }
@@ -748,7 +664,7 @@ async function pasteImg(which){
     const items=await navigator.clipboard.read();
     for(const it of items){
       const type=it.types.find(t=>t.startsWith('image/'));
-      if(type){ const blob=await it.getType(type); imgBlobs[which]=blob; showImg(which,URL.createObjectURL(blob),which==='card'); toast((which==='daily'?'공급시트':'명함')+' 붙여넣기 완료'); return; }
+      if(type){ const blob=await it.getType(type); imgBlobs[which]=blob; showImg(which,URL.createObjectURL(blob),which==='card'); toast('명함 붙여넣기 완료'); return; }
     }
     toast('클립보드에 이미지가 없어요 — 먼저 캡처/복사해 주세요');
   }catch(e){ toast('붙여넣기 안 됨 — 슬롯 클릭 후 Ctrl+V 또는 [이미지 가져오기] 사용'); }
@@ -765,22 +681,18 @@ function imgDataURL(which){
 // "마지막에 명함까지 해서 붙여넣기 해줄 수 있게" — 서명 설정에 의존하지 않고 본문에 직접 붙인다)
 function buildMailHTML(){
   const text=$('tpl').value;
-  const daily=imgDataURL('daily');
   const card=imgDataURL('card');
   const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   let html='<div style="font-family:\'Malgun Gothic\',Apple SD Gothic Neo,sans-serif;font-size:14px;line-height:1.7;color:#222">';
   text.split('\n').forEach(ln=>{
-    if(ln.includes('[당일 공급 시트 이미지]')){
-      html += daily ? '<div><img src="'+daily+'" style="max-width:960px;width:100%;height:auto"></div>'
-                    : '<div style="color:#c0392b">[당일 공급 시트 이미지 — 오른쪽에서 시트 이미지를 먼저 올려주세요]</div>';
-    } else if(ln.trim()===''){ html+='<div><br></div>'; }
+    if(ln.trim()===''){ html+='<div><br></div>'; }
     else { html+='<div>'+esc(ln)+'</div>'; }
   });
   if(card) html+='<div><br></div><div><img src="'+card+'" style="max-width:420px;width:100%;height:auto"></div>';
   html+='</div>';
-  return {html, hasDaily:!!daily, hasCard:!!card};
+  return {html, hasCard:!!card};
 }
-// 📋 전체 복사 — 합치기 안 눌렀어도 본문+시트를 바로 만들어 HTML째 클립보드에 (썬더버드 인라인 유지)
+// 📋 전체 복사 — 본문 + 맨 아래 명함을 HTML째 클립보드에 (메일에 Ctrl+V 한 번)
 async function copyPreview(){
   const {html,hasDaily,hasCard}=buildMailHTML();
   const plain=$('tpl').value;
@@ -796,21 +708,6 @@ async function copyPreview(){
     toast('복사 실패 — 다시 시도해 주세요 (브라우저 권한 확인)');
   }
 }
-// 📧 원클릭 — 본문+시트 복사 + 받는사람·제목 채워 썬더버드(기본 메일앱) 열기. 본문은 Ctrl+V만 하면 됨
-async function openInThunderbird(){
-  const {html,hasDaily}=buildMailHTML();
-  // 1) 본문+시트 클립보드에 복사
-  try{ await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([$('tpl').value],{type:'text/plain'})})]); }catch(e){}
-  // 2) 받는사람(연락처칸)·제목 채워 메일앱 열기 (mailto는 본문/이미지 못 실어서 본문은 붙여넣기로)
-  const to=encodeURIComponent(($('f-contact').value||'').trim());
-  const subj=encodeURIComponent(($('tpl-subject').value||'').trim());
-  // 회신이 두 사람에게 모두 가도록 Reply-To에 두 주소 (2026-06-09 사장님 지시)
-  const replyto=encodeURIComponent('chanwha0221@gmail.com,realionq@gmail.com');
-  window.location.href='mailto:'+to+'?reply-to='+replyto+'&subject='+subj;
-  toast('썬더버드 열림 — 본문 클릭하고 Ctrl+V! (본문+시트 복사됨)');
-  // 📥 발송과 동시에 '보낸 업체 기록'에 자동 추가 (메모는 수동) — 2026-06-11 사장님 요청
-  addRow();
-}
 async function saveCard(){
   if(!imgBlobs.card){ toast('먼저 이미지를 올려주세요'); return; }
   setStatus('명함 저장 중…'); try{ const id=await driveUpload(imgBlobs.card,'masterc_명함_'+PERSON+'.png'); await setSetting(CARD_KEY,id); $('card-save').style.display='none'; setStatus('저장됨'); toast('명함 고정 저장됨 — 다음에도 자동으로 떠요'); }
@@ -819,22 +716,16 @@ async function saveCard(){
 
 // ─── 추가연락 초안 (채널별 톤) ───
 
-// 이미지 슬롯 Ctrl+V 붙여넣기 — 마지막 클릭한 슬롯에 (기본 공급시트). 슬롯 클릭 시 초록 테두리로 타겟 표시
-let pasteTarget='daily';
-document.querySelectorAll('.img-slot').forEach((slot,idx)=>{
-  slot.addEventListener('mousedown',()=>{ pasteTarget = idx===0?'daily':'card';
-    document.querySelectorAll('.img-slot').forEach(s=>s.style.outline='');
-    slot.style.outline='2px solid #2d6a4f'; slot.style.outlineOffset='2px'; });
-});
+// 명함 슬롯 Ctrl+V 붙여넣기 (슬롯이 명함 하나뿐이라 타겟 고정)
 document.addEventListener('paste', e=>{
   const items=e.clipboardData && e.clipboardData.items; if(!items) return;
   for(const it of items){ if(it.type && it.type.startsWith('image/')){ const blob=it.getAsFile(); if(!blob) continue;
-    imgBlobs[pasteTarget]=blob; showImg(pasteTarget,URL.createObjectURL(blob),pasteTarget==='card');
-    toast((pasteTarget==='daily'?'공급시트':'명함')+' 붙여넣기 완료'); e.preventDefault(); return; } }
+    imgBlobs.card=blob; showImg('card',URL.createObjectURL(blob),true);
+    toast('명함 붙여넣기 완료'); e.preventDefault(); return; } }
 });
 
 // init
-$('f-date').value=todayKST(); $('q-date').value=todayKST(); chanHint();
+$('q-date').value=todayKST();
 // 👥 작성자 선택 — 서명·명함만 바뀌고 목록은 항상 통합 (2026-08-11)
 document.title='신규업체 메일링 — '+PERSON;
 (function(){ const sel=$('who-sel'); if(!sel)return;
