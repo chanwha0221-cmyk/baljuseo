@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🧪 테스트본 — 발주서 변환기 v22.586</title>
+<title>🧪 테스트본 — 발주서 변환기 v22.587</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -54,6 +54,7 @@ textarea::placeholder{color:var(--text3)}
 .recon-body.bad{background:#fef2f2;color:#b91c1c;border-color:#fca5a5;font-weight:700}
 .recon-list{margin-top:5px;font-weight:400;font-size:11px;color:#7f1d1d;line-height:1.7;word-break:break-all}
 .recon-note{margin-top:4px;font-weight:400;font-size:11px;color:var(--text3)}
+.recon-warn{margin-top:5px;padding:5px 8px;background:#fee2e2;border:1px solid #fca5a5;border-radius:4px;color:#b91c1c;font-size:11px;font-weight:400;line-height:1.6}
 .testbadge{background:#dc2626;color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:.03em;white-space:nowrap}
 body{box-shadow:inset 0 0 0 3px #dc2626}
 </style>
@@ -61,7 +62,7 @@ body{box-shadow:inset 0 0 0 3px #dc2626}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span><span class="testbadge">🧪 테스트본</span>
-  <span class="ver">v22.586</span>
+  <span class="ver">v22.587</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -903,13 +904,16 @@ function finishRecon(){
   const r=reconRaw(_rawAll,outText);
   const p=reconProducts(_rawAll,outText);
   const okN=r.orders-r.missing.length;
+  const vLine=_vertCount>0
+    ?'<div class="recon-warn">🚨 <b>잘못된 세로 양식</b>'+(_vertClients.length?' — <b>'+_esc(_vertClients.join(', '))+'</b>':'')
+      +' 이 한 주문을 라벨 여러 줄로 보냈습니다(<b>'+_vertCount+'건</b>). 이번엔 변환했지만 <b>업체에 가로 양식 요청하세요</b> — 발주 늘면 사고납니다.</div>':'';
   const qLine=_quoteFallback>0
     ?'<div class="recon-note">🔧 원문에 짝 안 맞는 따옴표(")가 있어 <b>'+_quoteFallback+'행이 한 칸에 뭉쳐 있었습니다</b> — 따옴표를 무시하고 다시 읽어 살렸습니다.</div>':'';
   const qtyLine=(p.inQty!==p.outQty)
     ?'<div class="recon-note">📦 상품 수량 <b>원문 '+p.inQty+'개 → 출력 '+p.outQty+'개</b> — 수량도 안 맞습니다.</div>'
     :'<div class="recon-note">📦 상품 수량 원문 '+p.inQty+'개 = 출력 '+p.outQty+'개 ✓</div>';
   if(r.missing.length===0){
-    showRecon('✅ 원문 주문 <b>'+r.orders+'건</b> → 변환 <b>'+okN+'건</b> · 출력 '+outN+'행 — <b>누락 없음</b>'+qLine+qtyLine,'ok');
+    showRecon('✅ 원문 주문 <b>'+r.orders+'건</b> → 변환 <b>'+okN+'건</b> · 출력 '+outN+'행 — <b>누락 없음</b>'+vLine+qLine+qtyLine,'ok');
     return;
   }
   const why={};
@@ -921,8 +925,76 @@ function finishRecon(){
   });
   showRecon('🚨 원문 주문 <b>'+r.orders+'건</b> 중 <b>'+okN+'건만 변환</b> — <b>'+r.missing.length+'건 누락</b> (출력 '+outN+'행)'
     +'<div class="recon-list">'+items.join('<br>')+'</div>'
-    +qLine+qtyLine
+    +vLine+qLine+qtyLine
     +'<div class="recon-note">⚠️ 위 원문 그대로 따로 변환해서 시트에 추가하세요.</div>','bad');
+}
+// ══════════════════════════════════════════════════════════════════════
+// 🚨 라벨 세로형 발주 (2026-08-11 류정푸드 건 — 사장님: "양식 줬는데 발주 늘면 좆될 짓")
+//   '주문처 : …' 처럼 한 주문을 라벨-값 9줄로 늘어놓는 잘못된 양식. 정식 지원이 아니라
+//   **응급 처리**다 — 변환은 해주되 대조 바에 빨간 경고를 띄워 업체 교정을 계속 압박한다.
+//   (자동으로 조용히 받아주면 업체가 영영 안 고친다는 게 사장님 방침)
+// ══════════════════════════════════════════════════════════════════════
+var VERT_LABELS={
+  '주문처':'client','주문처명':'client','업체명':'client',
+  '주문처 주소':'caddr','주문처주소':'caddr',
+  '주문처 연락처':'cphone','주문처연락처':'cphone','주문처 전화':'cphone',
+  '창고명':'wh','창고':'wh',
+  '상품명':'prod','상품':'prod','주문상품':'prod',
+  '고객님 성함':'name','고객 성함':'name','고객명':'name','받는분':'name','받는사람':'name','수령인':'name','성함':'name',
+  '주소':'addr','배송지':'addr','배송주소':'addr','받는분 주소':'addr',
+  '연락처':'phone','전화번호':'phone','휴대폰':'phone','받는분 연락처':'phone',
+  '배송메세지/특이사항':'msg','배송메시지/특이사항':'msg','배송메세지':'msg','배송메시지':'msg',
+  '배송메모':'msg','특이사항':'msg','요청사항':'msg','배송요청사항':'msg'
+};
+var _vertWH={},_vertCount=0,_vertClients=[];
+function _vertKey(line){
+  const m=String(line).match(/^([^:：]{1,20})\s*[:：]\s*(.*)$/);
+  if(!m)return null;
+  const k=VERT_LABELS[m[1].trim()];
+  return k?{key:k,val:(m[2]||'').trim()}:null;
+}
+function isVerticalLabeledFormat(raw){
+  const lines=String(raw).split('\n').map(l=>l.trim()).filter(Boolean);
+  let hit=0;for(const l of lines){if(_vertKey(l))hit++;}
+  return hit>=5;      // 라벨 5개 이상 = 한 주문을 세로로 늘어놓은 양식
+}
+function preprocessVerticalLabeled(raw){
+  _vertWH={};_vertCount=0;_vertClients=[];
+  const lines=String(raw).split('\n').map(l=>l.trim()).filter(Boolean);
+  const rows=[];let cur=null;
+  const flush=function(){
+    if(cur&&cur.name&&cur.phone){
+      rows.push([cur.client||'',cur.caddr||'',cur.cphone||'',cur.prod||'',cur.name,cur.addr||'',cur.phone,cur.msg||''].join('\t'));
+      if(cur.wh)_vertWH[_digits(cur.phone)]=cur.wh;          // 창고명은 수령인 전화를 키로 보관 → 출력 행에 되꽂는다
+      if(cur.client&&_vertClients.indexOf(cur.client)<0)_vertClients.push(cur.client);
+      _vertCount++;
+    }
+    cur=null;
+  };
+  for(const l of lines){
+    const kv=_vertKey(l);
+    if(!kv)continue;
+    if(kv.key==='client')flush();       // '주문처'가 다시 나오면 새 주문 시작
+    if(!cur)cur={};
+    cur[kv.key]=kv.val;
+  }
+  flush();
+  return rows.length?rows.join('\n'):null;
+}
+// 출력 행(9칸/10칸)의 창고칸에 세로형에서 받은 창고명을 채운다. 뒤에서 세면 칸수와 무관하게 안전:
+//   고객연락처 = 끝에서 2번째, 창고명 = 끝에서 6번째
+function applyVertWarehouse(text){
+  if(!text)return text;
+  const keys=Object.keys(_vertWH);
+  if(!keys.length)return text;
+  return text.split('\n').map(function(line){
+    if(!line.trim())return line;
+    const c=line.split('\t');
+    if(c.length<6)return line;
+    const wh=_vertWH[_digits(c[c.length-2]||'')];
+    if(wh)c[c.length-6]=wh;
+    return c.join('\t');
+  }).join('\n');
 }
 function preprocessBalbolLine(raw){
   if(!raw.includes('///'))return null;
@@ -1543,6 +1615,7 @@ function run(){
   const inpEl=document.getElementById('inp');
   const full=inpEl.value;
   _rawAll=full;_reconDropped=[];_reconSusp=[];   // 대조 기준 = 손대기 전 원문 (2026-08-11)
+  _vertWH={};_vertCount=0;_vertClients=[];       // 세로형 감지 상태 리셋 (이전 변환 잔재 방지)
   let blocks=null, mode='';
   if(/^===발주구분===\s*$/m.test(full)){
     blocks=full.split(/^===발주구분===\s*$/m).map(function(s){return s.trim();}).filter(Boolean); mode='구분선';
@@ -1664,6 +1737,15 @@ function runSingle(){
     if(!input){sl('세로형 카톡 발주 파싱 실패','warn');return;}
     sl('세로형 카톡 발주 감지 — 자동 변환 중...');
   }
+  if(isVerticalLabeledFormat(input)){
+    const _v=preprocessVerticalLabeled(input);
+    if(!_v){sl('🚨 라벨 세로형 파싱 실패 — 업체에 가로 양식 요청 필요','warn');return;}
+    input=_v;
+    // 세로형은 한 주문이 여러 줄로 흩어져 있어 '원문 줄' 기준 대조가 건수를 부풀린다
+    // (주문처 연락처와 수령인 연락처가 각각 다른 줄 → 2건으로 셈) → 조립된 행을 기준으로 교체
+    _rawAll=_v;
+    sl('🚨 잘못된 세로 양식 감지 — 변환은 했지만 업체 교정 필요','warn');
+  }
   const lines=mergeLines(input);
   document.getElementById('s-in').textContent=lines.length;
   document.getElementById('in-count').textContent=lines.length+' 행';
@@ -1691,7 +1773,7 @@ function runSingle(){
     else{let rem=finalQty;while(rem>0){const cur=Math.min(rem,maxB);out.push(br(client,cfg,name+' x '+cur+sfx,nameRaw,ord,iv));rem-=cur;}}
     okOrders++;
   }
-  document.getElementById('out').value=applyClientAlias(out.join('\n'));
+  document.getElementById('out').value=applyVertWarehouse(applyClientAlias(out.join('\n')));
   document.getElementById('s-out').textContent=out.length;
   document.getElementById('out-count').textContent=out.length+' 행';
   autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
