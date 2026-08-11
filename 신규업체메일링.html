@@ -71,7 +71,7 @@
 <div class="wrap">
   <div class="topbar">
     <div>
-      <h1>📮 신규업체 메일링 관리 <span class="badge green" id="who-badge" style="vertical-align:middle"></span></h1>
+      <h1>📮 신규업체 메일링 관리 <span style="vertical-align:middle;font-size:13px;font-weight:400;margin-left:8px">작성자 <select id="who-sel" onchange="setPerson(this.value)" style="width:auto;display:inline-block;padding:3px 8px;font-size:13px"></select></span></h1>
       <div class="muted">신규 영업 메일 작성 + 보낸 곳 추적 · 2주 경과 시 추가연락 알림</div>
     </div>
     <span class="status" id="status">불러오는 중…</span>
@@ -84,6 +84,19 @@
   </div>
 
   <div id="tab-manage">
+  <!-- ⚡ 2026-08-11 사장님 지시: 이 도구의 목적은 '중복 발송 거르기' 하나. 메일주소·보낸날짜만 위에 두고 나머지는 접는다. -->
+  <div class="card" id="quick-card">
+    <h2>📧 이 주소로 보낸 적 있나?</h2>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:1;min-width:280px"><label>메일주소</label>
+        <input id="q-mail" placeholder="buyer@xxx.co.kr" style="font-size:15px" oninput="quickCheck()" onkeydown="if(event.key==='Enter'){event.preventDefault();quickSave()}"></div>
+      <div><label>보낸날짜</label><input id="q-date" type="date" style="font-size:15px"></div>
+      <button class="btn brand" style="padding:9px 18px;font-size:14px" onclick="quickSave()">기록</button>
+    </div>
+    <div id="q-result" style="margin-top:12px;padding:14px 16px;border-radius:10px;background:var(--bg2,#f4f6f9);font-size:15px;font-weight:700;line-height:1.6">메일주소를 입력하세요</div>
+  </div>
+
+  <details style="margin-bottom:14px"><summary style="cursor:pointer;font-size:13px;color:var(--sub);padding:6px 0">⚙️ 기록 추가 · 목록 · 메일 작성 · 명함 (펼치기)</summary>
   <!-- ① 보낸 업체 기록 (맨 위) — 채널 선택 시 아래 작성 폼이 바뀜 -->
   <div class="card">
     <h2>＋ 보낸 업체 기록</h2>
@@ -224,6 +237,7 @@
     </table>
     <div class="empty" id="empty" style="display:none">아직 등록된 업체가 없어요.</div>
   </div>
+  </details>
   </div><!-- /tab-manage -->
 
   
@@ -260,17 +274,24 @@ const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASC
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
 const SHEET_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
 const OAUTH_SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
-// 👥 2인 운영 (2026-06-11): URL에 ?u=wonbi 붙으면 원비님 모드 — 데이터 탭 분리 (업체 겹침 방지용 상호 경고는 유지)
-const PERSON=(new URLSearchParams(location.search).get('u')==='wonbi')?'원비':'홍찬화';
-const DATA_TAB=PERSON==='원비'?'신규업체메일링_원비':'신규업체메일링';
-const OTHER_TAB=PERSON==='원비'?'신규업체메일링':'신규업체메일링_원비';
-const OTHER_NAME=PERSON==='원비'?'찬화님':'원비님';
-// 템플릿 서명용 실명 — ?u=wonbi면 박원비, 아니면 홍찬화 (2026-08-11 사장님 지시: 각자 명함·서명이 자동으로 바뀌게)
-const ME=PERSON==='원비'?'박원비':'홍찬화';
-const CARD_KEY=PERSON==='원비'?'card_fileId_wonbi':'card_fileId';   // 명함은 사람별로 따로 저장(기존 키는 찬화 것 그대로 승계)
+// 🔗 2026-08-11 사장님 지시: **URL 하나로 통합, 데이터도 한 탭으로 합침** (중복 거르는 게 유일한 목적).
+//    옛 원비 탭은 지우지 않고 남겨두되, 통합 탭에 없는 건만 담당='박원비'로 끌어와 합친다(1회, 이후 자동 스킵).
+const DATA_TAB='신규업체메일링';
+const LEGACY_WONBI_TAB='신규업체메일링_원비';
+const PEOPLE=['홍찬화','박원비'];
+// 서명·명함용 '지금 쓰는 사람' — 화면 토글로 고르고 이 기기에 기억 (URL 파라미터 없음)
+let PERSON=localStorage.getItem('mailing_person')||'홍찬화';
+if(PEOPLE.indexOf(PERSON)<0)PERSON='홍찬화';
+let ME=PERSON;
+let CARD_KEY=(PERSON==='박원비')?'card_fileId_wonbi':'card_fileId';
+function setPerson(p){
+  if(PEOPLE.indexOf(p)<0)return;
+  PERSON=p; ME=p; CARD_KEY=(p==='박원비')?'card_fileId_wonbi':'card_fileId';
+  localStorage.setItem('mailing_person',p);
+  location.reload();   // 서명·명함·템플릿을 통째로 다시 불러오는 게 가장 확실
+}
 const SET_TAB='메일설정';
-let OTHER_DATA=[];  // 상대방 목록 (겹침 체크용, 읽기전용)
-const HEADER=['업체명','연락방식','연락처','보낸날짜','마지막연락','상태','메모','검색키워드'];
+const HEADER=['업체명','연락방식','연락처','보낸날짜','마지막연락','상태','메모','검색키워드','담당'];
 const OVERDUE_DAYS=14;
 const FOLLOWUP_DAYS=14;  // 14일+ 2차 메일 대상 (채널별 그룹 뷰) — 2026-06-09 14일로 변경
 // ⚡ 속도 (2026-07-24): Gemini 2.5 Flash 생각시간 컷. 0=생각 끔(가장 빠름). 얕아지면 512~1024로. (프록시 개정판이 이 값 전달)
@@ -355,7 +376,7 @@ async function sheetPut(tab,cell,values){
 }
 async function dataReplace(values){
   const t=await getToken();
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB)}!A2:H100000:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB)}!A2:I100000:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
   if(values.length) await sheetPut(DATA_TAB,'A2',values);
 }
 // 설정: 메일설정 탭 A:B key/value
@@ -394,8 +415,8 @@ function checkDuplicate(){
   if(!q){ out.textContent='← 메일주소나 아이디를 입력하세요'; out.style.color='var(--sub)'; return; }
   const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
   const nq=norm(q);
-  // 👥 두 사람 내역을 합쳐서 한 번에 본다 (2026-08-11 — 이게 이 도구의 존재 이유: 원비·찬화 중복 발송 방지)
-  const all=DATA.map(r=>({r,who:ME})).concat(OTHER_DATA.map(r=>({r,who:OTHER_NAME.replace('님','')})));
+  // 👥 통합 목록 한 방 조회 (2026-08-11 — 이게 이 도구의 존재 이유: 원비·찬화 중복 발송 방지)
+  const all=DATA.map(r=>({r,who:r[8]||'—'}));
   let list=all.filter(x=> norm(x.r[2])===nq || norm(x.r[0])===nq);
   if(!list.length && nq.length>=3) list=all.filter(x=> norm(x.r[2]).includes(nq) || norm(x.r[0]).includes(nq));
   if(!list.length){
@@ -411,6 +432,39 @@ function checkDuplicate(){
   out.style.color='var(--red)';
 }
 function followWord(c){ return c==='이메일'?'추가 메일':c==='네이버쪽지'?'쪽지':'카톡'; }
+// ⚡ 상단 빠른 확인 — 메일주소 넣으면 보낸 적 있는지만 즉시 (2026-08-11 사장님 지시)
+function qFind(q){
+  const n=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+  const nq=n(q); if(!nq)return [];
+  let l=DATA.filter(r=> n(r[2])===nq || n(r[0])===nq);
+  if(!l.length && nq.length>=3) l=DATA.filter(r=> n(r[2]).includes(nq) || n(r[0]).includes(nq));
+  l.sort((a,b)=>{const da=daysSince(a[4]),db=daysSince(b[4]); if(da==null)return 1; if(db==null)return -1; return da-db;});
+  return l;
+}
+function quickCheck(){
+  const q=($('q-mail').value||'').trim(), box=$('q-result');
+  if(!q){ box.innerHTML='메일주소를 입력하세요'; box.style.background='#f4f6f9'; box.style.color=''; return null; }
+  const l=qFind(q);
+  if(!l.length){
+    box.innerHTML='✅ 처음 보는 곳 — <b>보낸 적 없음</b>';
+    box.style.background='#e8f7ee'; box.style.color='#1a7f45'; return null;
+  }
+  const r=l[0], d=daysSince(r[4]);
+  box.innerHTML='🚨 <b>이미 보냈음</b> — '+esc(r[8]||'—')+' · '+esc(r[4]||'?')+(d==null?'':' (<b>'+d+'일 전</b>)')
+    +(r[0]?' · '+esc(r[0]):'')+(l.length>1?' · 외 '+(l.length-1)+'건':'');
+  box.style.background='#fdecec'; box.style.color='#b3261e'; return r;
+}
+async function quickSave(){
+  const q=($('q-mail').value||'').trim();
+  if(!q){ toast('메일주소를 입력하세요'); return; }
+  const hit=quickCheck();
+  if(hit && !confirm('🚨 이미 보낸 곳이에요!\n\n담당: '+(hit[8]||'—')+'\n마지막연락: '+(hit[4]||'?')+'\n\n그래도 기록할까요?')) return;
+  const date=$('q-date').value||todayKST();
+  DATA.push(['','이메일',q,date,date,'진행중','','',PERSON]);
+  setStatus('저장 중…'); await save(); render(); setStatus('저장됨');
+  $('q-mail').value=''; quickCheck();
+  toast('기록됨 — '+date);
+}
 
 const CATALOG_URL='https://wonbi.github.io/allproduct/';
 // 저장된 템플릿에도 ①현재 사용자 이름 ②카탈로그 링크가 항상 들어가게 보정 (2026-08-11)
@@ -443,10 +497,24 @@ async function loadAll(){
     renderTplButtons();
     // 명함 — 사람별 저장 (2026-08-11)
     if(SET[CARD_KEY]){ try{ const u=await driveBlobURL(SET[CARD_KEY]); showImg('card',u,false);}catch(e){console.warn('명함 로드 실패',e);} }
-    // 데이터
-    DATA=(await sheetGet(DATA_TAB,'A2:H100000')).map(r=>{const x=r.slice(0,8);while(x.length<8)x.push('');return x.map(v=>(v||'').toString().trim());}).filter(r=>r[2]||r[0]);
-    // 상대방(2인 운영) 목록 — 업체 겹침 경고용 (읽기전용)
-    try{ OTHER_DATA = tabs.includes(OTHER_TAB) ? (await sheetGet(OTHER_TAB,'A2:H100000')).map(r=>{const x=r.slice(0,8);while(x.length<8)x.push('');return x.map(v=>(v||'').toString().trim());}).filter(r=>r[2]||r[0]) : []; }catch(e){ OTHER_DATA=[]; }
+    // 데이터 — 통합 탭
+    const row9=r=>{const x=r.slice(0,9);while(x.length<9)x.push('');return x.map(v=>(v||'').toString().trim());};
+    DATA=(await sheetGet(DATA_TAB,'A2:I100000')).map(row9).filter(r=>r[2]||r[0]);
+    DATA.forEach(r=>{ if(!r[8]) r[8]='홍찬화'; });   // 담당 비어있던 옛 행 = 찬화 것
+    // 🔀 옛 원비 탭 → 통합 탭으로 흡수 (연락처·업체명 기준 중복 제외). 원비 탭 자체는 백업으로 남긴다.
+    if(tabs.includes(LEGACY_WONBI_TAB)){
+      try{
+        const old=(await sheetGet(LEGACY_WONBI_TAB,'A2:I100000')).map(row9).filter(r=>r[2]||r[0]);
+        const key=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+        const have=new Set(DATA.map(r=>key(r[2])||key(r[0])));
+        const add=old.filter(r=>!have.has(key(r[2])||key(r[0])));
+        if(add.length){
+          add.forEach(r=>{ r[8]='박원비'; DATA.push(r); });
+          await save();
+          toast('원비 목록 '+add.length+'건을 하나로 합쳤어요');
+        }
+      }catch(e){ console.warn('원비 탭 흡수 실패',e); }
+    }
     render();
     setStatus('동기화됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){ setStatus('오류: '+e.message); console.error(e); toast('동기화 실패 — 콘솔 확인'); }
@@ -457,11 +525,6 @@ async function save(){ await dataReplace(DATA); }
 // 🔄 발굴 DB 동기화 (2026-06-11) — 원천자료는 구글드라이브 [신규업체메일링\{사람}] 폴더에,
 //    가공·갱신은 클로드(하비서)가 함. 이 버튼은 요청 문구 복사 + 안내.
 // ───────────────────────────────────────────────────────────
-function syncRequest(){
-  const msg='하비서 발굴 동기화 — 신규업체메일링\\'+PERSON+' 폴더 자료 처리해서 발굴 DB 갱신해줘';
-  (navigator.clipboard?navigator.clipboard.writeText(msg):Promise.reject()).then(()=>toast('동기화 요청 문구 복사됨 — 클로드 채팅에 붙여넣으세요')).catch(()=>{});
-  alert('🔄 발굴 DB 동기화 방법\n\n1) 공정위 CSV 등 자료를 구글드라이브 [신규업체메일링\\'+PERSON+'] 폴더에 넣기\n2) 클로드(하비서) 채팅에 방금 복사된 문구 붙여넣기\n3) 하비서가 파싱·필터 후 DB 갱신 → update.bat 배포하면 반영\n\n(요청 문구는 클립보드에 복사돼 있어요)');
-}
 
 function chanHint(){
   const c=$('f-chan').value;
@@ -486,19 +549,16 @@ function chanHint(){
 function render(){
   const tb=$('tbody'); tb.innerHTML=''; const overdue=[];
   // 날짜수 적은(최근 연락) 업체부터 위로 — 표시 순서만 정렬, onclick은 원본 DATA 인덱스 유지 (2026-06-09 사장님 지시)
-  // 👥 두 사람 내역을 한 목록으로 (2026-08-11 사장님 지시 — 중복 방지가 목적).
-  //    내 행(own)만 수정·삭제 가능. 상대 행은 읽기전용 — save()는 DATA만 쓰므로 상대 탭은 절대 안 건드린다.
-  const _view=DATA.map((r,i)=>({r,i,own:true,who:ME,ds:daysSince(r[4])}))
-    .concat(OTHER_DATA.map(r=>({r,i:-1,own:false,who:OTHER_NAME.replace('님',''),ds:daysSince(r[4])})));
+  // 👥 찬화·원비 한 목록 (2026-08-11 — 중복 방지가 유일한 목적). 담당 칼럼으로만 구분하고 편집은 누구나 가능.
+  const _view=DATA.map((r,i)=>({r,i,ds:daysSince(r[4])}));
   _view.sort((a,b)=>{ if(a.ds===null) return 1; if(b.ds===null) return -1; return a.ds-b.ds; });
-  _view.forEach(({r,i,own,who})=>{
-    const [name,chan,contact,sent,last,stat,memo]=r;
+  _view.forEach(({r,i})=>{
+    const [name,chan,contact,sent,last,stat,memo,,who]=r;
     const ds=daysSince(last), isDone=(stat==='종료'||stat==='회신');
-    const isOver=(ds!==null&&ds>=OVERDUE_DAYS&&!isDone); if(isOver&&own)overdue.push(i);
+    const isOver=(ds!==null&&ds>=OVERDUE_DAYS&&!isDone); if(isOver)overdue.push(i);
     const tr=document.createElement('tr'); tr.className=isOver?'overdue':(isDone?'done':'');
-    if(!own)tr.style.opacity='.72';
     tr.innerHTML=`
-      <td><span class="badge ${own?'green':''}" style="font-size:11px">${esc(who)}</span></td>
+      <td><span class="badge ${who===PERSON?'green':''}" style="font-size:11px">${esc(who)||'—'}</span></td>
       <td><b>${esc(name)||'<span class="muted">(이름없음)</span>'}</b></td>
       <td><span class="chan ${chan==='카톡전화'?'카톡전화':esc(chan)}">${esc(chanLabel(chan))||'—'}</span></td>
       <td>${esc(contact)||'—'}</td>
@@ -507,14 +567,15 @@ function render(){
       <td><span class="pill ${esc(stat)}">${esc(stat)||'—'}</span></td>
       <td class="muted memo">${esc(memo)}</td>
       <td><div class="row-actions">
-        ${own?`<button class="btn sm" onclick="markContact(${i})">연락함</button>
+        <button class="btn sm" onclick="markContact(${i})">연락함</button>
         <button class="btn ghost sm" onclick="editRow(${i})">수정</button>
-        <button class="btn ghost sm" onclick="delRow(${i})">삭제</button>`:'<span class="muted" style="font-size:11.5px">읽기전용</span>'}
+        <button class="btn ghost sm" onclick="delRow(${i})">삭제</button>
       </div></td>`;
     tb.appendChild(tr);
   });
-  $('empty').style.display=_view.length?'none':'block';
-  $('total-count').textContent=_view.length+' (내 '+DATA.length+' · '+OTHER_NAME.replace('님','')+' '+OTHER_DATA.length+')';
+  $('empty').style.display=DATA.length?'none':'block';
+  const byWho={}; DATA.forEach(r=>{ const w=r[8]||'—'; byWho[w]=(byWho[w]||0)+1; });
+  $('total-count').textContent=DATA.length+' ('+Object.entries(byWho).map(([k,v])=>k+' '+v).join(' · ')+')';
   // 📮 20일+ 추가연락 대상 — 채널별 그룹
   const oc=$('overdue-card');
   const fups=DATA.map((r,i)=>({r,i,ds:daysSince(r[4])}))
@@ -571,20 +632,17 @@ async function addRow(){
   const contact=$('f-contact').value.trim();
   if(!contact){ toast('연락처는 필수예요 (메일/아이디/번호)'); return; }
   const name=$('f-name').value.trim();
-  // ⚠️ 중복 체크 — 같은 연락처(또는 업체명)로 최근 2주(14일) 내 보낸 기록 있으면 경고
+  // ⚠️ 중복 체크 — 통합 목록 전체에서(찬화·원비 구분 없이) 같은 연락처·업체명이 있으면 누가 언제 보냈는지 경고
   const normC=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
-  const dup=DATA.find(r=> (normC(r[2])===normC(contact) || (name && normC(r[0])===normC(name))) && daysSince(r[4])!==null && daysSince(r[4])<=OVERDUE_DAYS);
+  const dup=DATA.find(r=> normC(r[2])===normC(contact) || (name && normC(r[0])===normC(name)));
   if(dup){
     const d=daysSince(dup[4]);
-    if(!confirm('⚠️ 이미 보낸 업체예요!\n\n['+(dup[0]||'(이름없음)')+'] '+dup[2]+'\n채널: '+chanLabel(dup[1])+' · 마지막연락 '+dup[4]+' ('+d+'일 전)\n\n2주('+OVERDUE_DAYS+'일) 안에 또 연락하는 거예요. 그래도 추가할까요?')) return;
-  }
-  // 👥 상대방 목록 겹침 체크 (2인 운영)
-  const dup2=OTHER_DATA.find(r=> normC(r[2])===normC(contact) || (name && normC(r[0])===normC(name)));
-  if(dup2){
-    if(!confirm('⚠️ '+OTHER_NAME+' 목록에 이미 있는 업체예요!\n\n['+(dup2[0]||'(이름없음)')+'] '+dup2[2]+'\n채널: '+chanLabel(dup2[1])+' · 마지막연락 '+(dup2[4]||'?')+'\n\n업체가 겹칩니다. 그래도 내 목록에 추가할까요?')) return;
+    if(!confirm('🚨 이미 보낸 업체예요!\n\n담당: '+(dup[8]||'—')+'\n['+(dup[0]||'(이름없음)')+'] '+dup[2]
+      +'\n채널: '+chanLabel(dup[1])+' · 마지막연락 '+(dup[4]||'?')+(d==null?'':' ('+d+'일 전)')
+      +'\n\n그래도 추가할까요?')) return;
   }
   const date=$('f-date').value||todayKST();
-  DATA.push([name,$('f-chan').value,contact,date,date,$('f-stat').value,$('f-memo').value.trim(),'']);
+  DATA.push([name,$('f-chan').value,contact,date,date,$('f-stat').value,$('f-memo').value.trim(),'',PERSON]);
   setStatus('저장 중…'); await save();
   $('f-name').value=$('f-contact').value=$('f-memo').value=''; $('f-date').value=todayKST();
   render(); setStatus('저장됨'); toast('추가 완료');
@@ -615,7 +673,7 @@ function editRow(i){
 }
 function saveEdit(){
   if(editIdx<0)return;
-  DATA[editIdx]=[$('e-name').value.trim(),$('e-chan').value,$('e-contact').value.trim(),$('e-sent').value.trim(),$('e-last').value.trim(),$('e-stat').value,$('e-memo').value.trim(),DATA[editIdx][7]||''];
+  DATA[editIdx]=[$('e-name').value.trim(),$('e-chan').value,$('e-contact').value.trim(),$('e-sent').value.trim(),$('e-last').value.trim(),$('e-stat').value,$('e-memo').value.trim(),DATA[editIdx][7]||'',DATA[editIdx][8]||PERSON];
   $('edit-modal').classList.remove('on'); editIdx=-1;
   render(); setStatus('저장 중…'); save().then(()=>{setStatus('저장됨');toast('수정됨');});
 }
@@ -776,10 +834,12 @@ document.addEventListener('paste', e=>{
 });
 
 // init
-$('f-date').value=todayKST(); chanHint();
-// 👥 누구 모드인지 표시
+$('f-date').value=todayKST(); $('q-date').value=todayKST(); chanHint();
+// 👥 작성자 선택 — 서명·명함만 바뀌고 목록은 항상 통합 (2026-08-11)
 document.title='신규업체 메일링 — '+PERSON;
-(function(){ const wb=$('who-badge'); if(wb){ wb.textContent='👤 '+PERSON; } })();
+(function(){ const sel=$('who-sel'); if(!sel)return;
+  PEOPLE.forEach(p=>{ const o=document.createElement('option'); o.value=p; o.textContent=p; if(p===PERSON)o.selected=true; sel.appendChild(o); });
+})();
 loadAll();
 </script>
 
