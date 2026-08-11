@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>발주서 변환기 v22.584</title>
+<title>발주서 변환기 v22.585</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -59,7 +59,7 @@ textarea::placeholder{color:var(--text3)}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span>
-  <span class="ver">v22.584</span>
+  <span class="ver">v22.585</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -824,17 +824,65 @@ function reconReport(inN,okN,dropped,suspects,outN){
     _reconAcc.dropped=_reconAcc.dropped.concat(dropped);_reconAcc.susp=_reconAcc.susp.concat(suspects);
     return;
   }
-  const missN=dropped.length+suspects.length;
-  if(missN===0){
-    showRecon('✅ 입력 주문 <b>'+inN+'건</b> → 변환 <b>'+okN+'건</b> · 출력 '+outN+'행 — <b>누락 없음</b>','ok');
+  _reconDropped=dropped;_reconSusp=suspects;   // 이유 표시용으로 보관, 실제 판정은 finishRecon(원문 기준)
+}
+// ══════════════════════════════════════════════════════════════════════
+// 🔴 원문 기준 대조 (2026-08-11 에버몰 누락 사고 — 사장님: "이게 왜 감지가 안되냐")
+//   1차 구현은 mergeLines가 줄을 합친 '뒤' 숫자(lines.length)를 입력건으로 썼다. 합쳐지면서
+//   증발한 주문은 애초에 그 숫자에 없으니 "63건 → 63건 누락 없음"이 뜬다. 대조가 무의미했음.
+//   → 기준은 반드시 **사장님이 붙여넣은 원문(raw)**. 원문의 수령인 전화번호가 출력에 살아있는지
+//     한 건씩 확인한다. 전화번호는 주문마다 유니크하고 정규화가 쉬워 가장 확실한 열쇠.
+// ══════════════════════════════════════════════════════════════════════
+var _rawAll='',_reconDropped=[],_reconSusp=[];
+var _PH_RE=/(?:0\d{1,3}-\d{3,5}-\d{4,5}|0\d{9,11})(?!\d)/g;
+function _digits(s){return String(s).replace(/\D/g,'');}
+function _phones(s){return (String(s).match(_PH_RE)||[]).map(_digits);}
+// 원문 한 줄에서 '이 주문을 식별하는 열쇠' = 마지막 전화번호(수령인). 주문처 전화는 전 행 공통이라 열쇠가 못 된다.
+function reconRaw(raw,outText){
+  const outSet=new Set(_phones(outText));
+  const seen=new Set(),missing=[];let orders=0;
+  for(const ln of String(raw).split('\n')){
+    const line=ln.replace(/\r/g,'');
+    if(!line.trim())continue;
+    const ph=_phones(line);
+    if(!ph.length)continue;                 // 전화 없는 줄 = 헤더·조각 → 주문으로 안 셈
+    const key=ph[ph.length-1];
+    if(seen.has(key))continue;              // 같은 수령인 전화 = 같은 주문이 여러 줄로 감긴 것
+    seen.add(key);orders++;
+    if(!outSet.has(key))missing.push(line);
+  }
+  return{orders:orders,missing:missing};
+}
+// 상품 개수 대조 (사장님 지시: "빠지면 안 되는 주문 상품이 몇 개인지로 감지해봐")
+function reconProducts(raw,outText){
+  const re=/[xX×]\s*(\d+)/g;const cnt=s=>{let m,n=0;re.lastIndex=0;while((m=re.exec(s)))n+=parseInt(m[1],10)||0;return n;};
+  return{inQty:cnt(raw),outQty:cnt(outText)};
+}
+// 최종 판정 — 단일/멀티 어느 경로든 변환이 끝나면 여기서 한 번만 렌더
+function finishRecon(){
+  const outText=document.getElementById('out').value||'';
+  const outN=outText.split('\n').filter(l=>l.trim()).length;
+  const r=reconRaw(_rawAll,outText);
+  const p=reconProducts(_rawAll,outText);
+  const okN=r.orders-r.missing.length;
+  const qtyLine=(p.inQty!==p.outQty)
+    ?'<div class="recon-note">📦 상품 수량 <b>원문 '+p.inQty+'개 → 출력 '+p.outQty+'개</b> — 수량도 안 맞습니다.</div>'
+    :'<div class="recon-note">📦 상품 수량 원문 '+p.inQty+'개 = 출력 '+p.outQty+'개 ✓</div>';
+  if(r.missing.length===0){
+    showRecon('✅ 원문 주문 <b>'+r.orders+'건</b> → 변환 <b>'+okN+'건</b> · 출력 '+outN+'행 — <b>누락 없음</b>'+qtyLine,'ok');
     return;
   }
-  const items=dropped.map(d=>'· <b>['+_esc(d.why)+']</b> '+_esc(_cut(d.line,150)))
-    .concat(suspects.map(s=>'· <b>[앞 행에 붙어버림]</b> '+_esc(_cut(s,150))));
-  // 흡수된 줄은 인식 건수(inN)에 안 잡히므로 총 입력건에 더해 표기 ("1건 중 1건인데 1건 빠짐" 같은 어색함 방지)
-  showRecon('🚨 입력 주문 <b>'+(inN+suspects.length)+'건</b> 중 <b>'+okN+'건만 변환</b> — <b>'+missN+'건 빠짐</b> (출력 '+outN+'행)'
+  const why={};
+  _reconDropped.forEach(d=>{_phones(d.line).forEach(p2=>{why[p2]=d.why;});});
+  _reconSusp.forEach(s=>{_phones(s).forEach(p2=>{why[p2]=why[p2]||'앞 행에 붙어버림';});});
+  const items=r.missing.map(function(l){
+    const k=_phones(l).slice(-1)[0];
+    return'· <b>['+_esc(why[k]||'출력에 없음')+']</b> '+_esc(_cut(l,170));
+  });
+  showRecon('🚨 원문 주문 <b>'+r.orders+'건</b> 중 <b>'+okN+'건만 변환</b> — <b>'+r.missing.length+'건 누락</b> (출력 '+outN+'행)'
     +'<div class="recon-list">'+items.join('<br>')+'</div>'
-    +'<div class="recon-note">빠진 건은 위 원문을 확인하고 따로 입력하세요.</div>','bad');
+    +qtyLine
+    +'<div class="recon-note">⚠️ 위 원문 그대로 따로 변환해서 시트에 추가하세요.</div>','bad');
 }
 function preprocessBalbolLine(raw){
   if(!raw.includes('///'))return null;
@@ -1454,6 +1502,7 @@ function run(){
   // 다업체 취합 입력을 블록으로 나눠 업체별 개별 변환(폭 다른 양식 섞임→오배분 방지)
   const inpEl=document.getElementById('inp');
   const full=inpEl.value;
+  _rawAll=full;_reconDropped=[];_reconSusp=[];   // 대조 기준 = 손대기 전 원문 (2026-08-11)
   let blocks=null, mode='';
   if(/^===발주구분===\s*$/m.test(full)){
     blocks=full.split(/^===발주구분===\s*$/m).map(function(s){return s.trim();}).filter(Boolean); mode='구분선';
@@ -1461,7 +1510,7 @@ function run(){
     const ab=autoSplitByHeader(full);            // 안전망: 구분선 없어도 헤더줄 기준 자동 분리
     if(ab.length>1){ blocks=ab; mode='헤더자동'; }
   }
-  if(!blocks){ runSingle(); return; }            // 단일 업체 = 기존 로직 그대로(무위험)
+  if(!blocks){ runSingle(); finishRecon(); return; }   // 단일 업체 = 기존 로직 그대로(무위험)
   const outEl=document.getElementById('out');
   const outs=[];
   _reconAcc={in:0,ok:0,out:0,dropped:[],susp:[]};   // 블록별 대조 결과 누적 (2026-08-11)
@@ -1479,7 +1528,7 @@ function run(){
     inpEl.value=full;
   }
   const _acc=_reconAcc;_reconAcc=null;
-  if(_acc)reconReport(_acc.in,_acc.ok,_acc.dropped,_acc.susp,_acc.out);
+  if(_acc){_reconDropped=_acc.dropped;_reconSusp=_acc.susp;}
   const merged=outs.join('\n');
   outEl.value=merged;
   const outN=merged.split('\n').filter(function(l){return l.trim();}).length;
@@ -1488,6 +1537,7 @@ function run(){
   document.getElementById('s-in').textContent=blocks.length;
   document.getElementById('in-count').textContent=blocks.length+' 업체';
   autoResize(inpEl);autoResize(outEl);
+  finishRecon();   // 블록 취합이 끝난 뒤 원문 전체와 대조 (2026-08-11)
   const mcc=merged.split('\n').filter(function(l){return l.trim();}).map(function(l){return l.split('\t').length;});
   const mBad=mcc.filter(function(n){return n!==9&&n!==10;}).length;
   const mTxt=' [10칸 '+mcc.filter(function(n){return n===10;}).length+'·9칸 '+mcc.filter(function(n){return n===9;}).length+']';
