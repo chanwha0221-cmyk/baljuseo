@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내용증명 양식 · 주식회사 마스터</title>
+<style>
+  :root { --line:#d5d8dd; --ink:#111; --muted:#6b7280; --accent:#1f5eff; --bg:#f4f5f7; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font-family:"Malgun Gothic","맑은 고딕",sans-serif; }
+
+  /* ===== 화면 UI ===== */
+  header.bar { position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line);
+               padding:10px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  header.bar h1 { font-size:16px; margin:0 auto 0 0; letter-spacing:1px; }
+  header.bar .hint { font-size:12px; color:var(--muted); margin-right:auto; }
+  button { font-family:inherit; font-size:13px; padding:8px 14px; border-radius:6px; cursor:pointer;
+           border:1px solid var(--line); background:#fff; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; }
+  button:hover { filter:brightness(0.96); }
+
+  .wrap { display:flex; gap:20px; align-items:flex-start; padding:20px; max-width:1500px; margin:0 auto; }
+  .form { flex:0 0 380px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .form h2 { font-size:13px; color:var(--muted); margin:18px 0 8px; letter-spacing:1px; }
+  .form h2:first-child { margin-top:0; }
+  .row { display:flex; gap:8px; margin-bottom:8px; }
+  .row > * { flex:1; min-width:0; }
+  label { display:block; font-size:12px; color:var(--muted); margin-bottom:3px; }
+  input, textarea { width:100%; font-family:inherit; font-size:13px; padding:7px 9px;
+                    border:1px solid var(--line); border-radius:5px; background:#fff; color:var(--ink); }
+  textarea { resize:vertical; min-height:56px; }
+  input:focus, textarea:focus { outline:2px solid #bcd0ff; border-color:var(--accent); }
+  .calc { font-size:12px; color:var(--accent); font-weight:700; margin:-4px 0 10px; }
+
+  .stage { flex:1; display:flex; justify-content:center; }
+
+  /* ===== A4 문서 ===== */
+  .paper { background:#fff; width:210mm; min-height:297mm; padding:12mm 16mm;
+           box-shadow:0 2px 14px rgba(0,0,0,.12); font-size:10.5pt; line-height:1.5; color:#000; }
+  .paper h1 { text-align:center; font-size:19pt; letter-spacing:13px; text-indent:13px;
+              font-weight:700; margin:0 0 4mm; }
+  .paper .subject { text-align:center; font-size:11.5pt; font-weight:700;
+                    padding-bottom:3mm; margin-bottom:5mm; border-bottom:2px solid #000; }
+  .paper table.party { width:100%; border-collapse:collapse; margin-bottom:4mm; }
+  .paper table.party th, .paper table.party td { border:1px solid #000; padding:1.3mm 3mm;
+                    vertical-align:top; font-size:10.5pt; line-height:1.4; }
+  .paper table.party th { width:22mm; text-align:center; font-weight:700; background:#f2f2f2; white-space:nowrap; }
+  .paper table.party td.label { width:22mm; text-align:center; white-space:nowrap; background:#fafafa; }
+  .paper ol.body { margin:0; padding:0; list-style:none; }
+  .paper ol.body > li { margin-bottom:2.5mm; padding-left:7mm; text-indent:-7mm; text-align:justify; }
+  .paper ol.body > li > .no { display:inline-block; width:7mm; text-indent:0; }
+  .paper table.goods { width:92%; margin:2mm 0 2mm 7mm; border-collapse:collapse; text-indent:0; }
+  .paper table.goods th, .paper table.goods td { border:1px solid #000; padding:1.2mm 3mm;
+                    font-size:10pt; line-height:1.45; }
+  .paper table.goods th { width:32mm; background:#f2f2f2; text-align:center; font-weight:700; white-space:nowrap; }
+  .paper .amount { font-weight:700; }
+  .paper .account { margin:2.5mm 0 0 7mm; padding:2.5mm 4mm; border:1px solid #000;
+                    text-indent:0; font-size:10.5pt; line-height:1.5; }
+  .paper .sign { margin-top:5mm; text-align:center; }
+  .paper .sign .date { font-size:11.5pt; margin-bottom:5mm; }
+  .paper .sign .who { display:inline-block; text-align:left; font-size:11.5pt; line-height:1.7; }
+  .paper .attach { margin-top:5mm; padding-top:2.5mm; border-top:1px solid #000; font-size:10pt; }
+
+  /* ===== 인쇄 ===== */
+  @media print {
+    @page { size:A4; margin:12mm 16mm; }
+    body { background:#fff; }
+    header.bar, .form { display:none !important; }
+    .wrap { padding:0; display:block; }
+    .stage { display:block; }
+    .paper { width:auto; min-height:0; padding:0; box-shadow:none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <h1>내용증명 양식</h1>
+  <span class="hint">v1.0 · 칸만 채우면 아래 문서가 바로 완성됩니다 · 발신인 정보·계좌는 이 브라우저에 자동 저장</span>
+  <button onclick="copyText()">📋 텍스트 복사</button>
+  <button onclick="resetAll()">초기화</button>
+  <button class="primary" onclick="window.print()">인쇄 / PDF 저장</button>
+</header>
+
+<div class="wrap">
+  <div class="form" id="form">
+    <h2>제목</h2>
+    <input id="subject" value="물품대금 지급 최고(催告)의 건">
+
+    <h2>수신인 (받는 쪽)</h2>
+    <div class="row">
+      <div><label>상호</label><input id="rName" placeholder="주식회사 ○○"></div>
+      <div style="flex:0 0 110px"><label>대표자</label><input id="rCeo" placeholder="홍길동"></div>
+    </div>
+    <label>주소</label><input id="rAddr" placeholder="서울특별시 ...">
+
+    <h2>발신인 (우리 쪽)</h2>
+    <div class="row">
+      <div><label>상호</label><input id="sName"></div>
+      <div style="flex:0 0 110px"><label>대표자</label><input id="sCeo"></div>
+    </div>
+    <label>주소</label><input id="sAddr">
+    <label>연락처</label><input id="sTel">
+
+    <h2>거래 내역</h2>
+    <div class="row">
+      <div><label>공급 시작일</label><input id="from" type="date"></div>
+      <div><label>공급 종료일</label><input id="to" type="date"></div>
+    </div>
+    <label>공급 품목</label><input id="item" placeholder="소찜갈비 등 / 별첨 거래명세서 참조">
+    <div class="row">
+      <div><label>공급 대금(원)</label><input id="total" inputmode="numeric" placeholder="0"></div>
+      <div><label>기 입금액(원)</label><input id="paid" inputmode="numeric" placeholder="0"></div>
+    </div>
+    <div class="calc" id="balanceView">미지급 잔액 : 0원</div>
+
+    <h2>지급 요구</h2>
+    <label>약정 지급기일</label><input id="due" type="date">
+    <div class="row">
+      <div><label>독촉일 1 (선택)</label><input id="urge1" type="date"></div>
+      <div><label>독촉일 2 (선택)</label><input id="urge2" type="date"></div>
+    </div>
+    <label>지급 기한 (수령일로부터 며칠)</label><input id="days" value="5">
+
+    <h2>입금 계좌</h2>
+    <div class="row">
+      <div style="flex:0 0 100px"><label>은행</label><input id="bank"></div>
+      <div><label>계좌번호</label><input id="acct"></div>
+    </div>
+    <label>예금주</label><input id="holder">
+
+    <h2>기타</h2>
+    <label>추가 문구 (선택 · 비우면 항목 자체가 빠집니다)</label>
+    <textarea id="extra" placeholder="예) 귀사가 2026년 7월 20일 통보한 분할 지급 약정 또한 이행되지 아니하였습니다."></textarea>
+    <label>첨부</label><input id="attach" value="거래명세서 1부.">
+    <label>작성일</label><input id="wdate" type="date">
+  </div>
+
+  <div class="stage"><div class="paper" id="paper"></div></div>
+</div>
+
+<script>
+const F = ['subject','rName','rCeo','rAddr','sName','sCeo','sAddr','sTel','from','to','item',
+           'total','paid','due','urge1','urge2','days','bank','acct','holder','extra','attach','wdate'];
+const DEFAULTS = {
+  subject:'물품대금 지급 최고(催告)의 건',
+  sName:'주식회사 마스터', sCeo:'임수진',
+  sAddr:'강원특별자치도 동해시 향로1길 17(발한동)', sTel:'010-2455-4156',
+  bank:'기업은행', acct:'514-049965-04-014', holder:'주식회사 마스터',
+  days:'5', attach:'거래명세서 1부.', item:'별첨 거래명세서 참조'
+};
+const $ = id => document.getElementById(id);
+const won = n => (Number(String(n).replace(/[^\d]/g,'')) || 0).toLocaleString('ko-KR');
+const num = n => Number(String(n).replace(/[^\d]/g,'')) || 0;
+const esc = s => String(s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const kdate = v => { if(!v) return ''; const [y,m,d] = v.split('-'); return `${+y}년 ${+m}월 ${+d}일`; };
+const spread = s => String(s||'').replace(/\s/g,'').split('').join(' ');   // 임수진 → 임 수 진
+
+function load() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('naeyongjeungmyeong') || '{}'); } catch(e) {}
+  F.forEach(k => { const v = saved[k] ?? DEFAULTS[k]; if (v !== undefined) $(k).value = v; });
+  if (!$('wdate').value) $('wdate').value = new Date().toISOString().slice(0,10);
+}
+function save() {
+  const o = {};
+  ['subject','sName','sCeo','sAddr','sTel','bank','acct','holder','days','attach'].forEach(k => o[k] = $(k).value);
+  try { localStorage.setItem('naeyongjeungmyeong', JSON.stringify(o)); } catch(e) {}
+}
+function resetAll() {
+  if (!confirm('입력한 내용을 모두 지우고 기본값으로 되돌릴까요?')) return;
+  try { localStorage.removeItem('naeyongjeungmyeong'); } catch(e) {}
+  F.forEach(k => $(k).value = DEFAULTS[k] ?? '');
+  $('wdate').value = new Date().toISOString().slice(0,10);
+  render();
+}
+
+function render() {
+  const v = {}; F.forEach(k => v[k] = $(k).value.trim());
+  const total = num(v.total), paid = num(v.paid), bal = Math.max(total - paid, 0);
+  $('balanceView').textContent = '미지급 잔액 : ' + won(bal) + '원';
+
+  const period = (v.from || v.to) ? `${kdate(v.from)} ~ ${kdate(v.to)}` : '';
+  const urges = [v.urge1, v.urge2].filter(Boolean).map(kdate);
+  const urgeSentence = urges.length
+    ? `발신인은 ${urges.join(' 및 ')} 유선 및 문자로 지급을 요청하였으나 현재까지 이행되지 않았습니다.` : '';
+
+  const items = [];
+  items.push('귀사의 무궁한 발전을 기원합니다.');
+  items.push(`발신인은 귀사와 물품공급 거래를 하여 왔으며, 아래와 같이 물품을 공급하고 이를 인도하였습니다.
+    <table class="goods">
+      <tr><th>공급 기간</th><td>${esc(period)}</td></tr>
+      <tr><th>공급 품목</th><td>${esc(v.item)}</td></tr>
+      <tr><th>공급 대금</th><td>금 ${won(total)}원 (부가세 포함)</td></tr>
+      <tr><th>기 입금액</th><td>금 ${won(paid)}원</td></tr>
+      <tr><th>미지급 잔액</th><td class="amount">금 ${won(bal)}원</td></tr>
+    </table>`);
+  items.push(`그러나 귀사는 약정한 대금 지급기일인 ${kdate(v.due)}이 경과하였음에도 현재까지 위 미지급 잔액 금 ${won(bal)}원 전액을 지급하지 아니하고 있습니다. ${urgeSentence}`);
+  if (v.extra) items.push(esc(v.extra));
+  items.push(`이에 발신인은 본 내용증명을 통하여 최고하오니, 본 서면을 수령한 날로부터 <b>${esc(v.days)}일 이내</b>에 아래 계좌로 미지급 대금 <b>금 ${won(bal)}원</b>을 지급하여 주시기 바랍니다.
+    <div class="account">입금 계좌 : ${esc(v.bank)} ${esc(v.acct)}<br>예&nbsp;금&nbsp;주 : ${esc(v.holder)}</div>`);
+  items.push('만일 위 기한 내에 지급이 이루어지지 않을 경우, 발신인은 부득이 물품대금 청구의 소 제기, 재산 가압류 등 민사상 법적 절차에 착수할 예정이며, 이 경우 발생하는 소송비용·지연손해금 등 일체의 비용은 귀사가 부담하게 됨을 알려드립니다.');
+  items.push('원만한 해결을 원하오니 기한 내에 처리하여 주시기 바랍니다.');
+
+  $('paper').innerHTML = `
+    <h1>내용증명</h1>
+    <div class="subject">제목 : ${esc(v.subject)}</div>
+    <table class="party">
+      <tr><th rowspan="3">수 신 인</th><td class="label">상&nbsp;&nbsp;&nbsp;&nbsp;호</td><td>${esc(v.rName)}</td></tr>
+      <tr><td class="label">대 표 자</td><td>${esc(spread(v.rCeo))}</td></tr>
+      <tr><td class="label">주&nbsp;&nbsp;&nbsp;&nbsp;소</td><td>${esc(v.rAddr)}</td></tr>
+    </table>
+    <table class="party">
+      <tr><th rowspan="4">발 신 인</th><td class="label">상&nbsp;&nbsp;&nbsp;&nbsp;호</td><td>${esc(v.sName)}</td></tr>
+      <tr><td class="label">대 표 자</td><td>${esc(spread(v.sCeo))}</td></tr>
+      <tr><td class="label">주&nbsp;&nbsp;&nbsp;&nbsp;소</td><td>${esc(v.sAddr)}</td></tr>
+      <tr><td class="label">연 락 처</td><td>${esc(v.sTel)}</td></tr>
+    </table>
+    <ol class="body">
+      ${items.map((t,i) => `<li><span class="no">${i+1}.</span>${t}</li>`).join('')}
+    </ol>
+    <div class="sign">
+      <div class="date">${kdate(v.wdate)}</div>
+      <div class="who">발신인&nbsp;&nbsp;&nbsp;${esc(v.sName)}<br>대표자&nbsp;&nbsp;&nbsp;<b>${esc(spread(v.sCeo))}</b></div>
+    </div>
+    ${v.attach ? `<div class="attach">첨부 : ${esc(v.attach)}</div>` : ''}`;
+  save();
+}
+
+function copyText() {
+  const t = $('paper').innerText.replace(/\n{3,}/g,'\n\n').trim();
+  navigator.clipboard.writeText(t).then(
+    () => alert('문서 내용을 복사했습니다.'),
+    () => { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta);
+            ta.select(); document.execCommand('copy'); ta.remove(); alert('문서 내용을 복사했습니다.'); });
+}
+
+F.forEach(k => $(k).addEventListener('input', render));
+['total','paid'].forEach(k => $(k).addEventListener('blur', e => { e.target.value = won(e.target.value); render(); }));
+load(); render();
+</script>
+</body>
+</html>
