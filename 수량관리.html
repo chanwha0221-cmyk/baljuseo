@@ -868,8 +868,35 @@ function _beforeResetTime(){
   const n = new Date();
   return (n.getHours()*60 + n.getMinutes()) < (RESET_SAFE_HOUR*60 + RESET_SAFE_MIN);
 }
+// 🔒 초기화 잠금 시간대: 09:10 ~ 16:10 — 이 사이엔 비밀번호 없이 초기화 불가
+const RESET_LOCK_START = 9*60 + 10;
+const RESET_LOCK_END   = 16*60 + 10;
+const RESET_PW_HASH    = 1410955914;   // 해제 비밀번호(평문은 소스에 두지 않음)
+function _pwHash(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))>>>0; } return h; }
+function _resetLocked(){
+  const n = new Date();
+  const m = n.getHours()*60 + n.getMinutes();
+  return m >= RESET_LOCK_START && m < RESET_LOCK_END;
+}
 async function clearAll(){
   if(entries.length===0){ toast('비울 데이터가 없어요'); return; }
+  // 🔒 잠금 시간대(09:10~16:10)면 비밀번호부터
+  if(_resetLocked()){
+    const n = new Date();
+    const hhmm = String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+    const pw = prompt(
+      '🔒 지금은 '+hhmm+' — 전체 초기화가 잠겨 있습니다.\n\n'+
+      '09:10 ~ 16:10 사이에는 초기화할 수 없습니다.\n'+
+      '초기화가 꼭 필요하면 홍찬화 사장님께 연락 주세요.\n\n'+
+      '해제 비밀번호를 입력하세요:'
+    );
+    if(pw === null){ toast('초기화 취소됨 (잠금 시간)','warn'); return; }
+    if(_pwHash(String(pw).trim().toLowerCase()) !== RESET_PW_HASH){
+      alert('❌ 비밀번호가 맞지 않습니다.\n\n초기화가 필요하면 홍찬화 사장님께 연락 주세요.');
+      toast('초기화 잠금 — 비밀번호 불일치','warn');
+      return;
+    }
+  }
   // ⛔ 마감(16:30) 전이면: 초기화할 시간이 아니라는 강력 경고부터
   if(_beforeResetTime()){
     const n = new Date();
