@@ -81,16 +81,24 @@ a{color:var(--accent)}
 
 <div id="tab-photo" style="display:none">
 <div class="card" style="border-color:var(--accent)">
-  <h2>📸 사진 채우기 = 북마크릿 한 번</h2>
-  <p style="font-size:12.5px;color:var(--muted)">상품 사진은 <b>masterc 로그인 상태</b>에서만 보여서 이 페이지(다른 주소)에서는 못 가져옵니다. 대신 <b>masterc 위에서 도는 북마크릿</b>이 대신 합니다 — 사진 없는 상품을 스스로 찾아 채우고, <b>링크가 없는 상품은 게시판 제목 검색으로 글을 찾아 링크까지 등록</b>합니다.</p>
-  <ol style="font-size:13px">
-    <li>아래 <b>📸 상품사진 채우기</b>를 <b>즐겨찾기 바로 드래그</b> (한 번만. 즐겨찾기 바는 <b>Ctrl+Shift+B</b>)</li>
-    <li><a href="https://masterc.kr/" target="_blank" rel="noopener">masterc</a> 아무 페이지에서 그 즐겨찾기를 클릭</li>
-    <li>오른쪽 아래 창에서 <b>[🖼 사진 없는 상품 전부 채우기]</b> 클릭 → 끝나면 이 카탈로그 새로고침</li>
-  </ol>
-  <p style="margin-top:10px"><a class="bmlet" href="javascript:(function(){var s=document.createElement('script');s.src='https://chanwha0221-cmyk.github.io/baljuseo/media-updater.js?v='+Date.now();document.body.appendChild(s);})();">📸 상품사진 채우기</a> <span style="font-size:12px;color:var(--muted)">← 이 버튼을 즐겨찾기 바로 끌어다 놓으세요 (여기서 눌러도 동작 안 함)</span></p>
-  <button class="cp" id="bmCopy">📋 북마크릿 주소 복사</button>
-  <span style="font-size:11.5px;color:var(--muted)">드래그가 안 되면 복사 → 즐겨찾기 추가 → URL 칸에 붙여넣기</span>
+  <h2>📸 상품 사진은 신경 안 쓰셔도 됩니다</h2>
+  <p style="font-size:13px;line-height:1.8">사진은 <b>하비서가 채웁니다.</b> 카탈로그에 <b>사진 준비중</b>이 보이면 그냥 <b>"사진 채워줘"</b> 한마디만 하시면 됩니다.<br>
+  <span style="color:var(--muted)">사진이 안 나오는 이유는 딱 두 가지입니다 — ① masterc 게시판 글에 <b>사진이 안 붙어 있거나</b>, ② 그 상품 <b>글 자체가 없어서</b>. 둘 다 채울 사진이 없는 것이라 시스템 문제가 아닙니다. 이때는 게시판에 사진을 올려주셔야 합니다.</span></p>
+  <details style="margin-top:12px">
+    <summary style="cursor:pointer;font-size:12.5px;color:var(--muted);font-weight:600">🔧 직접 채우고 싶을 때 (몰라도 됩니다)</summary>
+    <div style="font-size:12.5px;color:var(--muted);margin-top:9px;line-height:1.7">
+      상품 사진은 <b>masterc에 로그인한 화면에서만</b> 가져올 수 있습니다. 이 페이지는 주소가 달라서 못 가져오고요.
+      그래서 <b>masterc 위에서 도는 작은 프로그램(북마크릿)</b>을 만들어 뒀습니다 — 즐겨찾기에 넣어두고 masterc에서 한 번 누르면, 사진 없는 상품을 알아서 찾아 채웁니다.
+      <ol style="font-size:12.5px;margin-top:8px">
+        <li>아래 <b>📸 상품사진 채우기</b>를 <b>즐겨찾기 바로 드래그</b> (한 번만. 즐겨찾기 바는 <b>Ctrl+Shift+B</b>)</li>
+        <li><a href="https://masterc.kr/" target="_blank" rel="noopener">masterc</a> 아무 페이지에서 그 즐겨찾기를 클릭</li>
+        <li>오른쪽 아래 창에서 <b>[🖼 지금 손봐야 할 상품 전부 업데이트]</b> 클릭 → 끝나면 카탈로그 새로고침</li>
+      </ol>
+      <p style="margin-top:8px"><a class="bmlet" href="javascript:(function(){var s=document.createElement('script');s.src='https://chanwha0221-cmyk.github.io/baljuseo/media-updater.js?v='+Date.now();document.body.appendChild(s);})();">📸 상품사진 채우기</a> <span style="font-size:12px">← 즐겨찾기 바로 끌어다 놓으세요 (여기서 눌러도 동작 안 함)</span></p>
+      <button class="cp" id="bmCopy">📋 북마크릿 주소 복사</button>
+      <span style="font-size:11.5px">드래그가 안 되면 복사 → 즐겨찾기 추가 → URL 칸에 붙여넣기</span>
+    </div>
+  </details>
 </div>
 <div class="card">
   <h2>🔧 사진·링크 수정 <span id="fxStat" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
