@@ -36,35 +36,37 @@
   .stage { flex:1; display:flex; justify-content:center; }
 
   /* ===== A4 문서 ===== */
-  .paper { background:#fff; width:210mm; min-height:297mm; padding:12mm 16mm;
-           box-shadow:0 2px 14px rgba(0,0,0,.12); font-size:10.5pt; line-height:1.5; color:#000; }
-  .paper h1 { text-align:center; font-size:19pt; letter-spacing:13px; text-indent:13px;
-              font-weight:700; margin:0 0 4mm; }
-  .paper .subject { text-align:center; font-size:11.5pt; font-weight:700;
-                    padding-bottom:3mm; margin-bottom:5mm; border-bottom:2px solid #000; }
-  .paper table.party { width:100%; border-collapse:collapse; margin-bottom:4mm; }
-  .paper table.party th, .paper table.party td { border:1px solid #000; padding:1.3mm 3mm;
-                    vertical-align:top; font-size:10.5pt; line-height:1.4; }
-  .paper table.party th { width:22mm; text-align:center; font-weight:700; background:#f2f2f2; white-space:nowrap; }
-  .paper table.party td.label { width:22mm; text-align:center; white-space:nowrap; background:#fafafa; }
+  /* 우체국 규격 여백 : 상 20mm · 하 40mm · 좌우 15mm */
+  /* 하단 40mm를 비워야 해서 본문 가용 높이가 237mm뿐 — 아래 수치는 A4 1장에 맞춘 값 */
+  .paper { background:#fff; width:210mm; min-height:297mm; padding:20mm 15mm 40mm;
+           box-shadow:0 2px 14px rgba(0,0,0,.12); font-size:10pt; line-height:1.45; color:#000; }
+  .paper h1 { text-align:center; font-size:17pt; letter-spacing:12px; text-indent:12px;
+              font-weight:700; margin:0 0 2.5mm; }
+  .paper .subject { text-align:center; font-size:10.5pt; font-weight:700;
+                    padding-bottom:2mm; margin-bottom:3.5mm; border-bottom:2px solid #000; }
+  .paper table.party { width:100%; border-collapse:collapse; margin-bottom:3mm; }
+  .paper table.party th, .paper table.party td { border:1px solid #000; padding:1.1mm 2.5mm;
+                    vertical-align:top; font-size:10pt; line-height:1.35; }
+  .paper table.party th { width:20mm; text-align:center; font-weight:700; background:#f2f2f2; white-space:nowrap; }
+  .paper table.party td.label { width:20mm; text-align:center; white-space:nowrap; background:#fafafa; }
   .paper ol.body { margin:0; padding:0; list-style:none; }
-  .paper ol.body > li { margin-bottom:2.5mm; padding-left:7mm; text-indent:-7mm; text-align:justify; }
-  .paper ol.body > li > .no { display:inline-block; width:7mm; text-indent:0; }
-  .paper table.goods { width:92%; margin:2mm 0 2mm 7mm; border-collapse:collapse; text-indent:0; }
-  .paper table.goods th, .paper table.goods td { border:1px solid #000; padding:1.2mm 3mm;
-                    font-size:10pt; line-height:1.45; }
-  .paper table.goods th { width:32mm; background:#f2f2f2; text-align:center; font-weight:700; white-space:nowrap; }
+  .paper ol.body > li { margin-bottom:1.6mm; padding-left:6.5mm; text-indent:-6.5mm; text-align:justify; }
+  .paper ol.body > li > .no { display:inline-block; width:6.5mm; text-indent:0; }
+  .paper table.goods { width:92%; margin:1.5mm 0 1.5mm 6.5mm; border-collapse:collapse; text-indent:0; }
+  .paper table.goods th, .paper table.goods td { border:1px solid #000; padding:1mm 2.5mm;
+                    font-size:10pt; line-height:1.35; }
+  .paper table.goods th { width:30mm; background:#f2f2f2; text-align:center; font-weight:700; white-space:nowrap; }
   .paper .amount { font-weight:700; }
-  .paper .account { margin:2.5mm 0 0 7mm; padding:2.5mm 4mm; border:1px solid #000;
-                    text-indent:0; font-size:10.5pt; line-height:1.5; }
-  .paper .sign { margin-top:5mm; text-align:center; }
-  .paper .sign .date { font-size:11.5pt; margin-bottom:5mm; }
-  .paper .sign .who { display:inline-block; text-align:left; font-size:11.5pt; line-height:1.7; }
-  .paper .attach { margin-top:5mm; padding-top:2.5mm; border-top:1px solid #000; font-size:10pt; }
+  .paper .account { margin:1.8mm 0 0 6.5mm; padding:1.8mm 3.5mm; border:1px solid #000;
+                    text-indent:0; font-size:10pt; line-height:1.45; }
+  .paper .sign { margin-top:3mm; text-align:center; }
+  .paper .sign .date { font-size:11pt; margin-bottom:3mm; }
+  .paper .sign .who { display:inline-block; text-align:left; font-size:11pt; line-height:1.5; }
+  .paper .attach { margin-top:3.5mm; padding-top:2mm; border-top:1px solid #000; font-size:10pt; }
 
   /* ===== 인쇄 ===== */
   @media print {
-    @page { size:A4; margin:12mm 16mm; }
+    @page { size:A4; margin:20mm 15mm 40mm; }
     body { background:#fff; }
     header.bar, .form { display:none !important; }
     .wrap { padding:0; display:block; }
@@ -77,7 +79,7 @@
 
 <header class="bar">
   <h1>내용증명 양식</h1>
-  <span class="hint">v1.0 · 칸만 채우면 아래 문서가 바로 완성됩니다 · 발신인 정보·계좌는 이 브라우저에 자동 저장</span>
+  <span class="hint">v1.1 · 칸만 채우면 문서 완성 · 인쇄할 때 <b>용지 A4 · 여백 기본값</b>으로 두면 규격 여백(상20·하40·좌우15mm)으로 나옵니다</span>
   <button onclick="copyText()">📋 텍스트 복사</button>
   <button onclick="resetAll()">초기화</button>
   <button class="primary" onclick="window.print()">인쇄 / PDF 저장</button>
