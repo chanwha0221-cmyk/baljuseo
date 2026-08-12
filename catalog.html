@@ -103,6 +103,15 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .ntc .nd{font-size:11px;color:var(--muted);margin-top:3px}
 .ntc .nb{font-size:13px;line-height:1.75;margin-top:9px;white-space:pre-wrap}
 .impb{font-size:10px;font-weight:800;color:#fff;background:var(--up);padding:2px 7px;border-radius:5px}
+/* 유통시트에서 살구색으로 칠해둔 상품 = 조업은 되는데 입고가 일정치 않은 것 (사장님 2026-08-12) */
+.card.hot{background:color-mix(in srgb,#fce5cd 55%,var(--card));border-color:color-mix(in srgb,var(--gold) 45%,var(--line))}
+@media(prefers-color-scheme:dark){.card.hot{background:color-mix(in srgb,#7a4a1c 30%,var(--card))}}
+.hotb{font-size:10px;font-weight:800;color:var(--gold);background:color-mix(in srgb,var(--gold) 18%,transparent);padding:2px 7px;border-radius:5px;align-self:flex-start}
+.hotnote{margin-top:11px;background:color-mix(in srgb,#fce5cd 55%,var(--card));border:1px solid color-mix(in srgb,var(--gold) 45%,var(--line));border-radius:11px;padding:9px 12px;font-size:11.5px;line-height:1.6;color:var(--ink)}
+@media(prefers-color-scheme:dark){.hotnote{background:color-mix(in srgb,#7a4a1c 30%,var(--card))}}
+.mbtn .tapb{display:block;font-size:9.5px;font-weight:700;color:var(--accent);margin-top:2px;letter-spacing:0}
+.mbtn.on .tapb{color:#fff;opacity:.85}
+.ntcbox{margin-top:11px}
 @media(max-width:640px){
   .menu{gap:5px;margin-top:8px}
   .mbtn{min-width:0;padding:9px 4px;font-size:11.5px;border-radius:9px}
@@ -150,10 +159,12 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 <div class="note" id="note">🚚 <b>합포장(합배송)은 같은 창고 상품끼리만 됩니다.</b> 서로 다른 창고 상품은 각각 배송비가 붙어요. 창고를 골라 보세요.<br>💬 상품 문의 · 수량 문의 : <b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원 팀장</b></div></header>
 <!-- 메뉴 — 검색창 위. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
 <div class="menu" id="menu">
-  <button class="mbtn" data-go="change">📊 상품변동사항</button>
-  <button class="mbtn" data-go="rec">⭐ 추천상품</button>
   <button class="mbtn" data-go="notice">📢 공지사항</button>
+  <button class="mbtn" data-go="change">📊 상품변동사항<span class="tapb">눌러서 확인</span></button>
+  <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
 </div>
+<!-- 공지는 메뉴 바로 밑에 그대로 펼쳐 보여준다 (사장님 2026-08-12) -->
+<div class="ntcbox" id="ntcbox"></div>
 <div id="mainView">
 <div class="controls">
 <input class="search" id="q" type="search" placeholder="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…" autocomplete="off">
@@ -384,6 +395,9 @@ async function loadSales(){
 }
 // ── 렌더링 ──
 let GROUPS=[],MEDIA={},ALL=[],SALES={};
+// 유통시트 '상품변동사항'에서 살구색으로 칠해둔 상품 = 조업은 되는데 입고가 일정치 않아
+// 상시 판매를 권하지 않는 것. 카탈로그 카드에도 같은 색을 입힌다. (사장님 2026-08-12)
+let TINT={};
 const st={q:'',wh:'전체',mode:'group',cat:'전체'};
 // 기본 정렬 = 최근 판매량 많은 순 (안 팔린 것은 뒤로, 같으면 원래 시트 순서 유지)
 function bySales(list){
@@ -437,7 +451,9 @@ function card(p,extra){   // extra = 카드 안 맨 아래에 덧붙일 HTML (�
   const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(thumbUrl(m.img))+'" data-full="'+esc(m.img)+'" alt="'+esc(p.name)+'" loading="lazy" onerror="thumbFail(this)">')
                         :'<div class="nothumb">사진 준비중</div>';
   const spec=(m&&m.spec&&m.spec.length)?('<div class="spec">'+m.spec.map(s=>'<div>'+esc(s)+'</div>').join('')+'</div>'):'';
-  return '<div class="card">'+thumb+'<div class="bd">'
+  const hot=!!TINT[pkey(p.name)];
+  return '<div class="card'+(hot?' hot':'')+'">'+thumb+'<div class="bd">'
+    +(hot?'<span class="hotb">⚠️ 입고 불안정</span>':'')
     +(bt?'<button class="whb" data-wh="'+esc(p.effWh||'')+'" title="이 창고 상품만 보기">📦 '+esc(bt)+'</button>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
     +(p.tax?'<span class="tg '+taxc+'">'+esc(p.tax)+'</span>':'')
@@ -546,13 +562,21 @@ async function startCatalog(){
   let usedCache=false;
   try{
     const c=JSON.parse(localStorage.getItem(CK)||'null');
-    if(c&&c.groups&&c.groups.length){GROUPS=c.groups;MEDIA=c.media||{};SALES=c.sales||{};usedCache=true;finishRender(c.at,true);}
+    if(c&&c.groups&&c.groups.length){GROUPS=c.groups;MEDIA=c.media||{};SALES=c.sales||{};TINT=c.tint||{};
+      if(c.noti){NOTI=c.noti;renderNoticeBox();}
+      usedCache=true;finishRender(c.at,true);}
   }catch(e){}
   try{
     // 상품 사진·스펙 — 시트('상품이미지' 탭)가 최신본. 도구로 업데이트하면 여기 바로 반영된다.
     // 시트를 못 읽으면 배포된 스냅샷(JSON)으로, 그것도 없으면 사진 없이 동작.
     let media={},cats={},sales={};
-    try{ const r=await Promise.all([loadMedia().catch(()=>({})),loadCats().catch(()=>({})),loadSales().catch(()=>({}))]); media=r[0];cats=r[1];sales=r[2]; }catch(e){}
+    try{
+      const r=await Promise.all([loadMedia().catch(()=>({})),loadCats().catch(()=>({})),loadSales().catch(()=>({})),
+                                 loadChanges().catch(()=>null),loadNotices().catch(()=>null)]);
+      media=r[0];cats=r[1];sales=r[2];
+      if(r[3]){CHG=r[3];buildTint();}   // 살구색 표시를 카탈로그 카드에도 입히려면 시작할 때 읽어야 한다
+      if(r[4]){NOTI=r[4];renderNoticeBox();}
+    }catch(e){}
     if(Object.keys(sales).length)SALES=sales;
     if(!Object.keys(media).length){
       try{ media=await(await fetch('data/product-media.json',{cache:'no-cache'})).json(); }catch(e){ media={}; }
@@ -562,7 +586,7 @@ async function startCatalog(){
     MEDIA=Object.keys(media).length?media:MEDIA;
     GROUPS=groups;
     finishRender(Date.now(),false);
-    try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES})); }catch(e){}
+    try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,tint:TINT,noti:NOTI})); }catch(e){}
   }catch(e){
     if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
   }
@@ -582,11 +606,19 @@ function subHead(t,s){
     +'<div><div class="subt">'+t+'</div>'+(s?'<div class="subs">'+s+'</div>':'')+'</div></div>';
 }
 // ── 1) 상품변동사항 — 유통시트 '상품변동사항' 탭 (카탈로그와 같은 카드로) ──
+// 값뿐 아니라 셀 배경색까지 읽는다 — 살구색(#fce5cd) 칠은 '입고 불안정' 표시라서
+// 화면에도 그대로 옮겨야 한다 (사장님 2026-08-12).
 async function loadChanges(){
   const token=await getAccessToken();
-  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'/values/'+encodeURIComponent("'상품변동사항'!A1:M400"),{headers:{Authorization:'Bearer '+token}})).json();
+  const fl='sheets(data.rowData.values(formattedValue,effectiveFormat.backgroundColor))';
+  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID
+      +'?ranges='+encodeURIComponent("'상품변동사항'!A1:M400")+'&fields='+encodeURIComponent(fl),
+      {headers:{Authorization:'Bearer '+token}})).json();
   if(j.error)throw new Error('상품변동사항을 읽지 못했습니다.');
-  const rows=j.values||[];
+  const rd=((((j.sheets||[])[0]||{}).data||[])[0]||{}).rowData||[];
+  const rows=rd.map(r=>((r.values||[]).map(c=>(c&&c.formattedValue)||'')));
+  const white=b=>{const g=k=>(b[k]==null?0:b[k]);return g('red')>.97&&g('green')>.97&&g('blue')>.97;};
+  const tinted=i=>{const c=((rd[i]||{}).values||[])[7];const b=c&&c.effectiveFormat&&c.effectiveFormat.backgroundColor;return !!b&&!white(b);};
   let hr=-1;
   for(let i=0;i<Math.min(12,rows.length);i++){const s=(rows[i]||[]).join('|');if(s.indexOf('변동')>=0&&s.indexOf('상품명')>=0){hr=i;break;}}
   if(hr<0)throw new Error('변동사항 표를 찾지 못했습니다.');
@@ -595,9 +627,22 @@ async function loadChanges(){
   for(let i=hr+1;i<rows.length;i++){
     const v=rows[i]||[],g=n=>(v[n]==null?'':String(v[n])).trim();
     if(!g(7))continue;
-    items.push({src:g(0),day:g(2),kind:g(3),freq:g(4),wh:g(6),name:g(7),price:g(8),courier:g(9),ship:g(10),tax:g(11),memo:g(12)});
+    items.push({src:g(0),day:g(2),kind:g(3),freq:g(4),wh:g(6),name:g(7),price:g(8),courier:g(9),ship:g(10),tax:g(11),memo:g(12),hot:tinted(i)});
   }
   return {notes,items};
+}
+function buildTint(){
+  TINT={};
+  if(CHG&&CHG.items)CHG.items.forEach(it=>{if(it.hot)TINT[pkey(it.name)]=1;});
+}
+// 공지는 메뉴 바로 밑에 펼쳐 보여준다 — 최근 3건까지 (중요 공지가 위)
+function renderNoticeBox(){
+  const box=$('ntcbox'); if(!box)return;
+  const list=(NOTI||[]).slice(0,3);
+  box.innerHTML=list.map(n=>'<div class="ntc'+(n.imp?' imp':'')+'" style="margin-top:9px">'
+    +'<div class="nt">'+(n.imp?'<span class="impb">중요</span>':'')+esc(n.title)+'</div>'
+    +(n.at?'<div class="nd">'+esc(n.at)+'</div>':'')
+    +(n.body?'<div class="nb">'+esc(n.body)+'</div>':'')+'</div>').join('');
 }
 function chgCls(k){
   if(/출시|재입고/.test(k))return 'new';
@@ -615,8 +660,9 @@ function chgCard(it){
                         :'<div class="nothumb">사진 준비중</div>';
   const shipTxt=it.ship?(/무료/.test(it.ship)?'<span class="free">무료배송</span>':'<b>'+esc(it.ship)+'원</b>'):'';
   const line=[it.courier,it.tax,it.freq].filter(x=>x&&x!=='-').map(esc).join(' · ');
-  return '<div class="card">'+thumb+'<div class="bd">'
+  return '<div class="card'+(it.hot?' hot':'')+'">'+thumb+'<div class="bd">'
     +'<span class="chg '+chgCls(it.kind)+'">'+esc(it.kind||'변동')+'</span>'
+    +(it.hot?'<span class="hotb">⚠️ 입고 불안정</span>':'')
     +(it.wh?'<button class="whb" data-wh="'+esc(it.wh)+'" title="이 창고 상품 보기">📦 '+esc(it.wh)+'</button>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(it.name)+'" title="상품명 복사">📋</button></div>'
     +(line?'<div class="rf">'+line+'</div>':'')
@@ -629,6 +675,8 @@ function chgCard(it){
 const CHG_DAYS=3;
 function renderChange(d){
   let h=subHead('📊 상품변동사항','최근 '+CHG_DAYS+'일 동안의 출시 · 재입고 · 품절 · 가격 변동입니다. 오늘 판매에 참고하세요.');
+  h+='<div class="hotnote">🟠 <b>살구색으로 표시된 상품</b>은 조업은 되고 있지만 <b>입고량이 일정하지 않은 상품</b>입니다.<br>'
+   +'상시 판매(고정 등록)보다는 <b>그날그날 수량을 확인하고 판매</b>해 주세요. 카탈로그에서도 같은 색으로 표시됩니다.</div>';
   if(d.notes.length)h+='<div class="note" style="display:block;margin-top:11px">'+d.notes.map(esc).join('<br>')+'</div>';
   if(!d.items.length)return h+'<div class="empty">변동사항이 없습니다.</div>';
   const order=[],by={};
@@ -691,8 +739,10 @@ function renderNotices(list){
 async function renderRoute(){
   const v=location.hash.replace(/^#/,'');
   menuEl.querySelectorAll('.mbtn').forEach(b=>b.classList.toggle('on',b.getAttribute('data-go')===v));
-  if(!v||v==='main'){mainV.style.display='';subV.style.display='none';subV.innerHTML='';window.scrollTo({top:0});return;}
+  const nb=$('ntcbox');
+  if(!v||v==='main'){mainV.style.display='';subV.style.display='none';subV.innerHTML='';if(nb)nb.style.display='';window.scrollTo({top:0});return;}
   mainV.style.display='none';subV.style.display='';
+  if(nb)nb.style.display='none';   // 서브페이지에선 위쪽 공지 상자를 접는다(공지 페이지와 중복)
   subV.innerHTML='<div class="load">⏳ 불러오는 중입니다…</div>';
   window.scrollTo({top:0});
   try{
