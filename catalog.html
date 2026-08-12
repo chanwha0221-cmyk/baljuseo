@@ -59,6 +59,29 @@ h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted);text-align:center;line-height:1.7}
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 18px;border-radius:20px;font-size:12.5px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
 .noteTg{display:none}
+/* ── 로그인 (2026-08-12) ── */
+.gate{position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
+.gbox{width:100%;max-width:370px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:26px 22px 22px}
+.gbox .mark{margin:0 auto 12px}
+.gt{font-size:18px;font-weight:800;text-align:center;letter-spacing:-.4px}
+.gs{font-size:11.5px;color:var(--muted);text-align:center;margin-top:4px;line-height:1.6}
+.gf{margin-top:16px;display:flex;flex-direction:column;gap:9px}
+.gin{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:12px 13px;font-size:15px;background:var(--bg);color:var(--ink);outline:none;font-family:inherit}
+.gin:focus{border-color:var(--accent)}
+.gbtn{width:100%;border:none;background:var(--accent);color:#fff;padding:13px;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:3px}
+.gbtn:hover{background:var(--accent-d)}
+.gbtn:disabled{opacity:.55;cursor:default}
+.gbtn.ghost{background:var(--chip);color:var(--muted);margin-top:0}
+.gbtn.ghost:hover{background:var(--line)}
+.gerr{font-size:12px;color:var(--up);text-align:center;min-height:16px;font-weight:600}
+.gok{font-size:12px;color:var(--accent);text-align:center;min-height:16px;font-weight:600}
+.ghelp{margin-top:14px;padding-top:12px;border-top:1px solid var(--line2);font-size:11px;color:var(--muted);text-align:center;line-height:1.7}
+.userbar{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.uname{font-size:12px;font-weight:700;color:var(--accent-d);background:var(--soft);padding:5px 11px;border-radius:20px;white-space:nowrap}
+.ubtn{border:1.5px solid var(--line);background:var(--card);color:var(--muted);padding:5px 10px;border-radius:20px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.ubtn:hover{border-color:var(--accent);color:var(--accent)}
+.pwnudge{margin-top:9px;background:color-mix(in srgb,var(--gold) 12%,transparent);border:1px solid color-mix(in srgb,var(--gold) 35%,transparent);color:var(--gold);border-radius:11px;padding:8px 12px;font-size:11.5px;font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pwnudge button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:16px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
 /* ── 모바일: 검색·상품 우선 구조 (PC는 그대로) ── */
 @media(max-width:640px){
   header{padding:10px 0 0}
@@ -82,9 +105,15 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   .banner{padding:9px 11px;margin-top:9px}
   .banner .wn{font-size:13.5px}
   body{padding-bottom:40px}
+  .brand{flex-wrap:wrap}
+  .userbar{width:100%;margin:6px 0 0;justify-content:flex-start}
+  .uname{font-size:11px;padding:4px 9px}
+  .ubtn{font-size:10.5px;padding:4px 8px}
 }
 </style></head><body><div class="wrap">
-<header><div class="brand"><div class="mark">마</div><div><h1>마찬 유통 카탈로그</h1><div class="sub" id="sub">거래처용 카탈로그 · 불러오는 중…</div></div></div>
+<header><div class="brand"><div class="mark">마</div><div><h1>마찬 유통 카탈로그</h1><div class="sub" id="sub">거래처용 카탈로그 · 불러오는 중…</div></div>
+<div class="userbar" id="userbar"></div></div>
+<div id="pwnudge"></div>
 <button class="noteTg" id="noteTg">🚚 합포장 · 문의 안내</button>
 <div class="note" id="note">🚚 <b>합포장(합배송)은 같은 창고 상품끼리만 됩니다.</b> 서로 다른 창고 상품은 각각 배송비가 붙어요. 창고를 골라 보세요.<br>💬 상품 문의 · 수량 문의 : <b>010-2455-4156 홍찬화 팀장</b></div></header>
 <div class="controls">
@@ -98,6 +127,34 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 <footer id="ft">마찬 유통 · 거래처 상품 카탈로그</footer>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- ── 로그인 화면 (2026-08-12) ── -->
+<div class="gate" id="gate">
+  <div class="gbox">
+    <div class="mark">마</div>
+    <div class="gt">마찬 유통 카탈로그</div>
+    <div class="gs" id="gsub">거래처 전용입니다.<br>받으신 아이디로 로그인해 주세요.</div>
+
+    <div class="gf" id="loginForm">
+      <input class="gin" id="li_id" type="text" placeholder="아이디" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <input class="gin" id="li_pw" type="password" placeholder="비밀번호" autocomplete="current-password">
+      <div class="gerr" id="li_err"></div>
+      <button class="gbtn" id="li_btn">로그인</button>
+    </div>
+
+    <div class="gf" id="pwForm" style="display:none">
+      <input class="gin" id="pw_cur" type="password" placeholder="현재 비밀번호" autocomplete="current-password">
+      <input class="gin" id="pw_new" type="password" placeholder="새 비밀번호 (4자 이상)" autocomplete="new-password">
+      <input class="gin" id="pw_new2" type="password" placeholder="새 비밀번호 다시 입력" autocomplete="new-password">
+      <div class="gerr" id="pw_err"></div>
+      <div class="gok" id="pw_ok"></div>
+      <button class="gbtn" id="pw_btn">비밀번호 변경</button>
+      <button class="gbtn ghost" id="pw_cancel">취소</button>
+    </div>
+
+    <div class="ghelp" id="ghelp">처음 비밀번호는 <b>1234</b> 입니다. 로그인 후 바꿔주세요.<br>아이디·비밀번호 문의 : <b>010-2455-4156 홍찬화 팀장</b></div>
+  </div>
+</div>
 <script>
 // ── 시트 읽기 (서비스계정 읽기전용, secretary.html 패턴) ──
 const SHEET_ID='1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';
@@ -110,7 +167,8 @@ async function getAccessToken(){
   const now=Math.floor(Date.now()/1000);
   if(_tk&&_te-now>300)return _tk;
   const enc=o=>btoa(JSON.stringify(o)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
-  const toSign=enc({alg:'RS256',typ:'JWT'})+'.'+enc({iss:CLIENT_EMAIL,scope:'https://www.googleapis.com/auth/spreadsheets.readonly',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now});
+  // 비밀번호 변경(계정 시트 쓰기)이 있어 읽기전용→읽기쓰기 스코프 (2026-08-12 로그인 도입)
+  const toSign=enc({alg:'RS256',typ:'JWT'})+'.'+enc({iss:CLIENT_EMAIL,scope:'https://www.googleapis.com/auth/spreadsheets',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now});
   const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
   const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
   const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
@@ -385,7 +443,7 @@ function finishRender(atMs,fromCache){
   $('load').style.display='none';
   buildWhChips();render();
 }
-(async()=>{
+async function startCatalog(){
   let usedCache=false;
   try{
     const c=JSON.parse(localStorage.getItem(CK)||'null');
@@ -408,5 +466,140 @@ function finishRender(atMs,fromCache){
   }catch(e){
     if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
   }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 로그인 (2026-08-12 사장님 지시 — 상용화 1단계)
+// 계정은 도구시트 '카탈로그_계정' 탭: A업체명 B아이디 C비밀번호 D마지막접속 E접속횟수 F권한 G메모
+// 사장님·원비씨는 ?u=아이디&p=비번 링크를 한 번만 열면 그 기기에 저장돼 이후 로그인 화면을 안 본다.
+// ⚠️ 서버가 없는 정적 페이지라 이건 '문지기' 수준의 잠금이다(소스를 뜯을 줄 아는 사람은 우회 가능).
+//    진짜 잠그려면 Apps Script 웹앱을 앞에 세워야 함.
+// ══════════════════════════════════════════════════════════════════
+const ACC_TAB='카탈로그_계정', AK='catalog_auth_v1';
+let ME=null,gbusy=false;
+const norm=s=>String(s==null?'':s).trim();
+const gate=$('gate');
+function gateShow(on){gate.style.display=on?'flex':'none';}
+async function accSheet(){
+  const token=await getAccessToken();
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'"+ACC_TAB+"'!A2:G500"),{headers:{Authorization:'Bearer '+token}});
+  const j=await r.json();
+  if(j.error)throw new Error('계정 정보를 읽지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  return (j.values||[]).map((v,i)=>({row:i+2,name:norm(v[0]),id:norm(v[1]),pw:norm(v[2]),
+    cnt:parseInt(norm(v[4]).replace(/[^\d]/g,''),10)||0,role:norm(v[5])})).filter(a=>a.id);
+}
+function findAcc(list,id){const k=norm(id).toLowerCase();return list.find(a=>a.id.toLowerCase()===k)||null;}
+async function stampLogin(a){
+  try{
+    const token=await getAccessToken(),d=new Date(),p=n=>String(n).padStart(2,'0');
+    const when=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+    await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'"+ACC_TAB+"'!D"+a.row+":E"+a.row)+'?valueInputOption=RAW',
+      {method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({values:[[when,a.cnt+1]]})});
+  }catch(e){}
+}
+function saveMe(a){ME={id:a.id,name:a.name,role:a.role,row:a.row};try{localStorage.setItem(AK,JSON.stringify(ME));}catch(e){}}
+function logout(){try{localStorage.removeItem(AK);}catch(e){}location.replace(location.pathname);}
+async function doLogin(id,pw){
+  const a=findAcc(await accSheet(),id);
+  if(!a)throw new Error('아이디를 찾을 수 없습니다.');
+  if(a.pw!==norm(pw))throw new Error('비밀번호가 맞지 않습니다.');
+  saveMe(a);stampLogin(a);
+  return a;
+}
+function showLoginForm(){
+  $('loginForm').style.display='flex';$('pwForm').style.display='none';$('ghelp').style.display='';
+  $('gsub').innerHTML='거래처 전용입니다.<br>받으신 아이디로 로그인해 주세요.';
+  $('li_err').textContent='';$('li_pw').value='';
+}
+function showPwForm(){
+  $('loginForm').style.display='none';$('pwForm').style.display='flex';$('ghelp').style.display='none';
+  $('gsub').innerHTML='<b>'+esc(ME?(ME.name||ME.id):'')+'</b> 님<br>비밀번호를 바꿉니다.';
+  $('pw_err').textContent='';$('pw_ok').textContent='';
+  $('pw_cur').value='';$('pw_new').value='';$('pw_new2').value='';
+  gateShow(true);$('pw_cur').focus();
+}
+function renderUser(){
+  if(!ME)return;
+  $('userbar').innerHTML='<span class="uname">'+esc(ME.name||ME.id)+'</span>'
+    +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
+    +'<button class="ubtn" id="ub_out">로그아웃</button>';
+  $('ub_pw').onclick=showPwForm;
+  $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
+}
+function enterApp(a){
+  renderUser();
+  if(a&&a.pw==='1234'&&a.role!=='관리자'){
+    $('pwnudge').innerHTML='<div class="pwnudge">🔒 아직 처음 비밀번호(1234)를 쓰고 있어요. <button id="nudgebtn">지금 바꾸기</button></div>';
+    $('nudgebtn').onclick=showPwForm;
+  }
+  startCatalog();
+}
+$('li_btn').onclick=async()=>{
+  if(gbusy)return;
+  const id=$('li_id').value,pw=$('li_pw').value;
+  if(!norm(id)||!norm(pw)){$('li_err').textContent='아이디와 비밀번호를 입력해 주세요.';return;}
+  gbusy=true;$('li_btn').disabled=true;$('li_btn').textContent='확인 중…';$('li_err').textContent='';
+  try{const a=await doLogin(id,pw);gateShow(false);enterApp(a);}
+  catch(e){$('li_err').textContent=e.message||'로그인에 실패했습니다.';}
+  finally{gbusy=false;$('li_btn').disabled=false;$('li_btn').textContent='로그인';}
+};
+$('li_id').addEventListener('keydown',e=>{if(e.key==='Enter')$('li_pw').focus();});
+$('li_pw').addEventListener('keydown',e=>{if(e.key==='Enter')$('li_btn').click();});
+$('pw_cancel').onclick=()=>{gateShow(false);showLoginForm();};
+$('pw_btn').onclick=async()=>{
+  if(gbusy)return;
+  const cur=norm($('pw_cur').value),n1=norm($('pw_new').value),n2=norm($('pw_new2').value);
+  $('pw_err').textContent='';$('pw_ok').textContent='';
+  if(!cur||!n1||!n2){$('pw_err').textContent='빈 칸을 모두 채워 주세요.';return;}
+  if(n1.length<4){$('pw_err').textContent='새 비밀번호는 4자 이상으로 해주세요.';return;}
+  if(n1!==n2){$('pw_err').textContent='새 비밀번호가 서로 다릅니다.';return;}
+  if(n1===cur){$('pw_err').textContent='지금 쓰는 비밀번호와 같습니다.';return;}
+  gbusy=true;$('pw_btn').disabled=true;$('pw_btn').textContent='변경 중…';
+  try{
+    const a=findAcc(await accSheet(),ME.id);
+    if(!a)throw new Error('계정을 찾을 수 없습니다. 담당자에게 문의해 주세요.');
+    if(a.pw!==cur)throw new Error('현재 비밀번호가 맞지 않습니다.');
+    const token=await getAccessToken();
+    const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'"+ACC_TAB+"'!C"+a.row)+'?valueInputOption=RAW',
+      {method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({values:[[n1]]})});
+    const j=await r.json();
+    if(j.error)throw new Error('저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    // 시트에 진짜 반영됐는지 다시 읽어 확인한 뒤에만 완료 안내 (사장님 요구)
+    const chk=findAcc(await accSheet(),ME.id);
+    if(!chk||chk.pw!==n1)throw new Error('저장 확인에 실패했습니다. 다시 시도해 주세요.');
+    $('pw_ok').textContent='비밀번호 변경이 완료되었습니다.';
+    toast('비밀번호 변경이 완료되었습니다.');
+    $('pwnudge').innerHTML='';
+    setTimeout(()=>{gateShow(false);showLoginForm();},1500);
+  }catch(e){$('pw_err').textContent=e.message||'변경에 실패했습니다.';}
+  finally{gbusy=false;$('pw_btn').disabled=false;$('pw_btn').textContent='비밀번호 변경';}
+};
+(async()=>{
+  const qs=new URLSearchParams(location.search),qu=qs.get('u'),qp=qs.get('p');
+  if(qu&&qp){   // 자동로그인 링크 (사장님·원비씨용) — 한 번 열면 이 기기에 저장된다
+    gateShow(true);$('li_btn').disabled=true;$('li_btn').textContent='확인 중…';
+    try{
+      const a=await doLogin(qu,qp);
+      history.replaceState(null,'',location.pathname);
+      gateShow(false);enterApp(a);return;
+    }catch(e){
+      history.replaceState(null,'',location.pathname);
+      $('li_btn').disabled=false;$('li_btn').textContent='로그인';
+      $('li_err').textContent='자동 로그인에 실패했습니다. 직접 로그인해 주세요.';
+      $('li_id').focus();return;
+    }
+  }
+  let saved=null;try{saved=JSON.parse(localStorage.getItem(AK)||'null');}catch(e){}
+  if(saved&&saved.id){
+    ME=saved;gateShow(false);renderUser();startCatalog();
+    // 뒤에서 계정이 아직 살아있는지 확인 — 시트에서 지웠으면 다음 접속부터 막힌다
+    try{
+      const a=findAcc(await accSheet(),saved.id);
+      if(!a){logout();return;}
+      ME.name=a.name;ME.role=a.role;ME.row=a.row;saveMe(a);renderUser();stampLogin(a);
+    }catch(e){}
+    return;
+  }
+  gateShow(true);showLoginForm();$('li_id').focus();
 })();
 </script></body></html>
