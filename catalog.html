@@ -109,6 +109,12 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .hotb{font-size:10px;font-weight:800;color:var(--gold);background:color-mix(in srgb,var(--gold) 18%,transparent);padding:2px 7px;border-radius:5px;align-self:flex-start}
 .hotnote{margin-top:11px;background:color-mix(in srgb,#fce5cd 55%,var(--card));border:1px solid color-mix(in srgb,var(--gold) 45%,var(--line));border-radius:11px;padding:9px 12px;font-size:11.5px;line-height:1.6;color:var(--ink)}
 @media(prefers-color-scheme:dark){.hotnote{background:color-mix(in srgb,#7a4a1c 30%,var(--card))}}
+/* 품절은 상품명만 빨갛게, 그 날짜 맨 밑에 모아둔다 (사장님 2026-08-12)
+   — 품절 글은 링크가 이동해 내용이 없는 경우가 많고, 어차피 스펙을 볼 이유가 없다 */
+.soldwrap{margin-top:10px;background:color-mix(in srgb,var(--up) 7%,var(--card));border:1px solid color-mix(in srgb,var(--up) 30%,var(--line));border-radius:12px;padding:10px 13px}
+.soldhd{font-size:11.5px;font-weight:800;color:var(--up);margin-bottom:8px}
+.soldlist{display:flex;flex-wrap:wrap;gap:6px}
+.soldit{font-size:12.5px;font-weight:700;color:var(--up);background:color-mix(in srgb,var(--up) 12%,transparent);border:1px solid color-mix(in srgb,var(--up) 28%,transparent);border-radius:16px;padding:4px 12px}
 .mbtn .tapb{display:block;font-size:9.5px;font-weight:700;color:var(--accent);margin-top:2px;letter-spacing:0}
 .mbtn.on .tapb{color:#fff;opacity:.85}
 .ntcbox{margin-top:11px}
@@ -586,6 +592,9 @@ async function startCatalog(){
     MEDIA=Object.keys(media).length?media:MEDIA;
     GROUPS=groups;
     finishRender(Date.now(),false);
+    // 서브페이지를 보고 있는 중에 최신 데이터가 도착하면 그 화면도 다시 그린다.
+    // (안 그러면 사진·스펙을 새로 받아왔는데도 '사진 준비중'이 그대로 남는다 — 2026-08-12 탱글 생물 중하)
+    if(location.hash.replace(/^#/,''))renderRoute();
     try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,tint:TINT,noti:NOTI})); }catch(e){}
   }catch(e){
     if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
@@ -682,8 +691,18 @@ function renderChange(d){
   const order=[],by={};
   d.items.forEach(it=>{const k=it.day||'날짜 미기재';if(!by[k]){by[k]=[];order.push(k);}by[k].push(it);});
   const days=order.slice(0,CHG_DAYS);
-  h+=days.map(k=>'<div class="daygrp"><div class="dayhd">'+esc(k)+' · '+by[k].length+'건</div>'
-      +'<div class="grid">'+by[k].map(chgCard).join('')+'</div></div>').join('');
+  h+=days.map(k=>{
+    const list=by[k];
+    const sold=list.filter(it=>/품절/.test(it.kind));
+    const rest=list.filter(it=>!/품절/.test(it.kind));
+    const soldNames=[];const seen={};
+    sold.forEach(it=>{const q=pkey(it.name);if(!seen[q]){seen[q]=1;soldNames.push(it.name);}});
+    return '<div class="daygrp"><div class="dayhd">'+esc(k)+' · '+list.length+'건</div>'
+      +(rest.length?'<div class="grid">'+rest.map(chgCard).join('')+'</div>':'')
+      +(soldNames.length?'<div class="soldwrap"><div class="soldhd">🚫 품절 '+soldNames.length+'건 — 오늘은 발주가 안 됩니다</div>'
+        +'<div class="soldlist">'+soldNames.map(n=>'<span class="soldit">'+esc(n)+'</span>').join('')+'</div></div>':'')
+      +'</div>';
+  }).join('');
   return h;
 }
 // ── 2) 추천상품 — 도구시트 '추천상품' 탭 (상품명 · 코멘트 · 노출 · 순서 · 등록일) ──
