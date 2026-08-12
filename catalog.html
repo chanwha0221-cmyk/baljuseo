@@ -112,7 +112,8 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 /* 품절은 상품명만 빨갛게, 그 날짜 맨 밑에 모아둔다 (사장님 2026-08-12)
    — 품절 글은 링크가 이동해 내용이 없는 경우가 많고, 어차피 스펙을 볼 이유가 없다 */
 .soldwrap{margin-top:10px;background:color-mix(in srgb,var(--up) 7%,var(--card));border:1px solid color-mix(in srgb,var(--up) 30%,var(--line));border-radius:12px;padding:10px 13px}
-.soldhd{font-size:11.5px;font-weight:800;color:var(--up);margin-bottom:8px}
+.soldhd{font-size:12px;font-weight:800;color:var(--up)}
+.soldmsg{font-size:11.5px;line-height:1.7;color:var(--ink);margin:5px 0 9px}
 .soldlist{display:flex;flex-wrap:wrap;gap:6px}
 .soldit{font-size:12.5px;font-weight:700;color:var(--up);background:color-mix(in srgb,var(--up) 12%,transparent);border:1px solid color-mix(in srgb,var(--up) 28%,transparent);border-radius:16px;padding:4px 12px}
 .mbtn .tapb{display:block;font-size:9.5px;font-weight:700;color:var(--accent);margin-top:2px;letter-spacing:0}
@@ -702,7 +703,8 @@ function renderChange(d){
     sold.forEach(it=>{const q=pkey(it.name);if(!seen[q]){seen[q]=1;soldNames.push(it.name);}});
     return '<div class="daygrp"><div class="dayhd">'+esc(k)+' · '+list.length+'건</div>'
       +(rest.length?'<div class="grid">'+rest.map(chgCard).join('')+'</div>':'')
-      +(soldNames.length?'<div class="soldwrap"><div class="soldhd">🚫 품절 '+soldNames.length+'건 — 오늘은 발주가 안 됩니다</div>'
+      +(soldNames.length?'<div class="soldwrap"><div class="soldhd">🚫 품절 '+soldNames.length+'건</div>'
+        +'<div class="soldmsg">해당 상품 품절입니다. 판매에 참고해 주시기 바랍니다.<br>재 입고 일정이 궁금하시면 문의 부탁드려요~</div>'
         +'<div class="soldlist">'+soldNames.map(n=>'<span class="soldit">'+esc(n)+'</span>').join('')+'</div></div>':'')
       +'</div>';
   }).join('');
