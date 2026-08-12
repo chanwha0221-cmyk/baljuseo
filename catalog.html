@@ -501,7 +501,8 @@ async function accSheet(){
   const j=await r.json();
   if(j.error)throw new Error('계정 정보를 읽지 못했습니다. 잠시 후 다시 시도해 주세요.');
   return (j.values||[]).map((v,i)=>({row:i+2,name:norm(v[0]),id:norm(v[1]),pw:norm(v[2]),
-    cnt:parseInt(norm(v[4]).replace(/[^\d]/g,''),10)||0,role:norm(v[5])})).filter(a=>a.id);
+    cnt:parseInt(norm(v[4]).replace(/[^\d]/g,''),10)||0,role:norm(v[5]),
+    phone:norm(v[8]),addr:norm(v[9])})).filter(a=>a.id);
 }
 function findAcc(list,id){const k=norm(id).toLowerCase();return list.find(a=>a.id.toLowerCase()===k)||null;}
 async function stampLogin(a){
@@ -512,7 +513,9 @@ async function stampLogin(a){
       {method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({values:[[when,a.cnt+1]]})});
   }catch(e){}
 }
-function saveMe(a){ME={id:a.id,name:a.name,role:a.role,row:a.row};try{localStorage.setItem(AK,JSON.stringify(ME));}catch(e){}}
+// 로그인 세션이 업체 정보를 들고 다닌다 — 나중에 카탈로그에서 바로 소량 발주를 넣을 때
+// 업체명·연락처·주소를 다시 묻지 않으려는 것 (사장님 2026-08-12). 연락처·주소는 시트 I·J열.
+function saveMe(a){ME={id:a.id,name:a.name,role:a.role,row:a.row,phone:a.phone||'',addr:a.addr||''};try{localStorage.setItem(AK,JSON.stringify(ME));}catch(e){}}
 function logout(){try{localStorage.removeItem(AK);}catch(e){}location.replace(location.pathname);}
 async function doLogin(id,pw){
   const a=findAcc(await accSheet(),id);
@@ -586,8 +589,7 @@ $('sg_btn').onclick=async()=>{
     if(findAcc(list,id))throw new Error('이미 사용 중인 아이디입니다. 다른 아이디로 해주세요.');
     const flat=s=>String(s).replace(/\s+/g,'');
     if(list.some(a=>flat(a.name)===flat(nm))&&
-       !confirm('"'+nm+'" 은(는) 이미 가입된 업체명입니다.\n\n지점이 달라 새로 만드시는 거면 [확인],\n아이디를 잊으신 거면 [취소] 후
-010-2455-4156 홍찬화 팀장 / 010-2326-5911 박원 팀장으로 문의해 주세요.'))
+       !confirm('"'+nm+'" 은(는) 이미 가입된 업체명입니다.\n\n지점이 달라 새로 만드시는 거면 [확인],\n아이디를 잊으신 거면 [취소] 후\n010-2455-4156 홍찬화 팀장 / 010-2326-5911 박원 팀장으로 문의해 주세요.'))
       throw new Error('가입을 취소했습니다.');
     const token=await getAccessToken();
     const d=new Date(),p=n=>String(n).padStart(2,'0');
@@ -658,7 +660,7 @@ $('pw_btn').onclick=async()=>{
     try{
       const a=findAcc(await accSheet(),saved.id);
       if(!a||a.role==='차단'){logout();return;}
-      ME.name=a.name;ME.role=a.role;ME.row=a.row;saveMe(a);renderUser();stampLogin(a);
+      saveMe(a);renderUser();stampLogin(a);   // 시트가 최신 — 업체명·연락처·주소를 매 접속마다 갱신
     }catch(e){}
     return;
   }
