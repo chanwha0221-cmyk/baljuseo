@@ -63,6 +63,7 @@ a{color:var(--accent)}
 <div class="tabs">
   <button class="tabbtn on" data-t="cat">🏷️ 카테고리 분류</button>
   <button class="tabbtn" data-t="photo">🔧 사진·링크 수정</button>
+  <button class="tabbtn" data-t="promo">📣 추천상품·공지사항</button>
 </div>
 
 <div id="tab-cat">
@@ -102,6 +103,33 @@ a{color:var(--accent)}
   <div id="fxList"></div>
 </div>
 </div>
+
+<!-- ── 📣 추천상품 · 공지사항 — 카탈로그 메뉴에 그대로 뜬다 (2026-08-12 사장님 지시) ── -->
+<div id="tab-promo" style="display:none">
+<div class="card">
+  <h2>⭐ 추천상품 <span id="rcStat" style="font-weight:400;font-size:12px;color:var(--muted)">불러오는 중…</span></h2>
+  <p style="font-size:12.5px;color:var(--muted)">여기 담은 상품이 <a href="catalog.html#rec" target="_blank" rel="noopener">카탈로그 [⭐ 추천상품]</a> 메뉴에 그대로 뜹니다. 코멘트는 상품 사진 아래에 붙습니다.<br>위에 있을수록 앞에 나옵니다. <b>고친 뒤 반드시 [💾 저장]</b>을 누르세요.</p>
+  <div class="ct-bulk" style="margin-top:10px">
+    <input id="rcQ" list="rcDL" placeholder="상품명 검색 후 선택" autocomplete="off" style="flex:1;min-width:180px">
+    <datalist id="rcDL"></datalist>
+    <button class="cp" id="rcAdd" style="margin-top:0">＋ 추가</button>
+  </div>
+  <div id="rcRows" style="margin-top:10px"></div>
+  <button class="cp" id="rcSave">💾 저장</button>
+  <span id="rcLog" style="font-size:11.5px;color:var(--muted);margin-left:8px"></span>
+</div>
+<div class="card">
+  <h2>📢 공지사항 <span id="ncStat" style="font-weight:400;font-size:12px;color:var(--muted)">불러오는 중…</span></h2>
+  <p style="font-size:12.5px;color:var(--muted)">배송 공지·휴무 안내·상품 관련 알림을 여기서 씁니다. <a href="catalog.html#notice" target="_blank" rel="noopener">카탈로그 [📢 공지사항]</a>에 바로 뜹니다.</p>
+  <input id="ncT" placeholder="공지 제목 (예: 광복절 배송 안내)" autocomplete="off" style="margin-top:8px">
+  <textarea id="ncB" rows="4" placeholder="공지 내용 — 줄바꿈 그대로 보입니다" style="width:100%;margin-top:7px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7"></textarea>
+  <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;margin-top:7px"><input type="checkbox" id="ncI"> 중요 공지 (맨 위로 · 빨간 줄 표시)</label>
+  <div><button class="cp" id="ncAdd">＋ 공지 등록</button></div>
+  <div id="ncRows" style="margin-top:12px"></div>
+  <button class="cp" id="ncSave">💾 저장</button>
+  <span id="ncLog" style="font-size:11.5px;color:var(--muted);margin-left:8px"></span>
+</div>
+</div>
 </main>
 <script>
 /* 탭 전환 */
@@ -109,8 +137,8 @@ document.querySelectorAll('.tabbtn').forEach(function(b){
   b.onclick=function(){
     document.querySelectorAll('.tabbtn').forEach(x=>x.classList.toggle('on',x===b));
     var t=b.getAttribute('data-t');
-    document.getElementById('tab-cat').style.display=(t==='cat')?'':'none';
-    document.getElementById('tab-photo').style.display=(t==='photo')?'':'none';
+    // 탭이 늘어도 자동으로 동작하게 — id가 tab-* 인 것들을 통째로 훑는다
+    document.querySelectorAll('[id^="tab-"]').forEach(function(d){d.style.display=(d.id==='tab-'+t)?'':'none';});
   };
 });
 /* 📸 북마크릿 주소 복사 — 드래그가 안 되는 환경(원격·터치)에서 즐겨찾기 URL 칸에 붙여넣기용 */
@@ -127,6 +155,8 @@ document.getElementById('bmCopy').onclick=function(){
 const YUTONG='1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';
 const DOGU='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
 const CTAB='상품분류';
+// 아래 IIFE(추천상품·공지사항)가 같은 서비스계정 키를 또 박지 않도록 공유 (2026-08-12)
+window.__sheets={get token(){return token;},get api(){return api;},DOGU:DOGU,YUTONG:YUTONG};
 const EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
 const PRESET=['수산','과일','축산','김치·반찬','가공식품','생활용품','기타'];
 const PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n";
@@ -673,6 +703,158 @@ $f('fxRun').onclick=async function(){
   }catch(e){$f('fxStat').textContent='— ⚠️ '+(e.message||e);}
   this.disabled=false;
 };
+})();
+
+/* ── 📣 추천상품 · 공지사항 (2026-08-12 사장님 지시) ──
+   도구시트 '추천상품'(A상품명 B코멘트 C노출 D순서 E등록일)·'공지사항'(A제목 B내용 C노출 D중요 E작성일)을
+   화면에서 고치고 [저장]으로 통째로 되쓴다. 카탈로그가 이 두 탭을 읽어 메뉴 화면을 그린다. */
+(function(){
+const S=window.__sheets; if(!S)return;
+const DOGU=S.DOGU, e1=encodeURIComponent;
+const $p=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const t=x=>(x==null?'':String(x)).trim();
+const day=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());};
+let REC=[],NOT=[],RECN=0,NOTN=0;
+
+async function readTab(tab,cols){
+  const j=await S.api(DOGU,'/values/'+e1("'"+tab+"'!A2:"+cols+"300"));
+  if(j.error)throw new Error(j.error.message||'읽기 실패');
+  return j.values||[];
+}
+async function writeTab(tab,cols,rows,prevCount){
+  const pad=Math.max(prevCount,rows.length);
+  const blank=new Array(cols.length).fill('');
+  const out=rows.slice();
+  while(out.length<pad)out.push(blank.slice());
+  const j=await S.api(DOGU,'/values/'+e1("'"+tab+"'!A2:"+cols.end+(1+Math.max(pad,1))) +'?valueInputOption=RAW',
+    {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:out.length?out:[blank]})});
+  if(j.error)throw new Error(j.error.message||'저장 실패');
+}
+
+/* ── 추천상품 ── */
+async function recLoad(){
+  try{
+    const v=await readTab('추천상품','E');
+    REC=v.map(r=>({name:t(r[0]),cmt:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',at:t(r[4])})).filter(r=>r.name);
+    RECN=v.length;
+    $p('rcStat').textContent=REC.length+'개 등록됨';
+    recDraw();
+  }catch(e){ $p('rcStat').textContent='⚠️ '+e.message; }
+}
+function recDraw(){
+  if(!REC.length){$p('rcRows').innerHTML='<div class="ci" style="color:var(--muted)">아직 없습니다. 위에서 상품을 검색해 추가하세요.</div>';return;}
+  $p('rcRows').innerHTML=REC.map((r,i)=>
+    '<div class="ci" style="flex-wrap:wrap;row-gap:6px">'
+    +'<span style="font-size:11px;color:var(--muted);width:20px">'+(i+1)+'</span>'
+    +'<b style="flex:1;min-width:160px;font-size:13px">'+esc(r.name)+'</b>'
+    +'<button class="fxg" data-rc="up" data-i="'+i+'" title="위로">▲</button>'
+    +'<button class="fxg" data-rc="dn" data-i="'+i+'" title="아래로">▼</button>'
+    +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-rc="show" data-i="'+i+'"'+(r.show?' checked':'')+'>노출</label>'
+    +'<button class="fxg del" data-rc="del" data-i="'+i+'">🗑</button>'
+    +'<input data-rc="cmt" data-i="'+i+'" value="'+esc(r.cmt)+'" placeholder="코멘트 (상품 사진 아래에 붙습니다)" style="flex:1 1 100%;font-size:12.5px">'
+    +'</div>').join('');
+}
+$p('rcRows').addEventListener('click',function(ev){
+  const b=ev.target.closest('[data-rc]'); if(!b)return;
+  const k=b.getAttribute('data-rc'),i=+b.getAttribute('data-i');
+  if(k==='up'&&i>0){const x=REC[i];REC[i]=REC[i-1];REC[i-1]=x;recDraw();}
+  else if(k==='dn'&&i<REC.length-1){const x=REC[i];REC[i]=REC[i+1];REC[i+1]=x;recDraw();}
+  else if(k==='del'){if(confirm('"'+REC[i].name+'" 을(를) 추천에서 뺄까요?')){REC.splice(i,1);recDraw();}}
+});
+$p('rcRows').addEventListener('input',function(ev){
+  const b=ev.target.closest('[data-rc]'); if(!b)return;
+  const k=b.getAttribute('data-rc'),i=+b.getAttribute('data-i');
+  if(k==='cmt')REC[i].cmt=b.value;
+  else if(k==='show')REC[i].show=b.checked;
+});
+$p('rcRows').addEventListener('change',function(ev){
+  const b=ev.target.closest('[data-rc="show"]'); if(!b)return;
+  REC[+b.getAttribute('data-i')].show=b.checked;
+});
+$p('rcAdd').onclick=function(){
+  const nm=t($p('rcQ').value);
+  if(!nm)return alert('상품명을 입력하거나 목록에서 고르세요.');
+  if(REC.some(r=>r.name===nm))return alert('이미 추천에 들어 있는 상품입니다.');
+  REC.push({name:nm,cmt:'',show:true,at:day()});
+  $p('rcQ').value='';recDraw();
+  $p('rcLog').textContent='추가했습니다 — 저장을 눌러야 반영됩니다.';
+};
+$p('rcSave').onclick=async function(){
+  const b=this;b.disabled=true;b.textContent='저장 중…';$p('rcLog').textContent='';
+  try{
+    await writeTab('추천상품',{end:'E',length:5},REC.map((r,i)=>[r.name,r.cmt,r.show?'Y':'N',String(i+1),r.at||day()]),RECN);
+    RECN=REC.length;
+    $p('rcLog').textContent='✅ 저장했습니다. 카탈로그에 바로 반영됩니다.';
+    $p('rcStat').textContent=REC.length+'개 등록됨';
+  }catch(e){ $p('rcLog').textContent='⚠️ '+e.message; }
+  finally{ b.disabled=false;b.textContent='💾 저장'; }
+};
+// 상품명 자동완성 — 도구시트 '상품분류' 탭이 유통시트 전체 상품의 정본 목록이다
+(async function(){
+  try{
+    const j=await S.api(DOGU,'/values/'+e1("'상품분류'!A2:A5000"));
+    const seen={},op=[];
+    (j.values||[]).forEach(r=>{const n=t(r[0]);if(n&&!seen[n]){seen[n]=1;op.push('<option value="'+esc(n)+'">');}});
+    $p('rcDL').innerHTML=op.join('');
+  }catch(e){}
+})();
+
+/* ── 공지사항 ── */
+async function notLoad(){
+  try{
+    const v=await readTab('공지사항','E');
+    NOT=v.map(r=>({title:t(r[0]),body:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',imp:t(r[3]).toUpperCase()==='Y',at:t(r[4])})).filter(n=>n.title);
+    NOTN=v.length;
+    $p('ncStat').textContent=NOT.length+'건';
+    notDraw();
+  }catch(e){ $p('ncStat').textContent='⚠️ '+e.message; }
+}
+function notDraw(){
+  if(!NOT.length){$p('ncRows').innerHTML='<div class="ci" style="color:var(--muted)">등록된 공지가 없습니다.</div>';return;}
+  $p('ncRows').innerHTML=NOT.map((n,i)=>
+    '<div class="ci" style="flex-wrap:wrap;row-gap:6px;align-items:flex-start">'
+    +'<b style="flex:1;min-width:150px;font-size:13px">'+(n.imp?'<span style="color:#c0392b">[중요] </span>':'')+esc(n.title)+'</b>'
+    +'<span style="font-size:11px;color:var(--muted)">'+esc(n.at)+'</span>'
+    +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-nc="imp" data-i="'+i+'"'+(n.imp?' checked':'')+'>중요</label>'
+    +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-nc="show" data-i="'+i+'"'+(n.show?' checked':'')+'>노출</label>'
+    +'<button class="fxg del" data-nc="del" data-i="'+i+'">🗑</button>'
+    +'<textarea data-nc="body" data-i="'+i+'" rows="3" style="flex:1 1 100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7">'+esc(n.body)+'</textarea>'
+    +'</div>').join('');
+}
+$p('ncRows').addEventListener('click',function(ev){
+  const b=ev.target.closest('[data-nc="del"]'); if(!b)return;
+  const i=+b.getAttribute('data-i');
+  if(confirm('"'+NOT[i].title+'" 공지를 지울까요?')){NOT.splice(i,1);notDraw();}
+});
+$p('ncRows').addEventListener('input',function(ev){
+  const b=ev.target.closest('[data-nc="body"]'); if(!b)return;
+  NOT[+b.getAttribute('data-i')].body=b.value;
+});
+$p('ncRows').addEventListener('change',function(ev){
+  const b=ev.target.closest('[data-nc]'); if(!b)return;
+  const k=b.getAttribute('data-nc'),i=+b.getAttribute('data-i');
+  if(k==='imp'){NOT[i].imp=b.checked;notDraw();}
+  else if(k==='show')NOT[i].show=b.checked;
+});
+$p('ncAdd').onclick=function(){
+  const ti=t($p('ncT').value),bo=$p('ncB').value.trim();
+  if(!ti)return alert('공지 제목을 적어주세요.');
+  NOT.unshift({title:ti,body:bo,show:true,imp:$p('ncI').checked,at:day()});
+  $p('ncT').value='';$p('ncB').value='';$p('ncI').checked=false;
+  notDraw();$p('ncLog').textContent='등록했습니다 — 저장을 눌러야 반영됩니다.';
+};
+$p('ncSave').onclick=async function(){
+  const b=this;b.disabled=true;b.textContent='저장 중…';$p('ncLog').textContent='';
+  try{
+    await writeTab('공지사항',{end:'E',length:5},NOT.map(n=>[n.title,n.body,n.show?'Y':'N',n.imp?'Y':'N',n.at||day()]),NOTN);
+    NOTN=NOT.length;
+    $p('ncLog').textContent='✅ 저장했습니다. 카탈로그에 바로 반영됩니다.';
+    $p('ncStat').textContent=NOT.length+'건';
+  }catch(e){ $p('ncLog').textContent='⚠️ '+e.message; }
+  finally{ b.disabled=false;b.textContent='💾 저장'; }
+};
+recLoad();notLoad();
 })();
 
 </script>
