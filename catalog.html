@@ -624,13 +624,17 @@ function chgCard(it){
     +'<div class="prow"><div>'+priceHtml(parsePrice(it.price)||{old:null,cur:null,dir:''})+'</div><div class="ship">'+shipTxt+'</div></div>'
     +'</div></div>';
 }
+// 최근 3일치만 보여준다 (사장님 2026-08-12): "오늘 이런 변동 있으니 판매에 참고해"가 이 화면의 목적이고,
+// 2주 전 변동은 의미가 없다 — 품절이면 그 상품은 이미 카탈로그에서 빠져 있다. [더 보기]도 두지 않는다.
+const CHG_DAYS=3;
 function renderChange(d){
-  let h=subHead('📊 상품변동사항','출시 · 재입고 · 품절 · 가격 변동을 적용 날짜별로 모았습니다.');
+  let h=subHead('📊 상품변동사항','최근 '+CHG_DAYS+'일 동안의 출시 · 재입고 · 품절 · 가격 변동입니다. 오늘 판매에 참고하세요.');
   if(d.notes.length)h+='<div class="note" style="display:block;margin-top:11px">'+d.notes.map(esc).join('<br>')+'</div>';
   if(!d.items.length)return h+'<div class="empty">변동사항이 없습니다.</div>';
   const order=[],by={};
   d.items.forEach(it=>{const k=it.day||'날짜 미기재';if(!by[k]){by[k]=[];order.push(k);}by[k].push(it);});
-  h+=order.map(k=>'<div class="daygrp"><div class="dayhd">'+esc(k)+' · '+by[k].length+'건</div>'
+  const days=order.slice(0,CHG_DAYS);
+  h+=days.map(k=>'<div class="daygrp"><div class="dayhd">'+esc(k)+' · '+by[k].length+'건</div>'
       +'<div class="grid">'+by[k].map(chgCard).join('')+'</div></div>').join('');
   return h;
 }
