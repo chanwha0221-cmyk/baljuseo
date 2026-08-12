@@ -568,7 +568,10 @@ async function startCatalog(){
   let usedCache=false;
   try{
     const c=JSON.parse(localStorage.getItem(CK)||'null');
-    if(c&&c.groups&&c.groups.length){GROUPS=c.groups;MEDIA=c.media||{};SALES=c.sales||{};TINT=c.tint||{};
+    // ⚠️ TINT(입고 불안정 표시)는 캐시에서 되살리지 않는다 — 시트에서 색을 지워도
+    // 낡은 캐시 때문에 멀쩡한 상품에 경고가 남는다(2026-08-12 국내산 급냉 오징어 1팩).
+    // 잘못된 경고를 남기느니 최신이 도착할 때까지 잠깐 안 보이는 게 낫다.
+    if(c&&c.groups&&c.groups.length){GROUPS=c.groups;MEDIA=c.media||{};SALES=c.sales||{};TINT={};
       if(c.noti){NOTI=c.noti;renderNoticeBox();}
       usedCache=true;finishRender(c.at,true);}
   }catch(e){}
@@ -595,7 +598,7 @@ async function startCatalog(){
     // 서브페이지를 보고 있는 중에 최신 데이터가 도착하면 그 화면도 다시 그린다.
     // (안 그러면 사진·스펙을 새로 받아왔는데도 '사진 준비중'이 그대로 남는다 — 2026-08-12 탱글 생물 중하)
     if(location.hash.replace(/^#/,''))renderRoute();
-    try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,tint:TINT,noti:NOTI})); }catch(e){}
+    try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,noti:NOTI})); }catch(e){}
   }catch(e){
     if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
   }
