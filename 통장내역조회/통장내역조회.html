@@ -1940,6 +1940,27 @@ function _attributePastPayments(allCells, txs, ws, tolerance){
         if(sum>d.amount+tolerance) break;
       }
     }
+    /* 🔴 2026-08-18 팡베베 사고 fix — '미색칠 우선' 규칙.
+       색칠완료 셀에서 우연히 금액이 같은 과거 구간이 잡히면, 정작 이 입금이 낸
+       '아직 안 칠한 최근 정산분'을 가로채 조용히 확정 처리해 버린다.
+       (팡베베 8/10 입금 33,200 → 미색칠 8/3+8/7이 정답인데, 이미 색칠된
+        7/10~7/15·7/9~7/10·6/17이 전부 33,200이라 그쪽이 먼저 먹었다.
+        결과: 8/3·8/7이 색칠 목록에서 통째로 빠짐 = 사장님 "왜 쌩까냐")
+       → 같은 금액을 '미색칠 셀만으로' 맞출 수 있으면 과거 상환으로 보지 않는다.
+         입금은 가장 최근 미청구 정산분을 낸 것이라는 사장님 원칙이 우선. */
+    if(found){
+      const un=cells.filter(c=>!c._paid && !c._claimed && c.date<=d.date);
+      let unpaidFits=false;
+      for(let j=un.length-1;j>=0 && !unpaidFits;j--){
+        let s=0;
+        for(let i=j;i>=0;i--){
+          s+=un[i].sum;
+          if(Math.abs(s-d.amount)<=tolerance){ unpaidFits=true; break; }
+          if(s>d.amount+tolerance) break;
+        }
+      }
+      if(unpaidFits) found=null;   // 미색칠로 맞출 수 있으면 그쪽이 정답 → 색칠 매칭 단계로 넘긴다
+    }
     if(found){
       found.forEach(c=>c._claimed=true);
       const ks=found.map(c=>c.key);
