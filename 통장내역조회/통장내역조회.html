@@ -2169,6 +2169,21 @@ function renderSplitPay(props){
       </div>`;
     }
     if(p.status==='prevpaid'){
+      /* ⏳ 입금일 정산값이 달력에 없으면 = 아직 판단할 근거가 없는 것이다.
+         근거가 없는데 과거 구간에 억지로 붙여 '초과입금 · 색칠 필요'라고 내놓으면
+         사장님이 헛검토를 하게 된다 (2026-08-18 팡베베 사고):
+           8/10 입금 33,200 = 8/3~8/7,  8/16 입금 38,400 = 8/11~8/12 인데
+           8/11~8/12가 달력에 없어서 8/16 입금을 8/3~8/7에 붙이고 "초과 5,200"이라 했다.
+         → 이 경우엔 결론을 내지 말고 '달력 먼저 올려달라'만 말한다. */
+      if(p.emptyDays && p.emptyDays.length){
+        return `<div style="padding:8px 10px;border-bottom:1px solid var(--border);opacity:.9">
+          <div style="font-weight:700">${p.company} <span style="color:#b45309;font-size:11px">⏳ 정산달력이 아직 안 올라옴 — 판단 보류</span></div>
+          <div style="color:var(--text2);font-size:11px;margin-top:3px">입금 ${txline} = <b>${p.paid.toLocaleString()}원</b><br>
+          <b style="color:#b45309">${p.emptyDays.join(', ')} 정산값이 달력에 없습니다.</b> 이 입금이 어느 기간 것인지 알 근거가 없어서 <b>검토를 요청하지 않습니다.</b><br>
+          <span style="color:var(--text3)">리모콘에서 최신 정산달력을 다시 받아 올리고 재매칭하면 저절로 맞춰집니다.</span></div>
+          <button class="btn-copy" style="margin-top:5px;padding:4px 10px;font-size:11px" onclick="noteSplit(${i})">📝 특이사항 등록</button>
+        </div>`;
+      }
       // 2026-07-21: 칠할 날이 남아 있으면 회색처리(계산 제외)로 묻지 말고 '색칠 필요'로 강조
       const _todo = p.paintCells && p.paintCells.length;
       return `<div style="padding:8px 10px;border-bottom:1px solid var(--border)${_todo?'':';opacity:.8'}">
