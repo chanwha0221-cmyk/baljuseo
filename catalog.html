@@ -161,7 +161,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   .ubtn{font-size:10.5px;padding:4px 8px}
 }
 </style></head><body><div class="wrap">
-<header><div class="brand"><div class="mark">마</div><div><h1>마찬 유통 카탈로그</h1><div class="sub" id="sub">거래처용 카탈로그 · 불러오는 중…</div></div>
+<header><div class="brand"><div class="mark">마</div><div><h1>마찬 유통 카탈로그</h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
 <div class="userbar" id="userbar"></div></div>
 <div id="pwnudge"></div>
 <button class="noteTg" id="noteTg">🚚 합포장 · 문의 안내</button>
@@ -185,7 +185,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 <div id="view"></div><div class="empty" id="empty" style="display:none">검색 결과가 없습니다.</div>
 </div>
 <div id="subView" style="display:none"></div>
-<footer id="ft">마찬 유통 · 거래처 상품 카탈로그</footer>
+<footer id="ft">마찬 유통 상품 카탈로그</footer>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -561,9 +561,9 @@ function finishRender(atMs,fromCache){
   buildAll();
   if(st.mode==='group'&&st.wh!=='전체'&&!GROUPS.find(g=>g.wh===st.wh)){st.wh='전체';}
   let total=ALL.length;
-  $('sub').textContent='거래처용 카탈로그 · 창고 '+GROUPS.length+'곳 · 상품 '+total.toLocaleString()+'개';
+  $('sub').textContent='창고 '+GROUPS.length+'곳 · 상품 '+total.toLocaleString()+'개';
   const t=new Date(atMs).toLocaleString('ko-KR',{dateStyle:'short',timeStyle:'short'});
-  $('ft').innerHTML='마찬 유통 · 거래처 상품 카탈로그<br>'+(fromCache?('저장된 상품 기준 '+t+' · 최신 내용으로 갱신 중…'):('불러온 시각 '+t+' · 새로고침하면 시트 최신 내용이 반영됩니다'));
+  $('ft').innerHTML='마찬 유통 상품 카탈로그<br>'+(fromCache?('저장된 상품 기준 '+t+' · 최신 내용으로 갱신 중…'):('불러온 시각 '+t+' · 새로고침하면 시트 최신 내용이 반영됩니다'));
   $('load').style.display='none';
   buildWhChips();render();
 }
