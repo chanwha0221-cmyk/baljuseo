@@ -886,7 +886,10 @@ function jsonp(url){
     const timer=setTimeout(()=>{cleanup();rej(new Error('응답이 없습니다 (배포 설정을 확인해 주세요)'));},300000);
     function cleanup(){clearTimeout(timer);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s);}
     window[cb]=d=>{cleanup();res(d);};
-    s.onerror=()=>{cleanup();rej(new Error('주소를 부를 수 없습니다 — 설정 탭의 마스터씨프록시URL을 확인해 주세요'));};
+    // 여기까지 오는 원인은 사실상 둘뿐이라 그대로 알려준다 (2026-08-18 사장님 403)
+    s.onerror=()=>{cleanup();rej(new Error('주소를 부를 수 없습니다. 둘 중 하나입니다 — '
+      +'① Apps Script [배포 관리]에서 액세스 권한이 「모든 사용자」가 아님 '
+      +'② 설정 탭 B2의 주소 끝이 ?token=값 이 아님(값이 빠졌거나 스크립트 속성 TOKEN과 다름)'));};
     s.src=url+(url.indexOf('?')<0?'?':'&')+'callback='+cb;
     document.body.appendChild(s);
   });
