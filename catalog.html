@@ -425,11 +425,16 @@ let GROUPS=[],MEDIA={},ALL=[],SALES={};
 // 유통시트 '상품변동사항'에서 살구색으로 칠해둔 상품 = 조업은 되는데 입고가 일정치 않아
 // 상시 판매를 권하지 않는 것. 카탈로그 카드에도 같은 색을 입힌다. (사장님 2026-08-12)
 let TINT={};
+// 가장 최근 적용날짜에 변동이 있었던 상품 = '오늘 업데이트된 것'. 판매순보다 앞에 세운다.
+// 배지는 달지 않는다 — 순서로만 은근히 알리는 게 사장님 의도 (2026-08-18).
+let FRESH={};
 const st={q:'',wh:'전체',mode:'group',cat:'전체'};
 // 기본 정렬 = 최근 판매량 많은 순 (안 팔린 것은 뒤로, 같으면 원래 시트 순서 유지)
+// 정렬 = ①오늘 변동 있었던 것 ②최근 판매량 많은 순 ③시트 순서
+// 전체·창고별·검색 모두 이 함수를 타므로 한 군데만 고치면 다 같이 바뀐다.
 function bySales(list){
-  return list.map((p,i)=>({p,i,q:SALES[pkey(p.name)]||0}))
-             .sort((a,b)=>(b.q-a.q)||(a.i-b.i)).map(x=>x.p);
+  return list.map((p,i)=>({p,i,f:FRESH[pkey(p.name)]?1:0,q:SALES[pkey(p.name)]||0}))
+             .sort((a,b)=>(b.f-a.f)||(b.q-a.q)||(a.i-b.i)).map(x=>x.p);
 }
 function buildAll(){
   ALL=[];
@@ -519,7 +524,7 @@ function render(){
     catrow.style.display='none';$('catlbl').style.display='none';
     const hits=ALL.filter(p=>p.name.toLowerCase().indexOf(q)>=0);
     empty.style.display=hits.length?'none':'block';
-    view.innerHTML='<div class="meta"><div><b>'+won(hits.length)+'</b>개 · 전체 창고 검색</div><div>합포장은 같은 창고끼리만</div></div><div class="grid">'+hits.map(card).join('')+'</div>';
+    view.innerHTML='<div class="meta"><div><b>'+won(hits.length)+'</b>개 · 전체 창고 검색</div><div>합포장은 같은 창고끼리만</div></div><div class="grid">'+hits.map(function(p){return card(p);}).join('')+'</div>';
     return;
   }
   const whSel=(st.mode==='src')||(st.wh!=='전체');
@@ -557,7 +562,7 @@ function render(){
     headHtml='<div class="meta"><div><b>'+won(list.length)+'</b>개 상품'+(st.cat!=='전체'?' · '+esc(st.cat):'')+'</div><div>합포장은 같은 창고끼리만</div></div>';
   }
   view.innerHTML=bannerHtml+headHtml
-    +'<div class="grid">'+list.map(card).join('')+'</div>';
+    +'<div class="grid">'+list.map(function(p){return card(p);}).join('')+'</div>';
 }
 document.addEventListener('click',e=>{
   const w=e.target.closest('.whb');
@@ -665,8 +670,14 @@ async function loadChanges(){
   return {notes,items};
 }
 function buildTint(){
-  TINT={};
-  if(CHG&&CHG.items)CHG.items.forEach(it=>{if(it.hot)TINT[pkey(it.name)]=1;});
+  TINT={};FRESH={};
+  if(!(CHG&&CHG.items))return;
+  CHG.items.forEach(it=>{if(it.hot)TINT[pkey(it.name)]=1;});
+  // 시트가 최신 날짜부터라 첫 줄의 적용날짜가 가장 최근이다. 품절은 카탈로그에 없으니 제외.
+  let newest='';
+  for(const it of CHG.items){ if(it.day){newest=it.day;break;} }
+  if(!newest)return;
+  CHG.items.forEach(it=>{ if(it.day===newest&&!/품절/.test(it.kind))FRESH[pkey(it.name)]=1; });
 }
 // 공지는 메뉴 바로 밑에 펼쳐 보여준다 — 최근 3건까지 (중요 공지가 위)
 function renderNoticeBox(){
