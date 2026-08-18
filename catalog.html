@@ -105,6 +105,10 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .chg.out{background:var(--chip);color:var(--muted)}
 .chg.ev{background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold)}
 .recc{font-size:11.5px;line-height:1.6;color:var(--accent-d);background:var(--soft);border-radius:8px;padding:7px 9px;margin-top:2px}
+/* 추천상품 출처 배지 — 수동 추천은 계속, 소식글은 10일 뒤 자동으로 내려간다 */
+.recb{font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px;align-self:flex-start}
+.recb.rec{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-d)}
+.recb.news{background:color-mix(in srgb,var(--down) 15%,transparent);color:var(--down)}
 .ntc{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:11px;box-shadow:var(--shadow)}
 .ntc.imp{border-left-color:var(--up)}
 .ntc .nt{font-size:15px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
@@ -470,7 +474,9 @@ function priceHtml(p){
   const oldh=(p.old!=null&&p.old!==p.cur)?'<span class="old">'+won(p.old)+'원</span>':'';
   return oldh+'<div class="'+cls+'">'+won(p.cur)+'<small>원</small></div>';
 }
-function card(p,extra){   // extra = 카드 안 맨 아래에 덧붙일 HTML (추천상품 코멘트 등)
+// extra = 카드 맨 아래 덧붙임(추천 코멘트), top = 카드 위쪽 배지(추천상품/소식글)
+// ⚠️ 목록에 쓸 땐 반드시 list.map(p=>card(p)) — .map(card) 로 넘기면 배열 번호가 extra로 새어 들어간다
+function card(p,extra,top){
   const m=MEDIA['n:'+pkey(p.name)]||(p.url?(MEDIA[(p.url.match(/(\d{5,})/)||[])[1]]||null):null);
   const taxc=(p.tax&&p.tax.indexOf('과세')>=0&&p.tax.indexOf('면')<0)?'tx':'tax';
   const href=(m&&m.link)||p.url||'';   // 캐시의 링크가 최신(링크 시트 정본) — 유통시트 링크보다 우선
@@ -485,6 +491,7 @@ function card(p,extra){   // extra = 카드 안 맨 아래에 덧붙일 HTML (�
   const spec=(m&&m.spec&&m.spec.length)?('<div class="spec">'+m.spec.map(s=>'<div>'+esc(s)+'</div>').join('')+'</div>'):'';
   const hot=!!TINT[pkey(p.name)];
   return '<div class="card'+(hot?' hot':'')+'">'+thumb+'<div class="bd">'
+    +(top||'')
     +(hot?'<span class="hotb">⚠️ 입고 불안정</span>':'')
     +(bt?'<button class="whb" data-wh="'+esc(p.effWh||'')+'" title="이 창고 상품만 보기">📦 '+esc(bt)+'</button>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
@@ -742,29 +749,49 @@ function renderChange(d){
   return h;
 }
 // ── 2) 추천상품 — 도구시트 '추천상품' 탭 (상품명 · 코멘트 · 노출 · 순서 · 등록일) ──
+// 소식글에서 올라온 상품은 등록일부터 10일만 노출하고 11일차에 저절로 내려간다.
+// 사장님이 직접 넣은 '추천'은 지울 때까지 계속 간다. (사장님 2026-08-18)
+const NEWS_DAYS=10;
+function daysSince(s){
+  const m=String(s||'').match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+  if(!m)return 0;
+  const d=new Date(+m[1],+m[2]-1,+m[3]);
+  const t=new Date();t.setHours(0,0,0,0);
+  return Math.floor((t-d)/86400000);
+}
 async function loadRecs(){
   const token=await getAccessToken();
-  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'추천상품'!A2:E300"),{headers:{Authorization:'Bearer '+token}})).json();
+  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'추천상품'!A2:F300"),{headers:{Authorization:'Bearer '+token}})).json();
   if(j.error)throw new Error('추천상품을 읽지 못했습니다.');
   const t=x=>(x==null?'':String(x)).trim();
   return (j.values||[]).map((v,i)=>({name:t(v[0]),cmt:t(v[1]),show:t(v[2])||'Y',
-      ord:parseInt(t(v[3]).replace(/[^\d]/g,''),10)||999,i}))
-    .filter(r=>r.name&&r.show.toUpperCase()!=='N')
-    .sort((a,b)=>(a.ord-b.ord)||(a.i-b.i));
+      ord:parseInt(t(v[3]).replace(/[^\d]/g,''),10)||999,at:t(v[4]),
+      news:t(v[5])==='소식글',i}))
+    .filter(r=>{
+      if(!r.name||r.show.toUpperCase()==='N')return false;
+      if(r.news)return daysSince(r.at)<NEWS_DAYS;   // 등록일이 1일차 → 10일차까지만
+      return true;
+    })
+    .sort((a,b)=>{
+      if(a.news!==b.news)return a.news?1:-1;                       // 추천이 먼저
+      if(a.news)return (b.at||'').localeCompare(a.at||'')||(a.i-b.i); // 소식글은 최신 먼저
+      return (a.ord-b.ord)||(a.i-b.i);
+    });
 }
 function renderRecs(list){
   let h=subHead('⭐ 추천상품','마찬 유통이 요즘 밀고 있는 상품입니다.');
   if(!list.length)return h+'<div class="empty">아직 등록된 추천상품이 없습니다.</div>';
   h+='<div class="grid" style="margin-top:14px">'+list.map(r=>{
     const cm=r.cmt?'<div class="recc">💬 '+esc(r.cmt)+'</div>':'';
+    const bg=r.news?'<span class="recb news">📰 소식글</span>':'<span class="recb rec">⭐ 추천상품</span>';
     const p=ALL.find(x=>pkey(x.name)===pkey(r.name));
-    if(p)return card(p,cm);
+    if(p)return card(p,cm,bg);
     // 카탈로그에 없는 상품(품절·미등록)도 사진·링크는 보여준다
     const m=MEDIA['n:'+pkey(r.name)]||null;
     const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(thumbUrl(m.img))+'" data-full="'+esc(m.img)+'" alt="'+esc(r.name)+'" loading="lazy" onerror="thumbFail(this)">')
                           :'<div class="nothumb">사진 준비중</div>';
     const nm=(m&&m.link)?('<a href="'+esc(m.link)+'" target="_blank" rel="noopener">'+esc(r.name)+'</a>'):esc(r.name);
-    return '<div class="card">'+thumb+'<div class="bd">'
+    return '<div class="card">'+thumb+'<div class="bd">'+bg
       +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(r.name)+'">📋</button></div>'
       +'<div class="rf">지금은 카탈로그에 없는 상품입니다</div>'+cm+'</div></div>';
   }).join('')+'</div>';

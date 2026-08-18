@@ -724,6 +724,15 @@ const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 const t=x=>(x==null?'':String(x)).trim();
 const day=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());};
 let REC=[],NOT=[],RECN=0,NOTN=0;
+// 소식글에서 올라온 상품은 등록일부터 10일만 노출된다 (11일차에 카탈로그에서 자동으로 빠짐)
+const NEWS_DAYS=10;
+function left(at){
+  const m=String(at||'').match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+  if(!m)return '';
+  const d=new Date(+m[1],+m[2]-1,+m[3]), n=new Date(); n.setHours(0,0,0,0);
+  const k=NEWS_DAYS-Math.floor((n-d)/86400000);
+  return k>0?('D-'+k):'만료';
+}
 
 async function readTab(tab,cols){
   const j=await S.api(DOGU,'/values/'+e1("'"+tab+"'!A2:"+cols+"300"));
@@ -743,8 +752,8 @@ async function writeTab(tab,cols,rows,prevCount){
 /* ── 추천상품 ── */
 async function recLoad(){
   try{
-    const v=await readTab('추천상품','E');
-    REC=v.map(r=>({name:t(r[0]),cmt:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',at:t(r[4])})).filter(r=>r.name);
+    const v=await readTab('추천상품','F');
+    REC=v.map(r=>({name:t(r[0]),cmt:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',at:t(r[4]),news:t(r[5])==='소식글'})).filter(r=>r.name);
     RECN=v.length;
     $p('rcStat').textContent=REC.length+'개 등록됨';
     recDraw();
@@ -755,7 +764,9 @@ function recDraw(){
   $p('rcRows').innerHTML=REC.map((r,i)=>
     '<div class="ci" style="flex-wrap:wrap;row-gap:6px">'
     +'<span style="font-size:11px;color:var(--muted);width:20px">'+(i+1)+'</span>'
-    +'<b style="flex:1;min-width:160px;font-size:13px">'+esc(r.name)+'</b>'
+    +'<b style="flex:1;min-width:150px;font-size:13px">'+esc(r.name)+'</b>'
+    +(r.news?('<span style="font-size:10.5px;font-weight:700;color:#1f6fd6;background:rgba(31,111,214,.12);padding:2px 7px;border-radius:5px;white-space:nowrap">📰 소식글 '+left(r.at)+'</span>')
+            :'<span style="font-size:10.5px;font-weight:700;color:#0b5f46;background:rgba(15,122,90,.12);padding:2px 7px;border-radius:5px;white-space:nowrap">⭐ 추천</span>')
     +'<button class="fxg" data-rc="up" data-i="'+i+'" title="위로">▲</button>'
     +'<button class="fxg" data-rc="dn" data-i="'+i+'" title="아래로">▼</button>'
     +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-rc="show" data-i="'+i+'"'+(r.show?' checked':'')+'>노출</label>'
@@ -784,14 +795,14 @@ $p('rcAdd').onclick=function(){
   const nm=t($p('rcQ').value);
   if(!nm)return alert('상품명을 입력하거나 목록에서 고르세요.');
   if(REC.some(r=>r.name===nm))return alert('이미 추천에 들어 있는 상품입니다.');
-  REC.push({name:nm,cmt:'',show:true,at:day()});
+  REC.push({name:nm,cmt:'',show:true,at:day(),news:false});   // 손으로 넣은 건 항상 '추천'
   $p('rcQ').value='';recDraw();
   $p('rcLog').textContent='추가했습니다 — 저장을 눌러야 반영됩니다.';
 };
 $p('rcSave').onclick=async function(){
   const b=this;b.disabled=true;b.textContent='저장 중…';$p('rcLog').textContent='';
   try{
-    await writeTab('추천상품',{end:'E',length:5},REC.map((r,i)=>[r.name,r.cmt,r.show?'Y':'N',String(i+1),r.at||day()]),RECN);
+    await writeTab('추천상품',{end:'F',length:6},REC.map((r,i)=>[r.name,r.cmt,r.show?'Y':'N',String(i+1),r.at||day(),r.news?'소식글':'추천']),RECN);
     RECN=REC.length;
     $p('rcLog').textContent='✅ 저장했습니다. 카탈로그에 바로 반영됩니다.';
     $p('rcStat').textContent=REC.length+'개 등록됨';
