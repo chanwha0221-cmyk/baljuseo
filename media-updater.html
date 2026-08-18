@@ -81,14 +81,9 @@ a{color:var(--accent)}
 
 <div id="tab-photo" style="display:none">
 <div class="card" style="border-color:var(--accent)">
-  <h2>📸 사진 가져오기</h2>
-  <p style="font-size:13px;line-height:1.8">누르면 <b>사진 없는 상품 + 정보가 바뀐 상품</b>을 마스터씨 게시판에서 찾아 한 번에 채웁니다. 끝나면 카탈로그에 바로 반영됩니다.<br>
-  <span style="color:var(--muted)">사진이 안 나오는 이유는 딱 두 가지입니다 — ① 게시판 글에 <b>사진이 안 붙어 있거나</b>, ② 그 이름의 <b>글이 게시판에 없어서</b>. 아래 결과에 그 상품명이 나오면 게시판 쪽을 손봐주셔야 합니다.</span></p>
-  <div style="margin-top:12px;display:flex;gap:9px;align-items:center;flex-wrap:wrap">
-    <button class="cp" id="pxRun" style="margin-top:0;background:var(--accent,#0f7a5a);color:#fff;border-color:var(--accent,#0f7a5a);font-size:14px;padding:11px 22px;font-weight:700">📸 사진 지금 가져오기</button>
-    <span id="pxStat" style="font-size:12px;color:var(--muted)"></span>
-  </div>
-  <div id="pxOut" style="margin-top:10px;font-size:12.5px;line-height:1.8"></div>
+  <h2>📸 상품 사진은 신경 안 쓰셔도 됩니다</h2>
+  <p style="font-size:13px;line-height:1.8">사진은 <b>업무시간 매시간 자동으로</b> 채워집니다. 상품을 올리거나 고치셨으면 늦어도 한 시간 안에 붙고, 카탈로그에서 <b>🔄 새로고침</b>을 누르면 보입니다.<br>
+  <span style="color:var(--muted)">그래도 안 나오면 이유는 딱 두 가지입니다 — ① 게시판 글에 <b>사진이 안 붙어 있거나</b>, ② 그 이름의 <b>글이 게시판에 없어서</b>. 둘 다 채울 사진이 없는 것이라 게시판 쪽을 손봐주셔야 합니다. 아래 <b>[🔍 문제 상품 취합]</b>이 그 목록을 뽑아줍니다.</span></p>
   <details style="margin-top:12px">
     <summary style="cursor:pointer;font-size:12.5px;color:var(--muted);font-weight:600">🔧 직접 채우고 싶을 때 (몰라도 됩니다)</summary>
     <div style="font-size:12.5px;color:var(--muted);margin-top:9px;line-height:1.7">
@@ -869,50 +864,6 @@ $p('ncSave').onclick=async function(){
 };
 recLoad();notLoad();
 
-/* ── 📸 사진 지금 가져오기 (2026-08-12 사장님 지시: "버튼으로 만들어달라니까") ──
-   github.io에서는 masterc 로그인을 못 써서 여기서 직접 못 긁는다.
-   대신 Apps Script 웹앱(마스터씨 사진 프록시)이 masterc에 로그인해 대신 긁고 시트에 저장한다.
-   그 주소는 도구시트 '설정' 탭 A열 '마스터씨프록시URL' 에 넣어둔다 — 배포 없이 갈아끼울 수 있게. */
-async function proxyUrl(){
-  const j=await S.api(DOGU,'/values/'+e1("'설정'!A1:B50"));
-  const rows=(j.values||[]);
-  for(const r of rows){ if(t(r[0])==='마스터씨프록시URL') return t(r[1]); }
-  return '';
-}
-function jsonp(url){
-  return new Promise((res,rej)=>{
-    const cb='__px'+Math.floor(Math.random()*1e9);
-    const s=document.createElement('script');
-    const timer=setTimeout(()=>{cleanup();rej(new Error('응답이 없습니다 (배포 설정을 확인해 주세요)'));},300000);
-    function cleanup(){clearTimeout(timer);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s);}
-    window[cb]=d=>{cleanup();res(d);};
-    // 여기까지 오는 원인은 사실상 둘뿐이라 그대로 알려준다 (2026-08-18 사장님 403)
-    s.onerror=()=>{cleanup();rej(new Error('주소를 부를 수 없습니다. 둘 중 하나입니다 — '
-      +'① Apps Script [배포 관리]에서 액세스 권한이 「모든 사용자」가 아님 '
-      +'② 설정 탭 B2의 주소 끝이 ?token=값 이 아님(값이 빠졌거나 스크립트 속성 TOKEN과 다름)'));};
-    s.src=url+(url.indexOf('?')<0?'?':'&')+'callback='+cb;
-    document.body.appendChild(s);
-  });
-}
-$p('pxRun').onclick=async function(){
-  const b=this;
-  if(b.disabled)return;
-  b.disabled=true;b.textContent='가져오는 중… (1~3분)';$p('pxOut').innerHTML='';$p('pxStat').textContent='';
-  try{
-    const u=await proxyUrl();
-    if(!u)throw new Error("도구시트 '설정' 탭에 마스터씨프록시URL 이 없습니다. 세팅을 먼저 해주세요.");
-    const d=await jsonp(u);
-    if(!d||d.ok===false)throw new Error((d&&d.error)||'실패');
-    const list=(a,t2,c)=>a&&a.length?('<div style="margin-top:6px"><b style="color:'+c+'">'+t2+' '+a.length+'건</b><br><span style="color:var(--muted)">'+a.map(esc).join(' · ')+'</span></div>'):'';
-    $p('pxOut').innerHTML='<div><b>✅ '+d.filled+'건 채웠습니다.</b>'+(d.filled?' 카탈로그를 새로고침하면 보입니다.':'')+'</div>'
-      +list(d.filledNames,'채운 상품','var(--accent,#0f7a5a)')
-      +list(d.noImage,'⚠️ 글은 있는데 사진 파일이 없음 — 게시판에 사진을 다시 올려주세요','#b7791f')
-      +list(d.noPost,'⚠️ 그 이름의 글이 게시판에 없음 — 글을 올리거나 제목을 상품명과 맞춰주세요','#c0392b')
-      +(d.remaining?'<div style="margin-top:6px;color:var(--muted)">남은 '+d.remaining+'건은 버튼을 한 번 더 누르면 이어서 처리합니다.</div>':'');
-    $p('pxStat').textContent=d.tried+'건 확인함';
-  }catch(e){ $p('pxOut').innerHTML='<span style="color:#c0392b">⚠️ '+esc(e.message||String(e))+'</span>'; }
-  finally{ b.disabled=false;b.textContent='📸 사진 지금 가져오기'; }
-};
 })();
 
 </script>
