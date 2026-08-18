@@ -59,6 +59,14 @@ h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted);text-align:center;line-height:1.7}
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 18px;border-radius:20px;font-size:12.5px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
 .noteTg{display:none}
+/* 입금 계좌 — 몇 번을 안내해도 계속 물어봐서 아예 상단에 고정 (사장님 2026-08-18).
+   note 상자는 모바일에서 접히지만 이건 항상 보여야 한다. */
+.acct{margin-top:9px;background:var(--soft);border:2px solid var(--accent);border-radius:12px;
+  padding:11px 14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.acct .lb{font-size:12px;font-weight:800;color:var(--accent-d);white-space:nowrap}
+.acct .no{font-size:18px;font-weight:800;letter-spacing:-.2px;color:var(--ink);font-variant-numeric:tabular-nums}
+.acct .nm{font-size:13px;font-weight:700;color:var(--accent-d)}
+.acct .cpbtn{font-size:11.5px;padding:3px 9px}
 /* ── 로그인 (2026-08-12) ── */
 .gate{position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
 .gbox{width:100%;max-width:370px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:26px 22px 22px}
@@ -141,6 +149,10 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   .noteTg{display:inline-block;margin-top:8px;border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:16px;padding:4px 11px;font-size:11px;cursor:pointer}
   .note{display:none;margin-top:8px}
   .note.open{display:block}
+  .acct{padding:9px 11px;gap:6px;margin-top:8px}
+  .acct .lb{font-size:11px}
+  .acct .no{font-size:16px}
+  .acct .nm{font-size:12px}
   .controls{margin-top:8px;padding:8px 0 6px}
   .search{padding:10px 12px;font-size:16px}
   .lbl{margin:7px 0 4px;font-size:10px}
@@ -165,7 +177,13 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 <div class="userbar" id="userbar"></div></div>
 <div id="pwnudge"></div>
 <button class="noteTg" id="noteTg">🚚 합포장 · 문의 안내</button>
-<div class="note" id="note">🚚 <b>합포장(합배송)은 같은 창고 상품끼리만 됩니다.</b> 서로 다른 창고 상품은 각각 배송비가 붙어요. 창고를 골라 보세요.<br>💬 상품 문의 · 수량 문의 : <b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원 팀장</b></div></header>
+<div class="note" id="note">🚚 <b>합포장(합배송)은 같은 창고 상품끼리만 됩니다.</b> 서로 다른 창고 상품은 각각 배송비가 붙어요. 창고를 골라 보세요.<br>💬 상품 문의 · 수량 문의 : <b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원비 팀장</b></div>
+<div class="acct">
+  <span class="lb">💳 입금 계좌</span>
+  <span class="no">기업은행 514-049965-04-014</span>
+  <span class="nm">주식회사 마스터</span>
+  <button class="cpbtn" data-cp="514-049965-04-014" data-cpmsg="계좌번호 복사됨">📋 복사</button>
+</div></header>
 <!-- 메뉴 — 검색창 위. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
 <div class="menu" id="menu">
   <button class="mbtn" data-go="notice">📢 공지사항</button>
@@ -226,7 +244,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
       <button class="gbtn ghost" id="pw_cancel">취소</button>
     </div>
 
-    <div class="ghelp" id="ghelp">처음 오셨으면 <b>회원가입</b>을 해주세요.<br>아이디·비밀번호 문의<br><b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원 팀장</b></div>
+    <div class="ghelp" id="ghelp">처음 오셨으면 <b>회원가입</b>을 해주세요.<br>아이디·비밀번호 문의<br><b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원비 팀장</b></div>
   </div>
 </div>
 <script>
@@ -549,7 +567,7 @@ document.addEventListener('click',e=>{
   const lc=e.target.closest('.lcchip');
   if(lc){const c=lc.getAttribute('data-c');st.cat=(st.cat===c)?'전체':c;render();return;}
   const b=e.target.closest('.cpbtn');if(!b)return;
-  navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast('상품명 복사됨'));
+  navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast(b.getAttribute('data-cpmsg')||'상품명 복사됨'));
 });
 $('q').addEventListener('input',e=>{st.q=e.target.value.trim();render();});
 $('noteTg').onclick=()=>$('note').classList.toggle('open');
@@ -829,7 +847,7 @@ async function doLogin(id,pw){
   if(!a)throw new Error('아이디를 찾을 수 없습니다.');
   if(a.pw!==norm(pw))throw new Error('비밀번호가 맞지 않습니다.');
   // 권한 칸에 '차단'이라고 적으면 행을 지우지 않고도 그 업체만 막을 수 있다 (사장님 킬스위치)
-  if(a.role==='차단')throw new Error('이용이 중지된 계정입니다. 010-2455-4156 홍찬화 팀장 / 010-2326-5911 박원 팀장으로 문의해 주세요.');
+  if(a.role==='차단')throw new Error('이용이 중지된 계정입니다. 010-2455-4156 홍찬화 팀장 / 010-2326-5911 박원비 팀장으로 문의해 주세요.');
   saveMe(a);stampLogin(a);
   return a;
 }
@@ -903,7 +921,7 @@ $('sg_btn').onclick=async()=>{
     if(findAcc(list,id))throw new Error('이미 사용 중인 아이디입니다. 다른 아이디로 해주세요.');
     const flat=s=>String(s).replace(/\s+/g,'');
     if(list.some(a=>flat(a.name)===flat(nm))&&
-       !confirm('"'+nm+'" 은(는) 이미 가입된 업체명입니다.\n\n지점이 달라 새로 만드시는 거면 [확인],\n아이디를 잊으신 거면 [취소] 후\n010-2455-4156 홍찬화 팀장 / 010-2326-5911 박원 팀장으로 문의해 주세요.'))
+       !confirm('"'+nm+'" 은(는) 이미 가입된 업체명입니다.\n\n지점이 달라 새로 만드시는 거면 [확인],\n아이디를 잊으신 거면 [취소] 후\n010-2455-4156 홍찬화 팀장 / 010-2326-5911 박원비 팀장으로 문의해 주세요.'))
       throw new Error('가입을 취소했습니다.');
     const token=await getAccessToken();
     const d=new Date(),p=n=>String(n).padStart(2,'0');
