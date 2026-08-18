@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v6.5</title>
+<title>통장 내역 조회 v6.6</title>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
 //    다르면 1회 강제 새로고침(?v=최신버전). 무한루프 방지: sessionStorage 플래그 + 버전 일치 시 해제.
@@ -175,7 +175,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v6.5</span>
+  <span class="ver">v6.6</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1928,26 +1928,13 @@ function _attributePastPayments(allCells, txs, ws, tolerance){
     //   입금은 미래 못 냄 → j.date < 입금일(당일 정산은 아직 미발생이라 제외). 이미 청구된 셀은 경계.
     // ⚠ 색칠완료(입금완료) 셀만 합산한다 — 입금은 '확정된(색칠된) 정산분'을 낸 것. 사이의 미색칠 셀은 아직 미정산이라 이 입금 대상 아님 → 건너뜀.
     //   (2026-07-18 케이스타일: 7/15 입금 209,000 = 7/13(178,000)+7/15(31,000). 사이 7/14(33,000)는 미색칠이라 제외 → 비연속 허용)
+    /* 🔴 2026-08-18 사장님 원칙: **색칠 = 정산 완료.** 완료된 칸은 이 입금이 낸 대상이 될 수 없다.
+       예전엔 여기서 색칠된 셀을 최신→과거로 훑어 "금액이 딱 맞는 구간"을 찾으면 그 입금을
+       확정 상환으로 조용히 빼버렸다. 정기 거래처는 같은 금액이 반복돼서(팡베베 33,200이 네 번)
+       엉뚱한 과거 구간이 최근 입금을 가로챘고, 정작 칠해야 할 최근 칸이 목록에서 사라졌다.
+       → 색칠 셀 탐색을 아예 없앤다. 미색칠로 못 맞추는 입금은 아래에서
+         "입금일까지가 전부 색칠완료"일 때만 이 달력 밖(이전 기간) 상환으로 조용히 처리한다. */
     let found=null;
-    for(let j=cells.length-1; j>=0 && !found; j--){
-      if(cells[j]._claimed || cells[j].date>d.date || !cells[j]._paid) continue;   // 끝점 = 색칠완료·입금일 이하·미청구
-      let sum=0, run=[];
-      for(let i=j; i>=0; i--){
-        if(cells[i]._claimed) break;                 // 다른 입금이 가져간 셀 → 경계
-        if(!cells[i]._paid) continue;                // 미색칠 셀은 건너뜀(비연속 허용)
-        run.push(cells[i]); sum+=cells[i].sum;
-        if(Math.abs(sum-d.amount)<=tolerance){ found=run.slice(); break; }   // 색칠완료 셀 합이 딱 맞음
-        if(sum>d.amount+tolerance) break;
-      }
-    }
-    /* 🔴 2026-08-18 팡베베 사고 fix — '미색칠 우선' 규칙.
-       색칠완료 셀에서 우연히 금액이 같은 과거 구간이 잡히면, 정작 이 입금이 낸
-       '아직 안 칠한 최근 정산분'을 가로채 조용히 확정 처리해 버린다.
-       (팡베베 8/10 입금 33,200 → 미색칠 8/3+8/7이 정답인데, 이미 색칠된
-        7/10~7/15·7/9~7/10·6/17이 전부 33,200이라 그쪽이 먼저 먹었다.
-        결과: 8/3·8/7이 색칠 목록에서 통째로 빠짐 = 사장님 "왜 쌩까냐")
-       → 같은 금액을 '미색칠 셀만으로' 맞출 수 있으면 과거 상환으로 보지 않는다.
-         입금은 가장 최근 미청구 정산분을 낸 것이라는 사장님 원칙이 우선. */
     if(found){
       const un=cells.filter(c=>!c._paid && !c._claimed && c.date<=d.date);
       let unpaidFits=false;
@@ -2440,57 +2427,33 @@ async function runSettlementMatch(){
       //   ⏱ 시간 규칙: 입금은 미래 정산을 못 냄 → 입금일 이후 셀은 후보에서 제외 (2026-07-18 새로고침 6/16입금이 6/22정산에 붙던 버그)
       //   🚫 이번 판에서 앞 입금이 이미 가져간 셀은 후보에서 뺀다 — 한 정산일을 두 입금이 나눠 갖는 일 없음
       //      (2026-08-10 명안: 7/10·8/5 입금이 둘 다 7/9 정산분에 붙어 "7/9을 두 번 칠하라"고 나옴)
-      const exact = cells.filter(c=>c.sum>0 && Math.abs(c.sum - tx.amount) <= tolerance && c.date<=tx.date
-        && !(paintedKeys[matchedCompany] && paintedKeys[matchedCompany].has(c.key)));
+      /* 🔴 2026-08-18 사장님 원칙: **색칠 = 정산 완료.** 완료된 칸은 후보에서 아예 뺀다.
+         예전엔 색칠된 셀까지 뒤져서 "금액이 같으니 그 정산분이네" 하고 입금을 통째로 버렸다
+         (팡베베: 이미 색칠된 6/17=33,200 때문에 8/10 입금 33,200이 사라짐).
+         정기 거래처는 같은 금액이 몇 번이고 반복되므로 이 방식은 구조적으로 틀렸다.
+         → 미색칠 칸만 후보로 본다. 미색칠로 못 맞추면 이 달력 밖(이전 기간) 상환으로 조용히 넘긴다. */
+      const _paintable = c => _isCellPaintable(meta.ws, c.row, c.vatCol||c.taxCol)
+        && !(paintedKeys[matchedCompany] && paintedKeys[matchedCompany].has(c.key));
+      const exact = cells.filter(c=>c.sum>0 && Math.abs(c.sum - tx.amount) <= tolerance && c.date<=tx.date && _paintable(c));
       if(exact.length>0){
-        // 입금일에 가까운 순으로, 미입금(색칠 가능) 셀을 찾을 때까지 순회 — 이미 입금완료(보호색)된 날짜는 건너뜀
-        exact.sort((a,b)=>Math.abs(a.date - tx.date) - Math.abs(b.date - tx.date));
-        // 🚫 가장 가까운 후보가 '이미 입금완료(색칠)'면 = 이 입금이 바로 그 건을 낸 것 → 다른 미입금 날짜로 밀어 재사용 금지.
-        //    (2026-07-18 새로고침: 6/16입금=6/15분·7/3입금=7/1분인데 둘 다 미입금 6/22로 밀려 중복 색칠되던 사고)
-        //    ⚠ 단, '이번 매칭에서 앞 입금이 방금 가져간 셀'은 예외 — 색칠색(빨강)이 보호색이라 원본 색칠과 구분이 안 돼
-        //       같은 업체 입금 2건이면 뒤 입금이 통째로 버려지고 있었음(2026-07-21 사장님: "2번 돌려야 하냐").
-        //       paintedKeys로 '이번 판에 내가 칠한 것'을 구분해, 그 경우엔 ⊘ 하지 말고 아래 순회로 다음 후보 셀을 찾게 한다.
-        const _near = exact[0];
-        const _minePrev = paintedKeys[matchedCompany] && paintedKeys[matchedCompany].has(_near.key);
-        /* 🔴 2026-08-18 팡베베 fix — 미색칠 조합이 있으면 그 입금을 버리지 않는다.
-           팡베베엔 이미 색칠된 6/17=33,200 단일 셀이 있어서, 8/10 입금 33,200이
-           "6/17 정산분(이미 입금완료)"으로 판정돼 통째로 버려졌다.
-           정답은 미색칠 8/3(12,400)+8/7(20,800)=33,200 인데 합산 매칭까지 가지도 못했다.
-           → 미색칠 셀만으로 같은 금액을 만들 수 있으면 ⊘ 하지 말고 아래 합산 매칭으로 넘긴다. */
-        let _unpaidFits = false;
-        if(!_minePrev && !_isCellPaintable(meta.ws, _near.row, _near.vatCol||_near.taxCol)){
-          const _un = cells.filter(c=>c.sum>0 && c.date<=tx.date
-            && _isCellPaintable(meta.ws, c.row, c.vatCol||c.taxCol)
-            && !(paintedKeys[matchedCompany] && paintedKeys[matchedCompany].has(c.key)));
-          for(let j=_un.length-1; j>=0 && !_unpaidFits; j--){
-            let s=0;
-            for(let i=j;i>=0;i--){
-              s+=_un[i].sum;
-              if(Math.abs(s-tx.amount)<=tolerance){ _unpaidFits=true; break; }
-              if(s>tx.amount+tolerance) break;
-            }
-          }
-          if(_unpaidFits) _logLine(`↪ ${matchedCompany} ${tx.dateKey} ${tx.amount.toLocaleString()}원 — ${_near.key}(이미 입금완료)와 금액만 같음, 미색칠 조합이 있어 합산 매칭으로 넘김`);
-        }
-        if(!_minePrev && !_unpaidFits && !_isCellPaintable(meta.ws, _near.row, _near.vatCol||_near.taxCol)){
-          _logLine(`⊘ ${matchedCompany} ${tx.dateKey} ${tx.amount.toLocaleString()}원 — ${_near.key} 정산분(이미 입금완료)으로 확인 → 다른 날짜에 재사용 안 함`);
-          tx.used = true; continue;
-        }
-        if(!_unpaidFits){        // 미색칠 조합이 있으면 단일 셀 경로를 건너뛰고 아래 합산 매칭으로 간다
+        exact.sort((x,y)=>Math.abs(x.date - tx.date) - Math.abs(y.date - tx.date));   // 입금일에 가까운 칸부터
         let done=false;
         for(const target of exact){
           const diff = target.sum - tx.amount;
-          const note = `${tx.dateKey} 입금 ${tx.amount.toLocaleString()}원 (${tx.name})` + (diff!==0 ? ` ⚠ 정산:${target.sum.toLocaleString()} / 입금:${tx.amount.toLocaleString()} (${diff>0?'+':''}${diff})` : '');
+          const note = tx.dateKey+" 입금 "+tx.amount.toLocaleString()+"원 ("+tx.name+")"
+            + (diff!==0 ? " \u26a0 정산:"+target.sum.toLocaleString()+" / 입금:"+tx.amount.toLocaleString()+" ("+(diff>0?"+":"")+diff+")" : "");
           const r1 = target.vatCol ? _paintAndComment(meta.ws, target.row, target.vatCol, note) : {painted:false};
           const r2 = target.taxCol ? _paintAndComment(meta.ws, target.row, target.taxCol, note) : {painted:false};
-          if(r1.painted||r2.painted){ paintedCount += (r1.painted?1:0)+(r2.painted?1:0); matchedCount++; toPaint.push({company:matchedCompany, key:target.key, amount:tx.amount, payer:tx.name, payKey:tx.dateKey}); _mark(matchedCompany, target.key); _logLine(`✓ ${matchedCompany} ${target.key} ${tx.amount.toLocaleString()}원 매칭`); done=true; break; }
+          if(r1.painted||r2.painted){
+            paintedCount += (r1.painted?1:0)+(r2.painted?1:0); matchedCount++;
+            toPaint.push({company:matchedCompany, key:target.key, amount:tx.amount, payer:tx.name, payKey:tx.dateKey});
+            _mark(matchedCompany, target.key);
+            _logLine("\u2713 "+matchedCompany+" "+target.key+" "+tx.amount.toLocaleString()+"원 매칭");
+            done=true; break;
+          }
         }
-        if(!done){ protectedCount++; _logLine(`⊘ ${matchedCompany} ${exact[0].key} 금액 맞는 곳이 이미 다 입금완료 (보존)`); }
-        tx.used = true;
-        continue;
-        }   // ← if(!_unpaidFits)
+        if(done){ tx.used = true; continue; }   // 못 칠했으면 아래 합산 매칭으로 계속
       }
-
       // 2) 합산 매칭 (주정산/월정산: 연속된 N개 일자 합)
       if(allowRange){
         // 🚫 이미 입금완료(색칠)된 셀·미래 정산은 범위 합산에서 제외 (2026-07-20 빅피쉬 버그:
