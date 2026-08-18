@@ -105,7 +105,10 @@ a{color:var(--accent)}
   <p style="font-size:12.5px;color:var(--muted)">카탈로그에서 <b>사진 준비중</b>이거나 <b>사진이 깨졌거나</b> <b>상품 링크가 없는</b> 상품만 모아줍니다.
   품절이면 🗑 삭제, 살아있는 상품이면 🔗 새 링크를 넣으세요 — 링크는 링크 정본 시트에 바로 저장되고 카탈로그에 즉시 반영됩니다.
   열어 봤는데 실제로는 이상이 없으면 <b>✓ 문제없음</b>으로 넘기세요 — 다음 취합부터 빠집니다. 고친 뒤 다시 취합하면 해결된 상품을 알려줍니다.<br>
-  ※ <b>카탈로그 사진 못 불러옴</b>은 상품 페이지 문제가 아니라 <b>카탈로그용 사진 창고(도구시트)가 빈 것</b>입니다. 상품↗을 눌러 페이지가 멀쩡하면 <b>아래 📸 북마크릿을 누르면</b> 채워집니다 (로그인이 필요해 이 페이지의 버튼으로는 못 가져옵니다).</p>
+  ※ 기준 목록은 <b>유통시트</b>입니다. 링크는 <a href="https://masterc.co.kr/index.php?module=rkdoccopy" target="_blank" rel="noopener">masterc 동기화 목록</a>에서 찾습니다 — 매시간 자동으로 새로 받아옵니다.<br>
+  ※ <b>링크가 있으면 사진도 있는 게 정상</b>이라, 이 도구가 잡아주는 건 딱 넷입니다 —
+  🔴<b>링크없음</b>(게시판에 글이 없음) · 🟠<b>링크품절</b>(판매중인데 링크는 품절 글) · <b>사진없음</b> · <b>사진깨짐</b>.
+  넷 다 <b>게시판 쪽을 손봐야</b> 풀립니다.</p>
   <div id="fxPerm" style="font-size:11.5px;color:var(--muted);margin:6px 0"></div>
   <div class="ct-bulk" style="margin-top:10px"><a class="cp" id="fxQty" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none">📊 수량시트</a><button class="fxg" id="fxQtyEdit" title="수량시트 주소 변경 (매월 바뀔 때 여기서 교체)">✎</button><button class="cp" id="fxRun" style="margin-top:0">🔍 문제 상품 취합</button></div>
   <div id="fxList"></div>
@@ -436,7 +439,7 @@ const today=()=>new Date().toISOString().slice(0,10);
 const colL=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
 const thumb=u=>'https://images.weserv.nl/?url='+encodeURIComponent(u.replace(/^https?:\/\//,''))+'&w=16&h=12&fit=cover&output=webp&q=40';
 const $f=id=>document.getElementById(id);
-let FX={prods:[],cache:{},links:{},linkGid:null,dels:[],writable:false,probs:[],ok:{},okRows:[],okGid:null};
+let FX={prods:[],cache:{},links:{},sync:{},linkGid:null,dels:[],writable:false,probs:[],ok:{},okRows:[],okGid:null};
 async function loadYutong(){
   const meta=await api(YUTONG,'?fields=sheets.properties(title,sheetId,hidden)');
   if(meta.error)throw new Error('유통시트 접근 실패: '+meta.error.status);
@@ -468,6 +471,17 @@ async function loadCache(){
   const v=await api(DOGU,'/values/'+q1("'상품이미지_v2'!A1:G3000"));
   const m={};
   ((v.values)||[]).forEach(function(r,i){if(i===0)return;const nm=(r[0]||'').trim();if(nm)m[pkey(nm)]={row:i+1,img:(r[2]||'').trim(),link:(r[5]||'').trim(),backs:(r[6]?String(r[6]).split('\n').filter(Boolean):[])};});
+  return m;
+}
+// masterc 동기화 목록(index.php?module=rkdoccopy)을 옮겨둔 도구시트 '상품링크' 탭.
+// 상품명이 그대로 키라서 이름 맞추기가 필요 없다.
+async function loadSync(){
+  const v=await api(DOGU,'/values/'+q1("'상품링크'!A2:F1400"));
+  const m={};
+  ((v.values)||[]).forEach(function(r){
+    const nm=pkey(r[0]); if(!nm)return;
+    m[nm]={url:(r[2]||'').trim(),state:(r[3]||'').trim()};
+  });
   return m;
 }
 async function loadLinks(){
@@ -556,23 +570,36 @@ function imgTest(url){
     im.src=thumb(url);
   });
 }
-function urlOf(p){const lk=FX.links[pkey(p.name)];const c=FX.cache[pkey(p.name)];return (lk&&lk.url)||(c&&c.link)||'';}
+// 링크 정본 우선순위: ①masterc 동기화 목록(상품링크 탭) ②링크 정본 시트 ③사진 캐시
+// ①이 masterc가 스스로 갱신하는 표라 항상 최신이다 (2026-08-18 왕 바지락 사고 이후 1순위로 올림)
+function urlOf(p){
+  const s=FX.sync[pkey(p.name)];
+  if(s&&s.url)return s.url;
+  const lk=FX.links[pkey(p.name)];const c=FX.cache[pkey(p.name)];
+  return (lk&&lk.url)||(c&&c.link)||'';
+}
+function syncState(p){const s=FX.sync[pkey(p.name)];return s?s.state:'';}   // '판매' | '품절' | ''(목록에 없음)
 function renderFx(){
   const P=FX.probs;
-  const n={노사진:P.filter(x=>x.issue==='카탈로그 사진 못 불러옴').length,깨짐:P.filter(x=>x.issue==='사진깨짐').length,노링크:P.filter(x=>!urlOf(x.p)).length};
-  $f('fxStat').textContent='— 문제 상품 '+P.length+'개 (카탈로그 사진 못 불러옴 '+n.노사진+' · 사진깨짐 '+n.깨짐+' · 링크없음 '+n.노링크+')';
+  const n={링크없음:P.filter(x=>x.issue==='링크없음').length,
+           링크품절:P.filter(x=>x.issue==='링크품절').length,
+           사진없음:P.filter(x=>x.issue==='사진없음').length,
+           깨짐:P.filter(x=>x.issue==='사진깨짐').length};
+  $f('fxStat').textContent='— 손봐야 할 상품 '+P.length+'개 (🔴링크없음 '+n.링크없음+' · 🟠링크품절 '+n.링크품절+' · 사진없음 '+n.사진없음+' · 사진깨짐 '+n.깨짐+')';
   $f('fxList').innerHTML=P.map(function(x,xi){
     const p=x.p,u=urlOf(p);
     const b=[];
     b.push('<span class="fxb no">'+x.issue+'</span>');
     const cc=FX.cache[pkey(p.name)];
-    if(!u)b.push('<span class="fxb no">링크없음</span>');
-    else if(x.issue==='카탈로그 사진 못 불러옴'){
-      // 링크 정본이 캐시보다 새것 = 링크는 이미 고쳐진 상태 — 사진만 아직 없는 것
-      if(cc&&cc.link&&cc.link!==u)b.push('<span class="fxb ok">링크는 새것 — 📸 북마크릿 누르면 채워짐</span>');
-      else if(!cc)b.push('<span class="fxb q">신규 상품 — 📸 북마크릿 누르면 채워짐</span>');
-      else b.push('<span class="fxb q">상품↗ 눌러 확인 — 멀쩡하면 📸 북마크릿, 메인으로 튕기면 게시물 삭제된 것</span>');
-    }
+    if(x.issue==='링크없음')
+      b.push('<span class="fxb no">동기화 목록에 이 이름의 글이 없습니다 — 글을 올리거나 제목을 상품명과 똑같이 맞춰주세요'
+        +(u?' (지금 걸린 옛 링크: 눌러서 살아있는지 확인해 보세요)':'')+'</span>');
+    else if(x.issue==='링크품절')
+      b.push('<span class="fxb q">유통시트엔 판매중인데 링크는 [품절] 글입니다 — 게시판을 정리해 주세요</span>');
+    else if(x.issue==='사진없음')
+      b.push('<span class="fxb q">링크는 멀쩡합니다 — 게시판 글에 사진이 안 붙어 있을 확률이 높습니다</span>');
+    else if(x.issue==='사진깨짐')
+      b.push('<span class="fxb q">사진 파일이 서버에서 사라졌습니다 — 게시판 글에 사진을 다시 올려주세요</span>');
     if(x.linked)b.push('<span class="fxb ok">✓ 링크 교체됨</span>');
     if(x.del)b.push('<span class="fxb q">삭제대기중</span>');
     const sheetGo='<a class="fxg" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/'+YUTONG+'/edit#gid='+p.gid+'&range='+colL(p.col)+p.row+'">시트↗</a>';
@@ -666,8 +693,8 @@ $f('fxRun').onclick=async function(){
   this.disabled=true;
   try{
     $f('fxStat').textContent='— 시트 읽는 중…';
-    const r=await Promise.all([loadYutong(),loadCache(),loadLinks(),loadOk()]);
-    FX.prods=r[0];FX.cache=r[1];FX.links=r[2];FX.dels=[];FX.ok=r[3].keys;FX.okRows=r[3].rows;
+    const r=await Promise.all([loadYutong(),loadCache(),loadLinks(),loadOk(),loadSync()]);
+    FX.prods=r[0];FX.cache=r[1];FX.links=r[2];FX.dels=[];FX.ok=r[3].keys;FX.okRows=r[3].rows;FX.sync=r[4];
     FX.writable=await probeWrite(FX.prods.length?FX.prods[0].tab:'군산');
     $f('fxPerm').innerHTML=FX.writable
       ?'🟢 유통시트 직접 수정 가능 — 🗑 삭제와 🔗 링크가 유통시트에 즉시 반영됩니다.'
@@ -695,9 +722,24 @@ $f('fxRun').onclick=async function(){
     }
     if(healed.length)$f('fxPerm').innerHTML+=('<br>🩹 대표 사진이 깨져 있던 '+healed.length+'개 상품을 예비 사진으로 자동 교체했습니다: '+healed.map(n=>n.replace(/</g,'&lt;')).join(', '));
     try{localStorage.setItem(IMGOK_KEY,JSON.stringify(IMGOK));}catch(e){}
+    /* 분류 기준 (사장님 2026-08-18 확정)
+       기준 목록은 철저히 유통시트. 링크는 masterc 동기화 목록('상품링크')에서 찾는다.
+       ① 링크없음  — 동기화 목록·링크시트·캐시 어디에도 없음 → 게시판에 글이 없다는 뜻, 사장님 보고 대상
+       ② 링크품절  — 유통시트엔 판매중인데 링크가 [품절] 글을 가리킴 → 게시판 정리 필요
+       ③ 사진없음/사진깨짐 — 링크는 멀쩡한데 사진이 없거나 깨짐 → 게시판 글에 사진을 다시 올려야 함
+       "링크가 있으면 사진이 있는 게 정상"이므로, 이 셋만 잡아주면 도구가 할 일은 끝이다. */
     FX.probs=[];
-    cand.forEach(p=>{const c=FX.cache[pkey(p.name)];FX.probs.push({p,issue:(!c||!c.img)?'카탈로그 사진 못 불러옴':'링크없음',del:FX.dels.indexOf(pkey(p.name))>=0});});
-    broken.filter(p=>!FX.ok[pkey(p.name)]).forEach(p=>{FX.probs.push({p,issue:'사진깨짐',del:FX.dels.indexOf(pkey(p.name))>=0});});
+    const mark=(p,issue)=>FX.probs.push({p,issue,del:FX.dels.indexOf(pkey(p.name))>=0});
+    FX.prods.forEach(p=>{
+      if(FX.ok[pkey(p.name)])return;
+      const c=FX.cache[pkey(p.name)], st=syncState(p);
+      // ① 동기화 목록(=게시판 정본)에 없으면 링크없음. 캐시에 남은 옛 링크로 가리지 않는다 —
+      //    그 옛 링크가 바로 업체를 메인으로 튕기던 범인이다 (2026-08-18 왕 바지락).
+      if(!st){mark(p,'링크없음');return;}
+      if(st==='품절'){mark(p,'링크품절');return;}  // ② 판매중인데 링크는 품절글
+      if(!c||!c.img)mark(p,'사진없음');            // ③ 링크는 있는데 사진이 비었다
+    });
+    broken.filter(p=>!FX.ok[pkey(p.name)]&&urlOf(p)&&syncState(p)!=='품절').forEach(p=>mark(p,'사진깨짐'));
     FX.probs.sort((a,b)=>a.p.tab===b.p.tab?a.p.row-b.p.row:(a.p.tab<b.p.tab?-1:1));
     // 지난 취합에서 문제였던 상품이 이번에 안 잡히면 = 고쳐진 것 — 사장님이 결과를 눈으로 확인할 수 있게 알려준다
     try{
