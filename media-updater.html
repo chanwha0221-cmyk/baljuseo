@@ -439,7 +439,7 @@ const today=()=>new Date().toISOString().slice(0,10);
 const colL=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
 const thumb=u=>'https://images.weserv.nl/?url='+encodeURIComponent(u.replace(/^https?:\/\//,''))+'&w=16&h=12&fit=cover&output=webp&q=40';
 const $f=id=>document.getElementById(id);
-let FX={prods:[],cache:{},links:{},sync:{},linkGid:null,dels:[],writable:false,probs:[],ok:{},okRows:[],okGid:null};
+let FX={prods:[],cache:{},links:{},sync:{},syncName:{},linkGid:null,dels:[],writable:false,probs:[],ok:{},okRows:[],okGid:null};
 async function loadYutong(){
   const meta=await api(YUTONG,'?fields=sheets.properties(title,sheetId,hidden)');
   if(meta.error)throw new Error('유통시트 접근 실패: '+meta.error.status);
@@ -480,7 +480,7 @@ async function loadSync(){
   const m={};
   ((v.values)||[]).forEach(function(r){
     const nm=pkey(r[0]); if(!nm)return;
-    m[nm]={url:(r[2]||'').trim(),state:(r[3]||'').trim()};
+    m[nm]={url:(r[2]||'').trim(),state:(r[3]||'').trim(),raw:(r[0]||'').trim()};
   });
   return m;
 }
@@ -579,6 +579,25 @@ function urlOf(p){
   return (lk&&lk.url)||(c&&c.link)||'';
 }
 function syncState(p){const s=FX.sync[pkey(p.name)];return s?s.state:'';}   // '판매' | '품절' | ''(목록에 없음)
+/* 이름이 거의 같은 글 후보 찾기 — 투뿔↔투쁠처럼 표기만 흔들린 걸 사장님이 손으로 뒤지지 않게.
+   ⚠️ 절대 자동으로 붙이지 않는다. 보여주기만 하고 결정은 사장님이 한다 (CLAUDE.md §3-3). */
+function bg2(s){s=String(s||'').replace(/\s+/g,'').toLowerCase();const a=[];for(let i=0;i<s.length-1;i++)a.push(s.slice(i,i+2));return a;}
+function sim2(a,b){
+  const A=bg2(a),B=bg2(b);
+  if(!A.length||!B.length)return 0;
+  const m={};A.forEach(x=>m[x]=(m[x]||0)+1);
+  let h=0;B.forEach(x=>{if(m[x]>0){m[x]--;h++;}});
+  return 2*h/(A.length+B.length);
+}
+function nearCands(name){
+  const out=[];
+  for(const k in FX.syncName){
+    const nm=FX.syncName[k];
+    const s=sim2(name,nm);
+    if(s>=0.62&&pkey(nm)!==pkey(name))out.push({name:nm,url:FX.sync[k].url,s:s});
+  }
+  return out.sort((a,b)=>b.s-a.s).slice(0,2);
+}
 function renderFx(){
   const P=FX.probs;
   const n={링크없음:P.filter(x=>x.issue==='링크없음').length,
@@ -591,9 +610,14 @@ function renderFx(){
     const b=[];
     b.push('<span class="fxb no">'+x.issue+'</span>');
     const cc=FX.cache[pkey(p.name)];
-    if(x.issue==='링크없음')
-      b.push('<span class="fxb no">동기화 목록에 이 이름의 글이 없습니다 — 글을 올리거나 제목을 상품명과 똑같이 맞춰주세요'
-        +(u?' (지금 걸린 옛 링크: 눌러서 살아있는지 확인해 보세요)':'')+'</span>');
+    if(x.issue==='링크없음'){
+      b.push('<span class="fxb no">게시판에 이 이름의 글이 없습니다 — 글을 올리거나 제목을 상품명과 똑같이 맞춰주세요</span>');
+      // 표기만 흔들린 글(투뿔↔투쁠 같은)을 사장님이 손으로 찾지 않게 후보만 보여준다.
+      // ⚠️ 자동으로 붙이지 않는다 — 붙일지는 사장님이 눈으로 보고 정한다 (CLAUDE.md §3-3)
+      (x.cands||[]).forEach(function(c){
+        b.push('<a class="fxg" target="_blank" rel="noopener" href="'+c.url+'" title="이 글이 맞는지 열어서 확인">🔎 '+c.name.replace(/</g,'&lt;')+' ↗</a>');
+      });
+    }
     else if(x.issue==='링크품절')
       b.push('<span class="fxb q">유통시트엔 판매중인데 링크는 [품절] 글입니다 — 게시판을 정리해 주세요</span>');
     else if(x.issue==='사진없음')
@@ -694,7 +718,7 @@ $f('fxRun').onclick=async function(){
   try{
     $f('fxStat').textContent='— 시트 읽는 중…';
     const r=await Promise.all([loadYutong(),loadCache(),loadLinks(),loadOk(),loadSync()]);
-    FX.prods=r[0];FX.cache=r[1];FX.links=r[2];FX.dels=[];FX.ok=r[3].keys;FX.okRows=r[3].rows;FX.sync=r[4];
+    FX.prods=r[0];FX.cache=r[1];FX.links=r[2];FX.dels=[];FX.ok=r[3].keys;FX.okRows=r[3].rows;FX.sync=r[4];FX.syncName={};for(const k in FX.sync)FX.syncName[k]=FX.sync[k].raw||k;
     FX.writable=await probeWrite(FX.prods.length?FX.prods[0].tab:'군산');
     $f('fxPerm').innerHTML=FX.writable
       ?'🟢 유통시트 직접 수정 가능 — 🗑 삭제와 🔗 링크가 유통시트에 즉시 반영됩니다.'
@@ -735,7 +759,7 @@ $f('fxRun').onclick=async function(){
       const c=FX.cache[pkey(p.name)], st=syncState(p);
       // ① 동기화 목록(=게시판 정본)에 없으면 링크없음. 캐시에 남은 옛 링크로 가리지 않는다 —
       //    그 옛 링크가 바로 업체를 메인으로 튕기던 범인이다 (2026-08-18 왕 바지락).
-      if(!st){mark(p,'링크없음');return;}
+      if(!st){const mk={p,issue:'링크없음',del:FX.dels.indexOf(pkey(p.name))>=0,cands:nearCands(p.name)};FX.probs.push(mk);return;}
       if(st==='품절'){mark(p,'링크품절');return;}  // ② 판매중인데 링크는 품절글
       if(!c||!c.img)mark(p,'사진없음');            // ③ 링크는 있는데 사진이 비었다
     });
