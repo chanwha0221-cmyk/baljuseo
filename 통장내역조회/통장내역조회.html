@@ -2480,15 +2480,22 @@ async function runSettlementMatch(){
           const diff = totalSum - tx.amount;
           const startKey = bestRange[0].key, endKey = bestRange[bestRange.length-1].key;
           const note = `${tx.dateKey} 입금 ${tx.amount.toLocaleString()}원 → ${startKey}~${endKey} 합산 ${totalSum.toLocaleString()}` + (diff!==0?` ⚠ 차액 ${diff>0?'+':''}${diff}`:'') + ` (${tx.name})`;
-          let anyPainted = false;
+          let anyPainted = false; const paintedCells = [];
           bestRange.forEach(c=>{
             if(c.sum<=0) return;
             const r1 = c.vatCol ? _paintAndComment(meta.ws, c.row, c.vatCol, note) : {painted:false};
             const r2 = c.taxCol ? _paintAndComment(meta.ws, c.row, c.taxCol, note) : {painted:false};
             if(r1.painted) paintedCount++; if(r2.painted) paintedCount++;
-            if(r1.painted||r2.painted){ anyPainted = true; _mark(matchedCompany, c.key); }
+            if(r1.painted||r2.painted){ anyPainted = true; _mark(matchedCompany, c.key); paintedCells.push(c); }
           });
-          if(anyPainted){ matchedCount++; toPaint.push({company:matchedCompany, key:startKey+'~'+endKey, amount:tx.amount, payer:tx.name, payKey:tx.dateKey}); _logLine(`✓ ${matchedCompany} ${startKey}~${endKey} 합산 ${tx.amount.toLocaleString()}원 매칭`); }
+          if(anyPainted){
+            matchedCount++;
+            /* 🎨 색칠 목록은 '칠할 칸' 하나하나로 넣는다 (2026-08-18 사장님 지적).
+               예전엔 `8/11~8/12` 한 줄 + 입금총액으로 뭉쳐 놔서, 리모콘에서 어느 칸을 얼마로
+               칠해야 하는지 알 수가 없었다. 화면에선 다시 입금 건별로 묶어 보여준다. */
+            paintedCells.forEach(c=>toPaint.push({company:matchedCompany, key:c.key, amount:c.sum, payer:tx.name, payKey:tx.dateKey, payAmount:tx.amount}));
+            _logLine(`✓ ${matchedCompany} ${startKey}~${endKey} 합산 ${tx.amount.toLocaleString()}원 매칭 (칠할 칸 ${paintedCells.length}개)`);
+          }
           else { protectedCount++; _logLine(`⊘ ${matchedCompany} ${startKey}~${endKey} 이미 색칠된 셀 (보존)`); }
           tx.used = true;
           continue;
@@ -2604,15 +2611,39 @@ function renderToPaint(arr){
   arr.forEach(x=>{ (byC[x.company]=byC[x.company]||[]).push(x); });
   const companies=Object.keys(byC);
   if(cnt) cnt.textContent='('+companies.length+'개 업체 · '+arr.length+'건)';
-  // 2026-07-21: 입금일(payKey)도 같이 — 정산달력 날짜만 보여주니 어느 입금 건인지 헷갈렸음
-  const _line = i => (i.payKey ? i.payKey+' 입금 ' : '') + i.amount.toLocaleString()+'원 → '+i.key+' 정산분';
-  window._toPaintText = companies.map(c=>c+' — '+byC[c].map(_line).join(', ')).join('\n');
+  /* 🎨 한 업체가 여러 날 칠해야 하면 한 줄씩 늘어놓지 말고 '11, 12, 13일 색칠하세요'로 묶는다.
+     (2026-08-18 사장님: "이거 색칠해 이거 색칠해가 아니고 11,12,13일 색칠하세요 이렇게 알려주기로 했잖아")
+     같은 입금 건(payKey)끼리 묶어서 날짜를 나열하고, 칸별 금액은 괄호로 붙인다. */
+  const _dayOnly = k => String(k||'').replace(/^\d{1,2}\/(\d{1,2})$/, '$1').replace(/^(\d{1,2})\/(\d{1,2})$/,'$2');
+  function _groupLines(items){
+    const byPay={}, order=[];
+    items.forEach(i=>{ const k=i.payKey||'-'; if(!byPay[k]){byPay[k]=[];order.push(k);} byPay[k].push(i); });
+    return order.map(pk=>{
+      const g=byPay[pk];
+      const days=g.map(i=>_dayOnly(i.key)).join(', ');
+      const detail=g.map(i=>i.key+' '+i.amount.toLocaleString()+'원').join(' · ');
+      const payAmt=g[0].payAmount||g.reduce((a,i)=>a+i.amount,0);
+      return { pk, days, detail, payAmt, n:g.length };
+    });
+  }
+  window._toPaintText = companies.map(c=>{
+    const gs=_groupLines(byC[c]);
+    return c+' — '+gs.map(g=>(g.pk!=='-'?g.pk+' 입금 '+g.payAmt.toLocaleString()+'원 → ':'')
+      +(g.n>1?g.days+'일 색칠 ('+g.detail+')':g.detail)).join(' / ');
+  }).join('\n');
   list.innerHTML = companies.map(c=>{
     const ce=String(c).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const gs=_groupLines(byC[c]);
+    const body=gs.map(g=>{
+      const head=g.pk!=='-'?`<b>${g.pk} 입금</b> ${g.payAmt.toLocaleString()}원 → `:'';
+      return g.n>1
+        ? `${head}<b style="color:var(--accent)">${g.days}일 색칠</b> <span style="color:var(--text3)">(${g.detail})</span>`
+        : `${head}<b style="color:var(--accent)">${g.detail}</b>`;
+    }).join('<br>');
     return `<div style="padding:7px 10px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:8px">
       <div style="flex:1;min-width:0">
-        <span style="font-weight:700;color:var(--text)">${ce}</span> <span style="color:var(--text3);font-size:11px">${byC[c].length}건</span>
-        <div style="color:var(--text2);font-size:11px;margin-top:2px">${byC[c].map(i=>`${i.payKey?`<b>${i.payKey} 입금</b> ${i.amount.toLocaleString()}원 → `:''}${i.key} 정산분${i.payKey?'':' · '+i.amount.toLocaleString()+'원'}`).join('<br>')}</div>
+        <span style="font-weight:700;color:var(--text)">${ce}</span> <span style="color:var(--text3);font-size:11px">칠할 칸 ${byC[c].length}개</span>
+        <div style="color:var(--text2);font-size:11px;margin-top:2px">${body}</div>
       </div>
       <button class="btn-copy" data-co="${ce}" onclick="copyCompanyName(this)" style="flex-shrink:0;padding:4px 8px;font-size:11px" title="업체명만 복사 → 리모콘에서 찾기">📋 업체명</button>
     </div>`;
