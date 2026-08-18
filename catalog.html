@@ -508,7 +508,9 @@ function card(p,extra,top){
   const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(thumbUrl(m.img))+'" data-full="'+esc(m.img)+'" alt="'+esc(p.name)+'" loading="lazy" onerror="thumbFail(this)">')
                         :'<div class="nothumb">사진 준비중</div>';
   const spec=(m&&m.spec&&m.spec.length)?('<div class="spec">'+m.spec.map(s=>'<div>'+esc(s)+'</div>').join('')+'</div>'):'';
-  const hot=!!TINT[pkey(p.name)];
+  // 당일생물 상품엔 '입고 불안정'을 붙이지 않는다 — 그날 들어온 것만 파는 자리라
+  // 입고가 일정치 않다는 표시 자체가 모순이다 (사장님 2026-08-18)
+  const hot=!!TINT[pkey(p.name)]&&p.group!=='당일생물'&&p.effWh!=='당일생물';
   return '<div class="card'+(hot?' hot':'')+'">'+thumb+'<div class="bd">'
     +(top||'')
     +(hot?'<span class="hotb">⚠️ 입고 불안정</span>':'')
