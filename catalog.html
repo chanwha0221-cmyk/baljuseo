@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마찬 유통 카탈로그 v1.5</title>
+<title>마찬 유통 카탈로그 v1.6</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -463,7 +463,7 @@ let TINT={};
 // 가장 최근 적용날짜에 변동이 있었던 상품 = '오늘 업데이트된 것'. 판매순보다 앞에 세운다.
 // 배지는 달지 않는다 — 순서로만 은근히 알리는 게 사장님 의도 (2026-08-18).
 let FRESH={};
-// 💹 상품별 최근 인상/인하 — 면세·과세 배지 옆에 붙인다 (사장님 2026-08-19). 최근 3개 적용날짜까지만.
+// 💹 상품별 최근 인상/인하 — 면세·과세 배지 옆에 붙인다 (사장님 2026-08-19). 최근 5개 적용날짜까지만.
 let KIND={};
 const st={q:'',wh:'전체',mode:'group',cat:'전체'};
 // 기본 정렬 = 최근 판매량 많은 순 (안 팔린 것은 뒤로, 같으면 원래 시트 순서 유지)
@@ -746,10 +746,10 @@ function buildTint(){
   if(!newest)return;
   CHG.items.forEach(it=>{ if(it.day===newest&&!/품절/.test(it.kind))FRESH[pkey(it.name)]=1; });
   // 💹 인상·인하 배지 (사장님 2026-08-19: "인상 인하는 면세 과세 옆에다가 노출 해주자")
-  // 최근 3개 적용날짜 안의 것만 — 몇 달 전 인상까지 달면 노이즈다.
+  // 최근 5개 적용날짜 안의 것만 — 그 이후엔 배지를 떼고 지금 가격만 보여준다 (사장님 2026-08-19 "5일로 해주고").
   // CHG.items가 최신순이라 상품마다 처음 만난 것이 가장 최근 변동이다.
   const days=[];
-  CHG.items.forEach(it=>{ if(it.day&&days.length<3&&days.indexOf(it.day)<0)days.push(it.day); });
+  CHG.items.forEach(it=>{ if(it.day&&days.length<5&&days.indexOf(it.day)<0)days.push(it.day); });
   CHG.items.forEach(it=>{
     const k=pkey(it.name);
     if(!it.day||days.indexOf(it.day)<0)return;
