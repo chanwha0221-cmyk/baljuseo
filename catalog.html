@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마찬 유통 카탈로그 v1.6</title>
+<title>마찬 유통 카탈로그 v1.7</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -53,6 +53,8 @@ h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .tgrow{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
 .tg.up{background:color-mix(in srgb,var(--up) 15%,transparent);color:var(--up);font-weight:800}
 .tg.down{background:color-mix(in srgb,var(--down) 15%,transparent);color:var(--down);font-weight:800}
+/* 📦 합포장 가능 수량 — 업체 문의 1순위라 눈에 띄는 금색 (사장님 2026-08-19) */
+.tg.hap{background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--gold);font-weight:800}
 .rf{font-size:10.5px;color:var(--muted);line-height:1.4}
 .prow{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;padding-top:4px;gap:6px}
 .price{font-size:18px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
@@ -399,6 +401,21 @@ async function loadMedia(){
 // 예전엔 masterc 동기화 목록(index.php?module=rkdoccopy)을 썼는데 2,170건 중 절반만 담겨 있었다.
 // 예전엔 '상품이미지_v2'의 링크를 썼는데, 그건 사진 채울 때만 저장돼서
 // 사진이 이미 있는 상품은 몇 달이고 갱신이 안 됐다(2026-08-18 왕 바지락 사고).
+// 📦 합포장 가능 수량 — 도구시트 '합포장' 탭 (A창고 B상품명 C수량 D갱신일 E출처).
+// 매칭은 상품명만 쓴다. 창고명은 참고용 — 이 표의 창고는 공급처 약칭이라 유통시트 창고탭과 다른 게 많다.
+async function loadHap(){
+  const token=await getAccessToken();
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'합포장'!A2:E1000"),{headers:{Authorization:'Bearer '+token}});
+  const j=await r.json();
+  if(j.error)return {};
+  const m={};
+  for(const v of (j.values||[])){
+    const nm=(v[1]||'').trim(); const q=parseInt((v[2]||'').toString().replace(/[^\d]/g,''),10);
+    if(!nm||!(q>0))continue;
+    const k=pkey(nm); if(!m[k])m[k]=q;
+  }
+  return m;
+}
 async function loadLinks(){
   const token=await getAccessToken();
   // ⚠️ 범위는 정본 건수보다 넉넉해야 한다 — 1400으로 두면 2,170건 중 뒤가 통째로 잘린다(2026-08-19).
@@ -465,6 +482,9 @@ let TINT={};
 let FRESH={};
 // 💹 상품별 최근 인상/인하 — 면세·과세 배지 옆에 붙인다 (사장님 2026-08-19). 최근 5개 적용날짜까지만.
 let KIND={};
+// 📦 합포장 가능 수량 — 도구시트 '합포장' 탭 (사장님 2026-08-19: 업체 문의가 제일 많은 항목).
+// 관리팀이 게시판 문의글을 매주 취합해 늘린다. 전체 상품이 아니라 문의 많은 것 위주라 없는 상품이 더 많다.
+let HAP={};
 const st={q:'',wh:'전체',mode:'group',cat:'전체'};
 // 기본 정렬 = 최근 판매량 많은 순 (안 팔린 것은 뒤로, 같으면 원래 시트 순서 유지)
 // 정렬 = ①오늘 변동 있었던 것 ②최근 판매량 많은 순 ③시트 순서
@@ -515,7 +535,11 @@ function tagRow(p,taxc){
   const t=p.tax?('<span class="tg '+taxc+'">'+esc(p.tax)+'</span>'):'';
   const k=KIND[pkey(p.name)];
   const c=k?('<span class="tg '+(k.up?'up':'down')+'" title="'+esc(k.day||'')+' 적용">'+(k.up?'▲ 인상':'▼ 인하')+'</span>'):'';
-  return (t||c)?('<div class="tgrow">'+t+c+'</div>'):'';
+  // 📦 합포장 — 업체 문의가 제일 많은 항목이라 카드에서 바로 보이게 (사장님 2026-08-19).
+  // 데이터가 없는 상품은 아무것도 안 붙인다. 모르면서 아는 척하는 것보다 낫다.
+  const h=HAP[pkey(p.name)];
+  const hb=h?('<span class="tg hap" title="한 박스에 이 수량까지 합포장 가능합니다 (같은 창고 상품끼리)">📦 합포장 '+h+'개</span>'):'';
+  return (t||c||hb)?('<div class="tgrow">'+t+c+hb+'</div>'):'';
 }
 function card(p,extra,top){
   const m=MEDIA['n:'+pkey(p.name)]||(p.url?(MEDIA[(p.url.match(/(\d{5,})/)||[])[1]]||null):null);
@@ -663,7 +687,7 @@ async function startCatalog(){
     // ⚠️ TINT(입고 불안정 표시)는 캐시에서 되살리지 않는다 — 시트에서 색을 지워도
     // 낡은 캐시 때문에 멀쩡한 상품에 경고가 남는다(2026-08-12 국내산 급냉 오징어 1팩).
     // 잘못된 경고를 남기느니 최신이 도착할 때까지 잠깐 안 보이는 게 낫다.
-    if(c&&c.groups&&c.groups.length){GROUPS=c.groups;MEDIA=c.media||{};SALES=c.sales||{};LINKS=c.links||{};TINT={};
+    if(c&&c.groups&&c.groups.length){GROUPS=c.groups;MEDIA=c.media||{};SALES=c.sales||{};LINKS=c.links||{};HAP=c.hap||{};TINT={};
       if(c.noti){NOTI=c.noti;renderNoticeBox();}
       usedCache=true;finishRender(c.at,true);}
   }catch(e){}
@@ -673,11 +697,13 @@ async function startCatalog(){
     let media={},cats={},sales={};
     try{
       const r=await Promise.all([loadMedia().catch(()=>({})),loadCats().catch(()=>({})),loadSales().catch(()=>({})),
-                                 loadChanges().catch(()=>null),loadNotices().catch(()=>null),loadLinks().catch(()=>({}))]);
+                                 loadChanges().catch(()=>null),loadNotices().catch(()=>null),loadLinks().catch(()=>({})),
+                                 loadHap().catch(()=>({}))]);
       media=r[0];cats=r[1];sales=r[2];
       if(r[3]){CHG=r[3];buildTint();}   // 살구색 표시를 카탈로그 카드에도 입히려면 시작할 때 읽어야 한다
       if(r[4]){NOTI=r[4];renderNoticeBox();}
       if(r[5]&&Object.keys(r[5]).length)LINKS=r[5];
+      if(r[6]&&Object.keys(r[6]).length)HAP=r[6];   // 📦 합포장 — 같은 Promise.all이라 로딩이 느려지지 않는다
     }catch(e){}
     if(Object.keys(sales).length)SALES=sales;
     if(!Object.keys(media).length){
@@ -691,7 +717,7 @@ async function startCatalog(){
     // 서브페이지를 보고 있는 중에 최신 데이터가 도착하면 그 화면도 다시 그린다.
     // (안 그러면 사진·스펙을 새로 받아왔는데도 '사진 준비중'이 그대로 남는다 — 2026-08-12 탱글 생물 중하)
     if(location.hash.replace(/^#/,''))renderRoute();
-    try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,noti:NOTI,links:LINKS})); }catch(e){}
+    try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,noti:NOTI,links:LINKS,hap:HAP})); }catch(e){}
   }catch(e){
     if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
   }
