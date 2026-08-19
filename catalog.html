@@ -381,14 +381,16 @@ async function loadMedia(){
   }
   return m;
 }
-// ── 상품 링크 정본 (2026-08-18) ────────────────────────────────
-// masterc의 동기화 목록(index.php?module=rkdoccopy)을 그대로 옮겨둔 도구시트 '상품링크' 탭.
-// 상품명·주소·판매/품절이 다 들어 있고 masterc가 갱신하므로 항상 최신이다.
+// ── 상품 링크 정본 (2026-08-19 소스 교체) ──────────────────────
+// 도구시트 '상품링크' 탭. 스케줄 작업이 매시간 통째로 새로 받아 덮어쓴다.
+// 원본은 '상품정보 업데이트' 시트의 '링크' 탭(A상품명 B링크) — 사장님이 관리하는 정본.
+// 예전엔 masterc 동기화 목록(index.php?module=rkdoccopy)을 썼는데 2,170건 중 절반만 담겨 있었다.
 // 예전엔 '상품이미지_v2'의 링크를 썼는데, 그건 사진 채울 때만 저장돼서
 // 사진이 이미 있는 상품은 몇 달이고 갱신이 안 됐다(2026-08-18 왕 바지락 사고).
 async function loadLinks(){
   const token=await getAccessToken();
-  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품링크'!A2:F1400"),{headers:{Authorization:'Bearer '+token}});
+  // ⚠️ 범위는 정본 건수보다 넉넉해야 한다 — 1400으로 두면 2,170건 중 뒤가 통째로 잘린다(2026-08-19).
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품링크'!A2:F2400"),{headers:{Authorization:'Bearer '+token}});
   const j=await r.json();
   if(j.error)return {};
   const m={};
