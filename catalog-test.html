@@ -252,7 +252,42 @@ body{border:5px solid #d64545 !important;box-sizing:border-box;min-height:100vh}
   --shadow:0 1px 2px rgba(0,0,0,.35),0 4px 16px rgba(0,0,0,.28);
   --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 16px 40px rgba(0,0,0,.42);
 }}
-body{background:radial-gradient(1100px 520px at 50% -180px,color-mix(in srgb,var(--accent) 8%,var(--bg)),var(--bg)) fixed;letter-spacing:-.01em}
+/* ── 배경 ──────────────────────────────────────────────────────────
+   흰 종이에 상자만 올려둔 느낌이라 밋밋했다. 배경을 3겹으로 깐다.
+   ① 바탕색  ② 고정된 초록·황토 번짐 덩어리(스크롤해도 안 따라옴)
+   ③ 아주 옅은 격자 무늬 — 사진 카드가 배경 위에 떠 보이게 하는 게 목적.
+   fixed 배경은 모바일에서 끊겨서, 스크롤 안 하는 고정 레이어로 따로 뺐다. */
+body{background:var(--bg);letter-spacing:-.01em;position:relative}
+body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(760px 520px at 12% -8%, color-mix(in srgb,var(--accent) 26%,transparent), transparent 62%),
+    radial-gradient(680px 460px at 92% 2%, color-mix(in srgb,var(--gold) 20%,transparent), transparent 60%),
+    radial-gradient(900px 700px at 50% 108%, color-mix(in srgb,var(--accent) 16%,transparent), transparent 62%),
+    var(--bg)}
+body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--accent) 7%,transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb,var(--accent) 7%,transparent) 1px, transparent 1px);
+  background-size:26px 26px;
+  -webkit-mask-image:radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 78%);
+  mask-image:radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 78%)}
+@media(prefers-color-scheme:dark){
+  body::before{background:
+    radial-gradient(760px 520px at 12% -8%, color-mix(in srgb,var(--accent) 20%,transparent), transparent 62%),
+    radial-gradient(680px 460px at 92% 2%, color-mix(in srgb,var(--gold) 14%,transparent), transparent 60%),
+    radial-gradient(900px 700px at 50% 108%, color-mix(in srgb,var(--accent) 12%,transparent), transparent 62%),
+    var(--bg)}
+  body::after{opacity:.35}
+}
+/* 머리말은 배경 위에 얹힌 한 덩어리로 — 브랜드·안내·계좌가 흩어져 보이던 걸 묶는다 */
+header{position:relative;padding:20px 18px 16px;margin:14px 0 0;border-radius:22px;
+  background:color-mix(in srgb,var(--card) 78%,transparent);
+  border:1px solid color-mix(in srgb,#fff 55%,var(--line));
+  box-shadow:var(--shadow);backdrop-filter:blur(14px) saturate(1.25)}
+@media(prefers-color-scheme:dark){header{background:color-mix(in srgb,var(--card) 72%,transparent);
+  border-color:color-mix(in srgb,var(--line) 90%,transparent)}}
+/* 배경 위에서는 카드가 반투명하면 지저분하다 — 상품 카드·공지는 불투명 유지 */
+.card,.ntc,.ntcac,.banner,.soldwrap{background-color:var(--card)}
 ::selection{background:color-mix(in srgb,var(--accent) 25%,transparent)}
 
 /* ── 머리말 ── */
