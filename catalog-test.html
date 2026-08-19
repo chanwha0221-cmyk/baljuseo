@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.3</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.4</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -38,6 +38,8 @@ h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .meta{display:flex;justify-content:space-between;margin-top:11px;font-size:11.5px;color:var(--muted)}.meta b{color:var(--ink)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:11px;margin-top:10px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+/* ⭐ 추천상품 — 창고 목록 맨 앞에 오고 테두리로 한 번 더 눈에 띄게 (사장님 2026-08-19) */
+.card.isrec{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 25%,transparent),var(--shadow)}
 .thumb{aspect-ratio:4/3;background:var(--chip);display:block;width:100%;object-fit:cover}
 .nothumb{aspect-ratio:4/3;background:var(--chip);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px}
 .bd{padding:12px 12px 12px;display:flex;flex-direction:column;gap:5px;flex:1}
@@ -534,10 +536,15 @@ const st={q:'',wh:'전체',mode:'group',cat:'전체'};
 // 기본 정렬 = 최근 판매량 많은 순 (안 팔린 것은 뒤로, 같으면 원래 시트 순서 유지)
 // 정렬 = ①오늘 변동 있었던 것 ②최근 판매량 많은 순 ③시트 순서
 // 전체·창고별·검색 모두 이 함수를 타므로 한 군데만 고치면 다 같이 바뀐다.
+/* 정렬 = ①추천상품 ②오늘 변동 있었던 것 ③최근 판매량 ④시트 순서
+   ⭐추천으로 걸어둔 상품은 창고 목록에서도 맨 앞에 세운다 (사장님 2026-08-19).
+   여기 한 군데만 고치면 전체·창고별·검색 목록이 다 같이 바뀐다. */
 function bySales(list){
-  return list.map((p,i)=>({p,i,f:FRESH[pkey(p.name)]?1:0,q:SALES[pkey(p.name)]||0}))
-             .sort((a,b)=>(b.f-a.f)||(b.q-a.q)||(a.i-b.i)).map(x=>x.p);
+  return list.map((p,i)=>({p,i,r:recRank(p.name),f:FRESH[pkey(p.name)]?1:0,q:SALES[pkey(p.name)]||0}))
+             .sort((a,b)=>(a.r-b.r)||(b.f-a.f)||(b.q-a.q)||(a.i-b.i)).map(x=>x.p);
 }
+// 추천 0 · 소식글 1 · 나머지 9 (작을수록 앞). 추천상품 화면의 순서 규칙과 같게 맞춘다.
+function recRank(name){ const r=RECMAP[pkey(name)]; return r?(r.news?1:0):9; }
 function buildAll(){
   ALL=[];
   GROUPS.forEach(g=>{
@@ -604,8 +611,11 @@ function card(p,extra,top){
   // 당일생물 상품엔 '입고 불안정'을 붙이지 않는다 — 그날 들어온 것만 파는 자리라
   // 입고가 일정치 않다는 표시 자체가 모순이다 (사장님 2026-08-18)
   const hot=!!TINT[pkey(p.name)]&&p.group!=='당일생물'&&p.effWh!=='당일생물';
-  return '<div class="card'+(hot?' hot':'')+'">'+thumb+'<div class="bd">'
-    +(top||'')
+  // ⭐추천상품은 목록에서도 배지를 단다. 추천 화면에서 넘어온 배지(top)가 있으면 그걸 쓴다(중복 방지).
+  const rc=RECMAP[pkey(p.name)];
+  const recBadge=(top!=null&&top!=='')?'' : (rc?('<span class="recb '+(rc.news?'news">📰 소식글':'rec">⭐ 추천상품')+'</span>'):'');
+  return '<div class="card'+(hot?' hot':'')+(rc?' isrec':'')+'">'+thumb+'<div class="bd">'
+    +(top||'')+recBadge
     +(hot?'<span class="hotb">⚠️ 입고 불안정</span>':'')
     +(bt?'<button class="whb" data-wh="'+esc(p.effWh||'')+'" title="이 창고 상품만 보기">📦 '+esc(bt)+'</button>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
@@ -742,7 +752,7 @@ async function startCatalog(){
     // ⚠️ TINT(입고 불안정 표시)는 캐시에서 되살리지 않는다 — 시트에서 색을 지워도
     // 낡은 캐시 때문에 멀쩡한 상품에 경고가 남는다(2026-08-12 국내산 급냉 오징어 1팩).
     // 잘못된 경고를 남기느니 최신이 도착할 때까지 잠깐 안 보이는 게 낫다.
-    if(c&&c.groups&&c.groups.length){GROUPS=c.groups;MEDIA=c.media||{};SALES=c.sales||{};LINKS=c.links||{};HAP=c.hap||{};TINT={};
+    if(c&&c.groups&&c.groups.length){GROUPS=c.groups;MEDIA=c.media||{};SALES=c.sales||{};LINKS=c.links||{};HAP=c.hap||{};RECMAP=c.recmap||{};TINT={};
       if(c.noti){NOTI=c.noti;renderNoticeBox();}
       usedCache=true;finishRender(c.at,true);}
   }catch(e){}
@@ -753,12 +763,13 @@ async function startCatalog(){
     try{
       const r=await Promise.all([loadMedia().catch(()=>({})),loadCats().catch(()=>({})),loadSales().catch(()=>({})),
                                  loadChanges().catch(()=>null),loadNotices().catch(()=>null),loadLinks().catch(()=>({})),
-                                 loadHap().catch(()=>({}))]);
+                                 loadHap().catch(()=>({})),loadRecs().catch(()=>null)]);
       media=r[0];cats=r[1];sales=r[2];
       if(r[3]){CHG=r[3];buildTint();}   // 살구색 표시를 카탈로그 카드에도 입히려면 시작할 때 읽어야 한다
       if(r[4]){NOTI=r[4];renderNoticeBox();}
       if(r[5]&&Object.keys(r[5]).length)LINKS=r[5];
       if(r[6]&&Object.keys(r[6]).length)HAP=r[6];   // 📦 합포장 — 같은 Promise.all이라 로딩이 느려지지 않는다
+      if(r[7]){RECS=r[7];buildRecMap();}            // ⭐ 추천상품을 창고 목록 맨 앞에 세우려면 시작할 때 필요
     }catch(e){}
     if(Object.keys(sales).length)SALES=sales;
     if(!Object.keys(media).length){
@@ -772,7 +783,7 @@ async function startCatalog(){
     // 서브페이지를 보고 있는 중에 최신 데이터가 도착하면 그 화면도 다시 그린다.
     // (안 그러면 사진·스펙을 새로 받아왔는데도 '사진 준비중'이 그대로 남는다 — 2026-08-12 탱글 생물 중하)
     if(location.hash.replace(/^#/,''))renderRoute();
-    try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,noti:NOTI,links:LINKS,hap:HAP})); }catch(e){}
+    try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,noti:NOTI,links:LINKS,hap:HAP,recmap:RECMAP})); }catch(e){}
   }catch(e){
     if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
   }
@@ -786,6 +797,13 @@ async function startCatalog(){
 // ══════════════════════════════════════════════════════════════════
 const subV=$('subView'),mainV=$('mainView'),menuEl=$('menu');
 let CHG=null,RECS=null,NOTI=null;
+/* ⭐ 추천상품을 창고 목록에서도 맨 앞에 세우려면 시작할 때 읽어야 한다 (사장님 2026-08-19).
+   예전엔 [⭐추천상품] 메뉴를 눌러야 읽었다. RECMAP = 상품명 → {news} */
+let RECMAP={};
+function buildRecMap(){
+  RECMAP={};
+  (RECS||[]).forEach(r=>{ const k=pkey(r.name); if(k&&!RECMAP[k])RECMAP[k]={news:!!r.news}; });
+}
 function goBack(){ if(history.length>1)history.back(); else location.hash=''; }
 function subHead(t,s){
   return '<div class="subhd"><button class="backb" onclick="goBack()">← 뒤로</button>'
@@ -1069,7 +1087,7 @@ async function renderRoute(){
   window.scrollTo({top:0});
   try{
     if(v==='change'){if(!CHG)CHG=await loadChanges();subV.innerHTML=renderChange(CHG);}
-    else if(v==='rec'){if(!RECS)RECS=await loadRecs();subV.innerHTML=renderRecs(RECS);}
+    else if(v==='rec'){if(!RECS){RECS=await loadRecs();buildRecMap();}subV.innerHTML=renderRecs(RECS);}
     // ⚠️ 공지 화면에 들어왔다고 전부 읽음 처리하지 않는다 — 제목을 눌러야 확인이다(사장님 2026-08-19).
     else if(v==='notice'){if(!NOTI)NOTI=await loadNotices();subV.innerHTML=renderNotices(NOTI);renderNtcBadge();}
     else{location.hash='';}
