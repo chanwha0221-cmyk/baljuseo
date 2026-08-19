@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.5</title>
+<title>마스터 유통 카탈로그 v2.6</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -222,9 +222,182 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   .ubtn{font-size:10.5px;padding:4px 8px}
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   ✨ 디자인 리프레시 (2026-08-19) — 스타일 전용. HTML 구조·클래스·JS는 그대로다.
+   원래대로 되돌리려면 이 블록만 통째로 지우면 된다.
+   원칙: ① 글자 크기는 줄이지 않는다(거래처 연령대) ② 초록 상자가 위아래로
+        쌓여 어디를 봐야 할지 모르던 걸 정리 ③ 손가락으로 눌러도 안 흔들리게
+        들썩이는 효과는 마우스 있는 기기에서만.
+   ═══════════════════════════════════════════════════════════════════ */
+/* 🎨 색: 초록 → 짙은 남색(네이비). 수산물 유통이라 바다·신뢰 쪽으로 (사장님 2026-08-19)
+   초록은 네이버 느낌이 난다는 지적. 남색 본색 + 따뜻한 황토를 보조로 써서
+   차갑기만 하지 않게 잡았다. 인하 배지는 브랜드 남색과 겹치지 않게 청록으로 뺐다. */
+:root{
+  /* C안 「얼음 창고」 (사장님 선택 2026-08-19) — 냉장 청록 + 얼음 회청.
+     선을 걷어내고 그림자로만 층을 나눈다. 로고가 무채색 검정이라 밝은 머리말에서 제일 또렷하다. */
+  --accent:#0e8f9e;--accent-d:#0b6a75;--accent-l:#17aab8;
+  --bg:#eef3f6;--card:#fff;--ink:#12242c;--muted:#6c7d84;
+  --line:#e2e9ee;--line2:#eef3f6;--soft:#e6f4f5;--chip:#eef3f6;
+  --gold:#a9761c;
+  --down:#2a6fd0;                  /* 인하 — 강조색이 청록이라 파랑으로 분리 */
+  --pop:#0e8f9e;--pop-d:#0b6a75;
+  --brand:#12242c;                 /* 로고 검정 */
+  --radius:16px;
+  --shadow:0 1px 2px rgba(12,30,48,.05),0 4px 16px rgba(12,30,48,.07);
+  --shadow-lg:0 2px 6px rgba(12,30,48,.07),0 16px 40px rgba(12,30,48,.13);
+  --ring:0 0 0 4px color-mix(in srgb,var(--accent) 15%,transparent);
+}
+@media(prefers-color-scheme:dark){:root{
+  --accent:#3fc0cf;--accent-d:#28a3b1;--accent-l:#63d3df;
+  --bg:#0c1418;--card:#151e23;--ink:#e6eef1;--muted:#8b9ba2;
+  --line:#243139;--line2:#1c262c;--soft:#10333a;--chip:#1b252b;
+  --gold:#d6a34a;--down:#6ba8ef;--pop:#3fc0cf;--pop-d:#28a3b1;--brand:#e6eef1;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 4px 16px rgba(0,0,0,.3);
+  --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 16px 40px rgba(0,0,0,.45);
+}}
+/* ── 배경 ──────────────────────────────────────────────────────────
+   흰 종이에 상자만 올려둔 느낌이라 밋밋했다. 배경을 3겹으로 깐다.
+   ① 바탕색  ② 고정된 초록·황토 번짐 덩어리(스크롤해도 안 따라옴)
+   ③ 아주 옅은 격자 무늬 — 사진 카드가 배경 위에 떠 보이게 하는 게 목적.
+   fixed 배경은 모바일에서 끊겨서, 스크롤 안 하는 고정 레이어로 따로 뺐다. */
+body{background:var(--bg);letter-spacing:-.01em;position:relative}
+body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(900px 520px at 12% -8%, color-mix(in srgb,var(--accent) 14%,transparent), transparent 62%),
+    radial-gradient(800px 520px at 92% 2%, color-mix(in srgb,var(--accent-l) 10%,transparent), transparent 60%),
+    var(--bg)}
+body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.35;
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--accent) 10%,transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb,var(--accent) 10%,transparent) 1px, transparent 1px);
+  background-size:28px 28px;
+  -webkit-mask-image:radial-gradient(130% 95% at 50% 0%, #000 30%, transparent 80%);
+  mask-image:radial-gradient(130% 95% at 50% 0%, #000 30%, transparent 80%)}
+@media(prefers-color-scheme:dark){
+  body::before{background:
+    linear-gradient(180deg, color-mix(in srgb,var(--accent) 14%,transparent) 0%, transparent 340px),
+    radial-gradient(820px 560px at 8% -6%, color-mix(in srgb,var(--accent) 26%,transparent), transparent 60%),
+    radial-gradient(720px 500px at 95% 4%, color-mix(in srgb,var(--gold) 18%,transparent), transparent 58%),
+    radial-gradient(1000px 760px at 50% 106%, color-mix(in srgb,var(--accent) 16%,transparent), transparent 60%),
+    var(--bg)}
+  body::after{opacity:.4}
+}
+/* ── 머리말 (C안) ────────────────────────────────────────────────
+   흰 카드. 선은 없고 그림자로만 띄운다. 로고가 검정이라 여기서 제일 또렷하다. */
+header{position:relative;padding:18px 20px 16px;margin:14px 0 0;border-radius:20px;
+  background:var(--card);border:none;box-shadow:0 2px 14px rgba(18,44,56,.09)}
+header .brand{gap:14px}
+.eyebrow{font-size:10.5px;font-weight:800;letter-spacing:1.4px;color:var(--accent-d);margin-bottom:3px}
+header .ver{background:var(--chip);border:1px solid var(--line);color:var(--muted)}
+
+/* ── 로고 ── media/logo.png 가 있으면 그걸 쓰고, 없으면 원형 워드마크로 대체한다 */
+.logomark{flex:none;width:58px;height:58px;display:flex;align-items:center;justify-content:center}
+.logomark img{width:100%;height:100%;object-fit:contain;display:block}
+.logomark span{display:none}
+.logomark.nofile{background:var(--brand);border-radius:50%;
+  box-shadow:0 4px 14px color-mix(in srgb,var(--brand) 30%,transparent)}
+.logomark.nofile span{display:block;color:#fff;font-weight:700;font-size:15px;letter-spacing:-.4px;
+  font-family:'Century Gothic','Poppins','Trebuchet MS','Apple SD Gothic Neo',sans-serif}
+@media(prefers-color-scheme:dark){.logomark.nofile{background:#f2f6f8}.logomark.nofile span{color:#12242c}}
+.gbox .logomark{width:74px;height:74px;margin:0 auto 14px}
+.gbox .logomark.nofile span{font-size:19px}
+@media(max-width:640px){.logomark{width:44px;height:44px}.logomark.nofile span{font-size:12px}
+  .eyebrow{font-size:9.5px;letter-spacing:1px}}
+/* 배경 위에서는 카드가 반투명하면 지저분하다 — 상품 카드·공지는 불투명 유지 */
+.card,.ntc,.ntcac,.banner,.soldwrap{background-color:var(--card)}
+::selection{background:color-mix(in srgb,var(--accent) 25%,transparent)}
+
+/* ── 머리말 ── */
+.mark{background:linear-gradient(145deg,var(--accent-l),var(--accent-d));
+  box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 32%,transparent),inset 0 1px 0 rgba(255,255,255,.28)}
+h1{letter-spacing:-.6px}
+.ver{background:var(--chip);border:1px solid var(--line)}
+
+/* ── 입금 계좌 — 제일 많이 묻는 정보라 한눈에 ── */
+.acct{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 9%,var(--card)),var(--card));
+  border:1.5px solid color-mix(in srgb,var(--accent) 34%,var(--line));border-radius:14px;box-shadow:var(--shadow)}
+.acct .no{letter-spacing:-.3px}
+
+/* ── 안내 문구 — 초록 상자가 계속 이어지면 눈이 미끄러진다. 흰 카드 + 왼쪽 띠로 ── */
+.note,.clicktip{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+  border-radius:12px;box-shadow:var(--shadow);color:var(--ink)}
+@media(prefers-color-scheme:dark){.clicktip{color:var(--ink)}}
+
+/* ── 메뉴 3칸 ── */
+.mbtn{border-radius:14px;padding:12px 8px;
+  background:linear-gradient(180deg,var(--card),color-mix(in srgb,var(--chip) 55%,var(--card)));
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.mbtn.on{background:linear-gradient(145deg,var(--accent-l),var(--accent-d));border-color:transparent;
+  box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 30%,transparent)}
+@media(hover:hover){.mbtn:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);
+  border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}}
+
+/* ── 검색 · 필터 ── */
+.controls{backdrop-filter:blur(14px) saturate(1.3)}
+.search{border-radius:14px;padding:13px 15px;box-shadow:var(--shadow)}
+.search:focus{border-color:var(--accent);box-shadow:var(--ring)}
+.lbl::before{content:'';display:inline-block;width:14px;height:3px;border-radius:2px;
+  background:var(--pop);margin-right:7px;vertical-align:middle}
+.meta b{color:var(--accent-d);font-size:13px}
+.chip{border-radius:999px;transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease,color .14s ease}
+.chip.on{background:linear-gradient(145deg,var(--accent-l),var(--accent-d));border-color:transparent;
+  box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 26%,transparent)}
+@media(hover:hover){.chip:hover{transform:translateY(-1px);color:var(--accent-d);
+  border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+  .chip.on:hover{color:#fff}}
+.allbtn{border-radius:999px;box-shadow:var(--shadow);transition:.15s ease}
+@media(hover:hover){.allbtn:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}}
+
+/* ── 상품 카드 ── */
+.card{border-radius:var(--radius);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.thumb{transition:transform .35s ease}
+@media(hover:hover){.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);
+    border-color:color-mix(in srgb,var(--accent) 32%,var(--line))}
+  .card:hover .thumb{transform:scale(1.045)}}
+.pn a{border-bottom:1px dashed color-mix(in srgb,var(--accent) 55%,transparent);transition:color .14s}
+@media(hover:hover){.pn a:hover{color:var(--accent-d);border-bottom-color:var(--accent)}}
+.spec{border-top:none;background:color-mix(in srgb,var(--chip) 75%,transparent);
+  border-radius:9px;padding:7px 9px;margin-top:4px}
+/* 창고 — C안은 조용하게. 합포장 판단의 기준이라 위치는 그대로 카드 맨 위 */
+.whb{background:var(--chip);color:#4f6670;border:none;font-weight:800}
+@media(hover:hover){.whb:hover{background:var(--soft);color:var(--accent-d)}}
+@media(prefers-color-scheme:dark){.whb{color:var(--muted);background:var(--chip)}}
+/* 무료배송 — 청록 알약. 이거 하나 보고 고르는 업체가 많다 */
+.free{color:#fff;background:var(--accent);padding:2px 8px;border-radius:20px;font-weight:800;display:inline-block}
+/* C안의 핵심 — 선을 걷어내고 그림자로만 층을 나눈다 */
+.card,.ntc,.ntcac,.banner,.mbtn,.soldwrap{border-color:transparent}
+.card{box-shadow:0 2px 10px rgba(18,44,56,.09)}
+.note,.clicktip{border:none;border-left:4px solid var(--accent)}
+.acct{background:var(--soft);border:1.5px solid color-mix(in srgb,var(--accent) 30%,var(--line))}
+.prow{border-top:1px solid var(--line2);padding-top:8px}
+/* 카드가 좁아지면 "11,000" 과 "원" 이 갈라져 두 줄이 되던 것 — 가격은 통째로 유지하고
+   배송사 이름 쪽이 줄바꿈되게 한다 */
+.price{letter-spacing:-.7px;white-space:nowrap}
+.ship{min-width:0;word-break:keep-all}   /* "무료배송" 이 "무료배 / 송" 으로 쪼개지지 않게 */
+.tg,.chg,.recb,.hotb{border-radius:6px}
+.whb{border-radius:6px}
+.banner{border-left-width:5px;border-radius:14px}
+
+/* ── 공지 ── */
+.ntc,.ntcac{border-radius:14px}
+.ntcac>summary{padding:14px 16px}
+.ntcmore>summary{border-radius:11px;transition:.14s}
+
+/* ── 로그인 화면 ── */
+.gate{background:radial-gradient(760px 420px at 50% 0%,color-mix(in srgb,var(--accent) 11%,var(--bg)),var(--bg))}
+.gbox{border-radius:22px;box-shadow:var(--shadow-lg);padding:30px 26px 24px}
+.gbox .mark{width:52px;height:52px;font-size:21px;border-radius:15px}
+.gin{border-radius:12px}
+.gin:focus{box-shadow:var(--ring)}
+.gbtn{border-radius:13px;background:linear-gradient(145deg,var(--accent-l),var(--accent-d));
+  box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 26%,transparent);transition:.15s ease}
+.gbtn.ghost{background:var(--chip);box-shadow:none}
+@media(hover:hover){.gbtn:hover{filter:brightness(1.06)}.gbtn.ghost:hover{filter:none}}
+
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style></head><body>
 <div class="wrap">
-<header><div class="brand"><div class="mark">마</div><div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
+<header><div class="brand"><div class="logomark"><img src="media/logo.png" alt="주식회사 마스터" onerror="this.closest('.logomark').classList.add('nofile');this.remove()"><span>Master</span></div><div><div class="eyebrow">수산물 전문 도매 · 당일 출고</div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
 <div class="userbar" id="userbar"></div></div>
 <div id="pwnudge"></div>
 <button class="noteTg" id="noteTg">🚚 합포장 · 문의 안내</button>
@@ -268,7 +441,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 <!-- ── 로그인 화면 (2026-08-12) ── -->
 <div class="gate" id="gate">
   <div class="gbox">
-    <div class="mark">마</div>
+    <div class="logomark"><img src="media/logo.png" alt="주식회사 마스터" onerror="this.closest('.logomark').classList.add('nofile');this.remove()"><span>Master</span></div>
     <div class="gt">마스터 유통 카탈로그<span class="ver" id="gver"></span></div>
     <div class="gs" id="gsub">거래처 전용입니다.<br>받으신 아이디로 로그인해 주세요.</div>
 
@@ -665,7 +838,10 @@ function buildCatChips(){
   const cats=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
   // '전체' 칩 없음 — 선택된 카테고리를 다시 누르면 해제 (사장님 2026-08-09)
   let h='';
-  cats.forEach(c=>{h+='<button class="chip sm'+(st.cat===c?' on':'')+'" data-c="'+esc(c)+'">'+esc(c)+' '+counts[c]+'</button>';});
+  // 카테고리에 아이콘 — 글자만 나열되면 눈이 안 걸린다 (사장님 2026-08-19 "유통 사이트 느낌")
+  const CATICON={'수산':'🐟','축산':'🥩','가공식품':'🥫','김치·반찬':'🥬','김치반찬':'🥬','과일':'🍎','채소':'🥕','기타':'📦'};
+  cats.forEach(c=>{const ic=CATICON[c]?CATICON[c]+' ':'';
+    h+='<button class="chip sm'+(st.cat===c?' on':'')+'" data-c="'+esc(c)+'">'+ic+esc(c)+' '+counts[c]+'</button>';});
   if(un)h+='<button class="chip sm'+(st.cat==='미분류'?' on':'')+'" data-c="미분류" style="opacity:.55">미분류 '+un+'</button>';
   catrow.innerHTML=h;
   catrow.querySelectorAll('.chip').forEach(b=>{b.onclick=()=>{const c=b.getAttribute('data-c');st.cat=(st.cat===c)?'전체':c;buildCatChips();render();};});
