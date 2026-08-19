@@ -42,7 +42,6 @@ a{color:var(--accent)}
 .fxb.ok{background:var(--soft);color:var(--accent-d)}
 .fxg{border:1px solid var(--line);background:var(--card);border-radius:6px;font-size:11px;padding:2px 7px;cursor:pointer;color:var(--muted);text-decoration:none;white-space:nowrap;font-family:inherit}
 .fxg:disabled{opacity:.4;cursor:not-allowed}
-.hapin{flex:1;min-width:220px;border:1px solid var(--line);border-radius:6px;font-size:12px;padding:4px 8px;font-family:inherit;outline:none;background:var(--card)}
 .fxg:hover{border-color:var(--accent);color:var(--accent)}
 .fxg.del:hover{border-color:#c0392b;color:#c0392b}
 #fxList{border:1px solid var(--line);border-radius:9px;background:var(--card);margin-top:4px;max-height:60vh;overflow-y:auto}
@@ -69,7 +68,6 @@ a{color:var(--accent)}
   <button class="tabbtn on" data-t="cat">🏷️ 카테고리 분류</button>
   <button class="tabbtn" data-t="photo">🔧 사진·링크 수정</button>
   <button class="tabbtn" data-t="promo">📣 추천상품·공지사항</button>
-  <button class="tabbtn" data-t="hap">📦 합포장 이름 맞추기<span id="hapCnt" style="margin-left:5px;font-size:11px;color:var(--up);font-weight:800"></span></button>
 </div>
 
 <div id="tab-cat">
@@ -150,25 +148,6 @@ a{color:var(--accent)}
 </div>
 </div>
 
-<!-- 📦 합포장 이름 맞추기 (사장님 2026-08-19)
-     관리팀이 게시판 문의글로 취합한 합포장 DB는 이름이 유통시트와 조금씩 다르다.
-     자동으로 붙이면 엉뚱한 상품에 수량이 붙어 업체가 그걸 보고 발주한다(§3-3 절대규칙).
-     → 사람이 후보를 보고 고르는 화면. 고른 결과는 '합포장' 탭 상품명을 유통시트 이름으로 고쳐 저장한다. -->
-<div id="tab-hap" style="display:none">
-<div class="card">
-  <h2>📦 합포장 이름 맞추기 <span id="hapStat" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
-  <p style="font-size:12.5px;color:var(--muted)">합포장 수량은 있는데 <b>유통시트 상품명과 이름이 달라서 카탈로그에 안 붙는</b> 것만 모았습니다.
-  유통시트 상품명을 직접 골라 주시면 그 이름으로 고쳐 저장하고, 다음부터 카탈로그 카드에 <b>📦 합포장 N개</b>가 뜹니다.<br>
-  ※ 🚫 <b>도구는 "이거 아닐까요?" 추측을 하지 않습니다.</b> 상품명이 한 글자라도 다르면 다른 상품이기 때문입니다.
-  공백·대소문자만 다른 건 자동으로 붙고, 그 외에는 <b>사람이 고른 이름만</b> 저장됩니다(유통시트에 없는 이름은 저장 자체가 막힙니다).<br>
-  ※ 안 붙는 것은 <b>하나도 빼지 않고 전부</b> 나옵니다 — 안 파는 상품이면 [✕ 해당없음]으로 넘기시면 됩니다.</p>
-  <div class="ct-bulk" style="margin-top:10px">
-    <button class="cp" id="hapRun" style="margin-top:0">🔍 안 붙는 것 찾기</button>
-    <a class="cp" href="https://docs.google.com/spreadsheets/d/1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM/edit#gid=772579466" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none">📊 합포장 시트</a>
-  </div>
-  <div id="hapList"></div>
-</div>
-</div>
 </main>
 <script>
 /* 탭 전환 */
@@ -1027,137 +1006,6 @@ recLoad();notLoad();
 
 })();
 
-/* ── 📦 합포장 이름 맞추기 (사장님 2026-08-19) ──
-   합포장 DB(도구시트 '합포장')는 게시판 문의글 취합이라 이름이 유통시트와 조금씩 다르다.
-   실측: 195건 중 유통시트와 정확히 일치하는 건 56건(11%)뿐.
-   🚫 유사도로 자동 매칭하면 안 된다 — 0.86짜리 후보가 '고추장 오리주물럭'↔'간장 오리주물럭'이었다.
-      엉뚱한 합포장 수량이 붙으면 업체가 그걸 보고 발주한다 (CLAUDE.md §3-3).
-   → 후보만 보여주고 **사장님이 고른다.** 고르면 합포장 시트의 상품명을 유통시트 이름으로 고쳐 저장. */
-(function(){
-const S=window.__sheets; if(!S)return;          // api·토큰은 위 IIFE가 window.__sheets로 공유한다
-const api=S.api, DOGU=S.DOGU, YUTONG=S.YUTONG, q1=encodeURIComponent;
-const EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
-const $h=id=>document.getElementById(id);
-let HP={rows:[],sale:[],probs:[]};
-
-function hkey(s){return String(s||'').replace(/\s+/g,'').toLowerCase();}
-/* ⛔ 비슷한 이름 추천(sim/score/unitOf)은 2026-08-19 폐기했다 — 함수째 지웠다.
-   사장님 원칙: **상품명이 한 글자라도 다르면 다른 상품이다.** 업체 발주가 그 이름으로 나가기 때문에
-   같은 상품에 이름을 두 개 두지 않는다. 그래서 도구가 "이거 아닐까요?" 하고 추측해서 붙이면 안 된다.
-   (실제 사고: '자반고등어 10미' → 글자 겹침 93%라는 이유로 '자반고등어 10미 대'가 1순위로 올라와
-    클릭 한 번에 다른 상품 이름으로 바뀌었다. 정작 정식명은 60%로 밀려 있었다.)
-   지금 규칙: 공백·대소문자만 무시하고 **완전히 같은 이름만 자동으로 붙인다.**
-   나머지는 추측하지 말고 "유통시트에 없는 이름"으로 그냥 보여주고, 고칠 이름은 사람이 직접 고른다. */
-
-async function hapLoad(){
-  const meta=await api(YUTONG,'?fields=sheets.properties(title,hidden)');
-  if(meta.error)throw new Error('유통시트 접근 실패: '+(meta.error.status||''));
-  const tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0
-      &&p.title.indexOf('공지_')!==0&&p.title.indexOf('가격비교')<0).map(p=>p.title);
-  const vr=await api(YUTONG,'/values:batchGet?'+tabs.map(t=>'ranges='+q1("'"+t+"'!C3:C")).join('&')+'&majorDimension=COLUMNS');
-  const sale=[];const seen={};
-  ((vr.valueRanges)||[]).forEach(function(r,i){
-    (((r.values)||[])[0]||[]).forEach(function(v){const s=String(v||'').trim();
-      if(!s||seen[hkey(s)])return;seen[hkey(s)]=1;sale.push({name:s,tab:tabs[i]});});
-  });
-  const hv=await api(DOGU,'/values/'+q1("'합포장'!A2:E1000"));
-  const rows=((hv.values)||[]).map(function(r,i){
-    return {row:i+2,wh:String(r[0]||'').trim(),name:String(r[1]||'').trim(),
-            qty:String(r[2]||'').trim(),at:String(r[3]||'').trim(),src:String(r[4]||'').trim()};
-  }).filter(x=>x.name&&x.qty);
-  return {rows,sale};
-}
-function hapBuild(){
-  const saleKey={};HP.sale.forEach(s=>saleKey[hkey(s.name)]=s);
-  HP.probs=[];
-  HP.rows.forEach(function(r){
-    if(saleKey[hkey(r.name)])return;   // 유통시트에 그 이름 그대로 있음 = 이미 붙는다
-    HP.probs.push({r});                // 안 붙는 것은 하나도 빼지 않고 전부 올린다
-  });
-  // 예전엔 '비슷한 후보가 없으면' 목록에서 빼버렸다 — 정작 제일 손봐야 할 행이 숨겨졌다. 이제 안 숨긴다.
-  HP.probs.sort(function(a,b){return String(a.r.wh||'').localeCompare(String(b.r.wh||''))
-    ||String(a.r.name).localeCompare(String(b.r.name));});
-}
-function hapRender(){
-  const n=HP.probs.length;
-  const attached=HP.rows.length-HP.probs.length;
-  $h('hapStat').textContent='— 합포장 '+HP.rows.length+'건 중 유통시트에 없는 이름 '+n+'건'
-    +(n?'  (추측 안 합니다 — 유통시트 상품명을 직접 골라 주세요)':'');
-  const cnt=$h('hapCnt'); if(cnt)cnt.textContent=n?String(n):'';
-  if(!n){ $h('hapList').innerHTML='<div class="ci">전부 유통시트 이름과 똑같습니다 🎉</div>'; return; }
-  // 유통시트 상품명 전체를 자동완성 목록으로 — 여기 없는 이름은 저장 자체가 안 된다
-  const dl='<datalist id="hapDL">'+HP.sale.map(function(s){
-    return '<option value="'+s.name.replace(/"/g,'&quot;')+'">'+s.tab+'</option>';}).join('')+'</datalist>';
-  $h('hapList').innerHTML=dl+'<div class="ci" style="gap:8px">'
-    +'<button class="fxg" id="hapCopyAll" title="이 목록을 그대로 복사합니다 — 관리팀에 넘겨 원본을 고칠 때">📋 안 붙는 이름 '+n+'건 전체 복사</button></div>'
-    +HP.probs.map(function(x,xi){
-    const r=x.r;
-    return '<div class="ci" data-hx="'+xi+'"><div class="cn">'+r.name.replace(/</g,'&lt;')
-      +'<button class="fxg" data-hcp="'+xi+'" title="상품명 복사">📋</button>'
-      +'<span class="cw">'+(r.wh?r.wh+' · ':'')+'합포장 '+r.qty+'개 · 시트 '+r.row+'행</span></div>'
-      +'<input class="hapin" list="hapDL" data-hin="'+xi+'" placeholder="유통시트 상품명을 골라 주세요 (목록에 있는 이름만 저장됩니다)" autocomplete="off" spellcheck="false">'
-      +'<button class="fxg" data-hsave="'+xi+'" disabled title="고른 이름으로 시트를 고칩니다">💾 이 이름으로 고치기</button>'
-      +'<button class="fxg" data-hskip="'+xi+'" title="유통시트에 없는 상품이면 넘깁니다 — 시트는 그대로 둡니다">✕ 해당없음</button>'
-      +'</div>';
-  }).join('');
-  const saleSet={};HP.sale.forEach(function(s){saleSet[hkey(s.name)]=s.name;});
-  $h('hapList').querySelectorAll('[data-hin]').forEach(function(el){
-    const xi=+el.getAttribute('data-hin');
-    const btn=$h('hapList').querySelector('[data-hsave="'+xi+'"]');
-    el.oninput=function(){
-      const exact=saleSet[hkey(el.value)];
-      btn.disabled=!exact;                      // 유통시트에 똑같이 있는 이름일 때만 저장 허용
-      el.style.borderColor=el.value?(exact?'#2d6a4f':'#c0392b'):'';
-    };
-    el.onkeydown=function(e){if(e.key==='Enter'&&!btn.disabled)btn.click();};
-  });
-  $h('hapList').querySelectorAll('[data-hsave]').forEach(function(el){
-    el.onclick=function(){const xi=+el.getAttribute('data-hsave');
-      const inp=$h('hapList').querySelector('[data-hin="'+xi+'"]');
-      const exact=saleSet[hkey(inp.value)];
-      if(!exact){alert('유통시트에 없는 이름입니다. 목록에서 골라 주세요.');return;}
-      hapPick(xi,exact,el);};
-  });
-  $h('hapList').querySelectorAll('[data-hcp]').forEach(function(el){
-    el.onclick=function(){const r=HP.probs[+el.getAttribute('data-hcp')].r;
-      navigator.clipboard.writeText(r.name).then(function(){const t=el.textContent;el.textContent='✓';setTimeout(function(){el.textContent=t;},900);});};
-  });
-  const ca=$h('hapCopyAll');
-  if(ca)ca.onclick=function(){
-    const txt=HP.probs.map(function(x){return [x.r.wh,x.r.name,x.r.qty,x.r.row+'행'].join('\t');}).join('\n');
-    navigator.clipboard.writeText(txt).then(function(){const t=ca.textContent;ca.textContent='✓ 복사됨';setTimeout(function(){ca.textContent=t;},1200);});
-  };
-  $h('hapList').querySelectorAll('[data-hskip]').forEach(function(el){
-    el.onclick=function(){const d=el.closest('.ci');if(d){d.style.opacity='.35';d.querySelectorAll('button,input').forEach(b=>b.disabled=true);}};
-  });
-}
-async function hapPick(xi,target,btn){
-  const x=HP.probs[xi]; if(!x)return;
-  if(!confirm('합포장 '+x.r.qty+'개를\n\n  ['+x.r.name+']\n→ ['+target+']\n\n이 상품으로 붙일까요?\n\n※ 다른 상품이면 업체가 잘못된 수량으로 발주합니다.'))return;
-  btn.disabled=true; btn.textContent='저장 중…';
-  // 합포장 시트의 그 행 상품명(B)만 유통시트 이름으로 교체. 수량·창고는 그대로 둔다.
-  const j=await api(DOGU,'/values/'+q1("'합포장'!B"+x.r.row)+'?valueInputOption=RAW',
-    {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[[target]]})});
-  if(j&&j.error){ btn.disabled=false; btn.textContent='⚠️ 실패'; alert('저장 실패: '+(j.error.message||'')); return; }
-  const d=btn.closest('.ci');
-  if(d){ d.style.opacity='.45'; d.querySelectorAll('button').forEach(b=>b.disabled=true);
-    d.insertAdjacentHTML('beforeend','<span class="fxb ok">✓ '+target.replace(/</g,'&lt;')+' 으로 저장됨</span>'); }
-  x.r.name=target;
-  const cnt=$h('hapCnt');
-  const left=HP.probs.filter((p,i)=>i!==xi).length;
-  if(cnt)cnt.textContent=left?String(left):'';
-}
-$h('hapRun').onclick=async function(){
-  this.disabled=true;
-  try{
-    $h('hapStat').textContent='— 시트 읽는 중…';
-    const d=await hapLoad();
-    HP.rows=d.rows;HP.sale=d.sale;
-    hapBuild();hapRender();
-  }catch(e){ $h('hapStat').textContent='— ⚠️ '+(e.message||e); }
-  this.disabled=false;
-};
-})();
 
 </script>
 </body></html>
