@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v1.9</title>
+<title>마스터 유통 카탈로그 v2.0</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -145,6 +145,13 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .soldit{font-size:12.5px;font-weight:700;color:var(--up);background:color-mix(in srgb,var(--up) 12%,transparent);border:1px solid color-mix(in srgb,var(--up) 28%,transparent);border-radius:16px;padding:4px 12px}
 .mbtn .tapb{display:block;font-size:9.5px;font-weight:700;color:var(--accent);margin-top:2px;letter-spacing:0}
 .mbtn.on .tapb{color:#fff;opacity:.85}
+/* 🔴 안 읽은 공지 배지 (사장님 2026-08-19) — 업체가 새 공지를 놓치지 않게 */
+.nbadge{display:inline-block;min-width:17px;height:17px;line-height:17px;padding:0 5px;margin-left:6px;
+  font-size:10.5px;font-weight:800;color:#fff;background:var(--up);border-radius:9px;vertical-align:middle;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--up) 22%,transparent);animation:nbpulse 1.6s ease-in-out 3}
+@keyframes nbpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+.mbtn.on .nbadge{background:#fff;color:var(--up);box-shadow:none}
+.ntcnew{font-size:11px;font-weight:800;color:#fff;background:var(--up);padding:2px 7px;border-radius:5px;margin-right:6px}
 .ntcbox{margin-top:11px}
 @media(max-width:640px){
   .menu{gap:5px;margin-top:8px}
@@ -205,7 +212,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 </div></header>
 <!-- 메뉴 — 검색창 위. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
 <div class="menu" id="menu">
-  <button class="mbtn" data-go="notice">📢 공지사항</button>
+  <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
   <button class="mbtn" data-go="change">📊 상품변동사항<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
 </div>
@@ -804,22 +811,71 @@ function buildTint(){
    "공지사항 몇 개까지 보이게 할거야? 너무 많아지면 밑에 상품이 먼저 안 보일 거야")
    카탈로그의 본질은 상품이다. 공지가 첫 화면을 다 먹으면 업체는 상품을 못 본다.
    → 중요 공지(없으면 최신) 1건만 펼치고, 나머지는 "+N건 더보기" 한 줄로. 누르면 펼쳐진다. */
-function noticeCard(n){
+/* 🔴 안 읽은 공지 알림 (사장님 2026-08-19: "신규 공지 띄우면 로그인했을 때
+   '공지 몇 건 안 봤어' 라고 알려줄 수 있어? 업체마다 다를 텐데")
+   → 업체마다 다르게 세려면 "누가 무엇을 봤는지"를 계정별로 남겨야 한다.
+     읽음 기록은 **그 기기의 localStorage에 업체 아이디별로** 둔다. 시트에 쓰지 않는 이유:
+     ① 업체가 카탈로그를 열 때마다 시트에 쓰면 느려진다(사장님: "업데이트는 딸깍이어야 한다")
+     ② 계정 시트에 업체별 기록을 남기면 관리할 게 늘어난다
+     기기를 바꾸면 한 번 더 뜨는데, 못 보고 지나치는 것보다 한 번 더 보는 쪽이 낫다.
+   공지 하나하나의 신원은 '제목+작성일'로 잡는다 — 시트에 공지 ID가 따로 없기 때문. */
+function ntcKey(n){ return (String(n.title||'').trim()+'|'+String(n.at||'').trim()); }
+function ntcSeenKey(){ return 'catalog_ntc_seen_'+((ME&&ME.id)?ME.id:'guest'); }
+function ntcSeenSet(){
+  try{ return new Set(JSON.parse(localStorage.getItem(ntcSeenKey())||'[]')); }catch(e){ return new Set(); }
+}
+function ntcUnread(){
+  if(!(NOTI&&NOTI.length))return [];
+  const seen=ntcSeenSet();
+  return NOTI.filter(n=>!seen.has(ntcKey(n)));
+}
+function ntcMarkAllRead(){
+  if(!(NOTI&&NOTI.length))return;
+  try{ localStorage.setItem(ntcSeenKey(), JSON.stringify(NOTI.map(ntcKey))); }catch(e){}
+  renderNtcBadge();
+}
+function renderNtcBadge(){
+  const b=$('ntcBadge'); if(!b)return;
+  const n=ntcUnread().length;
+  if(!n){ b.style.display='none'; return; }
+  b.style.display=''; b.textContent=n>9?'9+':String(n);
+  b.title='아직 안 보신 공지 '+n+'건';
+}
+function noticeCard(n,isNew){
   return '<div class="ntc'+(n.imp?' imp':'')+'" style="margin-top:9px">'
-    +'<div class="nt">'+(n.imp?'<span class="impb">중요</span>':'')+esc(n.title)+'</div>'
+    +'<div class="nt">'+(isNew?'<span class="ntcnew">NEW</span>':'')+(n.imp?'<span class="impb">중요</span>':'')+esc(n.title)+'</div>'
     +(n.at?'<div class="nd">'+esc(n.at)+'</div>':'')
     +(n.body?'<div class="nb">'+esc(n.body)+'</div>':'')+'</div>';
 }
 function renderNoticeBox(){
   const box=$('ntcbox'); if(!box)return;
   const all=(NOTI||[]).slice(0,5);
-  if(!all.length){ box.innerHTML=''; return; }
-  // 중요 공지가 있으면 그것부터
-  const idx=Math.max(0, all.findIndex(n=>n.imp));
+  if(!all.length){ box.innerHTML=''; renderNtcBadge(); return; }
+  const seen=ntcSeenSet();
+  const isNew=n=>!seen.has(ntcKey(n));
+  // 펼칠 1건: ①안 본 것 중 중요 ②안 본 것 ③중요 ④최신
+  let idx=all.findIndex(n=>isNew(n)&&n.imp);
+  if(idx<0)idx=all.findIndex(isNew);
+  if(idx<0)idx=all.findIndex(n=>n.imp);
+  if(idx<0)idx=0;
   const head=all[idx], rest=all.filter((n,i)=>i!==idx);
-  box.innerHTML=noticeCard(head)
-    +(rest.length?('<details class="ntcmore"><summary>📢 다른 공지 '+rest.length+'건 더보기</summary>'
-      +rest.map(noticeCard).join('')+'</details>'):'');
+  const unread=all.filter(isNew).length;
+  // 안 본 공지가 있으면 접힌 줄에서 몇 건인지 알려준다 (사장님 요청)
+  const moreLabel=rest.length
+    ? ('📢 다른 공지 '+rest.length+'건 더보기'+(rest.filter(isNew).length?(' · 안 보신 것 '+rest.filter(isNew).length+'건'):''))
+    : '';
+  box.innerHTML=noticeCard(head,isNew(head))
+    +(rest.length?('<details class="ntcmore"><summary>'+moreLabel+'</summary>'
+      +rest.map(n=>noticeCard(n,isNew(n))).join('')+'</details>'):'');
+  renderNtcBadge();
+  // 로그인하고 처음 그릴 때 한 번만 알려준다 (사장님: "공지 몇 건 안 봤어, 공지 봐")
+  if(unread&&!renderNoticeBox._told){
+    renderNoticeBox._told=1;
+    setTimeout(()=>toast('📢 아직 안 보신 공지 '+unread+'건 — 위 [공지사항]에서 확인해 주세요'),900);
+  }
+  // ⚠️ 메인에 펼쳐 보여준 것도 '읽음'으로 치지 않는다.
+  //    그러면 새 공지가 1건일 때 배지가 뜨자마자 사라져서 업체가 못 알아챈다.
+  //    읽음 처리는 [공지사항] 화면에 실제로 들어갔을 때만 (renderRoute의 notice 분기).
 }
 function chgCls(k){
   if(/출시|재입고/.test(k))return 'new';
@@ -956,7 +1012,7 @@ async function renderRoute(){
   try{
     if(v==='change'){if(!CHG)CHG=await loadChanges();subV.innerHTML=renderChange(CHG);}
     else if(v==='rec'){if(!RECS)RECS=await loadRecs();subV.innerHTML=renderRecs(RECS);}
-    else if(v==='notice'){if(!NOTI)NOTI=await loadNotices();subV.innerHTML=renderNotices(NOTI);}
+    else if(v==='notice'){if(!NOTI)NOTI=await loadNotices();subV.innerHTML=renderNotices(NOTI);ntcMarkAllRead();}  // 공지 화면을 열면 전부 읽음 처리
     else{location.hash='';}
   }catch(e){
     subV.innerHTML=subHead('⚠️ 불러오지 못했습니다','')+'<div class="empty">'+esc(e.message||String(e))+'</div>';
