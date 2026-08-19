@@ -236,21 +236,26 @@ body{border:5px solid #d64545 !important;box-sizing:border-box;min-height:100vh}
         쌓여 어디를 봐야 할지 모르던 걸 정리 ③ 손가락으로 눌러도 안 흔들리게
         들썩이는 효과는 마우스 있는 기기에서만.
    ═══════════════════════════════════════════════════════════════════ */
+/* 🎨 색: 초록 → 짙은 남색(네이비). 수산물 유통이라 바다·신뢰 쪽으로 (사장님 2026-08-19)
+   초록은 네이버 느낌이 난다는 지적. 남색 본색 + 따뜻한 황토를 보조로 써서
+   차갑기만 하지 않게 잡았다. 인하 배지는 브랜드 남색과 겹치지 않게 청록으로 뺐다. */
 :root{
-  --accent:#0e7c5a;--accent-d:#0a5b42;--accent-l:#19a276;
-  --bg:#eaf0ea;--card:#fff;--ink:#131c19;--muted:#63726c;   /* 바탕을 한 톤 낮춰 흰 카드가 떠 보이게 */
-  --line:#e1e8e1;--line2:#eef2ed;--soft:#e9f5ef;--chip:#f1f4f0;
+  --accent:#0d5a86;--accent-d:#093f61;--accent-l:#1a7ab0;
+  --bg:#eaeff4;--card:#fff;--ink:#0f1c26;--muted:#5c6c78;
+  --line:#dbe4ec;--line2:#e9eff5;--soft:#e5eef6;--chip:#edf1f6;
+  --gold:#b07617;--down:#0e8592;
   --radius:16px;
-  --shadow:0 1px 2px rgba(16,40,30,.04),0 4px 16px rgba(16,40,30,.06);
-  --shadow-lg:0 2px 6px rgba(16,40,30,.06),0 16px 40px rgba(16,40,30,.11);
-  --ring:0 0 0 4px color-mix(in srgb,var(--accent) 14%,transparent);
+  --shadow:0 1px 2px rgba(12,30,48,.05),0 4px 16px rgba(12,30,48,.07);
+  --shadow-lg:0 2px 6px rgba(12,30,48,.07),0 16px 40px rgba(12,30,48,.13);
+  --ring:0 0 0 4px color-mix(in srgb,var(--accent) 15%,transparent);
 }
 @media(prefers-color-scheme:dark){:root{
-  --accent:#3fb68d;--accent-d:#2f9873;--accent-l:#57c9a1;
-  --bg:#10140f;--card:#1a201d;--ink:#e9efea;--muted:#94a29b;
-  --line:#2b332e;--line2:#232a26;--soft:#16332a;--chip:#232b27;
-  --shadow:0 1px 2px rgba(0,0,0,.35),0 4px 16px rgba(0,0,0,.28);
-  --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 16px 40px rgba(0,0,0,.42);
+  --accent:#4aa3d8;--accent-d:#2f89c0;--accent-l:#6cb8e5;
+  --bg:#0b1219;--card:#151d25;--ink:#e6edf3;--muted:#8b9aa6;
+  --line:#25313b;--line2:#1d262e;--soft:#12283a;--chip:#1c252d;
+  --gold:#d6a34a;--down:#3fb8c4;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 4px 16px rgba(0,0,0,.3);
+  --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 16px 40px rgba(0,0,0,.45);
 }}
 /* ── 배경 ──────────────────────────────────────────────────────────
    흰 종이에 상자만 올려둔 느낌이라 밋밋했다. 배경을 3겹으로 깐다.
@@ -260,10 +265,10 @@ body{border:5px solid #d64545 !important;box-sizing:border-box;min-height:100vh}
 body{background:var(--bg);letter-spacing:-.01em;position:relative}
 body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;
   background:
-    linear-gradient(180deg, color-mix(in srgb,var(--accent) 22%,transparent) 0%, transparent 340px),
-    radial-gradient(820px 560px at 8% -6%, color-mix(in srgb,var(--accent) 42%,transparent), transparent 60%),
-    radial-gradient(720px 500px at 95% 4%, color-mix(in srgb,var(--gold) 32%,transparent), transparent 58%),
-    radial-gradient(1000px 760px at 50% 106%, color-mix(in srgb,var(--accent) 26%,transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb,var(--accent) 16%,transparent) 0%, transparent 340px),
+    radial-gradient(820px 560px at 8% -6%, color-mix(in srgb,var(--accent) 30%,transparent), transparent 60%),
+    radial-gradient(720px 500px at 95% 4%, color-mix(in srgb,var(--gold) 24%,transparent), transparent 58%),
+    radial-gradient(1000px 760px at 50% 106%, color-mix(in srgb,var(--accent) 20%,transparent), transparent 60%),
     var(--bg)}
 body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.75;
   background-image:
