@@ -240,10 +240,12 @@ body{border:5px solid #d64545 !important;box-sizing:border-box;min-height:100vh}
    초록은 네이버 느낌이 난다는 지적. 남색 본색 + 따뜻한 황토를 보조로 써서
    차갑기만 하지 않게 잡았다. 인하 배지는 브랜드 남색과 겹치지 않게 청록으로 뺐다. */
 :root{
-  --accent:#0d5a86;--accent-d:#093f61;--accent-l:#1a7ab0;
-  --bg:#eaeff4;--card:#fff;--ink:#0f1c26;--muted:#5c6c78;
-  --line:#dbe4ec;--line2:#e9eff5;--soft:#e5eef6;--chip:#edf1f6;
-  --gold:#b07617;--down:#0e8592;
+  --accent:#0e5776;--accent-d:#0a3f57;--accent-l:#1b7ca0;
+  --bg:#edf1f3;--card:#fff;--ink:#0c1e29;--muted:#5b6b76;
+  --line:#dce4e9;--line2:#e9eef2;--soft:#e4eef4;--chip:#edf1f4;
+  --gold:#a9761c;--down:#0e8592;
+  --pop:#e2622c;--pop-d:#c2521f;   /* 부표·그물 주황 — 시장 느낌. 인상(빨강)·인하(청록)와 겹치지 않게 강조 전용 */
+  --sand:#e9dfc9;--sand-d:#cbbb9b; /* 나무상자·모래 */
   --radius:16px;
   --shadow:0 1px 2px rgba(12,30,48,.05),0 4px 16px rgba(12,30,48,.07);
   --shadow-lg:0 2px 6px rgba(12,30,48,.07),0 16px 40px rgba(12,30,48,.13);
@@ -286,13 +288,41 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
     var(--bg)}
   body::after{opacity:.4}
 }
-/* 머리말은 배경 위에 얹힌 한 덩어리로 — 브랜드·안내·계좌가 흩어져 보이던 걸 묶는다 */
-header{position:relative;padding:20px 18px 16px;margin:14px 0 0;border-radius:22px;
-  background:color-mix(in srgb,var(--card) 78%,transparent);
-  border:1px solid color-mix(in srgb,#fff 55%,var(--line));
-  box-shadow:var(--shadow);backdrop-filter:blur(14px) saturate(1.25)}
-@media(prefers-color-scheme:dark){header{background:color-mix(in srgb,var(--card) 72%,transparent);
-  border-color:color-mix(in srgb,var(--line) 90%,transparent)}}
+/* ── 머리말 = 항구 히어로 ────────────────────────────────────────
+   브랜드·안내·계좌가 흩어져 있던 걸 남색 한 덩어리로 묶고, 그 안에 흰 카드로 얹는다. */
+header{position:relative;padding:18px 18px 16px;margin:14px 0 0;border-radius:22px;overflow:hidden;
+  background:linear-gradient(160deg,var(--accent-d),var(--accent) 55%,color-mix(in srgb,var(--accent-l) 70%,var(--accent)));
+  border:1px solid color-mix(in srgb,var(--accent-d) 60%,transparent);
+  box-shadow:0 10px 30px color-mix(in srgb,var(--accent-d) 28%,transparent),var(--shadow)}
+/* 물결 — 히어로 아래쪽에 옅게 깔리는 결 */
+header::after{content:'';position:absolute;left:0;right:0;bottom:0;height:120px;pointer-events:none;opacity:.16;
+  background:radial-gradient(60px 22px at 20px 20px,transparent 58%,#fff 59%,transparent 62%) 0 0/120px 44px repeat-x}
+header .brand{position:relative;gap:14px}
+header h1,header .sub,header .eyebrow{color:#fff}
+header .sub{opacity:.72}
+.eyebrow{font-size:10.5px;font-weight:800;letter-spacing:1.4px;opacity:.75;margin-bottom:3px}
+header .ver{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);color:#fff}
+header .mark{display:none}
+/* 히어로 안에 들어가는 안내·계좌는 흰 유리 카드 */
+header .note,header .clicktip{background:rgba(255,255,255,.94);border-color:transparent;color:var(--ink)}
+header .acct{background:rgba(255,255,255,.96);border-color:transparent;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+header .uname{background:rgba(255,255,255,.16);color:#fff}
+header .ubtn{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.28);color:#fff}
+header .ubtn.rl{background:var(--pop);border-color:transparent;color:#fff}
+@media(hover:hover){header .ubtn:hover{background:rgba(255,255,255,.24);border-color:#fff;color:#fff}
+  header .ubtn.rl:hover{background:var(--pop-d)}}
+
+/* ── 캐릭터 (생선 배달부) ── */
+.mascot{width:88px;height:auto;flex:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.25))}
+.ms-body{fill:#0a3247}.ms-belly{fill:var(--sand);opacity:.92}
+.ms-fin{fill:var(--pop)}.ms-eyew{fill:#fff}.ms-eye{fill:#0a3247}
+.ms-wave{stroke:#fff;opacity:.5}
+.ms-box rect{fill:var(--sand)}.ms-box path{stroke:var(--pop-d)}
+@media(prefers-reduced-motion:no-preference){
+  .mascot{animation:msbob 4.5s ease-in-out infinite}
+  @keyframes msbob{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1.5deg)}}
+}
+@media(max-width:640px){.mascot{width:62px}.eyebrow{font-size:9.5px;letter-spacing:1px}}
 /* 배경 위에서는 카드가 반투명하면 지저분하다 — 상품 카드·공지는 불투명 유지 */
 .card,.ntc,.ntcac,.banner,.soldwrap{background-color:var(--card)}
 ::selection{background:color-mix(in srgb,var(--accent) 25%,transparent)}
@@ -326,8 +356,9 @@ h1{letter-spacing:-.6px}
 .controls{backdrop-filter:blur(14px) saturate(1.3)}
 .search{border-radius:14px;padding:13px 15px;box-shadow:var(--shadow)}
 .search:focus{border-color:var(--accent);box-shadow:var(--ring)}
-.lbl::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;
-  background:var(--accent);margin-right:6px;vertical-align:middle;opacity:.75}
+.lbl::before{content:'';display:inline-block;width:14px;height:3px;border-radius:2px;
+  background:var(--pop);margin-right:7px;vertical-align:middle}
+.meta b{color:var(--accent-d);font-size:13px}
 .chip{border-radius:999px;transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease,color .14s ease}
 .chip.on{background:linear-gradient(145deg,var(--accent-l),var(--accent-d));border-color:transparent;
   box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 26%,transparent)}
@@ -347,6 +378,14 @@ h1{letter-spacing:-.6px}
 @media(hover:hover){.pn a:hover{color:var(--accent-d);border-bottom-color:var(--accent)}}
 .spec{border-top:none;background:color-mix(in srgb,var(--chip) 75%,transparent);
   border-radius:9px;padding:7px 9px;margin-top:4px}
+/* 창고 = 나무상자 색 라벨. 상품 카드에서 "어디서 나가는지"가 합포장 판단의 기준이라 항상 맨 위 */
+.whb{background:color-mix(in srgb,var(--sand) 70%,transparent);color:#7a5510;
+  border:1px solid color-mix(in srgb,var(--sand-d) 70%,transparent);font-weight:800}
+@media(hover:hover){.whb:hover{background:var(--sand);color:#5d3f08}}
+@media(prefers-color-scheme:dark){.whb{color:var(--gold);background:color-mix(in srgb,var(--gold) 16%,transparent);
+  border-color:color-mix(in srgb,var(--gold) 30%,transparent)}}
+/* 무료배송 — 주황 알약. 이거 하나 보고 고르는 업체가 많다 */
+.free{color:#fff;background:var(--pop);padding:2px 8px;border-radius:20px;font-weight:800;display:inline-block}
 .prow{border-top:1px solid var(--line2);padding-top:8px}
 /* 카드가 좁아지면 "11,000" 과 "원" 이 갈라져 두 줄이 되던 것 — 가격은 통째로 유지하고
    배송사 이름 쪽이 줄바꿈되게 한다 */
@@ -375,7 +414,16 @@ h1{letter-spacing:-.6px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style></head><body>
 <div class="testbar">🧪 테스트본입니다 — 업체가 보는 실제 카탈로그가 아닙니다</div><div class="wrap">
-<header><div class="brand"><div class="mark">마</div><div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span><span class="testbadge">🧪 테스트본</span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
+<header><div class="brand"><svg class="mascot" viewBox="0 0 100 78" aria-hidden="true" focusable="false">
+  <path class="ms-wave" d="M6 68c8-6 16-6 24 0s16 6 24 0 16-6 24 0" fill="none" stroke-width="4" stroke-linecap="round"/>
+  <path class="ms-fin" d="M18 34 4 22v26z"/>
+  <ellipse class="ms-body" cx="52" cy="34" rx="34" ry="21"/>
+  <path class="ms-belly" d="M24 41c10 12 46 12 57 0-7 10-19 14-28 14s-22-4-29-14z"/>
+  <path class="ms-fin" d="M47 13c7-8 15-9 19-4-7 1-12 4-15 8z"/>
+  <circle class="ms-eyew" cx="70" cy="29" r="6.5"/><circle class="ms-eye" cx="72" cy="29" r="3.2"/>
+  <g class="ms-box"><rect x="24" y="46" width="24" height="19" rx="3.5"/>
+    <path d="M24 54h24M36 46v19" fill="none" stroke-width="2.6"/></g>
+</svg><div><div class="eyebrow">수산물 전문 도매 · 당일 출고</div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span><span class="testbadge">🧪 테스트본</span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
 <div class="userbar" id="userbar"></div></div>
 <div id="pwnudge"></div>
 <button class="noteTg" id="noteTg">🚚 합포장 · 문의 안내</button>
@@ -789,7 +837,10 @@ function buildCatChips(){
   const cats=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
   // '전체' 칩 없음 — 선택된 카테고리를 다시 누르면 해제 (사장님 2026-08-09)
   let h='';
-  cats.forEach(c=>{h+='<button class="chip sm'+(st.cat===c?' on':'')+'" data-c="'+esc(c)+'">'+esc(c)+' '+counts[c]+'</button>';});
+  // 카테고리에 아이콘 — 글자만 나열되면 눈이 안 걸린다 (사장님 2026-08-19 "유통 사이트 느낌")
+  const CATICON={'수산':'🐟','축산':'🥩','가공식품':'🥫','김치·반찬':'🥬','김치반찬':'🥬','과일':'🍎','채소':'🥕','기타':'📦'};
+  cats.forEach(c=>{const ic=CATICON[c]?CATICON[c]+' ':'';
+    h+='<button class="chip sm'+(st.cat===c?' on':'')+'" data-c="'+esc(c)+'">'+ic+esc(c)+' '+counts[c]+'</button>';});
   if(un)h+='<button class="chip sm'+(st.cat==='미분류'?' on':'')+'" data-c="미분류" style="opacity:.55">미분류 '+un+'</button>';
   catrow.innerHTML=h;
   catrow.querySelectorAll('.chip').forEach(b=>{b.onclick=()=>{const c=b.getAttribute('data-c');st.cat=(st.cat===c)?'전체':c;buildCatChips();render();};});
