@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.4</title>
+<title>마스터 유통 카탈로그 v2.5</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -449,23 +449,40 @@ async function loadHap(){
   const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'합포장'!A2:E1000"),{headers:{Authorization:'Bearer '+token}});
   const j=await r.json();
   if(j.error)return {};
-  const m={};
+  const m={},rows=[];
   for(const v of (j.values||[])){
-    const wh=(v[0]||'').trim(), nm=(v[1]||'').trim();
-    const q=parseInt((v[2]||'').toString().replace(/[^\d]/g,''),10);
+    const nm=(v[1]||'').trim(); const q=parseInt((v[2]||'').toString().replace(/[^\d]/g,''),10);
     if(!nm||!(q>0))continue;
     const k=pkey(nm); if(!m[k])m[k]=q;
-    // 관리팀이 '디디유 한방 암꽃게장'처럼 창고명을 상품명 앞에 붙여 적어 오는 경우가 있다.
-    // 창고명(A열)으로 시작하면 그것을 뗀 이름으로도 등록해 둔다 — 그래야 '한방 암꽃게장'에 붙는다.
-    // ※ 이름을 고치는 게 아니라 찾는 열쇠를 하나 더 만드는 것뿐이다. 시트는 그대로 둔다.
-    if(wh){
-      const kw=pkey(wh);
-      if(kw&&k.length>kw.length&&k.slice(0,kw.length)===kw){
-        const k2=k.slice(kw.length); if(k2&&!m[k2])m[k2]=q;
-      }
-    }
+    rows.push({name:nm,q:q});   // 원문 그대로 — 창고명 접두어를 떼려면 공백 위치가 필요하다
   }
-  return m;
+  // ⚠️ A열(창고)은 못 쓴다. '딱새우장 500g'의 창고가 '딱새', '오징어…'가 '오징'처럼
+  //    상품명 앞글자가 잘려 들어간 값이 섞여 있다(2026-08-19 확인). 창고는 유통시트 것만 믿는다.
+  return {map:m,rows:rows};
+}
+/* 📦 관리팀이 '디디유 한방 암꽃게장 2kg'처럼 공급처(창고) 이름을 상품명 앞에 붙여 적어 오는 경우가 있다.
+   앞 토큰이 유통시트 창고명이면 그것만 떼고 한 번 더 찾아본다.
+   ※ 시트를 고치는 게 아니라 **찾는 열쇠를 하나 더 만드는 것**뿐이다. 합포장 시트 원문은 그대로 둔다.
+   ⚠️ 아무 앞토큰이나 떼면 안 된다 — '특대 자반 고등어 2미'에서 '특대'를 떼면 다른 상품이 된다.
+      그래서 ①공백으로 끊은 첫 토큰만 ②유통시트 창고명과 앞뒤로 겹칠 때만 ③2글자 이상일 때만 뗀다.
+      '디디유'는 창고명 '디디'로 시작하니 뗀다. '떡갈비'는 창고명 '떡'이 1글자라 안 뗀다. */
+function hapAlias(){
+  if(!HAPROWS.length||!GROUPS.length)return 0;
+  const wh={};
+  GROUPS.forEach(function(g){ if(g.wh)wh[pkey(g.wh)]=1;
+    g.products.forEach(function(p){ if(p.srcWh)wh[pkey(p.srcWh)]=1; }); });
+  const WHS=Object.keys(wh).filter(function(w){return w.length>=2;});
+  if(!WHS.length)return 0;
+  const isWh=function(tok){ const t=pkey(tok); if(t.length<2)return false;
+    return WHS.some(function(w){return t===w||t.indexOf(w)===0||w.indexOf(t)===0;}); };
+  let n=0;
+  HAPROWS.forEach(function(r){
+    const sp=r.name.search(/\s/); if(sp<=0)return;
+    if(!isWh(r.name.slice(0,sp)))return;
+    const k=pkey(r.name.slice(sp+1)); if(!k||HAP[k])return;
+    HAP[k]=r.q; n++;
+  });
+  return n;
 }
 async function loadLinks(){
   const token=await getAccessToken();
@@ -535,7 +552,7 @@ let FRESH={};
 let KIND={};
 // 📦 합포장 가능 수량 — 도구시트 '합포장' 탭 (사장님 2026-08-19: 업체 문의가 제일 많은 항목).
 // 관리팀이 게시판 문의글을 매주 취합해 늘린다. 전체 상품이 아니라 문의 많은 것 위주라 없는 상품이 더 많다.
-let HAP={};
+let HAP={},HAPROWS=[];
 const st={q:'',wh:'전체',mode:'group',cat:'전체'};
 // 기본 정렬 = 최근 판매량 많은 순 (안 팔린 것은 뒤로, 같으면 원래 시트 순서 유지)
 // 정렬 = ①오늘 변동 있었던 것 ②최근 판매량 많은 순 ③시트 순서
@@ -772,7 +789,7 @@ async function startCatalog(){
       if(r[3]){CHG=r[3];buildTint();}   // 살구색 표시를 카탈로그 카드에도 입히려면 시작할 때 읽어야 한다
       if(r[4]){NOTI=r[4];renderNoticeBox();}
       if(r[5]&&Object.keys(r[5]).length)LINKS=r[5];
-      if(r[6]&&Object.keys(r[6]).length)HAP=r[6];   // 📦 합포장 — 같은 Promise.all이라 로딩이 느려지지 않는다
+      if(r[6]&&r[6].map&&Object.keys(r[6].map).length){HAP=r[6].map;HAPROWS=r[6].rows||[];}   // 📦 합포장 — 같은 Promise.all이라 로딩이 느려지지 않는다
       if(r[7]){RECS=r[7];buildRecMap();}            // ⭐ 추천상품을 창고 목록 맨 앞에 세우려면 시작할 때 필요
     }catch(e){}
     if(Object.keys(sales).length)SALES=sales;
@@ -783,6 +800,7 @@ async function startCatalog(){
     groups.forEach(g=>g.products.forEach(p=>{p.cat=cats[pkey(p.name)]||'미분류';}));
     MEDIA=Object.keys(media).length?media:MEDIA;
     GROUPS=groups;
+    hapAlias();   // 창고명이 앞에 붙어 온 합포장 이름은 여기서 한 번 더 붙여본다 (GROUPS가 있어야 창고명을 안다)
     finishRender(Date.now(),false);
     // 서브페이지를 보고 있는 중에 최신 데이터가 도착하면 그 화면도 다시 그린다.
     // (안 그러면 사진·스펙을 새로 받아왔는데도 '사진 준비중'이 그대로 남는다 — 2026-08-12 탱글 생물 중하)
