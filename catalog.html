@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마찬 유통 카탈로그 v1.3</title>
+<title>마찬 유통 카탈로그 v1.4</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -28,6 +28,9 @@ h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .chip.sm{padding:4px 10px;font-size:11.5px}
 .allbtn{margin-top:9px;border:1.5px solid var(--accent);background:var(--soft);color:var(--accent-d);padding:7px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
 .allbtn:hover{background:var(--accent);color:#fff}
+/* 👆 상품명이 링크라는 걸 모르는 업체가 많다 (사장님 2026-08-19) — 검색칸 바로 밑에 눈에 띄게 */
+.clicktip{margin:7px 0 2px;padding:7px 11px;border-radius:8px;background:var(--soft);border:1px solid var(--accent);color:var(--accent-d);font-size:12.5px;font-weight:600;line-height:1.5}
+@media(prefers-color-scheme:dark){.clicktip{color:var(--accent)}}
 .banner{margin-top:13px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:11px;padding:11px 14px;display:flex;flex-wrap:wrap;gap:5px 14px;align-items:center;box-shadow:var(--shadow)}
 .banner .wn{font-size:15px;font-weight:800}.banner .pk{font-size:11.5px;font-weight:700;color:var(--accent-d);background:var(--soft);padding:3px 9px;border-radius:20px}.banner .sp{font-size:12px;color:var(--muted)}.banner .sp b{color:var(--ink)}
 .meta{display:flex;justify-content:space-between;margin-top:11px;font-size:11.5px;color:var(--muted)}.meta b{color:var(--ink)}
@@ -202,6 +205,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 <!-- ⚠️ 크롬은 autocomplete="off"를 자주 무시하고 저장된 아이디("master")를 검색칸에 넣는다.
      같은 문서에 로그인 폼이 있어서 생기는 일이라, 알 수 없는 autocomplete 값 + 아래 강제 비우기를 같이 쓴다. (2026-08-19 사장님 지적) -->
 <input class="search" id="q" type="search" placeholder="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…" autocomplete="off-catalog-search" name="catalog-search-nofill" data-form-type="other" data-lpignore="true" spellcheck="false">
+<div class="clicktip">👆 <b>상품명을 클릭</b>하시면 상품 상세 및 사진을 확인하실 수 있습니다!</div>
 <button class="allbtn" id="allbtn">🏠 전체 상품 보기</button>
 <div class="lbl">창고 선택</div><div class="row" id="whrow"></div>
 <div class="lbl" id="catlbl">카테고리 선택</div><div class="row" id="catrow"></div>
