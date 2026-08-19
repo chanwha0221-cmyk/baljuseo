@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마찬 유통 카탈로그 v1.2</title>
+<title>마찬 유통 카탈로그 v1.3</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -611,12 +611,17 @@ document.addEventListener('click',e=>{
 $('q').addEventListener('input',e=>{st.q=e.target.value.trim();render();});
 // 🧹 크롬이 검색칸에 저장된 아이디를 밀어넣는 것 막기 (2026-08-19 사장님: "검색에 마스터 들어가 있는데")
 // autocomplete 속성만으론 안 막힌다 — 자동완성은 로드 직후·로그인 직후에 들어오므로 그때 비운다.
+// 🔒 확실한 방법: 크롬은 autocomplete 속성은 무시해도 **readonly 칸은 절대 채우지 않는다**.
+//    로드 직후 잠깐만 readonly로 잠가 자동완성 시점을 넘기고, 사장님이 손대는 순간 바로 풀린다.
 (function(){
   const q=$('q');
   const wipe=()=>{ if(!st.q && q.value){ q.value=''; } };
+  q.setAttribute('readonly','');
+  const unlock=()=>{ wipe(); q.removeAttribute('readonly'); };
+  ['focus','click','touchstart','keydown','pointerdown'].forEach(ev=>q.addEventListener(ev,unlock,{once:true}));
+  setTimeout(unlock,1500);                    // 아무도 안 건드려도 1.5초 뒤엔 풀어준다
   wipe(); [0,60,200,600,1200].forEach(ms=>setTimeout(wipe,ms));
   window.addEventListener('pageshow',()=>[0,200,600].forEach(ms=>setTimeout(wipe,ms)));
-  q.addEventListener('focus',wipe,{once:true});
 })();
 $('noteTg').onclick=()=>$('note').classList.toggle('open');
 // 🏠 전체 상품 보기 — 창고·카테고리·검색 리셋 (사장님 2026-08-09)
@@ -961,8 +966,16 @@ function renderUser(){
 }
 function enterApp(a){
   renderUser();
-  // 🧹 로그인 직후 크롬이 저장된 아이디를 검색칸에 밀어넣는다 — 들어오는 타이밍이 제각각이라 몇 번 비운다
-  [0,60,200,600,1200].forEach(ms=>setTimeout(()=>{const q=$('q');if(q&&!st.q&&q.value)q.value='';},ms));
+  // 🔒 로그인 직후가 크롬이 아이디를 밀어넣는 가장 큰 순간 — 다시 잠갔다가 손대면 풀어준다
+  (function(){
+    const q=$('q');if(!q)return;
+    if(!st.q)q.value='';
+    q.setAttribute('readonly','');
+    const unlock=()=>{if(!st.q&&q.value)q.value='';q.removeAttribute('readonly');};
+    ['focus','click','touchstart','keydown','pointerdown'].forEach(ev=>q.addEventListener(ev,unlock,{once:true}));
+    setTimeout(unlock,1500);
+    [0,60,200,600,1200].forEach(ms=>setTimeout(()=>{if(!st.q&&q.value)q.value='';},ms));
+  })();
   if(a&&a.pw==='1234'&&a.role!=='관리자'){
     $('pwnudge').innerHTML='<div class="pwnudge">🔒 아직 처음 비밀번호(1234)를 쓰고 있어요. <button id="nudgebtn">지금 바꾸기</button></div>';
     $('nudgebtn').onclick=showPwForm;
