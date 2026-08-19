@@ -302,7 +302,9 @@ header h1,header .sub,header .eyebrow{color:#fff}
 header .sub{opacity:.72}
 .eyebrow{font-size:10.5px;font-weight:800;letter-spacing:1.4px;opacity:.75;margin-bottom:3px}
 header .ver{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);color:#fff}
-header .mark{display:none}
+/* 로고 자리 — 지금은 「마」 마크. 진짜 로고 파일이 생기면 여기만 <img>로 바꾸면 된다 */
+header .mark{width:56px;height:56px;font-size:24px;border-radius:16px;background:#fff;color:var(--accent-d);
+  box-shadow:0 6px 18px rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.6)}
 /* 히어로 안에 들어가는 안내·계좌는 흰 유리 카드 */
 header .note,header .clicktip{background:rgba(255,255,255,.94);border-color:transparent;color:var(--ink)}
 header .acct{background:rgba(255,255,255,.96);border-color:transparent;box-shadow:0 6px 18px rgba(0,0,0,.12)}
@@ -312,18 +314,8 @@ header .ubtn.rl{background:var(--pop);border-color:transparent;color:#fff}
 @media(hover:hover){header .ubtn:hover{background:rgba(255,255,255,.24);border-color:#fff;color:#fff}
   header .ubtn.rl:hover{background:var(--pop-d)}}
 
-/* ── 캐릭터 (생선 배달부) ── */
-.mascot{width:88px;height:auto;flex:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.25))}
-/* 남색 히어로 위에 얹히니 몸통은 밝게 — 어두운 몸통은 배경에 먹힌다 */
-.ms-body{fill:#f2f7f8}.ms-belly{fill:var(--sand)}
-.ms-fin{fill:var(--pop)}.ms-eye{fill:#0a3247}.ms-mouth{stroke:#0a3247}
-.ms-wave{stroke:#fff;opacity:.45}
-.ms-box rect{fill:var(--sand)}.ms-box path{stroke:var(--pop-d)}
-@media(prefers-reduced-motion:no-preference){
-  .mascot{animation:msbob 4.5s ease-in-out infinite}
-  @keyframes msbob{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1.5deg)}}
-}
-@media(max-width:640px){.mascot{width:62px}.eyebrow{font-size:9.5px;letter-spacing:1px}}
+@media(max-width:640px){header .mark{width:42px;height:42px;font-size:18px;border-radius:12px}
+  .eyebrow{font-size:9.5px;letter-spacing:1px}}
 /* 배경 위에서는 카드가 반투명하면 지저분하다 — 상품 카드·공지는 불투명 유지 */
 .card,.ntc,.ntcac,.banner,.soldwrap{background-color:var(--card)}
 ::selection{background:color-mix(in srgb,var(--accent) 25%,transparent)}
@@ -415,17 +407,7 @@ h1{letter-spacing:-.6px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style></head><body>
 <div class="testbar">🧪 테스트본입니다 — 업체가 보는 실제 카탈로그가 아닙니다</div><div class="wrap">
-<header><div class="brand"><svg class="mascot" viewBox="0 0 100 78" aria-hidden="true" focusable="false">
-  <path class="ms-wave" d="M4 71c8-5 16-5 24 0s16 5 24 0 16-5 24 0" fill="none" stroke-width="3.5" stroke-linecap="round"/>
-  <path class="ms-fin" d="M20 30 3 17v27z"/>
-  <path class="ms-fin" d="M50 11c8-7 16-7 20-2-7 0-13 3-16 7z"/>
-  <ellipse class="ms-body" cx="54" cy="32" rx="33" ry="20"/>
-  <path class="ms-belly" d="M26 38c10 12 46 12 56 0-6 10-18 14-28 14s-22-4-28-14z"/>
-  <circle class="ms-eye" cx="72" cy="26" r="3.4"/>
-  <path class="ms-mouth" d="M85 33c-3 2-6 2-8 1" fill="none" stroke-width="2.4" stroke-linecap="round"/>
-  <g class="ms-box"><rect x="22" y="47" width="25" height="20" rx="4"/>
-    <path d="M22 56h25M34.5 47v20" fill="none" stroke-width="2.6"/></g>
-</svg><div><div class="eyebrow">수산물 전문 도매 · 당일 출고</div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span><span class="testbadge">🧪 테스트본</span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
+<header><div class="brand"><div class="mark">마</div><div><div class="eyebrow">수산물 전문 도매 · 당일 출고</div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span><span class="testbadge">🧪 테스트본</span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
 <div class="userbar" id="userbar"></div></div>
 <div id="pwnudge"></div>
 <button class="noteTg" id="noteTg">🚚 합포장 · 문의 안내</button>
