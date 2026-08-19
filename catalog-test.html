@@ -819,7 +819,7 @@ function buildCatChips(){
   // '전체' 칩 없음 — 선택된 카테고리를 다시 누르면 해제 (사장님 2026-08-09)
   let h='';
   // 카테고리에 아이콘 — 글자만 나열되면 눈이 안 걸린다 (사장님 2026-08-19 "유통 사이트 느낌")
-  const CATICON={'수산':'🐟','축산':'🥩','가공식품':'🥫','김치·반찬':'🥬','김치반찬':'🥬','과일':'🍎','채소':'🥕','기타':'📦'};
+  const CATICON={'수산':'🐟','축산':'🥩','가공식품':'🥫','김치·반찬':'🥬','김치반찬':'🥬','과일':'🍎','채소':'🥕','농산물':'🌾','쌀·잡곡':'🌾','기타':'📦'};
   cats.forEach(c=>{const ic=CATICON[c]?CATICON[c]+' ':'';
     h+='<button class="chip sm'+(st.cat===c?' on':'')+'" data-c="'+esc(c)+'">'+ic+esc(c)+' '+counts[c]+'</button>';});
   if(un)h+='<button class="chip sm'+(st.cat==='미분류'?' on':'')+'" data-c="미분류" style="opacity:.55">미분류 '+un+'</button>';
