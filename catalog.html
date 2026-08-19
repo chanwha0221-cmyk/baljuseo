@@ -199,7 +199,9 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 <div class="ntcbox" id="ntcbox"></div>
 <div id="mainView">
 <div class="controls">
-<input class="search" id="q" type="search" placeholder="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…" autocomplete="off">
+<!-- ⚠️ 크롬은 autocomplete="off"를 자주 무시하고 저장된 아이디("master")를 검색칸에 넣는다.
+     같은 문서에 로그인 폼이 있어서 생기는 일이라, 알 수 없는 autocomplete 값 + 아래 강제 비우기를 같이 쓴다. (2026-08-19 사장님 지적) -->
+<input class="search" id="q" type="search" placeholder="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…" autocomplete="off-catalog-search" name="catalog-search-nofill" data-form-type="other" data-lpignore="true" spellcheck="false">
 <button class="allbtn" id="allbtn">🏠 전체 상품 보기</button>
 <div class="lbl">창고 선택</div><div class="row" id="whrow"></div>
 <div class="lbl" id="catlbl">카테고리 선택</div><div class="row" id="catrow"></div>
@@ -607,6 +609,15 @@ document.addEventListener('click',e=>{
   navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast(b.getAttribute('data-cpmsg')||'상품명 복사됨'));
 });
 $('q').addEventListener('input',e=>{st.q=e.target.value.trim();render();});
+// 🧹 크롬이 검색칸에 저장된 아이디를 밀어넣는 것 막기 (2026-08-19 사장님: "검색에 마스터 들어가 있는데")
+// autocomplete 속성만으론 안 막힌다 — 자동완성은 로드 직후·로그인 직후에 들어오므로 그때 비운다.
+(function(){
+  const q=$('q');
+  const wipe=()=>{ if(!st.q && q.value){ q.value=''; } };
+  wipe(); [0,60,200,600,1200].forEach(ms=>setTimeout(wipe,ms));
+  window.addEventListener('pageshow',()=>[0,200,600].forEach(ms=>setTimeout(wipe,ms)));
+  q.addEventListener('focus',wipe,{once:true});
+})();
 $('noteTg').onclick=()=>$('note').classList.toggle('open');
 // 🏠 전체 상품 보기 — 창고·카테고리·검색 리셋 (사장님 2026-08-09)
 $('allbtn').onclick=()=>{st.wh='전체';st.mode='group';st.cat='전체';st.q='';$('q').value='';buildWhChips();render();window.scrollTo({top:0,behavior:'smooth'});};
@@ -950,6 +961,8 @@ function renderUser(){
 }
 function enterApp(a){
   renderUser();
+  // 🧹 로그인 직후 크롬이 저장된 아이디를 검색칸에 밀어넣는다 — 들어오는 타이밍이 제각각이라 몇 번 비운다
+  [0,60,200,600,1200].forEach(ms=>setTimeout(()=>{const q=$('q');if(q&&!st.q&&q.value)q.value='';},ms));
   if(a&&a.pw==='1234'&&a.role!=='관리자'){
     $('pwnudge').innerHTML='<div class="pwnudge">🔒 아직 처음 비밀번호(1234)를 쓰고 있어요. <button id="nudgebtn">지금 바꾸기</button></div>';
     $('nudgebtn').onclick=showPwForm;
