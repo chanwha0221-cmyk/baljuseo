@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.1</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.2</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -164,7 +164,10 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .ntcac .nd2{font-size:11px;color:var(--muted);white-space:nowrap}
 .ntcac .ntarrow{font-size:11px;color:var(--muted);transition:transform .15s}
 .ntcac[open] .ntarrow{transform:rotate(180deg)}
-.ntcac>.nb{padding:0 15px 14px;border-top:1px solid var(--line);margin-top:2px;padding-top:12px}
+/* ⚠️ 본문 크기를 여기서 다시 지정해야 한다 — 기존 규칙이 '.ntc .nb'라 새 구조(.ntcac)엔 안 걸려
+      브라우저 기본 16px로 커진다 (2026-08-19 사장님: "폰트가 넘나 큰데"). 원래 값은 13px. */
+.ntcac>.nb{font-size:13px;line-height:1.75;white-space:pre-wrap;color:var(--ink);
+  padding:12px 15px 14px;border-top:1px solid var(--line);margin-top:2px}
 .ntcread{font-size:10px;font-weight:800;color:#fff;background:var(--up);padding:2px 7px;border-radius:5px;white-space:nowrap;
   animation:nbpulse 1.6s ease-in-out infinite}
 .ntclist{margin-top:4px}
