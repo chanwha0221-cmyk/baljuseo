@@ -52,7 +52,21 @@
 - **수량 리더 시트** ID: `1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI` — 탭: `입력 시트`(업데이트시간/팀명/창고명/상품명/필요수량), `현황판`(창고명/품목명/수량보유팀/1~10순위/합계), `삭제 로그`
 - PRIVATE_KEY는 secretary.html / 식봄ERP.html / 수량관리.html에 하드코딩 (`getAccessToken()` JWT RS256, crypto.subtle)
 
-## 배포 (update.bat)
+## 🚨 배포 (Claude는 `deploy.ps1`만 쓴다 — 2026-08-19 사장님 지시)
+
+```
+powershell -ExecutionPolicy Bypass -File C:\work\baljuseo\deploy.ps1 -Message "설명"
+```
+
+- **git push 하고 "배포 완료"라고 말하지 말 것.** push 는 배포의 절반이다. `deploy.ps1`은 **라이브 URL이 실제로 새 내용을 내줄 때까지 확인**하고, 안 되면 실패(exit 2)로 끝난다. 이 스크립트가 초록불을 주기 전에는 사장님께 완료라고 보고하지 않는다.
+- **로컬 서버(localhost:8931)에서 됐다는 건 배포된 게 아니다.** 로컬은 코드가 맞는지 보는 용도고, 완료 판단은 라이브 확인뿐이다. (2026-08-19 사장님 지적: "라이브를 해달라고 요청했는데 왜 니혼자 테스트하고 됐다고 하냐")
+- 하는 일: `<title>`의 `v숫자.숫자` +1 → pull/add/commit/push → **라이브 폴링(15초 간격, 3분)** → 안 넘어오면 **빈 커밋으로 Pages 빌드 재시도** 후 3분 더 → 그래도 안 되면 실패.
+- ⚠️ **GitHub Pages가 커밋 하나를 건너뛰는 일이 실제로 있다** (2026-08-19 `media-updater.html`, 20분 넘게 직전 커밋만 내줌 — 다른 세션 커밋이 연달아 올라가던 중). 빈 커밋 재푸시로 풀렸고, 그 절차가 스크립트에 들어 있다.
+- ⚠️ 진단 시 브라우저 `text.length`는 **바이트가 아니라 글자 수**다. 한글 파일은 바이트의 약 75% — 커밋 블롭과 비교하려면 `git show HEAD:파일 | wc -c`(바이트)와 헷갈리지 말 것.
+- ⚠️ `deploy.ps1`은 **UTF-8 BOM으로 저장 유지**. BOM 없이 저장하면 PowerShell 5.1이 ANSI로 읽어 한글이 깨지고 파싱 에러가 난다.
+- `-Files a.html,b.html` 로 대상 지정, `-NoBump` 로 버전 고정, 인자 없으면 `git status`의 바뀐 html/js/json/css 전부.
+
+### (참고) update.bat — 사장님이 직접 더블클릭할 때
 - `update.bat` 실행 → (lock 자동삭제) → index.html 버전 자동 +1(PowerShell) → `git add . / commit / push` → GitHub Pages 1~3분 후 반영
 - ✅ **2026-05 수정**: update.bat 맨 앞에 `if exist ".git\index.lock" del /f /q ".git\index.lock"` 추가 → 이제 더블클릭만 해도 lock 자동 제거. **단 update.bat은 반드시 CRLF 줄바꿈 유지**(LF로 저장되면 cmd가 줄을 못 끊어 단어마다 에러남. bash python으로 쓸 땐 `'\r\n'.join()`).
 - ⚠️ **lock이 자꾸 되살아나는 진짜 이유**: `.git`이 **구글 드라이브 동기화 폴더** 안에 있어서, 0바이트 stale lock이 클라우드에 한번 올라가면 PC에서 지워도 드라이브가 다시 내려받아 복원함. update.bat 자동삭제로 우회 중. (근본해결은 .git을 드라이브 밖으로 빼는 것)
