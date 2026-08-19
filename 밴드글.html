@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v4.5</title>
+<title>밴드글 메이커 v4.6</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v4.5 🤖</span>
+  <span class="ver">v4.6 🤖</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -240,7 +240,7 @@ function clen(s){
   try{ if(typeof Intl!=='undefined'&&Intl.Segmenter){ let n=0; for(const _ of new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(s)) n++; return n; } }catch(e){}
   return [...s].length; // 폴백: 최소한 code point 기준(이모지 1자)
 }
-// 순수 본문 글자수 = 잠금 블록(====박스·하단 고정부) 내용과 토큰 전부 제외 (사장님 기준: 본문만 1,000~1,100)
+// 순수 본문 글자수 = 잠금 블록(====박스·하단 고정부) 내용과 토큰 전부 제외 (사장님 기준: 본문만 1,300~1,400 — 2026-08-19 상향)
 // ⚠️ 잠금 원문 exact-match만으론 부족: finalizeBand 안전망이 잠금 내용을 고치면(실금액→*가격 등) 매칭이 깨져
 //    가격박스가 본문으로 잡힘(2026-08-07 삼치 1098→1208 오탐) → 구조 기준 제외를 겸한다.
 function bodyLen(t){
@@ -341,7 +341,7 @@ function upOut(){
   const n=bodyLen(outMarked());
   const p=$('outCnt');
   p.textContent='본문 '+n.toLocaleString()+'자 (고정부 제외)';
-  p.className='count-pill '+((n>=1000&&n<=1150)?'ok':(n>0?'short':''));
+  p.className='count-pill '+((n>=1300&&n<=1450)?'ok':(n>0?'short':''));
 }
 
 let _tok=null,_exp=0;
@@ -384,7 +384,7 @@ async function saveBand(){
   const plain=plainOf(marked);
   const bl=bodyLen(marked);
   if(!plain.trim()){ toast('저장할 글이 없어요'); return; }
-  if(bl<600 && !confirm('본문 '+bl.toLocaleString()+'자밖에 안 되는데 저장할까요? (목표 1,050자)')) return;
+  if(bl<800 && !confirm('본문 '+bl.toLocaleString()+'자밖에 안 되는데 저장할까요? (목표 1,350자)')) return;
   const title=(plain.split('\n').map(s=>s.trim()).filter(Boolean)[0]||'제목없음').slice(0,40);
   const row=[String(Date.now()), todayKST(), title, marked, String(bl), nowKST()];
   try{
@@ -551,7 +551,7 @@ function claudeSetBand(marked){
   $('out').scrollIntoView({behavior:'smooth',block:'start'});
   const n=bodyLen(t);
   toast('🤖 하비서 글 반영 완료 (본문 '+n.toLocaleString()+'자) — 수정 후 💾 저장!');
-  return '본문 '+n+'자 (목표 1000~1100'+((n>=1000&&n<=1100)?' ✅':' ⚠️ 범위 밖 — 다시 조정 필요')+')';
+  return '본문 '+n+'자 (목표 1300~1400'+((n>=1300&&n<=1400)?' ✅':' ⚠️ 범위 밖 — 다시 조정 필요')+')';
 }
 
 /* ===== 📮 작업대 (시트 큐, 2026-08-03 v4.1) — 하비서가 사장님 창을 찾을 필요 없게 ===== */
@@ -636,7 +636,7 @@ async function claudeWriteResult(marked){
   const n=bodyLen(out);
   const t=await getToken();
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['결과',out,'본문 '+n+'자 · '+nowKST()]]})});
-  return '본문 '+n+'자 '+((n>=1000&&n<=1100)?'✅':'⚠️ 범위 밖 — 조정 필요')+' — 작업대 저장 완료. 사장님은 [🤖 하비서 글 가져오기] 클릭';
+  return '본문 '+n+'자 '+((n>=1300&&n<=1400)?'✅':'⚠️ 범위 밖 — 조정 필요')+' — 작업대 저장 완료. 사장님은 [🤖 하비서 글 가져오기] 클릭';
 }
 
 // 원문 1·결과창에 붙여넣는 즉시 UI 쓰레기(삭제 버튼 등) 제거
