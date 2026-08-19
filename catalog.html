@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v1.8</title>
+<title>마스터 유통 카탈로그 v1.9</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -125,6 +125,11 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .ntc .nd{font-size:11px;color:var(--muted);margin-top:3px}
 .ntc .nb{font-size:13px;line-height:1.75;margin-top:9px;white-space:pre-wrap}
 .impb{font-size:10px;font-weight:800;color:#fff;background:var(--up);padding:2px 7px;border-radius:5px}
+/* 📢 공지 더보기 — 첫 화면을 공지가 다 먹지 않게 1건만 펼치고 나머지는 접는다 (2026-08-19) */
+.ntcmore{margin-top:8px}
+.ntcmore>summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:7px 12px;background:var(--chip);border-radius:9px;list-style:none;user-select:none}
+.ntcmore>summary::-webkit-details-marker{display:none}
+.ntcmore>summary:hover{color:var(--accent);background:var(--soft)}
 /* 유통시트에서 살구색으로 칠해둔 상품 = 조업은 되는데 입고가 일정치 않은 것 (사장님 2026-08-12) */
 .card.hot{background:color-mix(in srgb,#fce5cd 55%,var(--card));border-color:color-mix(in srgb,var(--gold) 45%,var(--line))}
 @media(prefers-color-scheme:dark){.card.hot{background:color-mix(in srgb,#7a4a1c 30%,var(--card))}}
@@ -650,20 +655,30 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('.cpbtn');if(!b)return;
   navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast(b.getAttribute('data-cpmsg')||'상품명 복사됨'));
 });
-$('q').addEventListener('input',e=>{st.q=e.target.value.trim();render();});
-// 🧹 크롬이 검색칸에 저장된 아이디를 밀어넣는 것 막기 (2026-08-19 사장님: "검색에 마스터 들어가 있는데")
-// autocomplete 속성만으론 안 막힌다 — 자동완성은 로드 직후·로그인 직후에 들어오므로 그때 비운다.
-// 🔒 확실한 방법: 크롬은 autocomplete 속성은 무시해도 **readonly 칸은 절대 채우지 않는다**.
-//    로드 직후 잠깐만 readonly로 잠가 자동완성 시점을 넘기고, 사장님이 손대는 순간 바로 풀린다.
+/* 🔒 크롬 자동완성이 검색칸에 저장된 아이디("master")를 밀어넣는 문제 (2026-08-19)
+   ⚠️ 이게 단순한 미관 문제가 아니다 — 검색어가 들어가면 결과가 0개라
+      **업체 눈에는 상품이 하나도 없는 것처럼 보인다.** 아이디/비번 저장한 업체는 전부 이 상태.
+   앞서 autocomplete 속성 → 값 비우기 → readonly 잠금까지 해봤지만 크롬은 그걸 다 우회했다.
+   그래서 방향을 바꿨다: **사람이 실제로 키를 누르거나 붙여넣기 전까지는 검색을 아예 성립시키지 않는다.**
+   자동완성이 값을 넣어도 검색으로 취급하지 않고 즉시 되돌린다. */
 (function(){
   const q=$('q');
-  const wipe=()=>{ if(!st.q && q.value){ q.value=''; } };
-  q.setAttribute('readonly','');
-  const unlock=()=>{ wipe(); q.removeAttribute('readonly'); };
-  ['focus','click','touchstart','keydown','pointerdown'].forEach(ev=>q.addEventListener(ev,unlock,{once:true}));
-  setTimeout(unlock,1500);                    // 아무도 안 건드려도 1.5초 뒤엔 풀어준다
-  wipe(); [0,60,200,600,1200].forEach(ms=>setTimeout(wipe,ms));
-  window.addEventListener('pageshow',()=>[0,200,600].forEach(ms=>setTimeout(wipe,ms)));
+  let typed=false;                                   // 사람이 직접 입력한 적이 있는가
+  const markTyped=()=>{ typed=true; };
+  q.addEventListener('keydown',markTyped);
+  q.addEventListener('paste',markTyped);
+  q.addEventListener('compositionstart',markTyped);  // 한글 입력
+  q.addEventListener('input',e=>{
+    if(!typed){ e.target.value=''; if(st.q){ st.q=''; render(); } return; }  // 자동완성이 쏜 input은 무시
+    st.q=e.target.value.trim(); render();
+  });
+  // 자동완성은 input 이벤트 없이 값만 바꿔놓기도 한다. 사람이 손대기 전까지만 짧게 감시한다.
+  const guard=setInterval(()=>{
+    if(typed){ clearInterval(guard); return; }
+    if(q.value){ q.value=''; if(st.q){ st.q=''; render(); } }
+  },300);
+  // 뒤로가기 복원(bfcache)으로 돌아왔을 때도 같은 일이 생긴다
+  window.addEventListener('pageshow',()=>{ if(!typed&&q.value){ q.value=''; if(st.q){st.q='';render();} } });
 })();
 $('noteTg').onclick=()=>$('note').classList.toggle('open');
 // 🏠 전체 상품 보기 — 창고·카테고리·검색 리셋 (사장님 2026-08-09)
@@ -785,13 +800,26 @@ function buildTint(){
   });
 }
 // 공지는 메뉴 바로 밑에 펼쳐 보여준다 — 최근 3건까지 (중요 공지가 위)
-function renderNoticeBox(){
-  const box=$('ntcbox'); if(!box)return;
-  const list=(NOTI||[]).slice(0,3);
-  box.innerHTML=list.map(n=>'<div class="ntc'+(n.imp?' imp':'')+'" style="margin-top:9px">'
+/* 📢 공지는 1건만 펼치고 나머지는 접는다 (사장님 2026-08-19:
+   "공지사항 몇 개까지 보이게 할거야? 너무 많아지면 밑에 상품이 먼저 안 보일 거야")
+   카탈로그의 본질은 상품이다. 공지가 첫 화면을 다 먹으면 업체는 상품을 못 본다.
+   → 중요 공지(없으면 최신) 1건만 펼치고, 나머지는 "+N건 더보기" 한 줄로. 누르면 펼쳐진다. */
+function noticeCard(n){
+  return '<div class="ntc'+(n.imp?' imp':'')+'" style="margin-top:9px">'
     +'<div class="nt">'+(n.imp?'<span class="impb">중요</span>':'')+esc(n.title)+'</div>'
     +(n.at?'<div class="nd">'+esc(n.at)+'</div>':'')
-    +(n.body?'<div class="nb">'+esc(n.body)+'</div>':'')+'</div>').join('');
+    +(n.body?'<div class="nb">'+esc(n.body)+'</div>':'')+'</div>';
+}
+function renderNoticeBox(){
+  const box=$('ntcbox'); if(!box)return;
+  const all=(NOTI||[]).slice(0,5);
+  if(!all.length){ box.innerHTML=''; return; }
+  // 중요 공지가 있으면 그것부터
+  const idx=Math.max(0, all.findIndex(n=>n.imp));
+  const head=all[idx], rest=all.filter((n,i)=>i!==idx);
+  box.innerHTML=noticeCard(head)
+    +(rest.length?('<details class="ntcmore"><summary>📢 다른 공지 '+rest.length+'건 더보기</summary>'
+      +rest.map(noticeCard).join('')+'</details>'):'');
 }
 function chgCls(k){
   if(/출시|재입고/.test(k))return 'new';
@@ -1022,15 +1050,11 @@ function renderUser(){
 }
 function enterApp(a){
   renderUser();
-  // 🔒 로그인 직후가 크롬이 아이디를 밀어넣는 가장 큰 순간 — 다시 잠갔다가 손대면 풀어준다
+  // 🔒 로그인 직후가 크롬이 아이디를 밀어넣는 가장 큰 순간 — 위의 typed 가드가 계속 지우지만
+  //    화면에 잠깐이라도 남지 않게 여기서도 한 번 훑는다. (readonly 잠금은 첫 글자가 씹혀서 뺐다)
   (function(){
     const q=$('q');if(!q)return;
-    if(!st.q)q.value='';
-    q.setAttribute('readonly','');
-    const unlock=()=>{if(!st.q&&q.value)q.value='';q.removeAttribute('readonly');};
-    ['focus','click','touchstart','keydown','pointerdown'].forEach(ev=>q.addEventListener(ev,unlock,{once:true}));
-    setTimeout(unlock,1500);
-    [0,60,200,600,1200].forEach(ms=>setTimeout(()=>{if(!st.q&&q.value)q.value='';},ms));
+    [0,60,200,600,1200,2000].forEach(ms=>setTimeout(()=>{ if(!st.q&&q.value)q.value=''; },ms));
   })();
   if(a&&a.pw==='1234'&&a.role!=='관리자'){
     $('pwnudge').innerHTML='<div class="pwnudge">🔒 아직 처음 비밀번호(1234)를 쓰고 있어요. <button id="nudgebtn">지금 바꾸기</button></div>';
