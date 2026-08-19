@@ -314,9 +314,10 @@ header .ubtn.rl{background:var(--pop);border-color:transparent;color:#fff}
 
 /* ── 캐릭터 (생선 배달부) ── */
 .mascot{width:88px;height:auto;flex:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.25))}
-.ms-body{fill:#0a3247}.ms-belly{fill:var(--sand);opacity:.92}
-.ms-fin{fill:var(--pop)}.ms-eyew{fill:#fff}.ms-eye{fill:#0a3247}
-.ms-wave{stroke:#fff;opacity:.5}
+/* 남색 히어로 위에 얹히니 몸통은 밝게 — 어두운 몸통은 배경에 먹힌다 */
+.ms-body{fill:#f2f7f8}.ms-belly{fill:var(--sand)}
+.ms-fin{fill:var(--pop)}.ms-eye{fill:#0a3247}.ms-mouth{stroke:#0a3247}
+.ms-wave{stroke:#fff;opacity:.45}
 .ms-box rect{fill:var(--sand)}.ms-box path{stroke:var(--pop-d)}
 @media(prefers-reduced-motion:no-preference){
   .mascot{animation:msbob 4.5s ease-in-out infinite}
@@ -415,14 +416,15 @@ h1{letter-spacing:-.6px}
 </style></head><body>
 <div class="testbar">🧪 테스트본입니다 — 업체가 보는 실제 카탈로그가 아닙니다</div><div class="wrap">
 <header><div class="brand"><svg class="mascot" viewBox="0 0 100 78" aria-hidden="true" focusable="false">
-  <path class="ms-wave" d="M6 68c8-6 16-6 24 0s16 6 24 0 16-6 24 0" fill="none" stroke-width="4" stroke-linecap="round"/>
-  <path class="ms-fin" d="M18 34 4 22v26z"/>
-  <ellipse class="ms-body" cx="52" cy="34" rx="34" ry="21"/>
-  <path class="ms-belly" d="M24 41c10 12 46 12 57 0-7 10-19 14-28 14s-22-4-29-14z"/>
-  <path class="ms-fin" d="M47 13c7-8 15-9 19-4-7 1-12 4-15 8z"/>
-  <circle class="ms-eyew" cx="70" cy="29" r="6.5"/><circle class="ms-eye" cx="72" cy="29" r="3.2"/>
-  <g class="ms-box"><rect x="24" y="46" width="24" height="19" rx="3.5"/>
-    <path d="M24 54h24M36 46v19" fill="none" stroke-width="2.6"/></g>
+  <path class="ms-wave" d="M4 71c8-5 16-5 24 0s16 5 24 0 16-5 24 0" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+  <path class="ms-fin" d="M20 30 3 17v27z"/>
+  <path class="ms-fin" d="M50 11c8-7 16-7 20-2-7 0-13 3-16 7z"/>
+  <ellipse class="ms-body" cx="54" cy="32" rx="33" ry="20"/>
+  <path class="ms-belly" d="M26 38c10 12 46 12 56 0-6 10-18 14-28 14s-22-4-28-14z"/>
+  <circle class="ms-eye" cx="72" cy="26" r="3.4"/>
+  <path class="ms-mouth" d="M85 33c-3 2-6 2-8 1" fill="none" stroke-width="2.4" stroke-linecap="round"/>
+  <g class="ms-box"><rect x="22" y="47" width="25" height="20" rx="4"/>
+    <path d="M22 56h25M34.5 47v20" fill="none" stroke-width="2.6"/></g>
 </svg><div><div class="eyebrow">수산물 전문 도매 · 당일 출고</div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span><span class="testbadge">🧪 테스트본</span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
 <div class="userbar" id="userbar"></div></div>
 <div id="pwnudge"></div>
