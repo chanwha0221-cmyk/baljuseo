@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마찬 유통 상품 도구</title>
+<title>마찬 유통 상품 도구 v1.1</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -55,7 +55,8 @@ a{color:var(--accent)}
 .bmlet{display:inline-block;background:var(--accent);color:#fff;border-radius:9px;padding:9px 16px;font-weight:700;font-size:14px;text-decoration:none;cursor:grab}
 .bmlet:hover{background:var(--accent-d)}
 </style></head><body><main>
-<h1>🧰 마찬 유통 상품 도구</h1>
+<h1>🧰 마찬 유통 상품 도구 <span style="font-size:11px;font-weight:700;color:var(--muted);background:var(--soft);padding:2px 7px;border-radius:20px;vertical-align:middle" id="mver"></span></h1>
+<script>document.getElementById('mver').textContent=(document.title.match(/v\d+\.\d+/)||[''])[0];</script>
 <div class="sub">카탈로그에 뜨는 상품 사진·스펙·카테고리를 여기서 관리합니다</div>
 <!-- 카탈로그 로그인 계정 시트 바로가기 (2026-08-12 사장님 지시 — "여기에 박아줘") -->
 <div class="sub" style="margin-top:-14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
