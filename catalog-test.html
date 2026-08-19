@@ -1,0 +1,1251 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.0</title>
+<style>
+:root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
+--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
+--shadow:0 1px 2px rgba(20,40,30,.05),0 6px 20px rgba(20,40,30,.05);--radius:14px}
+@media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--line2:#222925;
+--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a;--up:#ef6b6b;--down:#6ba8ef;--gold:#d6a34a;--chip:#232a26;
+--shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:60px;line-height:1.4}
+.wrap{max-width:1120px;margin:0 auto;padding:0 15px}
+header{padding:18px 0 4px}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--accent-d));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:17px;box-shadow:var(--shadow)}
+h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
+.sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.ver{display:inline-block;margin-left:7px;font-size:11px;font-weight:700;color:var(--muted);background:var(--soft);padding:2px 7px;border-radius:20px;vertical-align:middle;letter-spacing:0}
+.note{margin-top:11px;background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:9px 12px;font-size:11.5px;color:var(--accent-d);line-height:1.5}
+.controls{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 93%,transparent);backdrop-filter:blur(10px);padding:10px 0;border-bottom:1px solid var(--line);margin-top:11px}
+.search{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:11px 13px;font-size:15px;background:var(--card);color:var(--ink);outline:none}
+.search:focus{border-color:var(--accent)}
+.lbl{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.4px;margin:10px 0 5px}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{border:1.5px solid var(--line);background:var(--card);color:var(--muted);padding:6px 12px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.12s;white-space:nowrap}
+.chip:hover{border-color:var(--accent)}.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip.sm{padding:4px 10px;font-size:11.5px}
+.allbtn{margin-top:9px;border:1.5px solid var(--accent);background:var(--soft);color:var(--accent-d);padding:7px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.allbtn:hover{background:var(--accent);color:#fff}
+/* 👆 상품명이 링크라는 걸 모르는 업체가 많다 (사장님 2026-08-19) — 검색칸 바로 밑에 눈에 띄게 */
+.clicktip{margin:7px 0 2px;padding:7px 11px;border-radius:8px;background:var(--soft);border:1px solid var(--accent);color:var(--accent-d);font-size:12.5px;font-weight:600;line-height:1.5}
+@media(prefers-color-scheme:dark){.clicktip{color:var(--accent)}}
+.banner{margin-top:13px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:11px;padding:11px 14px;display:flex;flex-wrap:wrap;gap:5px 14px;align-items:center;box-shadow:var(--shadow)}
+.banner .wn{font-size:15px;font-weight:800}.banner .pk{font-size:11.5px;font-weight:700;color:var(--accent-d);background:var(--soft);padding:3px 9px;border-radius:20px}.banner .sp{font-size:12px;color:var(--muted)}.banner .sp b{color:var(--ink)}
+.meta{display:flex;justify-content:space-between;margin-top:11px;font-size:11.5px;color:var(--muted)}.meta b{color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:11px;margin-top:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.thumb{aspect-ratio:4/3;background:var(--chip);display:block;width:100%;object-fit:cover}
+.nothumb{aspect-ratio:4/3;background:var(--chip);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px}
+.bd{padding:12px 12px 12px;display:flex;flex-direction:column;gap:5px;flex:1}
+.spec{font-size:10.5px;color:var(--muted);line-height:1.55;border-top:1px dashed var(--line);padding-top:6px;margin-top:2px}
+.spec div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.whb{align-self:flex-start;font-size:10px;font-weight:700;color:var(--gold);background:color-mix(in srgb,var(--gold) 12%,transparent);padding:2px 7px;border-radius:5px;border:none;cursor:pointer;font-family:inherit;text-align:left}
+.whb:hover{background:color-mix(in srgb,var(--gold) 22%,transparent)}
+.pn{font-size:13.5px;font-weight:700;letter-spacing:-.3px;line-height:1.3;display:flex;align-items:flex-start;gap:5px}
+.pn a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted)}
+.cpbtn{border:1px solid var(--line);background:var(--chip);border-radius:6px;font-size:10.5px;padding:1px 6px;cursor:pointer;color:var(--muted);flex:none;line-height:1.5}
+.cpbtn:hover{border-color:var(--accent);color:var(--accent)}
+.tg{font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;background:var(--chip);color:var(--muted);align-self:flex-start}
+.tg.tax{background:var(--soft);color:var(--accent-d)}.tg.tx{color:var(--up)}
+/* 💹 인상·인하 — 면세/과세 배지 옆에 나란히 (사장님 2026-08-19) */
+.tgrow{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.tg.up{background:color-mix(in srgb,var(--up) 15%,transparent);color:var(--up);font-weight:800}
+.tg.down{background:color-mix(in srgb,var(--down) 15%,transparent);color:var(--down);font-weight:800}
+/* 📦 합포장 가능 수량 — 업체 문의 1순위라 눈에 띄는 금색 (사장님 2026-08-19) */
+.tg.hap{background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--gold);font-weight:800}
+.rf{font-size:10.5px;color:var(--muted);line-height:1.4}
+.prow{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;padding-top:4px;gap:6px}
+.price{font-size:18px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.price small{font-size:11.5px;font-weight:600;color:var(--muted)}
+.old{font-size:11px;color:var(--muted);text-decoration:line-through;font-variant-numeric:tabular-nums;display:block;line-height:1}
+.price.up{color:var(--up)}.price.down{color:var(--down)}
+.ship{font-size:10.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}.ship b{color:var(--ink)}.free{color:var(--accent);font-weight:700}
+.lcbar{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:11px}
+.lcbar .lcn{font-size:11.5px;color:var(--muted);margin-right:5px}.lcbar .lcn b{color:var(--ink)}
+.empty{text-align:center;padding:60px 0;color:var(--muted)}
+.load{text-align:center;padding:80px 0;color:var(--muted);font-size:14px}
+footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted);text-align:center;line-height:1.7}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 18px;border-radius:20px;font-size:12.5px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
+.noteTg{display:none}
+/* 입금 계좌 — 몇 번을 안내해도 계속 물어봐서 아예 상단에 고정 (사장님 2026-08-18).
+   note 상자는 모바일에서 접히지만 이건 항상 보여야 한다. */
+.acct{margin-top:9px;background:var(--soft);border:2px solid var(--accent);border-radius:12px;
+  padding:11px 14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.acct .lb{font-size:12px;font-weight:800;color:var(--accent-d);white-space:nowrap}
+.acct .no{font-size:18px;font-weight:800;letter-spacing:-.2px;color:var(--ink);font-variant-numeric:tabular-nums}
+.acct .nm{font-size:13px;font-weight:700;color:var(--accent-d)}
+.acct .cpbtn{font-size:11.5px;padding:3px 9px}
+/* ── 로그인 (2026-08-12) ── */
+.gate{position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
+.gbox{width:100%;max-width:370px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:26px 22px 22px}
+.gbox .mark{margin:0 auto 12px}
+.gt{font-size:18px;font-weight:800;text-align:center;letter-spacing:-.4px}
+.gs{font-size:11.5px;color:var(--muted);text-align:center;margin-top:4px;line-height:1.6}
+.gf{margin-top:16px;display:flex;flex-direction:column;gap:9px}
+.gin{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:12px 13px;font-size:15px;background:var(--bg);color:var(--ink);outline:none;font-family:inherit}
+.gin:focus{border-color:var(--accent)}
+.gbtn{width:100%;border:none;background:var(--accent);color:#fff;padding:13px;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:3px}
+.gbtn:hover{background:var(--accent-d)}
+.gbtn:disabled{opacity:.55;cursor:default}
+.gbtn.ghost{background:var(--chip);color:var(--muted);margin-top:0}
+.gbtn.ghost:hover{background:var(--line)}
+.gerr{font-size:12px;color:var(--up);text-align:center;min-height:16px;font-weight:600}
+.gok{font-size:12px;color:var(--accent);text-align:center;min-height:16px;font-weight:600}
+.ghelp{margin-top:14px;padding-top:12px;border-top:1px solid var(--line2);font-size:11px;color:var(--muted);text-align:center;line-height:1.7}
+.gnote{font-size:11px;color:var(--muted);line-height:1.6;margin:-4px 2px 2px}
+.gnote b{color:var(--accent-d)}
+/* ── 메뉴 · 서브페이지 (2026-08-12) ── */
+.menu{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+.mbtn{flex:1;min-width:110px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);padding:10px 8px;border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:var(--shadow);transition:.12s}
+.mbtn:hover{border-color:var(--accent);color:var(--accent-d)}
+.mbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.subhd{display:flex;align-items:center;gap:10px;margin-top:14px}
+.backb{border:1.5px solid var(--line);background:var(--card);color:var(--muted);padding:7px 13px;border-radius:20px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+.backb:hover{border-color:var(--accent);color:var(--accent)}
+.subt{font-size:17px;font-weight:800;letter-spacing:-.4px}
+.subs{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.6}
+.daygrp{margin-top:18px}
+.dayhd{font-size:13px;font-weight:800;color:var(--accent-d);background:var(--soft);border:1px solid var(--line);border-radius:20px;padding:5px 14px;display:inline-block}
+.chg{font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px;align-self:flex-start;white-space:nowrap}
+.chg.new{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-d)}
+.chg.up{background:color-mix(in srgb,var(--up) 15%,transparent);color:var(--up)}
+.chg.down{background:color-mix(in srgb,var(--down) 15%,transparent);color:var(--down)}
+.chg.out{background:var(--chip);color:var(--muted)}
+.chg.ev{background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold)}
+.recc{font-size:11.5px;line-height:1.6;color:var(--accent-d);background:var(--soft);border-radius:8px;padding:7px 9px;margin-top:2px}
+/* 추천상품 출처 배지 — 수동 추천은 계속, 소식글은 10일 뒤 자동으로 내려간다 */
+.recb{font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px;align-self:flex-start}
+.recb.rec{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-d)}
+.recb.news{background:color-mix(in srgb,var(--down) 15%,transparent);color:var(--down)}
+.ntc{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:11px;box-shadow:var(--shadow)}
+.ntc.imp{border-left-color:var(--up)}
+.ntc .nt{font-size:15px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ntc .nd{font-size:11px;color:var(--muted);margin-top:3px}
+.ntc .nb{font-size:13px;line-height:1.75;margin-top:9px;white-space:pre-wrap}
+.impb{font-size:10px;font-weight:800;color:#fff;background:var(--up);padding:2px 7px;border-radius:5px}
+/* 📢 공지 더보기 — 첫 화면을 공지가 다 먹지 않게 1건만 펼치고 나머지는 접는다 (2026-08-19) */
+.ntcmore{margin-top:8px}
+.ntcmore>summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:7px 12px;background:var(--chip);border-radius:9px;list-style:none;user-select:none}
+.ntcmore>summary::-webkit-details-marker{display:none}
+.ntcmore>summary:hover{color:var(--accent);background:var(--soft)}
+/* 유통시트에서 살구색으로 칠해둔 상품 = 조업은 되는데 입고가 일정치 않은 것 (사장님 2026-08-12) */
+.card.hot{background:color-mix(in srgb,#fce5cd 55%,var(--card));border-color:color-mix(in srgb,var(--gold) 45%,var(--line))}
+@media(prefers-color-scheme:dark){.card.hot{background:color-mix(in srgb,#7a4a1c 30%,var(--card))}}
+.hotb{font-size:10px;font-weight:800;color:var(--gold);background:color-mix(in srgb,var(--gold) 18%,transparent);padding:2px 7px;border-radius:5px;align-self:flex-start}
+.hotnote{margin-top:11px;background:color-mix(in srgb,#fce5cd 55%,var(--card));border:1px solid color-mix(in srgb,var(--gold) 45%,var(--line));border-radius:11px;padding:9px 12px;font-size:11.5px;line-height:1.6;color:var(--ink)}
+@media(prefers-color-scheme:dark){.hotnote{background:color-mix(in srgb,#7a4a1c 30%,var(--card))}}
+/* 품절은 상품명만 빨갛게, 그 날짜 맨 밑에 모아둔다 (사장님 2026-08-12)
+   — 품절 글은 링크가 이동해 내용이 없는 경우가 많고, 어차피 스펙을 볼 이유가 없다 */
+.soldwrap{margin-top:10px;background:color-mix(in srgb,var(--up) 7%,var(--card));border:1px solid color-mix(in srgb,var(--up) 30%,var(--line));border-radius:12px;padding:10px 13px}
+.soldhd{font-size:12px;font-weight:800;color:var(--up)}
+.soldmsg{font-size:11.5px;line-height:1.7;color:var(--ink);margin:5px 0 9px}
+.soldlist{display:flex;flex-wrap:wrap;gap:6px}
+.soldit{font-size:12.5px;font-weight:700;color:var(--up);background:color-mix(in srgb,var(--up) 12%,transparent);border:1px solid color-mix(in srgb,var(--up) 28%,transparent);border-radius:16px;padding:4px 12px}
+.mbtn .tapb{display:block;font-size:9.5px;font-weight:700;color:var(--accent);margin-top:2px;letter-spacing:0}
+.mbtn.on .tapb{color:#fff;opacity:.85}
+/* 🔴 안 읽은 공지 배지 (사장님 2026-08-19) — 업체가 새 공지를 놓치지 않게 */
+.nbadge{display:inline-block;min-width:17px;height:17px;line-height:17px;padding:0 5px;margin-left:6px;
+  font-size:10.5px;font-weight:800;color:#fff;background:var(--up);border-radius:9px;vertical-align:middle;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--up) 22%,transparent);animation:nbpulse 1.6s ease-in-out 3}
+@keyframes nbpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+.mbtn.on .nbadge{background:#fff;color:var(--up);box-shadow:none}
+.ntcnew{font-size:11px;font-weight:800;color:#fff;background:var(--up);padding:2px 7px;border-radius:5px;margin-right:6px}
+.ntcbox{margin-top:11px}
+@media(max-width:640px){
+  .menu{gap:5px;margin-top:8px}
+  .mbtn{min-width:0;padding:9px 4px;font-size:11.5px;border-radius:9px}
+  .subt{font-size:15px}
+}
+.userbar{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.uname{font-size:12px;font-weight:700;color:var(--accent-d);background:var(--soft);padding:5px 11px;border-radius:20px;white-space:nowrap}
+.ubtn{border:1.5px solid var(--line);background:var(--card);color:var(--muted);padding:5px 10px;border-radius:20px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.ubtn:hover{border-color:var(--accent);color:var(--accent)}
+.ubtn.rl{border-color:var(--accent);background:var(--soft);color:var(--accent-d);font-weight:700}
+.ubtn.rl:hover{background:var(--accent);color:#fff}
+.pwnudge{margin-top:9px;background:color-mix(in srgb,var(--gold) 12%,transparent);border:1px solid color-mix(in srgb,var(--gold) 35%,transparent);color:var(--gold);border-radius:11px;padding:8px 12px;font-size:11.5px;font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pwnudge button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:16px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+/* ── 모바일: 검색·상품 우선 구조 (PC는 그대로) ── */
+@media(max-width:640px){
+  header{padding:10px 0 0}
+  .mark{width:32px;height:32px;font-size:13px;border-radius:9px}
+  h1{font-size:15.5px}
+  .sub{font-size:10px}
+  .noteTg{display:inline-block;margin-top:8px;border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:16px;padding:4px 11px;font-size:11px;cursor:pointer}
+  .note{display:none;margin-top:8px}
+  .note.open{display:block}
+  .acct{padding:9px 11px;gap:6px;margin-top:8px}
+  .acct .lb{font-size:11px}
+  .acct .no{font-size:16px}
+  .acct .nm{font-size:12px}
+  .controls{margin-top:8px;padding:8px 0 6px}
+  .search{padding:10px 12px;font-size:16px}
+  .lbl{margin:7px 0 4px;font-size:10px}
+  .row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .row::-webkit-scrollbar{display:none}
+  .chip{flex:none}
+  .grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .bd{padding:9px 9px;gap:4px}
+  .pn{font-size:12.5px}
+  .price{font-size:16px}
+  .spec{font-size:10px}
+  .banner{padding:9px 11px;margin-top:9px}
+  .banner .wn{font-size:13.5px}
+  body{padding-bottom:40px}
+  .brand{flex-wrap:wrap}
+  .userbar{width:100%;margin:6px 0 0;justify-content:flex-start}
+  .uname{font-size:11px;padding:4px 9px}
+  .ubtn{font-size:10.5px;padding:4px 8px}
+}
+
+/* 🧪 테스트본 표시 — 실사이트(catalog.html)와 절대 헷갈리면 안 된다 */
+body{border:5px solid #d64545 !important;box-sizing:border-box;min-height:100vh}
+.testbadge{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:#d64545;
+  padding:3px 9px;border-radius:6px;margin-left:8px;vertical-align:middle;letter-spacing:0}
+.testbar{position:sticky;top:0;z-index:99;background:#d64545;color:#fff;font-size:12px;font-weight:700;
+  text-align:center;padding:5px 10px;letter-spacing:0}
+</style></head><body>
+<div class="testbar">🧪 테스트본입니다 — 업체가 보는 실제 카탈로그가 아닙니다</div><div class="wrap">
+<header><div class="brand"><div class="mark">마</div><div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span><span class="testbadge">🧪 테스트본</span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
+<div class="userbar" id="userbar"></div></div>
+<div id="pwnudge"></div>
+<button class="noteTg" id="noteTg">🚚 합포장 · 문의 안내</button>
+<div class="note" id="note">🚚 <b>합포장(합배송)은 같은 창고 상품끼리만 됩니다.</b> 서로 다른 창고 상품은 각각 배송비가 붙어요. 창고를 골라 보세요.<br>💬 상품 문의 · 수량 문의 : <b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원비 팀장</b></div>
+<div class="acct">
+  <span class="lb">💳 입금 계좌</span>
+  <span class="no">기업은행 514-049965-04-014</span>
+  <span class="nm">주식회사 마스터</span>
+  <button class="cpbtn" data-cp="514-049965-04-014" data-cpmsg="계좌번호 복사됨">📋 복사</button>
+</div></header>
+<!-- 메뉴 — 검색창 위. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
+<div class="menu" id="menu">
+  <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
+  <button class="mbtn" data-go="change">📊 상품변동사항<span class="tapb">눌러서 확인</span></button>
+  <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
+</div>
+<!-- 공지는 메뉴 바로 밑에 그대로 펼쳐 보여준다 (사장님 2026-08-12) -->
+<div class="ntcbox" id="ntcbox"></div>
+<div id="mainView">
+<div class="controls">
+<!-- ⚠️ 크롬은 autocomplete="off"를 자주 무시하고 저장된 아이디("master")를 검색칸에 넣는다.
+     같은 문서에 로그인 폼이 있어서 생기는 일이라, 알 수 없는 autocomplete 값 + 아래 강제 비우기를 같이 쓴다. (2026-08-19 사장님 지적) -->
+<input class="search" id="q" type="search" placeholder="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…" autocomplete="off-catalog-search" name="catalog-search-nofill" data-form-type="other" data-lpignore="true" spellcheck="false">
+<div class="clicktip">👆 <b>상품명을 클릭</b>하시면 상품 상세 및 사진을 확인하실 수 있습니다!</div>
+<button class="allbtn" id="allbtn">🏠 전체 상품 보기</button>
+<div class="lbl">창고 선택</div><div class="row" id="whrow"></div>
+<div class="lbl" id="catlbl">카테고리 선택</div><div class="row" id="catrow"></div>
+</div>
+<div class="load" id="load">⏳ 상품을 불러오는 중입니다…</div>
+<div id="view"></div><div class="empty" id="empty" style="display:none">검색 결과가 없습니다.</div>
+</div>
+<div id="subView" style="display:none"></div>
+<footer id="ft">마스터 유통 상품 카탈로그</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- ── 로그인 화면 (2026-08-12) ── -->
+<div class="gate" id="gate">
+  <div class="gbox">
+    <div class="mark">마</div>
+    <div class="gt">마스터 유통 카탈로그<span class="ver" id="gver"></span><span class="testbadge">🧪 테스트본</span></div>
+    <div class="gs" id="gsub">거래처 전용입니다.<br>받으신 아이디로 로그인해 주세요.</div>
+
+    <div class="gf" id="loginForm">
+      <input class="gin" id="li_id" type="text" placeholder="아이디" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <input class="gin" id="li_pw" type="password" placeholder="비밀번호" autocomplete="current-password">
+      <div class="gerr" id="li_err"></div>
+      <button class="gbtn" id="li_btn">로그인</button>
+      <button class="gbtn ghost" id="li_signup">처음이신가요? 회원가입</button>
+    </div>
+
+    <div class="gf" id="signForm" style="display:none">
+      <input class="gin" id="sg_name" type="text" placeholder="업체명 (사업자등록증상 상호)" autocomplete="organization">
+      <div class="gnote">※ 업체명은 <b>사업자등록증에 적힌 상호 그대로</b> 적어주세요. <b>사업자등록번호(숫자)가 아닙니다.</b> 예) 마스터유통</div>
+      <div class="gerr" id="sg_name_warn" style="display:none"></div>
+      <input class="gin" id="sg_id" type="text" placeholder="아이디 (영문·숫자 3자 이상)" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <input class="gin" id="sg_pw" type="password" placeholder="비밀번호 (4자 이상)" autocomplete="new-password">
+      <input class="gin" id="sg_pw2" type="password" placeholder="비밀번호 다시 입력" autocomplete="new-password">
+      <div class="gerr" id="sg_err"></div>
+      <div class="gok" id="sg_ok"></div>
+      <button class="gbtn" id="sg_btn">회원가입</button>
+      <button class="gbtn ghost" id="sg_cancel">← 로그인으로 돌아가기</button>
+    </div>
+
+    <div class="gf" id="pwForm" style="display:none">
+      <input class="gin" id="pw_cur" type="password" placeholder="현재 비밀번호" autocomplete="current-password">
+      <input class="gin" id="pw_new" type="password" placeholder="새 비밀번호 (4자 이상)" autocomplete="new-password">
+      <input class="gin" id="pw_new2" type="password" placeholder="새 비밀번호 다시 입력" autocomplete="new-password">
+      <div class="gerr" id="pw_err"></div>
+      <div class="gok" id="pw_ok"></div>
+      <button class="gbtn" id="pw_btn">비밀번호 변경</button>
+      <button class="gbtn ghost" id="pw_cancel">취소</button>
+    </div>
+
+    <div class="ghelp" id="ghelp">처음 오셨으면 <b>회원가입</b>을 해주세요.<br>아이디·비밀번호 문의<br><b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원비 팀장</b></div>
+  </div>
+</div>
+<script>
+// ── 시트 읽기 (서비스계정 읽기전용, secretary.html 패턴) ──
+const SHEET_ID='1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';
+const EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
+const RENAME={'공지_당일생물':'당일생물'};
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
+const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+let _tk=null,_te=0;
+async function getAccessToken(){
+  const now=Math.floor(Date.now()/1000);
+  if(_tk&&_te-now>300)return _tk;
+  const enc=o=>btoa(JSON.stringify(o)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  // 비밀번호 변경(계정 시트 쓰기)이 있어 읽기전용→읽기쓰기 스코프 (2026-08-12 로그인 도입)
+  const toSign=enc({alg:'RS256',typ:'JWT'})+'.'+enc({iss:CLIENT_EMAIL,scope:'https://www.googleapis.com/auth/spreadsheets',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now});
+  const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(toSign));
+  const jwt=toSign+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const res=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`});
+  const d=await res.json();_tk=d.access_token;_te=now+3600;return _tk;
+}
+function parsePrice(s){
+  s=(s==null?'':s).toString().trim();
+  if(!s)return null;
+  const parts=s.split(/>|＞|→/).map(x=>x.trim());
+  const num=x=>{const m=(x.match(/[\d,]+/)||[''])[0].replace(/,/g,'');return m?parseInt(m,10):null;};
+  if(parts.length>=2){
+    const o=num(parts[0]),c=num(parts[parts.length-1]);
+    return{old:o,cur:c,dir:(c!=null&&o!=null)?(c>o?'up':(c<o?'down':'')):''};
+  }
+  return{old:null,cur:num(s),dir:''};
+}
+function parseNum(x){const m=((x==null?'':x).toString().match(/[\d,]+/)||[''])[0].replace(/,/g,'');return m?parseInt(m,10):0;}
+function linkOf(cell){
+  if(!cell)return'';
+  if(cell.hyperlink)return cell.hyperlink;
+  if(cell.textFormatRuns){for(const r of cell.textFormatRuns){if(r.format&&r.format.link&&r.format.link.uri)return r.format.link.uri;}}
+  const f=cell.userEnteredValue&&cell.userEnteredValue.formulaValue;
+  if(f){const m=f.match(/HYPERLINK\(\s*"([^"]+)"/i);if(m)return m[1];}
+  return'';
+}
+async function loadCatalog(){
+  const token=await getAccessToken();
+  if(!token)throw new Error('토큰 발급 실패');
+  const meta=await(await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties(title,hidden)`,{headers:{Authorization:'Bearer '+token}})).json();
+  if(meta.error)throw new Error('시트 접근 실패 ('+meta.error.status+') — 공유 권한을 확인해 주세요');
+  const tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0).map(p=>p.title);
+  const ranges=tabs.map(t=>'ranges='+encodeURIComponent(`'${t.replace(/'/g,"''")}'!A1:N400`)).join('&');
+  const fields='sheets(properties.title,data.rowData.values(formattedValue,hyperlink,textFormatRuns(format.link.uri),userEnteredValue.formulaValue))';
+  const grid=await(await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?${ranges}&fields=${encodeURIComponent(fields)}`,{headers:{Authorization:'Bearer '+token}})).json();
+  if(grid.error)throw new Error('데이터 로드 실패 ('+grid.error.status+')');
+  const groups=[];
+  for(const sh of (grid.sheets||[])){
+    const name=sh.properties.title;
+    const rows=((sh.data&&sh.data[0]&&sh.data[0].rowData)||[]).map(r=>r.values||[]);
+    if(rows.length<2)continue;
+    const disp=rows.map(r=>r.map(c=>(c&&c.formattedValue)||''));
+    // 헤더행: '상품명'+'공급가' 있는 행 탐색 (당일생물 탭은 공지 텍스트 아래 22행쯤에 표가 있어 넉넉히 훑는다)
+    let hr=-1;
+    for(let r=0;r<Math.min(40,disp.length);r++){const j=disp[r].join('|');if(j.indexOf('상품명')>=0&&j.indexOf('공급가')>=0){hr=r;break;}}
+    if(hr<0)continue;
+    const H=disp[hr];
+    if(/원가|공급처|기존가/.test(H.join('|')))continue; // 내부 작업탭 가드
+    const col=labels=>{for(let i=0;i<H.length;i++)for(const k of labels)if(H[i].indexOf(k)>=0)return i;return -1;};
+    const ci={name:col(['상품명']),price:col(['공급가']),tax:col(['면과세','면/과세','과세']),cut:col(['발주마감','마감']),exp:col(['유통기한']),wh:col(['창고명'])};
+    if(ci.name<0||ci.price<0)continue;
+    // '택배비' 헤더가 두 번(택배사명/금액)인 탭이 있음 → 값을 보고 판별: 숫자면 배송비, 택배사명이면 택배사
+    const shipIdxs=[];for(let i=0;i<H.length;i++)if(H[i].indexOf('택배')>=0)shipIdxs.push(i);
+    let shipCol=-1,courierCol=-1;
+    for(const idx of shipIdxs){
+      let num=0,courier=0;
+      for(let r=hr+1;r<Math.min(hr+12,disp.length);r++){
+        const v=(disp[r][idx]||'').trim();if(!v)continue;
+        if(/택배|통운|로젠|우체국|경동|천일|합동|화물/.test(v))courier++;
+        else if(/[\d,]/.test(v)||v.indexOf('무료')>=0)num++;
+      }
+      if(courier>num){if(courierCol<0)courierCol=idx;}
+      else if(shipCol<0)shipCol=idx;
+    }
+    const refCol=(ci.cut>=0)?ci.cut+1:-1;
+    const products=[];
+    for(let r=hr+1;r<disp.length;r++){
+      const row=disp[r];
+      const nm=(row[ci.name]||'').trim();
+      if(!nm||nm==='상품명')continue;
+      const pr=parsePrice(row[ci.price]);
+      if(!pr||pr.cur==null)continue;
+      products.push({
+        name:nm,
+        url:linkOf(rows[r][ci.name]),
+        price:pr,
+        ship:(shipCol>=0?parseNum(row[shipCol]):0),
+        courier:(courierCol>=0?(row[courierCol]||'').trim():''),
+        tax:(ci.tax>=0?(row[ci.tax]||'').trim():''),
+        cut:(ci.cut>=0?(row[ci.cut]||'').trim():''),
+        ref:(refCol>=0&&refCol<row.length?(row[refCol]||'').trim():''),
+        srcWh:(ci.wh>=0?(row[ci.wh]||'').trim():'')
+      });
+    }
+    // 당일생물처럼 한 탭에 여러 창고 상품이 섞인 경우 — 상품마다 창고 배지를 달아준다
+    const mixed=new Set(products.map(p=>p.srcWh).filter(Boolean)).size>1;
+    if(products.length)groups.push({wh:(RENAME[name]||name),products,mixed});
+  }
+  // 당일생물을 맨 앞으로
+  groups.sort((a,b)=>(a.wh==='당일생물'?-1:0)-(b.wh==='당일생물'?-1:0));
+  return groups;
+}
+// 사진·스펙 캐시는 도구시트 '상품이미지_v2' 탭 — media-updater(북마클릿)가 갱신한다.
+// 상품명 기준으로 찾는다(유통시트 하이퍼링크는 낡은 게 섞여 있어 id로 맞추면 어긋남 — 2026-08-07).
+const DOGU_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
+const pkey=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+async function loadMedia(){
+  const token=await getAccessToken();
+  if(!token)return {};
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품이미지_v2'!A1:F3000"),{headers:{Authorization:'Bearer '+token}});
+  const j=await r.json();
+  if(j.error)return {};
+  const m={};
+  const rows=j.values||[];
+  for(let i=1;i<rows.length;i++){
+    const v=rows[i]||[];
+    const nm=(v[0]||'').trim();
+    if(!nm)continue;
+    const rec={img:v[2]||'',spec:(v[3]?String(v[3]).split('\n'):[]),link:v[5]||''};
+    m['n:'+pkey(nm)]=rec;
+    if(v[1])m[String(v[1]).trim()]=rec;   // id로도 찾을 수 있게(예전 방식 호환)
+  }
+  return m;
+}
+// ── 상품 링크 정본 (2026-08-19 소스 교체) ──────────────────────
+// 도구시트 '상품링크' 탭. 스케줄 작업이 매시간 통째로 새로 받아 덮어쓴다.
+// 원본은 '상품정보 업데이트' 시트의 '링크' 탭(A상품명 B링크) — 사장님이 관리하는 정본.
+// 예전엔 masterc 동기화 목록(index.php?module=rkdoccopy)을 썼는데 2,170건 중 절반만 담겨 있었다.
+// 예전엔 '상품이미지_v2'의 링크를 썼는데, 그건 사진 채울 때만 저장돼서
+// 사진이 이미 있는 상품은 몇 달이고 갱신이 안 됐다(2026-08-18 왕 바지락 사고).
+// 📦 합포장 가능 수량 — 도구시트 '합포장' 탭 (A창고 B상품명 C수량 D갱신일 E출처).
+// 매칭은 상품명만 쓴다. 창고명은 참고용 — 이 표의 창고는 공급처 약칭이라 유통시트 창고탭과 다른 게 많다.
+async function loadHap(){
+  const token=await getAccessToken();
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'합포장'!A2:E1000"),{headers:{Authorization:'Bearer '+token}});
+  const j=await r.json();
+  if(j.error)return {};
+  const m={};
+  for(const v of (j.values||[])){
+    const nm=(v[1]||'').trim(); const q=parseInt((v[2]||'').toString().replace(/[^\d]/g,''),10);
+    if(!nm||!(q>0))continue;
+    const k=pkey(nm); if(!m[k])m[k]=q;
+  }
+  return m;
+}
+async function loadLinks(){
+  const token=await getAccessToken();
+  // ⚠️ 범위는 정본 건수보다 넉넉해야 한다 — 1400으로 두면 2,170건 중 뒤가 통째로 잘린다(2026-08-19).
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품링크'!A2:F2400"),{headers:{Authorization:'Bearer '+token}});
+  const j=await r.json();
+  if(j.error)return {};
+  const m={};
+  for(const v of (j.values||[])){
+    const nm=(v[0]||'').trim(); if(!nm)continue;
+    m[pkey(nm)]={url:(v[2]||'').trim(),state:(v[3]||'').trim()};
+  }
+  return m;
+}
+// ── 카테고리: 도구시트 '상품분류' 탭 — 사장님·원비가 media-updater 페이지에서 분류한 것을 그대로 따른다 ──
+async function loadCats(){
+  const token=await getAccessToken();
+  if(!token)return {};
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품분류'!A2:B5000"),{headers:{Authorization:'Bearer '+token}});
+  const j=await r.json();
+  if(j.error)return {};
+  const m={};
+  for(const v of (j.values||[])){const nm=(v[0]||'').trim(),c=(v[1]||'').trim();if(nm&&c)m[pkey(nm)]=c;}
+  return m;
+}
+// ── 판매량 (2026-08-12 사장님 지시) ────────────────────────────────
+// 도구시트 '상품별판매'는 A열 상품명 + 날짜마다 [수량·매출·마진] 3칸이 옆으로 붙는 가로 표(211열).
+// 전부 읽으면 무거워서 '최근 30일(=수량 칸 30개)' 구간만 잘라 읽는다.
+// 정렬 기본값을 여기 순서로 두면 카탈로그에 계절감이 생긴다 — 요즘 나가는 게 위로 올라온다.
+const SALES_DAYS=30;
+async function loadSales(){
+  const token=await getAccessToken();
+  const hr=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품별판매'!A1:ZZ1"),{headers:{Authorization:'Bearer '+token}})).json();
+  if(hr.error)return {};
+  const H=(hr.values&&hr.values[0])||[];
+  const qi=[];for(let i=1;i<H.length;i++)if(/수량/.test(H[i]||''))qi.push(i);
+  if(!qi.length)return {};
+  const use=qi.slice(-SALES_DAYS);
+  const colL=n=>{let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-m-1)/26;}return s;};
+  const from=use[0],to=use[use.length-1];
+  const rq=['A2:A1000',colL(from)+'2:'+colL(to)+'1000']
+    .map(r=>'ranges='+encodeURIComponent("'상품별판매'!"+r)).join('&');
+  const g=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values:batchGet?'+rq,{headers:{Authorization:'Bearer '+token}})).json();
+  if(g.error)return {};
+  const names=((g.valueRanges&&g.valueRanges[0]&&g.valueRanges[0].values)||[]);
+  const nums=((g.valueRanges&&g.valueRanges[1]&&g.valueRanges[1].values)||[]);
+  const m={};
+  for(let r=0;r<names.length;r++){
+    const nm=((names[r]||[])[0]||'').trim();
+    if(!nm)continue;
+    const row=nums[r]||[];
+    let s=0;
+    for(const i of use){const v=row[i-from];if(v==null||v==='')continue;const n=parseInt(String(v).replace(/[^\d-]/g,''),10);if(!isNaN(n))s+=n;}
+    if(s)m[pkey(nm)]=(m[pkey(nm)]||0)+s;
+  }
+  return m;
+}
+// ── 렌더링 ──
+let GROUPS=[],MEDIA={},ALL=[],SALES={},LINKS={};
+// 유통시트 '상품변동사항'에서 살구색으로 칠해둔 상품 = 조업은 되는데 입고가 일정치 않아
+// 상시 판매를 권하지 않는 것. 카탈로그 카드에도 같은 색을 입힌다. (사장님 2026-08-12)
+let TINT={};
+// 가장 최근 적용날짜에 변동이 있었던 상품 = '오늘 업데이트된 것'. 판매순보다 앞에 세운다.
+// 배지는 달지 않는다 — 순서로만 은근히 알리는 게 사장님 의도 (2026-08-18).
+let FRESH={};
+// 💹 상품별 최근 인상/인하 — 면세·과세 배지 옆에 붙인다 (사장님 2026-08-19). 최근 5개 적용날짜까지만.
+let KIND={};
+// 📦 합포장 가능 수량 — 도구시트 '합포장' 탭 (사장님 2026-08-19: 업체 문의가 제일 많은 항목).
+// 관리팀이 게시판 문의글을 매주 취합해 늘린다. 전체 상품이 아니라 문의 많은 것 위주라 없는 상품이 더 많다.
+let HAP={};
+const st={q:'',wh:'전체',mode:'group',cat:'전체'};
+// 기본 정렬 = 최근 판매량 많은 순 (안 팔린 것은 뒤로, 같으면 원래 시트 순서 유지)
+// 정렬 = ①오늘 변동 있었던 것 ②최근 판매량 많은 순 ③시트 순서
+// 전체·창고별·검색 모두 이 함수를 타므로 한 군데만 고치면 다 같이 바뀐다.
+function bySales(list){
+  return list.map((p,i)=>({p,i,f:FRESH[pkey(p.name)]?1:0,q:SALES[pkey(p.name)]||0}))
+             .sort((a,b)=>(b.f-a.f)||(b.q-a.q)||(a.i-b.i)).map(x=>x.p);
+}
+function buildAll(){
+  ALL=[];
+  GROUPS.forEach(g=>{
+    g.products.forEach(p=>{
+      p.group=g.wh;
+      p.effWh=p.srcWh||g.wh;   // 배지 클릭 기준: 창고명 칸이 있으면 그 창고, 없으면 탭 이름
+      p.qty=SALES[pkey(p.name)]||0;
+      ALL.push(p);
+    });
+    g.products=bySales(g.products);   // 창고 안에서도 많이 나간 순
+  });
+  ALL=bySales(ALL);
+}
+const $=id=>document.getElementById(id);
+const whrow=$('whrow'),catrow=$('catrow'),view=$('view'),empty=$('empty');
+function won(n){return(n||0).toLocaleString('ko-KR');}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(m){const t=$('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',1800);}
+// 원본 사진이 장당 0.3~1MB라 그대로 쓰면 거래처 휴대폰에서 느림 → 리사이즈 프록시로 썸네일(약 30KB).
+// 프록시가 죽으면 원본으로, 원본도 실패하면 '사진 준비중'으로 단계 폴백.
+function thumbUrl(u){
+  return 'https://images.weserv.nl/?url='+encodeURIComponent(u.replace(/^https?:\/\//,''))+'&w=440&h=330&fit=cover&output=webp&q=72';
+}
+function thumbFail(el){
+  const full=el.getAttribute('data-full');
+  if(full&&el.src!==full){el.src=full;el.removeAttribute('data-full');return;}
+  el.outerHTML='<div class="nothumb">사진 준비중</div>';
+}
+function priceHtml(p){
+  if(p.cur==null)return '<div class="price" style="font-size:13px;color:var(--gold)">수량·단가 문의</div>';
+  const cls='price'+(p.dir==='up'?' up':(p.dir==='down'?' down':''));
+  const oldh=(p.old!=null&&p.old!==p.cur)?'<span class="old">'+won(p.old)+'원</span>':'';
+  return oldh+'<div class="'+cls+'">'+won(p.cur)+'<small>원</small></div>';
+}
+// extra = 카드 맨 아래 덧붙임(추천 코멘트), top = 카드 위쪽 배지(추천상품/소식글)
+// ⚠️ 목록에 쓸 땐 반드시 list.map(p=>card(p)) — .map(card) 로 넘기면 배열 번호가 extra로 새어 들어간다
+// 면세/과세 배지 + 그 옆의 인상·인하 배지 (사장님 2026-08-19)
+// 둘 다 없으면 빈 문자열이라 카드 모양이 예전과 같다.
+function tagRow(p,taxc){
+  const t=p.tax?('<span class="tg '+taxc+'">'+esc(p.tax)+'</span>'):'';
+  const k=KIND[pkey(p.name)];
+  const c=k?('<span class="tg '+(k.up?'up':'down')+'" title="'+esc(k.day||'')+' 적용">'+(k.up?'▲ 인상':'▼ 인하')+'</span>'):'';
+  // 📦 합포장 — 업체 문의가 제일 많은 항목이라 카드에서 바로 보이게 (사장님 2026-08-19).
+  // 데이터가 없는 상품은 아무것도 안 붙인다. 모르면서 아는 척하는 것보다 낫다.
+  const h=HAP[pkey(p.name)];
+  const hb=h?('<span class="tg hap" title="한 박스에 이 수량까지 합포장 가능합니다 (같은 창고 상품끼리)">📦 합포장 '+h+'개</span>'):'';
+  return (t||c||hb)?('<div class="tgrow">'+t+c+hb+'</div>'):'';
+}
+function card(p,extra,top){
+  const m=MEDIA['n:'+pkey(p.name)]||(p.url?(MEDIA[(p.url.match(/(\d{5,})/)||[])[1]]||null):null);
+  const taxc=(p.tax&&p.tax.indexOf('과세')>=0&&p.tax.indexOf('면')<0)?'tx':'tax';
+  // 링크 우선순위: ①masterc 동기화 목록('상품링크') ②사진 캐시 ③유통시트 하이퍼링크
+  const lk=LINKS[pkey(p.name)];
+  const href=(lk&&lk.url)||(m&&m.link)||p.url||'';
+  const nm=href?('<a href="'+esc(href)+'" target="_blank" rel="noopener">'+esc(p.name)+'</a>'):esc(p.name);
+  const cr=p.courier?esc(p.courier)+' ':'';
+  const sh=p.ship<0?'':(p.ship>0?(cr+'<b>'+won(p.ship)+'원</b>'):cr+'<span class="free">무료배송</span>');
+  // 단독(유)/단독(무)/단독(선물) 탭 상품은 창고명 앞에 단독 표기를 단다 (사장님 2026-08-09)
+  const dd=(p.group||'').indexOf('단독')===0;
+  const bt=dd?(p.group+(p.srcWh?' · '+p.srcWh:'')):(p.srcWh||p.group||'');
+  const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(thumbUrl(m.img))+'" data-full="'+esc(m.img)+'" alt="'+esc(p.name)+'" loading="lazy" onerror="thumbFail(this)">')
+                        :'<div class="nothumb">사진 준비중</div>';
+  const spec=(m&&m.spec&&m.spec.length)?('<div class="spec">'+m.spec.map(s=>'<div>'+esc(s)+'</div>').join('')+'</div>'):'';
+  // 당일생물 상품엔 '입고 불안정'을 붙이지 않는다 — 그날 들어온 것만 파는 자리라
+  // 입고가 일정치 않다는 표시 자체가 모순이다 (사장님 2026-08-18)
+  const hot=!!TINT[pkey(p.name)]&&p.group!=='당일생물'&&p.effWh!=='당일생물';
+  return '<div class="card'+(hot?' hot':'')+'">'+thumb+'<div class="bd">'
+    +(top||'')
+    +(hot?'<span class="hotb">⚠️ 입고 불안정</span>':'')
+    +(bt?'<button class="whb" data-wh="'+esc(p.effWh||'')+'" title="이 창고 상품만 보기">📦 '+esc(bt)+'</button>':'')
+    +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
+    +tagRow(p,taxc)
+    +(p.ref?'<div class="rf">'+esc(p.ref.slice(0,55))+'</div>':'')
+    +spec
+    +'<div class="prow"><div>'+priceHtml(p.price)+'</div><div class="ship">'+sh+(p.cut?'<br>'+esc(p.cut):'')+'</div></div>'
+    +(extra||'')
+    +'</div></div>';
+}
+function buildWhChips(){
+  whrow.innerHTML='';
+  const mk=(label,on,fn)=>{const b=document.createElement('button');b.className='chip'+(on?' on':'');b.textContent=label;b.onclick=fn;whrow.appendChild(b);};
+  // '전체' 칩 없음 — 선택된 창고를 다시 누르면 해제되어 전체로 (사장님 2026-08-09)
+  // 창고를 바꾸면 카테고리 필터는 초기화 (창고 안에서는 배너 아래 창고 내 카테고리 버튼을 쓴다)
+  GROUPS.forEach(g=>{
+    const on=st.mode==='group'&&st.wh===g.wh;
+    mk(g.wh+' '+g.products.length,on,()=>{if(on){st.wh='전체';}else{st.wh=g.wh;}st.mode='group';st.cat='전체';buildWhChips();render();});
+  });
+  if(st.mode==='src')mk('📦 '+st.wh+' ✕',true,()=>{st.wh='전체';st.mode='group';st.cat='전체';buildWhChips();render();});
+}
+// 카테고리 칩은 전체 상품 기준 — 창고 선택과 무관하게 항상 같은 분류를 보여준다 (사장님 2026-08-09)
+function buildCatChips(){
+  const counts={};let un=0;
+  ALL.forEach(p=>{if(!p.cat||p.cat==='미분류')un++;else counts[p.cat]=(counts[p.cat]||0)+1;});
+  const cats=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  // '전체' 칩 없음 — 선택된 카테고리를 다시 누르면 해제 (사장님 2026-08-09)
+  let h='';
+  cats.forEach(c=>{h+='<button class="chip sm'+(st.cat===c?' on':'')+'" data-c="'+esc(c)+'">'+esc(c)+' '+counts[c]+'</button>';});
+  if(un)h+='<button class="chip sm'+(st.cat==='미분류'?' on':'')+'" data-c="미분류" style="opacity:.55">미분류 '+un+'</button>';
+  catrow.innerHTML=h;
+  catrow.querySelectorAll('.chip').forEach(b=>{b.onclick=()=>{const c=b.getAttribute('data-c');st.cat=(st.cat===c)?'전체':c;buildCatChips();render();};});
+}
+function render(){
+  const q=st.q.toLowerCase();
+  if(q){
+    catrow.style.display='none';$('catlbl').style.display='none';
+    const hits=ALL.filter(p=>p.name.toLowerCase().indexOf(q)>=0);
+    empty.style.display=hits.length?'none':'block';
+    view.innerHTML='<div class="meta"><div><b>'+won(hits.length)+'</b>개 · 전체 창고 검색</div><div>합포장은 같은 창고끼리만</div></div><div class="grid">'+hits.map(function(p){return card(p);}).join('')+'</div>';
+    return;
+  }
+  const whSel=(st.mode==='src')||(st.wh!=='전체');
+  // 창고 안에서는 상단(전체 기준) 카테고리 줄 대신, 배너 아래 창고 내 카테고리 버튼을 쓴다 (사장님 2026-08-09)
+  catrow.style.display=whSel?'none':'flex';
+  $('catlbl').style.display=whSel?'none':'';
+  if(!whSel)buildCatChips();
+  let items,bannerHtml='';
+  if(st.mode==='src'){
+    items=ALL.filter(p=>p.effWh===st.wh);
+    bannerHtml='<div class="banner"><span class="wn">📦 '+esc(st.wh)+'</span><span class="pk">이 창고에서 판매하는 상품만 보는 중</span><span class="sp">위 [✕]를 누르면 전체로</span></div>';
+  }else if(st.wh==='전체'){
+    items=ALL;
+  }else{
+    const g=GROUPS.find(x=>x.wh===st.wh);
+    items=g?g.products:[];
+    if(g){
+      const ships={};items.forEach(p=>{ships[p.ship]=(ships[p.ship]||0)+1;});
+      let sh=Object.keys(ships).sort((a,b)=>ships[b]-ships[a])[0];sh=parseInt(sh,10)||0;
+      const sht=sh>0?('기본 배송비 <b>'+won(sh)+'원</b>'):'<b class="free">무료배송</b>';
+      bannerHtml='<div class="banner"><span class="wn">📦 '+esc(g.wh)+(g.mixed?'':' 창고')+'</span><span class="pk">'+(g.mixed?'상품마다 창고가 달라요 — 합포장은 같은 창고끼리만':'이 창고 상품끼리만 합포장')+'</span><span class="sp">'+sht+'</span></div>';
+    }
+  }
+  const list=items.filter(p=>st.cat==='전체'||(st.cat==='미분류'?(!p.cat||p.cat==='미분류'):p.cat===st.cat));
+  empty.style.display=list.length?'none':'block';
+  let headHtml;
+  if(whSel){
+    const counts={};let un=0;
+    items.forEach(p=>{if(!p.cat||p.cat==='미분류')un++;else counts[p.cat]=(counts[p.cat]||0)+1;});
+    let chips='';
+    Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).forEach(c=>{chips+='<button class="chip sm lcchip'+(st.cat===c?' on':'')+'" data-c="'+esc(c)+'">'+esc(c)+' '+counts[c]+'</button>';});
+    if(un)chips+='<button class="chip sm lcchip'+(st.cat==='미분류'?' on':'')+'" data-c="미분류" style="opacity:.55">미분류 '+un+'</button>';
+    headHtml='<div class="lcbar"><span class="lcn"><b>'+won(list.length)+'</b>개 상품</span>'+chips+'</div>';
+  }else{
+    headHtml='<div class="meta"><div><b>'+won(list.length)+'</b>개 상품'+(st.cat!=='전체'?' · '+esc(st.cat):'')+'</div><div>합포장은 같은 창고끼리만</div></div>';
+  }
+  view.innerHTML=bannerHtml+headHtml
+    +'<div class="grid">'+list.map(function(p){return card(p);}).join('')+'</div>';
+}
+document.addEventListener('click',e=>{
+  const w=e.target.closest('.whb');
+  if(w){st.wh=w.getAttribute('data-wh');st.mode='src';st.cat='전체';st.q='';$('q').value='';buildWhChips();render();
+    if(location.hash)location.hash='';   // 변동사항·추천 페이지에서 눌렀으면 카탈로그로 돌아온다
+    window.scrollTo({top:0,behavior:'smooth'});return;}
+  const lc=e.target.closest('.lcchip');
+  if(lc){const c=lc.getAttribute('data-c');st.cat=(st.cat===c)?'전체':c;render();return;}
+  const b=e.target.closest('.cpbtn');if(!b)return;
+  navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast(b.getAttribute('data-cpmsg')||'상품명 복사됨'));
+});
+/* 🔒 크롬 자동완성이 검색칸에 저장된 아이디("master")를 밀어넣는 문제 (2026-08-19)
+   ⚠️ 이게 단순한 미관 문제가 아니다 — 검색어가 들어가면 결과가 0개라
+      **업체 눈에는 상품이 하나도 없는 것처럼 보인다.** 아이디/비번 저장한 업체는 전부 이 상태.
+   앞서 autocomplete 속성 → 값 비우기 → readonly 잠금까지 해봤지만 크롬은 그걸 다 우회했다.
+   그래서 방향을 바꿨다: **사람이 실제로 키를 누르거나 붙여넣기 전까지는 검색을 아예 성립시키지 않는다.**
+   자동완성이 값을 넣어도 검색으로 취급하지 않고 즉시 되돌린다. */
+(function(){
+  const q=$('q');
+  let typed=false;                                   // 사람이 직접 입력한 적이 있는가
+  const markTyped=()=>{ typed=true; };
+  q.addEventListener('keydown',markTyped);
+  q.addEventListener('paste',markTyped);
+  q.addEventListener('compositionstart',markTyped);  // 한글 입력
+  q.addEventListener('input',e=>{
+    if(!typed){ e.target.value=''; if(st.q){ st.q=''; render(); } return; }  // 자동완성이 쏜 input은 무시
+    st.q=e.target.value.trim(); render();
+  });
+  // 자동완성은 input 이벤트 없이 값만 바꿔놓기도 한다. 사람이 손대기 전까지만 짧게 감시한다.
+  const guard=setInterval(()=>{
+    if(typed){ clearInterval(guard); return; }
+    if(q.value){ q.value=''; if(st.q){ st.q=''; render(); } }
+  },300);
+  // 뒤로가기 복원(bfcache)으로 돌아왔을 때도 같은 일이 생긴다
+  window.addEventListener('pageshow',()=>{ if(!typed&&q.value){ q.value=''; if(st.q){st.q='';render();} } });
+})();
+$('noteTg').onclick=()=>$('note').classList.toggle('open');
+// 🏠 전체 상품 보기 — 창고·카테고리·검색 리셋 (사장님 2026-08-09)
+$('allbtn').onclick=()=>{st.wh='전체';st.mode='group';st.cat='전체';st.q='';$('q').value='';buildWhChips();render();window.scrollTo({top:0,behavior:'smooth'});};
+// ── 캐시 우선 표시: 한 번 본 기기는 직전 데이터로 즉시 그리고, 뒤에서 최신으로 갱신 ──
+const CK='TEST_catalog_cache_v2';
+function finishRender(atMs,fromCache){
+  buildAll();
+  if(st.mode==='group'&&st.wh!=='전체'&&!GROUPS.find(g=>g.wh===st.wh)){st.wh='전체';}
+  let total=ALL.length;
+  $('sub').textContent='창고 '+GROUPS.length+'곳 · 상품 '+total.toLocaleString()+'개';
+  const t=new Date(atMs).toLocaleString('ko-KR',{dateStyle:'short',timeStyle:'short'});
+  $('ft').innerHTML='마스터 유통 상품 카탈로그<br>'+(fromCache?('저장된 상품 기준 '+t+' · 최신 내용으로 갱신 중…'):('불러온 시각 '+t+' · 새로고침하면 시트 최신 내용이 반영됩니다'));
+  $('load').style.display='none';
+  buildWhChips();render();
+}
+async function startCatalog(){
+  let usedCache=false;
+  try{
+    const c=JSON.parse(localStorage.getItem(CK)||'null');
+    // ⚠️ TINT(입고 불안정 표시)는 캐시에서 되살리지 않는다 — 시트에서 색을 지워도
+    // 낡은 캐시 때문에 멀쩡한 상품에 경고가 남는다(2026-08-12 국내산 급냉 오징어 1팩).
+    // 잘못된 경고를 남기느니 최신이 도착할 때까지 잠깐 안 보이는 게 낫다.
+    if(c&&c.groups&&c.groups.length){GROUPS=c.groups;MEDIA=c.media||{};SALES=c.sales||{};LINKS=c.links||{};HAP=c.hap||{};TINT={};
+      if(c.noti){NOTI=c.noti;renderNoticeBox();}
+      usedCache=true;finishRender(c.at,true);}
+  }catch(e){}
+  try{
+    // 상품 사진·스펙 — 시트('상품이미지' 탭)가 최신본. 도구로 업데이트하면 여기 바로 반영된다.
+    // 시트를 못 읽으면 배포된 스냅샷(JSON)으로, 그것도 없으면 사진 없이 동작.
+    let media={},cats={},sales={};
+    try{
+      const r=await Promise.all([loadMedia().catch(()=>({})),loadCats().catch(()=>({})),loadSales().catch(()=>({})),
+                                 loadChanges().catch(()=>null),loadNotices().catch(()=>null),loadLinks().catch(()=>({})),
+                                 loadHap().catch(()=>({}))]);
+      media=r[0];cats=r[1];sales=r[2];
+      if(r[3]){CHG=r[3];buildTint();}   // 살구색 표시를 카탈로그 카드에도 입히려면 시작할 때 읽어야 한다
+      if(r[4]){NOTI=r[4];renderNoticeBox();}
+      if(r[5]&&Object.keys(r[5]).length)LINKS=r[5];
+      if(r[6]&&Object.keys(r[6]).length)HAP=r[6];   // 📦 합포장 — 같은 Promise.all이라 로딩이 느려지지 않는다
+    }catch(e){}
+    if(Object.keys(sales).length)SALES=sales;
+    if(!Object.keys(media).length){
+      try{ media=await(await fetch('data/product-media.json',{cache:'no-cache'})).json(); }catch(e){ media={}; }
+    }
+    const groups=await loadCatalog();
+    groups.forEach(g=>g.products.forEach(p=>{p.cat=cats[pkey(p.name)]||'미분류';}));
+    MEDIA=Object.keys(media).length?media:MEDIA;
+    GROUPS=groups;
+    finishRender(Date.now(),false);
+    // 서브페이지를 보고 있는 중에 최신 데이터가 도착하면 그 화면도 다시 그린다.
+    // (안 그러면 사진·스펙을 새로 받아왔는데도 '사진 준비중'이 그대로 남는다 — 2026-08-12 탱글 생물 중하)
+    if(location.hash.replace(/^#/,''))renderRoute();
+    try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,noti:NOTI,links:LINKS,hap:HAP})); }catch(e){}
+  }catch(e){
+    if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 메뉴 서브페이지 — 📊상품변동사항 / ⭐추천상품 / 📢공지사항 (2026-08-12 사장님 지시)
+// 주소 해시(#change/#rec/#notice)로 화면만 바꾼다. 페이지를 새로 받지 않으니 빠르고,
+// 폰 뒤로가기·브라우저 뒤로가기를 누르면 카탈로그로 그대로 돌아온다.
+// 추천상품·공지사항 내용은 '마스터 유통 상품 도구'(media-updater)에서 등록한다.
+// ══════════════════════════════════════════════════════════════════
+const subV=$('subView'),mainV=$('mainView'),menuEl=$('menu');
+let CHG=null,RECS=null,NOTI=null;
+function goBack(){ if(history.length>1)history.back(); else location.hash=''; }
+function subHead(t,s){
+  return '<div class="subhd"><button class="backb" onclick="goBack()">← 뒤로</button>'
+    +'<div><div class="subt">'+t+'</div>'+(s?'<div class="subs">'+s+'</div>':'')+'</div></div>';
+}
+// ── 1) 상품변동사항 — 유통시트 '상품변동사항' 탭 (카탈로그와 같은 카드로) ──
+// 값뿐 아니라 셀 배경색까지 읽는다 — 살구색(#fce5cd) 칠은 '입고 불안정' 표시라서
+// 화면에도 그대로 옮겨야 한다 (사장님 2026-08-12).
+async function loadChanges(){
+  const token=await getAccessToken();
+  const fl='sheets(data.rowData.values(formattedValue,effectiveFormat.backgroundColor))';
+  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID
+      +'?ranges='+encodeURIComponent("'상품변동사항'!A1:M400")+'&fields='+encodeURIComponent(fl),
+      {headers:{Authorization:'Bearer '+token}})).json();
+  if(j.error)throw new Error('상품변동사항을 읽지 못했습니다.');
+  const rd=((((j.sheets||[])[0]||{}).data||[])[0]||{}).rowData||[];
+  const rows=rd.map(r=>((r.values||[]).map(c=>(c&&c.formattedValue)||'')));
+  const white=b=>{const g=k=>(b[k]==null?0:b[k]);return g('red')>.97&&g('green')>.97&&g('blue')>.97;};
+  const tinted=i=>{const c=((rd[i]||{}).values||[])[7];const b=c&&c.effectiveFormat&&c.effectiveFormat.backgroundColor;return !!b&&!white(b);};
+  let hr=-1;
+  for(let i=0;i<Math.min(12,rows.length);i++){const s=(rows[i]||[]).join('|');if(s.indexOf('변동')>=0&&s.indexOf('상품명')>=0){hr=i;break;}}
+  if(hr<0)throw new Error('변동사항 표를 찾지 못했습니다.');
+  const notes=rows.slice(0,hr).map(r=>(r||[]).filter(Boolean).join(' ').trim()).filter(Boolean);
+  const items=[];
+  for(let i=hr+1;i<rows.length;i++){
+    const v=rows[i]||[],g=n=>(v[n]==null?'':String(v[n])).trim();
+    if(!g(7))continue;
+    items.push({src:g(0),day:g(2),kind:g(3),freq:g(4),wh:g(6),name:g(7),price:g(8),courier:g(9),ship:g(10),tax:g(11),memo:g(12),hot:tinted(i)});
+  }
+  return {notes,items};
+}
+function buildTint(){
+  TINT={};FRESH={};KIND={};
+  if(!(CHG&&CHG.items))return;
+  CHG.items.forEach(it=>{if(it.hot)TINT[pkey(it.name)]=1;});
+  // 시트가 최신 날짜부터라 첫 줄의 적용날짜가 가장 최근이다. 품절은 카탈로그에 없으니 제외.
+  let newest='';
+  for(const it of CHG.items){ if(it.day){newest=it.day;break;} }
+  if(!newest)return;
+  CHG.items.forEach(it=>{ if(it.day===newest&&!/품절/.test(it.kind))FRESH[pkey(it.name)]=1; });
+  // 💹 인상·인하 배지 (사장님 2026-08-19: "인상 인하는 면세 과세 옆에다가 노출 해주자")
+  // 최근 5개 적용날짜 안의 것만 — 그 이후엔 배지를 떼고 지금 가격만 보여준다 (사장님 2026-08-19 "5일로 해주고").
+  // CHG.items가 최신순이라 상품마다 처음 만난 것이 가장 최근 변동이다.
+  const days=[];
+  CHG.items.forEach(it=>{ if(it.day&&days.length<5&&days.indexOf(it.day)<0)days.push(it.day); });
+  CHG.items.forEach(it=>{
+    const k=pkey(it.name);
+    if(!it.day||days.indexOf(it.day)<0)return;
+    if(KIND[k])return;
+    if(/인상/.test(it.kind))KIND[k]={up:1,day:it.day};
+    else if(/인하/.test(it.kind))KIND[k]={up:0,day:it.day};
+  });
+}
+// 공지는 메뉴 바로 밑에 펼쳐 보여준다 — 최근 3건까지 (중요 공지가 위)
+/* 📢 공지는 1건만 펼치고 나머지는 접는다 (사장님 2026-08-19:
+   "공지사항 몇 개까지 보이게 할거야? 너무 많아지면 밑에 상품이 먼저 안 보일 거야")
+   카탈로그의 본질은 상품이다. 공지가 첫 화면을 다 먹으면 업체는 상품을 못 본다.
+   → 중요 공지(없으면 최신) 1건만 펼치고, 나머지는 "+N건 더보기" 한 줄로. 누르면 펼쳐진다. */
+/* 🔴 안 읽은 공지 알림 (사장님 2026-08-19: "신규 공지 띄우면 로그인했을 때
+   '공지 몇 건 안 봤어' 라고 알려줄 수 있어? 업체마다 다를 텐데")
+   → 업체마다 다르게 세려면 "누가 무엇을 봤는지"를 계정별로 남겨야 한다.
+     읽음 기록은 **그 기기의 localStorage에 업체 아이디별로** 둔다. 시트에 쓰지 않는 이유:
+     ① 업체가 카탈로그를 열 때마다 시트에 쓰면 느려진다(사장님: "업데이트는 딸깍이어야 한다")
+     ② 계정 시트에 업체별 기록을 남기면 관리할 게 늘어난다
+     기기를 바꾸면 한 번 더 뜨는데, 못 보고 지나치는 것보다 한 번 더 보는 쪽이 낫다.
+   공지 하나하나의 신원은 '제목+작성일'로 잡는다 — 시트에 공지 ID가 따로 없기 때문. */
+function ntcKey(n){ return (String(n.title||'').trim()+'|'+String(n.at||'').trim()); }
+function ntcSeenKey(){ return 'TEST_catalog_ntc_seen_'+((ME&&ME.id)?ME.id:'guest'); }
+function ntcSeenSet(){
+  try{ return new Set(JSON.parse(localStorage.getItem(ntcSeenKey())||'[]')); }catch(e){ return new Set(); }
+}
+function ntcUnread(){
+  if(!(NOTI&&NOTI.length))return [];
+  const seen=ntcSeenSet();
+  return NOTI.filter(n=>!seen.has(ntcKey(n)));
+}
+function ntcMarkAllRead(){
+  if(!(NOTI&&NOTI.length))return;
+  try{ localStorage.setItem(ntcSeenKey(), JSON.stringify(NOTI.map(ntcKey))); }catch(e){}
+  renderNtcBadge();
+}
+function renderNtcBadge(){
+  const b=$('ntcBadge'); if(!b)return;
+  const n=ntcUnread().length;
+  if(!n){ b.style.display='none'; return; }
+  b.style.display=''; b.textContent=n>9?'9+':String(n);
+  b.title='아직 안 보신 공지 '+n+'건';
+}
+function noticeCard(n,isNew){
+  return '<div class="ntc'+(n.imp?' imp':'')+'" style="margin-top:9px">'
+    +'<div class="nt">'+(isNew?'<span class="ntcnew">NEW</span>':'')+(n.imp?'<span class="impb">중요</span>':'')+esc(n.title)+'</div>'
+    +(n.at?'<div class="nd">'+esc(n.at)+'</div>':'')
+    +(n.body?'<div class="nb">'+esc(n.body)+'</div>':'')+'</div>';
+}
+function renderNoticeBox(){
+  const box=$('ntcbox'); if(!box)return;
+  const all=(NOTI||[]).slice(0,5);
+  if(!all.length){ box.innerHTML=''; renderNtcBadge(); return; }
+  const seen=ntcSeenSet();
+  const isNew=n=>!seen.has(ntcKey(n));
+  // 펼칠 1건: ①안 본 것 중 중요 ②안 본 것 ③중요 ④최신
+  let idx=all.findIndex(n=>isNew(n)&&n.imp);
+  if(idx<0)idx=all.findIndex(isNew);
+  if(idx<0)idx=all.findIndex(n=>n.imp);
+  if(idx<0)idx=0;
+  const head=all[idx], rest=all.filter((n,i)=>i!==idx);
+  const unread=all.filter(isNew).length;
+  // 안 본 공지가 있으면 접힌 줄에서 몇 건인지 알려준다 (사장님 요청)
+  const moreLabel=rest.length
+    ? ('📢 다른 공지 '+rest.length+'건 더보기'+(rest.filter(isNew).length?(' · 안 보신 것 '+rest.filter(isNew).length+'건'):''))
+    : '';
+  box.innerHTML=noticeCard(head,isNew(head))
+    +(rest.length?('<details class="ntcmore"><summary>'+moreLabel+'</summary>'
+      +rest.map(n=>noticeCard(n,isNew(n))).join('')+'</details>'):'');
+  renderNtcBadge();
+  // 로그인하고 처음 그릴 때 한 번만 알려준다 (사장님: "공지 몇 건 안 봤어, 공지 봐")
+  if(unread&&!renderNoticeBox._told){
+    renderNoticeBox._told=1;
+    setTimeout(()=>toast('📢 아직 안 보신 공지 '+unread+'건 — 위 [공지사항]에서 확인해 주세요'),900);
+  }
+  // ⚠️ 메인에 펼쳐 보여준 것도 '읽음'으로 치지 않는다.
+  //    그러면 새 공지가 1건일 때 배지가 뜨자마자 사라져서 업체가 못 알아챈다.
+  //    읽음 처리는 [공지사항] 화면에 실제로 들어갔을 때만 (renderRoute의 notice 분기).
+}
+function chgCls(k){
+  if(/출시|재입고/.test(k))return 'new';
+  if(/이벤트/.test(k))return 'ev';
+  if(/품절|중단|종료/.test(k))return 'out';
+  if(/인상/.test(k))return 'up';
+  if(/인하/.test(k))return 'down';
+  return 'out';
+}
+function chgCard(it){
+  const m=MEDIA['n:'+pkey(it.name)]||null;
+  const href=(m&&m.link)||'';
+  const nm=href?('<a href="'+esc(href)+'" target="_blank" rel="noopener">'+esc(it.name)+'</a>'):esc(it.name);
+  const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(thumbUrl(m.img))+'" data-full="'+esc(m.img)+'" alt="'+esc(it.name)+'" loading="lazy" onerror="thumbFail(this)">')
+                        :'<div class="nothumb">사진 준비중</div>';
+  const shipTxt=it.ship?(/무료/.test(it.ship)?'<span class="free">무료배송</span>':'<b>'+esc(it.ship)+'원</b>'):'';
+  const line=[it.courier,it.tax,it.freq].filter(x=>x&&x!=='-').map(esc).join(' · ');
+  return '<div class="card'+(it.hot?' hot':'')+'">'+thumb+'<div class="bd">'
+    +'<span class="chg '+chgCls(it.kind)+'">'+esc(it.kind||'변동')+'</span>'
+    +(it.hot?'<span class="hotb">⚠️ 입고 불안정</span>':'')
+    +(it.wh?'<button class="whb" data-wh="'+esc(it.wh)+'" title="이 창고 상품 보기">📦 '+esc(it.wh)+'</button>':'')
+    +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(it.name)+'" title="상품명 복사">📋</button></div>'
+    +(line?'<div class="rf">'+line+'</div>':'')
+    +(it.memo&&it.memo!=='-'?'<div class="rf">'+esc(it.memo.slice(0,60))+'</div>':'')
+    +'<div class="prow"><div>'+priceHtml(parsePrice(it.price)||{old:null,cur:null,dir:''})+'</div><div class="ship">'+shipTxt+'</div></div>'
+    +'</div></div>';
+}
+// 최근 3일치만 보여준다 (사장님 2026-08-12): "오늘 이런 변동 있으니 판매에 참고해"가 이 화면의 목적이고,
+// 2주 전 변동은 의미가 없다 — 품절이면 그 상품은 이미 카탈로그에서 빠져 있다. [더 보기]도 두지 않는다.
+const CHG_DAYS=3;
+function renderChange(d){
+  let h=subHead('📊 상품변동사항','최근 '+CHG_DAYS+'일 동안의 출시 · 재입고 · 품절 · 가격 변동입니다. 오늘 판매에 참고하세요.');
+  h+='<div class="hotnote">🟠 <b>살구색으로 표시된 상품</b>은 조업은 되고 있지만 <b>입고량이 일정하지 않은 상품</b>입니다.<br>'
+   +'상시 판매(고정 등록)보다는 <b>그날그날 수량을 확인하고 판매</b>해 주세요. 카탈로그에서도 같은 색으로 표시됩니다.</div>';
+  if(d.notes.length)h+='<div class="note" style="display:block;margin-top:11px">'+d.notes.map(esc).join('<br>')+'</div>';
+  if(!d.items.length)return h+'<div class="empty">변동사항이 없습니다.</div>';
+  const order=[],by={};
+  d.items.forEach(it=>{const k=it.day||'날짜 미기재';if(!by[k]){by[k]=[];order.push(k);}by[k].push(it);});
+  const days=order.slice(0,CHG_DAYS);
+  h+=days.map(k=>{
+    const list=by[k];
+    const sold=list.filter(it=>/품절/.test(it.kind));
+    const rest=list.filter(it=>!/품절/.test(it.kind));
+    const soldNames=[];const seen={};
+    sold.forEach(it=>{const q=pkey(it.name);if(!seen[q]){seen[q]=1;soldNames.push(it.name);}});
+    return '<div class="daygrp"><div class="dayhd">'+esc(k)+' · '+list.length+'건</div>'
+      +(rest.length?'<div class="grid">'+rest.map(chgCard).join('')+'</div>':'')
+      +(soldNames.length?'<div class="soldwrap"><div class="soldhd">🚫 품절 '+soldNames.length+'건</div>'
+        +'<div class="soldmsg">해당 상품 품절입니다. 판매에 참고해 주시기 바랍니다.<br>재 입고 일정이 궁금하시면 문의 부탁드려요~</div>'
+        +'<div class="soldlist">'+soldNames.map(n=>'<span class="soldit">'+esc(n)+'</span>').join('')+'</div></div>':'')
+      +'</div>';
+  }).join('');
+  return h;
+}
+// ── 2) 추천상품 — 도구시트 '추천상품' 탭 (상품명 · 코멘트 · 노출 · 순서 · 등록일) ──
+// 소식글에서 올라온 상품은 등록일부터 10일만 노출하고 11일차에 저절로 내려간다.
+// 사장님이 직접 넣은 '추천'은 지울 때까지 계속 간다. (사장님 2026-08-18)
+const NEWS_DAYS=10;
+function daysSince(s){
+  const m=String(s||'').match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+  if(!m)return 0;
+  const d=new Date(+m[1],+m[2]-1,+m[3]);
+  const t=new Date();t.setHours(0,0,0,0);
+  return Math.floor((t-d)/86400000);
+}
+async function loadRecs(){
+  const token=await getAccessToken();
+  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'추천상품'!A2:F300"),{headers:{Authorization:'Bearer '+token}})).json();
+  if(j.error)throw new Error('추천상품을 읽지 못했습니다.');
+  const t=x=>(x==null?'':String(x)).trim();
+  return (j.values||[]).map((v,i)=>({name:t(v[0]),cmt:t(v[1]),show:t(v[2])||'Y',
+      ord:parseInt(t(v[3]).replace(/[^\d]/g,''),10)||999,at:t(v[4]),
+      news:t(v[5])==='소식글',i}))
+    .filter(r=>{
+      if(!r.name||r.show.toUpperCase()==='N')return false;
+      if(r.news)return daysSince(r.at)<NEWS_DAYS;   // 등록일이 1일차 → 10일차까지만
+      return true;
+    })
+    .sort((a,b)=>{
+      if(a.news!==b.news)return a.news?1:-1;                       // 추천이 먼저
+      if(a.news)return (b.at||'').localeCompare(a.at||'')||(a.i-b.i); // 소식글은 최신 먼저
+      return (a.ord-b.ord)||(a.i-b.i);
+    });
+}
+function renderRecs(list){
+  let h=subHead('⭐ 추천상품','마스터 유통이 요즘 밀고 있는 상품입니다.');
+  if(!list.length)return h+'<div class="empty">아직 등록된 추천상품이 없습니다.</div>';
+  h+='<div class="grid" style="margin-top:14px">'+list.map(r=>{
+    const cm=r.cmt?'<div class="recc">💬 '+esc(r.cmt)+'</div>':'';
+    const bg=r.news?'<span class="recb news">📰 소식글</span>':'<span class="recb rec">⭐ 추천상품</span>';
+    const p=ALL.find(x=>pkey(x.name)===pkey(r.name));
+    if(p)return card(p,cm,bg);
+    // 카탈로그에 없는 상품(품절·미등록)도 사진·링크는 보여준다
+    const m=MEDIA['n:'+pkey(r.name)]||null;
+    const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(thumbUrl(m.img))+'" data-full="'+esc(m.img)+'" alt="'+esc(r.name)+'" loading="lazy" onerror="thumbFail(this)">')
+                          :'<div class="nothumb">사진 준비중</div>';
+    const nm=(m&&m.link)?('<a href="'+esc(m.link)+'" target="_blank" rel="noopener">'+esc(r.name)+'</a>'):esc(r.name);
+    return '<div class="card">'+thumb+'<div class="bd">'+bg
+      +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(r.name)+'">📋</button></div>'
+      +'<div class="rf">지금은 카탈로그에 없는 상품입니다</div>'+cm+'</div></div>';
+  }).join('')+'</div>';
+  return h;
+}
+// ── 3) 공지사항 — 도구시트 '공지사항' 탭 (제목 · 내용 · 노출 · 중요 · 작성일) ──
+async function loadNotices(){
+  const token=await getAccessToken();
+  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'공지사항'!A2:E300"),{headers:{Authorization:'Bearer '+token}})).json();
+  if(j.error)throw new Error('공지사항을 읽지 못했습니다.');
+  const t=x=>(x==null?'':String(x)).trim();
+  return (j.values||[]).map((v,i)=>({title:t(v[0]),body:t(v[1]),show:t(v[2])||'Y',imp:t(v[3]).toUpperCase()==='Y',at:t(v[4]),i}))
+    .filter(n=>n.title&&n.show.toUpperCase()!=='N')
+    .sort((a,b)=>(b.imp-a.imp)||(b.at||'').localeCompare(a.at||'')||(b.i-a.i));
+}
+function renderNotices(list){
+  let h=subHead('📢 공지사항','배송 · 휴무 · 상품 관련 안내입니다.');
+  if(!list.length)return h+'<div class="empty">등록된 공지가 없습니다.</div>';
+  h+=list.map(n=>'<div class="ntc'+(n.imp?' imp':'')+'">'
+    +'<div class="nt">'+(n.imp?'<span class="impb">중요</span>':'')+esc(n.title)+'</div>'
+    +(n.at?'<div class="nd">'+esc(n.at)+'</div>':'')
+    +(n.body?'<div class="nb">'+esc(n.body)+'</div>':'')
+    +'</div>').join('');
+  return h;
+}
+// ── 라우팅 ──
+async function renderRoute(){
+  const v=location.hash.replace(/^#/,'');
+  menuEl.querySelectorAll('.mbtn').forEach(b=>b.classList.toggle('on',b.getAttribute('data-go')===v));
+  const nb=$('ntcbox');
+  if(!v||v==='main'){mainV.style.display='';subV.style.display='none';subV.innerHTML='';if(nb)nb.style.display='';window.scrollTo({top:0});return;}
+  mainV.style.display='none';subV.style.display='';
+  if(nb)nb.style.display='none';   // 서브페이지에선 위쪽 공지 상자를 접는다(공지 페이지와 중복)
+  subV.innerHTML='<div class="load">⏳ 불러오는 중입니다…</div>';
+  window.scrollTo({top:0});
+  try{
+    if(v==='change'){if(!CHG)CHG=await loadChanges();subV.innerHTML=renderChange(CHG);}
+    else if(v==='rec'){if(!RECS)RECS=await loadRecs();subV.innerHTML=renderRecs(RECS);}
+    else if(v==='notice'){if(!NOTI)NOTI=await loadNotices();subV.innerHTML=renderNotices(NOTI);ntcMarkAllRead();}  // 공지 화면을 열면 전부 읽음 처리
+    else{location.hash='';}
+  }catch(e){
+    subV.innerHTML=subHead('⚠️ 불러오지 못했습니다','')+'<div class="empty">'+esc(e.message||String(e))+'</div>';
+  }
+}
+// 메인→서브만 이력에 쌓고, 서브→서브는 갈아끼운다.
+// 그래야 어느 메뉴에 있든 뒤로가기 한 번이면 항상 카탈로그로 돌아온다 (사장님 요청 형태).
+menuEl.querySelectorAll('.mbtn').forEach(b=>{b.onclick=()=>{
+  const v=b.getAttribute('data-go'),cur=location.hash.replace(/^#/,'');
+  if(cur===v)return;
+  if(cur){history.replaceState(null,'','#'+v);renderRoute();}
+  else location.hash=v;
+};});
+window.addEventListener('hashchange',renderRoute);
+
+// ══════════════════════════════════════════════════════════════════
+// 로그인 (2026-08-12 사장님 지시 — 상용화 1단계)
+// 계정은 도구시트 '카탈로그_계정' 탭: A업체명 B아이디 C비밀번호 D마지막접속 E접속횟수 F권한 G메모
+// 사장님·원비씨는 ?u=아이디&p=비번 링크를 한 번만 열면 그 기기에 저장돼 이후 로그인 화면을 안 본다.
+// ⚠️ 서버가 없는 정적 페이지라 이건 '문지기' 수준의 잠금이다(소스를 뜯을 줄 아는 사람은 우회 가능).
+//    진짜 잠그려면 Apps Script 웹앱을 앞에 세워야 함.
+// ══════════════════════════════════════════════════════════════════
+const ACC_TAB='카탈로그_계정', AK='TEST_catalog_auth_v1';
+let ME=null,gbusy=false;
+const norm=s=>String(s==null?'':s).trim();
+const gate=$('gate');
+function gateShow(on){gate.style.display=on?'flex':'none';}
+async function accSheet(){
+  const token=await getAccessToken();
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'"+ACC_TAB+"'!A2:H1000"),{headers:{Authorization:'Bearer '+token}});
+  const j=await r.json();
+  if(j.error)throw new Error('계정 정보를 읽지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  return (j.values||[]).map((v,i)=>({row:i+2,name:norm(v[0]),id:norm(v[1]),pw:norm(v[2]),
+    cnt:parseInt(norm(v[4]).replace(/[^\d]/g,''),10)||0,role:norm(v[5]),
+    phone:norm(v[8]),addr:norm(v[9])})).filter(a=>a.id);
+}
+function findAcc(list,id){const k=norm(id).toLowerCase();return list.find(a=>a.id.toLowerCase()===k)||null;}
+async function stampLogin(a){
+  try{
+    const token=await getAccessToken(),d=new Date(),p=n=>String(n).padStart(2,'0');
+    const when=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+    await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'"+ACC_TAB+"'!D"+a.row+":E"+a.row)+'?valueInputOption=RAW',
+      {method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({values:[[when,a.cnt+1]]})});
+  }catch(e){}
+}
+// 로그인 세션이 업체 정보를 들고 다닌다 — 나중에 카탈로그에서 바로 소량 발주를 넣을 때
+// 업체명·연락처·주소를 다시 묻지 않으려는 것 (사장님 2026-08-12). 연락처·주소는 시트 I·J열.
+function saveMe(a){ME={id:a.id,name:a.name,role:a.role,row:a.row,phone:a.phone||'',addr:a.addr||''};try{localStorage.setItem(AK,JSON.stringify(ME));}catch(e){}}
+function logout(){try{localStorage.removeItem(AK);}catch(e){}location.replace(location.pathname);}
+async function doLogin(id,pw){
+  const a=findAcc(await accSheet(),id);
+  if(!a)throw new Error('아이디를 찾을 수 없습니다.');
+  if(a.pw!==norm(pw))throw new Error('비밀번호가 맞지 않습니다.');
+  // 권한 칸에 '차단'이라고 적으면 행을 지우지 않고도 그 업체만 막을 수 있다 (사장님 킬스위치)
+  if(a.role==='차단')throw new Error('이용이 중지된 계정입니다. 010-2455-4156 홍찬화 팀장 / 010-2326-5911 박원비 팀장으로 문의해 주세요.');
+  saveMe(a);stampLogin(a);
+  return a;
+}
+function showLoginForm(){
+  $('loginForm').style.display='flex';$('pwForm').style.display='none';$('signForm').style.display='none';$('ghelp').style.display='';
+  $('gsub').innerHTML='거래처 전용입니다.<br>로그인하시거나 회원가입을 해주세요.';
+  $('li_err').textContent='';$('li_pw').value='';
+}
+function showSignForm(){
+  $('loginForm').style.display='none';$('pwForm').style.display='none';$('signForm').style.display='flex';$('ghelp').style.display='';
+  $('gsub').innerHTML='처음 오셨나요?<br>업체 정보를 남기시면 바로 이용하실 수 있습니다.';
+  $('sg_err').textContent='';$('sg_ok').textContent='';
+  $('sg_name_warn').textContent='';$('sg_name_warn').style.display='none';
+  gateShow(true);$('sg_name').focus();
+}
+function showPwForm(){
+  $('loginForm').style.display='none';$('signForm').style.display='none';$('pwForm').style.display='flex';$('ghelp').style.display='none';
+  $('gsub').innerHTML='<b>'+esc(ME?(ME.name||ME.id):'')+'</b> 님<br>비밀번호를 바꿉니다.';
+  $('pw_err').textContent='';$('pw_ok').textContent='';
+  $('pw_cur').value='';$('pw_new').value='';$('pw_new2').value='';
+  gateShow(true);$('pw_cur').focus();
+}
+function renderUser(){
+  if(!ME)return;
+  $('userbar').innerHTML='<span class="uname">'+esc(ME.name||ME.id)+'</span>'
+    +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
+    +'<button class="ubtn" id="ub_out">로그아웃</button>'
+    +'<button class="ubtn rl" id="ub_reload" title="저장된 내용을 버리고 시트에서 다시 받아옵니다">🔄 새로고침</button>';
+  $('ub_pw').onclick=showPwForm;
+  $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
+  // 거래처가 보고 있는 게 최신인지 확신할 수 있게 — 저장본을 버리고 시트에서 새로 받는다 (사장님 2026-08-18)
+  $('ub_reload').onclick=()=>{
+    try{localStorage.removeItem(CK);}catch(e){}
+    location.replace(location.pathname+'?r='+Date.now()+location.hash);
+  };
+}
+function enterApp(a){
+  renderUser();
+  // 🔒 로그인 직후가 크롬이 아이디를 밀어넣는 가장 큰 순간 — 위의 typed 가드가 계속 지우지만
+  //    화면에 잠깐이라도 남지 않게 여기서도 한 번 훑는다. (readonly 잠금은 첫 글자가 씹혀서 뺐다)
+  (function(){
+    const q=$('q');if(!q)return;
+    [0,60,200,600,1200,2000].forEach(ms=>setTimeout(()=>{ if(!st.q&&q.value)q.value=''; },ms));
+  })();
+  if(a&&a.pw==='1234'&&a.role!=='관리자'){
+    $('pwnudge').innerHTML='<div class="pwnudge">🔒 아직 처음 비밀번호(1234)를 쓰고 있어요. <button id="nudgebtn">지금 바꾸기</button></div>';
+    $('nudgebtn').onclick=showPwForm;
+  }
+  startCatalog();
+  renderRoute();   // 주소에 #change 같은 게 붙어 있으면 그 화면으로
+}
+$('li_btn').onclick=async()=>{
+  if(gbusy)return;
+  const id=$('li_id').value,pw=$('li_pw').value;
+  if(!norm(id)||!norm(pw)){$('li_err').textContent='아이디와 비밀번호를 입력해 주세요.';return;}
+  gbusy=true;$('li_btn').disabled=true;$('li_btn').textContent='확인 중…';$('li_err').textContent='';
+  try{const a=await doLogin(id,pw);gateShow(false);enterApp(a);}
+  catch(e){$('li_err').textContent=e.message||'로그인에 실패했습니다.';}
+  finally{gbusy=false;$('li_btn').disabled=false;$('li_btn').textContent='로그인';}
+};
+$('li_id').addEventListener('keydown',e=>{if(e.key==='Enter')$('li_pw').focus();});
+$('li_pw').addEventListener('keydown',e=>{if(e.key==='Enter')$('li_btn').click();});
+$('li_signup').onclick=showSignForm;
+$('sg_cancel').onclick=showLoginForm;
+// ── 회원가입 (2026-08-12 사장님 지시) — 업체명(사업자등록증상 상호)·아이디·비번만 받는다 ──
+// 숫자·하이픈·공백뿐이면 상호가 아니라 사업자등록번호를 적은 것으로 본다 (한글·영문이 한 글자도 없음)
+function isBizNoOnly(s){const t=String(s||'').trim();return t!==''&&!/[가-힣a-zA-Z]/.test(t)&&/\d/.test(t);}
+$('sg_btn').onclick=async()=>{
+  if(gbusy)return;
+  const nm=norm($('sg_name').value),id=norm($('sg_id').value),p1=norm($('sg_pw').value),p2=norm($('sg_pw2').value);
+  $('sg_err').textContent='';$('sg_ok').textContent='';
+  if(!nm||!id||!p1||!p2){$('sg_err').textContent='빈 칸을 모두 채워 주세요.';return;}
+  if(nm.length<2){$('sg_err').textContent='업체명을 사업자등록증상 상호 그대로 적어주세요.';return;}
+  // 업체명 칸에 사업자등록번호를 박아넣는 사람이 실제로 나왔다 (2026-08-18 가입 2건). 숫자만이면 아예 못 넘어가게 막는다.
+  if(isBizNoOnly(nm)){$('sg_err').textContent='사업자등록번호가 아니라 상호명(가게 이름)을 적어주세요. 예) 마스터유통';$('sg_name').focus();return;}
+  if(!/^[A-Za-z0-9._-]{3,20}$/.test(id)){$('sg_err').textContent='아이디는 영문·숫자 3~20자로 만들어 주세요.';return;}
+  if(p1.length<4){$('sg_err').textContent='비밀번호는 4자 이상으로 해주세요.';return;}
+  if(p1!==p2){$('sg_err').textContent='비밀번호가 서로 다릅니다.';return;}
+  gbusy=true;$('sg_btn').disabled=true;$('sg_btn').textContent='가입 중…';
+  try{
+    const list=await accSheet();
+    if(findAcc(list,id))throw new Error('이미 사용 중인 아이디입니다. 다른 아이디로 해주세요.');
+    const flat=s=>String(s).replace(/\s+/g,'');
+    if(list.some(a=>flat(a.name)===flat(nm))&&
+       !confirm('"'+nm+'" 은(는) 이미 가입된 업체명입니다.\n\n지점이 달라 새로 만드시는 거면 [확인],\n아이디를 잊으신 거면 [취소] 후\n010-2455-4156 홍찬화 팀장 / 010-2326-5911 박원비 팀장으로 문의해 주세요.'))
+      throw new Error('가입을 취소했습니다.');
+    const token=await getAccessToken();
+    const d=new Date(),p=n=>String(n).padStart(2,'0');
+    const today=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+    const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'"+ACC_TAB+"'!A1")+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
+      {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+       body:JSON.stringify({values:[[nm,id,p1,'','','업체','직접 가입',today]]})});
+    const j=await r.json();
+    if(j.error)throw new Error('가입 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    // 시트에 진짜 들어갔는지 다시 읽어 확인한 뒤에만 완료 처리
+    const a=findAcc(await accSheet(),id);
+    if(!a||a.pw!==p1)throw new Error('가입 확인에 실패했습니다. 다시 시도해 주세요.');
+    $('sg_ok').textContent='회원가입이 완료되었습니다. 카탈로그로 이동합니다…';
+    saveMe(a);stampLogin(a);
+    setTimeout(()=>{gateShow(false);showLoginForm();enterApp(a);},1000);
+  }catch(e){$('sg_err').textContent=e.message||'가입에 실패했습니다.';}
+  finally{gbusy=false;$('sg_btn').disabled=false;$('sg_btn').textContent='회원가입';}
+};
+$('sg_pw2').addEventListener('keydown',e=>{if(e.key==='Enter')$('sg_btn').click();});
+// 다 치고 [회원가입] 누를 때까지 기다리지 말고, 숫자 박는 순간 바로 빨간 글씨로 알려준다
+$('sg_name').addEventListener('input',()=>{
+  const w=$('sg_name_warn'),bad=isBizNoOnly($('sg_name').value);
+  w.textContent=bad?'⚠️ 사업자등록번호가 아니라 상호명(가게 이름)을 적어주세요. 예) 마스터유통':'';
+  w.style.display=bad?'':'none';
+});
+$('pw_cancel').onclick=()=>{gateShow(false);showLoginForm();};
+$('pw_btn').onclick=async()=>{
+  if(gbusy)return;
+  const cur=norm($('pw_cur').value),n1=norm($('pw_new').value),n2=norm($('pw_new2').value);
+  $('pw_err').textContent='';$('pw_ok').textContent='';
+  if(!cur||!n1||!n2){$('pw_err').textContent='빈 칸을 모두 채워 주세요.';return;}
+  if(n1.length<4){$('pw_err').textContent='새 비밀번호는 4자 이상으로 해주세요.';return;}
+  if(n1!==n2){$('pw_err').textContent='새 비밀번호가 서로 다릅니다.';return;}
+  if(n1===cur){$('pw_err').textContent='지금 쓰는 비밀번호와 같습니다.';return;}
+  gbusy=true;$('pw_btn').disabled=true;$('pw_btn').textContent='변경 중…';
+  try{
+    const a=findAcc(await accSheet(),ME.id);
+    if(!a)throw new Error('계정을 찾을 수 없습니다. 담당자에게 문의해 주세요.');
+    if(a.pw!==cur)throw new Error('현재 비밀번호가 맞지 않습니다.');
+    const token=await getAccessToken();
+    const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'"+ACC_TAB+"'!C"+a.row)+'?valueInputOption=RAW',
+      {method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({values:[[n1]]})});
+    const j=await r.json();
+    if(j.error)throw new Error('저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    // 시트에 진짜 반영됐는지 다시 읽어 확인한 뒤에만 완료 안내 (사장님 요구)
+    const chk=findAcc(await accSheet(),ME.id);
+    if(!chk||chk.pw!==n1)throw new Error('저장 확인에 실패했습니다. 다시 시도해 주세요.');
+    $('pw_ok').textContent='비밀번호 변경이 완료되었습니다.';
+    toast('비밀번호 변경이 완료되었습니다.');
+    $('pwnudge').innerHTML='';
+    setTimeout(()=>{gateShow(false);showLoginForm();},1500);
+  }catch(e){$('pw_err').textContent=e.message||'변경에 실패했습니다.';}
+  finally{gbusy=false;$('pw_btn').disabled=false;$('pw_btn').textContent='비밀번호 변경';}
+};
+// 버전은 <title>에 한 곳만 적는다 (update.bat이 그 숫자를 자동으로 +1). 화면 표시는 여기서 꺼내 쓴다.
+// 목적: 거래처가 구버전 탭을 붙들고 있는지 한눈에 보이게 (2026-08-19 사장님 지시)
+const APP_VER=(document.title.match(/v\d+\.\d+/)||[''])[0];
+$('ver').textContent=APP_VER;
+$('gver').textContent=APP_VER;
+(async()=>{
+  const qs=new URLSearchParams(location.search),qu=qs.get('u'),qp=qs.get('p');
+  if(qu&&qp){   // 자동로그인 링크 (사장님·원비씨용) — 한 번 열면 이 기기에 저장된다
+    gateShow(true);$('li_btn').disabled=true;$('li_btn').textContent='확인 중…';
+    try{
+      const a=await doLogin(qu,qp);
+      history.replaceState(null,'',location.pathname);
+      gateShow(false);enterApp(a);return;
+    }catch(e){
+      history.replaceState(null,'',location.pathname);
+      $('li_btn').disabled=false;$('li_btn').textContent='로그인';
+      $('li_err').textContent='자동 로그인에 실패했습니다. 직접 로그인해 주세요.';
+      $('li_id').focus();return;
+    }
+  }
+  let saved=null;try{saved=JSON.parse(localStorage.getItem(AK)||'null');}catch(e){}
+  if(saved&&saved.id){
+    ME=saved;gateShow(false);renderUser();startCatalog();renderRoute();
+    // 뒤에서 계정이 아직 살아있는지 확인 — 시트에서 지웠으면 다음 접속부터 막힌다
+    try{
+      const a=findAcc(await accSheet(),saved.id);
+      if(!a||a.role==='차단'){logout();return;}
+      saveMe(a);renderUser();stampLogin(a);   // 시트가 최신 — 업체명·연락처·주소를 매 접속마다 갱신
+    }catch(e){}
+    return;
+  }
+  gateShow(true);showLoginForm();$('li_id').focus();
+})();
+</script></body></html>
