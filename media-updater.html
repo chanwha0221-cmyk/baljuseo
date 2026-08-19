@@ -45,6 +45,8 @@ a{color:var(--accent)}
 .fxg.del:hover{border-color:#c0392b;color:#c0392b}
 #fxList{border:1px solid var(--line);border-radius:9px;background:var(--card);margin-top:4px;max-height:60vh;overflow-y:auto}
 #fxList .ci{flex-wrap:wrap;row-gap:5px}
+/* 유통시트 밖(변동사항·대기열에만 있는 상품) — 안 파는 상품이라 흐리게, 사장님이 건너뛰기 쉽게 */
+#fxList .ci.out{opacity:.62;background:repeating-linear-gradient(135deg,transparent,transparent 7px,rgba(128,128,128,.05) 7px,rgba(128,128,128,.05) 14px)}
 #fxList .cn{flex:1 1 100%}
 #fxList:empty{display:none}
 .tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1.5px solid var(--line)}
@@ -105,7 +107,9 @@ a{color:var(--accent)}
   <p style="font-size:12.5px;color:var(--muted)">카탈로그에서 <b>사진 준비중</b>이거나 <b>사진이 깨졌거나</b> <b>상품 링크가 없는</b> 상품만 모아줍니다.
   품절이면 🗑 삭제, 살아있는 상품이면 🔗 새 링크를 넣으세요 — 링크는 링크 정본 시트에 바로 저장되고 카탈로그에 즉시 반영됩니다.
   열어 봤는데 실제로는 이상이 없으면 <b>✓ 문제없음</b>으로 넘기세요 — 다음 취합부터 빠집니다. 고친 뒤 다시 취합하면 해결된 상품을 알려줍니다.<br>
-  ※ 기준 목록은 <b>유통시트</b>입니다. 링크는 <a href="https://masterc.co.kr/index.php?module=rkdoccopy" target="_blank" rel="noopener">masterc 동기화 목록</a>에서 찾습니다 — 매시간 자동으로 새로 받아옵니다.<br>
+  ※ 훑는 범위는 자동 채우기와 <b>똑같이 셋</b>입니다 — ①<b>유통시트 판매상품</b> ②<b>최근 3일 변동사항</b> ③<b>갱신 대기열</b>.
+  ②③에만 있는 상품은 <b>유통시트 밖</b> 배지를 달아 맨 아래로 내립니다 — 지금 파는 게 아니니 그냥 두셔도 됩니다.<br>
+  ※ 링크는 <a href="https://docs.google.com/spreadsheets/d/1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ/edit?gid=0#gid=0" target="_blank" rel="noopener">상품정보 업데이트 시트</a>에서 찾습니다 — 매시간 자동으로 새로 받아옵니다.<br>
   ※ <b>링크가 있으면 사진도 있는 게 정상</b>이라, 이 도구가 잡아주는 건 딱 넷입니다 —
   🔴<b>링크없음</b>(게시판에 글이 없음) · 🟠<b>링크품절</b>(판매중인데 링크는 품절 글) · <b>사진없음</b> · <b>사진깨짐</b>.
   넷 다 <b>게시판 쪽을 손봐야</b> 풀립니다.</p>
@@ -467,16 +471,50 @@ async function loadYutong(){
   });
   return out;
 }
+/* ── ② 최근 3일 상품변동사항 · ③ 갱신 대기열 (2026-08-19 사장님 지시) ──
+   사장님: "①유통시트 ②최근 3일 변동사항 ③갱신 대기열 — 이걸 여기에 원버튼으로 박으라고."
+   자동 채우기(catalog-photo-fill)가 매시간 훑는 범위와 이 버튼이 보는 범위를 똑같이 맞춘 것이다.
+   ⚠️ ②③에서만 나온 상품은 유통시트에 없다 = 안 파는 상품. 목록에는 올리되 '유통시트 밖' 배지를 달아
+      사장님이 그냥 넘길 수 있게 한다 (사장님 2026-08-18: "없는 거는 쌩까면 되는데 왜 안내를 하냐"). */
+async function loadByeondong(){
+  const v=await api(YUTONG,'/values/'+q1("'상품변동사항'!A5:J"));
+  const rows=(v.values)||[];
+  // ⚠️ 최신이 맨 위고 옛 행은 날짜 포맷이 달라 문자열 정렬 금지 — 행 순서대로 만난 앞 3개 날짜가 최근 3일.
+  const dates=[];
+  rows.forEach(r=>{const d=((r[2]||'')+'').trim();if(d&&dates.length<3&&dates.indexOf(d)<0)dates.push(d);});
+  const out=[],seen={};
+  rows.forEach(r=>{
+    const d=((r[2]||'')+'').trim(),chg=((r[3]||'')+'').trim(),nm=((r[7]||'')+'').trim();
+    if(!d||!nm||dates.indexOf(d)<0)return;
+    if(chg.indexOf('품절')>=0)return;      // 품절은 상품명만 보여주므로 사진이 필요 없다
+    if(seen[pkey(nm)])return;seen[pkey(nm)]=1;
+    out.push({name:nm,src:'변동사항',when:d});
+  });
+  return out;
+}
+async function loadQueue(){
+  const v=await api(DOGU,'/values/'+q1("'상품이미지대기'!A2:C"));
+  const out=[],seen={};
+  ((v.values)||[]).forEach(function(r){
+    // ⚠️ 대기열 이름에 '📚N건 병합' 배지가 딸려 온다 — 반드시 벗길 것
+    const nm=((r[0]||'')+'').replace(/📚\s*\d+건\s*병합/g,'').trim();
+    if(!nm||seen[pkey(nm)])return;seen[pkey(nm)]=1;
+    out.push({name:nm,src:'대기열',when:(r[1]||'').trim()});
+  });
+  return out;
+}
 async function loadCache(){
   const v=await api(DOGU,'/values/'+q1("'상품이미지_v2'!A1:G3000"));
   const m={};
   ((v.values)||[]).forEach(function(r,i){if(i===0)return;const nm=(r[0]||'').trim();if(nm)m[pkey(nm)]={row:i+1,img:(r[2]||'').trim(),link:(r[5]||'').trim(),backs:(r[6]?String(r[6]).split('\n').filter(Boolean):[])};});
   return m;
 }
-// masterc 동기화 목록(index.php?module=rkdoccopy)을 옮겨둔 도구시트 '상품링크' 탭.
+// 상품 링크 정본 = 도구시트 '상품링크' 탭. 스케줄 작업이 매시간 '상품정보 업데이트' 시트에서 받아 덮어쓴다.
+// (2026-08-19 사장님 지시로 masterc 동기화목록 rkdoccopy → 그 시트로 소스 교체. 671건 → 2,170건)
 // 상품명이 그대로 키라서 이름 맞추기가 필요 없다.
+// ⚠️ 범위는 정본 건수보다 넉넉해야 한다 — 1400으로 두면 뒤가 통째로 잘려 멀쩡한 상품이 '링크없음'으로 잡힌다.
 async function loadSync(){
-  const v=await api(DOGU,'/values/'+q1("'상품링크'!A2:F1400"));
+  const v=await api(DOGU,'/values/'+q1("'상품링크'!A2:F2400"));
   const m={};
   ((v.values)||[]).forEach(function(r){
     const nm=pkey(r[0]); if(!nm)return;
@@ -600,11 +638,15 @@ function nearCands(name){
 }
 function renderFx(){
   const P=FX.probs;
-  const n={링크없음:P.filter(x=>x.issue==='링크없음').length,
-           링크품절:P.filter(x=>x.issue==='링크품절').length,
-           사진없음:P.filter(x=>x.issue==='사진없음').length,
-           깨짐:P.filter(x=>x.issue==='사진깨짐').length};
-  $f('fxStat').textContent='— 손봐야 할 상품 '+P.length+'개 (🔴링크없음 '+n.링크없음+' · 🟠링크품절 '+n.링크품절+' · 사진없음 '+n.사진없음+' · 사진깨짐 '+n.깨짐+')';
+  const IN=P.filter(x=>!x.p.outside);   // 카운트는 파는 상품만 — 사장님이 실제로 손볼 건수
+  const n={링크없음:IN.filter(x=>x.issue==='링크없음').length,
+           링크품절:IN.filter(x=>x.issue==='링크품절').length,
+           사진없음:IN.filter(x=>x.issue==='사진없음').length,
+           깨짐:IN.filter(x=>x.issue==='사진깨짐').length};
+  // 사장님이 진짜 손봐야 하는 건 '파는 상품'뿐 — 유통시트 밖은 따로 센다 (사장님 2026-08-18)
+  const inn=P.filter(x=>!x.p.outside).length, outn=P.length-inn;
+  $f('fxStat').textContent='— 손봐야 할 상품 '+inn+'개 (🔴링크없음 '+n.링크없음+' · 🟠링크품절 '+n.링크품절+' · 사진없음 '+n.사진없음+' · 사진깨짐 '+n.깨짐+')'
+    +(outn?('  ／ 유통시트 밖 '+outn+'개는 안 파는 상품이라 그냥 두셔도 됩니다'):'');
   $f('fxList').innerHTML=P.map(function(x,xi){
     const p=x.p,u=urlOf(p);
     const b=[];
@@ -629,11 +671,15 @@ function renderFx(){
     const sheetGo='<a class="fxg" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/'+YUTONG+'/edit#gid='+p.gid+'&range='+colL(p.col)+p.row+'">시트↗</a>';
     const linkGo='<a class="fxg" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/'+LINKSS+'/edit?gid=0#gid=0" title="링크 정본 시트 열기">링크↗</a>';
     const openGo=u?'<a class="fxg" target="_blank" rel="noopener" href="'+u.replace(/"/g,'&quot;')+'">상품↗</a>':'';
-    return '<div class="ci" data-x="'+xi+'"><div class="cn">'+p.name.replace(/</g,'&lt;')+' <button class="fxg" data-fxcp="'+p.name.replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" title="상품명 복사">📋</button><span class="cw">'+p.wh.replace(/</g,'&lt;')+' · '+p.tab+' '+colL(p.col)+p.row+'</span></div>'
-      +b.join('')+openGo+sheetGo+linkGo
+    // 유통시트 밖(②변동사항·③대기열)에서 온 상품 — 안 파는 상품이라 급하지 않다는 걸 눈에 띄게
+    if(p.outside)b.push('<span class="fxb q" title="유통시트 창고탭에 없는 상품입니다 — 지금 파는 게 아니라면 그냥 두셔도 됩니다">유통시트 밖 · '+p.wh.replace(/</g,'&lt;')+(p.when?(' '+String(p.when).replace(/</g,'&lt;')):'')+'</span>');
+    const where=p.outside?('<span class="cw">유통시트에 없음 · '+p.wh.replace(/</g,'&lt;')+'</span>')
+                         :('<span class="cw">'+p.wh.replace(/</g,'&lt;')+' · '+p.tab+' '+colL(p.col)+p.row+'</span>');
+    return '<div class="ci'+(p.outside?' out':'')+'" data-x="'+xi+'"><div class="cn">'+p.name.replace(/</g,'&lt;')+' <button class="fxg" data-fxcp="'+p.name.replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" title="상품명 복사">📋</button>'+where+'</div>'
+      +b.join('')+openGo+(p.outside?'':sheetGo)+linkGo
       +'<button class="fxg" data-fxlink="'+xi+'">🔗 새 링크</button>'
       +'<button class="fxg" data-fxok="'+xi+'" title="확인해 봤는데 실제로는 이상 없음 — 다음 취합부터 뺍니다">✓ 문제없음</button>'
-      +(x.del?'':'<button class="fxg del" data-fxdel="'+xi+'">🗑 삭제</button>')
+      +(p.outside||x.del?'':'<button class="fxg del" data-fxdel="'+xi+'">🗑 삭제</button>')
       +'</div>';
   }).join('')||'<div class="ci">문제 상품이 없습니다 🎉</div>';
   if(FX.okRows.length)$f('fxList').innerHTML+='<div class="ci" style="display:block"><details><summary style="cursor:pointer;font-size:12px;color:var(--muted)">✓ 문제없음으로 넘긴 상품 '+FX.okRows.length+'개 — 취합에서 제외 중</summary>'
@@ -717,8 +763,18 @@ $f('fxRun').onclick=async function(){
   this.disabled=true;
   try{
     $f('fxStat').textContent='— 시트 읽는 중…';
-    const r=await Promise.all([loadYutong(),loadCache(),loadLinks(),loadOk(),loadSync()]);
+    const r=await Promise.all([loadYutong(),loadCache(),loadLinks(),loadOk(),loadSync(),loadByeondong(),loadQueue()]);
     FX.prods=r[0];FX.cache=r[1];FX.links=r[2];FX.dels=[];FX.ok=r[3].keys;FX.okRows=r[3].rows;FX.sync=r[4];FX.syncName={};for(const k in FX.sync)FX.syncName[k]=FX.sync[k].raw||k;
+    // ②③ — 유통시트에 없는 이름만 뒤에 덧붙인다 (있으면 ①이 이미 잡았다)
+    const inYutong={};FX.prods.forEach(p=>{inYutong[pkey(p.name)]=1;});
+    const extra=[],seenX={};
+    r[5].concat(r[6]).forEach(function(x){
+      const k=pkey(x.name);
+      if(!k||inYutong[k]||seenX[k])return;seenX[k]=1;
+      extra.push({name:x.name,wh:x.src,tab:'',gid:null,row:0,col:0,outside:true,when:x.when||''});
+    });
+    FX.extra=extra;
+    FX.prods=FX.prods.concat(extra);
     FX.writable=await probeWrite(FX.prods.length?FX.prods[0].tab:'군산');
     $f('fxPerm').innerHTML=FX.writable
       ?'🟢 유통시트 직접 수정 가능 — 🗑 삭제와 🔗 링크가 유통시트에 즉시 반영됩니다.'
@@ -764,7 +820,11 @@ $f('fxRun').onclick=async function(){
       if(!c||!c.img)mark(p,'사진없음');            // ③ 링크는 있는데 사진이 비었다
     });
     broken.filter(p=>!FX.ok[pkey(p.name)]&&urlOf(p)&&syncState(p)!=='품절').forEach(p=>mark(p,'사진깨짐'));
-    FX.probs.sort((a,b)=>a.p.tab===b.p.tab?a.p.row-b.p.row:(a.p.tab<b.p.tab?-1:1));
+    // 유통시트(=파는 상품)를 먼저, 유통시트 밖(②③)은 맨 뒤로 — 사장님이 위에서부터 고치면 되게
+    FX.probs.sort((a,b)=>{
+      if(!!a.p.outside!==!!b.p.outside)return a.p.outside?1:-1;
+      return a.p.tab===b.p.tab?a.p.row-b.p.row:(a.p.tab<b.p.tab?-1:1);
+    });
     // 지난 취합에서 문제였던 상품이 이번에 안 잡히면 = 고쳐진 것 — 사장님이 결과를 눈으로 확인할 수 있게 알려준다
     try{
       const prev=JSON.parse(localStorage.getItem('fx_last_probs')||'[]');
