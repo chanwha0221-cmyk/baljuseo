@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.4</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.5</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -228,6 +228,106 @@ body{border:5px solid #d64545 !important;box-sizing:border-box;min-height:100vh}
   padding:3px 9px;border-radius:6px;margin-left:8px;vertical-align:middle;letter-spacing:0}
 .testbar{position:sticky;top:0;z-index:99;background:#d64545;color:#fff;font-size:12px;font-weight:700;
   text-align:center;padding:5px 10px;letter-spacing:0}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ✨ 디자인 리프레시 (2026-08-19) — 스타일 전용. HTML 구조·클래스·JS는 그대로다.
+   원래대로 되돌리려면 이 블록만 통째로 지우면 된다.
+   원칙: ① 글자 크기는 줄이지 않는다(거래처 연령대) ② 초록 상자가 위아래로
+        쌓여 어디를 봐야 할지 모르던 걸 정리 ③ 손가락으로 눌러도 안 흔들리게
+        들썩이는 효과는 마우스 있는 기기에서만.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --accent:#0e7c5a;--accent-d:#0a5b42;--accent-l:#19a276;
+  --bg:#f5f7f4;--card:#fff;--ink:#131c19;--muted:#63726c;
+  --line:#e1e8e1;--line2:#eef2ed;--soft:#e9f5ef;--chip:#f1f4f0;
+  --radius:16px;
+  --shadow:0 1px 2px rgba(16,40,30,.04),0 4px 16px rgba(16,40,30,.06);
+  --shadow-lg:0 2px 6px rgba(16,40,30,.06),0 16px 40px rgba(16,40,30,.11);
+  --ring:0 0 0 4px color-mix(in srgb,var(--accent) 14%,transparent);
+}
+@media(prefers-color-scheme:dark){:root{
+  --accent:#3fb68d;--accent-d:#2f9873;--accent-l:#57c9a1;
+  --bg:#10140f;--card:#1a201d;--ink:#e9efea;--muted:#94a29b;
+  --line:#2b332e;--line2:#232a26;--soft:#16332a;--chip:#232b27;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 4px 16px rgba(0,0,0,.28);
+  --shadow-lg:0 2px 6px rgba(0,0,0,.4),0 16px 40px rgba(0,0,0,.42);
+}}
+body{background:radial-gradient(1100px 520px at 50% -180px,color-mix(in srgb,var(--accent) 8%,var(--bg)),var(--bg)) fixed;letter-spacing:-.01em}
+::selection{background:color-mix(in srgb,var(--accent) 25%,transparent)}
+
+/* ── 머리말 ── */
+.mark{background:linear-gradient(145deg,var(--accent-l),var(--accent-d));
+  box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 32%,transparent),inset 0 1px 0 rgba(255,255,255,.28)}
+h1{letter-spacing:-.6px}
+.ver{background:var(--chip);border:1px solid var(--line)}
+
+/* ── 입금 계좌 — 제일 많이 묻는 정보라 한눈에 ── */
+.acct{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 9%,var(--card)),var(--card));
+  border:1.5px solid color-mix(in srgb,var(--accent) 34%,var(--line));border-radius:14px;box-shadow:var(--shadow)}
+.acct .no{letter-spacing:-.3px}
+
+/* ── 안내 문구 — 초록 상자가 계속 이어지면 눈이 미끄러진다. 흰 카드 + 왼쪽 띠로 ── */
+.note,.clicktip{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+  border-radius:12px;box-shadow:var(--shadow);color:var(--ink)}
+@media(prefers-color-scheme:dark){.clicktip{color:var(--ink)}}
+
+/* ── 메뉴 3칸 ── */
+.mbtn{border-radius:14px;padding:12px 8px;
+  background:linear-gradient(180deg,var(--card),color-mix(in srgb,var(--chip) 55%,var(--card)));
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.mbtn.on{background:linear-gradient(145deg,var(--accent-l),var(--accent-d));border-color:transparent;
+  box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 30%,transparent)}
+@media(hover:hover){.mbtn:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);
+  border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}}
+
+/* ── 검색 · 필터 ── */
+.controls{backdrop-filter:blur(14px) saturate(1.3)}
+.search{border-radius:14px;padding:13px 15px;box-shadow:var(--shadow)}
+.search:focus{border-color:var(--accent);box-shadow:var(--ring)}
+.lbl::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:var(--accent);margin-right:6px;vertical-align:middle;opacity:.75}
+.chip{border-radius:999px;transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease,color .14s ease}
+.chip.on{background:linear-gradient(145deg,var(--accent-l),var(--accent-d));border-color:transparent;
+  box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 26%,transparent)}
+@media(hover:hover){.chip:hover{transform:translateY(-1px);color:var(--accent-d);
+  border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+  .chip.on:hover{color:#fff}}
+.allbtn{border-radius:999px;box-shadow:var(--shadow);transition:.15s ease}
+@media(hover:hover){.allbtn:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}}
+
+/* ── 상품 카드 ── */
+.card{border-radius:var(--radius);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.thumb{transition:transform .35s ease}
+@media(hover:hover){.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);
+    border-color:color-mix(in srgb,var(--accent) 32%,var(--line))}
+  .card:hover .thumb{transform:scale(1.045)}}
+.pn a{border-bottom:1px dashed color-mix(in srgb,var(--accent) 55%,transparent);transition:color .14s}
+@media(hover:hover){.pn a:hover{color:var(--accent-d);border-bottom-color:var(--accent)}}
+.spec{border-top:none;background:color-mix(in srgb,var(--chip) 75%,transparent);
+  border-radius:9px;padding:7px 9px;margin-top:4px}
+.prow{border-top:1px solid var(--line2);padding-top:8px}
+.price{letter-spacing:-.7px}
+.tg,.chg,.recb,.hotb{border-radius:6px}
+.whb{border-radius:6px}
+.banner{border-left-width:5px;border-radius:14px}
+
+/* ── 공지 ── */
+.ntc,.ntcac{border-radius:14px}
+.ntcac>summary{padding:14px 16px}
+.ntcmore>summary{border-radius:11px;transition:.14s}
+
+/* ── 로그인 화면 ── */
+.gate{background:radial-gradient(760px 420px at 50% 0%,color-mix(in srgb,var(--accent) 11%,var(--bg)),var(--bg))}
+.gbox{border-radius:22px;box-shadow:var(--shadow-lg);padding:30px 26px 24px}
+.gbox .mark{width:52px;height:52px;font-size:21px;border-radius:15px}
+.gin{border-radius:12px}
+.gin:focus{box-shadow:var(--ring)}
+.gbtn{border-radius:13px;background:linear-gradient(145deg,var(--accent-l),var(--accent-d));
+  box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 26%,transparent);transition:.15s ease}
+.gbtn.ghost{background:var(--chip);box-shadow:none}
+@media(hover:hover){.gbtn:hover{filter:brightness(1.06)}.gbtn.ghost:hover{filter:none}}
+
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style></head><body>
 <div class="testbar">🧪 테스트본입니다 — 업체가 보는 실제 카탈로그가 아닙니다</div><div class="wrap">
 <header><div class="brand"><div class="mark">마</div><div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span><span class="testbadge">🧪 테스트본</span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
