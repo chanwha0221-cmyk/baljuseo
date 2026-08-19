@@ -13,7 +13,7 @@ echo ============================================
 echo.
 
 echo [ Bumping version... ]
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$f='index.html'; $enc=New-Object System.Text.UTF8Encoding $false; $c=[IO.File]::ReadAllText($f,$enc); $m=[regex]::Match($c,'v(\d+)\.(\d+)'); if($m.Success){$oldV='v'+$m.Groups[1].Value+'.'+$m.Groups[2].Value; $newV='v'+$m.Groups[1].Value+'.'+([int]$m.Groups[2].Value+1); $c=$c.Replace($oldV,$newV); [IO.File]::WriteAllText($f,$c,$enc); Write-Host ('Version: '+$oldV+' -^> '+$newV)} else{Write-Host 'Version pattern not found'}"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "foreach($f in @('index.html','catalog.html')){ if(-not (Test-Path $f)){Write-Host ($f+': not found'); continue}; $enc=New-Object System.Text.UTF8Encoding $false; $c=[IO.File]::ReadAllText($f,$enc); $m=[regex]::Match($c,'v(\d+)\.(\d+)'); if($m.Success){$oldV='v'+$m.Groups[1].Value+'.'+$m.Groups[2].Value; $newV='v'+$m.Groups[1].Value+'.'+([int]$m.Groups[2].Value+1); $c=$c.Replace($oldV,$newV); [IO.File]::WriteAllText($f,$c,$enc); Write-Host ($f+': '+$oldV+' -^> '+$newV)} else{Write-Host ($f+': version pattern not found')} }"
 echo.
 
 echo [ Checking git... ]

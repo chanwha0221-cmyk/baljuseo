@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마찬 유통 카탈로그</title>
+<title>마찬 유통 카탈로그 v1.0</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -16,6 +16,7 @@ header{padding:18px 0 4px}
 .mark{width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--accent-d));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:17px;box-shadow:var(--shadow)}
 h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.ver{display:inline-block;margin-left:7px;font-size:11px;font-weight:700;color:var(--muted);background:var(--soft);padding:2px 7px;border-radius:20px;vertical-align:middle;letter-spacing:0}
 .note{margin-top:11px;background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:9px 12px;font-size:11.5px;color:var(--accent-d);line-height:1.5}
 .controls{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 93%,transparent);backdrop-filter:blur(10px);padding:10px 0;border-bottom:1px solid var(--line);margin-top:11px}
 .search{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:11px 13px;font-size:15px;background:var(--card);color:var(--ink);outline:none}
@@ -177,7 +178,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   .ubtn{font-size:10.5px;padding:4px 8px}
 }
 </style></head><body><div class="wrap">
-<header><div class="brand"><div class="mark">마</div><div><h1>마찬 유통 카탈로그</h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
+<header><div class="brand"><div class="mark">마</div><div><h1>마찬 유통 카탈로그<span class="ver" id="ver"></span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
 <div class="userbar" id="userbar"></div></div>
 <div id="pwnudge"></div>
 <button class="noteTg" id="noteTg">🚚 합포장 · 문의 안내</button>
@@ -215,7 +216,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 <div class="gate" id="gate">
   <div class="gbox">
     <div class="mark">마</div>
-    <div class="gt">마찬 유통 카탈로그</div>
+    <div class="gt">마찬 유통 카탈로그<span class="ver" id="gver"></span></div>
     <div class="gs" id="gsub">거래처 전용입니다.<br>받으신 아이디로 로그인해 주세요.</div>
 
     <div class="gf" id="loginForm">
@@ -1044,6 +1045,11 @@ $('pw_btn').onclick=async()=>{
   }catch(e){$('pw_err').textContent=e.message||'변경에 실패했습니다.';}
   finally{gbusy=false;$('pw_btn').disabled=false;$('pw_btn').textContent='비밀번호 변경';}
 };
+// 버전은 <title>에 한 곳만 적는다 (update.bat이 그 숫자를 자동으로 +1). 화면 표시는 여기서 꺼내 쓴다.
+// 목적: 거래처가 구버전 탭을 붙들고 있는지 한눈에 보이게 (2026-08-19 사장님 지시)
+const APP_VER=(document.title.match(/v\d+\.\d+/)||[''])[0];
+$('ver').textContent=APP_VER;
+$('gver').textContent=APP_VER;
 (async()=>{
   const qs=new URLSearchParams(location.search),qu=qs.get('u'),qp=qs.get('p');
   if(qu&&qp){   // 자동로그인 링크 (사장님·원비씨용) — 한 번 열면 이 기기에 저장된다
