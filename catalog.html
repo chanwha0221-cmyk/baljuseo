@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마찬 유통 카탈로그 v1.7</title>
+<title>마스터 유통 카탈로그 v1.8</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -187,7 +187,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   .ubtn{font-size:10.5px;padding:4px 8px}
 }
 </style></head><body><div class="wrap">
-<header><div class="brand"><div class="mark">마</div><div><h1>마찬 유통 카탈로그<span class="ver" id="ver"></span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
+<header><div class="brand"><div class="mark">마</div><div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
 <div class="userbar" id="userbar"></div></div>
 <div id="pwnudge"></div>
 <button class="noteTg" id="noteTg">🚚 합포장 · 문의 안내</button>
@@ -220,7 +220,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 <div id="view"></div><div class="empty" id="empty" style="display:none">검색 결과가 없습니다.</div>
 </div>
 <div id="subView" style="display:none"></div>
-<footer id="ft">마찬 유통 상품 카탈로그</footer>
+<footer id="ft">마스터 유통 상품 카탈로그</footer>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -228,7 +228,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 <div class="gate" id="gate">
   <div class="gbox">
     <div class="mark">마</div>
-    <div class="gt">마찬 유통 카탈로그<span class="ver" id="gver"></span></div>
+    <div class="gt">마스터 유통 카탈로그<span class="ver" id="gver"></span></div>
     <div class="gs" id="gsub">거래처 전용입니다.<br>받으신 아이디로 로그인해 주세요.</div>
 
     <div class="gf" id="loginForm">
@@ -676,7 +676,7 @@ function finishRender(atMs,fromCache){
   let total=ALL.length;
   $('sub').textContent='창고 '+GROUPS.length+'곳 · 상품 '+total.toLocaleString()+'개';
   const t=new Date(atMs).toLocaleString('ko-KR',{dateStyle:'short',timeStyle:'short'});
-  $('ft').innerHTML='마찬 유통 상품 카탈로그<br>'+(fromCache?('저장된 상품 기준 '+t+' · 최신 내용으로 갱신 중…'):('불러온 시각 '+t+' · 새로고침하면 시트 최신 내용이 반영됩니다'));
+  $('ft').innerHTML='마스터 유통 상품 카탈로그<br>'+(fromCache?('저장된 상품 기준 '+t+' · 최신 내용으로 갱신 중…'):('불러온 시각 '+t+' · 새로고침하면 시트 최신 내용이 반영됩니다'));
   $('load').style.display='none';
   buildWhChips();render();
 }
@@ -727,7 +727,7 @@ async function startCatalog(){
 // 메뉴 서브페이지 — 📊상품변동사항 / ⭐추천상품 / 📢공지사항 (2026-08-12 사장님 지시)
 // 주소 해시(#change/#rec/#notice)로 화면만 바꾼다. 페이지를 새로 받지 않으니 빠르고,
 // 폰 뒤로가기·브라우저 뒤로가기를 누르면 카탈로그로 그대로 돌아온다.
-// 추천상품·공지사항 내용은 '마찬 유통 상품 도구'(media-updater)에서 등록한다.
+// 추천상품·공지사항 내용은 '마스터 유통 상품 도구'(media-updater)에서 등록한다.
 // ══════════════════════════════════════════════════════════════════
 const subV=$('subView'),mainV=$('mainView'),menuEl=$('menu');
 let CHG=null,RECS=null,NOTI=null;
@@ -877,7 +877,7 @@ async function loadRecs(){
     });
 }
 function renderRecs(list){
-  let h=subHead('⭐ 추천상품','마찬 유통이 요즘 밀고 있는 상품입니다.');
+  let h=subHead('⭐ 추천상품','마스터 유통이 요즘 밀고 있는 상품입니다.');
   if(!list.length)return h+'<div class="empty">아직 등록된 추천상품이 없습니다.</div>';
   h+='<div class="grid" style="margin-top:14px">'+list.map(r=>{
     const cm=r.cmt?'<div class="recc">💬 '+esc(r.cmt)+'</div>':'';
