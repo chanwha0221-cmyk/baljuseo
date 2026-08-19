@@ -309,7 +309,7 @@ h1{letter-spacing:-.6px}
 /* 카드가 좁아지면 "11,000" 과 "원" 이 갈라져 두 줄이 되던 것 — 가격은 통째로 유지하고
    배송사 이름 쪽이 줄바꿈되게 한다 */
 .price{letter-spacing:-.7px;white-space:nowrap}
-.ship{min-width:0}
+.ship{min-width:0;word-break:keep-all}   /* "무료배송" 이 "무료배 / 송" 으로 쪼개지지 않게 */
 .tg,.chg,.recb,.hotb{border-radius:6px}
 .whb{border-radius:6px}
 .banner{border-left-width:5px;border-radius:14px}
