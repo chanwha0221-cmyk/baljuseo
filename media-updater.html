@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.1</title>
+<title>마스터 유통 상품 도구 v1.2</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -67,6 +67,7 @@ a{color:var(--accent)}
   <button class="tabbtn on" data-t="cat">🏷️ 카테고리 분류</button>
   <button class="tabbtn" data-t="photo">🔧 사진·링크 수정</button>
   <button class="tabbtn" data-t="promo">📣 추천상품·공지사항</button>
+  <button class="tabbtn" data-t="hap">📦 합포장 이름 맞추기<span id="hapCnt" style="margin-left:5px;font-size:11px;color:var(--up);font-weight:800"></span></button>
 </div>
 
 <div id="tab-cat">
@@ -144,6 +145,26 @@ a{color:var(--accent)}
   <div id="ncRows" style="margin-top:12px"></div>
   <button class="cp" id="ncSave">💾 저장</button>
   <span id="ncLog" style="font-size:11.5px;color:var(--muted);margin-left:8px"></span>
+</div>
+</div>
+
+<!-- 📦 합포장 이름 맞추기 (사장님 2026-08-19)
+     관리팀이 게시판 문의글로 취합한 합포장 DB는 이름이 유통시트와 조금씩 다르다.
+     자동으로 붙이면 엉뚱한 상품에 수량이 붙어 업체가 그걸 보고 발주한다(§3-3 절대규칙).
+     → 사람이 후보를 보고 고르는 화면. 고른 결과는 '합포장' 탭 상품명을 유통시트 이름으로 고쳐 저장한다. -->
+<div id="tab-hap" style="display:none">
+<div class="card">
+  <h2>📦 합포장 이름 맞추기 <span id="hapStat" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
+  <p style="font-size:12.5px;color:var(--muted)">합포장 수량은 있는데 <b>유통시트 상품명과 이름이 달라서 카탈로그에 안 붙는</b> 것만 모았습니다.
+  맞는 상품을 고르면 그 이름으로 고쳐 저장하고, 다음부터 카탈로그 카드에 <b>📦 합포장 N개</b>가 뜹니다.<br>
+  ※ <b>지금 파는 상품(유통시트에 있는 것)</b>과 이름이 비슷한 것만 보여줍니다 — 안 파는 상품은 목록에 없습니다.<br>
+  ※ 🚫 <b>비슷해 보여도 다른 상품이면 고르지 마세요.</b> 엉뚱한 수량이 붙으면 업체가 그대로 발주합니다.
+  (예: 고추장 오리주물럭 ↔ 간장 오리주물럭 / 횟감 호래기 ↔ 급냉 호래기)</p>
+  <div class="ct-bulk" style="margin-top:10px">
+    <button class="cp" id="hapRun" style="margin-top:0">🔍 안 붙는 것 찾기</button>
+    <a class="cp" href="https://docs.google.com/spreadsheets/d/1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM/edit#gid=772579466" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none">📊 합포장 시트</a>
+  </div>
+  <div id="hapList"></div>
 </div>
 </div>
 </main>
@@ -1002,6 +1023,115 @@ $p('ncSave').onclick=async function(){
 };
 recLoad();notLoad();
 
+})();
+
+/* ── 📦 합포장 이름 맞추기 (사장님 2026-08-19) ──
+   합포장 DB(도구시트 '합포장')는 게시판 문의글 취합이라 이름이 유통시트와 조금씩 다르다.
+   실측: 195건 중 유통시트와 정확히 일치하는 건 56건(11%)뿐.
+   🚫 유사도로 자동 매칭하면 안 된다 — 0.86짜리 후보가 '고추장 오리주물럭'↔'간장 오리주물럭'이었다.
+      엉뚱한 합포장 수량이 붙으면 업체가 그걸 보고 발주한다 (CLAUDE.md §3-3).
+   → 후보만 보여주고 **사장님이 고른다.** 고르면 합포장 시트의 상품명을 유통시트 이름으로 고쳐 저장. */
+(function(){
+const S=window.__sheets; if(!S)return;          // api·토큰은 위 IIFE가 window.__sheets로 공유한다
+const api=S.api, DOGU=S.DOGU, YUTONG=S.YUTONG, q1=encodeURIComponent;
+const EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
+const $h=id=>document.getElementById(id);
+let HP={rows:[],sale:[],probs:[]};
+
+function hkey(s){return String(s||'').replace(/\s+/g,'').toLowerCase();}
+function bg2(s){s=hkey(s);const a=[];for(let i=0;i<s.length-1;i++)a.push(s.slice(i,i+2));return a;}
+function sim(a,b){const A=bg2(a),B=bg2(b);if(!A.length||!B.length)return 0;
+  const m={};A.forEach(x=>m[x]=(m[x]||0)+1);let h=0;B.forEach(x=>{if(m[x]>0){m[x]--;h++;}});
+  return 2*h/(A.length+B.length);}
+// 단위(1kg/500g/5미…)가 다르면 다른 상품일 확률이 높다 — 점수를 크게 깎아 위로 못 올라오게
+function unitOf(s){const m=String(s||'').match(/(\d+(?:\.\d+)?)\s*(kg|g|미|팩|개|마리|세트|통|박스|장|정|ml|l)/gi);
+  return m?m.map(x=>x.replace(/\s+/g,'').toLowerCase()).sort().join(','):'';}
+function score(a,b){let v=sim(a,b);const ua=unitOf(a),ub=unitOf(b);
+  if(ua&&ub&&ua!==ub)v*=0.45; return v;}
+
+async function hapLoad(){
+  const meta=await api(YUTONG,'?fields=sheets.properties(title,hidden)');
+  if(meta.error)throw new Error('유통시트 접근 실패: '+(meta.error.status||''));
+  const tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0
+      &&p.title.indexOf('공지_')!==0&&p.title.indexOf('가격비교')<0).map(p=>p.title);
+  const vr=await api(YUTONG,'/values:batchGet?'+tabs.map(t=>'ranges='+q1("'"+t+"'!C3:C")).join('&')+'&majorDimension=COLUMNS');
+  const sale=[];const seen={};
+  ((vr.valueRanges)||[]).forEach(function(r,i){
+    (((r.values)||[])[0]||[]).forEach(function(v){const s=String(v||'').trim();
+      if(!s||seen[hkey(s)])return;seen[hkey(s)]=1;sale.push({name:s,tab:tabs[i]});});
+  });
+  const hv=await api(DOGU,'/values/'+q1("'합포장'!A2:E1000"));
+  const rows=((hv.values)||[]).map(function(r,i){
+    return {row:i+2,wh:String(r[0]||'').trim(),name:String(r[1]||'').trim(),
+            qty:String(r[2]||'').trim(),at:String(r[3]||'').trim(),src:String(r[4]||'').trim()};
+  }).filter(x=>x.name&&x.qty);
+  return {rows,sale};
+}
+function hapBuild(){
+  const saleKey={};HP.sale.forEach(s=>saleKey[hkey(s.name)]=s);
+  HP.probs=[];
+  HP.rows.forEach(function(r){
+    if(saleKey[hkey(r.name)])return;                 // 이미 붙는 것
+    // 후보: 유통시트 상품 중 점수 높은 3개. 0.45 미만이면 아예 다른 상품이라 안 보여준다.
+    const cands=HP.sale.map(s=>({s,v:score(r.name,s.name)})).sort((a,b)=>b.v-a.v).slice(0,3).filter(c=>c.v>=0.45);
+    if(!cands.length)return;                          // 유통시트에 비슷한 것도 없음 = 안 파는 상품 → 안 보여준다
+    HP.probs.push({r,cands});
+  });
+  HP.probs.sort((a,b)=>b.cands[0].v-a.cands[0].v);
+}
+function hapRender(){
+  const n=HP.probs.length;
+  const attached=HP.rows.length-HP.probs.length;
+  $h('hapStat').textContent='— 합포장 '+HP.rows.length+'건 중 이름이 달라 안 붙는 것 '+n+'건';
+  const cnt=$h('hapCnt'); if(cnt)cnt.textContent=n?String(n):'';
+  if(!n){ $h('hapList').innerHTML='<div class="ci">이름 맞출 게 없습니다 🎉</div>'; return; }
+  $h('hapList').innerHTML=HP.probs.map(function(x,xi){
+    const r=x.r;
+    const btns=x.cands.map(function(c,ci){
+      const pct=Math.round(c.v*100);
+      return '<button class="fxg" data-hpick="'+xi+'_'+ci+'" title="이 상품 이름으로 고쳐 저장합니다">✓ '+c.s.name.replace(/</g,'&lt;')
+        +' <span style="opacity:.6">('+c.s.tab+' · '+pct+'%)</span></button>';
+    }).join('');
+    return '<div class="ci" data-hx="'+xi+'"><div class="cn">'+r.name.replace(/</g,'&lt;')
+      +'<span class="cw">'+(r.wh?r.wh+' · ':'')+'합포장 '+r.qty+'개 · 시트 '+r.row+'행</span></div>'
+      +btns
+      +'<button class="fxg" data-hskip="'+xi+'" title="맞는 게 없으면 넘깁니다 — 시트는 그대로 둡니다">✕ 해당없음</button>'
+      +'</div>';
+  }).join('');
+  $h('hapList').querySelectorAll('[data-hpick]').forEach(function(el){
+    el.onclick=function(){const p=el.getAttribute('data-hpick').split('_');hapPick(+p[0],+p[1],el);};
+  });
+  $h('hapList').querySelectorAll('[data-hskip]').forEach(function(el){
+    el.onclick=function(){const d=el.closest('.ci');if(d){d.style.opacity='.35';d.querySelectorAll('button').forEach(b=>b.disabled=true);}};
+  });
+}
+async function hapPick(xi,ci,btn){
+  const x=HP.probs[xi]; if(!x)return;
+  const target=x.cands[ci].s.name;
+  if(!confirm('합포장 '+x.r.qty+'개를\n\n  ['+x.r.name+']\n→ ['+target+']\n\n이 상품으로 붙일까요?\n\n※ 다른 상품이면 업체가 잘못된 수량으로 발주합니다.'))return;
+  btn.disabled=true; btn.textContent='저장 중…';
+  // 합포장 시트의 그 행 상품명(B)만 유통시트 이름으로 교체. 수량·창고는 그대로 둔다.
+  const j=await api(DOGU,'/values/'+q1("'합포장'!B"+x.r.row)+'?valueInputOption=RAW',
+    {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[[target]]})});
+  if(j&&j.error){ btn.disabled=false; btn.textContent='⚠️ 실패'; alert('저장 실패: '+(j.error.message||'')); return; }
+  const d=btn.closest('.ci');
+  if(d){ d.style.opacity='.45'; d.querySelectorAll('button').forEach(b=>b.disabled=true);
+    d.insertAdjacentHTML('beforeend','<span class="fxb ok">✓ '+target.replace(/</g,'&lt;')+' 으로 저장됨</span>'); }
+  x.r.name=target;
+  const cnt=$h('hapCnt');
+  const left=HP.probs.filter((p,i)=>i!==xi).length;
+  if(cnt)cnt.textContent=left?String(left):'';
+}
+$h('hapRun').onclick=async function(){
+  this.disabled=true;
+  try{
+    $h('hapStat').textContent='— 시트 읽는 중…';
+    const d=await hapLoad();
+    HP.rows=d.rows;HP.sale=d.sale;
+    hapBuild();hapRender();
+  }catch(e){ $h('hapStat').textContent='— ⚠️ '+(e.message||e); }
+  this.disabled=false;
+};
 })();
 
 </script>
