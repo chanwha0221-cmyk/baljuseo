@@ -42,6 +42,11 @@ a{color:var(--accent)}
 .fxb.ok{background:var(--soft);color:var(--accent-d)}
 .fxg{border:1px solid var(--line);background:var(--card);border-radius:6px;font-size:11px;padding:2px 7px;cursor:pointer;color:var(--muted);text-decoration:none;white-space:nowrap;font-family:inherit}
 .fxg:disabled{opacity:.4;cursor:not-allowed}
+.hapci{flex-direction:column;align-items:stretch;gap:6px;padding:10px}
+.haprow{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.hapin{border:1px solid var(--line);border-radius:6px;font-size:12px;padding:4px 8px;font-family:inherit;outline:none;background:var(--card)}
+.hapin.wh{width:110px} .hapin.nm{flex:1;min-width:220px}
+.hapmsg{font-size:11px;min-height:14px}
 .fxg:hover{border-color:var(--accent);color:var(--accent)}
 .fxg.del:hover{border-color:#c0392b;color:#c0392b}
 #fxList{border:1px solid var(--line);border-radius:9px;background:var(--card);margin-top:4px;max-height:60vh;overflow-y:auto}
@@ -68,6 +73,7 @@ a{color:var(--accent)}
   <button class="tabbtn on" data-t="cat">🏷️ 카테고리 분류</button>
   <button class="tabbtn" data-t="photo">🔧 사진·링크 수정</button>
   <button class="tabbtn" data-t="promo">📣 추천상품·공지사항</button>
+  <button class="tabbtn" data-t="hap">📦 합포장 이름 맞추기<span id="hapCnt" style="margin-left:5px;font-size:11px;color:var(--up);font-weight:800"></span></button>
 </div>
 
 <div id="tab-cat">
@@ -148,6 +154,25 @@ a{color:var(--accent)}
 </div>
 </div>
 
+<!-- 📦 합포장 이름 맞추기 (사장님 2026-08-19, 2차)
+     1차는 유사도 %로 후보를 추천했다가 폐기했다 — 93%짜리가 오답이었다(자반고등어 10미 → 10미 대).
+     2차 규칙: ①추측 점수 없음 ②유통시트에 **글자가 겹치는 이름이 실제로 있는 것만** 올린다
+     (마찬에 아예 없는 상품 127건은 손댈 게 없으니 안 보여준다) ③고르든 직접 치든 **사람이 정한다**. -->
+<div id="tab-hap" style="display:none">
+<div class="card">
+  <h2>📦 합포장 이름 맞추기 <span id="hapStat" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
+  <p style="font-size:12.5px;color:var(--muted)">합포장 수량은 있는데 <b>유통시트와 이름이 달라서 카탈로그에 안 붙는</b> 것 중,
+  <b>유통시트에 글자가 겹치는 이름이 실제로 있는 것만</b> 모았습니다. 마찬에 아예 없는 상품은 뺐습니다.<br>
+  ※ 도구는 <b>추측하지 않습니다</b> — 아래 이름들은 글자가 겹친다는 사실만 알려주는 것이고, 같은 상품인지는 팀장님이 정하십니다.
+  맞는 게 없으면 <b>창고명·상품명을 직접</b> 쳐 넣으시면 됩니다.<br>
+  ※ 저장하면 합포장 시트의 <b>창고(A열)·상품명(B열)</b>이 바뀝니다. 수량은 건드리지 않습니다.</p>
+  <div class="ct-bulk" style="margin-top:10px">
+    <button class="cp" id="hapRun" style="margin-top:0">🔍 손볼 것 찾기</button>
+    <a class="cp" href="https://docs.google.com/spreadsheets/d/1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM/edit#gid=772579466" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none">📊 합포장 시트</a>
+  </div>
+  <div id="hapList"></div>
+</div>
+</div>
 </main>
 <script>
 /* 탭 전환 */
@@ -176,7 +201,7 @@ const CTAB='상품분류';
 // 아래 IIFE(추천상품·공지사항)가 같은 서비스계정 키를 또 박지 않도록 공유 (2026-08-12)
 window.__sheets={get token(){return token;},get api(){return api;},DOGU:DOGU,YUTONG:YUTONG};
 const EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
-const PRESET=['수산','과일','축산','김치·반찬','가공식품','생활용품','기타'];
+const PRESET=['수산','과일','농산물','축산','김치·반찬','가공식품','생활용품','기타'];
 const PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n";
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
 let _tok=null,_exp=0;
@@ -1006,6 +1031,144 @@ recLoad();notLoad();
 
 })();
 
+/* ── 📦 합포장 이름 맞추기 (사장님 2026-08-19, 2차) ──
+   🚫 유사도 점수로 추천하지 않는다. 1차 때 그렇게 했다가 '자반고등어 10미'에 '자반고등어 10미 대'가
+      93%로 1등이 되어 클릭 한 번에 다른 상품이 됐다. 상품명은 한 글자만 달라도 다른 상품이다.
+   지금 하는 일은 딱 둘:
+     ① 유통시트에 **글자가 그대로 포함되는 이름이 실제로 있는 것만** 골라 올린다
+        (마찬에 아예 없는 상품은 손댈 게 없으니 안 보여준다 — 실측 142건 중 127건이 그랬다)
+     ② 고르든 직접 치든 **사람이 정한다.** 저장은 A열(창고)·B열(상품명)만, 수량은 안 건드린다. */
+(function(){
+const S=window.__sheets; if(!S)return;
+const api=S.api, DOGU=S.DOGU, YUTONG=S.YUTONG, q1=encodeURIComponent;
+const EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
+const $h=id=>document.getElementById(id);
+const hkey=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+let HP={rows:[],sale:[],whs:[],probs:[]};
+
+async function hapLoad(){
+  const meta=await api(YUTONG,'?fields=sheets.properties(title,hidden)');
+  if(meta.error)throw new Error('유통시트 접근 실패: '+(meta.error.status||''));
+  const tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0
+      &&p.title.indexOf('공지_')!==0&&p.title.indexOf('가격비교')<0).map(p=>p.title);
+  // B열=창고명, C열=상품명. 창고명은 탭 이름과 다를 수 있다(단독(유) 탭 안에 디디·아드 등).
+  const vr=await api(YUTONG,'/values:batchGet?'+tabs.map(t=>'ranges='+q1("'"+t+"'!B3:C")).join('&'));
+  const sale=[],seen={},whSet={};
+  ((vr.valueRanges)||[]).forEach(function(r,i){
+    whSet[tabs[i]]=1;
+    ((r.values)||[]).forEach(function(row){
+      const wh=String(row[0]||'').trim(), nm=String(row[1]||'').trim();
+      if(wh)whSet[wh]=1;
+      if(!nm||seen[hkey(nm)])return; seen[hkey(nm)]=1;
+      sale.push({name:nm,wh:wh||tabs[i],tab:tabs[i]});});
+  });
+  const hv=await api(DOGU,'/values/'+q1("'합포장'!A2:E1000"));
+  const rows=((hv.values)||[]).map(function(r,i){
+    return {row:i+2,wh:String(r[0]||'').trim(),name:String(r[1]||'').trim(),qty:String(r[2]||'').trim()};
+  }).filter(x=>x.name&&x.qty);
+  return {rows,sale,whs:Object.keys(whSet).sort()};
+}
+function hapBuild(){
+  const key={};HP.sale.forEach(s=>key[hkey(s.name)]=s);
+  // 창고명이 앞에 붙어 온 것(디디유 한방 암꽃게장…)은 카탈로그가 알아서 붙이므로 여기 안 올린다
+  const whs=HP.whs.map(hkey).filter(w=>w.length>=2);
+  const isWh=function(tok){const t=hkey(tok);return t.length>=2&&whs.some(w=>t===w||t.indexOf(w)===0||w.indexOf(t)===0);};
+  HP.probs=[];
+  HP.rows.forEach(function(r){
+    const k=hkey(r.name);
+    if(key[k])return;                                     // 이름 그대로 붙는다
+    const sp=r.name.search(/\s/);
+    if(sp>0&&isWh(r.name.slice(0,sp))&&key[hkey(r.name.slice(sp+1))])return;   // 창고명만 앞에 붙은 것
+    // 글자가 그대로 포함되는 유통시트 이름이 있는 것만 — 추측이 아니라 포함 여부라는 사실만 본다
+    const cands=HP.sale.filter(function(s){const sk=hkey(s.name);return sk!==k&&(sk.indexOf(k)>=0||k.indexOf(sk)>=0);});
+    if(!cands.length)return;                              // 마찬에 아예 없음 → 손댈 게 없다
+    HP.probs.push({r,cands});
+  });
+  HP.probs.sort((a,b)=>a.r.row-b.r.row);
+}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function hapRender(){
+  const n=HP.probs.length;
+  $h('hapStat').textContent='— 합포장 '+HP.rows.length+'건 중 손볼 것 '+n+'건 (마찬에 없는 상품은 뺐습니다)';
+  const cnt=$h('hapCnt'); if(cnt)cnt.textContent=n?String(n):'';
+  if(!n){ $h('hapList').innerHTML='<div class="ci">손볼 게 없습니다 🎉</div>'; return; }
+  const dlN='<datalist id="hapDLN">'+HP.sale.map(s=>'<option value="'+esc(s.name)+'">'+esc(s.wh)+'</option>').join('')+'</datalist>';
+  const dlW='<datalist id="hapDLW">'+HP.whs.map(w=>'<option value="'+esc(w)+'">').join('')+'</datalist>';
+  $h('hapList').innerHTML=dlN+dlW+HP.probs.map(function(x,xi){
+    const r=x.r;
+    const btns=x.cands.slice(0,4).map(function(c,ci){
+      return '<button class="fxg" data-hpick="'+xi+'_'+ci+'" title="이 이름으로 채웁니다 — 저장은 아래 [💾]를 눌러야 됩니다">'
+        +esc(c.wh)+' / '+esc(c.name)+'</button>';}).join('');
+    return '<div class="ci hapci" data-hx="'+xi+'">'
+      +'<div class="cn">'+esc(r.name)+'<button class="fxg" data-hcp="'+xi+'" title="상품명 복사">📋</button>'
+      +'<span class="cw">'+(r.wh?esc(r.wh)+' · ':'')+'합포장 '+esc(r.qty)+'개 · 시트 '+r.row+'행</span></div>'
+      +'<div class="haprow">'+btns+'</div>'
+      +'<div class="haprow">'
+        +'<input class="hapin wh" list="hapDLW" data-hwh="'+xi+'" placeholder="창고명" value="'+esc(r.wh)+'" autocomplete="off" spellcheck="false">'
+        +'<input class="hapin nm" list="hapDLN" data-hnm="'+xi+'" placeholder="상품명 — 위에서 고르거나 직접 입력" value="'+esc(r.name)+'" autocomplete="off" spellcheck="false">'
+        +'<button class="fxg" data-hsave="'+xi+'" title="합포장 시트의 창고·상품명을 이 값으로 고칩니다">💾 저장</button>'
+        +'<button class="fxg" data-hskip="'+xi+'" title="넘깁니다 — 시트는 그대로 둡니다">✕ 넘김</button>'
+      +'</div>'
+      +'<div class="hapmsg" data-hmsg="'+xi+'"></div></div>';
+  }).join('');
+  const saleKey={};HP.sale.forEach(s=>saleKey[hkey(s.name)]=s);
+  const mark=function(xi){
+    const nm=$h('hapList').querySelector('[data-hnm="'+xi+'"]');
+    const msg=$h('hapList').querySelector('[data-hmsg="'+xi+'"]');
+    const hit=saleKey[hkey(nm.value)];
+    nm.style.borderColor=hit?'#2d6a4f':'#c0392b';
+    msg.innerHTML=hit?'<span style="color:#2d6a4f">✓ 유통시트에 있는 이름 — 저장하면 카탈로그에 바로 붙습니다</span>'
+      :'<span style="color:#c0392b">⚠️ 유통시트에 없는 이름입니다 — 저장은 되지만 카탈로그에는 안 붙습니다</span>';
+  };
+  $h('hapList').querySelectorAll('[data-hpick]').forEach(function(el){
+    el.onclick=function(){const p=el.getAttribute('data-hpick').split('_'),xi=+p[0],c=HP.probs[xi].cands[+p[1]];
+      $h('hapList').querySelector('[data-hnm="'+xi+'"]').value=c.name;
+      $h('hapList').querySelector('[data-hwh="'+xi+'"]').value=c.wh;
+      mark(xi);};
+  });
+  $h('hapList').querySelectorAll('[data-hnm]').forEach(function(el){
+    const xi=+el.getAttribute('data-hnm');
+    el.oninput=function(){mark(xi);};
+    el.onkeydown=function(e){if(e.key==='Enter')$h('hapList').querySelector('[data-hsave="'+xi+'"]').click();};
+  });
+  $h('hapList').querySelectorAll('[data-hsave]').forEach(function(el){
+    el.onclick=function(){hapSave(+el.getAttribute('data-hsave'),el);};
+  });
+  $h('hapList').querySelectorAll('[data-hcp]').forEach(function(el){
+    el.onclick=function(){navigator.clipboard.writeText(HP.probs[+el.getAttribute('data-hcp')].r.name)
+      .then(function(){const t=el.textContent;el.textContent='✓';setTimeout(function(){el.textContent=t;},900);});};
+  });
+  $h('hapList').querySelectorAll('[data-hskip]').forEach(function(el){
+    el.onclick=function(){const d=el.closest('.ci');if(d){d.style.opacity='.35';d.querySelectorAll('button,input').forEach(b=>b.disabled=true);}};
+  });
+}
+async function hapSave(xi,btn){
+  const x=HP.probs[xi]; if(!x)return;
+  const nm=$h('hapList').querySelector('[data-hnm="'+xi+'"]').value.trim();
+  const wh=$h('hapList').querySelector('[data-hwh="'+xi+'"]').value.trim();
+  if(!nm){alert('상품명이 비어 있습니다.');return;}
+  if(!confirm('합포장 '+x.r.qty+'개 ('+x.r.row+'행)\n\n  ['+(x.r.wh||'-')+' / '+x.r.name+']\n→ ['+(wh||'-')+' / '+nm+']\n\n이렇게 고칠까요?\n\n※ 다른 상품이면 업체가 잘못된 수량으로 발주합니다.'))return;
+  btn.disabled=true; btn.textContent='저장 중…';
+  const j=await api(DOGU,'/values/'+q1("'합포장'!A"+x.r.row+':B'+x.r.row)+'?valueInputOption=RAW',
+    {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[[wh,nm]]})});
+  if(j&&j.error){ btn.disabled=false; btn.textContent='⚠️ 실패'; alert('저장 실패: '+(j.error.message||'')); return; }
+  x.r.name=nm; x.r.wh=wh;
+  btn.textContent='✓ 저장됨';
+  const d=btn.closest('.ci'); if(d){d.style.opacity='.5';d.querySelectorAll('button,input').forEach(b=>b.disabled=true);}
+  const cnt=$h('hapCnt'); const left=Math.max(0,(parseInt(cnt.textContent,10)||HP.probs.length)-1);
+  cnt.textContent=left?String(left):'';
+}
+$h('hapRun').onclick=async function(){
+  this.disabled=true;
+  try{
+    $h('hapStat').textContent='— 시트 읽는 중…';
+    const d=await hapLoad();
+    HP.rows=d.rows;HP.sale=d.sale;HP.whs=d.whs;
+    hapBuild();hapRender();
+  }catch(e){ $h('hapStat').textContent='— ⚠️ '+(e.message||e); }
+  this.disabled=false;
+};
+})();
 
 </script>
 </body></html>
