@@ -229,7 +229,10 @@
 
   function sectionHTML(cat, items) {
     var c = CAT[cat];
-    var meta = c.meta || (CFG.categoryText && CFG.categoryText[cat] && CFG.categoryText[cat].meta) || "";
+    var t = (CFG.categoryText && CFG.categoryText[cat]) || {};
+    var meta = c.meta || t.meta || "";
+    // 개요 카드를 없앤 뒤로 카테고리 '소개(카드 설명)'도 이 헤더 바에서 보여준다 (2026-08-20 홍팀장)
+    var descr = c.descr || t.desc || "";
     var cards = items.map(cardHTML).join("");
     return '' +
       '<section id="' + cat + '" class="section">' +
@@ -239,6 +242,7 @@
             '<div>' +
               '<div class="kicker">' + esc(c.eyebrow) + '</div>' +
               '<h2 class="display">' + esc(c.name) + '</h2>' +
+              (descr ? '<p class="sec-descr">' + esc(descr) + '</p>' : '') +
             '</div>' +
           '</div>' +
           (meta ? '<div class="meta">' + esc(meta) + '</div>' : '') +
@@ -247,24 +251,8 @@
       '</section>';
   }
 
-  function overviewHTML(grouped) {
-    var cards = CAT_ORDER.filter(function (k) { return grouped[k] && grouped[k].length; }).map(function (k) {
-      var c = CAT[k];
-      var t = (CFG.categoryText && CFG.categoryText[k]) || {};
-      return '' +
-        '<a class="cat-card" href="#' + k + '" style="background:' + c.soft + ';border:2px solid ' + c.accent + ';">' +
-          '<div class="tile display" style="background:' + c.accent + ';">' + c.mark + '</div>' +
-          '<h3 class="display">' + esc(c.name) + '</h3>' +
-          '<p>' + esc(c.descr || t.desc || "") + '</p>' +
-          '<div class="go" style="color:' + c.accent + ';">' + grouped[k].length + '품목 · 바로가기 ↓</div>' +
-        '</a>';
-    }).join("");
-    // 제목("카테고리별로 채우는 한 장의 제안")은 2026-08-20 홍팀장 지시로 삭제 — 뜻이 안 통했다.
-    return '' +
-      '<section class="section">' +
-        '<div class="cat-grid">' + cards + '</div>' +
-      '</section>';
-  }
+  /* 카테고리 개요 카드(cat-card, "○품목 · 바로가기 ↓")는 2026-08-20 홍팀장 지시로 삭제.
+     제안서는 PDF로 돌리는 게 대부분이라 페이지 안 앵커 링크가 의미가 없다. */
 
   function heroHTML() {
     var lines = (CFG.heroTitleLines || ["바다에서", "식탁까지,", "한 번에 채우다"]);
@@ -333,9 +321,8 @@
     var grouped = {};
     CAT_ORDER.forEach(function (k) { grouped[k] = []; });
     products.forEach(function (p) { if (grouped[p.cat]) grouped[p.cat].push(p); });
-    var catCount = CAT_ORDER.filter(function (k) { return grouped[k].length; }).length;
 
-    var html = heroHTML(products.length, catCount) + overviewHTML(grouped);
+    var html = heroHTML();
     CAT_ORDER.forEach(function (k) {
       if (grouped[k].length) html += sectionHTML(k, grouped[k]);
     });
