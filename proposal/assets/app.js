@@ -221,7 +221,10 @@
           '<div class="price-row">' + priceHtml + '</div>' +
           '<div class="ship-row" style="background:' + c.rowBg + ';">' +
             (p.courier ? '<span class="pill" style="color:' + c.accent + ';background:' + c.pillBg + ';">' + esc(p.courier) + '</span>' : '') +
-            '<span class="txt">택배비 ' + money(p.shipFee) + '</span>' +
+            // 택배비 0 = 무료배송으로 표기 (2026-08-20 홍팀장)
+            (p.shipFee > 0
+              ? '<span class="txt">택배비 ' + money(p.shipFee) + '</span>'
+              : '<span class="txt free">무료배송</span>') +
           '</div>' +
         '</div>' +
       '</div>';

@@ -144,7 +144,9 @@
   /* 원가를 넣어두면 실제로 파는 값(특별제안가 있으면 그것) 기준 마진을 관리자에만 보여준다 */
   function marginHintHTML(it) {
     var cost = num(it.cost), sell = num(it.special_price) || num(it.supply_price);
-    if (!cost || !sell) return '';
+    // 원가가 없으면 "이 값으로 내보내도 되나"를 판단할 수가 없다 → 비었다는 걸 눈에 띄게
+    if (!cost) return '<div class="margin-hint none">원가 없음 <span class="mh-note">위 [🧾 원가 가져오기]를 누르면 채워집니다</span></div>';
+    if (!sell) return '';
     var gap = sell - cost, pct = Math.round(gap / sell * 100);
     return '<div class="margin-hint' + (gap <= 0 ? ' bad' : '') + '">마진 ' + gap.toLocaleString() + '원 · ' + pct + '%' +
       '<span class="mh-note">원가 ' + cost.toLocaleString() + '원 기준 · 이 줄은 관리자만 봅니다</span></div>';
@@ -372,7 +374,8 @@
     else if (costResult.err) body = '<div class="st-empty">원가표를 읽지 못했어요 — ' + esc(costResult.err) + '</div>';
     else {
       body = '<div class="sp-note">도구시트 <b>전체상품원가</b>(' + costResult.total.toLocaleString() + '건, 기준일 <b>' + esc(costResult.base || "-") + '</b>)에서 ' +
-        '상품명이 <b>완전히 같은</b> 것만 가져왔습니다. 원가는 관리자 화면에서만 보입니다.</div>';
+        '상품명이 <b>완전히 같은</b> 것만 가져왔습니다. 원가는 관리자 화면에서만 보이고 제안서·PDF에는 안 나갑니다.' +
+        (costResult.others ? '<br>다른 버전 상품 <b>' + costResult.others + '건</b>도 같이 채웠습니다.' : '') + '</div>';
       if (costResult.rows.length) {
         body += '<table class="st-table"><thead><tr><th>상품명</th><th>원가</th><th>파는 값</th><th>마진</th></tr></thead><tbody>' +
           costResult.rows.map(function (r) {
@@ -416,12 +419,22 @@
         it.cost = c;
         got.push({ name: n, cost: c, sell: num(it.special_price) || num(it.supply_price) });
       });
+      /* 원가는 상품의 성질이지 버전의 성질이 아니다 — 다른 버전 행도 같이 채운다.
+         (안 그러면 버전을 바꿀 때마다 원가가 비어 보인다. 2026-08-20 홍팀장 지적) */
+      var otherFilled = 0;
+      otherRows = otherRows.map(function (r) {
+        var x = r.slice();
+        while (x.length < 15) x.push("");
+        var n = String(x[2] || "").trim();
+        if (n && map[n]) { x[14] = map[n]; otherFilled++; }
+        return x;
+      });
       costBase = base;
       return saveProducts().then(function () {
         costPulledAt = nowLabel();
         return saveCostStamp(base, costPulledAt);
       }).then(function () {
-        costResult = { rows: got, miss: miss, base: base, total: rows.length - 1 };
+        costResult = { rows: got, miss: miss, base: base, total: rows.length - 1, others: otherFilled };
         dirty = false; renderEditor();
         toast(got.length + "개 상품에 원가를 넣었어요 ✅ (원가표 기준일 " + (base || "-") + ")");
       });
