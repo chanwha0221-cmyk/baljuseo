@@ -305,6 +305,9 @@ table.olist td.tl{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:
 table.olist th.ck,table.olist td.ck{width:34px;text-align:center;padding-left:4px;padding-right:4px}
 table.olist input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
 table.olist tr.xrow td{text-decoration:line-through;color:var(--muted)}
+table.olist tr.erow td{background:color-mix(in srgb,var(--gold) 8%,transparent)}
+table.olist input.ein{padding:6px 8px;font-size:12.5px;min-width:120px}
+table.olist td.ad input.ein{min-width:230px}
 .lock{font-size:12px;opacity:.6}
 .ordb2.done{background:var(--soft);border-color:var(--accent);color:var(--accent-d);font-weight:800;opacity:1;cursor:default}
 .ordb2.warn{color:var(--up);border-color:color-mix(in srgb,var(--up) 35%,transparent)}
@@ -529,6 +532,11 @@ async function submit(){
    (사장님 2026-08-20: "내가 발주를 했나? 뭐가 잘못됐지 찾을 때 이름·연락처로 검색"). */
 const PAGE = 10;                 // 한 페이지에 발주 묶음 10건
 let OQ = '', OPAGE = 1, OST = '';
+// ✏️ 수정 중인 발주묶음과 줄 — 고치는 동안 다른 카드는 건드리지 않는다
+let EDIT_NO = '', EDIT_SEQ = [];
+const isEditing = (no, seq) => EDIT_NO === no && EDIT_SEQ.indexOf(String(seq)) >= 0;
+// 검색·페이지가 바뀌면 편집 중이던 칸은 사라진다 → 상태도 같이 접는다(저장 안 된 값이 남아 보이지 않게)
+function resetEdit(){ EDIT_NO = ''; EDIT_SEQ = []; }
 async function ordersView(){
   css();   // ⚠️ 마스터는 발주하기 화면을 안 거치므로 여기서도 스타일을 넣어야 한다(2026-08-20 화면 깨짐)
   if(!hasApi()) return subHead('📋 발주 내역', '') + '<div class="empty">발주 접수가 아직 열리지 않았습니다.</div>';
@@ -598,7 +606,7 @@ function pageNums(cur, total){
 }
 function bindPager(){
   const c = document.getElementById('oclr');
-  if(c) c.onclick = () => { OQ = ''; OST = ''; const s = document.getElementById('osearch'); if(s) s.value = ''; syncFbtn(); OPAGE = 1; ordersPaint(); };
+  if(c) c.onclick = () => { OQ = ''; OST = ''; const s = document.getElementById('osearch'); if(s) s.value = ''; syncFbtn(); OPAGE = 1; resetEdit(); ordersPaint(); };
 }
 function syncFbtn(){
   document.querySelectorAll('[data-ost2]').forEach(b => b.classList.toggle('on', b.getAttribute('data-ost2') === OST));
@@ -626,13 +634,18 @@ function orderCard(no, list, master){
       +   '<th>상품</th><th>받는분</th><th>주소</th><th>연락처</th><th>메시지</th></tr></thead><tbody>'
       +   list.map(r => {
             const dead = r.state === '취소', done = r.state === '완료';
-            return '<tr class="' + (dead ? 'xrow' : '') + '">'
+            const ed = isEditing(no, r.seq);
+            const cell = (f, cls) => ed
+              ? '<td class="' + (cls || '') + '"><input class="ordin ein" data-no="' + esc(no) + '" data-seq="' + esc(String(r.seq)) + '" data-f="' + f + '" value="' + esc(r[f] || '') + '"></td>'
+              : '<td class="' + (cls || '') + '">' + esc(r[f] || '') + '</td>';
+            return '<tr class="' + (dead ? 'xrow' : '') + (ed ? ' erow' : '') + '">'
               + '<td class="ck">' + ((!dead && !done)
-                  ? '<input type="checkbox" class="ordpick" data-no="' + esc(no) + '" data-seq="' + esc(String(r.seq)) + '">'
-                  : (done ? '<span class="lock" title="당일 시트로 넘어가 취소할 수 없습니다">🔒</span>' : '')) + '</td>'
+                  ? '<input type="checkbox" class="ordpick" data-no="' + esc(no) + '" data-seq="' + esc(String(r.seq)) + '"' + (ed ? ' checked' : '') + '>'
+                  : (done ? '<span class="lock" title="당일 시트로 넘어가 고치거나 취소할 수 없습니다">🔒</span>' : '')) + '</td>'
               + (master ? '<td>' + esc(r.biz) + '</td>' : '')
-              + '<td class="pd">' + esc(r.prod) + '</td><td>' + esc(r.rcv) + '</td>'
-              + '<td class="ad">' + esc(r.addr) + '</td><td class="tl">' + esc(r.tel) + '</td><td>' + esc(r.msg) + '</td></tr>';
+              + '<td class="pd">' + esc(r.prod) + '</td>'
+              + cell('rcv') + cell('addr', 'ad') + cell('tel', 'tl') + cell('msg')
+              + '</tr>';
           }).join('')
       + '</tbody></table></div>'
       + '<div class="ordbar" style="margin-bottom:0;margin-top:10px">'
@@ -641,7 +654,12 @@ function orderCard(no, list, master){
               ? '<button class="ordb2 done" disabled>✅ 당일 시트로 보냈습니다</button>'
               : (live.length ? '<button class="ordb2 pri" data-opush="' + esc(no) + '">📤 당일 시트로 보내기</button>' : ''))
           : '')
-      + (canPick ? '<button class="ordb2 warn" data-ocn="' + esc(no) + '">✕ 선택한 건 취소</button>' : '')
+      + (EDIT_NO === no
+          ? '<button class="ordb2 pri" data-osave="' + esc(no) + '">💾 수정 완료</button>'
+            + '<button class="ordb2" data-oecx="1">되돌리기</button>'
+            + '<span class="hint" style="align-self:center">성함 · 주소 · 연락처 · 메시지만 고칠 수 있습니다</span>'
+          : (canPick ? '<button class="ordb2" data-oed="' + esc(no) + '">✏️ 선택한 건 수정</button>'
+                     + '<button class="ordb2 warn" data-ocn="' + esc(no) + '">✕ 선택한 건 취소</button>' : ''))
       + '</div>'
       + (master && sent ? '<div class="hint" style="margin-top:6px">' + esc(f.done ? short(f.done) + ' 전송' : '전송됨') + ' — 다시 보내지지 않습니다</div>' : '')
       + '</div>';
@@ -728,8 +746,8 @@ function ordersBind(){
   if(ME && ME.master) cfgBind();
   const s = document.getElementById('osearch');
   if(s){
-    s.oninput = () => { clearTimeout(otmr); otmr = setTimeout(() => { OQ = s.value; OPAGE = 1; ordersPaint(); }, 250); };
-    s.onkeydown = e => { if(e.key === 'Escape'){ s.value = ''; OQ = ''; OPAGE = 1; ordersPaint(); } };
+    s.oninput = () => { clearTimeout(otmr); otmr = setTimeout(() => { OQ = s.value; OPAGE = 1; resetEdit(); ordersPaint(); }, 250); };
+    s.onkeydown = e => { if(e.key === 'Escape'){ s.value = ''; OQ = ''; OPAGE = 1; resetEdit(); ordersPaint(); } };
   }
   ordersPaint();
 }
@@ -943,10 +961,11 @@ document.addEventListener('click', e => {
   }
   // 상태 필터 · 페이지 이동
   const fb = e.target.closest && e.target.closest('[data-ost2]');
-  if(fb){ OST = fb.getAttribute('data-ost2'); OPAGE = 1; syncFbtn(); ordersPaint(); return; }
+  if(fb){ OST = fb.getAttribute('data-ost2'); OPAGE = 1; resetEdit(); syncFbtn(); ordersPaint(); return; }
   const pg = e.target.closest && e.target.closest('[data-opg]');
   if(pg && !pg.disabled){
     OPAGE = parseInt(pg.getAttribute('data-opg'), 10) || 1;
+    resetEdit();
     ordersPaint();
     const t = document.getElementById('ordlist');
     if(t) window.scrollTo({top: Math.max(0, t.getBoundingClientRect().top + window.scrollY - 90), behavior:'smooth'});
@@ -968,6 +987,37 @@ document.addEventListener('click', e => {
     api('push', {token: ME.token, orderNo: no})
       .then(j => { toast(no + ' → 당일 시트 ' + j.col + j.row + '행에 ' + j.count + '줄'); reloadOrders(); })
       .catch(err => { alert(err.message || '보내지 못했습니다'); op.disabled = false; op.textContent = '📤 당일 시트로 보내기'; });
+    return;
+  }
+  /* ✏️ 선택한 줄 수정 — 체크한 줄이 그 자리에서 입력칸으로 바뀐다 */
+  const oed = e.target.closest && e.target.closest('[data-oed]');
+  if(oed){
+    const no = oed.getAttribute('data-oed');
+    const picked = Array.from(document.querySelectorAll('.ordpick[data-no="' + no + '"]:checked')).map(c => c.getAttribute('data-seq'));
+    if(!picked.length){ alert('고칠 줄을 먼저 체크해 주세요.'); return; }
+    EDIT_NO = no; EDIT_SEQ = picked;
+    ordersPaint();
+    const first = document.querySelector('.ein');
+    if(first) first.focus();
+    return;
+  }
+  const oecx = e.target.closest && e.target.closest('[data-oecx]');
+  if(oecx){ EDIT_NO = ''; EDIT_SEQ = []; ordersPaint(); return; }
+  const osv = e.target.closest && e.target.closest('[data-osave]');
+  if(osv){
+    const no = osv.getAttribute('data-osave');
+    const edits = EDIT_SEQ.map(seq => {
+      const g = f => { const el = document.querySelector('.ein[data-no="' + no + '"][data-seq="' + seq + '"][data-f="' + f + '"]'); return el ? S(el.value) : ''; };
+      return {seq, rcv:g('rcv'), addr:g('addr'), tel:(fmtTel(g('tel')) || S(g('tel'))), msg:g('msg')};
+    });
+    const bad = edits.find(x => !x.rcv || !x.addr || !x.tel);
+    if(bad){ alert('성함 · 주소 · 연락처는 비울 수 없습니다.'); return; }
+    const badTel = edits.find(x => !fmtTel(x.tel));
+    if(badTel && !confirm('연락처 "' + badTel.tel + '" 는 형식이 맞지 않아 보입니다. 그대로 저장할까요?')) return;
+    osv.disabled = true; osv.textContent = '저장 중…';
+    api('edit', {token: ME.token, orderNo: no, edits})
+      .then(j => { EDIT_NO = ''; EDIT_SEQ = []; toast(j.count + '건 수정했습니다'); reloadOrders(); })
+      .catch(err => { alert(err.message || '수정하지 못했습니다'); osv.disabled = false; osv.textContent = '💾 수정 완료'; });
     return;
   }
   // 선택한 줄만 취소 — 한 번에 여러 건 넣고 일부만 빼는 경우 (업체·마스터 공통)
