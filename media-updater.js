@@ -200,10 +200,17 @@ async function loadProducts(){
     if(/원가|공급처|기존가/.test(H.join('|')))continue;
     const ci=H.findIndex(h=>h.indexOf('상품명')>=0);
     const cw=H.findIndex(h=>h.indexOf('창고명')>=0);
+    const cp=H.findIndex(h=>h.indexOf('공급가')>=0);
     if(ci<0)continue;
     for(let i=hr+1;i<disp.length;i++){
       const nm=(disp[i][ci]||'').trim();
       if(!nm||nm==='상품명')continue;
+      /* 📢 상품이 아니라 '공지 행'은 건너뛴다 (사장님 2026-08-20).
+         변동공지 도구가 창고 탭에 `<택배사 변동>`·`<○○창고 전상품>` 같은 안내 행을 넣는데,
+         이건 팔 물건이 아니라 코멘트다 — 사진·링크가 없는 게 정상이라 '손봐야 할 상품'에 올리면 안 된다.
+         판정 = ①이름이 <…>로 감싸였거나 ②공급가 칸이 비었거나(카탈로그도 같은 기준으로 거른다). */
+      if(/^[<〈][\s\S]*[>〉]$/.test(nm))continue;
+      if(cp>=0&&!(disp[i][cp]||'').trim())continue;
       if(seen[pkey(nm)])continue;seen[pkey(nm)]=1;
       const cell=rows[i][ci]||{};
       let su=cell.hyperlink||'';

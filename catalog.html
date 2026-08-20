@@ -600,6 +600,8 @@ async function loadCatalog(){
       const row=disp[r];
       const nm=(row[ci.name]||'').trim();
       if(!nm||nm==='상품명')continue;
+      // 📢 <택배사 변동> 같은 공지 행은 상품이 아니다 — 상품 카드로 만들지 않는다 (사장님 2026-08-20)
+      if(/^[<〈][\s\S]*[>〉]$/.test(nm))continue;
       const pr=parsePrice(row[ci.price]);
       if(!pr||pr.cur==null)continue;
       products.push({
