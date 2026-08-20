@@ -410,7 +410,8 @@ function paintOut(ok, bad){
   }
   const o = buildOut();
   let h = '<h3>발주서 미리보기 (우리 양식으로 변환됨)</h3>';
-  h += '<div class="hint">같은 주소·같은 창고 상품은 <b>합포장으로 묶었습니다</b>. 창고명 칸은 비워둡니다(리모컨에서 확인).</div>';
+  // ⚠️ 창고명 칸을 왜 비우는지는 우리 사정이다 — 업체 화면에 쓰지 않는다 (사장님 2026-08-20)
+  h += '<div class="hint">같은 주소·같은 창고 상품은 <b>합포장으로 묶었습니다</b>.</div>';
   if(o.notes.length) h += '<div class="ordnote" style="margin-top:8px">' + o.notes.map(esc).join('<br>') + '</div>';
   if(o.warn.length)  h += '<div class="ordnote" style="margin-top:8px">📦 ' + o.warn.map(esc).join('<br>📦 ') + '</div>';
   if(o.nine.length){
