@@ -12,6 +12,16 @@
    사진·스펙까지 이어서 받는다 → 링크 없던 상품(예: 너비아니)도 사람 손 없이 채워진다. */
 (function(){
 if(window.__mediaUpdater){window.__mediaUpdater.open();return;}
+/* 🚫 실행 위치 가드 (2026-08-20 사장님 지적) — 이 도구는 masterc.kr 페이지 위에서만 글을 읽을 수 있다.
+   masterc.co.kr·카탈로그·다른 사이트에서 누르면 시트(목록)는 읽히는데 글 fetch만 교차출처로 전멸해,
+   멀쩡한 상품이 전부 '상품정보를 못 읽음'으로 뜬다. 그래서 시작 자체를 막고 어디서 눌러야 하는지 알려준다. */
+if(location.hostname!=='masterc.kr'){
+  alert('📸 상품사진 채우기 — 여기서는 실행할 수 없습니다.\n\n'
+    +'현재 페이지: '+location.hostname+'\n필요한 페이지: masterc.kr\n\n'
+    +'masterc.kr 의 상품 글 화면(예: https://masterc.kr/board_eJGl96)을 연 뒤 북마클릿을 눌러주세요.\n\n'
+    +'※ masterc.co.kr 은 주소가 비슷해도 브라우저가 다른 사이트로 취급해서 글을 읽지 못합니다.');
+  return;
+}
 var YUTONG='1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';   // 유통시트(상품 목록)
 var LINKSS='1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';   // 상품정보 업데이트(링크 정본)
 var DOGU='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';     // 도구시트(캐시·대기목록)
@@ -301,10 +311,23 @@ function imgLoads(u){
     im.src=u;
   });
 }
+/* 실패 사유를 반드시 구분해서 돌려준다 (2026-08-20).
+   예전엔 호출부가 try{}catch(e){} 로 통째 삼키고 실패를 전부 '글이 삭제·이동됐을 수 있음'으로 표시해서,
+   멀쩡한 글까지 삭제된 것처럼 보고했다(사장님 지적). why: cross='이 페이지에서 masterc.kr을 못 읽음'
+   / login='로그인 풀림' / gone='진짜 삭제된 글' / noimg='글은 있는데 첨부 사진이 없음'. */
 async function scrape(url){
-  const r=await fetch(url,{credentials:'include',redirect:'follow'});
-  const h=await r.text();
+  let r,h;
+  try{
+    r=await fetch(url,{credentials:'include',redirect:'follow'});
+    h=await r.text();
+  }catch(e){ return {img:'',spec:[],backs:[],bad:false,why:'cross',detail:e.message}; }
+  if(!r.ok) return {img:'',spec:[],backs:[],bad:false,why:'http',detail:'HTTP '+r.status};
   const doc=new DOMParser().parseFromString(h,'text/html');
+  const title=(doc.title||'').trim();
+  if(h.indexOf('권한이 없')>=0||h.indexOf('dispMemberLoginForm')>=0)
+    return {img:'',spec:[],backs:[],bad:false,why:'login',detail:title};
+  // 삭제·이동된 글은 masterc 메인으로 리다이렉트돼 제목이 '(주)마스터'가 된다
+  const gone=(!title||/^\(주\)\s*마스터/.test(title));
   const cands=[];
   const imgs=doc.querySelectorAll('img');
   for(let i=0;i<imgs.length;i++){
@@ -333,7 +356,8 @@ async function scrape(url){
       spec=d.split('※').slice(1).map(function(p){return '※ '+p.split(/○/)[0].replace(/\.\.\.$/,'').trim().replace(/\s+/g,' ');}).filter(function(s){return s.length>4&&s.length<80;}).slice(0,7);
     }
   }
-  return {img:img,spec:spec,backs:backs,bad:bad};
+  const why=img?'':(gone?'gone':(cands.length?'':'noimg'));
+  return {img:img,spec:spec,backs:backs,bad:bad,why:why,detail:title};
 }
 
 /* ── 화면 ── */
@@ -579,7 +603,7 @@ async function runSelected(){
     while(i<targets.length){
       const t=targets[i++];
       let r={img:'',spec:[]};
-      if(t.url){try{r=await scrape(t.url);}catch(e){}}
+      if(t.url){r=await scrape(t.url);}   // scrape가 사유(why)를 담아 돌려준다 — 여기서 삼키지 않는다
       done0.push({t:t,r:r});
       done++;
       bar.style.width=Math.round(done/targets.length*100)+'%';
@@ -601,6 +625,7 @@ async function runSelected(){
     if(x.r.backs&&x.r.backs.length)c.backs=x.r.backs;
     if(x.r.img||x.r.spec.length)c.updated=today;
     if(x.r.bad)x.t.badImg=true;
+    x.t.why=x.r.why||'';x.t.whyDetail=x.r.detail||'';
     if(!x.r.img||!x.r.spec.length||x.r.bad)fails.push(x.t);
   }
   /* 대기에서 빼는 기준 = 사진을 새로 받아왔는가. (예전엔 스펙까지 있어야 빠져서,
@@ -626,8 +651,13 @@ async function runSelected(){
     $('mu-fail').style.display='block';
     $('mu-faillist').innerHTML=fails.map(function(t){
       const why=!t.url?'링크 없음'
+        :(t.why==='cross'?'🚫 <b>이 페이지에서는 masterc.kr 글을 읽을 수 없습니다</b> — masterc.kr 상품 글 화면에서 북마클릿을 다시 눌러주세요(masterc.<b>co.</b>kr·카탈로그에서 누르면 전부 이렇게 나옵니다)'
+        :t.why==='login'?'🔑 <b>masterc.kr 로그인이 풀렸습니다</b> — 로그인 후 다시 눌러주세요'
+        :t.why==='http'?('서버 응답 이상 — '+(t.whyDetail||''))
+        :t.why==='gone'?'글이 삭제·이동됐습니다(주소를 열면 마스터 메인으로 튕김) — 게시판에 글을 다시 올려주셔야 합니다'
+        :t.why==='noimg'?'글은 멀쩡한데 <b>본문에 첨부 사진이 한 장도 없습니다</b>'
         :(t.badImg?'글은 멀쩡한데 <b>붙어 있는 사진 파일이 서버에서 사라졌습니다</b> — 그 글에 사진을 다시 올려주셔야 합니다'
-                  :'링크는 있는데 상품정보를 못 읽음(글이 삭제·이동됐을 수 있음)');
+                  :'사진은 받았는데 ※ 스펙 문구를 못 찾았습니다'));
       const go=t.sheet?(' <a class="mu-go" href="'+t.sheet+'" target="_blank" rel="noopener">시트↗ '+t.tab+' '+t.cell+'</a>'):'';
       return '· ['+t.wh+'] '+t.name.replace(/</g,'&lt;')+go+'<br>&nbsp;&nbsp;'+(t.url?('<a href="'+t.url+'" target="_blank">'+t.url+'</a> — '):'')+why;
     }).join('<br>');
