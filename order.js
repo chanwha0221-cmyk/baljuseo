@@ -276,6 +276,14 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .ordsum{font-size:12.5px;color:var(--muted);margin:8px 0 4px}
 .ordsum b{color:var(--ink)}
 .ordbad{color:var(--up)}
+.ordbox.srch{padding:11px 13px}
+.ordb2.fbtn{padding:5px 13px;font-size:12px;border-radius:20px}
+.ordb2.fbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.opager{display:flex;gap:5px;justify-content:center;align-items:center;flex-wrap:wrap;margin:14px 0 4px}
+.opager .ordb2{padding:6px 11px;font-size:12px}
+.opager .ordb2.pg.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.opager .ordb2:disabled{opacity:.4;cursor:default}
+.odots{color:var(--muted);font-size:12px;padding:0 2px}
 .ordbox.cfg{border-style:dashed}
 .cfgst{font-size:11.5px;font-weight:700;margin-left:8px;vertical-align:middle}
 .cfgst.ok{color:var(--accent-d)}
@@ -517,21 +525,87 @@ async function submit(){
 // ── 발주 내역 (업체는 자기 것만 · 마스터는 전체) ─────────────────
 /* 🔴 걸러내는 일은 웹앱이 한다. 이 화면은 받은 것을 그리기만 한다 —
    브라우저에서 거르는 방식이면 "안 보이게 한 것"일 뿐 "못 보게 한 것"이 아니다. */
+/* 발주 내역 — 쌓이면 화면이 끝없이 길어지므로 **페이지로 나누고 검색을 붙인다**
+   (사장님 2026-08-20: "내가 발주를 했나? 뭐가 잘못됐지 찾을 때 이름·연락처로 검색"). */
+const PAGE = 10;                 // 한 페이지에 발주 묶음 10건
+let OQ = '', OPAGE = 1, OST = '';
 async function ordersView(){
   css();   // ⚠️ 마스터는 발주하기 화면을 안 거치므로 여기서도 스타일을 넣어야 한다(2026-08-20 화면 깨짐)
   if(!hasApi()) return subHead('📋 발주 내역', '') + '<div class="empty">발주 접수가 아직 열리지 않았습니다.</div>';
   const master = !!(ME && ME.master);
   const j = await api('list', {token: ME.token});
-  const rows = j.rows || [];
-  LIST = rows;
-  const byNo = new Map();
-  rows.forEach(r => { if(!byNo.has(r.no)) byNo.set(r.no, []); byNo.get(r.no).push(r); });
+  LIST = j.rows || [];
+  OPAGE = 1;
   let h = subHead(master ? '📋 전체 발주 내역' : '📋 내 발주 내역',
                   master ? '마스터 계정 — 모든 업체의 발주가 보입니다' : '내가 넣은 발주만 보입니다');
   h += '<div class="ordwrap">';
   if(master) h += cfgBox();
-  if(!rows.length) return h + '<div class="empty">아직 발주 내역이 없습니다.</div></div>';
-  byNo.forEach((list, no) => {
+  h += '<div class="ordbox srch">'
+    +   '<input class="ordin" id="osearch" placeholder="🔎 받는분 이름 · 연락처 · 상품명 · 주소 · 발주번호'
+    +     (master ? ' · 업체명' : '') + ' 으로 찾기" value="' + esc(OQ) + '">'
+    +   '<div class="ordbar" style="margin:8px 0 0">'
+    +     ['', '접수', '완료', '취소'].map(s => '<button class="ordb2 fbtn' + (OST === s ? ' on' : '') + '" data-ost2="' + s + '">'
+    +        (s === '' ? '전체' : (s === '완료' ? (master ? '전송됨' : '확인됨') : s)) + '</button>').join('')
+    +   '</div>'
+    + '</div>'
+    + '<div id="ordlist"></div>';
+  return h + '</div>';
+}
+/* 검색·페이지는 화면에서만 처리한다 — 이미 받아온 목록을 다시 그리는 것이라 서버를 또 부르지 않는다.
+   ⚠️ 웹앱은 한 번에 2,000줄까지 내려준다. 그보다 쌓이면 그때 기간 조회로 바꿔야 한다. */
+function ordersPaint(){
+  const box = document.getElementById('ordlist');
+  if(!box) return;
+  const master = !!(ME && ME.master);
+  const q = pkey(OQ), qd = S(OQ).replace(/[^0-9]/g, '');
+  const hit = LIST.filter(r => {
+    if(OST && S(r.state) !== OST) return false;
+    if(!q) return true;
+    const hay = pkey([r.no, r.prod, r.rcv, r.addr, r.msg, r.biz, master ? r.cname : ''].join(' '));
+    if(hay.indexOf(q) >= 0) return true;
+    return !!qd && S(r.tel).replace(/[^0-9]/g, '').indexOf(qd) >= 0;   // 연락처는 하이픈 무시하고 찾는다
+  });
+  const byNo = new Map();
+  hit.forEach(r => { if(!byNo.has(r.no)) byNo.set(r.no, []); byNo.get(r.no).push(r); });
+  const nos = Array.from(byNo.keys());
+  const pages = Math.max(1, Math.ceil(nos.length / PAGE));
+  if(OPAGE > pages) OPAGE = pages;
+  const page = nos.slice((OPAGE - 1) * PAGE, OPAGE * PAGE);
+
+  let h = '<div class="ordsum">발주 <b>' + nos.length + '</b>묶음 · <b>' + hit.length + '</b>건'
+    + (OQ || OST ? ' <button class="ordb2" id="oclr" style="padding:2px 9px;font-size:11px">검색 지우기</button>' : '') + '</div>';
+  if(!nos.length){ box.innerHTML = h + '<div class="empty">' + (LIST.length ? '찾는 발주가 없습니다.' : '아직 발주 내역이 없습니다.') + '</div>'; bindPager(); return; }
+  page.forEach(no => { h += orderCard(no, byNo.get(no), master); });
+  if(pages > 1){
+    h += '<div class="opager">'
+      + '<button class="ordb2" data-opg="' + (OPAGE - 1) + '"' + (OPAGE <= 1 ? ' disabled' : '') + '>‹ 이전</button>'
+      + pageNums(OPAGE, pages).map(n => n === '…' ? '<span class="odots">…</span>'
+          : '<button class="ordb2 pg' + (n === OPAGE ? ' on' : '') + '" data-opg="' + n + '">' + n + '</button>').join('')
+      + '<button class="ordb2" data-opg="' + (OPAGE + 1) + '"' + (OPAGE >= pages ? ' disabled' : '') + '>다음 ›</button>'
+      + '</div>';
+  }
+  box.innerHTML = h;
+  bindPager();
+}
+// 1 … 4 [5] 6 … 20 — 페이지가 많아도 버튼이 한 줄을 안 넘게
+function pageNums(cur, total){
+  const out = [];
+  for(let i = 1; i <= total; i++){
+    if(i === 1 || i === total || Math.abs(i - cur) <= 1) out.push(i);
+    else if(out[out.length - 1] !== '…') out.push('…');
+  }
+  return out;
+}
+function bindPager(){
+  const c = document.getElementById('oclr');
+  if(c) c.onclick = () => { OQ = ''; OST = ''; const s = document.getElementById('osearch'); if(s) s.value = ''; syncFbtn(); OPAGE = 1; ordersPaint(); };
+}
+function syncFbtn(){
+  document.querySelectorAll('[data-ost2]').forEach(b => b.classList.toggle('on', b.getAttribute('data-ost2') === OST));
+}
+function orderCard(no, list, master){
+  let h = '';
+  {
     const f = list[0];
     const live = list.filter(r => r.state !== '취소');
     const sent = live.length && live.every(r => r.state === '완료');
@@ -571,8 +645,7 @@ async function ordersView(){
       + '</div>'
       + (master && sent ? '<div class="hint" style="margin-top:6px">' + esc(f.done ? short(f.done) + ' 전송' : '전송됨') + ' — 다시 보내지지 않습니다</div>' : '')
       + '</div>';
-  });
-  h += '</div>';
+  }
   return h;
 }
 /* ⚙️ 당일 시트 주소 칸 (마스터만) — 시트는 매월 바뀐다.
@@ -649,8 +722,17 @@ async function reloadOrders(){
   if(!sub) return;
   try{ sub.innerHTML = await ordersView(); ordersBind(); }catch(e){ toast(e.message || '다시 불러오지 못했습니다'); }
 }
-// 발주 내역 화면을 그린 뒤 호출 (마스터의 ⚙️ 시트 설정 칸을 붙인다)
-function ordersBind(){ if(ME && ME.master) cfgBind(); }
+// 발주 내역 화면을 그린 뒤 호출 (검색·페이지 + 마스터의 ⚙️ 시트 설정 칸)
+let otmr = null;
+function ordersBind(){
+  if(ME && ME.master) cfgBind();
+  const s = document.getElementById('osearch');
+  if(s){
+    s.oninput = () => { clearTimeout(otmr); otmr = setTimeout(() => { OQ = s.value; OPAGE = 1; ordersPaint(); }, 250); };
+    s.onkeydown = e => { if(e.key === 'Escape'){ s.value = ''; OQ = ''; OPAGE = 1; ordersPaint(); } };
+  }
+  ordersPaint();
+}
 
 // ── 엑셀 양식 · 붙여넣기 ─────────────────────────────────────────
 function template(){
@@ -857,6 +939,17 @@ document.addEventListener('click', e => {
     if(!o) return;
     const t = tsv(cpx.getAttribute('data-cpx') === '9' ? o.nine : o.ten);
     navigator.clipboard.writeText(t).then(() => toast('복사했습니다'), () => toast('복사하지 못했습니다'));
+    return;
+  }
+  // 상태 필터 · 페이지 이동
+  const fb = e.target.closest && e.target.closest('[data-ost2]');
+  if(fb){ OST = fb.getAttribute('data-ost2'); OPAGE = 1; syncFbtn(); ordersPaint(); return; }
+  const pg = e.target.closest && e.target.closest('[data-opg]');
+  if(pg && !pg.disabled){
+    OPAGE = parseInt(pg.getAttribute('data-opg'), 10) || 1;
+    ordersPaint();
+    const t = document.getElementById('ordlist');
+    if(t) window.scrollTo({top: Math.max(0, t.getBoundingClientRect().top + window.scrollY - 90), behavior:'smooth'});
     return;
   }
   // 전체 선택 체크박스
