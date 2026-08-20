@@ -49,6 +49,25 @@ function loadDraft(){
 }
 function saveDraft(){ try{ localStorage.setItem(DK, JSON.stringify(ROWS)); }catch(e){} }
 
+/* 연락처는 우리가 하이픈을 넣어 정리해서 발주서에 넣는다 (사장님 2026-08-20).
+   발주서 변환기(vendor/index.html)의 formatPhone과 같은 규칙.
+   ⚠️ 정리할 수 없는 번호는 null을 돌려준다 — 그런 번호는 업체가 고쳐야 하므로 그 행을 막는다.
+   0504 안심번호(12자리)는 하이픈이 빠지면 발주가 통째로 새는 사고가 있었어서 반드시 포함. */
+function fmtTel(raw){
+  const n = D(raw);
+  if(!n) return null;
+  if(n.length === 12 && n.slice(0,3) === '050') return n.slice(0,4) + '-' + n.slice(4,8) + '-' + n.slice(8);
+  if(n.length === 11 && n[0] === '0') return n.slice(0,3) + '-' + n.slice(3,7) + '-' + n.slice(7);
+  if(n.length === 10 && n.slice(0,2) === '02') return n.slice(0,2) + '-' + n.slice(2,6) + '-' + n.slice(6);
+  // 🔴 010은 반드시 11자리다. 10자리 010은 한 자리 빠진 오타이므로 통과시키지 않는다
+  //    (통과시키면 010-245-5415 같은 그럴듯한 번호가 되어 그대로 발주로 나간다).
+  if(n.length === 10 && n.slice(0,3) === '010') return null;
+  if(n.length === 10 && n[0] === '0') return n.slice(0,3) + '-' + n.slice(3,6) + '-' + n.slice(6);
+  if(n.length === 9 && n.slice(0,2) === '02') return n.slice(0,2) + '-' + n.slice(2,5) + '-' + n.slice(5);
+  if(n.length === 8 && n[0] === '1') return n.slice(0,4) + '-' + n.slice(4);
+  return null;
+}
+
 // 주소 비교용 열쇠 — 공백·쉼표·하이픈만 지운다.
 // ⚠️ '동/호/번지'까지 지우면 서로 다른 집을 같은 집으로 볼 수 있다. 합포장을 잘못 묶는 것이
 //    안 묶는 것보다 나쁘므로, 여기선 일부러 보수적으로만 정규화한다.
@@ -144,10 +163,10 @@ function checkRow(r){
   if(!ad) errs.push('받는분 주소를 넣어주세요.');
   else if(ad.length < 10 || !/\d/.test(ad)) errs.push('주소가 너무 짧습니다. 건물·동·호수까지 넣어주세요.');
 
-  const tel = D(r.tel);
+  const tel = D(r.tel), telFix = fmtTel(r.tel);
   if(!tel) errs.push('받는분 연락처를 넣어주세요.');
-  else if(tel[0] !== '0') errs.push('연락처는 0으로 시작해야 합니다.');
-  else if(tel.length < 9 || tel.length > 12) errs.push('연락처 자릿수가 맞지 않습니다(' + tel.length + '자리).');
+  else if(!telFix) errs.push('연락처를 다시 확인해 주세요 (' + tel.length + '자리). 010-0000-0000 처럼 넣어주시면 됩니다.');
+  else if(telFix !== S(r.tel)) warns.push('☎ 연락처는 ' + telFix + ' 로 정리해서 넣습니다.');
 
   if(p){
     if(isLate(p)) warns.push('⏰ ' + (whOf(p) || '이 창고') + ' 마감(' + S(p.cut) + ')이 지났습니다 — 내일 출고됩니다.');
@@ -191,8 +210,10 @@ function buildOut(){
   groups.forEach(g => {
     const prod = g.items.map(it => it.name + ' x ' + it.qty).join(' / ');
     g.items.forEach(it => { if(it.lim && it.qty > it.lim) warn.push(it.name + ' ' + it.qty + '개 (합포장 한도 ' + it.lim + ') — 박스 분리 확인 필요'); });
-    if(g.biz) ten.push([me.name || '', g.biz, me.addr || '', me.phone || '', '', prod, g.rcv, g.addr, g.tel, g.msg]);
-    else      nine.push([me.name || '', me.addr || '', me.phone || '', '', prod, g.rcv, g.addr, g.tel, g.msg]);
+    const tel = fmtTel(g.tel) || g.tel;                     // 받는분 연락처는 하이픈 넣어 정리
+    const myTel = fmtTel(me.phone) || S(me.phone);          // 주문처 연락처도 같은 규칙
+    if(g.biz) ten.push([me.name || '', g.biz, me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
+    else      nine.push([me.name || '', me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
   });
   return {nine, ten, notes, warn};
 }
