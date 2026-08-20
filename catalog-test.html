@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.9</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.10</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1315,7 +1315,9 @@ const ACC_TAB='카탈로그_계정', AK='TEST_catalog_auth_v1';
    업체 비밀번호까지 읽히고, 그러면 "업체끼리 발주가 안 보인다"는 약속이 우회된다 (2026-08-20).
    ⚠️ 주소가 비어 있는 동안은 예전 방식(서비스계정으로 계정 시트 직접 읽기)으로 돈다 —
       웹앱 배포 전에도 카탈로그가 멀쩡히 열리게 하려는 것. 주소를 넣는 순간 웹앱 쪽으로 넘어간다. */
-const API='';
+// 웹앱 배포 2026-08-20 · 계정·발주 시트 15YSaaEKQHdmgdeXrwK59EZRCL06vc_wyIwAOmn4MPC8 (서비스계정에 공유 금지)
+// ⚠️ 스크립트를 고친 뒤엔 '배포 관리 → 편집 → 새 버전'으로 올려야 이 주소가 새 코드를 가리킨다.
+const API='https://script.google.com/macros/s/AKfycbxCX-MP7zcps0SeiZzHuft3d_pXRLNMUWroo6lZpukGJGT4wSJSEQjjCUpKZdaPic6d/exec';
 async function api(action,payload){
   if(!API)throw new Error('발주 서버 주소가 아직 설정되지 않았습니다.');
   const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
