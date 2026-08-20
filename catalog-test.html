@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.6</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.7</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -420,6 +420,7 @@ h1{letter-spacing:-.6px}
   <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
   <button class="mbtn" data-go="change">📊 상품변동사항<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
+  <button class="mbtn" data-go="order">🧾 발주하기<span class="nbadge" id="ordCount" style="display:none"></span></button>
 </div>
 <!-- 공지는 메뉴 바로 밑에 그대로 펼쳐 보여준다 (사장님 2026-08-12) -->
 <div class="ntcbox" id="ntcbox"></div>
@@ -801,6 +802,8 @@ function card(p,extra,top){
     +spec
     +'<div class="prow"><div>'+priceHtml(p.price)+'</div><div class="ship">'+sh+(p.cut?'<br>'+esc(p.cut):'')+'</div></div>'
     +(extra||'')
+    // 🧾 발주담기 — 업체가 상품명을 타이핑하지 않게 하는 것이 이 버튼의 존재 이유다 (2026-08-20)
+    +'<button class="ordb" data-ord="'+esc(p.name)+'">+ 발주담기</button>'
     +'</div></div>';
 }
 function buildWhChips(){
@@ -1276,6 +1279,11 @@ async function renderRoute(){
     else if(v==='rec'){if(!RECS){RECS=await loadRecs();buildRecMap();}subV.innerHTML=renderRecs(RECS);}
     // ⚠️ 공지 화면에 들어왔다고 전부 읽음 처리하지 않는다 — 제목을 눌러야 확인이다(사장님 2026-08-19).
     else if(v==='notice'){if(!NOTI)NOTI=await loadNotices();subV.innerHTML=renderNotices(NOTI);renderNtcBadge();}
+    // 🧾 발주 — order.js. 상품 데이터(ALL)가 있어야 상품명 검증이 되므로 카탈로그가 먼저 로드된 뒤에만 연다.
+    else if(v==='order'){
+      if(!(typeof ALL!=='undefined'&&ALL.length)){subV.innerHTML=subHead('🧾 발주하기','')+'<div class="empty">상품을 불러오는 중입니다. 잠시 후 다시 눌러주세요.</div>';}
+      else{subV.innerHTML=ORDER.view();ORDER.bind();}
+    }
     else{location.hash='';}
   }catch(e){
     subV.innerHTML=subHead('⚠️ 불러오지 못했습니다','')+'<div class="empty">'+esc(e.message||String(e))+'</div>';
@@ -1507,4 +1515,9 @@ $('gver').textContent=APP_VER;
   }
   gateShow(true);showLoginForm();$('li_id').focus();
 })();
-</script></body></html>
+// 🧾 발주 기능은 order.js에 따로 있다 — 테스트본만 로드한다(실사이트는 사장님 확인 후).
+// localStorage 접두어를 넘겨서 업체 화면 임시저장과 섞이지 않게 한다.
+window.ORDER_NS='TEST_';
+</script>
+<script src="order.js?v=1"></script>
+</body></html>
