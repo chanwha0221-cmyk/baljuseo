@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.4</title>
+<title>마스터 유통 상품 도구 v1.5</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -27,6 +27,10 @@ a{color:var(--accent)}
 #catList{border:1px solid var(--line);border-radius:9px;max-height:55vh;overflow-y:auto;background:var(--card)}
 .ci{display:flex;align-items:center;gap:9px;padding:7px 10px;border-bottom:1px solid var(--line)}
 .ci:last-child{border-bottom:none}
+.ci .cdel{flex:0 0 auto;border:1px solid #e6cfcb;background:#fff;color:#c0392b;font-size:12px;
+  padding:5px 8px;border-radius:6px;cursor:pointer;line-height:1}
+.ci .cdel:hover{background:#fdecea}
+.ci .cdel:disabled{opacity:.5;cursor:default}
 .ci .cn{flex:1;font-size:12.5px;line-height:1.35;min-width:0}
 .ci .cw{display:block;font-size:10.5px;color:var(--muted)}
 .ci select{border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:12px;background:var(--card);color:var(--ink);max-width:130px}
@@ -251,6 +255,8 @@ async function loadProducts(){
     for(let i=hr+1;i<rows.length;i++){
       const nm=(((rows[i]||[])[ci])||'').trim();
       if(!nm||nm==='상품명')continue;
+      // 📢 <택배사 변동> 같은 공지 행은 상품이 아니다 (catalog.html 과 같은 규칙, 2026-08-20 홍팀장)
+      if(/^[<〈][\s\S]*[>〉]$/.test(nm))continue;
       if(seen[pkey(nm)])continue;seen[pkey(nm)]=1;
       const sw=cw>=0?((((rows[i]||[])[cw])||'').trim()):'';
       out.push({name:nm,wh:(tab.indexOf('단독')===0?(tab+(sw?' · '+sw:'')):(sw||tab))});
@@ -295,6 +301,14 @@ async function batchSet(keys,cat){
   }
 }
 async function saveCat(rec,cat){return batchSet([pkey(rec.name)],cat).then(()=>({}),e=>({error:{message:e.message}}));}
+/* 상품분류 탭에서 행 하나 삭제 (행 번호는 loadRows 가 준 값) */
+async function delRow(row){
+  const meta=await api(DOGU,'?fields=sheets.properties(sheetId,title)');
+  const sh=(meta.sheets||[]).find(s=>s.properties.title===CTAB);
+  if(!sh)return {error:{message:'상품분류 탭을 찾지 못했습니다'}};
+  return api(DOGU,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({requests:[{deleteDimension:{range:{sheetId:sh.properties.sheetId,dimension:'ROWS',startIndex:row-1,endIndex:row}}}]})});
+}
 /* 카테고리 목록은 상품분류 탭 G열에 저장 — 기본 카테고리도 지우면 그대로 유지된다 */
 async function loadCatList(){
   const v=await api(DOGU,'/values/'+q1("'"+CTAB+"'!G2:G200"));
@@ -345,11 +359,27 @@ function renderList(){
     const k=pkey(p.name);const r=ROWMAP[k];const c=(r&&r.cat)||'';
     let cats=CATLIST.slice();if(c&&cats.indexOf(c)<0)cats.push(c);
     const opts='<option value="">— 분류 —</option>'+cats.map(x=>'<option value="'+x.replace(/"/g,'&quot;')+'"'+(x===c?' selected':'')+'>'+x+'</option>').join('');
-    return '<div class="ci'+(c?'':' unset')+'"><input type="checkbox" data-cb="'+k+'"'+(SEL[k]?' checked':'')+'><div class="cn">'+p.name.replace(/</g,'&lt;')+'<span class="cw">'+p.wh.replace(/</g,'&lt;')+'</span></div><select data-k="'+k+'">'+opts+'</select></div>';
+    return '<div class="ci'+(c?'':' unset')+'"><input type="checkbox" data-cb="'+k+'"'+(SEL[k]?' checked':'')+'><div class="cn">'+p.name.replace(/</g,'&lt;')+'<span class="cw">'+p.wh.replace(/</g,'&lt;')+'</span></div><select data-k="'+k+'">'+opts+'</select>'+
+      '<button class="cdel" data-del="'+k+'" title="이 줄을 분류 목록에서 지웁니다 (공지 행처럼 상품이 아닌 것)">🗑</button></div>';
   }).join('')||'<div class="ci">해당 상품 없음</div>';
   if(hit.length>list.length)$c('catList').innerHTML+='<div class="ci" style="color:var(--muted)">…외 '+(hit.length-list.length)+'건 — 검색으로 좁혀 보세요</div>';
   $c('catList').querySelectorAll('input[data-cb]').forEach(function(cb){
     cb.onchange=function(){const k=this.getAttribute('data-cb');if(this.checked)SEL[k]=1;else delete SEL[k];renderBulk();};
+  });
+  /* 🗑 상품이 아닌 줄(공지 등)을 분류 목록에서 바로 지운다.
+     유통시트는 안 건드리고 도구시트 '상품분류' 탭의 그 행만 삭제한다. */
+  $c('catList').querySelectorAll('button[data-del]').forEach(function(bt){
+    bt.onclick=async function(){
+      const k=this.getAttribute('data-del'),rec=ROWMAP[k];if(!rec)return;
+      if(!confirm('"'+rec.name+'"\n\n이 줄을 분류 목록에서 지웁니다.\n(유통시트는 그대로 두고, 분류 목록에서만 빠집니다)'))return;
+      this.disabled=true;$c('ctLog').textContent='지우는 중… '+rec.name;
+      const del=await delRow(rec.row);
+      if(del&&del.error){this.disabled=false;$c('ctLog').textContent='❌ 삭제 실패: '+del.error.message;return;}
+      PRODUCTS=PRODUCTS.filter(p=>pkey(p.name)!==k);delete SEL[k];
+      ROWMAP=await loadRows();
+      renderChips();renderList();
+      $c('ctLog').textContent='🗑 "'+rec.name+'" 분류 목록에서 지움';
+    };
   });
   $c('catList').querySelectorAll('select').forEach(function(sel){
     sel.onchange=async function(){
@@ -495,6 +525,8 @@ async function loadYutong(){
     for(let i=hr+1;i<rows.length;i++){
       const nm=(((rows[i]||[])[ci])||'').trim();
       if(!nm||nm==='상품명')continue;
+      // 📢 <택배사 변동> 같은 공지 행은 상품이 아니다 (catalog.html 과 같은 규칙, 2026-08-20 홍팀장)
+      if(/^[<〈][\s\S]*[>〉]$/.test(nm))continue;
       if(seen[pkey(nm)])continue;seen[pkey(nm)]=1;
       const sw=cw>=0?((((rows[i]||[])[cw])||'').trim()):'';
       out.push({name:nm,wh:(tab.indexOf('단독')===0?(tab+(sw?' · '+sw:'')):(sw||tab)),tab,gid,row:i+1,col:ci});
