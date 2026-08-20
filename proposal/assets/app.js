@@ -174,6 +174,7 @@
         shipFee: toNumber(p.shipFee),
         tax: String(p.tax || "").trim(),
         image: resolveImage(p.image),
+        link: String(p.link || "").trim(),
         badgeColor: WH_COLOR[wh] || CAT[cat].accent
       });
     });
@@ -194,7 +195,10 @@
           (p.tax ? '<div class="badge-tax">' + esc(p.tax) + '</div>' : '') +
         '</div>' +
         '<div class="prod-body">' +
-          '<h3>' + esc(p.name) + '</h3>' +
+          // 관리자에서 '원본 링크'를 넣은 상품은 상품명이 그 글로 가는 링크가 된다
+          '<h3>' + (p.link
+            ? '<a href="' + esc(p.link) + '" target="_blank" rel="noopener">' + esc(p.name) + '</a>'
+            : esc(p.name)) + '</h3>' +
           // 설명이 없어도 자리를 유지해야 아래 공급가 위치가 어긋나지 않음
           '<div class="prod-spec">' + esc(p.spec || "") + '</div>' +
           '<div class="price-row">' +
@@ -353,16 +357,8 @@
       .then(function (r) { return r.json(); });
   }
 
-  var _sbClient = null;
-  function sbClient() {
-    if (_sbClient) return _sbClient;
-    var s = CFG.supabase || {};
-    if (!s.url || !s.anonKey || !window.supabase) return null;
-    _sbClient = window.supabase.createClient(s.url, s.anonKey);
-    return _sbClient;
-  }
-
   var CURRENT_VERSION = null;
+  var SHEETS = null;         // 한 번에 읽어온 탭들 (버전·카테고리·상품)
 
   function applySettings(m) {
     if (!m) return;
@@ -382,24 +378,63 @@
     CFG.hidePrice = (m.hide_price === true || m.hide_price === "1" || m.hide_price === "true");
   }
 
-  // ?v=슬러그 로 버전 선택 (없으면 첫 버전). 버전 테이블 없으면 무시.
-  function loadVersion() {
-    var c = sbClient();
-    if (!c) return Promise.resolve();
-    var slug = (new URLSearchParams(location.search)).get("v");
-    return c.from("versions").select("*").order("sort_order", { ascending: true }).then(function (res) {
-      if (res.error || !res.data || !res.data.length) return;
-      var match = slug ? res.data.filter(function (v) { return v.slug === slug; })[0] : null;
-      CURRENT_VERSION = match || res.data[0];
-      applySettings(CURRENT_VERSION.settings || {});
-    }).catch(function () {});
+  function toBool(v) { var s = String(v == null ? "" : v).trim(); return !(s === "숨김" || s === "숨기기" || s === "false" || s === "FALSE" || s === "0" || s === "N"); }
+  function toInt(v) { var d = String(v == null ? "" : v).replace(/[^0-9]/g, ""); return d ? parseInt(d, 10) : 0; }
+
+  /* 시트 3탭을 한 번에 읽는다 (버전 · 카테고리 · 상품).
+     관리자(admin.html)가 쓰는 것과 같은 탭이라, 저장하면 여기 바로 반영된다. */
+  function loadSheets() {
+    if (!(window.SVC && CFG.dataSheet && CFG.dataSheet.id)) return Promise.reject("no-sheet");
+    var T = window.SVC.TAB;
+    return window.SVC.readTabs([T.versions, T.cats, T.products]).then(function (res) {
+      SHEETS = res;
+
+      /* --- 버전: ?v=슬러그 (없으면 첫 버전) --- */
+      var want = (new URLSearchParams(location.search)).get("v");
+      var vers = (res[T.versions] || []).slice(1)
+        .filter(function (r) { return (r[1] || "").trim(); })
+        .map(function (r) {
+          var st = {}; try { st = r[4] ? JSON.parse(r[4]) : {}; } catch (e) { st = {}; }
+          return { id: r[0], slug: String(r[1]).trim(), name: r[2] || r[1], sort_order: toInt(r[3]), settings: st };
+        }).sort(function (a, b) { return a.sort_order - b.sort_order; });
+      if (vers.length) {
+        CURRENT_VERSION = (want ? vers.filter(function (v) { return v.slug === want; })[0] : null) || vers[0];
+        applySettings(CURRENT_VERSION.settings || {});
+      }
+
+      /* --- 카테고리 --- */
+      var cats = (res[T.cats] || []).slice(1)
+        .filter(function (r) { return (r[1] || "").trim(); })
+        .map(function (r) {
+          return {
+            key: String(r[1]).trim(), name: r[2] || "", mark: r[3] || "", eyebrow: r[4] || "",
+            descr: r[5] || "", meta: r[6] || "", accent: r[7] || "#0E8A8F",
+            fit: r[8] === "contain" ? "contain" : "cover", show: toBool(r[9]), sort_order: toInt(r[10])
+          };
+        }).sort(function (a, b) { return a.sort_order - b.sort_order; });
+      if (cats.length) setCategories(cats);
+
+      /* --- 상품: 현재 버전 것만 --- */
+      var slug = CURRENT_VERSION ? CURRENT_VERSION.slug : "";
+      var prods = (res[T.products] || []).slice(1)
+        .filter(function (r) { return (r[2] || "").trim() && (!slug || String(r[0] || "").trim() === slug); })
+        .map(function (r) {
+          return {
+            category: r[1], name: r[2], warehouse: r[3], spec: r[4], supplyPrice: r[5],
+            courier: r[6], shipFee: r[7], tax: r[8], image: r[9], link: r[10], show: r[11],
+            sort_order: toInt(r[12])
+          };
+        }).sort(function (a, b) { return a.sort_order - b.sort_order; });
+      if (!prods.length) throw new Error("sheet empty");
+      return prods;
+    });
   }
 
-  // 조회 기록 (관리자 페이지에서 통계로 확인). 실패해도 화면엔 영향 없음.
+  /* 조회 기록 — '제안서조회' 탭 맨 아래에 한 줄 추가(기존 내용은 안 건드림).
+     실패해도 화면엔 영향 없음. */
   function trackView() {
     try {
-      var c = sbClient();
-      if (!c) return;
+      if (!(window.SVC && SHEETS)) return;
       var qs = new URLSearchParams(location.search);
       if (qs.get("nt") === "1") return;            // 관리자 미리보기는 집계 제외
       var vis = "";
@@ -411,63 +446,19 @@
           localStorage.setItem("pv_visitor", vis);
         }
       } catch (e) { vis = "unknown"; }
-      c.from("page_views").insert({
-        version_slug: (CURRENT_VERSION && CURRENT_VERSION.slug) || qs.get("v") || "",
-        visitor: vis,
-        referrer: (document.referrer || "").slice(0, 300)
-      }).then(function () {}, function () {});
+      window.SVC.append(window.SVC.TAB.views, [[
+        new Date().toISOString(),
+        (CURRENT_VERSION && CURRENT_VERSION.slug) || qs.get("v") || "",
+        vis,
+        (document.referrer || "").slice(0, 300)
+      ]]).catch(function () {});
     } catch (e) { /* 집계 실패는 무시 */ }
-  }
-
-  // 카테고리를 Supabase에서 로드(전역). 없으면 기본 3개 유지.
-  function loadCategories() {
-    var c = sbClient();
-    if (!c) return Promise.resolve();
-    return c.from("categories").select("*").order("sort_order", { ascending: true }).then(function (res) {
-      if (res.error || !res.data || !res.data.length) return;
-      setCategories(res.data);
-    }).catch(function () {});
-  }
-
-  function loadSupabase() {
-    var c = sbClient();
-    if (!c) return Promise.reject("no-supabase");
-    var q = c.from("products").select("*").order("sort_order", { ascending: true });
-    if (CURRENT_VERSION) q = q.eq("version_id", CURRENT_VERSION.id);
-    return q.then(function (res) {
-      if (res.error) throw res.error;
-      var rows = res.data || [];
-      if (!rows.length) { if (CURRENT_VERSION) return []; throw new Error("supabase empty"); }
-      return rows.map(function (r) {
-        return {
-          category: r.category, name: r.name, warehouse: r.warehouse, spec: r.spec,
-          supplyPrice: r.supply_price, courier: r.courier, shipFee: r.ship_fee,
-          tax: r.tax, image: r.image, show: r.show
-        };
-      });
-    });
-  }
-
-  function loadSheet() {
-    // 도구 시트 '제안서상품' 탭을 서비스계정으로 읽음 (원본의 공개시트 gviz 방식 대체)
-    // 실패하면 아래 체인이 data/products.json(스냅샷)으로 폴백
-    if (!(CFG.dataSheet && CFG.dataSheet.id && window.svcReadRows)) return Promise.reject("no-sheet");
-    return window.svcReadRows().then(function (rows) {
-      var prods = rowsToProducts(rows);
-      if (!prods.length) throw new Error("sheet empty");
-      return prods;
-    });
   }
 
   document.getElementById("app").innerHTML =
     '<div class="notice">상품 정보를 불러오는 중…</div>';
 
-  Promise.all([loadVersion(), loadCategories()])
-    .then(function () { return loadSupabase(); })
-    .catch(function (e) {
-      if (e !== "no-supabase") console.warn("Supabase 로드 실패 → 다음 소스 시도:", e);
-      return loadSheet();
-    })
+  loadSheets()
     .catch(function (e) {
       if (e !== "no-sheet") console.warn("구글 시트 로드 실패 → 기본 데이터 사용:", e);
       return loadFallback();
