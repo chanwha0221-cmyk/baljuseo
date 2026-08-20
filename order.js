@@ -361,9 +361,13 @@ function view(){
     +      '<span>헷갈리시면 카탈로그에서 <b>[+ 발주담기]</b>를 누르시면 정확한 이름이 그대로 들어갑니다.</span></div>'
     +   '<div class="ordtip">📦 같은 분께 가는 여러 상품은 <b>줄을 나눠</b> 적어주세요.'
     +      '<span>같은 주소 · 같은 창고 상품이면 저희가 <b>합포장으로 묶어드립니다</b>.</span></div>'
+    +   '<div class="ordtip">📂 쓰시던 <b>엑셀 파일을 그대로 올리셔도</b> 됩니다.'
+    +      '<span>엑셀(xlsx)·CSV 모두 됩니다. 칸 순서만 <b>업체명 / 상품명 / 수량 / 성함 / 주소 / 연락처 / 배송메시지</b> 로 맞춰주세요. 위 <b>[📥 발주 양식 받기]</b>를 쓰시면 가장 확실합니다.</span></div>'
     +   '<div class="ordbar">'
     +     '<button class="ordb2" id="ord_tpl">📥 발주 양식 받기</button>'
-    +     '<button class="ordb2" id="ord_paste">📋 엑셀에서 붙여넣기</button>'
+    +     '<button class="ordb2 pri" id="ord_pick">📂 파일 넣기</button>'
+    +     '<input type="file" id="ord_file" accept=".csv,.tsv,.txt,.xlsx,.xls" style="display:none">'
+    +     '<button class="ordb2" id="ord_paste">📋 붙여넣기</button>'
     +     '<button class="ordb2" id="ord_add">+ 줄 추가</button>'
     +     '<button class="ordb2" id="ord_clr">🗑 전체 비우기</button>'
     +   '</div>'
@@ -599,16 +603,25 @@ function template(){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 3000);
 }
-/* 붙여넣기 파싱 — 탭(엑셀 복사) 우선, 없으면 쉼표.
-   6칸으로 들어오면(업체명 생략) 첫 칸이 우리 상품이면 업체명이 빠진 것으로 본다. */
+/* 붙여넣기 파싱 — 탭(엑셀 복사) 우선, 없으면 쉼표. */
 function parsePaste(text){
-  const out = [];
+  const lines = [];
   String(text || '').split(/\r?\n/).forEach(line => {
     if(!S(line)) return;
-    let cells = line.indexOf('\t') >= 0 ? line.split('\t') : splitCsv(line);
-    cells = cells.map(c => S(c).replace(/^"(.*)"$/, '$1'));
+    lines.push((line.indexOf('\t') >= 0 ? line.split('\t') : splitCsv(line)).map(c => S(c).replace(/^"(.*)"$/, '$1')));
+  });
+  return rowsFromCells(lines);
+}
+/* 셀 배열 → 발주 행. 붙여넣기·파일 둘 다 여기로 모인다.
+   6칸으로 들어오면(업체명 생략) 첫 칸이 우리 상품일 때만 업체명이 빠진 것으로 본다 — 추측하지 않기 위해. */
+function rowsFromCells(lines){
+  const out = [];
+  lines.forEach(raw => {
+    let cells = (raw || []).map(c => S(c));
+    if(!cells.join('')) return;
     const joined = cells.join('');
-    if(/상품명/.test(joined) && /수량/.test(joined)) return;   // 머리글 줄
+    if(/상품명/.test(joined) && /수량/.test(joined)) return;                 // 머리글 줄
+    if(/카탈로그에 있는 상품명 그대로/.test(joined)) return;                  // 양식의 예시 줄
     if(cells.length === 6 && findProd(cells[0]).p) cells = [''].concat(cells);
     while(cells.length < 7) cells.push('');
     const r = blank();
@@ -616,6 +629,42 @@ function parsePaste(text){
     if(FIELDS.some(f => S(r[f]))) out.push(r);
   });
   return out;
+}
+
+/* 📂 파일 넣기 — 업체는 자기 쇼핑몰에서 받은 표를 그대로 올린다.
+   양식을 받아 내용만 다시 복사·붙여넣게 하면 귀찮다(사장님 2026-08-20).
+   · CSV/TSV는 그 자리에서 읽는다(브라우저만으로 충분)
+   · 엑셀(xlsx)은 읽는 도구를 그때 한 번만 불러온다. 못 부르면 CSV로 저장해 달라고 안내한다. */
+function readFile(file){
+  const name = (file.name || '').toLowerCase();
+  if(/\.(xlsx|xls)$/.test(name)) return readExcel(file);
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(parsePaste(String(fr.result || '').replace(/^﻿/, '')));
+    fr.onerror = () => rej(new Error('파일을 읽지 못했습니다.'));
+    fr.readAsText(file, 'utf-8');
+  });
+}
+let _xlsx = null;
+function loadXlsx(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  if(_xlsx) return _xlsx;
+  _xlsx = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload = () => res(window.XLSX);
+    s.onerror = () => rej(new Error('엑셀 파일을 읽는 도구를 불러오지 못했습니다. 엑셀에서 [다른 이름으로 저장 → CSV]로 저장해 올려주시거나, 표를 복사해 붙여넣기로 넣어주세요.'));
+    document.head.appendChild(s);
+  });
+  return _xlsx;
+}
+async function readExcel(file){
+  const X = await loadXlsx();
+  const buf = await file.arrayBuffer();
+  const wb = X.read(buf, {type:'array'});
+  const sh = wb.Sheets[wb.SheetNames[0]];
+  const grid = X.utils.sheet_to_json(sh, {header:1, raw:false, defval:''});
+  return rowsFromCells(grid);
 }
 function splitCsv(line){
   const out = []; let cur = '', q = false;
@@ -657,6 +706,24 @@ function bind(){
   on('ord_add', () => { ROWS.push(blank()); paint(); });
   on('ord_clr', () => { if(confirm('입력한 발주 내용을 전부 지울까요?')){ ROWS = [blank(), blank(), blank()]; OPEN = -1; paint(); } });
   on('ord_tpl', template);
+  // 📂 파일 넣기 (엑셀·CSV). 같은 파일을 다시 고를 수 있게 value를 비운다.
+  on('ord_pick', () => { const f = $$('ord_file'); if(f){ f.value = ''; f.click(); } });
+  const fin = $$('ord_file');
+  if(fin) fin.onchange = async () => {
+    const file = fin.files && fin.files[0];
+    if(!file) return;
+    const btn = $$('ord_pick'); if(btn){ btn.disabled = true; btn.textContent = '읽는 중…'; }
+    try{
+      const got = await readFile(file);
+      if(!got.length){ alert('가져올 내용이 없습니다. 첫 줄은 머리글이어도 되고, 업체명 / 상품명 / 수량 / 성함 / 주소 / 연락처 / 배송메시지 순서로 넣어주세요.'); }
+      else{
+        ROWS = ROWS.filter(r => FIELDS.some(f => S(r[f]))).concat(got);
+        OPEN = -1; paint();
+        toast(file.name + ' — ' + got.length + '줄 가져왔습니다');
+      }
+    }catch(e){ alert(e.message || '파일을 읽지 못했습니다.'); }
+    finally{ if(btn){ btn.disabled = false; btn.textContent = '📂 파일 넣기'; } }
+  };
   on('ord_paste', () => { const b = $$('ord_pastebox'); b.style.display = (b.style.display === 'none' ? '' : 'none'); if(b.style.display === '') $$('ord_pt').focus(); });
   on('ord_ptno', () => { $$('ord_pastebox').style.display = 'none'; $$('ord_pt').value = ''; });
   on('ord_ptok', () => {
