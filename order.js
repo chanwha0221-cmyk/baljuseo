@@ -276,6 +276,11 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .ordsum{font-size:12.5px;color:var(--muted);margin:8px 0 4px}
 .ordsum b{color:var(--ink)}
 .ordbad{color:var(--up)}
+.ordbox.cfg{border-style:dashed}
+.cfgst{font-size:11.5px;font-weight:700;margin-left:8px;vertical-align:middle}
+.cfgst.ok{color:var(--accent-d)}
+.cfgst.bad{color:var(--up)}
+@media(prefers-color-scheme:dark){.cfgst.ok{color:var(--accent)}}
 /* 발주 내역 카드 — 보낸 건은 초록, 취소는 흐리게. 한눈에 구분돼야 중복 발주가 안 난다. */
 .ordcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow);margin-bottom:12px}
 .ordcard.sent{border:2px solid var(--accent);background:color-mix(in srgb,var(--soft) 55%,var(--card))}
@@ -523,8 +528,9 @@ async function ordersView(){
   rows.forEach(r => { if(!byNo.has(r.no)) byNo.set(r.no, []); byNo.get(r.no).push(r); });
   let h = subHead(master ? '📋 전체 발주 내역' : '📋 내 발주 내역',
                   master ? '마스터 계정 — 모든 업체의 발주가 보입니다' : '내가 넣은 발주만 보입니다');
-  if(!rows.length) return h + '<div class="empty">아직 발주 내역이 없습니다.</div>';
   h += '<div class="ordwrap">';
+  if(master) h += cfgBox();
+  if(!rows.length) return h + '<div class="empty">아직 발주 내역이 없습니다.</div></div>';
   byNo.forEach((list, no) => {
     const f = list[0];
     const live = list.filter(r => r.state !== '취소');
@@ -569,6 +575,57 @@ async function ordersView(){
   h += '</div>';
   return h;
 }
+/* ⚙️ 당일 시트 주소 칸 (마스터만) — 시트는 매월 바뀐다.
+   비서·발주서 변환기와 같은 방식으로 화면에서 갈아끼운다(사장님 2026-08-20: "비서처럼 그게 편해"). */
+function cfgBox(){
+  return '<div class="ordbox cfg" id="ordcfg">'
+    + '<h3>⚙️ 당일 시트 <button class="ordb2" id="cfg_tg" style="padding:3px 10px;font-size:11.5px;margin-left:6px">주소 바꾸기</button>'
+    +   '<span class="cfgst" id="cfg_state">확인 중…</span></h3>'
+    + '<div id="cfg_form" style="display:none;margin-top:9px">'
+    +   '<div class="hint" style="margin-bottom:6px">발주를 넣는 시트 주소를 통째로 붙여넣어 주세요. 매월 새 시트로 바뀌면 여기만 갈아끼우시면 됩니다.<br>'
+    +     '⚠️ <b>사장님 계정에 편집 권한이 있는 시트</b>여야 합니다.</div>'
+    +   '<div style="display:grid;grid-template-columns:1fr 110px;gap:8px">'
+    +     '<input class="ordin" id="cfg_url" placeholder="https://docs.google.com/spreadsheets/d/…">'
+    +     '<input class="ordin" id="cfg_tab" placeholder="탭 이름" value="당일">'
+    +   '</div>'
+    +   '<div class="ordbar" style="margin-bottom:0"><button class="ordb2 pri" id="cfg_save">💾 저장하고 확인</button>'
+    +     '<span class="hint" id="cfg_msg" style="align-self:center"></span></div>'
+    + '</div></div>';
+}
+async function cfgLoad(){
+  const st = document.getElementById('cfg_state');
+  if(!st) return;
+  try{
+    const j = await api('getcfg', {token: ME.token});
+    st.textContent = j.state || '';
+    st.className = 'cfgst ' + (j.good ? 'ok' : 'bad');
+    const u = document.getElementById('cfg_url');
+    if(u && j.url) u.value = j.url;
+    const t = document.getElementById('cfg_tab');
+    if(t && j.tab) t.value = j.tab;
+    if(!j.good){ const f = document.getElementById('cfg_form'); if(f) f.style.display = ''; }
+  }catch(e){ st.textContent = e.message || '확인하지 못했습니다'; st.className = 'cfgst bad'; }
+}
+function cfgBind(){
+  const tg = document.getElementById('cfg_tg');
+  if(tg) tg.onclick = () => { const f = document.getElementById('cfg_form'); f.style.display = (f.style.display === 'none' ? '' : 'none'); };
+  const sv = document.getElementById('cfg_save');
+  if(sv) sv.onclick = async () => {
+    const msg = document.getElementById('cfg_msg');
+    sv.disabled = true; msg.textContent = '확인 중…';
+    try{
+      const j = await api('setcfg', {token: ME.token, url: document.getElementById('cfg_url').value, tab: document.getElementById('cfg_tab').value});
+      const st = document.getElementById('cfg_state');
+      st.textContent = j.state; st.className = 'cfgst ok';
+      msg.textContent = '';
+      document.getElementById('cfg_form').style.display = 'none';
+      toast('당일 시트를 연결했습니다');
+    }catch(e){ msg.textContent = e.message || '저장하지 못했습니다'; }
+    finally{ sv.disabled = false; }
+  };
+  cfgLoad();
+}
+
 // 2026-08-20 16:45 → 08-20 16:45 (시트가 날짜로 돌려주는 긴 형식도 여기서 자른다)
 function short(s){
   const t = S(s);
@@ -590,8 +647,10 @@ let LIST = [];
 async function reloadOrders(){
   const sub = document.getElementById('subView');
   if(!sub) return;
-  try{ sub.innerHTML = await ordersView(); }catch(e){ toast(e.message || '다시 불러오지 못했습니다'); }
+  try{ sub.innerHTML = await ordersView(); ordersBind(); }catch(e){ toast(e.message || '다시 불러오지 못했습니다'); }
 }
+// 발주 내역 화면을 그린 뒤 호출 (마스터의 ⚙️ 시트 설정 칸을 붙인다)
+function ordersBind(){ if(ME && ME.master) cfgBind(); }
 
 // ── 엑셀 양식 · 붙여넣기 ─────────────────────────────────────────
 function template(){
@@ -865,5 +924,5 @@ function badge(){
 window.addEventListener('load', () => { if(!ROWS.length) ROWS = loadDraft(); badge(); });
 
 // _build·_check는 검증용 출구다(브라우저 없이 변환 결과를 확인할 때 쓴다). 화면 동작과 무관.
-window.ORDER = {view, bind, add, orders: ordersView, rows: () => ROWS, _build: buildOut, _check: checkRow};
+window.ORDER = {view, bind, add, orders: ordersView, ordersBind, rows: () => ROWS, _build: buildOut, _check: checkRow};
 })();

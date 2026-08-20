@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.11</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.12</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1286,7 +1286,7 @@ async function renderRoute(){
       else{subV.innerHTML=ORDER.view();ORDER.bind();}
     }
     // 📋 발주 내역 — 업체는 자기 것만, 마스터(사장님·원비 팀장)는 전체. 거르는 건 웹앱이 한다.
-    else if(v==='orders'){subV.innerHTML=await ORDER.orders();}
+    else if(v==='orders'){subV.innerHTML=await ORDER.orders();ORDER.ordersBind();}
     else{location.hash='';}
   }catch(e){
     subV.innerHTML=subHead('⚠️ 불러오지 못했습니다','')+'<div class="empty">'+esc(e.message||String(e))+'</div>';
