@@ -53,7 +53,8 @@ a:hover { color: var(--navy); }
    파일이 없으면 아래 그라디언트가 그대로 보이므로 사이트는 깨지지 않습니다. */
 .hero {
   position: relative;
-  padding: 70px 72px 130px;
+  /* 숫자 3칸·명함 칩을 걷어내면서 표지도 같이 짧게 (2026-08-20 홍팀장: "인트로 좀 짧게") */
+  padding: 52px 72px 96px;
   background:
     /* 1) 어둡게 덮는 막 — 흰 글씨 가독성 확보 */
     linear-gradient(102deg, rgba(4,26,40,0.92) 0%, rgba(5,38,58,0.80) 42%, rgba(7,58,84,0.52) 100%),
@@ -81,9 +82,9 @@ a:hover { color: var(--navy); }
 .hero-wave .w-front { fill: var(--cream); }
 .eyebrow { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: 2px; font-size: 15px; color: var(--amber); }
 .eyebrow .bar { width: 34px; height: 4px; background: var(--amber); border-radius: 2px; }
-.hero h1 { font-size: 88px; line-height: 0.98; margin: 26px 0 0; letter-spacing: -1px; }
+.hero h1 { font-size: 76px; line-height: 1.0; margin: 20px 0 0; letter-spacing: -1px; }
 .hero h1 .hl { color: var(--amber); }
-.hero-lead { max-width: 640px; margin: 26px 0 0; font-size: 19px; line-height: 1.6; color: rgba(255,246,234,0.9); }
+.hero-lead { max-width: 640px; margin: 20px 0 0; font-size: 18px; line-height: 1.6; color: rgba(255,246,234,0.9); }
 .stats { display: flex; gap: 40px; margin-top: 46px; }
 .stats .num { font-size: 46px; color: var(--amber); line-height: 1; }
 .stats .lbl { font-size: 14px; margin-top: 6px; color: rgba(255,246,234,0.85); }

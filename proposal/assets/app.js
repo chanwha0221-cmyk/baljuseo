@@ -256,32 +256,20 @@
       '</section>';
   }
 
-  function heroHTML(total, catCount) {
+  function heroHTML() {
     var lines = (CFG.heroTitleLines || ["바다에서", "식탁까지,", "한 번에 채우다"]);
     var h1 = lines.map(function (ln, i) {
       return (i === lines.length - 1) ? '<span class="hl">' + esc(ln) + '</span>' : esc(ln);
     }).join("<br>");
-    var mark = (CFG.company || "마스터").trim().charAt(0) || "마";
     return '' +
       '<section class="hero">' +
         '<div class="hero-circle c1"></div><div class="hero-circle c2"></div>' +
         '<div class="eyebrow"><span class="bar"></span>' + esc(CFG.heroEyebrow || "") + '</div>' +
         '<h1 class="display">' + h1 + '</h1>' +
         '<p class="hero-lead">' + esc(CFG.heroLead || "") + '</p>' +
-        '<div class="stats">' +
-          '<div><div class="num display">' + total + '</div><div class="lbl">엄선 품목</div></div>' +
-          '<div class="divider"></div>' +
-          '<div><div class="num display">' + catCount + '</div><div class="lbl">상품 카테고리</div></div>' +
-          '<div class="divider"></div>' +
-          '<div><div class="num display">전국</div><div class="lbl">택배 배송</div></div>' +
-        '</div>' +
-        '<div class="owner-chip">' +
-          '<div class="avatar display">' + esc(mark) + '</div>' +
-          '<div>' +
-            '<div class="name">' + esc(CFG.company || "") + '</div>' +
-            '<div class="sub">' + esc((CFG.team || "") + " · " + (CFG.managerName || "") + " " + (CFG.managerTitle || "")) + '</div>' +
-          '</div>' +
-        '</div>' +
+        /* 숫자 3칸(엄선 품목·상품 카테고리·택배 배송)과 회사 명함 칩은
+           2026-08-20 홍팀장 지시로 제거 — 표지가 길어지기만 했다.
+           회사·담당자 정보는 맨 아래 문의 섹션에 그대로 있다. */
         // 표지 아래 파도 곡선 (바다 테마)
         '<svg class="hero-wave" viewBox="0 0 1440 130" preserveAspectRatio="none" aria-hidden="true" focusable="false">' +
           '<path class="w-back" d="M0,70 C220,116 430,26 700,54 C930,78 1180,120 1440,78 L1440,130 L0,130 Z"></path>' +
