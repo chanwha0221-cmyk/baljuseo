@@ -49,6 +49,7 @@
   function findItem(key) { for (var i = 0; i < items.length; i++) if (items[i]._key === key) return items[i]; return null; }
   function num(v) { var d = String(v == null ? "" : v).replace(/[^0-9]/g, ""); return d ? parseInt(d, 10) : 0; }
   function isShow(v) { var s = String(v == null ? "" : v).trim(); return !(s === "숨김" || s === "숨기기" || s === "false" || s === "FALSE" || s === "0" || s === "N"); }
+  var NUMF = { supply_price: 1, ship_fee: 1, special_price: 1, cost: 1 };   // 숫자로 받아야 하는 칸
 
   function setDirty(v) {
     dirty = v;
@@ -104,7 +105,9 @@
             _key: uid(), category: r[1] || (CATS[0] && CATS[0].key) || "fish", name: r[2] || "", warehouse: r[3] || "",
             spec: r[4] || "", supply_price: num(r[5]), courier: r[6] || "", ship_fee: num(r[7]),
             tax: r[8] === "과세" ? "과세" : "면세", image: r[9] || "", link: r[10] || "",
-            show: isShow(r[11]), sort_order: num(r[12])
+            show: isShow(r[11]), sort_order: num(r[12]),
+            special_price: num(r[13]),   // 비우면 0 = 공급가 그대로 노출
+            cost: num(r[14])             // 관리자 전용 — 제안서엔 안 나감
           };
         }).sort(function (a, b) { return a.sort_order - b.sort_order; });
 
@@ -116,7 +119,8 @@
   function itemToRow(it, order) {
     return [currentVersion.slug, it.category, (it.name || "").trim(), (it.warehouse || "").trim(), (it.spec || "").trim(),
       num(it.supply_price), (it.courier || "").trim(), num(it.ship_fee), it.tax === "과세" ? "과세" : "면세",
-      (it.image || "").trim(), (it.link || "").trim(), it.show === false ? "숨김" : "표시", order];
+      (it.image || "").trim(), (it.link || "").trim(), it.show === false ? "숨김" : "표시", order,
+      num(it.special_price) || "", num(it.cost) || ""];
   }
   function saveProducts() {
     if (!loadedOK) return Promise.reject(new Error("아직 시트를 못 읽었습니다 — 새로고침 후 다시 시도하세요"));
@@ -137,6 +141,15 @@
       })));
   }
 
+  /* 원가를 넣어두면 실제로 파는 값(특별제안가 있으면 그것) 기준 마진을 관리자에만 보여준다 */
+  function marginHintHTML(it) {
+    var cost = num(it.cost), sell = num(it.special_price) || num(it.supply_price);
+    if (!cost || !sell) return '';
+    var gap = sell - cost, pct = Math.round(gap / sell * 100);
+    return '<div class="margin-hint' + (gap <= 0 ? ' bad' : '') + '">마진 ' + gap.toLocaleString() + '원 · ' + pct + '%' +
+      '<span class="mh-note">원가 ' + cost.toLocaleString() + '원 기준 · 이 줄은 관리자만 봅니다</span></div>';
+  }
+
   /* ================= 상품 카드 ================= */
   function cardHTML(it) {
     var pv = imgUrl(it.image);
@@ -146,7 +159,7 @@
       '<div class="thumb">' +
         '<div class="imgbox">' + (pv ? '<img src="' + esc(pv) + '" alt="">' : '<span style="font-size:12px;color:#9aa7ad;">사진 없음</span>') + '</div>' +
         '<div class="up"><label class="btn-up" data-up="' + it._key + '">사진 업로드<input type="file" accept="image/*" data-file="' + it._key + '" style="display:none;"></label>' +
-          '<button class="btn-findpic" data-findpic="' + it._key + '" title="상품명이 똑같은 마스터씨 게시물에서 사진·링크를 가져옵니다">📷 사진 찾기</button></div>' +
+          '<button class="btn-findpic" data-findpic="' + it._key + '" title="상품명이 똑같은 유통시트·마스터씨 게시물에서 사진·스펙·공급가·택배 정보를 가져옵니다">🔄 시트에서 채우기</button></div>' +
       '</div>' +
       '<div class="fields">' +
         '<div class="row r1">' +
@@ -154,19 +167,21 @@
           '<div><span class="mini">상품명</span><input data-f="name" value="' + esc(it.name) + '" placeholder="상품 이름"></div>' +
           '<div><span class="mini">창고(배지)</span><input data-f="warehouse" value="' + esc(it.warehouse) + '" placeholder="예: 동해"></div>' +
         '</div>' +
-        '<div class="row r2">' +
-          '<div><span class="mini">설명(회색 글씨)</span><input data-f="spec" value="' + esc(it.spec) + '" placeholder="예: 동해 창고 · 냉동"></div>' +
-          '<div><span class="mini">택배사</span><input data-f="courier" value="' + esc(it.courier) + '" placeholder="예: 씨제이대한통운"></div>' +
+        '<div class="row r4">' +
+          '<div><span class="mini">상품 스펙 (※ 줄 그대로 — [🔄 시트에서 채우기]로 자동 입력됩니다)</span>' +
+            '<textarea data-f="spec" rows="4" placeholder="※ 구성 : …&#10;※ 중량/사이즈 : …&#10;※ 생물여부 : …">' + esc(it.spec) + '</textarea></div>' +
         '</div>' +
         '<div class="row r3">' +
           '<div><span class="mini">공급가(원)</span><input data-f="supply_price" type="number" inputmode="numeric" value="' + esc(it.supply_price) + '"></div>' +
-          '<div><span class="mini">택배비(원)</span><input data-f="ship_fee" type="number" inputmode="numeric" value="' + esc(it.ship_fee) + '"></div>' +
+          '<div><span class="mini special">특별 제안가(원) — 넣으면 공급가에 줄</span><input class="in-special" data-f="special_price" type="number" inputmode="numeric" value="' + (it.special_price ? esc(it.special_price) : "") + '" placeholder="비우면 공급가 그대로"></div>' +
+          '<div><span class="mini cost">원가(원) — 제안서에 안 나감</span><input class="in-cost" data-f="cost" type="number" inputmode="numeric" value="' + (it.cost ? esc(it.cost) : "") + '" placeholder="미노출"></div>' +
           '<div><span class="mini">면과세</span><select data-f="tax">' + taxSel("면세") + taxSel("과세") + '</select></div>' +
-          '<div><span class="mini">&nbsp;</span></div>' +
         '</div>' +
-        '<div class="row r4">' +
-          '<div><span class="mini">원본 링크 (masterc.kr 등 — 상품명 클릭 링크, 선택)</span><input data-f="link" value="' + esc(it.link || "") + '" placeholder="https://masterc.kr/..."></div>' +
+        '<div class="row r2">' +
+          '<div><span class="mini">택배사</span><input data-f="courier" value="' + esc(it.courier) + '" placeholder="예: 씨제이대한통운"></div>' +
+          '<div><span class="mini">택배비(원)</span><input data-f="ship_fee" type="number" inputmode="numeric" value="' + esc(it.ship_fee) + '"></div>' +
         '</div>' +
+        marginHintHTML(it) +
         '<div class="card-foot">' +
           '<label class="toggle"><input type="checkbox" data-f="show"' + (it.show !== false ? ' checked' : '') + '> 사이트에 표시</label>' +
           '<button class="btn-saveone" data-saveone="' + it._key + '">저장</button>' +
@@ -334,6 +349,64 @@
       });
   }
 
+  /* ================= 원가 넣기 =================
+     원가는 리모컨 파일이 정본이고 시트 사본은 낡는다(도구시트 '전체상품원가'도 사본이다).
+     그래서 자동으로 끌어오지 않고 홍팀장이 최신 원가를 붙여넣게 한다.
+     붙여넣기 형식: 한 줄에 '상품명 <탭 또는 쉼표> 원가' — 엑셀에서 두 칸 복사하면 그대로 맞는다.
+     ⚠️ 상품명이 완전히 같을 때만 넣는다(§3-3). 원가는 제안서에 절대 노출되지 않는다. */
+  var costOpen = false, costResult = null;
+
+  function costPanelHTML() {
+    if (!costOpen) return '';
+    var body =
+      '<div class="sp-note" style="margin-bottom:8px;">엑셀·리모컨에서 <b>상품명</b>과 <b>원가</b> 두 칸을 복사해 그대로 붙여넣으세요. ' +
+      '상품명이 <b>완전히 같은</b> 상품에만 들어갑니다(비슷한 이름엔 안 넣습니다).<br>' +
+      '원가는 <b>관리자 화면에서만</b> 보이고 제안서·PDF에는 나가지 않습니다.</div>' +
+      '<textarea id="cost-text" rows="8" placeholder="임금님 5-6미 전복 1kg&#9;21000&#10;특대 9-10미 전복 1kg&#9;19500"></textarea>';
+    if (costResult) {
+      body += '<div class="st-note">✅ <b>' + costResult.ok + '개</b> 상품에 원가를 넣었습니다.' +
+        (costResult.miss.length ? '<br>⚠️ 이름이 안 맞아 못 넣은 ' + costResult.miss.length + '개: ' + esc(costResult.miss.join(" · ")) : '') + '</div>';
+    }
+    return '<div class="modal-back" id="cost-close-back"><div class="modal" role="dialog" aria-label="원가 넣기">' +
+      '<div class="modal-head"><span>🧾 원가 넣기 (관리자 전용 · 미노출)</span>' +
+      '<span><button class="btn-addsave" id="btn-cost-apply">넣기</button>' +
+      '<button class="modal-x" id="btn-cost-close" aria-label="닫기">✕</button></span></div>' +
+      '<div class="modal-body">' + body + '</div></div></div>';
+  }
+
+  function applyCosts() {
+    var ta = document.getElementById("cost-text");
+    var text = (ta && ta.value || "").trim();
+    if (!text) { toast("원가를 붙여넣어 주세요", true); return; }
+    var map = {};
+    text.split(/\r?\n/).forEach(function (line) {
+      if (!line.trim()) return;
+      var parts = line.split(/\t|,(?=\s*[\d"']|\s*$)/);
+      if (parts.length < 2) parts = line.split(/\s{2,}/);
+      if (parts.length < 2) return;
+      var nm = String(parts[0] || "").replace(/^["']|["']$/g, "").trim();
+      var cv = num(parts[parts.length - 1]);
+      if (nm && cv) map[nm] = cv;
+    });
+    var names = Object.keys(map);
+    if (!names.length) { toast("상품명과 원가를 못 읽었어요 — 두 칸(상품명·원가)으로 붙여넣어 주세요", true); return; }
+    var btn = document.getElementById("btn-cost-apply");
+    if (btn) { btn.disabled = true; btn.textContent = "넣는 중…"; }
+    var ok = 0, miss = [];
+    names.forEach(function (n) {
+      var hit = items.filter(function (it) { return (it.name || "").trim() === n; });
+      if (!hit.length) { miss.push(n); return; }
+      hit.forEach(function (it) { it.cost = map[n]; ok++; });
+    });
+    saveProducts().then(function () {
+      costResult = { ok: ok, miss: miss }; dirty = false; renderEditor();
+      toast(ok + "개 상품에 원가를 넣었어요 ✅");
+    }).catch(function (err) {
+      if (btn) { btn.disabled = false; btn.textContent = "넣기"; }
+      toast("저장 실패: " + (err.message || err), true);
+    });
+  }
+
   /* ================= 공급가 점검 =================
      제안서에 적힌 공급가가 유통시트(정본)와 어긋나 있는지 대조한다.
      ⚠️ 상품명이 완전히 같을 때만 비교한다(§3-3). 값은 홍팀장이 고른 것만 반영한다 —
@@ -489,18 +562,19 @@
           '<div class="ac-wrap"><span class="mini">상품명 <span class="ac-tip">타이핑하면 자동완성 ↓</span></span><input data-nf="name" value="' + esc(it.name) + '" placeholder="상품명 입력" autocomplete="off"><div class="ac-list" id="ac-list"></div></div>' +
           '<div><span class="mini">창고(배지)</span><input data-nf="warehouse" value="' + esc(it.warehouse) + '" placeholder="예: 동해"></div>' +
         '</div>' +
-        '<div class="row r2">' +
-          '<div><span class="mini">설명(회색 글씨)</span><input data-nf="spec" value="' + esc(it.spec) + '" placeholder="예: 동해 창고 · 냉동"></div>' +
-          '<div><span class="mini">택배사</span><input data-nf="courier" value="' + esc(it.courier) + '" placeholder="예: 씨제이대한통운"></div>' +
+        '<div class="row r4">' +
+          '<div><span class="mini">상품 스펙 (자동완성에서 고르면 자동으로 들어옵니다)</span>' +
+            '<textarea data-nf="spec" rows="4" placeholder="※ 구성 : …&#10;※ 중량/사이즈 : …">' + esc(it.spec) + '</textarea></div>' +
         '</div>' +
         '<div class="row r3">' +
           '<div><span class="mini">공급가(원)</span><input data-nf="supply_price" type="number" inputmode="numeric" value="' + esc(it.supply_price) + '"></div>' +
-          '<div><span class="mini">택배비(원)</span><input data-nf="ship_fee" type="number" inputmode="numeric" value="' + esc(it.ship_fee) + '"></div>' +
+          '<div><span class="mini special">특별 제안가(원)</span><input class="in-special" data-nf="special_price" type="number" inputmode="numeric" value="' + (it.special_price ? esc(it.special_price) : "") + '" placeholder="비우면 공급가 그대로"></div>' +
+          '<div><span class="mini cost">원가(원) — 미노출</span><input class="in-cost" data-nf="cost" type="number" inputmode="numeric" value="' + (it.cost ? esc(it.cost) : "") + '" placeholder="미노출"></div>' +
           '<div><span class="mini">면과세</span><select data-nf="tax">' + taxSel("면세") + taxSel("과세") + '</select></div>' +
-          '<div><span class="mini">&nbsp;</span></div>' +
         '</div>' +
-        '<div class="row r4">' +
-          '<div><span class="mini">원본 링크 (선택)</span><input data-nf="link" value="' + esc(it.link || "") + '" placeholder="https://masterc.kr/..."></div>' +
+        '<div class="row r2">' +
+          '<div><span class="mini">택배사</span><input data-nf="courier" value="' + esc(it.courier) + '" placeholder="예: 씨제이대한통운"></div>' +
+          '<div><span class="mini">택배비(원)</span><input data-nf="ship_fee" type="number" inputmode="numeric" value="' + esc(it.ship_fee) + '"></div>' +
         '</div>' +
         '<div class="card-foot">' +
           '<label class="toggle"><input type="checkbox" data-nf="show"' + (it.show !== false ? ' checked' : '') + '> 사이트에 표시</label>' +
@@ -526,6 +600,7 @@
       '<div class="topbar"><span class="brand">🐟 상품 관리자</span>' + verCtrl +
       '<span class="spacer"></span>' +
       '<button class="btn-ghost" id="btn-price-check" title="제안서 공급가가 유통시트와 다른 것만 찾아 줍니다">💰 공급가 점검</button>' +
+      '<button class="btn-ghost" id="btn-cost" title="상품명·원가 두 칸을 붙여넣어 원가를 채웁니다 (제안서엔 안 나갑니다)">🧾 원가 넣기</button>' +
       '<a href="' + pubHref + '" target="_blank" rel="noopener">공개 사이트 보기 ↗</a></div>' +
       '<div class="wrap">' +
       '<div class="hint">상품을 고친 뒤 그 상품의 <b>[저장]</b> 버튼을 누르면 바로 공개 사이트에 반영됩니다. 사진은 <b>[사진 업로드]</b>, 삭제는 <b>[삭제]</b>로 즉시 처리돼요. (아래 <b>[전체 저장]</b>은 여러 개를 한 번에 저장할 때만 쓰세요.)</div>' +
@@ -549,7 +624,7 @@
     });
 
     html += '</div><div class="savebar"><span class="status" id="save-status">각 상품의 [저장] 버튼으로 저장하세요</span>' +
-      '<button class="btn-save" id="btn-save" disabled>전체 저장</button></div>' + pricePanelHTML();
+      '<button class="btn-save" id="btn-save" disabled>전체 저장</button></div>' + pricePanelHTML() + costPanelHTML();
     root.innerHTML = html;
     setDirty(dirty);
     bindEditor();
@@ -569,7 +644,7 @@
       if (cf) { var cw = e.target.closest(".cat-edit"); var c = cw && catByKey(cw.getAttribute("data-catkey")); if (c) c[cf] = e.target.value; return; }
       var nf = e.target.getAttribute("data-nf");
       if (nf && newItem) {
-        if (nf === "supply_price" || nf === "ship_fee") newItem[nf] = num(e.target.value);
+        if (NUMF[nf]) newItem[nf] = num(e.target.value);
         else newItem[nf] = e.target.value;
         if (nf === "name") scheduleCatalog(e.target.value);
         return;
@@ -577,7 +652,7 @@
       var f = e.target.getAttribute("data-f"); if (!f) return;
       var card = e.target.closest(".card"); if (!card) return;
       var it = findItem(card.getAttribute("data-key")); if (!it) return;
-      if (f === "supply_price" || f === "ship_fee") it[f] = num(e.target.value);
+      if (NUMF[f]) it[f] = num(e.target.value);
       else it[f] = e.target.value;
       setDirty(true);
     });
@@ -625,6 +700,9 @@
       if (e.target.id === "btn-price-check") { runPriceCheck(); return; }
       if (e.target.id === "btn-price-apply") { applyPriceFixes(); return; }
       if (e.target.id === "btn-pc-close" || e.target.id === "pc-close-back") { priceOpen = false; renderEditor(); return; }
+      if (e.target.id === "btn-cost") { costOpen = true; costResult = null; renderEditor(); return; }
+      if (e.target.id === "btn-cost-apply") { applyCosts(); return; }
+      if (e.target.id === "btn-cost-close" || e.target.id === "cost-close-back") { costOpen = false; renderEditor(); return; }
       if (e.target.closest && e.target.closest("#sp-toggle")) { settingsOpen = !settingsOpen; renderEditor(); return; }
       if (e.target.id === "btn-save-settings") { saveSettings(e.target); return; }
       if (e.target.closest && e.target.closest("#cat-toggle")) { catsOpen = !catsOpen; renderEditor(); return; }
@@ -648,7 +726,7 @@
       var addCat = e.target.getAttribute("data-add");
       if (addCat) {
         addingCat = addCat; expandedCats[addCat] = true;
-        newItem = { _key: "NEW", category: addCat, name: "", warehouse: "", spec: "", supply_price: 0, courier: "", ship_fee: 4000, tax: "면세", image: "", link: "", show: true };
+        newItem = { _key: "NEW", category: addCat, name: "", warehouse: "", spec: "", supply_price: 0, courier: "", ship_fee: 4000, tax: "면세", image: "", link: "", show: true, special_price: 0, cost: 0 };
         renderEditor(); focusNewName(); return;
       }
       var acEl = e.target.closest && e.target.closest(".ac-item");
@@ -658,10 +736,10 @@
           newItem.name = r.name; newItem.warehouse = r.warehouse || ""; newItem.supply_price = r.supply_price || 0;
           newItem.ship_fee = r.ship_fee || 0; newItem.tax = r.tax || "면세";
           if (r.courier) newItem.courier = r.courier;
-          // 사진·원본링크·설명까지 같이 (상품이미지_v2 캐시에 있으면)
+          // 사진·스펙·원본링크까지 같이 (상품이미지_v2 캐시에 있으면)
           if (r.image) newItem.image = r.image;
           if (r.link) newItem.link = r.link;
-          if (r.spec && !newItem.spec) newItem.spec = r.spec;
+          if (r.spec) newItem.spec = r.spec;
         }
         renderEditor(); focusNewName(); return;
       }
@@ -730,9 +808,15 @@
        상품이미지_v2   → 사진 · 설명(※구성) · masterc 원본 링크
      공급가는 반드시 유통시트에서 온다 — 도구시트 '전체상품원가'는 사본이라 낡을 수 있다
      (2026-08-20 홍팀장 지시). 덕분에 상품명만 고르면 최신 공급가와 사진이 같이 붙는다. */
-  function firstSpec(s) {
-    var m = String(s || "").match(/※\s*구성\s*:\s*([^\n]+)/);
-    return m ? m[1].trim() : "";
+  /* 게시물 스펙(※ 줄들)을 그대로 쓴다 — 제안서 카드에 스펙 요약으로 펼쳐진다.
+     ':' 없는 안내문("반드시 이 의미가…" 같은 것)은 스펙이 아니라 페이지 문구라 버린다. */
+  function cleanSpec(s) {
+    // 캐시에 따라 '※'가 붙어 있기도, 줄바꿈으로만 나뉘어 있기도 하다 — 둘 다로 자른다
+    return String(s || "").split(/\r?\n|※/)
+      .map(function (x) { return x.replace(/^\s*※\s*/, "").trim(); })
+      .filter(function (x) { return x && x.indexOf(":") > 0; })
+      .map(function (x) { return "※ " + x; })
+      .join("\n");
   }
   function loadCatalog() {
     if (catalogCache || catalogLoading) return;
@@ -744,7 +828,7 @@
       var pic = {};
       imgRows.slice(1).forEach(function (row) {
         var n = String(row[0] || "").trim(); if (!n) return;
-        pic[n] = { image: String(row[2] || "").trim(), spec: firstSpec(row[3]), link: String(row[5] || "").trim() };
+        pic[n] = { image: String(row[2] || "").trim(), spec: cleanSpec(row[3]), link: String(row[5] || "").trim() };
       });
 
       var byName = {};
@@ -779,26 +863,31 @@
         거래처가 그걸 보고 주문한다(CLAUDE.md §3-3 절대규칙). */
   function fillPhoto(key, btn) {
     var it = findItem(key); if (!it) return;
+    var reset = function () { if (btn) { btn.disabled = false; btn.textContent = "🔄 시트에서 채우기"; } };
     var go = function () {
       var hit = (catalogCache || []).filter(function (r) { return r.name === (it.name || "").trim(); })[0];
-      if (!hit || (!hit.image && !hit.link)) {
-        toast("'" + (it.name || "") + "' 이름의 사진을 못 찾았어요 — 게시판 상품명과 똑같아야 붙습니다", true);
-        if (btn) { btn.disabled = false; btn.textContent = "📷 사진 찾기"; }
-        return;
+      if (!hit) {
+        toast("'" + (it.name || "") + "' 이름을 유통시트·게시물에서 못 찾았어요 — 이름이 완전히 같아야 붙습니다", true);
+        reset(); return;
       }
-      if (hit.image) it.image = hit.image;
-      if (hit.link && !it.link) it.link = hit.link;
-      if (hit.spec && !it.spec) it.spec = hit.spec;
+      var got = [];
+      if (hit.image) { it.image = hit.image; got.push("사진"); }
+      if (hit.spec) { it.spec = hit.spec; got.push("스펙"); }
+      if (hit.link) { it.link = hit.link; }
+      if (hit.supply_price) { it.supply_price = hit.supply_price; got.push("공급가"); }
+      if (hit.courier) { it.courier = hit.courier; got.push("택배사"); }
+      if (hit.ship_fee || hit.ship_fee === 0) { it.ship_fee = hit.ship_fee; }
+      if (hit.tax) { it.tax = hit.tax; }
       setDirty(true); renderEditor();
-      toast("사진을 찾아 넣었어요 — [저장]을 눌러야 사이트에 반영됩니다");
+      toast((got.length ? got.join("·") + " 채웠어요" : "가져올 값이 없었어요") + " — [저장]을 눌러야 사이트에 반영됩니다");
     };
-    if (btn) { btn.disabled = true; btn.textContent = "찾는 중…"; }
+    if (btn) { btn.disabled = true; btn.textContent = "가져오는 중…"; }
     if (catalogCache) return go();
     loadCatalog();
     var tries = 0;
     var wait = setInterval(function () {
       if (catalogCache) { clearInterval(wait); go(); }
-      else if (++tries > 40) { clearInterval(wait); if (btn) { btn.disabled = false; btn.textContent = "📷 사진 찾기"; } toast("상품 목록을 불러오지 못했어요", true); }
+      else if (++tries > 60) { clearInterval(wait); reset(); toast("상품 목록을 불러오지 못했어요", true); }
     }, 250);
   }
   function runCatalog(q) {

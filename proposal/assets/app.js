@@ -175,6 +175,7 @@
         tax: String(p.tax || "").trim(),
         image: resolveImage(p.image),
         link: String(p.link || "").trim(),
+        specialPrice: toNumber(p.specialPrice),   // 넣으면 공급가에 줄 긋고 이 값이 노출
         badgeColor: WH_COLOR[wh] || CAT[cat].accent
       });
     });
@@ -187,28 +188,37 @@
     var imgHtml = p.image
       ? '<img src="' + esc(p.image) + '" alt="' + esc(p.name) + '" loading="lazy" decoding="async">'
       : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#9aa7ad;font-size:13px;">사진 준비중</div>';
+    /* 스펙은 '※ …' 줄을 그대로 목록으로 보여준다(게시물 스펙 요약을 옮겨온 것).
+       ※ 가 없는 옛 설명은 한 줄 그대로 쓴다. */
+    var specLines = String(p.spec || "").split(/\n|(?=※)/)
+      .map(function (s) { return s.replace(/^\s*※\s*/, "").trim(); })
+      .filter(function (s) { return s; });
+    var specHtml = specLines.length
+      ? '<ul class="prod-spec">' + specLines.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join("") + '</ul>'
+      : '<div class="prod-spec empty"></div>';
+
+    // 특별 제안가가 있으면 공급가에 줄을 긋고 그 값을 크게
+    var hasSpecial = p.specialPrice > 0 && p.specialPrice !== p.supplyPrice;
+    var priceHtml = CFG.hidePrice
+      // 문의 섹션을 뺀 제안서에서는 누를 곳이 없으니 링크가 아니라 글씨로만
+      ? (CFG.hideContact ? '<span class="val-ask">공급가 문의</span>'
+                         : '<a class="val-ask" href="#contact">공급가 문의하기 →</a>')
+      : (hasSpecial
+          ? '<span class="lbl">특별 제안가</span>' +
+            '<span class="val-was">' + money(p.supplyPrice) + '</span>' +
+            '<span class="val display special">' + money(p.specialPrice) + '</span>'
+          : '<span class="lbl">공급가</span><span class="val display">' + money(p.supplyPrice) + '</span>');
+
     return '' +
       '<div class="prod-card">' +
         '<div class="prod-img' + (c.fit === "contain" ? " contain" : "") + '" style="background:' + c.imgBg + ';">' +
           imgHtml +
-          (p.warehouse ? '<div class="badge-tag" style="background:' + p.badgeColor + ';">' + esc(p.warehouse) + '</div>' : '') +
           (p.tax ? '<div class="badge-tax">' + esc(p.tax) + '</div>' : '') +
         '</div>' +
         '<div class="prod-body">' +
-          // 관리자에서 '원본 링크'를 넣은 상품은 상품명이 그 글로 가는 링크가 된다
-          '<h3>' + (p.link
-            ? '<a href="' + esc(p.link) + '" target="_blank" rel="noopener">' + esc(p.name) + '</a>'
-            : esc(p.name)) + '</h3>' +
-          // 설명이 없어도 자리를 유지해야 아래 공급가 위치가 어긋나지 않음
-          '<div class="prod-spec">' + esc(p.spec || "") + '</div>' +
-          '<div class="price-row">' +
-            (CFG.hidePrice
-              // 문의 섹션을 뺀 제안서에서는 누를 곳이 없으니 링크가 아니라 글씨로만
-              ? (CFG.hideContact
-                  ? '<span class="val-ask">공급가 문의</span>'
-                  : '<a class="val-ask" href="#contact">공급가 문의하기 →</a>')
-              : '<span class="lbl">공급가</span><span class="val display">' + money(p.supplyPrice) + '</span>') +
-          '</div>' +
+          '<h3>' + esc(p.name) + '</h3>' +
+          specHtml +
+          '<div class="price-row">' + priceHtml + '</div>' +
           '<div class="ship-row" style="background:' + c.rowBg + ';">' +
             (p.courier ? '<span class="pill" style="color:' + c.accent + ';background:' + c.pillBg + ';">' + esc(p.courier) + '</span>' : '') +
             '<span class="txt">택배비 ' + money(p.shipFee) + '</span>' +
@@ -416,7 +426,8 @@
           return {
             category: r[1], name: r[2], warehouse: r[3], spec: r[4], supplyPrice: r[5],
             courier: r[6], shipFee: r[7], tax: r[8], image: r[9], link: r[10], show: r[11],
-            sort_order: toInt(r[12])
+            sort_order: toInt(r[12]), specialPrice: r[13]
+            // r[14] = 원가 — 관리자 전용이라 공개 사이트로 절대 넘기지 않는다
           };
         }).sort(function (a, b) { return a.sort_order - b.sort_order; });
       if (!prods.length) throw new Error("sheet empty");

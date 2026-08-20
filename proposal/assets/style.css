@@ -172,16 +172,14 @@ a:hover { color: var(--navy); }
   font-size: 18px; font-weight: 700; margin: 0; color: var(--navy); line-height: 1.35;
   min-height: calc(18px * 1.35 * 2);
 }
-/* 원본 링크가 걸린 상품명 — 파란 링크색 대신 본문색 그대로, 밑줄은 마우스 올릴 때만 */
-.prod-body h3 a { color: inherit; text-decoration: none; }
-.prod-body h3 a:hover { text-decoration: underline; text-underline-offset: 3px; }
-/* 설명은 최대 2줄까지만 (그 이상은 말줄임) — 카드 높이가 들쭉날쭉해지는 것 방지 */
+/* 스펙 요약 — 게시물의 '※ …' 줄을 그대로 목록으로 (2026-08-20 홍팀장: 제안서를 PDF로 돌린다) */
 .prod-spec {
-  font-size: 12px; color: var(--muted3); margin-top: 5px; line-height: 1.45;
-  min-height: calc(12px * 1.45);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden;
+  list-style: none; padding: 0;
+  font-size: 12px; color: var(--muted3); margin: 7px 0 0; line-height: 1.5;
 }
+.prod-spec li { position: relative; padding-left: 10px; margin-top: 2px; }
+.prod-spec li::before { content: "·"; position: absolute; left: 2px; color: var(--muted3); }
+.prod-spec.empty { min-height: calc(12px * 1.5); }
 /* 공급가·택배 블록은 카드 아래쪽에 고정 → 같은 줄 카드끼리 높이 일치 */
 .price-row {
   display: flex; justify-content: space-between; align-items: baseline;
@@ -189,6 +187,12 @@ a:hover { color: var(--navy); }
 }
 .price-row .lbl { font-size: 13px; font-weight: 700; color: var(--navy); }
 .price-row .val { font-size: 27px; color: var(--coral); }
+/* 특별 제안가 — 원래 공급가에 줄을 긋고 제안가를 크게 */
+.price-row .val-was {
+  font-size: 14px; color: var(--muted3); text-decoration: line-through;
+  text-decoration-color: rgba(0,0,0,.35); margin-left: auto; margin-right: 8px;
+}
+.price-row .val.special { color: var(--coral); }
 /* 공급가 숨김 모드 — 가격 대신 문의 버튼 */
 .val-ask {
   display: block; width: 100%; text-align: center;
