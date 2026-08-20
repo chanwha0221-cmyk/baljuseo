@@ -230,9 +230,9 @@
   function sectionHTML(cat, items) {
     var c = CAT[cat];
     var t = (CFG.categoryText && CFG.categoryText[cat]) || {};
-    var meta = c.meta || t.meta || "";
     // 개요 카드를 없앤 뒤로 카테고리 '소개(카드 설명)'도 이 헤더 바에서 보여준다 (2026-08-20 홍팀장)
     var descr = c.descr || t.desc || "";
+    // 우측 메타는 이름·소개와 겹쳐서 제거 (2026-08-20 홍팀장: "너무 중복 안내")
     var cards = items.map(cardHTML).join("");
     return '' +
       '<section id="' + cat + '" class="section">' +
@@ -245,7 +245,6 @@
               (descr ? '<p class="sec-descr">' + esc(descr) + '</p>' : '') +
             '</div>' +
           '</div>' +
-          (meta ? '<div class="meta">' + esc(meta) + '</div>' : '') +
         '</div>' +
         '<div class="prod-grid">' + cards + '</div>' +
       '</section>';

@@ -219,3 +219,9 @@ textarea:focus{outline:2px solid var(--teal);border-color:var(--teal);}
 .margin-hint .mh-note{font-weight:500;color:var(--text3);font-size:11px;}
 .card .fields textarea{width:100%;font-family:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--border);
   border-radius:7px;resize:vertical;line-height:1.5;background:var(--surface);color:var(--text);}
+
+/* 원가 가져온 시점 — 상단바 바로 밑 (2026-08-20) */
+.costline{padding:7px 18px;background:#fbf7ec;border-bottom:1px solid var(--border);
+  font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px;}
+.costline b{color:var(--accent);}
+.costline .cl-none{color:var(--text3);}

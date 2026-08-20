@@ -165,7 +165,7 @@
         '<div class="row r1">' +
           '<div><span class="mini">카테고리</span><select data-f="category">' + catOpts + '</select></div>' +
           '<div><span class="mini">상품명</span><input data-f="name" value="' + esc(it.name) + '" placeholder="상품 이름"></div>' +
-          '<div><span class="mini">창고(배지)</span><input data-f="warehouse" value="' + esc(it.warehouse) + '" placeholder="예: 동해"></div>' +
+          // 창고(배지)는 2026-08-20 홍팀장 지시로 제안서에서 뺐다 → 입력칸도 없앴다
         '</div>' +
         '<div class="row r4">' +
           '<div><span class="mini">상품 스펙 (※ 줄 그대로 — [🔄 시트에서 채우기]로 자동 입력됩니다)</span>' +
@@ -195,14 +195,13 @@
   function catRowHTML(c) {
     return '<div class="cat-edit" data-catkey="' + esc(c.key) + '">' +
       '<div class="row" style="grid-template-columns:66px 1fr 1.4fr 74px;">' +
-        '<div><span class="mini">아이콘</span><input data-cf="mark" value="' + esc(c.mark) + '" maxlength="2"></div>' +
+        '<div><span class="mini">아이콘(이모지)</span><input data-cf="mark" value="' + esc(c.mark) + '" maxlength="4" placeholder="🎁"></div>' +
         '<div><span class="mini">이름</span><input data-cf="name" value="' + esc(c.name) + '"></div>' +
         '<div><span class="mini">소개(카드 설명)</span><input data-cf="descr" value="' + esc(c.descr) + '"></div>' +
         '<div><span class="mini">색상</span><input data-cf="accent" type="color" value="' + esc(c.accent) + '"></div>' +
       '</div>' +
-      '<div class="row" style="grid-template-columns:1fr 1fr 110px;">' +
+      '<div class="row" style="grid-template-columns:1fr 110px;">' +
         '<div><span class="mini">영문 라벨(작은 글씨)</span><input data-cf="eyebrow" value="' + esc(c.eyebrow) + '"></div>' +
-        '<div><span class="mini">헤더 우측 메타</span><input data-cf="meta" value="' + esc(c.meta) + '"></div>' +
         '<div><span class="mini">사진 맞춤</span><select data-cf="fit"><option value="cover"' + (c.fit !== "contain" ? " selected" : "") + '>꽉채움</option><option value="contain"' + (c.fit === "contain" ? " selected" : "") + '>여백(포장)</option></select></div>' +
       '</div>' +
       '<div class="card-foot" style="padding-top:8px;">' +
@@ -217,7 +216,12 @@
     if (!catsOpen) return '<div class="settings-panel"><div class="sp-head" id="cat-toggle"><span>🗂️ 카테고리 관리 (추가·수정·삭제)</span><span class="sp-caret">펼치기 ▾</span></div></div>';
     return '<div class="settings-panel open">' +
       '<div class="sp-head" id="cat-toggle"><span>🗂️ 카테고리 관리 (추가·수정·삭제)</span><span class="sp-caret">접기 ▴</span></div>' +
-      '<div class="sp-body">' + CATS.map(catRowHTML).join("") +
+      '<div class="sp-body">' +
+        '<div class="sp-note" style="margin-bottom:10px;">⚠️ <b>카테고리는 모든 버전이 같이 씁니다.</b> 특정 거래처에게 일부만 보여주려고 ' +
+        '여기서 <b>숨기거나 지우지 마세요</b> — 다른 제안서까지 같이 비어버립니다.<br>' +
+        '<b>버전마다 담은 상품만 나옵니다</b> — 그 버전에 상품이 없는 카테고리는 알아서 안 보입니다. ' +
+        '거래처별로 다르게 보내려면 위에서 <b>[+ 새 버전]</b> 또는 <b>[⧉ 복제]</b>를 쓰세요.</div>' +
+        CATS.map(catRowHTML).join("") +
         '<div class="add-row"><button class="btn-add" id="btn-cat-new">+ 카테고리 추가</button></div>' +
       '</div></div>';
   }
@@ -241,7 +245,12 @@
   function deleteCategory(key) {
     var c = catByKey(key); if (!c) return;
     var cnt = items.filter(function (i) { return i.category === key; }).length;
-    var msg = cnt > 0 ? ("이 카테고리에 상품 " + cnt + "개가 있습니다.\n삭제하면 그 상품들은 사이트에서 안 보이게 됩니다(상품 데이터는 남음).\n삭제할까요?") : "이 카테고리를 삭제할까요?";
+    // ⚠️ 카테고리는 전 버전 공용이다 — 지우면 다른 제안서에서도 그 상품들이 통째로 사라진다
+    var msg = "[" + (c.name || key) + "] 카테고리를 삭제합니다.\n\n" +
+      "⚠️ 카테고리는 모든 버전이 같이 씁니다. 지우면 이 버전뿐 아니라\n" +
+      "   다른 제안서에서도 이 카테고리 상품이 통째로 안 보이게 됩니다.\n" +
+      (cnt > 0 ? "   (지금 이 버전에만 상품 " + cnt + "개가 들어 있습니다. 상품 데이터 자체는 남습니다.)\n" : "") +
+      "\n특정 거래처에게 일부만 보내려는 거라면 삭제가 아니라\n[+ 새 버전]/[⧉ 복제]로 그 버전에 담을 상품만 넣으세요.\n\n정말 삭제할까요?";
     if (!window.confirm(msg)) return;
     var keep = CATS.slice();
     CATS = CATS.filter(function (x) { return x.key !== key; });
@@ -349,62 +358,105 @@
       });
   }
 
-  /* ================= 원가 넣기 =================
-     원가는 리모컨 파일이 정본이고 시트 사본은 낡는다(도구시트 '전체상품원가'도 사본이다).
-     그래서 자동으로 끌어오지 않고 홍팀장이 최신 원가를 붙여넣게 한다.
-     붙여넣기 형식: 한 줄에 '상품명 <탭 또는 쉼표> 원가' — 엑셀에서 두 칸 복사하면 그대로 맞는다.
-     ⚠️ 상품명이 완전히 같을 때만 넣는다(§3-3). 원가는 제안서에 절대 노출되지 않는다. */
-  var costOpen = false, costResult = null;
+  /* ================= 원가 가져오기 =================
+     원가는 도구시트 '전체상품원가' 탭(E열)에서 가져온다 — 홍팀장이 그 표를 최신으로 유지한다
+     (2026-08-20 지시: "여기 전체상품원가에 넣어줄테니 여기서 땡겨와").
+     ⚠️ 상품명이 완전히 같을 때만 넣는다(§3-3). 원가는 제안서·PDF에 절대 안 나간다.
+     그 표의 '등록일시' 최신값 = 원가표 기준일. 버튼 밑에 같이 보여줘 언제 자료인지 알 수 있게 한다. */
+  var costOpen = false, costResult = null, costBase = "", costPulledAt = "";
 
   function costPanelHTML() {
     if (!costOpen) return '';
-    var body =
-      '<div class="sp-note" style="margin-bottom:8px;">엑셀·리모컨에서 <b>상품명</b>과 <b>원가</b> 두 칸을 복사해 그대로 붙여넣으세요. ' +
-      '상품명이 <b>완전히 같은</b> 상품에만 들어갑니다(비슷한 이름엔 안 넣습니다).<br>' +
-      '원가는 <b>관리자 화면에서만</b> 보이고 제안서·PDF에는 나가지 않습니다.</div>' +
-      '<textarea id="cost-text" rows="8" placeholder="임금님 5-6미 전복 1kg&#9;21000&#10;특대 9-10미 전복 1kg&#9;19500"></textarea>';
-    if (costResult) {
-      body += '<div class="st-note">✅ <b>' + costResult.ok + '개</b> 상품에 원가를 넣었습니다.' +
-        (costResult.miss.length ? '<br>⚠️ 이름이 안 맞아 못 넣은 ' + costResult.miss.length + '개: ' + esc(costResult.miss.join(" · ")) : '') + '</div>';
+    var body;
+    if (!costResult) body = '<div class="st-empty">전체상품원가에서 가져오는 중…</div>';
+    else if (costResult.err) body = '<div class="st-empty">원가표를 읽지 못했어요 — ' + esc(costResult.err) + '</div>';
+    else {
+      body = '<div class="sp-note">도구시트 <b>전체상품원가</b>(' + costResult.total.toLocaleString() + '건, 기준일 <b>' + esc(costResult.base || "-") + '</b>)에서 ' +
+        '상품명이 <b>완전히 같은</b> 것만 가져왔습니다. 원가는 관리자 화면에서만 보입니다.</div>';
+      if (costResult.rows.length) {
+        body += '<table class="st-table"><thead><tr><th>상품명</th><th>원가</th><th>파는 값</th><th>마진</th></tr></thead><tbody>' +
+          costResult.rows.map(function (r) {
+            var pct = r.sell ? Math.round((r.sell - r.cost) / r.sell * 100) : 0;
+            return '<tr><td class="st-ver">' + esc(r.name) + '</td>' +
+              '<td class="st-num">' + r.cost.toLocaleString() + '</td>' +
+              '<td class="st-num">' + (r.sell ? r.sell.toLocaleString() : '-') + '</td>' +
+              '<td class="st-num' + (r.sell && r.sell - r.cost <= 0 ? ' hot' : '') + '">' + (r.sell ? ((r.sell - r.cost).toLocaleString() + '원 · ' + pct + '%') : '-') + '</td></tr>';
+          }).join("") + '</tbody></table>';
+      } else {
+        body += '<div class="st-empty">가져올 원가가 없었습니다.</div>';
+      }
+      if (costResult.miss.length) {
+        body += '<div class="st-note">⚠️ 원가표에 <b>같은 이름이 없는 ' + costResult.miss.length + '개</b>는 비워뒀습니다: ' + esc(costResult.miss.join(" · ")) + '</div>';
+      }
     }
-    return '<div class="modal-back" id="cost-close-back"><div class="modal" role="dialog" aria-label="원가 넣기">' +
-      '<div class="modal-head"><span>🧾 원가 넣기 (관리자 전용 · 미노출)</span>' +
-      '<span><button class="btn-addsave" id="btn-cost-apply">넣기</button>' +
-      '<button class="modal-x" id="btn-cost-close" aria-label="닫기">✕</button></span></div>' +
+    return '<div class="modal-back" id="cost-close-back"><div class="modal" role="dialog" aria-label="원가 가져오기">' +
+      '<div class="modal-head"><span>🧾 원가 가져오기 (관리자 전용 · 미노출)</span>' +
+      '<span><button class="modal-x" id="btn-cost-close" aria-label="닫기">✕</button></span></div>' +
       '<div class="modal-body">' + body + '</div></div></div>';
   }
 
-  function applyCosts() {
-    var ta = document.getElementById("cost-text");
-    var text = (ta && ta.value || "").trim();
-    if (!text) { toast("원가를 붙여넣어 주세요", true); return; }
-    var map = {};
-    text.split(/\r?\n/).forEach(function (line) {
-      if (!line.trim()) return;
-      var parts = line.split(/\t|,(?=\s*[\d"']|\s*$)/);
-      if (parts.length < 2) parts = line.split(/\s{2,}/);
-      if (parts.length < 2) return;
-      var nm = String(parts[0] || "").replace(/^["']|["']$/g, "").trim();
-      var cv = num(parts[parts.length - 1]);
-      if (nm && cv) map[nm] = cv;
-    });
-    var names = Object.keys(map);
-    if (!names.length) { toast("상품명과 원가를 못 읽었어요 — 두 칸(상품명·원가)으로 붙여넣어 주세요", true); return; }
-    var btn = document.getElementById("btn-cost-apply");
-    if (btn) { btn.disabled = true; btn.textContent = "넣는 중…"; }
-    var ok = 0, miss = [];
-    names.forEach(function (n) {
-      var hit = items.filter(function (it) { return (it.name || "").trim() === n; });
-      if (!hit.length) { miss.push(n); return; }
-      hit.forEach(function (it) { it.cost = map[n]; ok++; });
-    });
-    saveProducts().then(function () {
-      costResult = { ok: ok, miss: miss }; dirty = false; renderEditor();
-      toast(ok + "개 상품에 원가를 넣었어요 ✅");
+  function pullCosts() {
+    costOpen = true; costResult = null; renderEditor();
+    window.SVC.readTab("전체상품원가").then(function (rows) {
+      var head = (rows[0] || []).map(function (x) { return String(x || "").replace(/\s+/g, ""); });
+      var iCost = head.indexOf("원가"), iWhen = head.indexOf("등록일시");
+      if (iCost < 0) iCost = 4;
+      var map = {}, base = "";
+      rows.slice(1).forEach(function (r) {
+        var n = String(r[0] || "").trim(); if (!n) return;
+        if (!map[n]) map[n] = num(r[iCost]);
+        var w = String((iWhen >= 0 ? r[iWhen] : "") || "").trim();
+        if (w > base) base = w;
+      });
+      var got = [], miss = [];
+      items.forEach(function (it) {
+        var n = (it.name || "").trim(); if (!n) return;
+        var c = map[n];
+        if (!c) { miss.push(n); return; }
+        it.cost = c;
+        got.push({ name: n, cost: c, sell: num(it.special_price) || num(it.supply_price) });
+      });
+      costBase = base;
+      return saveProducts().then(function () {
+        costPulledAt = nowLabel();
+        return saveCostStamp(base, costPulledAt);
+      }).then(function () {
+        costResult = { rows: got, miss: miss, base: base, total: rows.length - 1 };
+        dirty = false; renderEditor();
+        toast(got.length + "개 상품에 원가를 넣었어요 ✅ (원가표 기준일 " + (base || "-") + ")");
+      });
     }).catch(function (err) {
-      if (btn) { btn.disabled = false; btn.textContent = "넣기"; }
-      toast("저장 실패: " + (err.message || err), true);
+      costResult = { err: String(err && err.message || err), rows: [], miss: [], base: "", total: 0 };
+      renderEditor();
     });
+  }
+
+  function nowLabel() {
+    var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  /* 언제 가져왔는지는 도구시트 '설정' 탭에 남긴다 — 다른 PC에서 열어도 같은 값이 보이게 */
+  function saveCostStamp(base, at) {
+    return window.SVC.readTab("설정").then(function (rows) {
+      var out = (rows || []).map(function (r) { return r.slice(); });
+      var key = "제안서원가가져온시각", val = at + (base ? " (원가표 기준일 " + base + ")" : "");
+      var i = -1;
+      out.forEach(function (r, n) { if (String(r[0] || "").trim() === key) i = n; });
+      if (i >= 0) out[i][1] = val; else out.push([key, val]);
+      return window.SVC.writeTab("설정", out);
+    }).catch(function () { /* 기록 실패는 무시 — 원가는 이미 들어갔다 */ });
+  }
+  function loadCostStamp() {
+    return window.SVC.readTab("설정").then(function (rows) {
+      (rows || []).forEach(function (r) {
+        if (String(r[0] || "").trim() === "제안서원가가져온시각") {
+          var v = String(r[1] || "");
+          costPulledAt = v.split(" (")[0] || "";
+          var m = v.match(/기준일\s*([\d.\-\/ ]+)/);
+          costBase = m ? m[1].trim() : "";
+        }
+      });
+    }).catch(function () {});
   }
 
   /* ================= 공급가 점검 =================
@@ -560,7 +612,6 @@
         '<div class="row r1">' +
           '<div><span class="mini">카테고리</span><select data-nf="category">' + catOpts + '</select></div>' +
           '<div class="ac-wrap"><span class="mini">상품명 <span class="ac-tip">타이핑하면 자동완성 ↓</span></span><input data-nf="name" value="' + esc(it.name) + '" placeholder="상품명 입력" autocomplete="off"><div class="ac-list" id="ac-list"></div></div>' +
-          '<div><span class="mini">창고(배지)</span><input data-nf="warehouse" value="' + esc(it.warehouse) + '" placeholder="예: 동해"></div>' +
         '</div>' +
         '<div class="row r4">' +
           '<div><span class="mini">상품 스펙 (자동완성에서 고르면 자동으로 들어옵니다)</span>' +
@@ -600,8 +651,14 @@
       '<div class="topbar"><span class="brand">🐟 상품 관리자</span>' + verCtrl +
       '<span class="spacer"></span>' +
       '<button class="btn-ghost" id="btn-price-check" title="제안서 공급가가 유통시트와 다른 것만 찾아 줍니다">💰 공급가 점검</button>' +
-      '<button class="btn-ghost" id="btn-cost" title="상품명·원가 두 칸을 붙여넣어 원가를 채웁니다 (제안서엔 안 나갑니다)">🧾 원가 넣기</button>' +
+      '<button class="btn-ghost" id="btn-cost" title="도구시트 전체상품원가에서 원가를 가져옵니다 (제안서엔 안 나갑니다)">🧾 원가 가져오기</button>' +
       '<a href="' + pubHref + '" target="_blank" rel="noopener">공개 사이트 보기 ↗</a></div>' +
+      // 원가를 언제 어느 자료로 가져왔는지 — 버튼 바로 밑에 항상 보이게 (2026-08-20 홍팀장)
+      '<div class="costline">🧾 원가 ' +
+        (costPulledAt
+          ? '마지막 가져오기 <b>' + esc(costPulledAt) + '</b>' + (costBase ? ' · 원가표 기준일 <b>' + esc(costBase) + '</b>' : '')
+          : '<span class="cl-none">아직 안 가져왔습니다 — [🧾 원가 가져오기]를 누르세요</span>') +
+      '</div>' +
       '<div class="wrap">' +
       '<div class="hint">상품을 고친 뒤 그 상품의 <b>[저장]</b> 버튼을 누르면 바로 공개 사이트에 반영됩니다. 사진은 <b>[사진 업로드]</b>, 삭제는 <b>[삭제]</b>로 즉시 처리돼요. (아래 <b>[전체 저장]</b>은 여러 개를 한 번에 저장할 때만 쓰세요.)</div>' +
       settingsPanelHTML() + catPanelHTML() + bulkPanelHTML();
@@ -700,8 +757,7 @@
       if (e.target.id === "btn-price-check") { runPriceCheck(); return; }
       if (e.target.id === "btn-price-apply") { applyPriceFixes(); return; }
       if (e.target.id === "btn-pc-close" || e.target.id === "pc-close-back") { priceOpen = false; renderEditor(); return; }
-      if (e.target.id === "btn-cost") { costOpen = true; costResult = null; renderEditor(); return; }
-      if (e.target.id === "btn-cost-apply") { applyCosts(); return; }
+      if (e.target.id === "btn-cost") { pullCosts(); return; }
       if (e.target.id === "btn-cost-close" || e.target.id === "cost-close-back") { costOpen = false; renderEditor(); return; }
       if (e.target.closest && e.target.closest("#sp-toggle")) { settingsOpen = !settingsOpen; renderEditor(); return; }
       if (e.target.id === "btn-save-settings") { saveSettings(e.target); return; }
@@ -1057,6 +1113,7 @@
   root.innerHTML = '<div class="loading">불러오는 중…</div>';
   window.SVC.ensureTabs()
     .then(loadAll)
+    .then(loadCostStamp)
     .then(function () {
       dirty = false; renderEditor();
     })
