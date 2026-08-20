@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.7</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.8</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1313,7 +1313,9 @@ const gate=$('gate');
 function gateShow(on){gate.style.display=on?'flex':'none';}
 async function accSheet(){
   const token=await getAccessToken();
-  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'"+ACC_TAB+"'!A2:H1000"),{headers:{Authorization:'Bearer '+token}});
+  // ⚠️ I·J열(연락처·주소)까지 읽어야 한다 — A2:H로 끊으면 v[8]·v[9]가 영영 비어서
+  //    업체가 정보를 저장해도 다음 접속 때 또 "넣어주세요"가 뜬다 (2026-08-20 발견).
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'"+ACC_TAB+"'!A2:L1000"),{headers:{Authorization:'Bearer '+token}});
   const j=await r.json();
   if(j.error)throw new Error('계정 정보를 읽지 못했습니다. 잠시 후 다시 시도해 주세요.');
   return (j.values||[]).map((v,i)=>({row:i+2,name:norm(v[0]),id:norm(v[1]),pw:norm(v[2]),
