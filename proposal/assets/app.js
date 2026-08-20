@@ -203,7 +203,10 @@
           '<div class="prod-spec">' + esc(p.spec || "") + '</div>' +
           '<div class="price-row">' +
             (CFG.hidePrice
-              ? '<a class="val-ask" href="#contact">공급가 문의하기 →</a>'
+              // 문의 섹션을 뺀 제안서에서는 누를 곳이 없으니 링크가 아니라 글씨로만
+              ? (CFG.hideContact
+                  ? '<span class="val-ask">공급가 문의</span>'
+                  : '<a class="val-ask" href="#contact">공급가 문의하기 →</a>')
               : '<span class="lbl">공급가</span><span class="val display">' + money(p.supplyPrice) + '</span>') +
           '</div>' +
           '<div class="ship-row" style="background:' + c.rowBg + ';">' +
@@ -246,12 +249,9 @@
           '<div class="go" style="color:' + c.accent + ';">' + grouped[k].length + '품목 · 바로가기 ↓</div>' +
         '</a>';
     }).join("");
+    // 제목("카테고리별로 채우는 한 장의 제안")은 2026-08-20 홍팀장 지시로 삭제 — 뜻이 안 통했다.
     return '' +
       '<section class="section">' +
-        '<div class="cat-head">' +
-          '<div class="kicker">CATEGORY LINEUP</div>' +
-          '<h2 class="display">' + esc(CFG.overviewTitle || "카테고리별로 채우는 한 장의 제안") + '</h2>' +
-        '</div>' +
         '<div class="cat-grid">' + cards + '</div>' +
       '</section>';
   }
@@ -329,7 +329,10 @@
     CAT_ORDER.forEach(function (k) {
       if (grouped[k].length) html += sectionHTML(k, grouped[k]);
     });
-    html += calloutHTML() + contactHTML();
+    /* 아래 두 블록은 버전마다 켜고 끈다 (2026-08-20 홍팀장).
+       거래처가 '자기 거래처'에게 다시 돌리는 제안서에는 마스터 연락처가 붙으면 곤란하다. */
+    if (!CFG.hideCallout) html += calloutHTML();
+    if (!CFG.hideContact) html += contactHTML();
 
     html += '<button class="pdf-btn" id="pdf-btn" title="PDF로 저장하거나 인쇄합니다">🖨 PDF 저장</button>';
 
@@ -362,8 +365,11 @@
     ["company","team","kakao","phone","email"].forEach(function(k){ if(m[k]!=null) CFG[k]=m[k]; });
     if (m.manager_name != null) CFG.managerName = m.manager_name;
     if (m.manager_title != null) CFG.managerTitle = m.manager_title;
-    // 공급가 숨김 (오픈카톡 등 불특정 다수 공개용)
-    CFG.hidePrice = (m.hide_price === true || m.hide_price === "1" || m.hide_price === "true");
+    // 공개 범위 스위치 — 켜면 그 블록이 제안서에서 빠진다
+    var on = function (v) { return v === true || v === "1" || v === "true"; };
+    CFG.hidePrice = on(m.hide_price);       // 공급가 → [공급가 문의하기] 버튼으로
+    CFG.hideCallout = on(m.hide_callout);   // '전체 리스트 요청' 안내 박스
+    CFG.hideContact = on(m.hide_contact);   // 맨 아래 담당자 명함(문의 섹션)
   }
 
   function toBool(v) { var s = String(v == null ? "" : v).trim(); return !(s === "숨김" || s === "숨기기" || s === "false" || s === "FALSE" || s === "0" || s === "N"); }

@@ -345,7 +345,8 @@
     for (var k in siteSettings) { if (siteSettings[k] != null) d[k] = siteSettings[k]; }
     return d;
   }
-  function isHidePrice(s) { var v = s.hide_price; return v === true || v === "1" || v === "true"; }
+  function isOn(v) { return v === true || v === "1" || v === "true"; }
+  function isHidePrice(s) { return isOn(s.hide_price); }
   function settingsPanelHTML() {
     var s = settingsEffective();
     function ti(k, label, ph) { return '<div><span class="mini">' + label + '</span><input data-sf="' + k + '" value="' + esc(s[k]) + '" placeholder="' + (ph || "") + '"></div>'; }
@@ -362,11 +363,21 @@
         '<div class="row r2">' + ti("manager_name", "담당자명") + ti("manager_title", "직함") + '</div>' +
         '<div class="sp-sec">연락처</div>' +
         '<div class="row r3">' + ti("phone", "전화") + ti("email", "이메일") + ti("kakao", "카카오톡 ID") + '<div></div></div>' +
-        '<div class="sp-sec">공개 범위</div>' +
+        '<div class="sp-sec">이 버전에 넣을 것 / 뺄 것</div>' +
         '<label class="hide-price' + (isHidePrice(s) ? ' on' : '') + '">' +
           '<input type="checkbox" data-sf="hide_price"' + (isHidePrice(s) ? ' checked' : '') + '>' +
-          '<span><b>공급가 숨기기</b> — 가격 대신 <b>[공급가 문의하기]</b> 버튼이 표시되고, 누르면 아래 연락처로 이동합니다.' +
+          '<span><b>공급가 숨기기</b> — 가격 대신 <b>[공급가 문의하기]</b>가 표시됩니다.' +
           '<br><span class="hp-note">오픈카톡방·단체방처럼 불특정 다수가 보는 링크에 사용하세요.</span></span>' +
+        '</label>' +
+        '<label class="hide-price' + (isOn(s.hide_callout) ? ' on' : '') + '">' +
+          '<input type="checkbox" data-sf="hide_callout"' + (isOn(s.hide_callout) ? ' checked' : '') + '>' +
+          '<span><b>‘전체 리스트 요청’ 안내 박스 빼기</b> — 상품 아래 붙는 “전체 상품 약 500여 종 · 구글 시트로 공유” 박스.' +
+          '<br><span class="hp-note">거래처가 자기 거래처에게 다시 돌리는 제안서라면 빼는 게 낫습니다.</span></span>' +
+        '</label>' +
+        '<label class="hide-price' + (isOn(s.hide_contact) ? ' on' : '') + '">' +
+          '<input type="checkbox" data-sf="hide_contact"' + (isOn(s.hide_contact) ? ' checked' : '') + '>' +
+          '<span><b>맨 아래 담당자 명함(문의 섹션) 빼기</b> — 이름·전화·이메일·카톡이 통째로 안 나갑니다.' +
+          '<br><span class="hp-note">받은 업체가 그대로 자기 거래처에 올릴 제안서에 쓰세요. 우리 연락처가 안 붙습니다.</span></span>' +
         '</label>' +
         '<div class="sp-foot"><span class="sp-note">저장하면 공개 사이트 상단·문의에 바로 반영됩니다.</span><button class="btn-addsave" id="btn-save-settings">문구 저장</button></div>' +
       '</div></div>';
@@ -377,7 +388,7 @@
     var keys = ["hero_eyebrow", "hero_title1", "hero_title2", "hero_title3", "hero_lead", "company", "team", "manager_name", "manager_title", "phone", "email", "kakao"];
     var eff = settingsEffective(), obj = {};
     keys.forEach(function (k) { obj[k] = (eff[k] != null ? String(eff[k]) : ""); });
-    obj.hide_price = isHidePrice(eff) ? "1" : "";
+    ["hide_price", "hide_callout", "hide_contact"].forEach(function (k) { obj[k] = isOn(eff[k]) ? "1" : ""; });
     currentVersion.settings = obj; siteSettings = Object.assign({}, obj);
     saveVersionsSheet().then(function () {
       btn.disabled = false; btn.textContent = "문구 저장";
@@ -475,7 +486,8 @@
 
     root.addEventListener("input", function (e) {
       var sf = e.target.getAttribute("data-sf");
-      if (sf) { siteSettings[sf] = e.target.value; return; }
+      // 체크박스는 아래 change 핸들러가 처리한다(여기서 .value 를 읽으면 "on" 이 들어간다)
+      if (sf) { if (e.target.type !== "checkbox") siteSettings[sf] = e.target.value; return; }
       var cf = e.target.getAttribute("data-cf");
       if (cf) { var cw = e.target.closest(".cat-edit"); var c = cw && catByKey(cw.getAttribute("data-catkey")); if (c) c[cf] = e.target.value; return; }
       var nf = e.target.getAttribute("data-nf");
@@ -495,8 +507,9 @@
 
     root.addEventListener("change", function (e) {
       if (e.target.id === "ver-select") { switchVersion(e.target.value); return; }
-      if (e.target.getAttribute("data-sf") === "hide_price") {
-        siteSettings.hide_price = e.target.checked ? "1" : "";
+      var sfChk = e.target.getAttribute("data-sf");
+      if (sfChk && sfChk.indexOf("hide_") === 0) {          // 공개 범위 스위치 3개 공통
+        siteSettings[sfChk] = e.target.checked ? "1" : "";
         var lab = e.target.closest(".hide-price"); if (lab) lab.classList.toggle("on", e.target.checked);
         return;
       }
