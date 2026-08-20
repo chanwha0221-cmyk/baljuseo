@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v3.2</title>
+<title>외부 업체 등록 도구 v3.4</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -79,7 +79,7 @@ details.extra .form-grid{margin-top:10px}
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v3.2 통합등록</span>
+  <span class="ver">v3.4 통합등록</span>
   <span class="subtitle">사업자등록증 + 업체자료 조합 → 리모컨 붙여넣기</span>
 </header>
 <div class="main">
@@ -104,7 +104,7 @@ details.extra .form-grid{margin-top:10px}
     <div class="panel">
       <div class="panel-head">② 업체 회신 자료 (받은 그대로 붙여넣기)</div>
       <div class="panel-body">
-        <textarea id="vendorBox" placeholder="예시 (받은 그대로 OK · 자동 파싱):&#10;업체명 : 필름&#10;담당자 : 이윤석&#10;아이디 : dldbstjr76&#10;연락처 : 010-3794-6086&#10;이메일 : dldbstjr7676@gmail.com&#10;계산서 이메일 : tax@film.co.kr  (선택)"></textarea>
+        <textarea id="vendorBox" placeholder="예시 (받은 그대로 OK · 자동 파싱):&#10;업체명 : 필름&#10;담당자 : 이윤석&#10;아이디 : dldbstjr76&#10;연락처 : 010-3794-6086&#10;이메일 : dldbstjr7676@gmail.com&#10;계산서 발행할 이메일 주소 : tax@film.co.kr  (선택)"></textarea>
         <div class="parse-status" id="vendorStatus">붙여넣으면 자동 파싱</div>
       </div>
     </div>
@@ -308,7 +308,9 @@ function parseCertBox(){
 // ========== ② 업체 회신 칸 파싱 (자유 형식) ==========
 const VENDOR_PATTERNS = [
   ['chAlias', /(?:별칭|채널\s*별칭)/],
-  ['taxMail', /(?:계산서\s*이?\s*메일|세금\s*계산서\s*메일|계산서\s*용|세금\s*계산서)/i],
+  // 계산서 관련 줄은 문구가 제각각("계산서 발행할 이메일 주소", "세금계산서 받으실 메일" 등)
+  // → 라벨은 '계산서' 한 단어로만 잡고, 값에 이메일이 있을 때만 채운다(아래 taxMail 가드)
+  ['taxMail', /(?:세금\s*)?계산서/i],
   ['cycle',   /(?:정산\s*주기|정산)/],
   ['memo',    /(?:메모|비고|특이사항)/],
   ['chName',  /(?:업체명|사업자명|상호명|상호|회사명|회사|채널명)/],
@@ -341,9 +343,13 @@ function parseVendorBox(){
         if (md) v = md[1];
         v = v.replace(/^mailto:/i, '').trim();
         const em = v.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
-        if (em) v = em[0]; else if (field === 'mail1') continue; // "주소" 라벨이 집주소 잡는 것 방지
-        v = fixEmailTypos(v);
-        if (emailFixNote) fixNote = emailFixNote;
+        if (em) v = em[0];
+        else if (field === 'taxMail') { if (/동일|같/.test(v)) v = '__SAME__'; else continue; } // 이메일 없는 계산서 줄(발행여부 등)은 무시
+        else if (field === 'mail1') continue; // "주소" 라벨이 집주소 잡는 것 방지
+        if (v !== '__SAME__') {
+          v = fixEmailTypos(v);
+          if (emailFixNote) fixNote = emailFixNote;
+        }
       }
       if (field === 'bizNo2') v = fmtBizNo(v);
       if (field === 'tel1') v = formatPhone(v.replace(/[^0-9]/g, '')) || v;
@@ -385,6 +391,12 @@ function parseVendorBox(){
     if (!got.chName) { got.chName = l; continue; }
     if (!got.mgr1) { got.mgr1 = l; continue; }
     if (!got.uid1) { got.uid1 = l; continue; }
+  }
+
+  // "계산서 이메일 : 시트와 동일" → 시트 이메일로 채움
+  if (got.taxMail === '__SAME__') {
+    const same = got.mail1 || g('mail1');
+    if (same) got.taxMail = same; else delete got.taxMail;
   }
 
   let filled = 0;
