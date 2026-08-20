@@ -148,8 +148,13 @@
     if (!cost) return '<div class="margin-hint none">원가 없음 <span class="mh-note">위 [🧾 원가 가져오기]를 누르면 채워집니다</span></div>';
     if (!sell) return '';
     var gap = sell - cost, pct = Math.round(gap / sell * 100);
+    // 무료배송이라 원가에 택배비를 얹은 경우엔 그걸 눈에 보이게 적는다
+    var ship = costShipMap[(it.name || "").trim()] || 0;
+    var note = ship
+      ? '원가 ' + (cost - ship).toLocaleString() + '원 + 원가택배 ' + ship.toLocaleString() + '원(무료배송분) = ' + cost.toLocaleString() + '원 기준'
+      : '원가 ' + cost.toLocaleString() + '원 기준';
     return '<div class="margin-hint' + (gap <= 0 ? ' bad' : '') + '">마진 ' + gap.toLocaleString() + '원 · ' + pct + '%' +
-      '<span class="mh-note">원가 ' + cost.toLocaleString() + '원 기준 · 이 줄은 관리자만 봅니다</span></div>';
+      '<span class="mh-note">' + note + ' · 이 줄은 관리자만 봅니다</span></div>';
   }
 
   /* ================= 상품 카드 ================= */
@@ -369,18 +374,30 @@
      ⚠️ 상품명이 완전히 같을 때만 넣는다(§3-3). 원가는 제안서·PDF에 절대 안 나간다.
      그 표의 '등록일시' 최신값 = 원가표 기준일. 버튼 밑에 같이 보여줘 언제 자료인지 알 수 있게 한다. */
   var costOpen = false, costResult = null, costBase = "", costPulledAt = "";
-  var costMap = {};   // 상품명 → 원가 (전체상품원가 탭)
+  var costMap = {};       // 상품명 → 실제 원가 (전체상품원가 탭, 필요하면 원가택배비 포함)
+  var costShipMap = {};   // 그중 원가에 더해 넣은 배송비 (표시용)
   var COST_SHEET_URL = "https://docs.google.com/spreadsheets/d/" +
     ((CFG.dataSheet && CFG.dataSheet.id) || "") + "/edit?gid=1825062600#gid=1825062600";
 
+  /* 원가표 → 상품명별 '실제 원가'
+     ⚠️ 무료배송(공급가 택배비 0)으로 파는데 매입 쪽(원가 택배비)에 배송비가 붙어 있으면,
+        그 배송비는 우리가 떠안는 것이라 원가에 더해야 진짜 마진이 나온다 (2026-08-20 홍팀장).
+        공급가 택배비를 따로 받는 상품은 그 돈으로 배송비를 내므로 더하지 않는다.
+        금액은 4,000 고정이 아니라 3,300 처럼 제각각이라 시트 값을 그대로 쓴다. */
   function readCostMap(rows) {
     var head = (rows[0] || []).map(function (x) { return String(x || "").replace(/\s+/g, ""); });
     var iCost = head.indexOf("원가"); if (iCost < 0) iCost = 4;
+    var iCostShip = head.indexOf("원가택배비");
+    var iSupShip = head.indexOf("공급가택배비");
     var iWhen = head.indexOf("등록일시");
-    costMap = {}; costBase = "";
+    costMap = {}; costShipMap = {}; costBase = "";
     rows.slice(1).forEach(function (row) {
-      var n = String(row[0] || "").trim(); if (!n) return;
-      if (!costMap[n]) costMap[n] = num(row[iCost]);
+      var n = String(row[0] || "").trim(); if (!n || costMap[n]) return;
+      var cost = num(row[iCost]);
+      var supShip = iSupShip >= 0 ? num(row[iSupShip]) : 0;
+      var costShip = iCostShip >= 0 ? num(row[iCostShip]) : 0;
+      if (!supShip && costShip) { cost += costShip; costShipMap[n] = costShip; }
+      costMap[n] = cost;
       var w = String((iWhen >= 0 ? row[iWhen] : "") || "").trim();
       if (w > costBase) costBase = w;
     });
@@ -412,13 +429,15 @@
     else {
       body = '<div class="sp-note">도구시트 <b>전체상품원가</b>(' + costResult.total.toLocaleString() + '건, 기준일 <b>' + esc(costResult.base || "-") + '</b>)에서 ' +
         '상품명이 <b>완전히 같은</b> 것만 가져왔습니다. 원가는 관리자 화면에서만 보이고 제안서·PDF에는 안 나갑니다.' +
+        '<br>🚚 <b>무료배송으로 파는 상품</b>(공급가 택배비 0)인데 매입에 택배비가 붙어 있으면 그 금액을 <b>원가에 더해</b> 잡았습니다 — 그게 실제로 남는 돈입니다.' +
         (costResult.others ? '<br>다른 버전 상품 <b>' + costResult.others + '건</b>도 같이 채웠습니다.' : '') + '</div>';
       if (costResult.rows.length) {
         body += '<table class="st-table"><thead><tr><th>상품명</th><th>원가</th><th>파는 값</th><th>마진</th></tr></thead><tbody>' +
           costResult.rows.map(function (r) {
             var pct = r.sell ? Math.round((r.sell - r.cost) / r.sell * 100) : 0;
             return '<tr><td class="st-ver">' + esc(r.name) + '</td>' +
-              '<td class="st-num">' + r.cost.toLocaleString() + '</td>' +
+              '<td class="st-num">' + r.cost.toLocaleString() +
+                (r.ship ? '<span class="st-slug">택배 ' + r.ship.toLocaleString() + ' 포함</span>' : '') + '</td>' +
               '<td class="st-num">' + (r.sell ? r.sell.toLocaleString() : '-') + '</td>' +
               '<td class="st-num' + (r.sell && r.sell - r.cost <= 0 ? ' hot' : '') + '">' + (r.sell ? ((r.sell - r.cost).toLocaleString() + '원 · ' + pct + '%') : '-') + '</td></tr>';
           }).join("") + '</tbody></table>';
@@ -445,7 +464,7 @@
         var c = map[n];
         if (!c) { miss.push(n); return; }
         it.cost = c;
-        got.push({ name: n, cost: c, sell: num(it.special_price) || num(it.supply_price) });
+        got.push({ name: n, cost: c, ship: costShipMap[n] || 0, sell: num(it.special_price) || num(it.supply_price) });
       });
       /* 원가는 상품의 성질이지 버전의 성질이 아니다 — 다른 버전 행도 같이 채운다.
          (안 그러면 버전을 바꿀 때마다 원가가 비어 보인다. 2026-08-20 홍팀장 지적) */
