@@ -319,6 +319,14 @@ function meCard(){
 
 function view(){
   css();
+  // 마스터가 주소로 직접 들어온 경우 — 발주는 업체가 넣는 것이다(위 renderUser 주석 참조)
+  if(ME && ME.master){
+    return subHead('🧾 발주하기', '')
+      + '<div class="ordwrap"><div class="ordbox"><h3>여기는 업체가 발주를 넣는 화면입니다</h3>'
+      + '<div class="hint">마스터 계정으로 발주를 넣으면 <b>정산 업체명이 관리자 계정 이름으로 박힙니다.</b><br>'
+      + '들어온 발주는 <b>📋 발주 내역</b>에서 보시면 됩니다.<br>'
+      + '업체 화면 그대로 확인하시려면 <b>테스트용 업체 계정</b>으로 로그인해 주세요.</div></div></div>';
+  }
   if(!ROWS.length){ ROWS = loadDraft(); }
   if(!ROWS.length){ ROWS = [blank(), blank(), blank()]; }
   return subHead('🧾 발주하기', '카탈로그 상품을 담거나, 엑셀에서 복사해 붙여넣으세요')
@@ -726,6 +734,7 @@ function add(name){
 function badge(){
   const b = document.getElementById('ordCount');
   if(!b) return;
+  if(ME && ME.master){ b.style.display = 'none'; return; }   // 마스터에겐 발주 메뉴 자체가 없다
   const n = ROWS.filter(r => S(r.name)).length;
   b.textContent = n;
   b.style.display = n ? '' : 'none';
