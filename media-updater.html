@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.3</title>
+<title>마스터 유통 상품 도구 v1.4</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -64,10 +64,13 @@ a{color:var(--accent)}
 <h1>🧰 마스터 유통 상품 도구 <span style="font-size:11px;font-weight:700;color:var(--muted);background:var(--soft);padding:2px 7px;border-radius:20px;vertical-align:middle" id="mver"></span></h1>
 <script>document.getElementById('mver').textContent=(document.title.match(/v\d+\.\d+/)||[''])[0];</script>
 <div class="sub">카탈로그에 뜨는 상품 사진·스펙·카테고리를 여기서 관리합니다</div>
-<!-- 카탈로그 로그인 계정 시트 바로가기 (2026-08-12 사장님 지시 — "여기에 박아줘") -->
+<!-- 카탈로그 로그인 계정 시트 바로가기 (2026-08-12 사장님 지시 — "여기에 박아줘")
+     ⚠️ 2026-08-20 이전: 계정은 도구시트에서 **별도 시트 「마스터 발주·계정」**으로 옮겼다.
+        도구시트에는 카탈로그가 쓰는 열쇠가 소스에 박혀 있어 계정 탭이 거기 있으면 업체 비밀번호까지 읽힌다.
+        옛 도구시트 탭(gid=1988438394)은 더 이상 쓰이지 않는다 — 거기서 고치면 로그인에 반영되지 않는다. -->
 <div class="sub" style="margin-top:-14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-  <a class="fxg" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM/edit?gid=1988438394#gid=1988438394">🔐 카탈로그 로그인 계정 시트↗</a>
-  <span style="font-size:11.5px">업체 아이디·비밀번호 관리 — 새 업체는 <b>업체명·아이디</b> 적고 비밀번호 칸에 <b>1234</b>만 넣으면 끝</span>
+  <a class="fxg" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/15YSaaEKQHdmgdeXrwK59EZRCL06vc_wyIwAOmn4MPC8/edit">🔐 카탈로그 로그인 계정 시트↗</a>
+  <span style="font-size:11.5px">업체 아이디·비밀번호 관리 — 새 업체는 <b>업체명·아이디</b> 적고 비밀번호 칸에 <b>1234</b>만 넣으면 끝<br><b style="color:var(--gold)">2026-08-20부터 계정은 「마스터 발주·계정」 시트입니다</b> — 도구시트의 옛 계정 탭은 안 씁니다</span>
 </div>
 <div class="tabs">
   <button class="tabbtn on" data-t="cat">🏷️ 카테고리 분류</button>
