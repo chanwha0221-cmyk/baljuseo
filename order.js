@@ -33,6 +33,10 @@ const NS = window.ORDER_NS || '';           // localStorage 접두어 (테스트
 const DK = NS + 'order_draft_v1';
 const TEL_HELP = '010-2455-4156 홍찬화 팀장 · 010-2326-5911 박원비 팀장';
 
+// 웹앱(Apps Script)이 붙어 있는지 — 발주 제출·내역은 웹앱이 있어야 열린다.
+// api·API는 catalog 쪽에 선언돼 있다(같은 문서의 다른 script 태그라 그대로 보인다).
+const hasApi = () => { try{ return !!API && !!(ME && ME.token); }catch(e){ return false; } };
+
 const FIELDS = ['biz','name','qty','rcv','addr','tel','msg'];
 const HEADS  = ['업체명','상품명','수량','받는분 성함','받는분 주소','받는분 연락처','배송메시지'];
 
@@ -272,6 +276,10 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .ordsum{font-size:12.5px;color:var(--muted);margin:8px 0 4px}
 .ordsum b{color:var(--ink)}
 .ordbad{color:var(--up)}
+.ordst{font-size:11px;font-weight:800;padding:2px 8px;border-radius:20px;vertical-align:middle;margin-left:4px}
+.ordst.new{background:var(--soft);color:var(--accent-d)}
+.ordst.go{background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--gold)}
+.ordst.no{background:color-mix(in srgb,var(--up) 12%,transparent);color:var(--up)}
 .ordpaste{width:100%;min-height:120px;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;background:var(--card);color:var(--ink);font-family:inherit;outline:none}
 .ordpaste:focus{border-color:var(--accent)}
 .ordb{margin-top:6px;width:100%;border:1.5px solid var(--accent);background:var(--soft);color:var(--accent-d);padding:6px 0;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
@@ -425,9 +433,102 @@ function paintOut(ok, bad){
       + '<button class="ordb2" data-cpx="10" style="margin-top:7px">📋 복사</button>';
     if(o.nine.length) h += '<div class="hint" style="margin-top:8px">⚠️ 9칸과 10칸은 칸 수가 달라 <b>따로</b> 붙여넣어야 합니다.</div>';
   }
-  h += '<div class="ordbar" style="margin-top:12px"><button class="ordb2 pri" id="ord_submit" disabled>🧾 발주 넣기 (2단계에서 열립니다)</button></div>';
+  h += '<div class="ordbar" style="margin-top:12px">'
+    + (hasApi()
+        ? '<button class="ordb2 pri" id="ord_submit">🧾 이대로 발주 넣기</button><span class="hint" id="ord_smsg" style="align-self:center"></span>'
+        : '<button class="ordb2 pri" disabled>🧾 발주 넣기 (준비 중)</button><span class="hint" style="align-self:center">발주 접수는 곧 열립니다. 지금은 위 발주서를 복사해 보내주세요.</span>')
+    + '</div>';
   box.innerHTML = h;
   box.__out = o;
+  const sb = document.getElementById('ord_submit');
+  if(sb) sb.onclick = submit;
+}
+
+// ── 발주 제출 ───────────────────────────────────────────────────
+/* 브라우저는 '무엇을 몇 개, 누구에게'까지만 보낸다.
+   정산업체명·주문처 정보는 웹앱이 계정에서 채운다 — 업체가 보낸 값을 그대로 믿지 않기 위해서다. */
+async function submit(){
+  const box = document.getElementById('ordoutbox'), o = box && box.__out;
+  if(!o) return;
+  const sb = document.getElementById('ord_submit'), msg = document.getElementById('ord_smsg');
+  const items = [];
+  const push = (biz, cells, ten) => {
+    // 9칸: [정산][주소][연락처][창고][상품][성함][주소][연락처][메시지]
+    // 10칸:[정산][송장][주소][연락처][창고][상품][성함][주소][연락처][메시지]
+    const k = ten ? 4 : 3;
+    items.push({biz:biz, wh:cells[k], prod:cells[k+1], rcv:cells[k+2], addr:cells[k+3], tel:cells[k+4], msg:cells[k+5]});
+  };
+  o.nine.forEach(c => push('', c, false));
+  o.ten.forEach(c => push(c[1], c, true));
+  if(!items.length) return;
+  if(!confirm(items.length + '건을 발주로 넣을까요?\n\n넣으신 뒤에도 저희가 처리에 들어가기 전까지는 취소하실 수 있습니다.')) return;
+  sb.disabled = true; sb.textContent = '보내는 중…'; if(msg) msg.textContent = '';
+  try{
+    const j = await api('submit', {token: ME.token, items});
+    ROWS = [blank(), blank(), blank()];
+    OPEN = -1;
+    saveDraft();
+    paint();
+    toast('발주 ' + j.orderNo + ' 접수되었습니다');
+    location.hash = 'orders';
+  }catch(e){
+    if(msg) msg.textContent = (e.message || '보내지 못했습니다') + ' — ' + TEL_HELP;
+    sb.disabled = false; sb.textContent = '🧾 이대로 발주 넣기';
+  }
+}
+
+// ── 발주 내역 (업체는 자기 것만 · 마스터는 전체) ─────────────────
+/* 🔴 걸러내는 일은 웹앱이 한다. 이 화면은 받은 것을 그리기만 한다 —
+   브라우저에서 거르는 방식이면 "안 보이게 한 것"일 뿐 "못 보게 한 것"이 아니다. */
+async function ordersView(){
+  if(!hasApi()) return subHead('📋 발주 내역', '') + '<div class="empty">발주 접수가 아직 열리지 않았습니다.</div>';
+  const master = !!(ME && ME.master);
+  const j = await api('list', {token: ME.token});
+  const rows = j.rows || [];
+  LIST = rows;
+  const byNo = new Map();
+  rows.forEach(r => { if(!byNo.has(r.no)) byNo.set(r.no, []); byNo.get(r.no).push(r); });
+  let h = subHead(master ? '📋 전체 발주 내역' : '📋 내 발주 내역', master ? '마스터 계정 — 모든 업체의 발주가 보입니다' : '내가 넣은 발주만 보입니다');
+  if(!rows.length) return h + '<div class="empty">아직 발주 내역이 없습니다.</div>';
+  h += '<div class="ordwrap">';
+  byNo.forEach((list, no) => {
+    const f = list[0];
+    const st = f.state || '접수';
+    h += '<div class="ordbox">'
+      + '<h3>' + esc(no) + ' <span style="font-weight:600;color:var(--muted);font-size:11.5px">' + esc(f.at) + ' · ' + list.length + '건</span>'
+      + ' <span class="ordst ' + (st === '취소' ? 'no' : (st === '접수' ? 'new' : 'go')) + '">' + esc(st) + '</span>'
+      + (master ? ' <span style="font-size:12px;color:var(--muted)">— ' + esc(f.cname) + '</span>' : '') + '</h3>'
+      + '<div class="ordtblwrap"><table class="ordtbl"><thead><tr>'
+      + (master ? '<th>송장업체</th>' : '')
+      + '<th>상품</th><th>성함</th><th>주소</th><th>연락처</th><th>배송메시지</th></tr></thead><tbody>'
+      + list.map(r => '<tr>' + (master ? '<td>' + esc(r.biz) + '</td>' : '')
+          + '<td>' + esc(r.prod) + '</td><td>' + esc(r.rcv) + '</td><td>' + esc(r.addr) + '</td><td>' + esc(r.tel) + '</td><td>' + esc(r.msg) + '</td></tr>').join('')
+      + '</tbody></table></div>'
+      + '<div class="ordbar" style="margin-bottom:0;margin-top:10px">'
+      + (master ? '<button class="ordb2" data-ocp="' + esc(no) + '">📋 발주서 복사</button>'
+                + '<button class="ordb2" data-ost="처리중|' + esc(no) + '">처리중으로</button>'
+                + '<button class="ordb2" data-ost="완료|' + esc(no) + '">완료로</button>' : '')
+      + (st === '접수' ? '<button class="ordb2" data-ocn="' + esc(no) + '">✕ 발주 취소</button>' : '')
+      + '</div></div>';
+  });
+  h += '</div>';
+  return h;
+}
+/* 마스터 전용 — 그 발주묶음을 우리 양식(9칸/10칸)으로 복사.
+   시트에 저장된 값 그대로 쓴다(그때의 주문처 주소·연락처). */
+function ordersTsv(rows){
+  const nine = [], ten = [];
+  rows.forEach(r => {
+    if(r.biz) ten.push([r.cname, r.biz, r.oaddr, r.otel, '', r.prod, r.rcv, r.addr, r.tel, r.msg]);
+    else      nine.push([r.cname, r.oaddr, r.otel, '', r.prod, r.rcv, r.addr, r.tel, r.msg]);
+  });
+  return [tsv(nine), tsv(ten)].filter(Boolean).join('\n');
+}
+let LIST = [];
+async function reloadOrders(){
+  const sub = document.getElementById('subView');
+  if(!sub) return;
+  try{ sub.innerHTML = await ordersView(); }catch(e){ toast(e.message || '다시 불러오지 못했습니다'); }
 }
 
 // ── 엑셀 양식 · 붙여넣기 ─────────────────────────────────────────
@@ -470,9 +571,16 @@ function splitCsv(line){
   return out;
 }
 
-// ── 업체 정보 저장 (계정 시트 I·J열) ─────────────────────────────
-/* 계정 시트의 그 업체 행 두 칸만 쓴다. 전체 교체가 아니라 안전하다. */
+// ── 업체 정보 저장 ──────────────────────────────────────────────
+/* 웹앱이 붙어 있으면 웹앱이 쓴다(계정 시트는 브라우저가 아예 안 만진다).
+   아직 안 붙었으면 예전 방식 — 계정 시트의 그 업체 행 두 칸만. 전체 교체가 아니라 안전하다. */
 async function saveMeInfo(phone, addr){
+  if(hasApi()){
+    const j = await api('saveinfo', {token: ME.token, phone, addr});
+    ME.phone = j.phone; ME.addr = j.addr;
+    try{ localStorage.setItem(NS + 'catalog_auth_v1', JSON.stringify(ME)); }catch(e){}
+    return;
+  }
   const token = await getAccessToken();
   const range = "'" + ACC_TAB + "'!I" + ME.row + ":J" + ME.row;
   const r = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + DOGU_ID + '/values/' + encodeURIComponent(range) + '?valueInputOption=RAW',
@@ -567,6 +675,33 @@ document.addEventListener('click', e => {
     navigator.clipboard.writeText(t).then(() => toast('복사했습니다'), () => toast('복사하지 못했습니다'));
     return;
   }
+  // 발주 내역 — 발주서 복사 / 상태 변경(마스터) / 취소
+  const ocp = e.target.closest && e.target.closest('[data-ocp]');
+  if(ocp){
+    const no = ocp.getAttribute('data-ocp');
+    const t = ordersTsv(LIST.filter(r => r.no === no));
+    navigator.clipboard.writeText(t).then(() => toast(no + ' 발주서 복사됨'), () => toast('복사하지 못했습니다'));
+    return;
+  }
+  const ost = e.target.closest && e.target.closest('[data-ost]');
+  if(ost){
+    const [st, no] = ost.getAttribute('data-ost').split('|');
+    ost.disabled = true;
+    api('setstatus', {token: ME.token, orderNo: no, state: st})
+      .then(() => { toast(no + ' → ' + st); reloadOrders(); })
+      .catch(err => { toast(err.message || '바꾸지 못했습니다'); ost.disabled = false; });
+    return;
+  }
+  const ocn = e.target.closest && e.target.closest('[data-ocn]');
+  if(ocn){
+    const no = ocn.getAttribute('data-ocn');
+    if(!confirm(no + ' 발주를 취소할까요?')) return;
+    ocn.disabled = true;
+    api('cancel', {token: ME.token, orderNo: no})
+      .then(() => { toast(no + ' 취소되었습니다'); reloadOrders(); })
+      .catch(err => { alert(err.message || '취소하지 못했습니다'); ocn.disabled = false; });
+    return;
+  }
   // 카탈로그 카드의 [+ 발주담기]
   const ord = e.target.closest && e.target.closest('[data-ord]');
   if(ord){
@@ -600,5 +735,5 @@ function badge(){
 window.addEventListener('load', () => { if(!ROWS.length) ROWS = loadDraft(); badge(); });
 
 // _build·_check는 검증용 출구다(브라우저 없이 변환 결과를 확인할 때 쓴다). 화면 동작과 무관.
-window.ORDER = {view, bind, add, rows: () => ROWS, _build: buildOut, _check: checkRow};
+window.ORDER = {view, bind, add, orders: ordersView, rows: () => ROWS, _build: buildOut, _check: checkRow};
 })();
