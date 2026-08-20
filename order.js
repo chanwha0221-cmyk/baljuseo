@@ -234,6 +234,13 @@ function css(){
 .ordbox{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow);margin-bottom:12px}
 .ordbox h3{font-size:13px;font-weight:800;margin-bottom:8px;letter-spacing:-.3px}
 .ordbox .hint{font-size:11.5px;color:var(--muted);line-height:1.6}
+.ordtip{margin:8px 0;padding:9px 12px;border-radius:10px;background:var(--chip);border:1px solid var(--line);font-size:12.5px;font-weight:700;line-height:1.55;color:var(--ink)}
+.ordtip span{display:block;margin-top:3px;font-size:11.5px;font-weight:600;color:var(--muted);line-height:1.6}
+.ordtip span b{color:var(--ink)}
+.ordtip.big{font-size:15px;font-weight:800;letter-spacing:-.3px;background:var(--soft);border:2px solid var(--accent);color:var(--accent-d);padding:12px 14px}
+.ordtip.big span{font-size:12.5px;color:var(--accent-d);font-weight:600;opacity:.9}
+.ordtip.big span b{color:var(--accent-d)}
+@media(prefers-color-scheme:dark){.ordtip.big{color:var(--accent)}.ordtip.big span,.ordtip.big span b{color:var(--accent)}}
 .ordme{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px}
 .ordme b{font-weight:800}
 .ordme .k{color:var(--muted);font-size:11.5px;display:block}
@@ -311,9 +318,13 @@ function view(){
     + meCard()
     + '<div class="ordbox">'
     +   '<h3>발주서</h3>'
-    +   '<div class="hint">· <b>업체명</b>은 송장에 <b>다른 이름</b>으로 나가야 하는 분만 적어주세요. 필요 없으시면 <b>비워두시면</b> 됩니다.<br>'
-    +   '· 상품명은 <b>카탈로그에 있는 이름 그대로</b>여야 합니다. 헷갈리시면 카탈로그에서 <b>[+ 발주담기]</b>를 누르시면 정확히 들어갑니다.<br>'
-    +   '· 같은 분께 가는 여러 상품은 <b>줄을 나눠</b> 적어주세요. 같은 주소·같은 창고면 저희가 <b>합포장으로 묶습니다</b>.</div>'
+    // 📢 안내는 업체가 실제로 읽어야 뜻이 있다 — 특히 업체명 칸은 가장 크게 (사장님 2026-08-20)
+    +   '<div class="ordtip big">📮 <b>송장에 다른 이름으로 나가야 하는 업체만</b> 맨 앞 <b>업체명</b> 칸을 적어주세요.'
+    +      '<span>택배 송장에 <b>지금 로그인하신 업체명이 아닌 다른 이름</b>이 찍혀야 하는 경우입니다. 필요 없으시면 <b>비워두세요</b> — 비워두시면 로그인하신 업체명으로 나갑니다.</span></div>'
+    +   '<div class="ordtip">🔎 상품명은 <b>카탈로그에 있는 이름 그대로</b>여야 합니다.'
+    +      '<span>헷갈리시면 카탈로그에서 <b>[+ 발주담기]</b>를 누르시면 정확한 이름이 그대로 들어갑니다.</span></div>'
+    +   '<div class="ordtip">📦 같은 분께 가는 여러 상품은 <b>줄을 나눠</b> 적어주세요.'
+    +      '<span>같은 주소 · 같은 창고 상품이면 저희가 <b>합포장으로 묶어드립니다</b>.</span></div>'
     +   '<div class="ordbar">'
     +     '<button class="ordb2" id="ord_tpl">📥 발주 양식 받기</button>'
     +     '<button class="ordb2" id="ord_paste">📋 엑셀에서 붙여넣기</button>'
@@ -325,7 +336,7 @@ function view(){
     +     '<div class="ordbar"><button class="ordb2 pri" id="ord_ptok">가져오기</button><button class="ordb2" id="ord_ptno">취소</button></div>'
     +   '</div>'
     +   '<div class="ordtblwrap"><table class="ordtbl"><thead><tr><th></th>'
-    +     HEADS.map((h, i) => '<th' + (i === 2 ? ' style="width:70px"' : '') + '>' + h + (i === 0 ? '<span style="font-weight:600;color:var(--muted)"> (선택)</span>' : '') + '</th>').join('')
+    +     HEADS.map((h, i) => '<th' + (i === 2 ? ' style="width:70px"' : (i === 0 ? ' style="color:var(--accent-d);min-width:120px"' : '')) + '>' + h + (i === 0 ? '<span style="display:block;font-weight:700;color:var(--accent-d)">송장에 다른 이름<br>나갈 때만</span>' : '') + '</th>').join('')
     +     '<th style="width:34px"></th></tr></thead><tbody id="ordbody"></tbody></table></div>'
     +   '<div id="ordsum" class="ordsum"></div>'
     + '</div>'
