@@ -310,11 +310,6 @@ table.olist input.ein{padding:6px 8px;font-size:12.5px;min-width:120px}
 .qline{display:block;white-space:nowrap;line-height:2}
 .qline b{color:var(--muted);font-weight:600;margin:0 1px}
 input.qin{width:58px;padding:4px 6px;font-size:12.5px;text-align:center;display:inline-block}
-.own{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:20px}
-.own.w{background:color-mix(in srgb,#7c5cd6 16%,transparent);color:#6b4bc4}
-.own.c{background:var(--soft);color:var(--accent-d)}
-@media(prefers-color-scheme:dark){.own.w{color:#b39ef0}.own.c{color:var(--accent)}}
-.vbar{display:inline-block;width:1px;height:18px;background:var(--line);margin:0 3px}
 table.olist td.ad input.ein{min-width:230px}
 .lock{font-size:12px;opacity:.6}
 .ordb2.done{background:var(--soft);border-color:var(--accent);color:var(--accent-d);font-weight:800;opacity:1;cursor:default}
@@ -539,7 +534,7 @@ async function submit(){
 /* 발주 내역 — 쌓이면 화면이 끝없이 길어지므로 **페이지로 나누고 검색을 붙인다**
    (사장님 2026-08-20: "내가 발주를 했나? 뭐가 잘못됐지 찾을 때 이름·연락처로 검색"). */
 const PAGE = 10;                 // 한 페이지에 발주 묶음 10건
-let OQ = '', OPAGE = 1, OST = '', OOWN = '';   // OOWN = 담당 필터(찬화/원비)
+let OQ = '', OPAGE = 1, OST = '';
 // ✏️ 수정 중인 발주묶음과 줄 — 고치는 동안 다른 카드는 건드리지 않는다
 let EDIT_NO = '', EDIT_SEQ = [];
 const isEditing = (no, seq) => EDIT_NO === no && EDIT_SEQ.indexOf(String(seq)) >= 0;
@@ -562,10 +557,6 @@ async function ordersView(){
     +   '<div class="ordbar" style="margin:8px 0 0">'
     +     ['', '접수', '완료', '취소'].map(s => '<button class="ordb2 fbtn' + (OST === s ? ' on' : '') + '" data-ost2="' + s + '">'
     +        (s === '' ? '전체' : (s === '완료' ? (master ? '전송됨' : '확인됨') : s)) + '</button>').join('')
-    +     (master ? '<span class="vbar"></span>'
-    +       + ['', '찬화', '원비'].map(s => '<button class="ordb2 fbtn own' + (OOWN === s ? ' on' : '') + '" data-oown="' + s + '">'
-    +          (s === '' ? '담당 전체' : s + ' 담당') + '</button>').join('')
-    +       + '<button class="ordb2" id="osync" title="비서의 원비업체 탭을 읽어 계정 시트 담당 칸을 갱신합니다">👥 담당 새로고침</button>' : '')
     +   '</div>'
     + '</div>'
     + '<div id="ordlist"></div>';
@@ -580,7 +571,6 @@ function ordersPaint(){
   const q = pkey(OQ), qd = S(OQ).replace(/[^0-9]/g, '');
   const hit = LIST.filter(r => {
     if(OST && S(r.state) !== OST) return false;
-    if(OOWN && S(r.owner) !== OOWN) return false;
     if(!q) return true;
     const hay = pkey([r.no, r.prod, r.rcv, r.addr, r.msg, r.biz, master ? r.cname : ''].join(' '));
     if(hay.indexOf(q) >= 0) return true;
@@ -619,11 +609,10 @@ function pageNums(cur, total){
 }
 function bindPager(){
   const c = document.getElementById('oclr');
-  if(c) c.onclick = () => { OQ = ''; OST = ''; OOWN = ''; const s = document.getElementById('osearch'); if(s) s.value = ''; syncFbtn(); OPAGE = 1; resetEdit(); ordersPaint(); };
+  if(c) c.onclick = () => { OQ = ''; OST = ''; const s = document.getElementById('osearch'); if(s) s.value = ''; syncFbtn(); OPAGE = 1; resetEdit(); ordersPaint(); };
 }
 function syncFbtn(){
   document.querySelectorAll('[data-ost2]').forEach(b => b.classList.toggle('on', b.getAttribute('data-ost2') === OST));
-  document.querySelectorAll('[data-oown]').forEach(b => b.classList.toggle('on', b.getAttribute('data-oown') === OOWN));
 }
 /* 수정 중인 줄의 상품 칸 — **상품명은 글자로 두고 수량만 입력칸**으로 준다.
    "1개 시켰는데 2개로 해주세요"는 흔하지만, 상품이 바뀌는 건 취소하고 다시 넣는 게 맞다(사장님 2026-08-20).
@@ -655,8 +644,7 @@ function orderCard(no, list, master){
       +       (st === '완료' ? (master ? '✅ 당일 시트 전송됨' : '✅ 발주 확인됨') : (st === '취소' ? '취소됨' : '접수'))
       +     '</span></div>'
       +   '<div class="ometa">' + esc(short(f.at)) + ' · ' + list.length + '건'
-      +     (master ? ' · <b>' + esc(f.cname) + '</b>'
-                    + (f.owner ? '<span class="own ' + (f.owner === '원비' ? 'w' : 'c') + '">' + esc(f.owner) + '</span>' : '') : '') + '</div>'
+      +     (master ? ' · <b>' + esc(f.cname) + '</b>' : '') + '</div>'
       + '</div>'
       + '<div class="ordtblwrap"><table class="ordtbl olist"><thead><tr>'
       +   (canPick ? '<th class="ck"><input type="checkbox" class="ordall" data-no="' + esc(no) + '" title="전체 선택"></th>' : '<th class="ck"></th>')
@@ -774,20 +762,6 @@ async function reloadOrders(){
 let otmr = null;
 function ordersBind(){
   if(ME && ME.master) cfgBind();
-  /* 👥 담당 새로고침 — 비서의 `원비업체` 탭을 읽어 계정 시트 담당 칸을 맞춘다.
-     자동으로 돌리지 않는다(자동 쓰기가 시트를 날린 적이 있다) — 사장님이 누를 때만. */
-  const sy = document.getElementById('osync');
-  if(sy) sy.onclick = async () => {
-    sy.disabled = true; sy.textContent = '맞추는 중…';
-    try{
-      const j = await api('syncowner', {token: ME.token});
-      let m = '담당 정리 완료 — 원비 ' + j.wonbi + '곳 · 찬화 ' + j.chanhwa + '곳';
-      if(j.noAccount && j.noAccount.length) m += '\n\n원비 담당인데 카탈로그 계정이 없는 업체 ' + j.noAccount.length + '곳:\n· ' + j.noAccount.join('\n· ');
-      alert(m);
-      reloadOrders();
-    }catch(e){ alert(e.message || '맞추지 못했습니다'); }
-    finally{ sy.disabled = false; sy.textContent = '👥 담당 새로고침'; }
-  };
   const s = document.getElementById('osearch');
   if(s){
     s.oninput = () => { clearTimeout(otmr); otmr = setTimeout(() => { OQ = s.value; OPAGE = 1; resetEdit(); ordersPaint(); }, 250); };
@@ -1006,8 +980,6 @@ document.addEventListener('click', e => {
   // 상태 필터 · 페이지 이동
   const fb = e.target.closest && e.target.closest('[data-ost2]');
   if(fb){ OST = fb.getAttribute('data-ost2'); OPAGE = 1; resetEdit(); syncFbtn(); ordersPaint(); return; }
-  const ob = e.target.closest && e.target.closest('[data-oown]');
-  if(ob){ OOWN = ob.getAttribute('data-oown'); OPAGE = 1; resetEdit(); syncFbtn(); ordersPaint(); return; }
   const pg = e.target.closest && e.target.closest('[data-opg]');
   if(pg && !pg.disabled){
     OPAGE = parseInt(pg.getAttribute('data-opg'), 10) || 1;
