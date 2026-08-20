@@ -333,12 +333,66 @@
     if (!CFG.hideCallout) html += calloutHTML();
     if (!CFG.hideContact) html += contactHTML();
 
-    html += '<button class="pdf-btn" id="pdf-btn" title="PDF로 저장하거나 인쇄합니다">🖨 PDF 저장</button>';
+    html += '<div class="save-btns">' +
+      '<button class="pdf-btn" id="jpg-btn" title="화면 그대로 이미지(JPG) 파일로 저장합니다">🖼 JPG 저장</button>' +
+      '<button class="pdf-btn" id="pdf-btn" title="PDF로 저장하거나 인쇄합니다">🖨 PDF 저장</button>' +
+      '</div>';
 
     document.getElementById("app").innerHTML = html;
     var pb = document.getElementById("pdf-btn");
     if (pb) pb.addEventListener("click", function () { window.print(); });
+    var jb = document.getElementById("jpg-btn");
+    if (jb) jb.addEventListener("click", saveAsJPG);
     document.title = (CFG.company || "상품") + " 상품 제안서";
+  }
+
+  /* 화면 그대로 JPG 저장 (2026-08-20 홍팀장 — 업체엔 이미지로 돌린다)
+     ⚠️ 상품 사진이 외부 주소(masterc)면 브라우저 보안 때문에 캔버스가 오염돼 저장이 통째로 막힌다.
+        그래서 제안서 사진은 이 사이트 안(images/products/)에 두는 걸 원칙으로 한다.
+        혹시 외부 사진이 섞여 있으면 그 장수를 세어 알려주고, 저장은 되게 한다. */
+  function saveAsJPG() {
+    var btn = document.getElementById("jpg-btn");
+    var app = document.getElementById("app");
+    var outside = [].slice.call(app.querySelectorAll(".prod-img img")).filter(function (im) {
+      return im.src && im.src.indexOf(location.origin) !== 0;
+    });
+    var done = function (msg, err) {
+      btn.disabled = false; btn.textContent = "🖼 JPG 저장";
+      if (msg) alert(msg);
+      if (err) console.warn(err);
+    };
+    btn.disabled = true; btn.textContent = "만드는 중…";
+
+    var run = function () {
+      var wrap = document.createElement("div");   // 버튼은 빼고 찍는다
+      var box = document.querySelector(".save-btns");
+      if (box) box.style.visibility = "hidden";
+      window.html2canvas(app, {
+        backgroundColor: "#fdf8ef", scale: 2, useCORS: true, logging: false,
+        windowWidth: app.scrollWidth, width: app.scrollWidth, height: app.scrollHeight
+      }).then(function (canvas) {
+        if (box) box.style.visibility = "";
+        canvas.toBlob(function (blob) {
+          if (!blob) { done("이미지를 만들지 못했습니다. 하비서에게 알려주세요."); return; }
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          var v = (new URLSearchParams(location.search)).get("v") || "제안서";
+          var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
+          a.download = "마스터_상품제안서_" + v + "_" + (d.getMonth() + 1) + p(d.getDate()) + ".jpg";
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+          done(outside.length ? ("저장했습니다.\n다만 사진 " + outside.length + "장은 외부 주소라 이미지에 안 담겼을 수 있습니다.\n하비서에게 '제안서 사진 사이트로 옮겨줘'라고 하면 해결됩니다.") : "");
+        }, "image/jpeg", 0.92);
+      }).catch(function (e) { if (box) box.style.visibility = ""; done("이미지를 만들지 못했습니다. 하비서에게 알려주세요.", e); });
+      void wrap;
+    };
+
+    if (window.html2canvas) return run();
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+    s.onload = run;
+    s.onerror = function () { done("이미지 저장 기능을 불러오지 못했습니다(인터넷 연결 확인)."); };
+    document.head.appendChild(s);
   }
 
   // ---------- 데이터 로드 ----------

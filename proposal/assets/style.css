@@ -299,8 +299,9 @@ a:hover { color: var(--navy); }
 /* =========================================================
    PDF 저장 버튼
    ========================================================= */
+/* 저장 버튼 두 개(JPG·PDF)를 오른쪽 아래에 나란히 */
+.save-btns { position: fixed; right: 22px; bottom: 22px; z-index: 50; display: flex; gap: 8px; }
 .pdf-btn {
-  position: fixed; right: 22px; bottom: 22px; z-index: 50;
   background: var(--navy); color: var(--amber);
   font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700;
   border: none; border-radius: 999px; padding: 13px 20px; cursor: pointer;
@@ -309,7 +310,11 @@ a:hover { color: var(--navy); }
 }
 .pdf-btn:hover { background: #0a4059; transform: translateY(-2px); }
 .pdf-btn:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
-@media (max-width: 767px) { .pdf-btn { right: 14px; bottom: 14px; padding: 11px 16px; font-size: 13px; } }
+.pdf-btn:disabled { opacity: .6; cursor: default; transform: none; }
+@media (max-width: 767px) {
+  .save-btns { right: 14px; bottom: 14px; }
+  .pdf-btn { padding: 11px 14px; font-size: 12.5px; }
+}
 
 /* =========================================================
    인쇄 / PDF 저장
@@ -325,7 +330,7 @@ a:hover { color: var(--navy); }
   .page { width: 100% !important; max-width: 100% !important; box-shadow: none !important; }
 
   /* 화면 전용 요소 숨김 */
-  .pdf-btn { display: none !important; }
+  .pdf-btn, .save-btns { display: none !important; }
 
   /* 여백 축소 — 종이 낭비 방지 */
   .hero { padding: 34px 30px 70px !important; }
