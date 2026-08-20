@@ -160,8 +160,11 @@
     return '<div class="card' + (it.show === false ? ' hidden-row' : '') + '" data-key="' + it._key + '">' +
       '<div class="thumb">' +
         '<div class="imgbox">' + (pv ? '<img src="' + esc(pv) + '" alt="">' : '<span style="font-size:12px;color:#9aa7ad;">사진 없음</span>') + '</div>' +
-        '<div class="up"><label class="btn-up" data-up="' + it._key + '">사진 업로드<input type="file" accept="image/*" data-file="' + it._key + '" style="display:none;"></label>' +
-          '<button class="btn-findpic" data-findpic="' + it._key + '" title="상품명이 똑같은 유통시트·마스터씨 게시물에서 사진·스펙·공급가·택배 정보를 가져옵니다">🔄 시트에서 채우기</button></div>' +
+        '<div class="up">' +
+          '<button class="btn-findpic" data-findpic="' + it._key + '" title="상품명이 똑같은 유통시트·마스터씨 게시물에서 사진·스펙·공급가·택배 정보를 가져옵니다">🔄 시트에서 채우기</button>' +
+          // 파일 업로드는 드라이브 API가 막혀 있다 → 사진 주소를 직접 넣는 길을 열어둔다
+          '<input class="in-img" data-f="image" value="' + esc(it.image || "") + '" placeholder="사진 주소 붙여넣기" title="masterc 사진 주소나 이미지 URL을 붙여넣으면 바로 반영됩니다">' +
+        '</div>' +
       '</div>' +
       '<div class="fields">' +
         '<div class="row r1">' +
@@ -643,7 +646,7 @@
     return '<div class="card new-card">' +
       '<div class="thumb">' +
         '<div class="imgbox">' + (pv ? '<img src="' + esc(pv) + '" alt="">' : '<span style="font-size:12px;color:#9aa7ad;">사진 없음</span>') + '</div>' +
-        '<div class="up"><label class="btn-up" data-upnew="1">사진 업로드<input type="file" accept="image/*" data-nfile="1" style="display:none;"></label></div>' +
+        '<div class="up"><input class="in-img" data-nf="image" value="' + esc(it.image || "") + '" placeholder="사진 주소 붙여넣기"></div>' +
       '</div>' +
       '<div class="fields">' +
         '<div class="new-badge">＋ 새 상품 입력</div>' +
@@ -749,6 +752,11 @@
       var it = findItem(card.getAttribute("data-key")); if (!it) return;
       if (NUMF[f]) it[f] = num(e.target.value);
       else it[f] = e.target.value;
+      // 사진 주소를 붙여넣으면 옆 미리보기를 바로 갈아끼운다(재렌더하면 포커스가 날아간다)
+      if (f === "image") {
+        var box = card.querySelector(".imgbox"), url = imgUrl(it.image);
+        if (box) box.innerHTML = url ? '<img src="' + esc(url) + '" alt="">' : '<span style="font-size:12px;color:#9aa7ad;">사진 없음</span>';
+      }
       setDirty(true);
     });
 
