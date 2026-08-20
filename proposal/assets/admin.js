@@ -334,6 +334,82 @@
       });
   }
 
+  /* ================= 공급가 점검 =================
+     제안서에 적힌 공급가가 유통시트(정본)와 어긋나 있는지 대조한다.
+     ⚠️ 상품명이 완전히 같을 때만 비교한다(§3-3). 값은 홍팀장이 고른 것만 반영한다 —
+        제안서 가격을 일부러 다르게 적어둔 경우가 있어 통째로 덮어쓰지 않는다. */
+  var priceOpen = false, priceRows = null, priceErr = "", priceMissing = [];
+
+  function runPriceCheck() {
+    priceOpen = true; priceRows = null; priceErr = ""; priceMissing = [];
+    renderEditor();
+    window.SVC.readYutong().then(function (yu) {
+      var map = {};
+      yu.forEach(function (p) { if (!map[p.name]) map[p.name] = p; });
+      var diff = [], miss = [];
+      items.forEach(function (it) {
+        var n = (it.name || "").trim(); if (!n) return;
+        var y = map[n];
+        if (!y) { miss.push(n); return; }
+        if (num(y.supply_price) !== num(it.supply_price)) {
+          diff.push({ key: it._key, name: n, from: num(it.supply_price), to: num(y.supply_price), warehouse: y.warehouse || "" });
+        }
+      });
+      priceRows = diff; priceMissing = miss; renderEditor();
+    }).catch(function (err) { priceRows = []; priceErr = String(err && err.message || err); renderEditor(); });
+  }
+
+  function applyPriceFixes() {
+    var picked = [].slice.call(document.querySelectorAll('input[data-pcheck]:checked'))
+      .map(function (el) { return el.getAttribute("data-pcheck"); });
+    if (!picked.length) { toast("반영할 항목을 골라주세요", true); return; }
+    var btn = document.getElementById("btn-price-apply");
+    if (btn) { btn.disabled = true; btn.textContent = "반영 중…"; }
+    var n = 0;
+    picked.forEach(function (k) {
+      var row = (priceRows || []).filter(function (x) { return x.key === k; })[0];
+      var it = findItem(k);
+      if (row && it) { it.supply_price = row.to; n++; }
+    });
+    saveProducts().then(function () {
+      priceOpen = false; dirty = false; renderEditor();
+      toast(n + "개 상품의 공급가를 유통시트 기준으로 맞췄어요 ✅");
+    }).catch(function (err) {
+      if (btn) { btn.disabled = false; btn.textContent = "선택한 것 반영"; }
+      toast("반영 실패: " + (err.message || err), true);
+    });
+  }
+
+  function pricePanelHTML() {
+    if (!priceOpen) return '';
+    var body;
+    if (priceRows === null) body = '<div class="st-empty">유통시트와 대조하는 중…</div>';
+    else if (priceErr) body = '<div class="st-empty">유통시트를 읽지 못했어요 — ' + esc(priceErr) + '</div>';
+    else if (!priceRows.length) {
+      body = '<div class="st-empty">✅ 이 버전 상품의 공급가는 유통시트와 모두 같습니다.</div>';
+    } else {
+      body = '<table class="st-table"><thead><tr><th style="width:34px;"></th><th>상품명</th><th>제안서</th><th>유통시트</th><th>차이</th><th>창고</th></tr></thead><tbody>' +
+        priceRows.map(function (r) {
+          var gap = r.to - r.from;
+          return '<tr><td><input type="checkbox" data-pcheck="' + r.key + '" checked></td>' +
+            '<td class="st-ver">' + esc(r.name) + '</td>' +
+            '<td class="st-num">' + r.from.toLocaleString() + '</td>' +
+            '<td class="st-num big">' + r.to.toLocaleString() + '</td>' +
+            '<td class="st-num' + (gap > 0 ? ' hot' : '') + '">' + (gap > 0 ? '+' : '') + gap.toLocaleString() + '</td>' +
+            '<td class="st-ref">' + esc(r.warehouse) + '</td></tr>';
+        }).join("") + '</tbody></table>';
+    }
+    if (priceRows && priceMissing.length) {
+      body += '<div class="st-note">· 유통시트에서 <b>같은 이름을 못 찾은 상품 ' + priceMissing.length + '개</b>는 건드리지 않았습니다 ' +
+        '(지금 안 파는 상품이거나 이름이 다른 경우입니다): ' + esc(priceMissing.join(" · ")) + '</div>';
+    }
+    return '<div class="modal-back" id="pc-close-back"><div class="modal" role="dialog" aria-label="공급가 점검">' +
+      '<div class="modal-head"><span>💰 공급가 점검 — 유통시트와 대조</span>' +
+      '<span>' + ((priceRows && priceRows.length) ? '<button class="btn-addsave" id="btn-price-apply">선택한 것 반영</button>' : '') +
+      '<button class="modal-x" id="btn-pc-close" aria-label="닫기">✕</button></span></div>' +
+      '<div class="modal-body">' + body + '</div></div></div>';
+  }
+
   /* ================= 문구 설정 ================= */
   function settingsEffective() {
     var d = {
@@ -449,6 +525,7 @@
     var html =
       '<div class="topbar"><span class="brand">🐟 상품 관리자</span>' + verCtrl +
       '<span class="spacer"></span>' +
+      '<button class="btn-ghost" id="btn-price-check" title="제안서 공급가가 유통시트와 다른 것만 찾아 줍니다">💰 공급가 점검</button>' +
       '<a href="' + pubHref + '" target="_blank" rel="noopener">공개 사이트 보기 ↗</a></div>' +
       '<div class="wrap">' +
       '<div class="hint">상품을 고친 뒤 그 상품의 <b>[저장]</b> 버튼을 누르면 바로 공개 사이트에 반영됩니다. 사진은 <b>[사진 업로드]</b>, 삭제는 <b>[삭제]</b>로 즉시 처리돼요. (아래 <b>[전체 저장]</b>은 여러 개를 한 번에 저장할 때만 쓰세요.)</div>' +
@@ -472,7 +549,7 @@
     });
 
     html += '</div><div class="savebar"><span class="status" id="save-status">각 상품의 [저장] 버튼으로 저장하세요</span>' +
-      '<button class="btn-save" id="btn-save" disabled>전체 저장</button></div>';
+      '<button class="btn-save" id="btn-save" disabled>전체 저장</button></div>' + pricePanelHTML();
     root.innerHTML = html;
     setDirty(dirty);
     bindEditor();
@@ -545,6 +622,9 @@
 
     root.addEventListener("click", function (e) {
       if (e.target.id === "btn-save") { saveAll(); return; }
+      if (e.target.id === "btn-price-check") { runPriceCheck(); return; }
+      if (e.target.id === "btn-price-apply") { applyPriceFixes(); return; }
+      if (e.target.id === "btn-pc-close" || e.target.id === "pc-close-back") { priceOpen = false; renderEditor(); return; }
       if (e.target.closest && e.target.closest("#sp-toggle")) { settingsOpen = !settingsOpen; renderEditor(); return; }
       if (e.target.id === "btn-save-settings") { saveSettings(e.target); return; }
       if (e.target.closest && e.target.closest("#cat-toggle")) { catsOpen = !catsOpen; renderEditor(); return; }
@@ -577,6 +657,7 @@
         if (r) {
           newItem.name = r.name; newItem.warehouse = r.warehouse || ""; newItem.supply_price = r.supply_price || 0;
           newItem.ship_fee = r.ship_fee || 0; newItem.tax = r.tax || "면세";
+          if (r.courier) newItem.courier = r.courier;
           // 사진·원본링크·설명까지 같이 (상품이미지_v2 캐시에 있으면)
           if (r.image) newItem.image = r.image;
           if (r.link) newItem.link = r.link;
@@ -644,10 +725,11 @@
     }).join("");
     list.className = "ac-list show";
   }
-  /* 자동완성 재료 두 가지를 상품명으로 합친다.
-       전체상품원가  → 공급가 · 면과세 · 택배비 · 창고
-       상품이미지_v2 → 사진 · 설명(※구성) · masterc 원본 링크
-     덕분에 상품명만 고르면 사진까지 붙는다(파일 업로드 불필요). */
+  /* 자동완성 재료를 상품명으로 합친다.
+       유통시트(정본)  → 공급가 · 택배사 · 택배비 · 면과세 · 창고   ※상품변동사항 탭 등은 제외
+       상품이미지_v2   → 사진 · 설명(※구성) · masterc 원본 링크
+     공급가는 반드시 유통시트에서 온다 — 도구시트 '전체상품원가'는 사본이라 낡을 수 있다
+     (2026-08-20 홍팀장 지시). 덕분에 상품명만 고르면 최신 공급가와 사진이 같이 붙는다. */
   function firstSpec(s) {
     var m = String(s || "").match(/※\s*구성\s*:\s*([^\n]+)/);
     return m ? m[1].trim() : "";
@@ -655,33 +737,30 @@
   function loadCatalog() {
     if (catalogCache || catalogLoading) return;
     catalogLoading = true;
-    window.SVC.readTabs(["전체상품원가", "상품이미지_v2"]).then(function (res) {
-      var rows = res["전체상품원가"] || [];
-      var h = (rows[0] || []).map(function (x) { return String(x || "").replace(/\s+/g, ""); });
-      var iPrice = h.indexOf("공급가"), iTax = h.indexOf("공급가과세구분"), iShip = h.indexOf("공급가택배비"), iWh = h.indexOf("창고");
+    Promise.all([window.SVC.readYutong(), window.SVC.readTab("상품이미지_v2")]).then(function (r) {
+      var yu = r[0] || [], imgRows = r[1] || [];
 
       // 사진 캐시: 상품명 → {사진, 설명, 링크}
       var pic = {};
-      (res["상품이미지_v2"] || []).slice(1).forEach(function (r) {
-        var n = String(r[0] || "").trim(); if (!n) return;
-        pic[n] = { image: String(r[2] || "").trim(), spec: firstSpec(r[3]), link: String(r[5] || "").trim() };
+      imgRows.slice(1).forEach(function (row) {
+        var n = String(row[0] || "").trim(); if (!n) return;
+        pic[n] = { image: String(row[2] || "").trim(), spec: firstSpec(row[3]), link: String(row[5] || "").trim() };
       });
 
       var byName = {};
-      rows.slice(1).forEach(function (r) {
-        var n = String(r[0] || "").trim(); if (!n || byName[n]) return;
-        var p = pic[n] || {};
-        byName[n] = {
-          name: n, supply_price: num(r[iPrice]),
-          tax: String(r[iTax] || "").indexOf("과세") > -1 ? "과세" : "면세",
-          ship_fee: num(r[iShip]), warehouse: String(r[iWh] || "").trim(),
-          image: p.image || "", spec: p.spec || "", link: p.link || ""
+      yu.forEach(function (p) {
+        if (byName[p.name]) return;                     // 같은 상품이 여러 탭에 있으면 먼저 것
+        var m = pic[p.name] || {};
+        byName[p.name] = {
+          name: p.name, supply_price: p.supply_price, tax: p.tax, ship_fee: p.ship_fee,
+          courier: p.courier, warehouse: p.warehouse,
+          image: m.image || "", spec: m.spec || "", link: m.link || ""
         };
       });
-      // 원가표엔 없고 사진 캐시에만 있는 상품도 후보로(사진·링크는 붙는다)
+      // 지금 안 파는(유통시트에 없는) 상품도 사진·링크는 붙도록 후보에 남긴다
       Object.keys(pic).forEach(function (n) {
         if (byName[n]) return;
-        byName[n] = { name: n, supply_price: 0, tax: "면세", ship_fee: 0, warehouse: "", image: pic[n].image, spec: pic[n].spec, link: pic[n].link };
+        byName[n] = { name: n, supply_price: 0, tax: "면세", ship_fee: 0, courier: "", warehouse: "", image: pic[n].image, spec: pic[n].spec, link: pic[n].link };
       });
 
       catalogCache = Object.keys(byName).map(function (k) { return byName[k]; });
