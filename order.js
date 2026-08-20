@@ -58,8 +58,13 @@ function saveDraft(){ try{ localStorage.setItem(DK, JSON.stringify(ROWS)); }catc
    ⚠️ 정리할 수 없는 번호는 null을 돌려준다 — 그런 번호는 업체가 고쳐야 하므로 그 행을 막는다.
    0504 안심번호(12자리)는 하이픈이 빠지면 발주가 통째로 새는 사고가 있었어서 반드시 포함. */
 function fmtTel(raw){
-  const n = D(raw);
+  let n = D(raw);
   if(!n) return null;
+  /* 🔢 앞자리 0 살리기 — 엑셀이 하이픈 없는 번호를 **숫자로 먹어서** 앞의 0을 떨어뜨린다.
+     `01058468751` → `1058468751` 로 들어오는 일이 실제로 흔하다(사장님 2026-08-20).
+     0으로 시작하지 않는 9~11자리는 0이 떨어진 것으로 보고 되붙인다.
+     ⚠️ 8자리 대표번호(1588-1588 등)는 원래 0이 없으므로 건드리지 않는다. */
+  if(n[0] !== '0' && n.length >= 9 && n.length <= 11) n = '0' + n;
   if(n.length === 12 && n.slice(0,3) === '050') return n.slice(0,4) + '-' + n.slice(4,8) + '-' + n.slice(8);
   if(n.length === 11 && n[0] === '0') return n.slice(0,3) + '-' + n.slice(3,7) + '-' + n.slice(7);
   if(n.length === 10 && n.slice(0,2) === '02') return n.slice(0,2) + '-' + n.slice(2,6) + '-' + n.slice(6);
@@ -170,7 +175,12 @@ function checkRow(r){
   const tel = D(r.tel), telFix = fmtTel(r.tel);
   if(!tel) errs.push('받는분 연락처를 넣어주세요.');
   else if(!telFix) errs.push('연락처를 다시 확인해 주세요 (' + tel.length + '자리). 010-0000-0000 처럼 넣어주시면 됩니다.');
-  else if(telFix !== S(r.tel)) warns.push('☎ 연락처는 ' + telFix + ' 로 정리해서 넣습니다.');
+  else if(telFix !== S(r.tel)){
+    // 앞자리 0이 빠진 채로 들어온 건은 왜 바뀌었는지 분명히 말해준다 (엑셀이 숫자로 먹은 경우)
+    warns.push(tel[0] !== '0'
+      ? '☎ 앞자리 0이 빠져 있어 ' + telFix + ' 로 고쳤습니다. 맞는지 확인해 주세요.'
+      : '☎ 연락처는 ' + telFix + ' 로 정리해서 넣습니다.');
+  }
 
   if(p){
     if(isLate(p)) warns.push('⏰ ' + (whOf(p) || '이 창고') + ' 마감(' + S(p.cut) + ')이 지났습니다 — 내일 출고됩니다.');
