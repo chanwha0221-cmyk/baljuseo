@@ -256,15 +256,16 @@ let EDIT = false;   // 주문처 정보 수정 중인가
 function meCard(){
   const me = (typeof ME !== 'undefined' && ME) ? ME : null;
   if(!me) return '';
-  const need = EDIT || !S(me.addr) || !S(me.phone);
+  // 출고지(주문처 주소)는 안 쓰는 업체가 있다 → 연락처만 필수 (사장님 2026-08-20)
+  const need = EDIT || !S(me.phone);
   if(need){
     return '<div class="ordbox" id="ordme">'
       + '<h3>📇 업체 정보를 한 번만 넣어주세요</h3>'
-      + '<div class="hint">발주서의 <b>주문처 주소·연락처</b>로 들어갑니다. 한 번 넣으시면 다음 발주부터는 자동으로 채워지고, 언제든 수정하실 수 있습니다.</div>'
+      + '<div class="hint">발주서의 <b>주문처 연락처·출고지</b>로 들어갑니다. 한 번 넣으시면 다음 발주부터는 자동으로 채워지고, 언제든 수정하실 수 있습니다.<br><b>출고지를 안 쓰시는 업체는 비워두셔도 발주 가능합니다.</b></div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
       + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">업체명</span><input class="ordin" value="' + esc(me.name || '') + '" disabled></div>'
       + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">연락처</span><input class="ordin" id="ord_ph" value="' + esc(me.phone || '') + '" placeholder="02-000-0000 / 010-0000-0000"></div>'
-      + '<div style="grid-column:1/-1"><span class="k" style="font-size:11.5px;color:var(--muted)">주소(출고지)</span><input class="ordin" id="ord_ad" value="' + esc(me.addr || '') + '" placeholder="도로명 주소 · 건물 · 호수까지"></div>'
+      + '<div style="grid-column:1/-1"><span class="k" style="font-size:11.5px;color:var(--muted)">출고지 주소 <b style="color:var(--accent-d)">(선택 — 안 쓰시면 비워두세요)</b></span><input class="ordin" id="ord_ad" value="' + esc(me.addr || '') + '" placeholder="안 쓰시는 업체는 비워두셔도 발주 가능합니다"></div>'
       + '</div>'
       + '<div class="ordbar" style="margin-bottom:0"><button class="ordb2 pri" id="ord_save">💾 저장</button>'
       + (EDIT ? '<button class="ordb2" id="ord_cancel">취소</button>' : '')
@@ -276,7 +277,7 @@ function meCard(){
     + '<div class="ordme">'
     + '<div><span class="k">업체명(정산)</span><b>' + esc(me.name || '') + '</b></div>'
     + '<div><span class="k">연락처</span><b>' + esc(me.phone || '') + '</b></div>'
-    + '<div><span class="k">주소</span><b>' + esc(me.addr || '') + '</b></div>'
+    + '<div><span class="k">출고지</span><b>' + (S(me.addr) ? esc(me.addr) : '<span style="color:var(--muted);font-weight:600">안 씀 (비워두셔도 발주됩니다)</span>') + '</b></div>'
     + '</div></div>';
 }
 
@@ -480,7 +481,7 @@ function bind(){
       const ph = S($$('ord_ph').value), ad = S($$('ord_ad').value);
       const msg = $$('ord_msg');
       if(D(ph).length < 9){ msg.textContent = '연락처를 정확히 넣어주세요.'; return; }
-      if(ad.length < 10){ msg.textContent = '주소를 조금 더 자세히 넣어주세요.'; return; }
+      // 출고지는 비워둔 채로도 저장된다 — 안 쓰는 업체가 있다 (사장님 2026-08-20)
       sv.disabled = true; msg.textContent = '저장 중…';
       try{
         await saveMeInfo(ph, ad);
