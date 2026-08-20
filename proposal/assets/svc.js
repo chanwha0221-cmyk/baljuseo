@@ -8,7 +8,7 @@
      제안서버전     id · slug · 이름 · 순서 · 설정JSON
      제안서카테고리 id · key · 이름 · 아이콘 · 영문라벨 · 소개 · 헤더메타 · 색상 · 사진맞춤 · 표시 · 순서
      제안서상품     버전 · 카테고리 · 상품명 · 창고 · 설명 · 공급가 · 택배사 · 택배비 · 면과세 · 사진 · 링크 · 노출 · 순서
-     제안서조회     시각 · 버전slug · 방문자 · 유입
+   ※ 조회수(제안서조회) 탭은 2026-08-20 폐기 — 홍팀장 혼자 쓰는 도구라 불필요.
    ========================================================= */
 (function () {
   "use strict";
@@ -19,8 +19,7 @@
   var TAB = {
     products: '제안서상품',
     versions: '제안서버전',
-    cats: '제안서카테고리',
-    views: '제안서조회'
+    cats: '제안서카테고리'
   };
 
   function sheetId() { return (CFG.dataSheet && CFG.dataSheet.id) || ''; }
@@ -135,7 +134,6 @@
   HEADERS[TAB.versions] = ['id', 'slug', '이름', '순서', '설정JSON'];
   HEADERS[TAB.cats] = ['id', 'key', '이름', '아이콘', '영문라벨', '소개', '헤더메타', '색상', '사진맞춤', '표시', '순서'];
   HEADERS[TAB.products] = ['버전', '카테고리', '상품명', '창고', '설명', '공급가', '택배사', '택배비', '면과세', '사진', '링크', '노출', '순서'];
-  HEADERS[TAB.views] = ['시각', '버전slug', '방문자', '유입'];
 
   async function svcEnsureTabs() {
     var j = await api(sheetId() + '?fields=sheets(properties(title))');

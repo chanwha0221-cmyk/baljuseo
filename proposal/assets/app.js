@@ -430,30 +430,8 @@
     });
   }
 
-  /* 조회 기록 — '제안서조회' 탭 맨 아래에 한 줄 추가(기존 내용은 안 건드림).
-     실패해도 화면엔 영향 없음. */
-  function trackView() {
-    try {
-      if (!(window.SVC && SHEETS)) return;
-      var qs = new URLSearchParams(location.search);
-      if (qs.get("nt") === "1") return;            // 관리자 미리보기는 집계 제외
-      var vis = "";
-      try {
-        vis = localStorage.getItem("pv_visitor") || "";
-        if (!vis) {
-          vis = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
-              : ("v" + Math.random().toString(36).slice(2) + Date.now());
-          localStorage.setItem("pv_visitor", vis);
-        }
-      } catch (e) { vis = "unknown"; }
-      window.SVC.append(window.SVC.TAB.views, [[
-        new Date().toISOString(),
-        (CURRENT_VERSION && CURRENT_VERSION.slug) || qs.get("v") || "",
-        vis,
-        (document.referrer || "").slice(0, 300)
-      ]]).catch(function () {});
-    } catch (e) { /* 집계 실패는 무시 */ }
-  }
+  /* 조회수·방문자 집계는 쓰지 않는다 (2026-08-20 홍팀장: 혼자 쓰는 도구라 불필요).
+     페이지를 열 때마다 시트에 쓰던 것도 같이 없앴다 — 로딩만 느려졌다. */
 
   document.getElementById("app").innerHTML =
     '<div class="notice">상품 정보를 불러오는 중…</div>';
@@ -463,7 +441,7 @@
       if (e !== "no-sheet") console.warn("구글 시트 로드 실패 → 기본 데이터 사용:", e);
       return loadFallback();
     })
-    .then(function (list) { render(normalize(list)); trackView(); })
+    .then(function (list) { render(normalize(list)); })
     .catch(function (e) {
       console.error(e);
       document.getElementById("app").innerHTML =

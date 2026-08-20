@@ -29,8 +29,7 @@
   var catalogCache = null, catalogLoading = false;
   var _delegated = false;
   var siteSettings = {};
-  var settingsOpen = false, catsOpen = false, bulkOpen = false, statsOpen = false;
-  var statsRows = null, statsErr = "";
+  var settingsOpen = false, catsOpen = false, bulkOpen = false;
   var expandedCats = {};
   var versions = [], currentVersion = null;
   var loadedOK = false;    // 시트 읽기에 성공했나 (실패 상태로 저장하면 데이터가 날아간다)
@@ -335,74 +334,6 @@
       });
   }
 
-  /* ================= 조회수 ================= */
-  function loadStats() {
-    return window.SVC.readTab(T.views).then(function (rows) {
-      statsRows = (rows || []).slice(1).map(function (r) { return { viewed_at: r[0], version_slug: r[1], visitor: r[2], referrer: r[3] }; });
-      statsErr = "";
-    }).catch(function (err) { statsRows = []; statsErr = String(err && err.message || err); });
-  }
-  function statsSummary() {
-    var now = new Date();
-    var d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    var d7 = d0 - 6 * 86400000, d30 = d0 - 29 * 86400000, by = {};
-    (statsRows || []).forEach(function (r) {
-      var k = r.version_slug || "(미지정)";
-      var b = by[k] || (by[k] = { slug: k, total: 0, uniq: {}, today: 0, week: 0, month: 0, last: null, refs: {} });
-      var t = new Date(r.viewed_at).getTime();
-      b.total++; if (r.visitor) b.uniq[r.visitor] = 1;
-      if (t >= d0) b.today++; if (t >= d7) b.week++; if (t >= d30) b.month++;
-      if (!b.last || t > b.last) b.last = t;
-      var ref = (r.referrer || "").trim();
-      if (ref) { var host = ref.replace(/^https?:\/\//, "").split("/")[0]; b.refs[host] = (b.refs[host] || 0) + 1; }
-    });
-    return Object.keys(by).map(function (k) {
-      var b = by[k]; b.uniqCount = Object.keys(b.uniq).length;
-      b.topRef = Object.keys(b.refs).sort(function (a, c) { return b.refs[c] - b.refs[a]; })[0] || "";
-      return b;
-    }).sort(function (a, c) { return c.total - a.total; });
-  }
-  function fmtWhen(t) {
-    if (!t) return "-";
-    var m = Math.floor((Date.now() - t) / 60000);
-    if (m < 1) return "방금";
-    if (m < 60) return m + "분 전";
-    var h = Math.floor(m / 60); if (h < 24) return h + "시간 전";
-    var d = Math.floor(h / 24); if (d < 30) return d + "일 전";
-    var dt = new Date(t); return (dt.getMonth() + 1) + "/" + dt.getDate();
-  }
-  function verName(slug) { var v = versions.filter(function (x) { return x.slug === slug; })[0]; return v ? v.name : slug; }
-  function statsChipHTML() {
-    if (!currentVersion) return '';
-    if (statsRows === null) return '<button class="stat-chip" id="btn-stats" title="조회수 보기">👁 조회 …</button>';
-    var b = statsSummary().filter(function (x) { return x.slug === currentVersion.slug; })[0];
-    if (!b) return '<button class="stat-chip" id="btn-stats" title="아직 조회 없음">👁 조회 0</button>';
-    return '<button class="stat-chip" id="btn-stats" title="클릭하면 버전별 상세 조회수">👁 조회 <b>' + b.total + '</b>' +
-      '<span class="sc-sep"></span>방문 <b>' + b.uniqCount + '</b>' + (b.today ? '<span class="sc-today">오늘 ' + b.today + '</span>' : '') + '</button>';
-  }
-  function statsPanelHTML() {
-    if (!statsOpen) return '';
-    var body;
-    if (statsRows === null) body = '<div class="st-empty">불러오는 중…</div>';
-    else if (statsErr) body = '<div class="st-empty">' + esc(statsErr) + '</div>';
-    else if (!statsRows.length) body = '<div class="st-empty">아직 조회 기록이 없습니다. 거래처가 링크를 열면 여기에 쌓입니다.</div>';
-    else {
-      body = '<table class="st-table"><thead><tr><th>버전</th><th>총 조회</th><th>방문자</th><th>오늘</th><th>7일</th><th>30일</th><th>마지막 조회</th><th>유입</th></tr></thead><tbody>' +
-        statsSummary().map(function (b) {
-          return '<tr><td class="st-ver">' + esc(verName(b.slug)) + ' <span class="st-slug">' + esc(b.slug) + '</span></td>' +
-            '<td class="st-num big">' + b.total + '</td><td class="st-num">' + b.uniqCount + '</td>' +
-            '<td class="st-num' + (b.today ? ' hot' : '') + '">' + b.today + '</td><td class="st-num">' + b.week + '</td>' +
-            '<td class="st-num">' + b.month + '</td><td class="st-when">' + fmtWhen(b.last) + '</td>' +
-            '<td class="st-ref">' + esc(b.topRef || "-") + '</td></tr>';
-        }).join("") + '</tbody></table>' +
-        '<div class="st-note">· <b>총 조회</b>는 열어본 횟수, <b>방문자</b>는 서로 다른 사람 수(같은 사람이 여러 번 봐도 1)입니다.<br>· 관리자에서 [공개 사이트 보기]로 연 것은 집계되지 않습니다.</div>';
-    }
-    return '<div class="modal-back" id="st-close-back"><div class="modal" role="dialog" aria-label="조회수">' +
-      '<div class="modal-head"><span>📊 조회수 — 버전별 열람 현황</span>' +
-      '<span><button class="btn-ghost2" id="btn-st-refresh">새로고침</button><button class="modal-x" id="btn-st-close" aria-label="닫기">✕</button></span></div>' +
-      '<div class="modal-body">' + body + '</div></div></div>';
-  }
-
   /* ================= 문구 설정 ================= */
   function settingsEffective() {
     var d = {
@@ -505,7 +436,7 @@
       '<button class="btn-ghost danger" id="btn-ver-del" title="이 버전과 소속 상품 삭제">🗑 삭제</button>';
     var pubHref = "index.html?nt=1" + (currentVersion ? ("&v=" + encodeURIComponent(currentVersion.slug)) : "");
     var html =
-      '<div class="topbar"><span class="brand">🐟 상품 관리자</span>' + verCtrl + statsChipHTML() +
+      '<div class="topbar"><span class="brand">🐟 상품 관리자</span>' + verCtrl +
       '<span class="spacer"></span>' +
       '<a href="' + pubHref + '" target="_blank" rel="noopener">공개 사이트 보기 ↗</a></div>' +
       '<div class="wrap">' +
@@ -530,7 +461,7 @@
     });
 
     html += '</div><div class="savebar"><span class="status" id="save-status">각 상품의 [저장] 버튼으로 저장하세요</span>' +
-      '<button class="btn-save" id="btn-save" disabled>전체 저장</button></div>' + statsPanelHTML();
+      '<button class="btn-save" id="btn-save" disabled>전체 저장</button></div>';
     root.innerHTML = html;
     setDirty(dirty);
     bindEditor();
@@ -603,9 +534,6 @@
       if (e.target.id === "btn-save") { saveAll(); return; }
       if (e.target.closest && e.target.closest("#sp-toggle")) { settingsOpen = !settingsOpen; renderEditor(); return; }
       if (e.target.id === "btn-save-settings") { saveSettings(e.target); return; }
-      if (e.target.id === "btn-st-refresh") { statsRows = null; renderEditor(); loadStats().then(renderEditor); return; }
-      if (e.target.closest && e.target.closest("#btn-stats")) { statsOpen = true; renderEditor(); if (statsRows === null) loadStats().then(renderEditor); return; }
-      if (e.target.id === "btn-st-close" || e.target.id === "st-close-back") { statsOpen = false; renderEditor(); return; }
       if (e.target.closest && e.target.closest("#cat-toggle")) { catsOpen = !catsOpen; renderEditor(); return; }
       if (e.target.closest && e.target.closest("#bulk-toggle")) { bulkOpen = !bulkOpen; renderEditor(); return; }
       if (e.target.id === "btn-bulk-import") { runBulkImport(); return; }
@@ -950,7 +878,6 @@
     .then(loadAll)
     .then(function () {
       dirty = false; renderEditor();
-      loadStats().then(renderEditor);
     })
     .catch(function (err) {
       root.innerHTML = '<div class="center-wrap"><div class="panel"><h1>불러오지 못했습니다</h1>' +
