@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.7</title>
+<title>마스터 유통 카탈로그 v2.8</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -334,8 +334,17 @@ h1{letter-spacing:-.6px}
 
 /* ── 검색 · 필터 ── */
 .controls{backdrop-filter:blur(14px) saturate(1.3)}
-.search{border-radius:14px;padding:13px 15px;box-shadow:var(--shadow)}
+.search{border-radius:14px;padding:13px 40px 13px 15px;box-shadow:var(--shadow)}
 .search:focus{border-color:var(--accent);box-shadow:var(--ring)}
+/* 검색칸이 contenteditable 이라 placeholder·지우기 버튼은 직접 만든다 */
+.searchwrap{position:relative}
+.search{min-height:1.4em;line-height:1.4;white-space:pre;overflow-x:auto;overflow-y:hidden;cursor:text}
+.search::-webkit-scrollbar{height:0}
+.search:empty::before{content:attr(data-ph);color:var(--muted);pointer-events:none}
+.sclr{position:absolute;right:9px;top:50%;transform:translateY(-50%);display:none;border:0;background:transparent;
+  color:var(--muted);font-size:14px;line-height:1;padding:6px;cursor:pointer;border-radius:50%}
+.sclr.on{display:block}
+@media(hover:hover){.sclr:hover{background:var(--soft);color:var(--ink)}}
 .lbl::before{content:'';display:inline-block;width:14px;height:3px;border-radius:2px;
   background:var(--pop);margin-right:7px;vertical-align:middle}
 .meta b{color:var(--accent-d);font-size:13px}
@@ -418,14 +427,16 @@ h1{letter-spacing:-.6px}
 <div class="ntcbox" id="ntcbox"></div>
 <div id="mainView">
 <div class="controls">
-<!-- ⚠️ 크롬은 autocomplete="off"를 자주 무시하고 저장된 아이디("master")를 검색칸에 넣는다.
-     같은 문서에 로그인 폼이 있어서 생기는 일이라, 알 수 없는 autocomplete 값 + 아래 강제 비우기를 같이 쓴다. (2026-08-19 사장님 지적) -->
-<!-- ⚠️ name 속성을 주면 크롬이 '폼 필드'로 보고 자동완성 후보에 넣는다. 절대 달지 말 것.
-     (사장님 아이디가 'master'라 로그인 직후 검색칸에 그게 들어가면 결과 0개가 되어
-      업체 눈엔 상품이 하나도 없는 것처럼 보인다. 2026-08-19)
-     🚫 disabled 로 잠그는 방식은 폐기(2026-08-20 사장님 지적: 글씨조차 못 넣게 막혔다).
-     자동완성 차단은 아래 "사람이 키를 누르기 전엔 검색 성립 안 함" 가드가 전담한다 — 칸은 항상 열려 있다. -->
-<input class="search" id="q" type="search" placeholder="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…" autocomplete="off-catalog-search" data-form-type="other" data-lpignore="true" spellcheck="false">
+<!-- 🔒 검색칸은 일부러 <input> 이 아니다. (2026-08-20)
+     같은 문서에 로그인 폼이 있으면 크롬이 저장된 아이디("master")를 검색칸에 밀어넣는데,
+     autocomplete 속성·값 비우기·잠금(disabled/readonly)까지 전부 뚫렸다.
+     (잠금은 글씨조차 못 넣는 사고까지 냈다 — 다시 쓰지 말 것.)
+     크롬 자동완성은 contenteditable 에는 손을 못 댄다 → 이 방식이 유일하게 확실하다.
+     아래 스크립트의 value 어댑터 덕분에 q.value 로 읽고 쓰는 기존 코드는 그대로 동작한다. -->
+<div class="searchwrap">
+<div class="search" id="q" contenteditable="true" role="searchbox" aria-label="상품명 검색" inputmode="search" enterkeyhint="search" spellcheck="false" data-ph="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…"></div>
+<button class="sclr" id="qclr" type="button" aria-label="검색어 지우기">✕</button>
+</div>
 <div class="clicktip">👆 <b>상품명을 클릭</b>하시면 상품 상세 및 사진을 확인하실 수 있습니다!</div>
 <button class="allbtn" id="allbtn">🏠 전체 상품 보기</button>
 <div class="lbl">창고 선택</div><div class="row" id="whrow"></div>
@@ -903,36 +914,30 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('.cpbtn');if(!b)return;
   navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast(b.getAttribute('data-cpmsg')||'상품명 복사됨'));
 });
-/* 🔒 크롬 자동완성이 검색칸에 저장된 아이디("master")를 밀어넣는 문제 (2026-08-19)
-   ⚠️ 이게 단순한 미관 문제가 아니다 — 검색어가 들어가면 결과가 0개라
-      **업체 눈에는 상품이 하나도 없는 것처럼 보인다.** 아이디/비번 저장한 업체는 전부 이 상태.
-   앞서 autocomplete 속성 → 값 비우기 → readonly 잠금까지 해봤지만 크롬은 그걸 다 우회했다.
-   그래서 방향을 바꿨다: **사람이 실제로 키를 누르거나 붙여넣기 전까지는 검색을 아예 성립시키지 않는다.**
-   자동완성이 값을 넣어도 검색으로 취급하지 않고 즉시 되돌린다. */
+/* 🔒 검색칸(contenteditable) 동작 — 크롬 자동완성이 아이디("master")를 밀어넣던 문제의 최종 해법 (2026-08-20)
+   ⚠️ 이건 미관 문제가 아니었다 — 검색어가 박히면 결과가 0개라 업체 눈엔 상품이 하나도 없어 보인다.
+   input 이던 시절엔 autocomplete 속성·값 비우기·타이핑 가드·잠금까지 다 뚫렸다.
+   지금은 애초에 크롬이 채울 수 없는 요소라, 아래는 순수하게 '입력칸답게 동작시키는' 코드다.
+   value 어댑터가 있어서 다른 곳의 q.value / q.value='' 는 예전 그대로 쓰면 된다. */
 (function(){
-  const q=$('q');
-  let typed=false;                                   // 사람이 직접 입력한 적이 있는가
-  const markTyped=()=>{ typed=true; };
-  q.addEventListener('keydown',markTyped);
-  q.addEventListener('paste',markTyped);
-  q.addEventListener('compositionstart',markTyped);  // 한글 입력
-  // 📱 모바일 키보드는 keydown을 안 쏘는 경우가 있다 — beforeinput의 inputType으로도 사람 입력을 인정한다.
-  //    (자동완성은 inputType이 없거나 insertReplacementText다. 2026-08-20)
-  q.addEventListener('beforeinput',e=>{
-    const t=e.inputType||'';
-    if(t&&t!=='insertReplacementText'&&(t.startsWith('insert')||t.startsWith('delete')))markTyped();
+  const q=$('q'),clr=$('qclr');
+  Object.defineProperty(q,'value',{configurable:true,
+    get(){ return q.textContent; },
+    set(v){ v=(v==null?'':String(v)); if(q.textContent!==v)q.textContent=v; sync(); }});
+  function sync(){
+    const has=!!q.textContent;
+    if(!has&&q.innerHTML)q.innerHTML='';   // 다 지웠을 때 <br> 찌꺼기 → placeholder가 안 보이는 것 방지
+    clr.classList.toggle('on',has);
+  }
+  q.addEventListener('input',()=>{ sync(); st.q=q.textContent.trim(); render(); });
+  q.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); q.blur(); } });  // 줄바꿈 금지
+  q.addEventListener('paste',e=>{                                                            // 서식 없이 글자만
+    e.preventDefault();
+    const t=((e.clipboardData||window.clipboardData).getData('text')||'').replace(/\s+/g,' ');
+    document.execCommand('insertText',false,t);
   });
-  q.addEventListener('input',e=>{
-    if(!typed){ e.target.value=''; if(st.q){ st.q=''; render(); } return; }  // 자동완성이 쏜 input은 무시
-    st.q=e.target.value.trim(); render();
-  });
-  // 자동완성은 input 이벤트 없이 값만 바꿔놓기도 한다. 사람이 손대기 전까지만 짧게 감시한다.
-  const guard=setInterval(()=>{
-    if(typed){ clearInterval(guard); return; }
-    if(q.value){ q.value=''; if(st.q){ st.q=''; render(); } }
-  },300);
-  // 뒤로가기 복원(bfcache)으로 돌아왔을 때도 같은 일이 생긴다
-  window.addEventListener('pageshow',()=>{ if(!typed&&q.value){ q.value=''; if(st.q){st.q='';render();} } });
+  q.addEventListener('drop',e=>e.preventDefault());
+  clr.onclick=()=>{ q.textContent=''; sync(); st.q=''; render(); q.focus(); };
 })();
 $('noteTg').onclick=()=>$('note').classList.toggle('open');
 // 🏠 전체 상품 보기 — 창고·카테고리·검색 리셋 (사장님 2026-08-09)
@@ -1388,16 +1393,8 @@ function renderUser(){
 }
 function enterApp(a){
   renderUser();
-  /* 🔒 로그인 폼을 제출하는 그 순간이 크롬이 아이디를 뿌리는 최대 고비다.
-     ⚠️ 예전엔 검색칸을 disabled로 잠갔다가 열어줬는데, 그 사이 글씨를 못 넣는 사고가 났다
-        (2026-08-20 사장님 지적). 이제 절대 잠그지 않는다 — 값만 잠깐 비워준다.
-        자동완성이 넣은 값은 아래 typed 가드가 검색으로 인정하지 않으므로 결과 0개 사고는 안 난다. */
-  (function(){
-    const q=$('q');if(!q)return;
-    q.disabled=false;                                   // 혹시 남아있을 잠금 해제(캐시된 옛 마크업 대비)
-    const wipe=()=>{ if(!st.q&&q.value&&document.activeElement!==q)q.value=''; };
-    [0,60,200,600,1200,2000].forEach(ms=>setTimeout(wipe,ms));
-  })();
+  /* 로그인 직후가 크롬이 아이디를 뿌리는 최대 고비였지만, 이제 검색칸이 contenteditable 이라
+     자동완성 대상이 아니다. 잠그거나 비우는 처리는 전부 폐기(잠금은 글씨 못 넣는 사고를 냈다). */
   if(a&&a.pw==='1234'&&a.role!=='관리자'){
     $('pwnudge').innerHTML='<div class="pwnudge">🔒 아직 처음 비밀번호(1234)를 쓰고 있어요. <button id="nudgebtn">지금 바꾸기</button></div>';
     $('nudgebtn').onclick=showPwForm;
