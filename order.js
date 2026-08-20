@@ -276,6 +276,26 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .ordsum{font-size:12.5px;color:var(--muted);margin:8px 0 4px}
 .ordsum b{color:var(--ink)}
 .ordbad{color:var(--up)}
+/* 발주 내역 카드 — 보낸 건은 초록, 취소는 흐리게. 한눈에 구분돼야 중복 발주가 안 난다. */
+.ordcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow);margin-bottom:12px}
+.ordcard.sent{border:2px solid var(--accent);background:color-mix(in srgb,var(--soft) 55%,var(--card))}
+.ordcard.dead{opacity:.55}
+.ordhd{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.ordhd .ono{font-size:15px;font-weight:800;letter-spacing:-.3px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.ordhd .ometa{font-size:11.5px;color:var(--muted)}
+.ordhd .ometa b{color:var(--ink)}
+table.olist{min-width:640px}
+table.olist td{font-size:12.5px;vertical-align:middle;padding:7px 8px}
+table.olist td.pd{font-weight:700}
+table.olist td.ad{max-width:280px;white-space:normal;line-height:1.4}
+table.olist td.tl{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap}
+table.olist th.ck,table.olist td.ck{width:34px;text-align:center;padding-left:4px;padding-right:4px}
+table.olist input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+table.olist tr.xrow td{text-decoration:line-through;color:var(--muted)}
+.lock{font-size:12px;opacity:.6}
+.ordb2.done{background:var(--soft);border-color:var(--accent);color:var(--accent-d);font-weight:800;opacity:1;cursor:default}
+.ordb2.warn{color:var(--up);border-color:color-mix(in srgb,var(--up) 35%,transparent)}
+.ordb2.warn:hover{background:color-mix(in srgb,var(--up) 10%,transparent);color:var(--up)}
 .ordst{font-size:11px;font-weight:800;padding:2px 8px;border-radius:20px;vertical-align:middle;margin-left:4px}
 .ordst.new{background:var(--soft);color:var(--accent-d)}
 .ordst.go{background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--gold)}
@@ -489,6 +509,7 @@ async function submit(){
 /* 🔴 걸러내는 일은 웹앱이 한다. 이 화면은 받은 것을 그리기만 한다 —
    브라우저에서 거르는 방식이면 "안 보이게 한 것"일 뿐 "못 보게 한 것"이 아니다. */
 async function ordersView(){
+  css();   // ⚠️ 마스터는 발주하기 화면을 안 거치므로 여기서도 스타일을 넣어야 한다(2026-08-20 화면 깨짐)
   if(!hasApi()) return subHead('📋 발주 내역', '') + '<div class="empty">발주 접수가 아직 열리지 않았습니다.</div>';
   const master = !!(ME && ME.master);
   const j = await api('list', {token: ME.token});
@@ -496,34 +517,63 @@ async function ordersView(){
   LIST = rows;
   const byNo = new Map();
   rows.forEach(r => { if(!byNo.has(r.no)) byNo.set(r.no, []); byNo.get(r.no).push(r); });
-  let h = subHead(master ? '📋 전체 발주 내역' : '📋 내 발주 내역', master ? '마스터 계정 — 모든 업체의 발주가 보입니다' : '내가 넣은 발주만 보입니다');
+  let h = subHead(master ? '📋 전체 발주 내역' : '📋 내 발주 내역',
+                  master ? '마스터 계정 — 모든 업체의 발주가 보입니다' : '내가 넣은 발주만 보입니다');
   if(!rows.length) return h + '<div class="empty">아직 발주 내역이 없습니다.</div>';
   h += '<div class="ordwrap">';
   byNo.forEach((list, no) => {
     const f = list[0];
-    const st = f.state || '접수';
-    h += '<div class="ordbox">'
-      + '<h3>' + esc(no) + ' <span style="font-weight:600;color:var(--muted);font-size:11.5px">' + esc(f.at) + ' · ' + list.length + '건</span>'
-      + ' <span class="ordst ' + (st === '취소' ? 'no' : (st === '접수' ? 'new' : 'go')) + '">' + esc(st) + '</span>'
-      + (master ? ' <span style="font-size:12px;color:var(--muted)">— ' + esc(f.cname) + '</span>' : '') + '</h3>'
-      + '<div class="ordtblwrap"><table class="ordtbl"><thead><tr>'
-      + (master ? '<th>송장업체</th>' : '')
-      + '<th>상품</th><th>성함</th><th>주소</th><th>연락처</th><th>배송메시지</th></tr></thead><tbody>'
-      + list.map(r => '<tr>' + (master ? '<td>' + esc(r.biz) + '</td>' : '')
-          + '<td>' + esc(r.prod) + '</td><td>' + esc(r.rcv) + '</td><td>' + esc(r.addr) + '</td><td>' + esc(r.tel) + '</td><td>' + esc(r.msg) + '</td></tr>').join('')
+    const live = list.filter(r => r.state !== '취소');
+    const sent = live.length && live.every(r => r.state === '완료');
+    const st = !live.length ? '취소' : (sent ? '완료' : '접수');
+    const canPick = list.some(r => r.state === '접수');
+    h += '<div class="ordcard' + (sent ? ' sent' : '') + (!live.length ? ' dead' : '') + '">'
+      + '<div class="ordhd">'
+      +   '<div><span class="ono">' + esc(no) + '</span>'
+      +     '<span class="ordst ' + (st === '취소' ? 'no' : (st === '접수' ? 'new' : 'go')) + '">'
+      +       (st === '완료' ? (master ? '✅ 당일 시트 전송됨' : '✅ 발주 확인됨') : (st === '취소' ? '취소됨' : '접수'))
+      +     '</span></div>'
+      +   '<div class="ometa">' + esc(short(f.at)) + ' · ' + list.length + '건'
+      +     (master ? ' · <b>' + esc(f.cname) + '</b>' : '') + '</div>'
+      + '</div>'
+      + '<div class="ordtblwrap"><table class="ordtbl olist"><thead><tr>'
+      +   (canPick ? '<th class="ck"><input type="checkbox" class="ordall" data-no="' + esc(no) + '" title="전체 선택"></th>' : '<th class="ck"></th>')
+      +   (master ? '<th>송장업체</th>' : '')
+      +   '<th>상품</th><th>받는분</th><th>주소</th><th>연락처</th><th>메시지</th></tr></thead><tbody>'
+      +   list.map(r => {
+            const dead = r.state === '취소', done = r.state === '완료';
+            return '<tr class="' + (dead ? 'xrow' : '') + '">'
+              + '<td class="ck">' + ((!dead && !done)
+                  ? '<input type="checkbox" class="ordpick" data-no="' + esc(no) + '" data-seq="' + esc(String(r.seq)) + '">'
+                  : (done ? '<span class="lock" title="당일 시트로 넘어가 취소할 수 없습니다">🔒</span>' : '')) + '</td>'
+              + (master ? '<td>' + esc(r.biz) + '</td>' : '')
+              + '<td class="pd">' + esc(r.prod) + '</td><td>' + esc(r.rcv) + '</td>'
+              + '<td class="ad">' + esc(r.addr) + '</td><td class="tl">' + esc(r.tel) + '</td><td>' + esc(r.msg) + '</td></tr>';
+          }).join('')
       + '</tbody></table></div>'
       + '<div class="ordbar" style="margin-bottom:0;margin-top:10px">'
-      + (master ? '<button class="ordb2" data-ocp="' + esc(no) + '">📋 발주서 복사</button>'
-                + '<button class="ordb2" data-ost="처리중|' + esc(no) + '">처리중으로</button>'
-                + '<button class="ordb2" data-ost="완료|' + esc(no) + '">완료로</button>' : '')
-      + (st === '접수' ? '<button class="ordb2" data-ocn="' + esc(no) + '">✕ 발주 취소</button>' : '')
-      + '</div></div>';
+      + (master
+          ? (sent
+              ? '<button class="ordb2 done" disabled>✅ 당일 시트로 보냈습니다</button>'
+              : (live.length ? '<button class="ordb2 pri" data-opush="' + esc(no) + '">📤 당일 시트로 보내기</button>' : ''))
+          : '')
+      + (canPick ? '<button class="ordb2 warn" data-ocn="' + esc(no) + '">✕ 선택한 건 취소</button>' : '')
+      + '</div>'
+      + (master && sent ? '<div class="hint" style="margin-top:6px">' + esc(f.done ? short(f.done) + ' 전송' : '전송됨') + ' — 다시 보내지지 않습니다</div>' : '')
+      + '</div>';
   });
   h += '</div>';
   return h;
 }
-/* 마스터 전용 — 그 발주묶음을 우리 양식(9칸/10칸)으로 복사.
-   시트에 저장된 값 그대로 쓴다(그때의 주문처 주소·연락처). */
+// 2026-08-20 16:45 → 08-20 16:45 (시트가 날짜로 돌려주는 긴 형식도 여기서 자른다)
+function short(s){
+  const t = S(s);
+  const m = t.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2})/);
+  return m ? (m[2] + '-' + m[3] + ' ' + m[4]) : t;
+}
+/* 발주묶음을 우리 양식(9칸/10칸) 텍스트로. 지금 화면엔 복사 버튼이 없다 —
+   당일 시트로 보내는 건 웹앱이 하고, 사람 손이 끼면 "복사만 하고 완료를 안 눌러" 중복이 나기 때문(사장님).
+   시트가 막혔을 때 손으로 넣어야 하는 비상용으로만 남겨둔다. */
 function ordersTsv(rows){
   const nine = [], ten = [];
   rows.forEach(r => {
@@ -683,30 +733,34 @@ document.addEventListener('click', e => {
     navigator.clipboard.writeText(t).then(() => toast('복사했습니다'), () => toast('복사하지 못했습니다'));
     return;
   }
-  // 발주 내역 — 발주서 복사 / 상태 변경(마스터) / 취소
-  const ocp = e.target.closest && e.target.closest('[data-ocp]');
-  if(ocp){
-    const no = ocp.getAttribute('data-ocp');
-    const t = ordersTsv(LIST.filter(r => r.no === no));
-    navigator.clipboard.writeText(t).then(() => toast(no + ' 발주서 복사됨'), () => toast('복사하지 못했습니다'));
+  // 전체 선택 체크박스
+  const all = e.target.closest && e.target.closest('.ordall');
+  if(all){
+    document.querySelectorAll('.ordpick[data-no="' + all.getAttribute('data-no') + '"]').forEach(c => { c.checked = all.checked; });
     return;
   }
-  const ost = e.target.closest && e.target.closest('[data-ost]');
-  if(ost){
-    const [st, no] = ost.getAttribute('data-ost').split('|');
-    ost.disabled = true;
-    api('setstatus', {token: ME.token, orderNo: no, state: st})
-      .then(() => { toast(no + ' → ' + st); reloadOrders(); })
-      .catch(err => { toast(err.message || '바꾸지 못했습니다'); ost.disabled = false; });
+  /* 📤 당일 시트로 보내기 — 이 버튼 하나가 복사·붙여넣기·완료처리를 다 한다.
+     누르는 즉시 잠가서 두 번 눌리는 일이 없게 한다(중복 발주 방지). */
+  const op = e.target.closest && e.target.closest('[data-opush]');
+  if(op){
+    const no = op.getAttribute('data-opush');
+    if(!confirm(no + ' 발주를 당일 시트로 보낼까요?\n\n보내고 나면 취소할 수 없고, 다시 보내지지도 않습니다.')) return;
+    op.disabled = true; op.textContent = '보내는 중…';
+    api('push', {token: ME.token, orderNo: no})
+      .then(j => { toast(no + ' → 당일 시트 ' + j.col + j.row + '행에 ' + j.count + '줄'); reloadOrders(); })
+      .catch(err => { alert(err.message || '보내지 못했습니다'); op.disabled = false; op.textContent = '📤 당일 시트로 보내기'; });
     return;
   }
+  // 선택한 줄만 취소 — 한 번에 여러 건 넣고 일부만 빼는 경우 (업체·마스터 공통)
   const ocn = e.target.closest && e.target.closest('[data-ocn]');
   if(ocn){
     const no = ocn.getAttribute('data-ocn');
-    if(!confirm(no + ' 발주를 취소할까요?')) return;
+    const picked = Array.from(document.querySelectorAll('.ordpick[data-no="' + no + '"]:checked')).map(c => c.getAttribute('data-seq'));
+    if(!picked.length){ alert('취소할 줄을 먼저 체크해 주세요.'); return; }
+    if(!confirm(no + ' 에서 체크하신 ' + picked.length + '건을 취소할까요?')) return;
     ocn.disabled = true;
-    api('cancel', {token: ME.token, orderNo: no})
-      .then(() => { toast(no + ' 취소되었습니다'); reloadOrders(); })
+    api('cancel', {token: ME.token, orderNo: no, seqs: picked})
+      .then(j => { toast(j.count + '건 취소되었습니다'); reloadOrders(); })
       .catch(err => { alert(err.message || '취소하지 못했습니다'); ocn.disabled = false; });
     return;
   }
