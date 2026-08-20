@@ -366,11 +366,45 @@
      ⚠️ 상품명이 완전히 같을 때만 넣는다(§3-3). 원가는 제안서·PDF에 절대 안 나간다.
      그 표의 '등록일시' 최신값 = 원가표 기준일. 버튼 밑에 같이 보여줘 언제 자료인지 알 수 있게 한다. */
   var costOpen = false, costResult = null, costBase = "", costPulledAt = "";
+  var costMap = {};   // 상품명 → 원가 (전체상품원가 탭)
+  var COST_SHEET_URL = "https://docs.google.com/spreadsheets/d/" +
+    ((CFG.dataSheet && CFG.dataSheet.id) || "") + "/edit?gid=1825062600#gid=1825062600";
+
+  function readCostMap(rows) {
+    var head = (rows[0] || []).map(function (x) { return String(x || "").replace(/\s+/g, ""); });
+    var iCost = head.indexOf("원가"); if (iCost < 0) iCost = 4;
+    var iWhen = head.indexOf("등록일시");
+    costMap = {}; costBase = "";
+    rows.slice(1).forEach(function (row) {
+      var n = String(row[0] || "").trim(); if (!n) return;
+      if (!costMap[n]) costMap[n] = num(row[iCost]);
+      var w = String((iWhen >= 0 ? row[iWhen] : "") || "").trim();
+      if (w > costBase) costBase = w;
+    });
+    return costMap;
+  }
 
   function costPanelHTML() {
     if (!costOpen) return '';
+    /* 원가는 리모컨이 정본이다 — 홍팀장이 최신 원가를 '전체상품원가' 탭에 넣고,
+       여기서 그 값을 제안서로 끌어온다. 그래서 시트를 바로 여는 버튼을 같이 둔다. */
+    var head =
+      '<div class="cost-top">' +
+        '<div class="ct-when">' +
+          '🧾 마지막 원가 업데이트 <b>' + (costPulledAt ? esc(costPulledAt) : "없음") + '</b>' +
+          (costBase ? '<br><span class="ct-sub">원가표(전체상품원가) 기준일 <b>' + esc(costBase) + '</b></span>' : '') +
+        '</div>' +
+        '<div class="ct-btns">' +
+          '<a class="btn-open" href="' + esc(COST_SHEET_URL) + '" target="_blank" rel="noopener">📗 원가 시트 열기 ↗</a>' +
+          '<button class="btn-addsave" id="btn-cost-pull">지금 원가 가져오기</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sp-note" style="margin:10px 0;">리모컨에서 최신 원가를 <b>[📗 원가 시트 열기]</b> → <code>전체상품원가</code> 탭에 붙여넣은 뒤 ' +
+      '<b>[지금 원가 가져오기]</b>를 누르세요. 상품을 새로 넣을 땐 <b>안 눌러도 됩니다</b> — 상품명을 고르면 원가가 같이 들어옵니다.</div>';
+
     var body;
-    if (!costResult) body = '<div class="st-empty">전체상품원가에서 가져오는 중…</div>';
+    if (costResult === "loading") body = '<div class="st-empty">전체상품원가에서 가져오는 중…</div>';
+    else if (!costResult) body = '';
     else if (costResult.err) body = '<div class="st-empty">원가표를 읽지 못했어요 — ' + esc(costResult.err) + '</div>';
     else {
       body = '<div class="sp-note">도구시트 <b>전체상품원가</b>(' + costResult.total.toLocaleString() + '건, 기준일 <b>' + esc(costResult.base || "-") + '</b>)에서 ' +
@@ -392,25 +426,16 @@
         body += '<div class="st-note">⚠️ 원가표에 <b>같은 이름이 없는 ' + costResult.miss.length + '개</b>는 비워뒀습니다: ' + esc(costResult.miss.join(" · ")) + '</div>';
       }
     }
-    return '<div class="modal-back" id="cost-close-back"><div class="modal" role="dialog" aria-label="원가 가져오기">' +
-      '<div class="modal-head"><span>🧾 원가 가져오기 (관리자 전용 · 미노출)</span>' +
+    return '<div class="modal-back" id="cost-close-back"><div class="modal" role="dialog" aria-label="원가 업데이트">' +
+      '<div class="modal-head"><span>🧾 원가 업데이트 (관리자 전용 · 제안서엔 안 나감)</span>' +
       '<span><button class="modal-x" id="btn-cost-close" aria-label="닫기">✕</button></span></div>' +
-      '<div class="modal-body">' + body + '</div></div></div>';
+      '<div class="modal-body">' + head + body + '</div></div></div>';
   }
 
   function pullCosts() {
-    costOpen = true; costResult = null; renderEditor();
+    costOpen = true; costResult = "loading"; renderEditor();
     window.SVC.readTab("전체상품원가").then(function (rows) {
-      var head = (rows[0] || []).map(function (x) { return String(x || "").replace(/\s+/g, ""); });
-      var iCost = head.indexOf("원가"), iWhen = head.indexOf("등록일시");
-      if (iCost < 0) iCost = 4;
-      var map = {}, base = "";
-      rows.slice(1).forEach(function (r) {
-        var n = String(r[0] || "").trim(); if (!n) return;
-        if (!map[n]) map[n] = num(r[iCost]);
-        var w = String((iWhen >= 0 ? r[iWhen] : "") || "").trim();
-        if (w > base) base = w;
-      });
+      var map = readCostMap(rows), base = costBase;
       var got = [], miss = [];
       items.forEach(function (it) {
         var n = (it.name || "").trim(); if (!n) return;
@@ -664,13 +689,13 @@
       '<div class="topbar"><span class="brand">🐟 상품 관리자</span>' + verCtrl +
       '<span class="spacer"></span>' +
       '<button class="btn-ghost" id="btn-price-check" title="제안서 공급가가 유통시트와 다른 것만 찾아 줍니다">💰 공급가 점검</button>' +
-      '<button class="btn-ghost" id="btn-cost" title="도구시트 전체상품원가에서 원가를 가져옵니다 (제안서엔 안 나갑니다)">🧾 원가 가져오기</button>' +
+      '<button class="btn-ghost" id="btn-cost" title="원가 시트를 열어 최신 원가를 넣고, 제안서로 가져옵니다 (제안서엔 안 나갑니다)">🧾 원가 업데이트</button>' +
       '<a href="' + pubHref + '" target="_blank" rel="noopener">공개 사이트 보기 ↗</a></div>' +
       // 원가를 언제 어느 자료로 가져왔는지 — 버튼 바로 밑에 항상 보이게 (2026-08-20 홍팀장)
-      '<div class="costline">🧾 원가 ' +
+      '<div class="costline">🧾 원가 업데이트 ' +
         (costPulledAt
-          ? '마지막 가져오기 <b>' + esc(costPulledAt) + '</b>' + (costBase ? ' · 원가표 기준일 <b>' + esc(costBase) + '</b>' : '')
-          : '<span class="cl-none">아직 안 가져왔습니다 — [🧾 원가 가져오기]를 누르세요</span>') +
+          ? '<b>' + esc(costPulledAt) + '</b>' + (costBase ? ' · 원가표 기준일 <b>' + esc(costBase) + '</b>' : '')
+          : '<span class="cl-none">아직 없음 — [🧾 원가 업데이트]에서 가져오세요</span>') +
       '</div>' +
       '<div class="wrap">' +
       '<div class="hint">상품을 고친 뒤 그 상품의 <b>[저장]</b> 버튼을 누르면 바로 공개 사이트에 반영됩니다. 사진은 <b>[사진 업로드]</b>, 삭제는 <b>[삭제]</b>로 즉시 처리돼요. (아래 <b>[전체 저장]</b>은 여러 개를 한 번에 저장할 때만 쓰세요.)</div>' +
@@ -770,7 +795,8 @@
       if (e.target.id === "btn-price-check") { runPriceCheck(); return; }
       if (e.target.id === "btn-price-apply") { applyPriceFixes(); return; }
       if (e.target.id === "btn-pc-close" || e.target.id === "pc-close-back") { priceOpen = false; renderEditor(); return; }
-      if (e.target.id === "btn-cost") { pullCosts(); return; }
+      if (e.target.id === "btn-cost") { costOpen = true; costResult = null; renderEditor(); return; }
+      if (e.target.id === "btn-cost-pull") { pullCosts(); return; }
       if (e.target.id === "btn-cost-close" || e.target.id === "cost-close-back") { costOpen = false; renderEditor(); return; }
       if (e.target.closest && e.target.closest("#sp-toggle")) { settingsOpen = !settingsOpen; renderEditor(); return; }
       if (e.target.id === "btn-save-settings") { saveSettings(e.target); return; }
@@ -805,6 +831,7 @@
           newItem.name = r.name; newItem.warehouse = r.warehouse || ""; newItem.supply_price = r.supply_price || 0;
           newItem.ship_fee = r.ship_fee || 0; newItem.tax = r.tax || "면세";
           if (r.courier) newItem.courier = r.courier;
+          if (r.cost) newItem.cost = r.cost;            // 원가도 같이 (관리자에서만 보임)
           // 사진·스펙·원본링크까지 같이 (상품이미지_v2 캐시에 있으면)
           if (r.image) newItem.image = r.image;
           if (r.link) newItem.link = r.link;
@@ -890,8 +917,8 @@
   function loadCatalog() {
     if (catalogCache || catalogLoading) return;
     catalogLoading = true;
-    Promise.all([window.SVC.readYutong(), window.SVC.readTab("상품이미지_v2")]).then(function (r) {
-      var yu = r[0] || [], imgRows = r[1] || [];
+    Promise.all([window.SVC.readYutong(), window.SVC.readTab("상품이미지_v2"), window.SVC.readTab("전체상품원가")]).then(function (r) {
+      var yu = r[0] || [], imgRows = r[1] || [], costRows = r[2] || [];
 
       // 사진 캐시: 상품명 → {사진, 설명, 링크}
       var pic = {};
@@ -900,20 +927,24 @@
         pic[n] = { image: String(row[2] || "").trim(), spec: cleanSpec(row[3]), link: String(row[5] || "").trim() };
       });
 
+      /* 원가도 같이 실어둔다 — 상품 하나 넣을 때마다 [원가 업데이트]를 누르게 하면 안 된다
+         (2026-08-20 홍팀장). 자동완성으로 고르거나 [시트에서 채우기]를 누르면 원가가 따라온다. */
+      readCostMap(costRows);
+
       var byName = {};
       yu.forEach(function (p) {
         if (byName[p.name]) return;                     // 같은 상품이 여러 탭에 있으면 먼저 것
         var m = pic[p.name] || {};
         byName[p.name] = {
           name: p.name, supply_price: p.supply_price, tax: p.tax, ship_fee: p.ship_fee,
-          courier: p.courier, warehouse: p.warehouse,
+          courier: p.courier, warehouse: p.warehouse, cost: costMap[p.name] || 0,
           image: m.image || "", spec: m.spec || "", link: m.link || ""
         };
       });
       // 지금 안 파는(유통시트에 없는) 상품도 사진·링크는 붙도록 후보에 남긴다
       Object.keys(pic).forEach(function (n) {
         if (byName[n]) return;
-        byName[n] = { name: n, supply_price: 0, tax: "면세", ship_fee: 0, courier: "", warehouse: "", image: pic[n].image, spec: pic[n].spec, link: pic[n].link };
+        byName[n] = { name: n, supply_price: 0, tax: "면세", ship_fee: 0, courier: "", warehouse: "", cost: costMap[n] || 0, image: pic[n].image, spec: pic[n].spec, link: pic[n].link };
       });
 
       catalogCache = Object.keys(byName).map(function (k) { return byName[k]; });
@@ -947,6 +978,7 @@
       if (hit.courier) { it.courier = hit.courier; got.push("택배사"); }
       if (hit.ship_fee || hit.ship_fee === 0) { it.ship_fee = hit.ship_fee; }
       if (hit.tax) { it.tax = hit.tax; }
+      if (hit.cost) { it.cost = hit.cost; got.push("원가"); }
       setDirty(true); renderEditor();
       toast((got.length ? got.join("·") + " 채웠어요" : "가져올 값이 없었어요") + " — [저장]을 눌러야 사이트에 반영됩니다");
     };
