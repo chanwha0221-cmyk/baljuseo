@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.13</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.15</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1396,11 +1396,12 @@ function renderUser(){
   // 발주 내역 메뉴는 웹앱이 붙어 있을 때만 — 그 전엔 눌러도 보여줄 게 없다
   const mo=$('mbOrders');
   if(mo)mo.style.display=(API&&ME.token)?'':'none';
-  /* 🧾 발주하기는 업체용이다. 마스터(사장님·원비 팀장)에겐 숨긴다 —
-     마스터 계정으로 발주를 넣으면 정산 업체명이 관리자 계정 이름으로 박혀 그대로 엉뚱한 발주가 된다
-     (사장님 2026-08-20: "나랑 원비씨는 발주하기 기능 필요 없지 않나"). 마스터의 자리는 '발주 내역'이다. */
+  /* 🧾 발주하기 = 업체용 / 🧾 대신 발주 = 마스터용 (홍팀장 2026-08-21)
+     예전엔 마스터에게 아예 숨겼다 — 마스터 계정으로 넣으면 정산업체명이 관리자 계정 이름으로 박혔기 때문
+     (2026-08-20). 이제는 **어느 업체 발주인지 먼저 고르는 칸**이 생겨(order.js forCard) 그 문제가 없다.
+     카톡·엑셀로 발주를 주는 업체 몫을 우리가 대신 넣고 당일 시트까지 바로 보내는 자리다. */
   const mk=menuEl.querySelector('[data-go="order"]');
-  if(mk)mk.style.display=ME.master?'none':'';
+  if(mk){mk.style.display='';mk.childNodes[0].nodeValue=ME.master?'🧾 대신 발주':'🧾 발주하기';}
   $('userbar').innerHTML='<span class="uname">'+esc(ME.name||ME.id)+'</span>'
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
     +'<button class="ubtn" id="ub_out">로그아웃</button>'

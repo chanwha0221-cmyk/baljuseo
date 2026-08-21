@@ -43,6 +43,19 @@ const HEADS  = ['업체명','상품명','수량','받는분 성함','받는분 �
 let ROWS = [];        // {biz,name,qty,rcv,addr,tel,msg}
 let OPEN = -1;        // 후보 목록을 펼친 행 index
 
+/* 👥 대신 발주 (마스터 전용, 홍팀장 2026-08-21)
+   "아직도 카톡이나 엑셀 파일로 발주 주는 업체들이 있다. 파일 바로 넣어서 발주하고,
+    우리가 바로 확인하니 당일로 넘기기가 바로 되면 된다."
+   → 마스터 화면에선 **어느 업체 발주인지 먼저 고르고** 나머지는 업체용 화면과 똑같이 쓴다.
+   🔴 업체를 고르는 이유: 정산업체명·주문처 주소·연락처가 그 업체 것으로 박혀야 한다.
+      안 고르면 마스터 계정 이름이 그대로 발주서에 나간다(그래서 예전엔 이 화면을 막아뒀다). */
+const FK = NS + 'order_for_v1';
+let FOR = null;                 // {id,name,addr,phone} — 지금 대신 넣어주는 업체
+let CLIENTS = null;             // 계정 시트 업체 목록 (마스터만 받아온다)
+const amMaster = () => !!(typeof ME !== 'undefined' && ME && ME.master);
+function loadFor(){ try{ const j = JSON.parse(localStorage.getItem(FK) || 'null'); if(j && j.name) FOR = j; }catch(e){} }
+function saveFor(){ try{ FOR ? localStorage.setItem(FK, JSON.stringify(FOR)) : localStorage.removeItem(FK); }catch(e){} }
+
 // ── 작은 도구들 ──────────────────────────────────────────────────
 const S = v => String(v == null ? '' : v).trim();
 const D = v => S(v).replace(/[^0-9]/g, '');
@@ -194,7 +207,9 @@ function checkRow(r){
 /* 주소·성함·연락처·송장업체명·창고가 모두 같으면 한 줄로 합친다(합포장).
    9칸과 10칸은 컬럼 수가 달라 섞어서 붙여넣으면 시트가 밀린다 → 블록을 나눠서 낸다. */
 function buildOut(){
-  const me = (typeof ME !== 'undefined' && ME) ? ME : {name:'', addr:'', phone:''};
+  // 대신 발주(마스터)면 발주서에 박히는 주문처는 **고른 업체**다 — 마스터 계정이 아니라.
+  const me = amMaster() ? (FOR || {name:'', addr:'', phone:''})
+                        : ((typeof ME !== 'undefined' && ME) ? ME : {name:'', addr:'', phone:''});
   const groups = new Map();
   const notes = [];
   ROWS.forEach((r, i) => {
@@ -366,21 +381,72 @@ function meCard(){
     + '</div></div>';
 }
 
+/* 👥 어느 업체 발주인가 — 마스터 대신 발주 화면의 첫 칸.
+   계정이 있는 업체는 골라 쓰고(주소·연락처가 자동으로 따라온다),
+   카탈로그 계정이 아직 없는 업체는 직접 적는다. 둘 다 안 되면 발주 버튼이 잠긴다. */
+function forCard(){
+  const f = FOR || {};
+  const manual = !!(f && f.manual);
+  let opts = '<option value="">— 업체를 고르세요 —</option>';
+  if(CLIENTS) CLIENTS.forEach(c => {
+    opts += '<option value="' + esc(c.id) + '"' + ((!manual && f.id === c.id) ? ' selected' : '') + '>'
+          + esc(c.name || c.id) + ' (' + esc(c.id) + ')</option>';
+  });
+  if(CLIENTS === false){
+    return '<div class="ordbox" id="ordfor">'
+      + '<h3>⚠️ 발주 웹앱을 먼저 올려주세요</h3>'
+      + '<div class="hint">지금 붙어 있는 웹앱은 <b>대신 발주를 모르는 옛 버전</b>입니다. 이대로 넣으면 정산업체명이 <b>마스터 계정 이름</b>으로 박혀 발주가 틀어지므로 잠가뒀습니다.<br>'
+      + '<b>발주웹앱_AppsScript_최신코드.txt</b> 전체를 Apps Script 편집기에 붙여넣고 <b>새 버전으로 배포</b>한 뒤 이 화면을 새로고침해 주세요.</div></div>';
+  }
+  return '<div class="ordbox" id="ordfor">'
+    + '<h3>👥 어느 업체 발주인가요?</h3>'
+    + '<div class="hint">카톡·엑셀로 받은 발주를 <b>대신 넣는 화면</b>입니다. 고른 업체 이름·연락처·출고지가 그대로 발주서에 들어갑니다.</div>'
+    + '<div style="margin-top:10px">'
+    +   (CLIENTS ? '<select class="ordin" id="for_sel">' + opts + '</select>'
+                 : '<div class="hint">업체 목록을 불러오는 중입니다…</div>')
+    + '</div>'
+    + '<div class="ordbar" style="margin:8px 0 0"><button class="ordb2" id="for_manual">' + (manual ? '↩ 목록에서 고르기' : '✍️ 계정 없는 업체 직접 넣기') + '</button></div>'
+    + (manual
+        ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'
+          + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">업체명(정산)</span><input class="ordin" id="for_nm" value="' + esc(f.name || '') + '" placeholder="세금계산서 나가는 상호"></div>'
+          + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 연락처</span><input class="ordin" id="for_ph" value="' + esc(f.phone || '') + '" placeholder="02-000-0000"></div>'
+          + '<div style="grid-column:1/-1"><span class="k" style="font-size:11.5px;color:var(--muted)">출고지 주소 (선택)</span><input class="ordin" id="for_ad" value="' + esc(f.addr || '') + '" placeholder="안 쓰는 업체는 비워두세요"></div>'
+          + '</div>'
+        : '')
+    + (S(f.name)
+        ? '<div class="ordme" style="margin-top:10px">'
+          + '<div><span class="k">업체명(정산)</span><b>' + esc(f.name) + '</b></div>'
+          + '<div><span class="k">연락처</span><b>' + (S(f.phone) ? esc(f.phone) : '<span style="color:var(--accent-d)">비어 있음</span>') + '</b></div>'
+          + '<div><span class="k">출고지</span><b>' + (S(f.addr) ? esc(f.addr) : '<span style="color:var(--muted);font-weight:600">안 씀</span>') + '</b></div>'
+          + '</div>'
+        : '')
+    + '</div>';
+}
+
 function view(){
   css();
-  // 마스터가 주소로 직접 들어온 경우 — 발주는 업체가 넣는 것이다(위 renderUser 주석 참조)
-  if(ME && ME.master){
-    return subHead('🧾 발주하기', '')
-      + '<div class="ordwrap"><div class="ordbox"><h3>여기는 업체가 발주를 넣는 화면입니다</h3>'
-      + '<div class="hint">마스터 계정으로 발주를 넣으면 <b>정산 업체명이 관리자 계정 이름으로 박힙니다.</b><br>'
-      + '들어온 발주는 <b>📋 발주 내역</b>에서 보시면 됩니다.<br>'
-      + '업체 화면 그대로 확인하시려면 <b>테스트용 업체 계정</b>으로 로그인해 주세요.</div></div></div>';
+  const master = amMaster();
+  if(master && !CLIENTS && hasApi()){
+    // 업체 목록은 화면을 그린 뒤 채운다 — 기다리게 하지 않는다
+    /* 🔴 이 호출은 업체 목록을 받는 동시에 **웹앱이 대신 발주를 아는 버전인지** 확인하는 자물쇠다.
+       구버전 웹앱은 'clients'를 모른다 → 그 상태로 발주를 넣으면 대상 업체 필드가 통째로 무시되고
+       정산업체명이 마스터 계정 이름으로 박힌다. 그래서 실패하면 false로 두고 발주 버튼을 잠근다. */
+    api('clients', {token: ME.token}).then(j => {
+      CLIENTS = j.rows || [];
+    }).catch(() => { CLIENTS = false; }).then(() => {
+      const box = document.getElementById('ordfor');
+      if(box){ box.outerHTML = forCard(); bindFor(); }
+      paint();
+    });
   }
   if(!ROWS.length){ ROWS = loadDraft(); }
   if(!ROWS.length){ ROWS = [blank(), blank(), blank()]; }
-  return subHead('🧾 발주하기', '카탈로그 상품을 담거나, 엑셀에서 복사해 붙여넣으세요')
+  if(master) loadFor();
+  return subHead(master ? '🧾 대신 발주' : '🧾 발주하기',
+                 master ? '카톡·엑셀로 받은 발주를 넣고 바로 당일 시트로 보냅니다'
+                        : '카탈로그 상품을 담거나, 엑셀에서 복사해 붙여넣으세요')
     + '<div class="ordwrap">'
-    + meCard()
+    + (master ? forCard() : meCard())
     + '<div class="ordbox">'
     +   '<h3>발주서</h3>'
     // 📢 안내는 업체가 실제로 읽어야 뜻이 있다 — 특히 업체명 칸은 가장 크게 (사장님 2026-08-20)
@@ -494,10 +560,18 @@ function paintOut(ok, bad){
       + '<button class="ordb2" data-cpx="10" style="margin-top:7px">📋 복사</button>';
     if(o.nine.length) h += '<div class="hint" style="margin-top:8px">⚠️ 9칸과 10칸은 칸 수가 달라 <b>따로</b> 붙여넣어야 합니다.</div>';
   }
+  const master = amMaster();
+  // 대신 발주는 업체를 고르기 전엔 버튼을 잠근다 — 안 고르면 마스터 이름으로 발주가 나간다.
+  const oldApp = master && CLIENTS === false;      // 웹앱이 옛 버전 — 넣으면 마스터 이름으로 박힌다
+  const noFor = master && (oldApp || !(FOR && S(FOR.name)));
   h += '<div class="ordbar" style="margin-top:12px">'
-    + (hasApi()
-        ? '<button class="ordb2 pri" id="ord_submit">🧾 이대로 발주 넣기</button><span class="hint" id="ord_smsg" style="align-self:center"></span>'
-        : '<button class="ordb2 pri" disabled>🧾 발주 넣기 (준비 중)</button><span class="hint" style="align-self:center">발주 접수는 곧 열립니다. 지금은 위 발주서를 복사해 보내주세요.</span>')
+    + (!hasApi()
+        ? '<button class="ordb2 pri" disabled>🧾 발주 넣기 (준비 중)</button><span class="hint" style="align-self:center">발주 접수는 곧 열립니다. 지금은 위 발주서를 복사해 보내주세요.</span>'
+        : (noFor
+            ? '<button class="ordb2 pri" disabled>📤 발주 넣고 당일 시트로 보내기</button><span class="hint" style="align-self:center">'
+              + (oldApp ? '발주 웹앱을 최신 코드로 올린 뒤에 쓸 수 있습니다.' : '위에서 <b>어느 업체 발주인지</b> 먼저 골라주세요.') + '</span>'
+            : '<button class="ordb2 pri" id="ord_submit">' + (master ? '📤 발주 넣고 당일 시트로 바로 보내기' : '🧾 이대로 발주 넣기') + '</button>'
+              + '<span class="hint" id="ord_smsg" style="align-self:center">' + (master ? '넣는 즉시 당일 시트 맨 아래에 붙습니다.' : '') + '</span>'))
     + '</div>';
   box.innerHTML = h;
   box.__out = o;
@@ -522,19 +596,41 @@ async function submit(){
   o.nine.forEach(c => push('', c, false));
   o.ten.forEach(c => push(c[1], c, true));
   if(!items.length) return;
-  if(!confirm(items.length + '건을 발주로 넣을까요?\n\n넣으신 뒤에도 저희가 처리에 들어가기 전까지는 취소하실 수 있습니다.')) return;
+  const master = amMaster();
+  if(master && !(FOR && S(FOR.name))){ if(msg) msg.textContent = '어느 업체 발주인지 먼저 골라주세요.'; return; }
+  const ask = master
+    ? ('[' + FOR.name + '] 발주 ' + items.length + '건을 넣고 당일 시트로 바로 보낼까요?\n\n보낸 뒤에는 그 줄을 고치거나 취소할 수 없습니다.')
+    : (items.length + '건을 발주로 넣을까요?\n\n넣으신 뒤에도 저희가 처리에 들어가기 전까지는 취소하실 수 있습니다.');
+  if(!confirm(ask)) return;
   sb.disabled = true; sb.textContent = '보내는 중…'; if(msg) msg.textContent = '';
   try{
-    const j = await api('submit', {token: ME.token, items});
+    const req = {token: ME.token, items};
+    // 대신 발주 — 발주의 주인을 고른 업체로 넘기고, 저장되는 즉시 당일 시트까지 보낸다.
+    if(master){
+      if(FOR.id) req.forId = FOR.id;
+      req.forName = FOR.name; req.forAddr = FOR.addr || ''; req.forPhone = FOR.phone || '';
+      req.andPush = true;
+    }
+    const j = await api('submit', req);
     ROWS = [blank(), blank(), blank()];
     OPEN = -1;
     saveDraft();
     paint();
-    toast('발주 ' + j.orderNo + ' 접수되었습니다');
+    if(master){
+      const p = j.push || {};
+      // 🔴 발주는 저장됐는데 시트로만 못 간 경우가 있다 — 그걸 성공으로 뭉뚱그리면 발주가 조용히 안 나간다.
+      if(p.ok) toast('발주 ' + j.orderNo + ' — 당일 시트 ' + p.col + p.row + '행부터 ' + p.count + '줄 보냈습니다');
+      else {
+        alert('발주 ' + j.orderNo + ' 는 접수됐지만 당일 시트로 보내지 못했습니다.\n\n' + (p.error || '알 수 없는 오류')
+              + '\n\n발주 내역에서 [📤 당일 시트로 보내기]로 다시 보내주세요.');
+      }
+    } else {
+      toast('발주 ' + j.orderNo + ' 접수되었습니다');
+    }
     location.hash = 'orders';
   }catch(e){
     if(msg) msg.textContent = (e.message || '보내지 못했습니다') + ' — ' + TEL_HELP;
-    sb.disabled = false; sb.textContent = '🧾 이대로 발주 넣기';
+    sb.disabled = false; sb.textContent = master ? '📤 발주 넣고 당일 시트로 바로 보내기' : '🧾 이대로 발주 넣기';
   }
 }
 
@@ -885,10 +981,42 @@ async function saveMeInfo(phone, addr){
   try{ localStorage.setItem(NS + 'catalog_auth_v1', JSON.stringify(ME)); }catch(e){}
 }
 
+/* 👥 대신 발주 — 업체 고르기 칸의 이벤트. 카드를 다시 그릴 때마다 붙인다. */
+function bindFor(){
+  const $$ = id => document.getElementById(id);
+  const redraw = () => { const b = $$('ordfor'); if(b){ b.outerHTML = forCard(); bindFor(); } paint(); };
+  const sel = $$('for_sel');
+  if(sel) sel.onchange = () => {
+    const id = sel.value;
+    const c = (CLIENTS || []).filter(x => x.id === id)[0];
+    FOR = c ? {id:c.id, name:c.name, addr:c.addr, phone:c.phone} : null;
+    saveFor(); redraw();
+  };
+  const mb = $$('for_manual');
+  if(mb) mb.onclick = () => {
+    FOR = (FOR && FOR.manual) ? null : {id:'', name:'', addr:'', phone:'', manual:true};
+    saveFor(); redraw();
+  };
+  // 직접 입력칸은 타이핑할 때마다 다시 그리면 포커스가 튄다 → 값만 붙잡고 있다가 벗어날 때 반영
+  ['for_nm','for_ph','for_ad'].forEach(id => {
+    const el = $$(id);
+    if(!el) return;
+    el.onchange = () => {
+      FOR = FOR || {manual:true};
+      FOR.manual = true; FOR.id = '';
+      FOR.name = S($$('for_nm') ? $$('for_nm').value : FOR.name);
+      FOR.phone = S($$('for_ph') ? $$('for_ph').value : FOR.phone);
+      FOR.addr = S($$('for_ad') ? $$('for_ad').value : FOR.addr);
+      saveFor(); paint();
+    };
+  });
+}
+
 // ── 이벤트 ──────────────────────────────────────────────────────
 function bind(){
   const $$ = id => document.getElementById(id);
   paint();
+  if(amMaster()) bindFor();
   const on = (id, fn) => { const el = $$(id); if(el) el.onclick = fn; };
   on('ord_add', () => { ROWS.push(blank()); paint(); });
   on('ord_clr', () => { if(confirm('입력한 발주 내용을 전부 지울까요?')){ ROWS = [blank(), blank(), blank()]; OPEN = -1; paint(); } });
