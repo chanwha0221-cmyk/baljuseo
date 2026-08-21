@@ -274,6 +274,16 @@ function css(){
 .ordme b{font-weight:800}
 .ordme .k{color:var(--muted);font-size:11.5px;display:block}
 .ordin{border:1.5px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;background:var(--card);color:var(--ink);outline:none;font-family:inherit;width:100%}
+/* 🔎 대신 발주 — 업체 쳐서 찾기 목록 (드롭다운은 업체가 200곳 넘으면 못 고른다) */
+.forlist{display:none;position:absolute;left:0;right:0;top:100%;z-index:30;margin-top:4px;background:var(--card);
+  border:1.5px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);max-height:290px;overflow:auto}
+.foritem{padding:9px 11px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--line);line-height:1.45}
+.foritem:last-child{border-bottom:none}
+.foritem:hover{background:var(--soft)}
+.foritem b{font-weight:800;display:block}
+.foritem span{color:var(--muted);font-size:11.5px}
+.foritem.none{cursor:default;color:var(--muted)}
+.foritem.none:hover{background:none}
 .ordin:focus{border-color:var(--accent)}
 .ordtblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow)}
 table.ordtbl{border-collapse:collapse;width:100%;min-width:920px;font-size:12.5px}
@@ -387,11 +397,6 @@ function meCard(){
 function forCard(){
   const f = FOR || {};
   const manual = !!(f && f.manual);
-  let opts = '<option value="">— 업체를 고르세요 —</option>';
-  if(CLIENTS) CLIENTS.forEach(c => {
-    opts += '<option value="' + esc(c.id) + '"' + ((!manual && f.id === c.id) ? ' selected' : '') + '>'
-          + esc(c.name || c.id) + ' (' + esc(c.id) + ')</option>';
-  });
   if(CLIENTS === false){
     return '<div class="ordbox" id="ordfor">'
       + '<h3>⚠️ 발주 웹앱을 먼저 올려주세요</h3>'
@@ -401,9 +406,14 @@ function forCard(){
   return '<div class="ordbox" id="ordfor">'
     + '<h3>👥 어느 업체 발주인가요?</h3>'
     + '<div class="hint">카톡·엑셀로 받은 발주를 <b>대신 넣는 화면</b>입니다. 고른 업체 이름·연락처·출고지가 그대로 발주서에 들어갑니다.</div>'
-    + '<div style="margin-top:10px">'
-    +   (CLIENTS ? '<select class="ordin" id="for_sel">' + opts + '</select>'
-                 : '<div class="hint">업체 목록을 불러오는 중입니다…</div>')
+    /* 🔎 업체가 200곳이 넘어가면 드롭다운으로는 못 고른다(홍팀장 2026-08-21) → 쳐서 찾는다.
+       ⚠️ input에 name을 넣지 않는다 — 크롬이 폼 필드로 보고 저장된 아이디를 꽂아버린다(2026-08-19 검색칸 사고). */
+    + '<div style="margin-top:10px;position:relative">'
+    +   (CLIENTS
+          ? '<input class="ordin" id="for_q" autocomplete="off" placeholder="업체명 또는 아이디를 치세요 (예: 청년수산 / mausel)" value="">'
+            + '<div id="for_list" class="forlist"></div>'
+            + '<div class="hint" style="margin-top:6px">등록된 업체 ' + CLIENTS.length + '곳</div>'
+          : '<div class="hint">업체 목록을 불러오는 중입니다…</div>')
     + '</div>'
     + '<div class="ordbar" style="margin:8px 0 0"><button class="ordb2" id="for_manual">' + (manual ? '↩ 목록에서 고르기' : '✍️ 계정 없는 업체 직접 넣기') + '</button></div>'
     + (manual
@@ -985,13 +995,37 @@ async function saveMeInfo(phone, addr){
 function bindFor(){
   const $$ = id => document.getElementById(id);
   const redraw = () => { const b = $$('ordfor'); if(b){ b.outerHTML = forCard(); bindFor(); } paint(); };
-  const sel = $$('for_sel');
-  if(sel) sel.onchange = () => {
-    const id = sel.value;
-    const c = (CLIENTS || []).filter(x => x.id === id)[0];
-    FOR = c ? {id:c.id, name:c.name, addr:c.addr, phone:c.phone} : null;
-    saveFor(); redraw();
-  };
+  /* 🔎 쳐서 찾기 — 업체명·아이디 어느 쪽으로 쳐도 걸리게. 공백은 무시한다(업체명 띄어쓰기가 제각각이라).
+     ⚠️ 입력칸 자체는 다시 그리지 않는다(그리면 글자 칠 때마다 커서가 튄다) — 후보 목록만 갈아끼운다. */
+  const q = $$('for_q'), list = $$('for_list');
+  if(q && list){
+    const norm = s => S(s).replace(/\s+/g, '').toLowerCase();
+    let hits = [];
+    const draw = () => {
+      const kw = norm(q.value);
+      if(!kw){ list.innerHTML = ''; list.style.display = 'none'; hits = []; return; }
+      hits = (CLIENTS || []).filter(c => norm(c.name).indexOf(kw) >= 0 || norm(c.id).indexOf(kw) >= 0).slice(0, 12);
+      list.innerHTML = hits.length
+        ? hits.map((c, i) => '<div class="foritem" data-fi="' + i + '"><b>' + esc(c.name || c.id) + '</b>'
+            + '<span>' + esc(c.id) + (S(c.phone) ? ' · ' + esc(c.phone) : '') + '</span></div>').join('')
+        : '<div class="foritem none">찾는 업체가 없습니다 — 계정이 없는 업체면 아래 [✍️ 직접 넣기]를 쓰세요</div>';
+      list.style.display = '';
+    };
+    const pick = c => {
+      FOR = {id:c.id, name:c.name, addr:c.addr, phone:c.phone};
+      saveFor(); redraw();
+    };
+    q.oninput = draw;
+    q.onfocus = draw;
+    q.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); if(hits.length) pick(hits[0]); } };
+    list.onmousedown = e => {          // click이면 blur가 먼저 나 목록이 닫힌다
+      const it = e.target.closest && e.target.closest('[data-fi]');
+      if(!it) return;
+      e.preventDefault();
+      pick(hits[+it.getAttribute('data-fi')]);
+    };
+    q.onblur = () => setTimeout(() => { if(list) list.style.display = 'none'; }, 150);
+  }
   const mb = $$('for_manual');
   if(mb) mb.onclick = () => {
     FOR = (FOR && FOR.manual) ? null : {id:'', name:'', addr:'', phone:'', manual:true};
