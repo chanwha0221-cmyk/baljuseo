@@ -426,7 +426,7 @@ function forCard(){
     + (S(f.name)
         ? '<div class="ordme" style="margin-top:10px">'
           + '<div><span class="k">업체명(정산)</span><b>' + esc(f.name) + '</b></div>'
-          + '<div><span class="k">연락처</span><b>' + (S(f.phone) ? esc(f.phone) : '<span style="color:var(--accent-d)">비어 있음</span>') + '</b></div>'
+          + '<div><span class="k">연락처</span><b>' + (S(f.phone) ? esc(f.phone) : '<span style="color:var(--up)">⚠️ 넣어주세요 (필수)</span>') + '</b></div>'
           + '<div><span class="k">출고지</span><b>' + (S(f.addr) ? esc(f.addr) : '<span style="color:var(--muted);font-weight:600">안 씀</span>') + '</b></div>'
           + '</div>'
         : '')
@@ -608,6 +608,14 @@ async function submit(){
   if(!items.length) return;
   const master = amMaster();
   if(master && !(FOR && S(FOR.name))){ if(msg) msg.textContent = '어느 업체 발주인지 먼저 골라주세요.'; return; }
+  /* 대행 발주는 **연락처 필수 · 주소 선택** (홍팀장 2026-08-21).
+     비워두면 마스터 계정 번호가 주문처 연락처로 박혀 나간다 — 웹앱도 같은 검사를 한다. */
+  if(master && !S(FOR.phone)){
+    if(msg) msg.textContent = FOR.name + ' 의 주문처 연락처를 넣어주세요. (출고지 주소는 선택입니다)';
+    const ph = document.getElementById('for_ph');
+    if(ph) ph.focus();
+    return;
+  }
   const ask = master
     ? ('[' + FOR.name + '] 발주 ' + items.length + '건을 넣고 당일 시트로 바로 보낼까요?\n\n보낸 뒤에는 그 줄을 고치거나 취소할 수 없습니다.')
     : (items.length + '건을 발주로 넣을까요?\n\n넣으신 뒤에도 저희가 처리에 들어가기 전까지는 취소하실 수 있습니다.');
