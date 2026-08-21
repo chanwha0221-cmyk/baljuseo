@@ -284,6 +284,13 @@ function css(){
 .foritem span{color:var(--muted);font-size:11.5px}
 .foritem.none{cursor:default;color:var(--muted)}
 .foritem.none:hover{background:none}
+.foritem.none b{color:var(--up)}
+.foritem span{display:block}
+.ftag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;margin-left:6px;vertical-align:middle}
+.ftag.on{background:var(--soft);color:var(--accent-d)}
+.ftag.off{background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--gold)}
+.fno{color:var(--up);font-weight:700}
+@media(prefers-color-scheme:dark){.ftag.on{color:var(--accent)}}
 .ordin:focus{border-color:var(--accent)}
 .ordtblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow)}
 table.ordtbl{border-collapse:collapse;width:100%;min-width:920px;font-size:12.5px}
@@ -1014,14 +1021,21 @@ function bindFor(){
     const norm = s => S(s).replace(/\s+/g, '').toLowerCase();
     let hits = [];
     const draw = () => {
-      const kw = norm(q.value);
+      /* 🔎 자동완성 — 띄어쓰기는 무시하고 찾는다("청년 수산"으로 쳐도 "청년수산"이 걸리게).
+         찾은 업체는 **연락처·출고지까지 그 자리에서** 보여준다. 이름만 뜨면
+         "등록된 업체인지 아닌지" 확인이 안 된다(홍팀장 2026-08-21). */
+      const kw = pkey(q.value);
       if(!kw){ list.innerHTML = ''; list.style.display = 'none'; hits = []; return; }
-      hits = (CLIENTS || []).filter(c => norm(c.name).indexOf(kw) >= 0 || norm(c.id).indexOf(kw) >= 0).slice(0, 12);
+      hits = (CLIENTS || []).filter(c => pkey(c.name).indexOf(kw) >= 0 || pkey(c.id).indexOf(kw) >= 0).slice(0, 12);
       list.innerHTML = hits.length
-        ? hits.map((c, i) => '<div class="foritem" data-fi="' + i + '"><b>' + esc(c.name || c.id) + '</b>'
-            + '<span>' + esc(c.id || (c.src === '미가입' ? '카탈로그 계정 없음' : ''))
-            + (S(c.phone) ? ' · ' + esc(c.phone) : ' · 연락처 없음') + '</span></div>').join('')
-        : '<div class="foritem none">찾는 업체가 없습니다 — 계정이 없는 업체면 아래 [✍️ 직접 넣기]를 쓰세요</div>';
+        ? hits.map((c, i) => '<div class="foritem" data-fi="' + i + '">'
+            + '<b>' + esc(c.name || c.id) + (c.src === '미가입'
+                ? '<span class="ftag off">계정없음</span>'
+                : '<span class="ftag on">가입</span>') + '</b>'
+            + '<span>' + (S(c.phone) ? '☎ ' + esc(c.phone) : '<span class="fno">☎ 연락처 없음 — 넣어야 발주됩니다</span>')
+            + (S(c.addr) ? ' · 📍 ' + esc(c.addr) : '') + '</span></div>').join('')
+        : '<div class="foritem none"><b>「' + esc(S(q.value)) + '」 등록된 업체가 없습니다</b>'
+            + '<span>처음 받는 업체면 아래 <b>[✍️ 계정 없는 업체 직접 넣기]</b>로 넣고 저장하세요</span></div>';
       list.style.display = '';
     };
     const pick = c => {
