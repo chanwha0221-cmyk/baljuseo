@@ -422,6 +422,10 @@ function forCard(){
           + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 연락처</span><input class="ordin" id="for_ph" value="' + esc(f.phone || '') + '" placeholder="02-000-0000"></div>'
           + '<div style="grid-column:1/-1"><span class="k" style="font-size:11.5px;color:var(--muted)">출고지 주소 (선택)</span><input class="ordin" id="for_ad" value="' + esc(f.addr || '') + '" placeholder="안 쓰는 업체는 비워두세요"></div>'
           + '</div>'
+          /* 한 번 저장해두면 다음에 그 업체가 또 카톡으로 발주를 줘도 이름만 쳐서 불러온다
+             (홍팀장 2026-08-21). 저장 안 해도 이번 발주는 그냥 나간다. */
+          + '<div class="ordbar" style="margin:8px 0 0"><button class="ordb2 pri" id="for_save">💾 이 업체 저장</button>'
+          + '<span class="hint" id="for_msg" style="align-self:center">저장해두면 다음부터 이름만 쳐서 불러옵니다</span></div>'
         : '')
     + (S(f.name)
         ? '<div class="ordme" style="margin-top:10px">'
@@ -1015,7 +1019,8 @@ function bindFor(){
       hits = (CLIENTS || []).filter(c => norm(c.name).indexOf(kw) >= 0 || norm(c.id).indexOf(kw) >= 0).slice(0, 12);
       list.innerHTML = hits.length
         ? hits.map((c, i) => '<div class="foritem" data-fi="' + i + '"><b>' + esc(c.name || c.id) + '</b>'
-            + '<span>' + esc(c.id) + (S(c.phone) ? ' · ' + esc(c.phone) : '') + '</span></div>').join('')
+            + '<span>' + esc(c.id || (c.src === '미가입' ? '카탈로그 계정 없음' : ''))
+            + (S(c.phone) ? ' · ' + esc(c.phone) : ' · 연락처 없음') + '</span></div>').join('')
         : '<div class="foritem none">찾는 업체가 없습니다 — 계정이 없는 업체면 아래 [✍️ 직접 넣기]를 쓰세요</div>';
       list.style.display = '';
     };
@@ -1038,6 +1043,29 @@ function bindFor(){
   if(mb) mb.onclick = () => {
     FOR = (FOR && FOR.manual) ? null : {id:'', name:'', addr:'', phone:'', manual:true};
     saveFor(); redraw();
+  };
+  // 💾 미가입 업체 저장 — 계정은 안 만든다(아이디·비번 없음). 대신 발주용 명부에만 올린다.
+  const sv = $$('for_save');
+  if(sv) sv.onclick = async () => {
+    const nm = S($$('for_nm').value), ph = S($$('for_ph').value), ad = S($$('for_ad').value);
+    const msg = $$('for_msg');
+    if(!nm){ msg.textContent = '업체명을 넣어주세요.'; $$('for_nm').focus(); return; }
+    if(!ph){ msg.textContent = '연락처를 넣어주세요. (주소는 선택입니다)'; $$('for_ph').focus(); return; }
+    sv.disabled = true; msg.textContent = '저장 중…';
+    try{
+      const j = await api('saveclient', {token: ME.token, name: nm, phone: fmtTel(ph) || ph, addr: ad});
+      const tel = fmtTel(ph) || ph;
+      FOR = {id:'', name:nm, phone:tel, addr:ad};
+      saveFor();
+      // 목록에도 바로 반영 — 다시 불러오지 않아도 이 자리에서 검색된다
+      if(Array.isArray(CLIENTS)){
+        const i = CLIENTS.findIndex(c => pkey(c.name) === pkey(nm));
+        const row = {id:'', name:nm, phone:tel, addr:ad, owner:'', src:'미가입'};
+        if(i >= 0) CLIENTS[i] = row; else CLIENTS.push(row);
+      }
+      toast(j.updated ? nm + ' 정보를 갱신했습니다' : nm + ' 을(를) 명부에 올렸습니다');
+      redraw();
+    }catch(e){ msg.textContent = e.message || '저장하지 못했습니다'; sv.disabled = false; }
   };
   // 직접 입력칸은 타이핑할 때마다 다시 그리면 포커스가 튄다 → 값만 붙잡고 있다가 벗어날 때 반영
   ['for_nm','for_ph','for_ad'].forEach(id => {
