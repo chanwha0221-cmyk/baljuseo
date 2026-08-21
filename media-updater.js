@@ -535,8 +535,71 @@ for(let i=0;i<picks.length;i++){
 }
 $('mu-q').oninput=renderList;
 
-/* 🔗 링크 업데이트 — 상품정보 업데이트 시트의 링크 탭에서 최신 링크를 받아 캐시에 반영.
-   링크가 바뀐 상품은 사진도 바뀌었을 가능성이 크니 자동으로 선택해 둔다. */
+/* 🩺 상세가 안 뜨는 링크만 골라 고친다 (홍팀장 2026-08-21: "링크 눌렀을 때 상세설명 안 나오는 것만
+   잡아 달랑게, 그럼 전체 다 돌릴 필요도 없잖여").
+   🔴 왜 필요했나: 이 버튼은 사진캐시(`상품이미지_v2`)의 링크만 고치고, **카탈로그가 1순위로 읽는
+      `상품링크` 정본은 안 건드렸다.** 그래서 소스 시트에서 링크를 고치고 버튼을 눌러도 카탈로그는
+      옛 링크 그대로였다 (건중하새우포 1박스 — 캐시 706476 / 정본 698810, 정본이 이김).
+      게다가 그 옛 링크 698810은 **죽은 글**이라 업체가 누르면 마스터 메인으로 튕겼다.
+   🧰 판정법: `masterc.kr/<글번호>`를 열어 `<title>`이 `(주)마스터`거나 비면 죽은 글이다.
+      로그인 없이도 제목은 나온다 — 단 **masterc 페이지 위에서 눌러야** 한다(교차출처 차단).
+   ⚡ 전수 검사 안 한다: **정본과 소스가 다른 것만** 본다. 둘이 같으면 바꿔 넣을 후보 자체가 없다. */
+function liveTitle(url){
+  return fetch(url, {credentials:'include'}).then(function(r){ return r.text(); }).then(function(t){
+    var m = t.match(/<title>([^<]*)<\/title>/);
+    return m ? m[1].trim() : '';
+  })['catch'](function(){ return null; });     // null = 확인 못 함(끊김) → 죽었다고 단정하지 않는다
+}
+function isDeadTitle(t){ return t !== null && (!t || t.indexOf('(주)마스터') === 0); }
+
+async function fixDeadLinks(linkMap){
+  const CANON = "'상품링크'!A2:F2400";
+  const cur = await api(DOGU, '/values/' + q(CANON));
+  if(cur.error) return {error:cur.error};
+  const rows = cur.values || [];
+  const sell = {}; PRODUCTS.forEach(function(p){ sell[pkey(p.name)] = p.name; });
+
+  // 정본 ≠ 소스 인 판매중 상품만 후보. 나머지는 손댈 이유가 없다.
+  const cand = [];
+  for(let i=0;i<rows.length;i++){
+    const nm = (rows[i][0]||'').trim(); if(!nm) continue;
+    const k = pkey(nm); if(!sell[k]) continue;
+    const now = (rows[i][2]||'').trim(), nu = linkMap[k];
+    if(nu && now && nu !== now) cand.push({row:i+2, k:k, name:nm, now:now, next:nu});
+  }
+  if(!cand.length) return {checked:0, fixed:0, alive:0, unknown:0, fixedList:[]};
+
+  // 지금 링크가 정말 죽었는지 확인 — 살아 있으면 건드리지 않는다(멀쩡한 걸 바꾸면 그게 사고다)
+  const fixedList = [], stillAlive = [];
+  let unknown = 0, ci = 0;
+  async function worker(){
+    while(ci < cand.length){
+      const c = cand[ci++];
+      log('🩺 상세 확인 중 ' + Math.min(ci, cand.length) + '/' + cand.length + ' — ' + c.name);
+      const t = await liveTitle(c.now);
+      if(t === null){ unknown++; continue; }
+      if(!isDeadTitle(t)){ stillAlive.push(c.name); continue; }
+      const t2 = await liveTitle(c.next);
+      if(t2 === null || isDeadTitle(t2)){ unknown++; continue; }   // 새 링크도 죽었으면 그대로 둔다
+      c.title = t2;
+      fixedList.push(c);
+    }
+  }
+  await Promise.all([0,1,2].map(worker));
+
+  // 고칠 것만 그 행에 딱 써 넣는다 — 표 전체를 다시 쓰지 않는다
+  const today = new Date().toISOString().slice(0,10);
+  for(const c of fixedList){
+    const j = await api(DOGU, '/values/' + q("'상품링크'!A" + c.row + ':F' + c.row) + '?valueInputOption=RAW',
+      {method:'PUT', headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({values:[[c.name, idOf(c.next), c.next, '판매', '새소스', today]]})});
+    if(j.error) return {error:j.error, fixedList:fixedList};
+  }
+  return {checked:cand.length, fixed:fixedList.length, alive:stillAlive.length, unknown:unknown, fixedList:fixedList};
+}
+
+/* 🔗 링크 업데이트 — 소스 시트의 최신 링크를 캐시에 반영하고,
+   그중 **상세가 안 뜨는 링크(죽은 글)만** 골라 정본까지 고친다. */
 $('mu-link').onclick=async function(){
   if(BUSY)return;
   BUSY=true;$('mu-link').disabled=true;log('링크 시트에서 최신 링크 가져오는 중…');
@@ -557,9 +620,26 @@ $('mu-link').onclick=async function(){
     }
     const j=await saveCache();
     renderSum();renderList();renderRun();
-    if(j.error)log('❌ 저장 실패: '+j.error.message);
-    else log('🔗 링크 갱신 완료 — 바뀐 링크 '+changed+'건 · 새로 채운 링크 '+added+'건\n'
-      +(changed+added?'바뀐 상품을 자동 선택해 뒀습니다. 아래 [선택 N건 업데이트]를 누르면 사진·스펙을 새로 받습니다.':'바뀐 링크가 없습니다.'));
+    if(j.error){log('❌ 저장 실패: '+j.error.message);}
+    else{
+      log('🔗 캐시 링크 갱신 — 바뀐 링크 '+changed+'건 · 새로 채운 링크 '+added+'건');
+      /* 카탈로그는 캐시가 아니라 `상품링크` 정본을 먼저 본다 → 여기서 상세 안 뜨는 것만 고쳐야 끝난다. */
+      if(!/masterc/.test(location.hostname)){
+        log('⚠️ 상세가 뜨는지는 masterc 페이지 위에서만 확인할 수 있습니다. 게시판 글 화면에서 다시 눌러주세요.');
+      }else{
+        const f=await fixDeadLinks(LINKS);
+        if(f.error){log('❌ 정본 수정 실패: '+(f.error.message||f.error));}
+        else if(!f.checked){log('✅ 정본과 소스가 같습니다 — 고칠 링크 없습니다.');}
+        else{
+          log('🩺 상세 확인 '+f.checked+'건 → 안 뜨던 '+f.fixed+'건 고침'
+            +(f.alive?' · 멀쩡해서 그대로 둔 것 '+f.alive+'건':'')
+            +(f.unknown?' · 확인 못 한 것 '+f.unknown+'건':''));
+          if(f.fixed)log('🔧 '+f.fixedList.map(function(c){return c.name+' → '+idOf(c.next);}).join('\n🔧 ')
+            +'\n업체 화면에 반영하려면 카탈로그에서 🔄 새로고침을 눌러주세요.');
+        }
+      }
+      if(changed+added)log('바뀐 상품을 자동 선택해 뒀습니다. 아래 [선택 N건 업데이트]를 누르면 사진·스펙을 새로 받습니다.');
+    }
   }catch(e){log('❌ '+(e.message||e));}
   BUSY=false;$('mu-link').disabled=false;renderRun();
 };
