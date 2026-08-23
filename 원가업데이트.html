@@ -10,7 +10,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>마스터 원가 업데이트 v1.1</title>
+<title>마스터 원가 업데이트 v1.2</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#f5f6f8;color:#222;font:15px/1.6 -apple-system,'Malgun Gothic',sans-serif;padding:18px}
@@ -303,6 +303,19 @@ async function apply(){
     if(after.length!==n) throw new Error('반영 후 건수가 안 맞습니다 (기대 '+n+' / 실제 '+after.length+'). 시트를 확인하세요.');
     const first=key(after[0][0])===key(nw[0][0]), last=key(after[n-1][0])===key(nw[n-1][0]);
     if(!first||!last) throw new Error('반영 후 첫/끝 상품이 다릅니다. 시트를 확인하세요.');
+
+    // 5) 언제 원가를 갈아끼웠는지 '설정' 탭에 남긴다
+    //    → 제안서 관리자(proposal/admin)가 이 값을 읽어 "오늘 원가인지"를 보여준다.
+    //      제안 단가가 옛 원가로 나가는 걸 막는 게 목적이라, 실패해도 반영 자체는 성공으로 둔다.
+    try{
+      const d=new Date(),p=x=>(x<10?'0':'')+x;
+      const stampVal=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+' ('+n.toLocaleString()+'건)';
+      const cfg=(await api(SHEET_ID+'/values/'+A1('설정')+'!A1:B200')).values||[];
+      let at=-1; cfg.forEach((r,i)=>{ if(key(r[0])==='원가표반영시각') at=i; });
+      if(at>=0) await api(SHEET_ID+'/values/'+A1('설정')+'!B'+(at+1)+'?valueInputOption=RAW',{method:'PUT',body:JSON.stringify({values:[[stampVal]]})});
+      else await api(SHEET_ID+'/values/'+A1('설정')+'!A1:B1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{method:'POST',body:JSON.stringify({values:[['원가표반영시각',stampVal]]})});
+      log('   원가표 반영 시각 기록 (제안서 관리자에 표시됨)');
+    }catch(e){ log('   ⚠️ 반영 시각 기록만 실패 — 원가는 정상 반영됐다: '+e.message); }
 
     $('prev').classList.add('hide');
     $('done').classList.remove('hide');
