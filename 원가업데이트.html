@@ -1,9 +1,16 @@
 <!DOCTYPE html>
+<!--
+  마스터 원가 업데이트 — 리모컨(공급가등록) 엑셀 내보내기 파일 → 비서 시트 '전체상품원가' 탭
+  · 하던 일: 파일 열기 → 전체 Ctrl+C → 시트에 Ctrl+V  /  지금: 파일 끌어다 놓기 → [시트에 반영하기]
+  · 값은 리모컨 원본 그대로 옮긴다(오타·이상값도 판단하지 않는다 — 원본이 정본).
+  · 반영 전 '전체상품원가_백업' 탭에 직전 내용을 통째로 떠둔다. 사고 나면 거기서 되살린다.
+  · 반영 후 시트를 다시 읽어 건수·첫줄·끝줄을 대조해야 '완료'다.
+-->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>마스터 원가 업데이트 v1.0</title>
+<title>마스터 원가 업데이트 v1.1</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#f5f6f8;color:#222;font:15px/1.6 -apple-system,'Malgun Gothic',sans-serif;padding:18px}
