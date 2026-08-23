@@ -240,3 +240,18 @@ textarea:focus{outline:2px solid var(--teal);border-color:var(--teal);}
 /* 사진 주소 직접 입력 (파일 업로드는 드라이브 API가 막혀 있어 대체) */
 .in-img{width:100%;margin-top:6px;font-family:inherit;font-size:11px;padding:6px 8px;
   border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
+
+/* ── 📝 제안 이력 (2026-08-24 홍팀장: 날짜·업체·상품·제안가를 텍스트로 남긴다) ── */
+.hist-list{margin-top:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden;
+  max-height:460px;overflow-y:auto;background:var(--surface);}
+.hist-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid var(--border);
+  font-size:12.5px;line-height:1.5;}
+.hist-row:last-child{border-bottom:0;}
+.hist-row:hover{background:var(--accent-light);}
+.hist-row .hd{color:var(--muted);font-size:11.5px;white-space:nowrap;flex:0 0 82px;}
+.hist-row .hc{font-weight:800;white-space:nowrap;flex:0 0 auto;max-width:170px;overflow:hidden;text-overflow:ellipsis;}
+.hist-row .hn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hist-row .hp{font-weight:800;color:var(--teal);white-space:nowrap;flex:0 0 auto;}
+.hist-row .hm{color:var(--muted);font-size:11.5px;white-space:nowrap;flex:0 0 auto;max-width:180px;
+  overflow:hidden;text-overflow:ellipsis;}
+.hist-row .hx{padding:4px 8px;font-size:11px;flex:0 0 auto;}

@@ -71,12 +71,22 @@
     var d = String(s || "").replace(/[^0-9.-]/g, "");
     return d === "" ? 0 : Number(d);
   }
+  /* 카테고리 키는 2026-08-24부터 카탈로그 '상품분류'의 분류명 그대로다 ('수산','축산',…).
+     옛 키(fish/meal/living)로 저장된 행이 남아 있어도 화면에서 빠지지 않게 여기서 흡수한다. */
   function normCat(v) {
     var s = String(v || "").trim().toLowerCase();
-    if (s.indexOf("fish") > -1 || s.indexOf("수산") > -1 || s.indexOf("seafood") > -1) return "fish";
-    if (s.indexOf("meal") > -1 || s.indexOf("간편") > -1 || s.indexOf("식품") > -1) return "meal";
-    if (s.indexOf("living") > -1 || s.indexOf("생활") > -1) return "living";
-    return null;
+    var pick = function () {
+      for (var i = 0; i < arguments.length; i++) if (CAT[arguments[i]]) return arguments[i];
+      return null;
+    };
+    if (s.indexOf("fish") > -1 || s.indexOf("수산") > -1 || s.indexOf("seafood") > -1) return pick("수산", "fish");
+    if (s.indexOf("축산") > -1 || s.indexOf("meat") > -1) return pick("축산");
+    if (s.indexOf("meal") > -1 || s.indexOf("간편") > -1 || s.indexOf("가공") > -1 || s.indexOf("식품") > -1) return pick("가공식품", "meal");
+    if (s.indexOf("김치") > -1 || s.indexOf("반찬") > -1) return pick("김치·반찬");
+    if (s.indexOf("과일") > -1) return pick("과일");
+    if (s.indexOf("농산") > -1 || s.indexOf("채소") > -1) return pick("농산물");
+    if (s.indexOf("living") > -1 || s.indexOf("생활") > -1) return pick("생활용품", "living");
+    return pick("기타");
   }
   function isShown(v) {
     if (v == null || v === "") return true;

@@ -20,7 +20,9 @@
   var TAB = {
     products: '제안서상품',
     versions: '제안서버전',
-    cats: '제안서카테고리'
+    cats: '제안서카테고리',
+    history: '제안이력',      // 📝 언제 · 어느 업체에 · 무슨 상품을 · 얼마에 제안했나 (2026-08-24 홍팀장)
+    catmap: '상품분류'        // catalog.html 이 쓰는 그 분류표(상품명 → 분류). 여기선 읽기만 한다.
   };
 
   function sheetId() { return (CFG.dataSheet && CFG.dataSheet.id) || ''; }
@@ -225,6 +227,8 @@
   HEADERS[TAB.versions] = ['id', 'slug', '이름', '순서', '설정JSON'];
   HEADERS[TAB.cats] = ['id', 'key', '이름', '아이콘', '영문라벨', '소개', '헤더메타', '색상', '사진맞춤', '표시', '순서'];
   HEADERS[TAB.products] = ['버전', '카테고리', '상품명', '창고', '설명', '공급가', '택배사', '택배비', '면과세', '사진', '링크', '노출', '순서', '특별제안가', '원가'];
+  HEADERS[TAB.history] = ['날짜', '업체명', '상품명', '제안가', '창고', '메모', 'id'];
+  // ⚠️ '상품분류'(catmap)는 여기서 만들지 않는다 — media-updater/카탈로그가 쓰는 기존 탭이라 읽기만 한다.
 
   async function svcEnsureTabs() {
     var j = await api(sheetId() + '?fields=sheets(properties(title))');

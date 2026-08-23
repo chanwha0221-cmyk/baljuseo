@@ -14,13 +14,39 @@
   var root = document.getElementById("admin-root");
   var T = window.SVC.TAB;
 
-  var DEFAULT_CATS = [
-    { id: "c1", key: "fish", name: "신선 수산물", mark: "魚", eyebrow: "SEAFOOD · 메인 카테고리", descr: "", meta: "", accent: "#0E8A8F", fit: "cover", show: true, sort_order: 10 },
-    { id: "c2", key: "meal", name: "간편식품", mark: "食", eyebrow: "CONVENIENCE FOOD", descr: "", meta: "", accent: "#FF5B39", fit: "cover", show: true, sort_order: 20 },
-    { id: "c3", key: "living", name: "생활용품", mark: "生", eyebrow: "LIVING GOODS", descr: "", meta: "", accent: "#3BA559", fit: "contain", show: true, sort_order: 30 }
+  /* ================= 카테고리 = 카탈로그의 '상품분류' 그대로 =================
+     2026-08-24 홍팀장: "카테고리를 여기서 따로 관리할 필요 없다. catalog.html 에서 따오자."
+     → 도구시트 '상품분류' 탭(상품명 → 분류)이 유일한 분류 기준이다. 카탈로그·미디어업데이터와 같은 표.
+       · 카테고리 key = 분류명 그대로 ('수산', '축산' …). 옛 key(fish/meal/living)는 로드할 때 자동 이관.
+       · 아이콘·색은 아래 프리셋 고정 — 관리 화면에서 손댈 일이 없다(카테고리 관리 패널 폐기).
+       · 제안서카테고리 탭은 공개 사이트(app.js)가 읽으므로 계속 채워 준다(자동 동기화). */
+  var CAT_PRESET = [
+    { key: "수산",      mark: "魚", eyebrow: "SEAFOOD",        accent: "#0E8A8F", fit: "cover" },
+    { key: "축산",      mark: "肉", eyebrow: "MEAT",           accent: "#C0392B", fit: "cover" },
+    { key: "가공식품",  mark: "食", eyebrow: "PROCESSED FOOD", accent: "#FF5B39", fit: "cover" },
+    { key: "김치·반찬", mark: "菜", eyebrow: "SIDE DISH",      accent: "#3BA559", fit: "cover" },
+    { key: "농산물",    mark: "農", eyebrow: "FARM",           accent: "#A67C2E", fit: "cover" },
+    { key: "과일",      mark: "果", eyebrow: "FRUIT",          accent: "#E0483D", fit: "cover" },
+    { key: "생활용품",  mark: "生", eyebrow: "LIVING GOODS",   accent: "#6B5BD2", fit: "contain" },
+    { key: "기타",      mark: "他", eyebrow: "ETC",            accent: "#6B6760", fit: "cover" }
   ];
+  /* 옛 카테고리 key → 새 분류. 상품분류 탭에서 못 찾은 상품만 이걸로 떨어진다. */
+  var LEGACY_CAT = { fish: "수산", meal: "가공식품", living: "생활용품" };
+
+  function presetFor(key) {
+    for (var i = 0; i < CAT_PRESET.length; i++) if (CAT_PRESET[i].key === key) return CAT_PRESET[i];
+    return { key: key, mark: "他", eyebrow: "", accent: "#6B6760", fit: "cover" };
+  }
+  function makeCat(key, order) {
+    var p = presetFor(key);
+    return { id: "cat_" + key, key: key, name: key, mark: p.mark, eyebrow: p.eyebrow,
+             descr: "", meta: "", accent: p.accent, fit: p.fit, show: true, sort_order: order };
+  }
+  var DEFAULT_CATS = CAT_PRESET.map(function (p, i) { return makeCat(p.key, (i + 1) * 10); });
 
   var CATS = DEFAULT_CATS.slice();
+  var catMap = {};          // 공백제거 상품명 → 분류 ('상품분류' 탭)
+  var recatCount = 0;       // 이번 로드에서 자동 재분류된 상품 수 (배너용)
   var items = [];          // 현재 버전의 상품
   var otherRows = [];      // 다른 버전의 상품 행(원본 그대로 보관 — 저장 때 같이 되쓴다)
   var dirty = false;
@@ -32,6 +58,8 @@
   var settingsOpen = false, catsOpen = false, bulkOpen = false;
   var expandedCats = {};
   var versions = [], currentVersion = null;
+  var history = [], histOpen = false, histQ = "", histBusy = false;   // 📝 제안 이력
+  var _refocus = null;   // 다시 그린 뒤 포커스를 돌려줄 input id
   var loadedOK = false;    // 시트 읽기에 성공했나 (실패 상태로 저장하면 데이터가 날아간다)
 
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
@@ -70,8 +98,11 @@
     });
   }
 
+  /* 상품명 키 — 카탈로그/유통시트와 같은 규칙(공백 제거). 상품명은 완전일치만 믿는다. */
+  function pkey(s) { return String(s == null ? "" : s).replace(/\s+/g, ""); }
+
   function loadAll() {
-    return window.SVC.readTabs([T.versions, T.cats, T.products]).then(function (res) {
+    return window.SVC.readTabs([T.versions, T.cats, T.products, T.catmap, T.history]).then(function (res) {
       /* --- 버전 --- */
       var vr = rowsToObjs(res[T.versions], ["id", "slug", "name", "sort_order", "settings"])
         .filter(function (v) { return (v.slug || "").trim(); });
@@ -85,24 +116,38 @@
       }
       currentVersion = (currentVersion && versions.filter(function (v) { return v.id === currentVersion.id; })[0]) || versions[0];
 
-      /* --- 카테고리 --- */
-      var cr = rowsToObjs(res[T.cats], ["id", "key", "name", "mark", "eyebrow", "descr", "meta", "accent", "fit", "show", "sort_order"])
-        .filter(function (c) { return (c.key || "").trim(); });
-      CATS = cr.length ? cr.map(function (c) {
-        return {
-          id: c.id || uid(), key: String(c.key).trim(), name: c.name || "", mark: c.mark || "", eyebrow: c.eyebrow || "",
-          descr: c.descr || "", meta: c.meta || "", accent: c.accent || "#0E8A8F", fit: c.fit === "contain" ? "contain" : "cover",
-          show: isShow(c.show), sort_order: num(c.sort_order)
-        };
-      }).sort(function (a, b) { return a.sort_order - b.sort_order; }) : DEFAULT_CATS.slice();
+      /* --- 카테고리 = '상품분류' 탭에서 그대로 따온다 (제안서카테고리 탭은 결과를 받아 적기만 한다) --- */
+      catMap = {};
+      var seenCat = {};
+      (res[T.catmap] || []).slice(1).forEach(function (r) {
+        var n = pkey(r[0]), c = String(r[1] || "").trim();
+        if (!n || !c) return;
+        catMap[n] = c; seenCat[c] = 1;
+      });
+      // 프리셋 순서를 먼저 세우고, 분류표에만 있는 낯선 분류는 뒤에 붙인다.
+      var keys = CAT_PRESET.map(function (p) { return p.key; });
+      Object.keys(seenCat).forEach(function (c) { if (keys.indexOf(c) < 0) keys.push(c); });
+      CATS = keys.map(function (k, i) { return makeCat(k, (i + 1) * 10); });
 
       /* --- 상품 (현재 버전 것만 편집, 나머지는 원본 행 그대로 보관) --- */
       var prow = (res[T.products] || []).slice(1).filter(function (r) { return (r[2] || "").trim(); });
       otherRows = prow.filter(function (r) { return String(r[0] || "").trim() !== currentVersion.slug; });
+      /* 상품의 카테고리를 '상품분류' 기준으로 맞춘다.
+         분류표에 있으면 그 값, 없으면 옛 key 매핑, 그것도 없으면 '기타'.
+         이미 새 분류값을 쓰고 있으면 건드리지 않는다(사장님이 손으로 옮겨둔 걸 되돌리지 않기 위해). */
+      recatCount = 0;
+      var catKeys = CATS.map(function (c) { return c.key; });
+      var recat = function (rawCat, name) {
+        var cur = String(rawCat || "").trim();
+        if (cur && catKeys.indexOf(cur) >= 0) return cur;              // 이미 정상 분류
+        var hit = catMap[pkey(name)] || LEGACY_CAT[cur] || "기타";
+        recatCount++;
+        return hit;
+      };
       items = prow.filter(function (r) { return String(r[0] || "").trim() === currentVersion.slug; })
         .map(function (r) {
           return {
-            _key: uid(), category: r[1] || (CATS[0] && CATS[0].key) || "fish", name: r[2] || "", warehouse: r[3] || "",
+            _key: uid(), category: recat(r[1], r[2]), name: r[2] || "", warehouse: r[3] || "",
             spec: r[4] || "", supply_price: num(r[5]), courier: r[6] || "", ship_fee: num(r[7]),
             tax: r[8] === "과세" ? "과세" : "면세", image: r[9] || "", link: r[10] || "",
             show: isShow(r[11]), sort_order: num(r[12]),
@@ -111,8 +156,26 @@
           };
         }).sort(function (a, b) { return a.sort_order - b.sort_order; });
 
+      /* --- 📝 제안 이력 --- */
+      history = (res[T.history] || []).slice(1)
+        .filter(function (r) { return (r[1] || "").trim() || (r[2] || "").trim(); })
+        .map(function (r) {
+          return { date: String(r[0] || "").trim(), client: String(r[1] || "").trim(), name: String(r[2] || "").trim(),
+                   price: num(r[3]), warehouse: String(r[4] || "").trim(), memo: String(r[5] || "").trim(), id: String(r[6] || "") || uid() };
+        })
+        .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+
       siteSettings = Object.assign({}, currentVersion.settings || {});
       loadedOK = true;
+      /* 공개 사이트(app.js)가 읽는 제안서카테고리 탭을 분류표 결과로 맞춰 둔다 — 조용히, 실패해도 무시. */
+      saveCatsSheet().catch(function () {});
+      /* 옛 카테고리(fish/meal/living)로 남아 있던 상품은 시트에도 바로 새 분류로 적어 둔다.
+         안 그러면 [전체 저장]을 누르기 전까지 제안서 화면에서 상품이 안 보인다. (읽기 성공 뒤에만 쓴다) */
+      if (recatCount) {
+        saveProducts()
+          .then(function () { toast("분류 " + recatCount + "건을 카탈로그 기준으로 정리했어요"); })
+          .catch(function () { /* 실패해도 화면은 정상 — 다음 저장 때 반영된다 */ });
+      }
     });
   }
 
@@ -222,18 +285,124 @@
       '</div>' +
     '</div>';
   }
+  /* 카테고리 관리 패널은 폐기(2026-08-24) — 분류는 '상품분류' 탭이 정한다.
+     대신 지금 분류가 어디서 오는지 한 줄로 알려 주고, 자동 재분류가 있었으면 그것도 알린다. */
   function catPanelHTML() {
-    if (!catsOpen) return '<div class="settings-panel"><div class="sp-head" id="cat-toggle"><span>🗂️ 카테고리 관리 (추가·수정·삭제)</span><span class="sp-caret">펼치기 ▾</span></div></div>';
+    var n = Object.keys(catMap).length;
+    return '<div class="sp-note" style="margin:0 0 10px;">🗂️ 카테고리는 <b>카탈로그의 상품분류</b>를 그대로 씁니다 (분류표 ' + n + '종 · ' +
+      CATS.map(function (c) { return esc(c.name); }).join(" · ") + ').<br>' +
+      '분류를 바꾸려면 <b>미디어 업데이터의 🏷️ 분류</b>에서 고치면 여기와 카탈로그가 같이 바뀝니다.' +
+      (recatCount ? ' <b style="color:#e0483d;">이번에 ' + recatCount + '건이 자동으로 재분류됐습니다 — [전체 저장]을 눌러야 시트에 남습니다.</b>' : '') +
+      '</div>';
+  }
+
+  /* ================= 📝 제안 이력 =================
+     2026-08-24 홍팀장: "업체별로 내가 얼마에 제안했는지 텍스트로 남겨줘 — 날짜·업체명·상품명·제안가."
+     제안서는 웹으로 공유하지 않고 jpg/pdf 로 보내므로, '누구에게 얼마를 불렀나'는 여기에만 남는다. */
+  function histPrice(it) { return num(it.special_price) || num(it.supply_price); }
+  function histText(rows) {
+    return (rows || []).map(function (h) {
+      return h.date + " · " + h.client + " · " + h.name + " · " + (h.price ? h.price.toLocaleString() + "원" : "-") +
+        (h.memo ? " · " + h.memo : "");
+    }).join("\n");
+  }
+  function histFiltered() {
+    var q = histQ.trim().toLowerCase();
+    if (!q) return history;
+    return history.filter(function (h) {
+      return (h.client + " " + h.name + " " + h.date + " " + h.memo).toLowerCase().indexOf(q) > -1;
+    });
+  }
+  function saveHistorySheet() {
+    return window.SVC.writeTab(T.history, [window.SVC.HEADERS[T.history]].concat(
+      history.map(function (h) { return [h.date, h.client, h.name, h.price || "", h.warehouse, h.memo, h.id]; })));
+  }
+  function histPanelHTML() {
+    if (!histOpen) {
+      return '<div class="settings-panel"><div class="sp-head" id="hist-toggle"><span>📝 제안 이력 (' + history.length + '건) — 날짜·업체·상품·제안가</span><span class="sp-caret">펼치기 ▾</span></div></div>';
+    }
+    var rows = histFiltered();
+    var byClient = {};
+    history.forEach(function (h) { byClient[h.client] = (byClient[h.client] || 0) + 1; });
+    var clients = Object.keys(byClient).sort();
+    var body =
+      '<div class="sp-note" style="margin-bottom:10px;">지금 편집 중인 <b>' + (currentVersion ? esc(currentVersion.name) : "") + '</b> 의 상품 ' + items.length + '개를 ' +
+        '업체 하나에 제안한 것으로 한 번에 기록합니다. 제안가는 <b>특별제안가</b>가 있으면 그 값, 없으면 공급가입니다.</div>' +
+      '<div class="row r2" style="align-items:end;">' +
+        '<div><span class="mini">업체명</span><input id="hist-client" placeholder="예: 호호야채" list="hist-clients" autocomplete="off">' +
+          '<datalist id="hist-clients">' + clients.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("") + '</datalist></div>' +
+        '<div><span class="mini">날짜</span><input id="hist-date" type="date" value="' + esc(todayStr()) + '"></div>' +
+      '</div>' +
+      '<div class="row" style="margin-top:6px;"><div><span class="mini">메모 (선택)</span><input id="hist-memo" placeholder="예: 카톡 발송 / 견적 요청 건" autocomplete="off"></div></div>' +
+      '<div class="sp-foot" style="margin-bottom:12px;"><span class="sp-note">기록은 도구시트 <b>제안이력</b> 탭에 쌓입니다.</span>' +
+        '<button class="btn-addsave" id="btn-hist-add"' + (histBusy ? ' disabled' : '') + '>' + (histBusy ? '기록 중…' : '📌 이번 제안 기록 (' + items.length + '건)') + '</button></div>' +
+      '<div class="sp-sec">기록된 이력</div>' +
+      '<div class="row r2" style="align-items:end;">' +
+        '<div><span class="mini">검색 (업체명·상품명)</span><input id="hist-q" value="' + esc(histQ) + '" placeholder="업체명이나 상품명" autocomplete="off"></div>' +
+        '<div><span class="mini">&nbsp;</span><button class="btn-ghost2" id="btn-hist-copy">📋 보이는 것 전부 텍스트로 복사</button></div>' +
+      '</div>';
+    if (!rows.length) {
+      body += '<div class="st-empty" style="margin-top:10px;">' + (history.length ? '검색 결과가 없습니다.' : '아직 기록된 제안이 없습니다 — 위에서 업체명을 넣고 [📌 이번 제안 기록]을 눌러보세요.') + '</div>';
+    } else {
+      body += '<div class="hist-list">' + rows.slice(0, 400).map(function (h) {
+        return '<div class="hist-row">' +
+          '<span class="hd">' + esc(h.date) + '</span>' +
+          '<span class="hc">' + esc(h.client) + '</span>' +
+          '<span class="hn">' + esc(h.name) + '</span>' +
+          '<span class="hp">' + (h.price ? h.price.toLocaleString() + '원' : '-') + '</span>' +
+          (h.memo ? '<span class="hm">' + esc(h.memo) + '</span>' : '') +
+          '<button class="btn-ghost danger hx" data-histdel="' + esc(h.id) + '" title="이 줄 삭제">🗑</button>' +
+        '</div>';
+      }).join("") + '</div>' +
+      (rows.length > 400 ? '<div class="sp-note">최근 400건만 보여줍니다 (전체 ' + rows.length + '건). 검색으로 좁혀 보세요.</div>' : '');
+    }
     return '<div class="settings-panel open">' +
-      '<div class="sp-head" id="cat-toggle"><span>🗂️ 카테고리 관리 (추가·수정·삭제)</span><span class="sp-caret">접기 ▴</span></div>' +
-      '<div class="sp-body">' +
-        '<div class="sp-note" style="margin-bottom:10px;">⚠️ <b>카테고리는 모든 버전이 같이 씁니다.</b> 특정 거래처에게 일부만 보여주려고 ' +
-        '여기서 <b>숨기거나 지우지 마세요</b> — 다른 제안서까지 같이 비어버립니다.<br>' +
-        '<b>버전마다 담은 상품만 나옵니다</b> — 그 버전에 상품이 없는 카테고리는 알아서 안 보입니다. ' +
-        '거래처별로 다르게 보내려면 위에서 <b>[+ 새 버전]</b> 또는 <b>[⧉ 복제]</b>를 쓰세요.</div>' +
-        CATS.map(catRowHTML).join("") +
-        '<div class="add-row"><button class="btn-add" id="btn-cat-new">+ 카테고리 추가</button></div>' +
-      '</div></div>';
+      '<div class="sp-head" id="hist-toggle"><span>📝 제안 이력 (' + history.length + '건) — 날짜·업체·상품·제안가</span><span class="sp-caret">접기 ▴</span></div>' +
+      '<div class="sp-body">' + body + '</div></div>';
+  }
+  function todayStr() {
+    var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+  }
+  function histAdd() {
+    var cEl = document.getElementById("hist-client"), dEl = document.getElementById("hist-date"), mEl = document.getElementById("hist-memo");
+    var client = (cEl && cEl.value || "").trim();
+    var date = (dEl && dEl.value || "").trim() || todayStr();
+    var memo = (mEl && mEl.value || "").trim();
+    if (!client) { toast("업체명을 넣어주세요", true); if (cEl) cEl.focus(); return; }
+    if (!items.length) { toast("이 버전에 상품이 없습니다", true); return; }
+    var dup = history.filter(function (h) { return h.client === client && h.date === date; }).length;
+    if (dup && !confirm("[" + client + "] 에 " + date + " 로 이미 " + dup + "건이 기록돼 있습니다.\n그래도 " + items.length + "건을 더 기록할까요?")) return;
+    var add = items.map(function (it) {
+      return { date: date, client: client, name: (it.name || "").trim(), price: histPrice(it),
+               warehouse: (it.warehouse || "").trim(), memo: memo, id: uid() };
+    });
+    history = add.concat(history);
+    histBusy = true; renderEditor();
+    saveHistorySheet().then(function () {
+      histBusy = false; renderEditor();
+      toast("📝 [" + client + "] " + add.length + "건 기록됨");
+    }).catch(function (e) {
+      history = history.filter(function (h) { return add.indexOf(h) < 0; });
+      histBusy = false; renderEditor();
+      toast("기록 실패: " + (e && e.message || e), true);
+    });
+  }
+  function histDelete(id) {
+    var h = history.filter(function (x) { return x.id === id; })[0];
+    if (!h) return;
+    if (!confirm("[" + h.client + "] " + h.name + " (" + h.date + ") 기록을 지울까요?")) return;
+    var keep = history;
+    history = history.filter(function (x) { return x.id !== id; });
+    renderEditor();
+    saveHistorySheet().then(function () { toast("삭제됨"); })
+      .catch(function (e) { history = keep; renderEditor(); toast("삭제 실패: " + (e && e.message || e), true); });
+  }
+  function histCopy() {
+    var txt = histText(histFiltered());
+    if (!txt) { toast("복사할 이력이 없습니다", true); return; }
+    navigator.clipboard.writeText(txt).then(function () { toast("📋 " + histFiltered().length + "건 복사됨"); })
+      .catch(function () { toast("복사 실패 — 브라우저가 막았어요", true); });
   }
   function saveCategory(key, btn) {
     var c = catByKey(key); if (!c) return;
@@ -335,20 +504,13 @@
     var replace = !!(document.getElementById("bulk-replace") && document.getElementById("bulk-replace").checked);
     var btn = document.getElementById("btn-bulk-import"); btn.disabled = true; btn.textContent = "가져오는 중…";
 
+    /* 분류는 '상품분류' 탭이 정한다 — CSV에 낯선 카테고리 이름이 있어도 새로 만들지 않는다.
+       (2026-08-24) CSV 값이 실제 분류명이면 그대로, 아니면 상품명으로 분류표를 찾고, 그래도 없으면 '기타'. */
     var byName = {}; CATS.forEach(function (c) { byName[(c.name || "").trim()] = c.key; byName[(c.key || "").trim()] = c.key; });
-    var palette = ["#0E8A8F", "#FF5B39", "#3BA559", "#C0392B", "#9B5DE5", "#E8A33D", "#3D7DCB", "#B23A48", "#5A8F3C", "#7A5C3E"];
-    var baseSort = (CATS.length ? Math.max.apply(null, CATS.map(function (c) { return c.sort_order || 0; })) : 0);
-    var newNames = [], seen = {};
-    raw.forEach(function (o) { var cn = (o.category || "").trim(); if (cn && !byName[cn] && !seen[cn]) { seen[cn] = 1; newNames.push(cn); } });
-    newNames.forEach(function (name, i) {
-      var key = "cat" + uid().replace(/[^a-z0-9]/gi, "").slice(0, 8).toLowerCase();
-      CATS.push({ id: uid(), key: key, name: name, mark: name.charAt(0) || "", eyebrow: "", descr: "", meta: "", accent: palette[i % palette.length], fit: "cover", show: true, sort_order: baseSort + 10 + i * 10 });
-      byName[name] = key;
-    });
 
     var imported = raw.map(function (o) {
       return {
-        _key: uid(), category: byName[(o.category || "").trim()] || (CATS[0] && CATS[0].key) || "fish",
+        _key: uid(), category: byName[(o.category || "").trim()] || catMap[pkey(o.name)] || "기타",
         name: String(o.name || "").trim(), warehouse: String(o.warehouse || "").trim(), spec: String(o.spec || "").trim(),
         supply_price: num(o.supplyPrice), courier: String(o.courier || "").trim(), ship_fee: num(o.shipFee),
         tax: o.tax === "과세" ? "과세" : "면세", image: String(o.image || "").trim(), link: String(o.link || "").trim(),
@@ -357,11 +519,11 @@
     }).filter(function (r) { return r.name; });
 
     items = replace ? imported : items.concat(imported);
-    Promise.resolve().then(function () { return newNames.length ? saveCatsSheet() : null; })
+    Promise.resolve()
       .then(saveProducts)
       .then(function () {
         dirty = false; bulkOpen = false; renderEditor();
-        toast(imported.length + "개 상품을 가져왔어요 ✅" + (newNames.length ? (" (새 카테고리 " + newNames.length + "개 생성)") : ""));
+        toast(imported.length + "개 상품을 가져왔어요 ✅ (분류는 상품분류 탭 기준)");
       }).catch(function (err) {
         if (btn) { btn.disabled = false; btn.textContent = "가져오기 실행"; }
         toast("가져오기 실패: " + (err.message || err), true);
@@ -703,8 +865,8 @@
       '</select>' +
       '<button class="btn-ghost" id="btn-ver-new">+ 새 버전</button>' +
       '<button class="btn-ghost" id="btn-ver-copy" title="현재 버전의 상품·문구를 그대로 복사해 새 버전 만들기">⧉ 복제</button>' +
-      '<button class="btn-ghost" id="btn-ver-rename" title="이름과 공개 주소(?v=) 변경">✏ 이름·주소</button>' +
-      '<button class="btn-ghost" id="btn-ver-link">🔗 링크 복사</button>' +
+      '<button class="btn-ghost" id="btn-ver-rename" title="이름 변경">✏ 이름</button>' +
+      // 🔗 링크 복사 폐기(2026-08-24 홍팀장) — 제안서는 웹으로 공유하지 않고 jpg/pdf 로만 보낸다.
       '<button class="btn-ghost danger" id="btn-ver-del" title="이 버전과 소속 상품 삭제">🗑 삭제</button>';
     var pubHref = "index.html?nt=1" + (currentVersion ? ("&v=" + encodeURIComponent(currentVersion.slug)) : "");
     var html =
@@ -712,7 +874,7 @@
       '<span class="spacer"></span>' +
       '<button class="btn-ghost" id="btn-price-check" title="제안서 공급가가 유통시트와 다른 것만 찾아 줍니다">💰 공급가 점검</button>' +
       '<button class="btn-ghost" id="btn-cost" title="원가 시트를 열어 최신 원가를 넣고, 제안서로 가져옵니다 (제안서엔 안 나갑니다)">🧾 원가 업데이트</button>' +
-      '<a href="' + pubHref + '" target="_blank" rel="noopener">공개 사이트 보기 ↗</a></div>' +
+      '<a href="' + pubHref + '" target="_blank" rel="noopener" title="여기서 캡처하거나 인쇄(Ctrl+P)로 PDF 저장해서 보내세요">제안서 보기 ↗</a></div>' +
       // 원가를 언제 어느 자료로 가져왔는지 — 버튼 바로 밑에 항상 보이게 (2026-08-20 홍팀장)
       '<div class="costline">🧾 원가 업데이트 ' +
         (costPulledAt
@@ -721,7 +883,7 @@
       '</div>' +
       '<div class="wrap">' +
       '<div class="hint">상품을 고친 뒤 그 상품의 <b>[저장]</b> 버튼을 누르면 바로 공개 사이트에 반영됩니다. 사진은 <b>[사진 업로드]</b>, 삭제는 <b>[삭제]</b>로 즉시 처리돼요. (아래 <b>[전체 저장]</b>은 여러 개를 한 번에 저장할 때만 쓰세요.)</div>' +
-      settingsPanelHTML() + catPanelHTML() + bulkPanelHTML();
+      catPanelHTML() + histPanelHTML() + settingsPanelHTML() + bulkPanelHTML();
 
     var anyOpen = CATS.some(function (c) { return expandedCats[c.key]; });
     html += '<div class="prodlist-head"><span class="plh-title">상품 목록 <span class="plh-hint">(카테고리 제목을 눌러 펼치기/접기)</span></span>' +
@@ -745,6 +907,12 @@
     root.innerHTML = html;
     setDirty(dirty);
     bindEditor();
+    // 화면을 통째로 다시 그리므로 타이핑 중이던 칸은 포커스를 되돌려 준다 (이력 검색칸 등)
+    if (_refocus) {
+      var _fe = document.getElementById(_refocus);
+      if (_fe) { _fe.focus(); try { var _L = _fe.value.length; _fe.setSelectionRange(_L, _L); } catch (e) {} }
+      _refocus = null;
+    }
   }
 
   function bindEditor() {
@@ -754,6 +922,7 @@
     root.addEventListener("focusin", function (e) { if (!(e.target.closest && e.target.closest(".ac-wrap"))) hideAc(); });
 
     root.addEventListener("input", function (e) {
+      if (e.target.id === "hist-q") { histQ = e.target.value; _refocus = "hist-q"; renderEditor(); return; }
       var sf = e.target.getAttribute("data-sf");
       // 체크박스는 아래 change 핸들러가 처리한다(여기서 .value 를 읽으면 "on" 이 들어간다)
       if (sf) { if (e.target.type !== "checkbox") siteSettings[sf] = e.target.value; return; }
@@ -818,6 +987,12 @@
     });
 
     root.addEventListener("click", function (e) {
+      // ── 📝 제안 이력 ──
+      if (e.target.closest && e.target.closest("#hist-toggle")) { histOpen = !histOpen; renderEditor(); return; }
+      if (e.target.id === "btn-hist-add") { histAdd(); return; }
+      if (e.target.id === "btn-hist-copy") { histCopy(); return; }
+      var hdel = e.target.closest && e.target.closest("[data-histdel]");
+      if (hdel) { histDelete(hdel.getAttribute("data-histdel")); return; }
       if (e.target.id === "btn-save") { saveAll(); return; }
       if (e.target.id === "btn-price-check") { runPriceCheck(); return; }
       if (e.target.id === "btn-price-apply") { applyPriceFixes(); return; }
@@ -863,6 +1038,9 @@
           if (r.image) newItem.image = r.image;
           if (r.link) newItem.link = r.link;
           if (r.spec) newItem.spec = r.spec;
+          // 분류도 카탈로그 기준으로 자동 지정 — 상품명이 완전히 같을 때만 (2026-08-24)
+          var auto = catMap[pkey(r.name)];
+          if (auto) { newItem.category = auto; addingCat = auto; }
         }
         renderEditor(); focusNewName(); return;
       }
