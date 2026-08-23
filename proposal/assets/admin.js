@@ -55,12 +55,13 @@
   var catalogCache = null, catalogLoading = false;
   var _delegated = false;
   var siteSettings = {};
-  var settingsOpen = false, catsOpen = false, bulkOpen = false;
+  var settingsOpen = false, catsOpen = false;   // CSV 대량 가져오기는 2026-08-24 폐기 (홍팀장: "사실상 필요 없다")
   var expandedCats = {};
   var versions = [], currentVersion = null;
   var history = [], histOpen = false, histQ = "", histBusy = false;   // 📝 제안 이력
   var _refocus = null;      // 다시 그린 뒤 포커스를 돌려줄 input id
   var lastAddCat = "수산";  // [+ 상품 담기] 카테고리 셀렉트의 마지막 선택
+  var _scrollTo = null;     // 다시 그린 뒤 화면 안으로 끌어올 패널의 id
   var loadedOK = false;    // 시트 읽기에 성공했나 (실패 상태로 저장하면 데이터가 날아간다)
 
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
@@ -457,98 +458,6 @@
       .catch(function (err) { CATS = keep; toast("삭제 실패: " + (err.message || err), true); });
   }
 
-  /* ================= CSV 대량 가져오기 ================= */
-  function bulkHeaderKey(h) {
-    var s = String(h || "").trim().replace(/\s+/g, "").toLowerCase();
-    var map = {
-      "카테고리": "category", "분류": "category", "category": "category",
-      "상품명": "name", "이름": "name", "name": "name",
-      "창고": "warehouse", "배지": "warehouse", "태그": "warehouse", "warehouse": "warehouse",
-      "설명": "spec", "스펙": "spec", "spec": "spec",
-      "공급가": "supplyPrice", "가격": "supplyPrice", "단가": "supplyPrice", "price": "supplyPrice",
-      "택배사": "courier", "courier": "courier",
-      "택배비": "shipFee", "배송비": "shipFee", "shipfee": "shipFee",
-      "면과세": "tax", "과세": "tax", "tax": "tax",
-      "사진": "image", "이미지": "image", "image": "image", "img": "image",
-      "노출": "show", "표시": "show", "show": "show",
-      "링크": "link", "link": "link", "url": "link", "주소": "link"
-    };
-    return map[s] || null;
-  }
-  function parseBulkCSV(text) {
-    var rows = [], row = [], field = "", inQ = false, i = 0, c;
-    while (i < text.length) {
-      c = text[i];
-      if (inQ) { if (c === '"') { if (text[i + 1] === '"') { field += '"'; i += 2; continue; } inQ = false; i++; continue; } field += c; i++; continue; }
-      if (c === '"') { inQ = true; i++; continue; }
-      if (c === ',' || c === '\t') { row.push(field); field = ""; i++; continue; }
-      if (c === '\r') { i++; continue; }
-      if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
-      field += c; i++;
-    }
-    row.push(field); rows.push(row);
-    return rows.filter(function (r) { return r.length > 1 || (r[0] || "").trim() !== ""; });
-  }
-  function bulkRowsToObjects(text) {
-    var rows = parseBulkCSV(text); if (!rows.length) return [];
-    var head = rows[0].map(bulkHeaderKey), out = [];
-    for (var r = 1; r < rows.length; r++) {
-      var obj = {};
-      for (var c = 0; c < head.length; c++) { if (head[c]) obj[head[c]] = (rows[r][c] || "").trim(); }
-      if (!obj.name) continue;
-      out.push(obj);
-    }
-    return out;
-  }
-  function bulkPanelHTML() {
-    if (!bulkOpen) return '<div class="settings-panel"><div class="sp-head" id="bulk-toggle"><span>📋 CSV로 대량 가져오기 (전체 상품 한 번에)</span><span class="sp-caret">펼치기 ▾</span></div></div>';
-    return '<div class="settings-panel open">' +
-      '<div class="sp-head" id="bulk-toggle"><span>📋 CSV로 대량 가져오기 (전체 상품 한 번에)</span><span class="sp-caret">접기 ▴</span></div>' +
-      '<div class="sp-body">' +
-        '<div class="sp-note" style="margin-bottom:8px;">헤더: <code>카테고리,상품명,창고,설명,공급가,택배사,택배비,면과세,사진,노출,링크</code> — 엑셀에서 복사(탭 구분)해 붙여넣어도 됩니다.<br>시트에 없는 카테고리 이름은 자동으로 새 카테고리로 만들어집니다.</div>' +
-        '<textarea id="bulk-csv-text" rows="6" placeholder="여기에 CSV 내용을 붙여넣으세요"></textarea>' +
-        '<div class="row r2" style="margin-top:8px;align-items:end;">' +
-          '<div><span class="mini">또는 CSV 파일 선택</span><input type="file" id="bulk-csv-file" accept=".csv,text/csv"></div>' +
-          '<div><label class="toggle"><input type="checkbox" id="bulk-replace" checked> 이 버전의 기존 상품을 지우고 새로 채우기</label></div>' +
-        '</div>' +
-        '<div class="sp-foot"><span class="sp-note">현재 버전(<b>' + (currentVersion ? esc(currentVersion.name) : "버전 없음") + '</b>)에 가져옵니다.</span>' +
-        '<button class="btn-addsave" id="btn-bulk-import">가져오기 실행</button></div>' +
-      '</div></div>';
-  }
-  function runBulkImport() {
-    var ta = document.getElementById("bulk-csv-text");
-    var text = (ta && ta.value || "").trim();
-    if (!text) { toast("CSV 내용을 붙여넣거나 파일을 선택하세요", true); return; }
-    var raw = bulkRowsToObjects(text);
-    if (!raw.length) { toast("가져올 상품이 없습니다. 헤더와 내용을 확인하세요.", true); return; }
-    var replace = !!(document.getElementById("bulk-replace") && document.getElementById("bulk-replace").checked);
-    var btn = document.getElementById("btn-bulk-import"); btn.disabled = true; btn.textContent = "가져오는 중…";
-
-    /* 분류는 '상품분류' 탭이 정한다 — CSV에 낯선 카테고리 이름이 있어도 새로 만들지 않는다.
-       (2026-08-24) CSV 값이 실제 분류명이면 그대로, 아니면 상품명으로 분류표를 찾고, 그래도 없으면 '기타'. */
-    var byName = {}; CATS.forEach(function (c) { byName[(c.name || "").trim()] = c.key; byName[(c.key || "").trim()] = c.key; });
-
-    var imported = raw.map(function (o) {
-      return {
-        _key: uid(), category: byName[(o.category || "").trim()] || catMap[pkey(o.name)] || "기타",
-        name: String(o.name || "").trim(), warehouse: String(o.warehouse || "").trim(), spec: String(o.spec || "").trim(),
-        supply_price: num(o.supplyPrice), courier: String(o.courier || "").trim(), ship_fee: num(o.shipFee),
-        tax: o.tax === "과세" ? "과세" : "면세", image: String(o.image || "").trim(), link: String(o.link || "").trim(),
-        show: !/숨김|hide|false/i.test(String(o.show || "")), sort_order: 0
-      };
-    }).filter(function (r) { return r.name; });
-
-    items = replace ? imported : items.concat(imported);
-    Promise.resolve()
-      .then(saveProducts)
-      .then(function () {
-        dirty = false; bulkOpen = false; renderEditor();
-        toast(imported.length + "개 상품을 가져왔어요 ✅ (분류는 상품분류 탭 기준)");
-      }).catch(function (err) {
-        if (btn) { btn.disabled = false; btn.textContent = "가져오기 실행"; }
-        toast("가져오기 실패: " + (err.message || err), true);
-      });
-  }
 
   /* ================= 원가 가져오기 =================
      원가는 도구시트 '전체상품원가' 탭(E열)에서 가져온다 — 홍팀장이 그 표를 최신으로 유지한다
@@ -909,7 +818,7 @@
       '<div class="wrap">' +
       '<div class="hint">상품을 고친 뒤 그 상품의 <b>[저장]</b> 버튼을 누르면 바로 반영됩니다. 삭제는 <b>[삭제]</b>로 즉시 처리돼요.<br>' +
         '<b>[전체 저장]</b>을 누르면 여러 상품이 한 번에 저장되고, <b>그때의 제안 내용이 📝 제안 이력에 자동으로 남습니다.</b></div>' +
-      catPanelHTML() + histPanelHTML() + settingsPanelHTML() + bulkPanelHTML();
+      catPanelHTML() + histPanelHTML() + settingsPanelHTML();
 
     if (!currentVersion) {
       html += '<div class="st-empty" style="padding:28px 2px;">아직 제안서가 없습니다 — 위 <b>[+ 새 제안서]</b>로 업체를 하나 만들어 시작하세요.<br>' +
@@ -955,9 +864,24 @@
 
     html += '</div><div class="savebar"><span class="status" id="save-status">각 상품의 [저장] 버튼으로 저장하세요</span>' +
       '<button class="btn-save" id="btn-save" disabled>전체 저장</button></div>' + pricePanelHTML() + costPanelHTML();
+    /* ⚠️ 화면을 통째로 다시 그리기 때문에, 스크롤이 그대로면 «펼쳤는데 안 펼쳐진» 것처럼 보인다
+       (2026-08-24 홍팀장: "문구 편집은 왜 안 펼쳐지냐" — 실제로는 열렸는데 화면이 딴 데를 보고 있었다).
+       그래서 방금 펼친 패널을 화면 안으로 끌어온다. */
+    var _keepTop = window.scrollY;
     root.innerHTML = html;
     setDirty(dirty);
     bindEditor();
+    if (_scrollTo) {
+      var _se = document.getElementById(_scrollTo);
+      if (_se) {
+        var _p = _se.closest(".settings-panel") || _se;
+        _p.scrollIntoView({ block: "start", behavior: "auto" });
+        window.scrollBy(0, -12);
+      }
+      _scrollTo = null;
+    } else if (Math.abs(window.scrollY - _keepTop) > 2) {
+      window.scrollTo(0, _keepTop);
+    }
     // 화면을 통째로 다시 그리므로 타이핑 중이던 칸은 포커스를 되돌려 준다 (이력 검색칸 등)
     if (_refocus) {
       var _fe = document.getElementById(_refocus);
@@ -1020,12 +944,6 @@
         if (nf === "category") { newItem.category = e.target.value; addingCat = e.target.value; renderEditor(); focusNewName(); return; }
       }
       if (e.target.getAttribute("data-nfile") && e.target.files && e.target.files[0]) { uploadNew(e.target.files[0]); return; }
-      if (e.target.id === "bulk-csv-file" && e.target.files && e.target.files[0]) {
-        var reader = new FileReader();
-        reader.onload = function (ev) { var bta = document.getElementById("bulk-csv-text"); if (bta) bta.value = String(ev.target.result || ""); };
-        reader.readAsText(e.target.files[0], "utf-8");
-        return;
-      }
       var f = e.target.getAttribute("data-f");
       if (f) {
         var card = e.target.closest(".card"); var it = findItem(card.getAttribute("data-key")); if (!it) return;
@@ -1039,7 +957,7 @@
 
     root.addEventListener("click", function (e) {
       // ── 📝 제안 이력 ──
-      if (e.target.closest && e.target.closest("#hist-toggle")) { histOpen = !histOpen; renderEditor(); return; }
+      if (e.target.closest && e.target.closest("#hist-toggle")) { histOpen = !histOpen; _scrollTo = "hist-toggle"; renderEditor(); return; }
       if (e.target.id === "btn-hist-copy") { histCopy(); return; }
       var hcp = e.target.closest && e.target.closest("[data-histcopyone]");
       if (hcp) { e.preventDefault(); histCopyOne(hcp.getAttribute("data-histcopyone")); return; }
@@ -1052,11 +970,9 @@
       if (e.target.id === "btn-cost") { costOpen = true; costResult = null; renderEditor(); return; }
       if (e.target.id === "btn-cost-pull") { pullCosts(); return; }
       if (e.target.id === "btn-cost-close" || e.target.id === "cost-close-back") { costOpen = false; renderEditor(); return; }
-      if (e.target.closest && e.target.closest("#sp-toggle")) { settingsOpen = !settingsOpen; renderEditor(); return; }
+      if (e.target.closest && e.target.closest("#sp-toggle")) { settingsOpen = !settingsOpen; _scrollTo = "sp-toggle"; renderEditor(); return; }
       if (e.target.id === "btn-save-settings") { saveSettings(e.target); return; }
       if (e.target.closest && e.target.closest("#cat-toggle")) { catsOpen = !catsOpen; renderEditor(); return; }
-      if (e.target.closest && e.target.closest("#bulk-toggle")) { bulkOpen = !bulkOpen; renderEditor(); return; }
-      if (e.target.id === "btn-bulk-import") { runBulkImport(); return; }
       if (e.target.id === "btn-cat-new") { newCategory(); return; }
       var catSaveKey = e.target.getAttribute("data-catsave"); if (catSaveKey) { saveCategory(catSaveKey, e.target); return; }
       var catDelKey = e.target.getAttribute("data-catdel"); if (catDelKey) { deleteCategory(catDelKey); return; }
