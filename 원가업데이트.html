@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>마스터 원가 업데이트 v1.0</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f5f6f8;color:#222;font:15px/1.6 -apple-system,'Malgun Gothic',sans-serif;padding:18px}
+.wrap{max-width:940px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:#666;font-size:13px;margin-bottom:14px}
+.card{background:#fff;border:1px solid #e2e5ea;border-radius:10px;padding:16px;margin-bottom:14px}
+#drop{border:2px dashed #b9c2cf;border-radius:12px;padding:34px 16px;text-align:center;background:#fff;cursor:pointer;transition:.15s}
+#drop:hover,#drop.on{border-color:#2f7d4f;background:#f0f9f3}
+#drop .big{font-size:17px;font-weight:700;margin-bottom:6px}
+#drop .small{color:#777;font-size:13px}
+button{font:inherit;border:0;border-radius:8px;padding:11px 18px;cursor:pointer;font-weight:700}
+.go{background:#2f7d4f;color:#fff;font-size:16px;padding:14px 26px}
+.go:disabled{background:#c3ccd6;cursor:not-allowed}
+.ghost{background:#eef1f5;color:#333}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border:1px solid #e3e6eb;padding:5px 7px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px}
+th{background:#f2f4f7;font-weight:700}
+.stat{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.st{flex:1;min-width:110px;background:#f7f9fb;border:1px solid #e3e6eb;border-radius:8px;padding:10px 12px;text-align:center}
+.st b{display:block;font-size:22px;line-height:1.2}
+.st span{font-size:12px;color:#666}
+.warn{background:#fff4f4;border:1px solid #e8b4b4;color:#a02020;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:13.5px}
+.ok{background:#f0f9f3;border:1px solid #a9d5bb;color:#1d6b40;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:13.5px}
+.mut{color:#777;font-size:12.5px}
+.up{color:#c62828;font-weight:700}
+.dn{color:#1565c0;font-weight:700}
+.scroll{max-height:330px;overflow:auto;border:1px solid #e3e6eb;border-radius:8px}
+.scroll table{border:0}
+.scroll th{position:sticky;top:0;z-index:1}
+h3{font-size:15px;margin:16px 0 8px}
+.hide{display:none}
+#log{font-size:13px;color:#555;white-space:pre-wrap;margin-top:8px}
+a.link{color:#2f7d4f;font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📥 마스터 원가 업데이트</h1>
+  <div class="sub">리모컨 <b>공급가등록 → 엑셀 내보내기</b>로 받은 파일을 그대로 올리면, 비서 시트 <b>전체상품원가</b> 탭에 반영한다. 엑셀을 열 필요 없다.</div>
+
+  <div id="drop">
+    <div class="big">여기에 엑셀 파일을 끌어다 놓기</div>
+    <div class="small">또는 클릭해서 파일 선택 (.xlsx)</div>
+    <input type="file" id="file" accept=".xlsx" class="hide">
+  </div>
+
+  <div id="prev" class="card hide"></div>
+  <div id="done" class="card hide"></div>
+</div>
+
+<script>
+/* ───────── 대상 시트 ───────── */
+const SHEET_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';   // 비서 시트
+const TAB='전체상품원가';
+const BACKUP_TAB='전체상품원가_백업';
+const HEAD=['공급상품명','공급가','공급가\n과세구분','공급가\n택배비','원가','원가\n과세구분','원가\n택배비','창고','상시/당일','유통기한','등록일시'];
+const COLS=11;
+
+/* ───────── 서비스계정 (catalog.html과 동일 키) ───────── */
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
+const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+let _tk=null,_te=0;
+async function token(){
+  const now=Math.floor(Date.now()/1000);
+  if(_tk&&_te-now>300)return _tk;
+  const enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const toSign=enc({alg:'RS256',typ:'JWT'})+'.'+enc({iss:CLIENT_EMAIL,scope:'https://www.googleapis.com/auth/spreadsheets',aud:'https://oauth2.googleapis.com/token',exp:now+3600,iat:now});
+  const pem=PRIVATE_KEY.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
+  const bin=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey('pkcs8',bin,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(toSign));
+  const jwt=toSign+'.'+btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion='+jwt});
+  const d=await r.json();
+  if(!d.access_token) throw new Error('인증 실패: '+JSON.stringify(d).slice(0,200));
+  _tk=d.access_token;_te=now+3600;return _tk;
+}
+async function api(path,opt={}){
+  const t=await token();
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+path,{...opt,headers:{Authorization:'Bearer '+t,'Content-Type':'application/json',...(opt.headers||{})}});
+  const txt=await r.text();
+  if(!r.ok) throw new Error(r.status+' '+txt.slice(0,300));
+  return txt?JSON.parse(txt):{};
+}
+const A1=t=>encodeURIComponent("'"+t.replace(/'/g,"''")+"'");
+
+/* ───────── xlsx 열기 (외부 라이브러리 없음) ───────── */
+async function unzip(buf){
+  const dv=new DataView(buf),u8=new Uint8Array(buf);
+  let eo=-1;
+  for(let i=buf.byteLength-22;i>=0&&i>buf.byteLength-22-65557;i--){ if(dv.getUint32(i,true)===0x06054b50){eo=i;break;} }
+  if(eo<0) throw new Error('엑셀 파일이 아니거나 손상됐습니다(zip 끝을 못 찾음).');
+  const cnt=dv.getUint16(eo+10,true); let p=dv.getUint32(eo+16,true);
+  const out={};
+  for(let i=0;i<cnt;i++){
+    if(dv.getUint32(p,true)!==0x02014b50) throw new Error('zip 목록이 깨졌습니다.');
+    const method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true);
+    const nLen=dv.getUint16(p+28,true), eLen=dv.getUint16(p+30,true), cLen=dv.getUint16(p+32,true);
+    const lho=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(u8.subarray(p+46,p+46+nLen));
+    const lnLen=dv.getUint16(lho+26,true), leLen=dv.getUint16(lho+28,true);
+    const data=u8.subarray(lho+30+lnLen+leLen, lho+30+lnLen+leLen+csize);
+    out[name]={method,data};
+    p+=46+nLen+eLen+cLen;
+  }
+  return out;
+}
+async function readEntry(e){
+  if(!e) return '';
+  if(e.method===0) return new TextDecoder().decode(e.data);
+  const ds=new DecompressionStream('deflate-raw');
+  const buf=await new Response(new Blob([e.data]).stream().pipeThrough(ds)).arrayBuffer();
+  return new TextDecoder().decode(buf);
+}
+const dec=s=>s.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#10;/g,'\n').replace(/&#xA;/gi,'\n').replace(/&amp;/g,'&');
+const colNum=s=>{let n=0;for(const ch of s)n=n*26+(ch.charCodeAt(0)-64);return n-1;};
+
+async function parseXlsx(buf){
+  const files=await unzip(buf);
+  const wb=await readEntry(files['xl/workbook.xml']);
+  const rels=await readEntry(files['xl/_rels/workbook.xml.rels']);
+  // 첫 번째 시트 경로 찾기
+  let target='xl/worksheets/sheet1.xml';
+  const rid=(wb.match(/<sheet[^>]*r:id="([^"]+)"/)||[])[1];
+  if(rid){
+    const m=rels.match(new RegExp('<Relationship[^>]*Id="'+rid+'"[^>]*Target="([^"]+)"'));
+    if(m) target='xl/'+m[1].replace(/^\/?xl\//,'').replace(/^\//,'');
+  }
+  if(!files[target]) target=Object.keys(files).find(k=>/^xl\/worksheets\/.*\.xml$/.test(k))||target;
+  const ssRaw=await readEntry(files['xl/sharedStrings.xml']);
+  const strs=[...ssRaw.matchAll(/<si>([\s\S]*?)<\/si>|<si\/>/g)]
+    .map(m=>m[1]===undefined?'':dec([...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(x=>x[1]).join('')));
+  const xml=await readEntry(files[target]);
+  const rows=[];
+  for(const rm of xml.matchAll(/<row([^>]*)>([\s\S]*?)<\/row>|<row([^>]*)\/>/g)){
+    const at=rm[1]||rm[3]||'', body=rm[2]||'';
+    const rIdx=+((at.match(/r="(\d+)"/)||[])[1]||0); if(!rIdx) continue;
+    const cells=[]; let col=0;
+    for(const cm of body.matchAll(/<c([^>]*)\/>|<c([^>]*)>([\s\S]*?)<\/c>/g)){
+      const cat=cm[1]||cm[2]||'', cbody=cm[3]||'';
+      const ref=(cat.match(/r="([A-Z]+)\d+"/)||[])[1];
+      if(ref) col=colNum(ref);                       // ⚠️ 이 파일은 대부분 셀에 r=이 없다 → 순서로 센다
+      const t=(cat.match(/t="(\w+)"/)||[])[1];
+      let v='';
+      if(t==='inlineStr') v=dec([...cbody.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(x=>x[1]).join(''));
+      else{ const vm=cbody.match(/<v>([\s\S]*?)<\/v>/); if(vm){ v=dec(vm[1]); if(t==='s') v=strs[+v]||''; } }
+      cells[col]=v; col++;
+    }
+    rows[rIdx-1]=cells;
+  }
+  for(let i=0;i<rows.length;i++) if(!rows[i]) rows[i]=[];
+  return rows;
+}
+
+/* ───────── 값 다듬기 ───────── */
+const serial2date=s=>{const d=new Date(Date.UTC(1899,11,30)+Math.floor(+s)*86400000);return d.toISOString().slice(0,10);};
+function cleanCell(v,col){
+  v=(v==null?'':String(v)).trim();
+  if(col===10 && /^\d{4,6}(\.\d+)?$/.test(v)) v=serial2date(v);   // 등록일시: 엑셀 날짜값 → yyyy-mm-dd
+  if(/^[=+@]/.test(v)) v="'"+v;                                    // 수식으로 먹히는 것 차단
+  return v;
+}
+const key=s=>(s==null?'':String(s)).trim();
+const num=s=>String(s==null?'':s).replace(/,/g,'').trim();
+
+/* ───────── 화면 ───────── */
+const $=id=>document.getElementById(id);
+const esc=s=>(s==null?'':String(s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+let PARSED=null, CUR=null, SAFE=false;
+
+$('drop').onclick=()=>$('file').click();
+$('file').onchange=e=>{ if(e.target.files[0]) load(e.target.files[0]); };
+['dragenter','dragover'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('on');}));
+['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('on');}));
+$('drop').addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) load(f); });
+
+function busy(msg){ $('prev').classList.remove('hide'); $('prev').innerHTML='<div class="mut">'+esc(msg)+'</div>'; }
+
+async function load(file){
+  $('done').classList.add('hide');
+  busy('📖 '+file.name+' 읽는 중…');
+  try{
+    if(!/\.xlsx$/i.test(file.name)) throw new Error('.xlsx 파일만 됩니다. 리모컨 [엑셀 내보내기]로 받은 파일을 그대로 올려주세요.');
+    const rows=await parseXlsx(await file.arrayBuffer());
+    const head=(rows[0]||[]).map(x=>(x||'').replace(/\s/g,''));
+    const want=HEAD.map(x=>x.replace(/\s/g,''));
+    const bad=want.filter((w,i)=>head[i]!==w);
+    if(bad.length) throw new Error('열 구성이 다릅니다. 첫 줄이 [공급상품명 … 등록일시] 11칸인 리모컨 내보내기 파일이어야 합니다.\n읽은 첫 줄: '+head.slice(0,12).join(' / '));
+    const data=rows.slice(1).filter(r=>key(r[0])).map(r=>{ const o=[]; for(let i=0;i<COLS;i++) o[i]=cleanCell(r[i],i); return o; });
+    if(!data.length) throw new Error('상품이 한 줄도 안 읽혔습니다. 파일을 다시 내보내 주세요.');
+    PARSED={file:file.name,data};
+    busy('☁ 시트 현재 내용 확인 중…');
+    CUR=((await api(SHEET_ID+'/values/'+A1(TAB)+'!A2:K5000')).values||[]).filter(r=>key(r[0]));
+    render();
+  }catch(e){
+    $('prev').innerHTML='<div class="warn">❌ '+esc(e.message)+'</div>';
+  }
+}
+
+function render(){
+  const nw=PARSED.data, cur=CUR;
+  const mapC=new Map(cur.map(r=>[key(r[0]),r])), mapN=new Map(nw.map(r=>[key(r[0]),r]));
+  const add=[],del=[],chg=[];
+  for(const [k,r] of mapN){
+    const c=mapC.get(k); if(!c){ add.push(r); continue; }
+    const d=[];
+    for(const i of [1,2,3,4,5,6,7,8,9]) if(num(r[i])!==num(c[i]||'')) d.push({i,from:c[i]||'',to:r[i]||''});
+    if(d.length) chg.push({name:k,d});
+  }
+  for(const k of mapC.keys()) if(!mapN.has(k)) del.push(k);
+
+  const shrink = cur.length ? (cur.length-nw.length)/cur.length : 0;
+  SAFE = !(shrink>0.10);
+  const dupes=nw.length-mapN.size;
+
+  let h='<div class="row" style="justify-content:space-between"><b>📄 '+esc(PARSED.file)+'</b><span class="mut">시트 '+cur.length+'건 → 파일 '+nw.length+'건</span></div>';
+  h+='<div class="stat" style="margin-top:12px">'
+    +'<div class="st"><b>'+nw.length+'</b><span>반영할 상품</span></div>'
+    +'<div class="st"><b style="color:#1d6b40">'+add.length+'</b><span>신규</span></div>'
+    +'<div class="st"><b style="color:#c62828">'+del.length+'</b><span>빠짐</span></div>'
+    +'<div class="st"><b style="color:#1565c0">'+chg.length+'</b><span>값 변경</span></div></div>';
+
+  if(!SAFE) h+='<div class="warn">⚠️ 상품이 '+(cur.length-nw.length)+'건('+Math.round(shrink*100)+'%) 줄어듭니다. 내보내기가 덜 됐을 수 있으니 확인하고 진행하세요.<br><label style="display:inline-flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="force"> 확인했다, 그대로 반영</label></div>';
+  if(dupes>0) h+='<div class="warn">⚠️ 같은 상품명이 '+dupes+'건 중복입니다(리모컨 원본 그대로 올라갑니다).</div>';
+
+  if(chg.length){
+    h+='<h3>💹 값이 바뀐 상품 '+chg.length+'건</h3><div class="scroll"><table><tr><th>상품명</th><th>바뀐 내용</th></tr>';
+    for(const c of chg) h+='<tr><td>'+esc(c.name)+'</td><td>'+c.d.map(x=>{
+      const lbl=HEAD[x.i].replace(/\n/g,' ');
+      const a=parseFloat(num(x.from)), b=parseFloat(num(x.to));
+      const cls=(!isNaN(a)&&!isNaN(b))?(b>a?'up':(b<a?'dn':'')):'';
+      return '<span class="mut">'+esc(lbl)+'</span> '+esc(x.from||'(빈칸)')+' → <span class="'+cls+'">'+esc(x.to||'(빈칸)')+'</span>';
+    }).join(' · ')+'</td></tr>';
+    h+='</table></div>';
+  }
+  if(add.length){
+    h+='<h3>🆕 새로 들어온 상품 '+add.length+'건</h3><div class="scroll"><table><tr><th>상품명</th><th>공급가</th><th>원가</th><th>창고</th></tr>';
+    for(const r of add) h+='<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td><td>'+esc(r[4])+'</td><td>'+esc(r[7])+'</td></tr>';
+    h+='</table></div>';
+  }
+  if(del.length){
+    h+='<h3>🗑 이번 파일에 없는 상품 '+del.length+'건 <span class="mut">(시트에서 지워집니다)</span></h3><div class="scroll"><table><tr><th>상품명</th></tr>';
+    for(const k of del) h+='<tr><td>'+esc(k)+'</td></tr>';
+    h+='</table></div>';
+  }
+  if(!chg.length&&!add.length&&!del.length) h+='<div class="ok">✅ 시트와 내용이 같습니다. 그래도 반영하면 등록일시만 갱신됩니다.</div>';
+
+  h+='<div class="row" style="margin-top:16px"><button class="go" id="go">시트에 반영하기</button>'
+    +'<button class="ghost" id="again">다른 파일</button>'
+    +'<span class="mut">비서 시트 <b>'+TAB+'</b> 탭 · 반영 전 <b>'+BACKUP_TAB+'</b> 탭에 지금 내용을 백업한다</span></div><div id="log"></div>';
+  $('prev').innerHTML=h;
+  $('again').onclick=()=>$('file').click();
+  $('go').onclick=apply;
+  if(!SAFE){ $('go').disabled=true; $('force').onchange=e=>{$('go').disabled=!e.target.checked;}; }
+}
+
+/* ───────── 반영 ───────── */
+async function apply(){
+  const btn=$('go'); btn.disabled=true; btn.textContent='반영 중…';
+  const log=m=>{ $('log').textContent+=m+'\n'; };
+  try{
+    const nw=PARSED.data, n=nw.length;
+    // 1) 백업 (직전 내용 한 벌)
+    log('① 지금 시트 내용 백업 중…');
+    const meta=await api(SHEET_ID+'?fields=sheets(properties(sheetId,title))');
+    const has=meta.sheets.some(s=>s.properties.title===BACKUP_TAB);
+    if(!has) await api(SHEET_ID+':batchUpdate',{method:'POST',body:JSON.stringify({requests:[{addSheet:{properties:{title:BACKUP_TAB}}}]})});
+    const before=(await api(SHEET_ID+'/values/'+A1(TAB)+'!A1:K5000')).values||[];
+    await api(SHEET_ID+'/values/'+A1(BACKUP_TAB)+'!A1:Z5000:clear',{method:'POST',body:'{}'});
+    const stamp=new Date().toLocaleString('ko-KR');
+    await api(SHEET_ID+'/values/'+A1(BACKUP_TAB)+'!A1?valueInputOption=RAW',{method:'PUT',
+      body:JSON.stringify({values:[['백업 '+stamp+' — 반영 직전 '+(before.length-1)+'건'],...before]})});
+    log('   백업 완료 ('+(before.length-1)+'건 → '+BACKUP_TAB+' 탭)');
+
+    // 2) 데이터 쓰기
+    log('② '+n+'건 반영 중…');
+    await api(SHEET_ID+'/values/'+A1(TAB)+'!A2:K'+(n+1)+'?valueInputOption=USER_ENTERED',{method:'PUT',
+      body:JSON.stringify({values:nw})});
+
+    // 3) 남은 옛 행 지우기
+    if(CUR.length>n){
+      await api(SHEET_ID+'/values/'+A1(TAB)+'!A'+(n+2)+':K'+(CUR.length+1)+':clear',{method:'POST',body:'{}'});
+      log('   남은 옛 행 '+(CUR.length-n)+'줄 정리');
+    }
+
+    // 4) 반영 확인 (내 쪽 추측 금지 — 시트를 다시 읽는다)
+    const after=((await api(SHEET_ID+'/values/'+A1(TAB)+'!A2:K5000')).values||[]).filter(r=>key(r[0]));
+    if(after.length!==n) throw new Error('반영 후 건수가 안 맞습니다 (기대 '+n+' / 실제 '+after.length+'). 시트를 확인하세요.');
+    const first=key(after[0][0])===key(nw[0][0]), last=key(after[n-1][0])===key(nw[n-1][0]);
+    if(!first||!last) throw new Error('반영 후 첫/끝 상품이 다릅니다. 시트를 확인하세요.');
+
+    $('prev').classList.add('hide');
+    $('done').classList.remove('hide');
+    $('done').innerHTML='<div class="ok">✅ 반영 완료 — <b>'+n+'건</b> · '+stamp+'</div>'
+      +'<div class="mut">확인까지 끝났다(시트를 다시 읽어 건수·첫줄·끝줄 대조). 직전 내용은 <b>'+BACKUP_TAB+'</b> 탭에 남아 있다.</div>'
+      +'<div class="row" style="margin-top:12px">'
+      +'<a class="link" target="_blank" href="https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit#gid=1825062600">📊 시트 열어보기</a>'
+      +'<button class="ghost" id="more">다른 파일 올리기</button></div>';
+    $('more').onclick=()=>{ $('done').classList.add('hide'); $('file').click(); };
+  }catch(e){
+    log('❌ '+e.message);
+    btn.disabled=false; btn.textContent='다시 시도';
+  }
+}
+</script>
+</body>
+</html>
