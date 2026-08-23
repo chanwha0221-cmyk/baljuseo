@@ -31,6 +31,14 @@ $Repo    = 'C:\work\baljuseo'
 $BaseUrl = 'https://chanwha0221-cmyk.github.io/baljuseo/'
 Set-Location $Repo
 
+# 🔴 한글 파일명 대응 (2026-08-24 원가업데이트.html 미배포 사고)
+#   git 은 기본(core.quotepath=true)으로 한글 경로를 "\354\233\220..." 로 escape 해서 뱉는다.
+#   그걸 그대로 pathspec 으로 넘기면 add 가 fatal: Invalid path '/354' 로 죽고,
+#   commit 은 "변경 없음"으로 넘어가고, 대조 목록($want)까지 비어서 폴링이 통째로 생략됐다.
+#   → 결과: 아무것도 안 올라갔는데 "배포 완료" 초록불. 아래 두 줄이 그 뿌리를 막는다.
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$OutputEncoding           = [Text.Encoding]::UTF8
+
 function Say($msg, $color = 'Gray') { Write-Host $msg -ForegroundColor $color }
 
 # git 이 stale lock 때문에 멈추는 사고가 반복돼서 (드라이브 동기화 시절 유물) 먼저 치운다
@@ -38,8 +46,9 @@ if (Test-Path '.git\index.lock') { Remove-Item -Force '.git\index.lock' }
 
 # ── 1. 배포할 파일 결정 ───────────────────────────────────────────────
 if (-not $Files -or $Files.Count -eq 0) {
-  $Files = @(git status --porcelain | ForEach-Object {
+  $Files = @(git -c core.quotepath=false status --porcelain | ForEach-Object {
     $p = $_.Substring(3).Trim().Trim('"')
+    if ($p -match ' -> ') { $p = ($p -split ' -> ')[-1] }   # rename 은 새 이름으로
     if ($p -match '\.(html|js|json|css)$') { $p }
   })
 }
@@ -68,12 +77,16 @@ $want = @{}
 foreach ($f in $Files) {
   $full = Join-Path $Repo $f
   if (Test-Path $full) { $want[$f] = ([IO.File]::ReadAllText($full, $enc)) -replace "`r", '' }
+  else { Say ("파일을 못 찾았습니다: " + $f + " (경로가 깨졌을 수 있음)") 'Red'; exit 3 }
 }
+# 대조할 게 하나도 없으면 폴링이 통째로 생략돼 무조건 성공으로 끝난다 — 그건 배포가 아니다
+if ($want.Count -eq 0) { Say '라이브와 대조할 파일이 없습니다. 배포로 인정하지 않고 멈춥니다.' 'Red'; exit 3 }
 
 # ── 3. push ───────────────────────────────────────────────────────────
 Say '[2/4] git pull / add / commit / push' 'Cyan'
 git pull --no-rebase --quiet
 git add -- $Files
+if ($LASTEXITCODE -ne 0) { Say ('git add 실패 — 배포 안 됐습니다. 대상: ' + ($Files -join ', ')) 'Red'; exit 3 }
 git commit -m $Message | Out-Null
 if ($LASTEXITCODE -ne 0) { Say '      커밋할 변경이 없습니다 (이미 커밋됨) — 라이브 확인만 진행합니다.' 'Yellow' }
 git push --quiet
