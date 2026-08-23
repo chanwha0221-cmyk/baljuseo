@@ -340,9 +340,6 @@
   function histPanelHTML() {
     var clientCount = (function () { var s = {}; history.forEach(function (h) { s[h.client] = 1; }); return Object.keys(s).length; })();
     var head = '📝 제안 이력 — 업체 ' + clientCount + '곳 · ' + history.length + '줄';
-    if (!histOpen) {
-      return '<div class="settings-panel"><div class="sp-head" id="hist-toggle"><span>' + head + '</span><span class="sp-caret">펼치기 ▾</span></div></div>';
-    }
     var groups = histGroups(histFiltered());
     var body =
       '<div class="sp-note" style="margin-bottom:10px;">📌 따로 기록할 것 없습니다 — <b>[전체 저장]</b>을 누르면 그때의 업체·날짜·상품·제안가가 자동으로 남습니다.<br>' +
@@ -376,9 +373,9 @@
       }).join("") + '</div>' +
       (groups.length > 60 ? '<div class="sp-note">최근 60건만 보여줍니다 (전체 ' + groups.length + '건). 검색으로 좁혀 보세요.</div>' : '');
     }
-    return '<div class="settings-panel open">' +
-      '<div class="sp-head" id="hist-toggle"><span>' + head + '</span><span class="sp-caret">접기 ▴</span></div>' +
-      '<div class="sp-body">' + body + '</div></div>';
+    return '<details class="settings-panel" id="hist-details"' + (histOpen ? ' open' : '') + '>' +
+      '<summary class="sp-head" id="hist-toggle"><span>' + head + '</span><span class="sp-caret"></span></summary>' +
+      '<div class="sp-body">' + body + '</div></details>';
   }
   function todayStr() {
     var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
@@ -746,9 +743,12 @@
   function settingsPanelHTML() {
     var s = settingsEffective();
     function ti(k, label, ph) { return '<div><span class="mini">' + label + '</span><input data-sf="' + k + '" value="' + esc(s[k]) + '" placeholder="' + (ph || "") + '"></div>'; }
-    if (!settingsOpen) return '<div class="settings-panel"><div class="sp-head" id="sp-toggle"><span>📝 상단·회사 문구 편집</span>' + spSummary() + '<span class="sp-caret">펼치기 ▾</span></div></div>';
-    return '<div class="settings-panel open">' +
-      '<div class="sp-head" id="sp-toggle"><span>📝 상단·회사 문구 편집</span>' + spSummary() + '<span class="sp-caret">접기 ▴</span></div>' +
+    /* ⚠️ <details> 를 쓰는 이유 — 예전엔 헤더를 누르면 renderEditor() 가 화면을 통째로
+       다시 그렸다. 그 바람에 로드 직후나 다른 비동기와 겹치면 클릭이 씨혀 «안 펼쳐져» 보였다
+       (2026-08-24 홍팀장 두 번 지적). 이젠 브라우저 기본 토글이라 JS 재렌더와 무관하게 100% 열린다.
+       div + settingsOpen 방식으로 되돌리지 말 것. */
+    return '<details class="settings-panel" id="sp-details"' + (settingsOpen ? ' open' : '') + '>' +
+      '<summary class="sp-head" id="sp-toggle"><span>📝 상단·회사 문구 편집</span>' + spSummary() + '<span class="sp-caret"></span></summary>' +
       '<div class="sp-body">' +
         '<div class="sp-sec">표지(상단)</div>' +
         '<div class="row r2">' + ti("hero_eyebrow", "상단 작은 문구", "공동구매 마켓 제안서 · B2B 도매") +
@@ -776,7 +776,7 @@
           '<br><span class="hp-note">받은 업체가 그대로 자기 거래처에 올릴 제안서에 쓰세요. 우리 연락처가 안 붙습니다.</span></span>' +
         '</label>' +
         '<div class="sp-foot"><span class="sp-note">저장하면 이 제안서 상단·문의에 바로 반영됩니다.</span><button class="btn-addsave" id="btn-save-settings">문구 저장</button></div>' +
-      '</div></div>';
+      '</div></details>';
   }
   function saveSettings(btn) {
     if (!currentVersion) return;
@@ -934,6 +934,11 @@
     if (_delegated) return;
     _delegated = true;
 
+    root.addEventListener("toggle", function (e) {
+      if (e.target.id === "sp-details") settingsOpen = e.target.open;
+      else if (e.target.id === "hist-details") histOpen = e.target.open;
+    }, true);
+
     root.addEventListener("focusin", function (e) { if (!(e.target.closest && e.target.closest(".ac-wrap"))) hideAc(); });
 
     root.addEventListener("input", function (e) {
@@ -997,7 +1002,6 @@
 
     root.addEventListener("click", function (e) {
       // ── 📝 제안 이력 ──
-      if (e.target.closest && e.target.closest("#hist-toggle")) { histOpen = !histOpen; _scrollTo = "hist-toggle"; renderEditor(); return; }
       if (e.target.id === "btn-hist-copy") { histCopy(); return; }
       var hcp = e.target.closest && e.target.closest("[data-histcopyone]");
       if (hcp) { e.preventDefault(); histCopyOne(hcp.getAttribute("data-histcopyone")); return; }
@@ -1010,7 +1014,6 @@
       if (e.target.id === "btn-cost") { costOpen = true; costResult = null; renderEditor(); return; }
       if (e.target.id === "btn-cost-pull") { pullCosts(); return; }
       if (e.target.id === "btn-cost-close" || e.target.id === "cost-close-back") { costOpen = false; renderEditor(); return; }
-      if (e.target.closest && e.target.closest("#sp-toggle")) { settingsOpen = !settingsOpen; _scrollTo = "sp-toggle"; renderEditor(); return; }
       if (e.target.id === "btn-save-settings") { saveSettings(e.target); return; }
       if (e.target.closest && e.target.closest("#cat-toggle")) { catsOpen = !catsOpen; renderEditor(); return; }
       if (e.target.id === "btn-cat-new") { newCategory(); return; }

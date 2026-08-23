@@ -286,3 +286,11 @@ textarea:focus{outline:2px solid var(--teal);border-color:var(--teal);}
 .sp-sum{font-weight:400;font-size:12px;color:var(--muted);}
 .sp-sum .sp-on{color:var(--teal);font-weight:800;}
 .sp-sum .sp-off{color:#e0483d;font-weight:800;}
+
+/* 패널 토글을 <details>로 바꿈 (2026-08-24) — JS 재렌더가 클릭을 삼키던 문제 근본 차단.
+   marker 를 지우고 캐럿 문구는 열림 상태에 따라 CSS가 찍는다. */
+details.settings-panel > summary{list-style:none;}
+details.settings-panel > summary::-webkit-details-marker{display:none;}
+details.settings-panel[open]{border-color:var(--amber);box-shadow:0 8px 24px rgba(255,176,32,0.12);}
+.sp-caret::after{content:"펼치기 ▾";}
+details.settings-panel[open] > summary .sp-caret::after{content:"접기 ▴";}
