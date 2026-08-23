@@ -431,7 +431,7 @@
     if (btn) { btn.disabled = true; btn.textContent = "저장중…"; }
     saveCatsSheet().then(function () {
       if (btn) { btn.disabled = false; btn.textContent = "저장됨 ✓"; setTimeout(function () { if (btn) btn.textContent = "저장"; }, 1500); }
-      renderEditor(); toast("카테고리 저장됨 ✅ 공개 사이트에 반영됩니다");
+      renderEditor(); toast("카테고리 저장됨 ✅");
     }).catch(function (err) { if (btn) { btn.disabled = false; btn.textContent = "저장"; } toast("저장 실패: " + (err.message || err), true); });
   }
   function newCategory() {
@@ -521,7 +521,7 @@
       body = '<div class="sp-note">도구시트 <b>전체상품원가</b>(' + costResult.total.toLocaleString() + '건, 기준일 <b>' + esc(costResult.base || "-") + '</b>)에서 ' +
         '상품명이 <b>완전히 같은</b> 것만 가져왔습니다. 원가는 관리자 화면에서만 보이고 제안서·PDF에는 안 나갑니다.' +
         '<br>🚚 <b>무료배송으로 파는 상품</b>(공급가 택배비 0)인데 매입에 택배비가 붙어 있으면 그 금액을 <b>원가에 더해</b> 잡았습니다 — 그게 실제로 남는 돈입니다.' +
-        (costResult.others ? '<br>다른 버전 상품 <b>' + costResult.others + '건</b>도 같이 채웠습니다.' : '') + '</div>';
+        (costResult.others ? '<br>다른 제안서 상품 <b>' + costResult.others + '건</b>도 같이 채웠습니다.' : '') + '</div>';
       if (costResult.rows.length) {
         body += '<table class="st-table"><thead><tr><th>상품명</th><th>원가</th><th>파는 값</th><th>마진</th></tr></thead><tbody>' +
           costResult.rows.map(function (r) {
@@ -662,7 +662,7 @@
     if (priceRows === null) body = '<div class="st-empty">유통시트와 대조하는 중…</div>';
     else if (priceErr) body = '<div class="st-empty">유통시트를 읽지 못했어요 — ' + esc(priceErr) + '</div>';
     else if (!priceRows.length) {
-      body = '<div class="st-empty">✅ 이 버전 상품의 공급가는 유통시트와 모두 같습니다.</div>';
+      body = '<div class="st-empty">✅ 이 제안서 상품의 공급가는 유통시트와 모두 같습니다.</div>';
     } else {
       body = '<table class="st-table"><thead><tr><th style="width:34px;"></th><th>상품명</th><th>제안서</th><th>유통시트</th><th>차이</th><th>창고</th></tr></thead><tbody>' +
         priceRows.map(function (r) {
@@ -715,7 +715,7 @@
         '<div class="row r2">' + ti("manager_name", "담당자명") + ti("manager_title", "직함") + '</div>' +
         '<div class="sp-sec">연락처</div>' +
         '<div class="row r3">' + ti("phone", "전화") + ti("email", "이메일") + ti("kakao", "카카오톡 ID") + '<div></div></div>' +
-        '<div class="sp-sec">이 버전에 넣을 것 / 뺄 것</div>' +
+        '<div class="sp-sec">이 제안서에 넣을 것 / 뺄 것</div>' +
         '<label class="hide-price' + (isHidePrice(s) ? ' on' : '') + '">' +
           '<input type="checkbox" data-sf="hide_price"' + (isHidePrice(s) ? ' checked' : '') + '>' +
           '<span><b>공급가 숨기기</b> — 가격 대신 <b>[공급가 문의하기]</b>가 표시됩니다.' +
@@ -731,7 +731,7 @@
           '<span><b>맨 아래 담당자 명함(문의 섹션) 빼기</b> — 이름·전화·이메일·카톡이 통째로 안 나갑니다.' +
           '<br><span class="hp-note">받은 업체가 그대로 자기 거래처에 올릴 제안서에 쓰세요. 우리 연락처가 안 붙습니다.</span></span>' +
         '</label>' +
-        '<div class="sp-foot"><span class="sp-note">저장하면 공개 사이트 상단·문의에 바로 반영됩니다.</span><button class="btn-addsave" id="btn-save-settings">문구 저장</button></div>' +
+        '<div class="sp-foot"><span class="sp-note">저장하면 이 제안서 상단·문의에 바로 반영됩니다.</span><button class="btn-addsave" id="btn-save-settings">문구 저장</button></div>' +
       '</div></div>';
   }
   function saveSettings(btn) {
@@ -744,7 +744,7 @@
     currentVersion.settings = obj; siteSettings = Object.assign({}, obj);
     saveVersionsSheet().then(function () {
       btn.disabled = false; btn.textContent = "문구 저장";
-      toast("문구가 저장됐어요 ✅ 이 버전 공개 사이트에 반영됩니다");
+      toast("문구가 저장됐어요 ✅ 이 제안서에 반영됩니다");
     }).catch(function (err) { btn.disabled = false; btn.textContent = "문구 저장"; toast("저장 실패: " + (err.message || err), true); });
   }
 
@@ -1195,7 +1195,7 @@
     items.push(it);
     saveProducts().then(function () {
       addingCat = null; newItem = null; dirty = false; renderEditor();
-      toast("상품이 추가됐어요 ✅ 공개 사이트에 반영됩니다");
+      toast("상품이 추가됐어요 ✅");
     }).catch(function (err) {
       items = items.filter(function (x) { return x !== it; });
       btn.disabled = false; btn.textContent = "이 상품 추가";
