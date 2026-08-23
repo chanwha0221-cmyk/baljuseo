@@ -345,12 +345,12 @@
 
     html += '<div class="save-btns">' +
       '<button class="pdf-btn" id="jpg-btn" title="화면 그대로 이미지(JPG) 파일로 저장합니다">🖼 JPG 저장</button>' +
-      '<button class="pdf-btn" id="pdf-btn" title="PDF로 저장하거나 인쇄합니다">🖨 PDF 저장</button>' +
+      '<button class="pdf-btn" id="pdf-btn" title="화면 그대로, 페이지가 안 끊기는 긴 PDF 한 장으로 저장합니다 (A4 여러 장으로 인쇄하려면 Ctrl+P)">🖨 PDF 저장 (한 장)</button>' +
       '</div>';
 
     document.getElementById("app").innerHTML = html;
     var pb = document.getElementById("pdf-btn");
-    if (pb) pb.addEventListener("click", function () { window.print(); });
+    if (pb) pb.addEventListener("click", saveAsPDF);
     var jb = document.getElementById("jpg-btn");
     if (jb) jb.addEventListener("click", saveAsJPG);
     document.title = (CFG.company || "상품") + " 상품 제안서";
@@ -360,49 +360,121 @@
      ⚠️ 상품 사진이 외부 주소(masterc)면 브라우저 보안 때문에 캔버스가 오염돼 저장이 통째로 막힌다.
         그래서 제안서 사진은 이 사이트 안(images/products/)에 두는 걸 원칙으로 한다.
         혹시 외부 사진이 섞여 있으면 그 장수를 세어 알려주고, 저장은 되게 한다. */
-  function saveAsJPG() {
-    var btn = document.getElementById("jpg-btn");
+  /* ── 화면을 통째로 캔버스에 담는다 (JPG 저장 · PDF 저장 공용) ──
+     캔버스에는 브라우저 한계가 있어서(높이 약 32,767px) 문서가 길면 배율을 알아서 낮춘다. */
+  function captureApp(cb, fail) {
     var app = document.getElementById("app");
-    var outside = [].slice.call(app.querySelectorAll(".prod-img img")).filter(function (im) {
-      return im.src && im.src.indexOf(location.origin) !== 0;
-    });
-    var done = function (msg, err) {
-      btn.disabled = false; btn.textContent = "🖼 JPG 저장";
-      if (msg) alert(msg);
-      if (err) console.warn(err);
-    };
-    btn.disabled = true; btn.textContent = "만드는 중…";
-
     var run = function () {
-      var wrap = document.createElement("div");   // 버튼은 빼고 찍는다
       var box = document.querySelector(".save-btns");
-      if (box) box.style.visibility = "hidden";
+      if (box) box.style.visibility = "hidden";                 // 버튼은 빼고 찍는다
+      var h = app.scrollHeight, scale = 2;
+      while (scale > 1 && h * scale > 15000) scale -= 0.5;      // 길면 배율을 낮춰 안전하게
       window.html2canvas(app, {
-        backgroundColor: "#fdf8ef", scale: 2, useCORS: true, logging: false,
-        windowWidth: app.scrollWidth, width: app.scrollWidth, height: app.scrollHeight
+        backgroundColor: "#fdf8ef", scale: scale, useCORS: true, logging: false,
+        windowWidth: app.scrollWidth, width: app.scrollWidth, height: h
       }).then(function (canvas) {
         if (box) box.style.visibility = "";
-        canvas.toBlob(function (blob) {
-          if (!blob) { done("이미지를 만들지 못했습니다. 하비서에게 알려주세요."); return; }
-          var a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          var v = (new URLSearchParams(location.search)).get("v") || "제안서";
-          var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
-          a.download = "마스터_상품제안서_" + v + "_" + (d.getMonth() + 1) + p(d.getDate()) + ".jpg";
-          document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
-          done(outside.length ? ("저장했습니다.\n다만 사진 " + outside.length + "장은 외부 주소라 이미지에 안 담겼을 수 있습니다.\n하비서에게 '제안서 사진 사이트로 옮겨줘'라고 하면 해결됩니다.") : "");
-        }, "image/jpeg", 0.92);
-      }).catch(function (e) { if (box) box.style.visibility = ""; done("이미지를 만들지 못했습니다. 하비서에게 알려주세요.", e); });
-      void wrap;
+        cb(canvas);
+      }).catch(function (e) { if (box) box.style.visibility = ""; fail(e); });
     };
-
     if (window.html2canvas) return run();
     var s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
     s.onload = run;
-    s.onerror = function () { done("이미지 저장 기능을 불러오지 못했습니다(인터넷 연결 확인)."); };
+    s.onerror = function () { fail(new Error("html2canvas 로드 실패")); };
     document.head.appendChild(s);
+  }
+  function outsidePhotos() {
+    return [].slice.call(document.querySelectorAll("#app .prod-img img")).filter(function (im) {
+      return im.src && im.src.indexOf(location.origin) !== 0;
+    }).length;
+  }
+  function outsideNote() {
+    var n = outsidePhotos();
+    return n ? ("저장했습니다.\n다만 사진 " + n + "장은 외부 주소라 파일에 안 담겼을 수 있습니다.\n하비서에게 '제안서 사진 사이트로 옮겨줘'라고 하면 해결됩니다.") : "";
+  }
+  function downloadBlob(blob, ext) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    var v = (new URLSearchParams(location.search)).get("v") || "제안서";
+    var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
+    a.download = "마스터_상품제안서_" + v + "_" + (d.getMonth() + 1) + p(d.getDate()) + "." + ext;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  }
+
+  /* 화면 그대로 JPG 저장 (2026-08-20 홍팀장 — 업체엔 이미지로 돌린다) */
+  function saveAsJPG() {
+    var btn = document.getElementById("jpg-btn");
+    var done = function (msg, err) {
+      btn.disabled = false; btn.textContent = "🖼 JPG 저장";
+      if (msg) alert(msg); if (err) console.warn(err);
+    };
+    btn.disabled = true; btn.textContent = "만드는 중…";
+    captureApp(function (canvas) {
+      canvas.toBlob(function (blob) {
+        if (!blob) { done("이미지를 만들지 못했습니다. 하비서에게 알려주세요."); return; }
+        downloadBlob(blob, "jpg");
+        done(outsideNote());
+      }, "image/jpeg", 0.92);
+    }, function (e) { done("이미지를 만들지 못했습니다. 하비서에게 알려주세요.", e); });
+  }
+
+  /* 📄 PDF 저장 — "페이지가 안 끊기는 한 장" (2026-08-24 홍팀장: "그냥 한장 쭉 길게 만들순 없냐")
+     브라우저 인쇄(window.print)는 A4에 맞춰 무조건 여러 장으로 잘린다. 그래서 인쇄를 안 쓰고,
+     화면을 찍은 JPEG 하나를 그 비율만큼 «길쭉한 페이지» 하나에 담은 PDF를 직접 만든다.
+     외부 PDF 라이브러리 없음 — 이미지 한 장짜리 PDF는 구조가 단순해서 손으로 조립하는 게 더 가볍다.
+     ※ A4 여러 장으로 인쇄하고 싶으면 예전처럼 Ctrl+P (인쇄용 CSS는 style.css 에 그대로 있다). */
+  function jpegToOnePagePDF(jpeg, pxW, pxH) {
+    var W = 595.28, H = W * pxH / pxW;                 // A4 폭 기준, 높이는 이미지 비율 그대로
+    if (H > 14000) { H = 14000; W = H * pxW / pxH; }   // PDF 한 페이지 한계(200inch=14400pt) 안으로
+    var enc = function (s) {
+      var a = new Uint8Array(s.length);
+      for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i) & 0xff;
+      return a;
+    };
+    var chunks = [], size = 0, offs = [];
+    var put = function (x) { var b = (typeof x === "string") ? enc(x) : x; chunks.push(b); size += b.length; };
+    var obj = function (n, body) { offs[n] = size; put(n + " 0 obj\n" + body + "\nendobj\n"); };
+    var f2 = function (v) { return v.toFixed(2); };
+
+    put("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+    obj(1, "<</Type/Catalog/Pages 2 0 R>>");
+    obj(2, "<</Type/Pages/Kids[3 0 R]/Count 1>>");
+    obj(3, "<</Type/Page/Parent 2 0 R/MediaBox[0 0 " + f2(W) + " " + f2(H) + "]" +
+           "/Resources<</XObject<</Im0 4 0 R>>>>/Contents 5 0 R>>");
+    offs[4] = size;
+    put("4 0 obj\n<</Type/XObject/Subtype/Image/Width " + pxW + "/Height " + pxH +
+        "/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length " + jpeg.length + ">>\nstream\n");
+    put(jpeg);
+    put("\nendstream\nendobj\n");
+    var content = "q " + f2(W) + " 0 0 " + f2(H) + " 0 0 cm /Im0 Do Q\n";
+    obj(5, "<</Length " + content.length + ">>\nstream\n" + content + "endstream");
+
+    var xref = size, pad = function (n) { var s = String(n); while (s.length < 10) s = "0" + s; return s; };
+    var x = "xref\n0 6\n0000000000 65535 f \n";
+    for (var i = 1; i <= 5; i++) x += pad(offs[i]) + " 00000 n \n";
+    put(x + "trailer\n<</Size 6/Root 1 0 R>>\nstartxref\n" + xref + "\n%%EOF\n");
+    return new Blob(chunks, { type: "application/pdf" });
+  }
+  function saveAsPDF() {
+    var btn = document.getElementById("pdf-btn");
+    var done = function (msg, err) {
+      btn.disabled = false; btn.textContent = "🖨 PDF 저장 (한 장)";
+      if (msg) alert(msg); if (err) console.warn(err);
+    };
+    btn.disabled = true; btn.textContent = "만드는 중…";
+    captureApp(function (canvas) {
+      canvas.toBlob(function (blob) {
+        if (!blob) { done("PDF를 만들지 못했습니다. 하비서에게 알려주세요."); return; }
+        blob.arrayBuffer().then(function (buf) {
+          try {
+            downloadBlob(jpegToOnePagePDF(new Uint8Array(buf), canvas.width, canvas.height), "pdf");
+            done(outsideNote());
+          } catch (e) { done("PDF를 만들지 못했습니다. 하비서에게 알려주세요.", e); }
+        });
+      }, "image/jpeg", 0.9);
+    }, function (e) { done("PDF를 만들지 못했습니다. 하비서에게 알려주세요.", e); });
   }
 
   // ---------- 데이터 로드 ----------
