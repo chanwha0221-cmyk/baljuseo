@@ -59,7 +59,8 @@
   var expandedCats = {};
   var versions = [], currentVersion = null;
   var history = [], histOpen = false, histQ = "", histBusy = false;   // 📝 제안 이력
-  var _refocus = null;   // 다시 그린 뒤 포커스를 돌려줄 input id
+  var _refocus = null;      // 다시 그린 뒤 포커스를 돌려줄 input id
+  var lastAddCat = "수산";  // [+ 상품 담기] 카테고리 셀렉트의 마지막 선택
   var loadedOK = false;    // 시트 읽기에 성공했나 (실패 상태로 저장하면 데이터가 날아간다)
 
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
@@ -111,10 +112,10 @@
         try { st = v.settings ? JSON.parse(v.settings) : {}; } catch (e) { st = {}; }
         return { id: v.id || uid(), slug: String(v.slug).trim(), name: v.name || v.slug, sort_order: num(v.sort_order), settings: st };
       }).sort(function (a, b) { return a.sort_order - b.sort_order; });
-      if (!versions.length) {
-        versions = [{ id: "v1", slug: "default", name: "기본 제안서", sort_order: 10, settings: {} }];
-      }
-      currentVersion = (currentVersion && versions.filter(function (v) { return v.id === currentVersion.id; })[0]) || versions[0];
+      /* 2026-08-24 홍팀장: "기본 제안서" 같은 상설 버전은 없다. 제안서 = 업체 하나에 보낸 제안 한 건.
+         그래서 하나도 없으면 억지로 만들지 않고, 화면에서 "새 제안서부터 만드세요"로 안내한다. */
+      currentVersion = (currentVersion && versions.filter(function (v) { return v.id === currentVersion.id; })[0]) || versions[0] || null;
+      if (!currentVersion) { items = []; otherRows = []; siteSettings = {}; }
 
       /* --- 카테고리 = '상품분류' 탭에서 그대로 따온다 (제안서카테고리 탭은 결과를 받아 적기만 한다) --- */
       catMap = {};
@@ -131,7 +132,8 @@
 
       /* --- 상품 (현재 버전 것만 편집, 나머지는 원본 행 그대로 보관) --- */
       var prow = (res[T.products] || []).slice(1).filter(function (r) { return (r[2] || "").trim(); });
-      otherRows = prow.filter(function (r) { return String(r[0] || "").trim() !== currentVersion.slug; });
+      var curSlug = currentVersion ? currentVersion.slug : " ";   // 제안서가 하나도 없으면 전부 otherRows
+      otherRows = prow.filter(function (r) { return String(r[0] || "").trim() !== curSlug; });
       /* 상품의 카테고리를 '상품분류' 기준으로 맞춘다.
          분류표에 있으면 그 값, 없으면 옛 key 매핑, 그것도 없으면 '기타'.
          이미 새 분류값을 쓰고 있으면 건드리지 않는다(사장님이 손으로 옮겨둔 걸 되돌리지 않기 위해). */
@@ -144,7 +146,7 @@
         recatCount++;
         return hit;
       };
-      items = prow.filter(function (r) { return String(r[0] || "").trim() === currentVersion.slug; })
+      items = prow.filter(function (r) { return String(r[0] || "").trim() === curSlug; })
         .map(function (r) {
           return {
             _key: uid(), category: recat(r[1], r[2]), name: r[2] || "", warehouse: r[3] || "",
@@ -165,7 +167,7 @@
         })
         .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
 
-      siteSettings = Object.assign({}, currentVersion.settings || {});
+      siteSettings = Object.assign({}, (currentVersion && currentVersion.settings) || {});
       loadedOK = true;
       /* 공개 사이트(app.js)가 읽는 제안서카테고리 탭을 분류표 결과로 맞춰 둔다 — 조용히, 실패해도 무시. */
       saveCatsSheet().catch(function () {});
@@ -187,6 +189,7 @@
   }
   function saveProducts() {
     if (!loadedOK) return Promise.reject(new Error("아직 시트를 못 읽었습니다 — 새로고침 후 다시 시도하세요"));
+    if (!currentVersion) return Promise.reject(new Error("먼저 [+ 새 제안서]로 업체를 만들어 주세요"));
     var ordered = [];
     CATS.forEach(function (c) { items.filter(function (i) { return i.category === c.key; }).forEach(function (i) { ordered.push(i); }); });
     items.forEach(function (i) { if (ordered.indexOf(i) < 0) ordered.push(i); });   // 없는 카테고리 소속도 유실 금지
@@ -297,8 +300,12 @@
   }
 
   /* ================= 📝 제안 이력 =================
-     2026-08-24 홍팀장: "업체별로 내가 얼마에 제안했는지 텍스트로 남겨줘 — 날짜·업체명·상품명·제안가."
-     제안서는 웹으로 공유하지 않고 jpg/pdf 로 보내므로, '누구에게 얼마를 불렀나'는 여기에만 남는다. */
+     2026-08-24 홍팀장. 쓰는 목적 두 가지 —
+       ① "내가 언제 이 업체에 얼마에 제안했더라?"
+       ② "이 업체는 저 업체랑 비슷하게 제안하면 되겠다"
+     그래서 기록은 «따로 누르는 버튼»이 아니라 [전체 저장]에 묻어간다.
+     제안서 이름 = 업체명이므로, 저장할 때마다 그 업체·그 날짜의 제안 내용이 통째로 갱신된다.
+     (같은 업체를 같은 날 여러 번 저장하면 마지막 것만 남고, 날짜가 바뀌면 새 줄로 쌓인다.) */
   function histPrice(it) { return num(it.special_price) || num(it.supply_price); }
   function histText(rows) {
     return (rows || []).map(function (h) {
@@ -317,92 +324,105 @@
     return window.SVC.writeTab(T.history, [window.SVC.HEADERS[T.history]].concat(
       history.map(function (h) { return [h.date, h.client, h.name, h.price || "", h.warehouse, h.memo, h.id]; })));
   }
+  /* 업체 → 날짜 → 상품들 로 묶는다. "이 업체에 언제 뭘 얼마에 불렀나"를 한눈에 보기 위해. */
+  function histGroups(rows) {
+    var map = {}, order = [];
+    (rows || []).forEach(function (h) {
+      var k = h.client + " " + h.date;
+      if (!map[k]) { map[k] = { client: h.client, date: h.date, memo: h.memo, list: [] }; order.push(k); }
+      if (!map[k].memo && h.memo) map[k].memo = h.memo;
+      map[k].list.push(h);
+    });
+    return order.map(function (k) { return map[k]; })
+      .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)) || a.client.localeCompare(b.client); });
+  }
   function histPanelHTML() {
+    var clientCount = (function () { var s = {}; history.forEach(function (h) { s[h.client] = 1; }); return Object.keys(s).length; })();
+    var head = '📝 제안 이력 — 업체 ' + clientCount + '곳 · ' + history.length + '줄';
     if (!histOpen) {
-      return '<div class="settings-panel"><div class="sp-head" id="hist-toggle"><span>📝 제안 이력 (' + history.length + '건) — 날짜·업체·상품·제안가</span><span class="sp-caret">펼치기 ▾</span></div></div>';
+      return '<div class="settings-panel"><div class="sp-head" id="hist-toggle"><span>' + head + '</span><span class="sp-caret">펼치기 ▾</span></div></div>';
     }
-    var rows = histFiltered();
-    var byClient = {};
-    history.forEach(function (h) { byClient[h.client] = (byClient[h.client] || 0) + 1; });
-    var clients = Object.keys(byClient).sort();
+    var groups = histGroups(histFiltered());
     var body =
-      '<div class="sp-note" style="margin-bottom:10px;">지금 편집 중인 <b>' + (currentVersion ? esc(currentVersion.name) : "") + '</b> 의 상품 ' + items.length + '개를 ' +
-        '업체 하나에 제안한 것으로 한 번에 기록합니다. 제안가는 <b>특별제안가</b>가 있으면 그 값, 없으면 공급가입니다.</div>' +
-      '<div class="row r2" style="align-items:end;">' +
-        '<div><span class="mini">업체명</span><input id="hist-client" placeholder="예: 호호야채" list="hist-clients" autocomplete="off">' +
-          '<datalist id="hist-clients">' + clients.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("") + '</datalist></div>' +
-        '<div><span class="mini">날짜</span><input id="hist-date" type="date" value="' + esc(todayStr()) + '"></div>' +
-      '</div>' +
-      '<div class="row" style="margin-top:6px;"><div><span class="mini">메모 (선택)</span><input id="hist-memo" placeholder="예: 카톡 발송 / 견적 요청 건" autocomplete="off"></div></div>' +
-      '<div class="sp-foot" style="margin-bottom:12px;"><span class="sp-note">기록은 도구시트 <b>제안이력</b> 탭에 쌓입니다.</span>' +
-        '<button class="btn-addsave" id="btn-hist-add"' + (histBusy ? ' disabled' : '') + '>' + (histBusy ? '기록 중…' : '📌 이번 제안 기록 (' + items.length + '건)') + '</button></div>' +
-      '<div class="sp-sec">기록된 이력</div>' +
+      '<div class="sp-note" style="margin-bottom:10px;">📌 따로 기록할 것 없습니다 — <b>[전체 저장]</b>을 누르면 그때의 업체·날짜·상품·제안가가 자동으로 남습니다.<br>' +
+        '제안가는 <b>특별제안가</b>가 있으면 그 값, 없으면 공급가입니다. 같은 업체를 같은 날 다시 저장하면 그 날 기록이 최신으로 갱신됩니다.</div>' +
       '<div class="row r2" style="align-items:end;">' +
         '<div><span class="mini">검색 (업체명·상품명)</span><input id="hist-q" value="' + esc(histQ) + '" placeholder="업체명이나 상품명" autocomplete="off"></div>' +
         '<div><span class="mini">&nbsp;</span><button class="btn-ghost2" id="btn-hist-copy">📋 보이는 것 전부 텍스트로 복사</button></div>' +
       '</div>';
-    if (!rows.length) {
-      body += '<div class="st-empty" style="margin-top:10px;">' + (history.length ? '검색 결과가 없습니다.' : '아직 기록된 제안이 없습니다 — 위에서 업체명을 넣고 [📌 이번 제안 기록]을 눌러보세요.') + '</div>';
+    if (!groups.length) {
+      body += '<div class="st-empty" style="margin-top:10px;">' +
+        (history.length ? '검색 결과가 없습니다.' : '아직 기록된 제안이 없습니다 — 제안서를 만들고 [전체 저장]을 누르면 여기에 쌓입니다.') + '</div>';
     } else {
-      body += '<div class="hist-list">' + rows.slice(0, 400).map(function (h) {
-        return '<div class="hist-row">' +
-          '<span class="hd">' + esc(h.date) + '</span>' +
-          '<span class="hc">' + esc(h.client) + '</span>' +
-          '<span class="hn">' + esc(h.name) + '</span>' +
-          '<span class="hp">' + (h.price ? h.price.toLocaleString() + '원' : '-') + '</span>' +
-          (h.memo ? '<span class="hm">' + esc(h.memo) + '</span>' : '') +
-          '<button class="btn-ghost danger hx" data-histdel="' + esc(h.id) + '" title="이 줄 삭제">🗑</button>' +
-        '</div>';
+      body += '<div class="hist-groups">' + groups.slice(0, 60).map(function (g) {
+        var sum = g.list.reduce(function (a, h) { return a + (h.price || 0); }, 0);
+        return '<details class="hist-g">' +
+          '<summary><span class="hgd">' + esc(g.date) + '</span><span class="hgc">' + esc(g.client) + '</span>' +
+            '<span class="hgn">상품 ' + g.list.length + '개</span>' +
+            '<span class="hgs">합계 ' + sum.toLocaleString() + '원</span>' +
+            (g.memo ? '<span class="hgm">' + esc(g.memo) + '</span>' : '') +
+            '<button class="btn-ghost2 hgb" data-histcopyone="' + esc(g.client) + ' ' + esc(g.date) + '">📋</button>' +
+            '<button class="btn-ghost danger hgb" data-histdelgroup="' + esc(g.client) + ' ' + esc(g.date) + '" title="이 날짜 기록 삭제">🗑</button>' +
+          '</summary>' +
+          '<div class="hist-list">' + g.list.map(function (h) {
+            return '<div class="hist-row">' +
+              '<span class="hn">' + esc(h.name) + '</span>' +
+              (h.warehouse ? '<span class="hm">' + esc(h.warehouse) + '</span>' : '') +
+              '<span class="hp">' + (h.price ? h.price.toLocaleString() + '원' : '-') + '</span>' +
+            '</div>';
+          }).join("") + '</div>' +
+        '</details>';
       }).join("") + '</div>' +
-      (rows.length > 400 ? '<div class="sp-note">최근 400건만 보여줍니다 (전체 ' + rows.length + '건). 검색으로 좁혀 보세요.</div>' : '');
+      (groups.length > 60 ? '<div class="sp-note">최근 60건만 보여줍니다 (전체 ' + groups.length + '건). 검색으로 좁혀 보세요.</div>' : '');
     }
     return '<div class="settings-panel open">' +
-      '<div class="sp-head" id="hist-toggle"><span>📝 제안 이력 (' + history.length + '건) — 날짜·업체·상품·제안가</span><span class="sp-caret">접기 ▴</span></div>' +
+      '<div class="sp-head" id="hist-toggle"><span>' + head + '</span><span class="sp-caret">접기 ▴</span></div>' +
       '<div class="sp-body">' + body + '</div></div>';
   }
   function todayStr() {
     var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
     return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
   }
-  function histAdd() {
-    var cEl = document.getElementById("hist-client"), dEl = document.getElementById("hist-date"), mEl = document.getElementById("hist-memo");
-    var client = (cEl && cEl.value || "").trim();
-    var date = (dEl && dEl.value || "").trim() || todayStr();
-    var memo = (mEl && mEl.value || "").trim();
-    if (!client) { toast("업체명을 넣어주세요", true); if (cEl) cEl.focus(); return; }
-    if (!items.length) { toast("이 버전에 상품이 없습니다", true); return; }
-    var dup = history.filter(function (h) { return h.client === client && h.date === date; }).length;
-    if (dup && !confirm("[" + client + "] 에 " + date + " 로 이미 " + dup + "건이 기록돼 있습니다.\n그래도 " + items.length + "건을 더 기록할까요?")) return;
-    var add = items.map(function (it) {
+  /* [전체 저장]에 묻어가는 자동 기록.
+     제안서 이름 = 업체명. 같은 업체 · 같은 날짜 줄은 통째로 지우고 지금 내용으로 다시 넣는다.
+     ⚠️ 이력 저장이 실패해도 상품 저장은 이미 끝난 상태다 — 여기서 예외를 밖으로 던지지 않는다. */
+  function histRecordCurrent() {
+    if (!currentVersion || !items.length) return Promise.resolve(0);
+    var client = (currentVersion.name || "").trim();
+    if (!client) return Promise.resolve(0);
+    var date = todayStr();
+    var fresh = items.map(function (it) {
       return { date: date, client: client, name: (it.name || "").trim(), price: histPrice(it),
-               warehouse: (it.warehouse || "").trim(), memo: memo, id: uid() };
+               warehouse: (it.warehouse || "").trim(), memo: "", id: uid() };
     });
-    history = add.concat(history);
-    histBusy = true; renderEditor();
-    saveHistorySheet().then(function () {
-      histBusy = false; renderEditor();
-      toast("📝 [" + client + "] " + add.length + "건 기록됨");
-    }).catch(function (e) {
-      history = history.filter(function (h) { return add.indexOf(h) < 0; });
-      histBusy = false; renderEditor();
-      toast("기록 실패: " + (e && e.message || e), true);
-    });
-  }
-  function histDelete(id) {
-    var h = history.filter(function (x) { return x.id === id; })[0];
-    if (!h) return;
-    if (!confirm("[" + h.client + "] " + h.name + " (" + h.date + ") 기록을 지울까요?")) return;
     var keep = history;
-    history = history.filter(function (x) { return x.id !== id; });
+    history = fresh.concat(history.filter(function (h) { return !(h.client === client && h.date === date); }));
+    return saveHistorySheet().then(function () { return fresh.length; })
+      .catch(function (e) { history = keep; console.warn("제안 이력 저장 실패", e); return -1; });
+  }
+  function histDeleteGroup(token) {
+    var i = token.lastIndexOf(" ");
+    var client = token.slice(0, i), date = token.slice(i + 1);
+    var hit = history.filter(function (h) { return h.client === client && h.date === date; });
+    if (!hit.length) return;
+    if (!confirm("[" + client + "] " + date + " 기록 " + hit.length + "줄을 지울까요?")) return;
+    var keep = history;
+    history = history.filter(function (h) { return !(h.client === client && h.date === date); });
     renderEditor();
     saveHistorySheet().then(function () { toast("삭제됨"); })
       .catch(function (e) { history = keep; renderEditor(); toast("삭제 실패: " + (e && e.message || e), true); });
   }
-  function histCopy() {
-    var txt = histText(histFiltered());
+  function histCopyText(txt, n) {
     if (!txt) { toast("복사할 이력이 없습니다", true); return; }
-    navigator.clipboard.writeText(txt).then(function () { toast("📋 " + histFiltered().length + "건 복사됨"); })
+    navigator.clipboard.writeText(txt).then(function () { toast("📋 " + n + "줄 복사됨"); })
       .catch(function () { toast("복사 실패 — 브라우저가 막았어요", true); });
+  }
+  function histCopy() { var r = histFiltered(); histCopyText(histText(r), r.length); }
+  function histCopyOne(token) {
+    var i = token.lastIndexOf(" ");
+    var client = token.slice(0, i), date = token.slice(i + 1);
+    var rows = history.filter(function (h) { return h.client === client && h.date === date; });
+    histCopyText(histText(rows), rows.length);
   }
   function saveCategory(key, btn) {
     var c = catByKey(key); if (!c) return;
@@ -860,14 +880,19 @@
 
   /* ================= 화면 ================= */
   function renderEditor() {
-    var verCtrl = '<select id="ver-select" class="ver-select" title="편집할 버전 선택">' +
-        versions.map(function (v) { return '<option value="' + v.id + '"' + (currentVersion && v.id === currentVersion.id ? ' selected' : '') + '>' + esc(v.name) + '</option>'; }).join("") +
-      '</select>' +
-      '<button class="btn-ghost" id="btn-ver-new">+ 새 버전</button>' +
-      '<button class="btn-ghost" id="btn-ver-copy" title="현재 버전의 상품·문구를 그대로 복사해 새 버전 만들기">⧉ 복제</button>' +
-      '<button class="btn-ghost" id="btn-ver-rename" title="이름 변경">✏ 이름</button>' +
-      // 🔗 링크 복사 폐기(2026-08-24 홍팀장) — 제안서는 웹으로 공유하지 않고 jpg/pdf 로만 보낸다.
-      '<button class="btn-ghost danger" id="btn-ver-del" title="이 버전과 소속 상품 삭제">🗑 삭제</button>';
+    /* 제안서 = 업체 하나에 보낸 제안 한 건. 상설 "기본 제안서" 같은 건 없다. (2026-08-24 홍팀장) */
+    var verCtrl = (versions.length
+        ? '<select id="ver-select" class="ver-select" title="업체 고르기">' +
+            versions.map(function (v) { return '<option value="' + v.id + '"' + (currentVersion && v.id === currentVersion.id ? ' selected' : '') + '>' + esc(v.name) + '</option>'; }).join("") +
+          '</select>'
+        : '<span class="ver-none">제안서 없음</span>') +
+      '<button class="btn-ghost" id="btn-ver-new">+ 새 제안서</button>' +
+      (currentVersion
+        ? '<button class="btn-ghost" id="btn-ver-copy" title="이 업체에 보낸 제안을 그대로 복사해 다른 업체용으로 만듭니다">⧉ 이걸로 다른 업체</button>' +
+          '<button class="btn-ghost" id="btn-ver-rename" title="업체명 바꾸기">✏ 업체명</button>' +
+          // 🔗 링크 복사 폐기(2026-08-24 홍팀장) — 제안서는 웹으로 공유하지 않고 jpg/pdf 로만 보낸다.
+          '<button class="btn-ghost danger" id="btn-ver-del" title="이 제안서와 담긴 상품 삭제">🗑 삭제</button>'
+        : '');
     var pubHref = "index.html?nt=1" + (currentVersion ? ("&v=" + encodeURIComponent(currentVersion.slug)) : "");
     var html =
       '<div class="topbar"><span class="brand">🐟 상품 관리자</span>' + verCtrl +
@@ -882,14 +907,29 @@
           : '<span class="cl-none">아직 없음 — [🧾 원가 업데이트]에서 가져오세요</span>') +
       '</div>' +
       '<div class="wrap">' +
-      '<div class="hint">상품을 고친 뒤 그 상품의 <b>[저장]</b> 버튼을 누르면 바로 공개 사이트에 반영됩니다. 사진은 <b>[사진 업로드]</b>, 삭제는 <b>[삭제]</b>로 즉시 처리돼요. (아래 <b>[전체 저장]</b>은 여러 개를 한 번에 저장할 때만 쓰세요.)</div>' +
+      '<div class="hint">상품을 고친 뒤 그 상품의 <b>[저장]</b> 버튼을 누르면 바로 반영됩니다. 삭제는 <b>[삭제]</b>로 즉시 처리돼요.<br>' +
+        '<b>[전체 저장]</b>을 누르면 여러 상품이 한 번에 저장되고, <b>그때의 제안 내용이 📝 제안 이력에 자동으로 남습니다.</b></div>' +
       catPanelHTML() + histPanelHTML() + settingsPanelHTML() + bulkPanelHTML();
 
-    var anyOpen = CATS.some(function (c) { return expandedCats[c.key]; });
-    html += '<div class="prodlist-head"><span class="plh-title">상품 목록 <span class="plh-hint">(카테고리 제목을 눌러 펼치기/접기)</span></span>' +
-      '<button class="btn-ghost2" id="btn-expand-all">' + (anyOpen ? '전체 접기 ▴' : '전체 펼치기 ▾') + '</button></div>';
+    if (!currentVersion) {
+      html += '<div class="st-empty" style="padding:28px 2px;">아직 제안서가 없습니다 — 위 <b>[+ 새 제안서]</b>로 업체를 하나 만들어 시작하세요.<br>' +
+        '<span class="sp-note">이미 비슷한 제안을 한 업체가 있으면, 그 업체를 고른 뒤 <b>[⧉ 이걸로 다른 업체]</b>가 빠릅니다.</span></div>';
+      html += '</div><div class="savebar"><span class="status" id="save-status">제안서를 먼저 만들어 주세요</span>' +
+        '<button class="btn-save" id="btn-save" disabled>전체 저장</button></div>' + pricePanelHTML() + costPanelHTML();
+      root.innerHTML = html; setDirty(false); bindEditor(); return;
+    }
 
-    CATS.forEach(function (c) {
+    /* 담긴 상품이 있는 카테고리만 보여준다 — 빈 카테고리 8개를 처음부터 늘어놓지 않는다.
+       (2026-08-24 홍팀장: "카테고리 설정하고 상품 가져올 때 가져오면 되지") */
+    var used = CATS.filter(function (c) {
+      return addingCat === c.key || items.some(function (i) { return i.category === c.key; });
+    });
+    var anyOpen = used.some(function (c) { return expandedCats[c.key]; });
+    html += '<div class="prodlist-head"><span class="plh-title">담은 상품 <span class="plh-hint">' +
+      (used.length ? '(카테고리 제목을 눌러 펼치기/접기)' : '(아래에서 카테고리를 고르고 상품을 담으세요)') + '</span></span>' +
+      (used.length ? '<button class="btn-ghost2" id="btn-expand-all">' + (anyOpen ? '전체 접기 ▴' : '전체 펼치기 ▾') + '</button>' : '') + '</div>';
+
+    used.forEach(function (c) {
       var list = items.filter(function (i) { return i.category === c.key; });
       var isOpen = !!expandedCats[c.key] || addingCat === c.key;
       html += '<div class="cat-block' + (c.show === false ? ' cat-hidden' : '') + '">';
@@ -897,10 +937,21 @@
       if (isOpen) {
         html += list.map(cardHTML).join("");
         if (addingCat === c.key) html += addFormHTML();
-        else html += '<div class="add-row"><button class="btn-add" data-add="' + c.key + '">+ ' + esc(c.name) + ' 상품 1개 추가</button></div>';
       }
       html += '</div>';
     });
+
+    // 카테고리를 고르고 상품 하나 담기 — 목록 맨 아래 한 줄
+    if (!addingCat) {
+      html += '<div class="add-any">' +
+        '<span class="mini" style="margin:0;">카테고리</span>' +
+        '<select id="add-cat-pick">' + CATS.map(function (c) {
+          return '<option value="' + esc(c.key) + '"' + (c.key === lastAddCat ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+        }).join("") + '</select>' +
+        '<button class="btn-add" id="btn-add-any">+ 상품 담기</button>' +
+        '<span class="sp-note" style="flex:1;">상품명을 치면 유통시트에서 찾아 공급가·사진·분류까지 같이 가져옵니다.</span>' +
+      '</div>';
+    }
 
     html += '</div><div class="savebar"><span class="status" id="save-status">각 상품의 [저장] 버튼으로 저장하세요</span>' +
       '<button class="btn-save" id="btn-save" disabled>전체 저장</button></div>' + pricePanelHTML() + costPanelHTML();
@@ -989,10 +1040,11 @@
     root.addEventListener("click", function (e) {
       // ── 📝 제안 이력 ──
       if (e.target.closest && e.target.closest("#hist-toggle")) { histOpen = !histOpen; renderEditor(); return; }
-      if (e.target.id === "btn-hist-add") { histAdd(); return; }
       if (e.target.id === "btn-hist-copy") { histCopy(); return; }
-      var hdel = e.target.closest && e.target.closest("[data-histdel]");
-      if (hdel) { histDelete(hdel.getAttribute("data-histdel")); return; }
+      var hcp = e.target.closest && e.target.closest("[data-histcopyone]");
+      if (hcp) { e.preventDefault(); histCopyOne(hcp.getAttribute("data-histcopyone")); return; }
+      var hdel = e.target.closest && e.target.closest("[data-histdelgroup]");
+      if (hdel) { e.preventDefault(); histDeleteGroup(hdel.getAttribute("data-histdelgroup")); return; }
       if (e.target.id === "btn-save") { saveAll(); return; }
       if (e.target.id === "btn-price-check") { runPriceCheck(); return; }
       if (e.target.id === "btn-price-apply") { applyPriceFixes(); return; }
@@ -1020,6 +1072,14 @@
       if (e.target.id === "btn-ver-rename") { renameVersion(); return; }
       if (e.target.id === "btn-ver-link") { copyVersionLink(); return; }
       if (e.target.id === "btn-ver-del") { deleteVersion(); return; }
+      if (e.target.id === "btn-add-any") {
+        var pick = document.getElementById("add-cat-pick");
+        var k = (pick && pick.value) || lastAddCat || (CATS[0] && CATS[0].key);
+        lastAddCat = k;
+        addingCat = k; expandedCats[k] = true;
+        newItem = { _key: "NEW", category: k, name: "", warehouse: "", spec: "", supply_price: 0, courier: "", ship_fee: 4000, tax: "면세", image: "", link: "", show: true, special_price: 0, cost: 0 };
+        renderEditor(); focusNewName(); return;
+      }
       var addCat = e.target.getAttribute("data-add");
       if (addCat) {
         addingCat = addCat; expandedCats[addCat] = true;
@@ -1246,8 +1306,10 @@
   }
   function saveAll() {
     var btn = document.getElementById("btn-save"); btn.disabled = true; btn.textContent = "저장 중…";
-    saveProducts().then(function () {
-      dirty = false; renderEditor(); toast("저장 완료 — 공개 사이트에 반영됐어요 ✅");
+    saveProducts().then(histRecordCurrent).then(function (n) {
+      dirty = false; renderEditor();
+      toast(n > 0 ? ("저장 완료 ✅ · 📝 [" + currentVersion.name + "] " + todayStr() + " 제안 " + n + "건 기록됨")
+                  : (n < 0 ? "저장 완료 ✅ (제안 이력 기록만 실패 — 다시 저장해 보세요)" : "저장 완료 ✅"));
     }).catch(function (err) {
       btn.disabled = false; btn.textContent = "전체 저장"; toast("저장 실패: " + (err.message || err), true);
     });
@@ -1278,20 +1340,15 @@
     currentVersion = v; addingCat = null; newItem = null; dirty = false; expandedCats = {};
     reloadInto("버전 불러오는 중…").catch(function (err) { toast("불러오기 실패: " + (err.message || err), true); });
   }
+  /* 업체명만 바꾼다. 내부 주소(slug)는 시트에서 상품과 제안서를 잇는 열쇠일 뿐이라 손대지 않는다
+     — 웹으로 공유하지 않으므로 사람이 볼 일이 없다. (2026-08-24 홍팀장) */
   function renameVersion() {
     if (!currentVersion) return;
-    var name = window.prompt("버전 이름 변경", currentVersion.name); if (name === null) return;
-    name = (name || "").trim(); if (!name) return;
-    var slug = window.prompt("이 버전의 주소(영문)를 정하세요.\n예: seller  →  .../?v=seller\n\n영문 소문자·숫자·하이픈(-)만 쓸 수 있습니다.", currentVersion.slug);
-    if (slug === null) return;
-    slug = (slug || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-    if (!slug) { toast("주소는 영문/숫자로 입력해주세요", true); return; }
-    if (versions.some(function (v) { return v.slug === slug && v.id !== currentVersion.id; })) { toast("이미 쓰고 있는 주소예요. 다른 걸로 해주세요", true); return; }
-    var oldSlug = currentVersion.slug;
-    currentVersion.name = name; currentVersion.slug = slug;
-    // 상품 행의 '버전' 칸도 같이 바꿔야 상품이 미아가 되지 않는다
-    saveVersionsSheet().then(function () { return oldSlug === slug ? null : saveProducts(); })
-      .then(function () { renderEditor(); toast("변경됐어요 — 주소: ?v=" + slug); })
+    var name = window.prompt("업체명 바꾸기\n\n※ 제안 이력에도 이 이름으로 남습니다.", currentVersion.name); if (name === null) return;
+    name = (name || "").trim(); if (!name || name === currentVersion.name) return;
+    currentVersion.name = name;
+    saveVersionsSheet()
+      .then(function () { renderEditor(); toast("업체명을 '" + name + "'(으)로 바꿨어요"); })
       .catch(function (err) { toast("변경 실패: " + (err.message || err), true); });
   }
   function copyVersionLink() {
@@ -1326,31 +1383,30 @@
     });
   }
   function newVersion() {
-    var name = window.prompt("새 버전 이름 (빈 상태로 시작합니다)\n예: 급식 거래처용");
+    var name = window.prompt("어느 업체에 제안하나요? (업체명)\n\n빈 제안서로 시작합니다. 제안 이력도 이 이름으로 남습니다.\n예: 호호야채");
     if (name === null || !name.trim()) return;
     createVersion(name, null);
   }
   function duplicateVersion() {
-    if (!currentVersion) { toast("복제할 버전이 없습니다", true); return; }
-    if (dirty && !window.confirm("저장 안 된 변경사항은 복제본에 반영되지 않습니다.\n계속할까요?")) return;
-    var name = window.prompt("'" + currentVersion.name + "' 을(를) 복제합니다.\n상품 " + items.length + "개와 문구 설정이 그대로 복사됩니다.\n\n새 버전 이름을 입력하세요.", currentVersion.name + " 복사본");
+    if (!currentVersion) { toast("복사할 제안서가 없습니다", true); return; }
+    if (dirty && !window.confirm("저장 안 된 변경사항은 복사본에 반영되지 않습니다.\n계속할까요?")) return;
+    var name = window.prompt("[" + currentVersion.name + "] 에 보낸 제안을 그대로 복사합니다.\n상품 " + items.length + "개와 문구가 같이 넘어갑니다.\n\n새 업체명을 입력하세요.", "");
     if (name === null || !name.trim()) return;
     createVersion(name, currentVersion);
   }
   function deleteVersion() {
     if (!currentVersion) return;
-    if (versions.length <= 1) { toast("마지막 버전은 삭제할 수 없습니다", true); return; }
     var v = currentVersion, cnt = items.length;
-    if (!window.confirm("[" + v.name + "] 버전을 삭제합니다.\n\n· 이 버전의 상품 " + cnt + "개가 함께 삭제됩니다\n· 공유한 링크(?v=" + v.slug + ")는 더 이상 열리지 않습니다\n· 되돌릴 수 없습니다\n\n계속할까요?")) return;
-    var typed = window.prompt("확인을 위해 버전 이름을 그대로 입력하세요:\n" + v.name);
+    if (!window.confirm("[" + v.name + "] 제안서를 삭제합니다.\n\n· 담긴 상품 " + cnt + "개가 함께 삭제됩니다\n· 📝 제안 이력은 그대로 남습니다\n· 되돌릴 수 없습니다\n\n계속할까요?")) return;
+    var typed = window.prompt("확인을 위해 업체명을 그대로 입력하세요:\n" + v.name);
     if (typed === null) return;
     if (typed.trim() !== v.name.trim()) { toast("이름이 일치하지 않아 취소했습니다", true); return; }
     versions = versions.filter(function (x) { return x.id !== v.id; });
-    items = [];                                  // 이 버전 상품은 저장 시 사라진다
+    items = [];                                  // 이 제안서 상품은 저장 시 사라진다
     saveProducts().then(saveVersionsSheet).then(function () {
-      currentVersion = versions[0]; addingCat = null; newItem = null; expandedCats = {}; dirty = false;
+      currentVersion = versions[0] || null; addingCat = null; newItem = null; expandedCats = {}; dirty = false;
       return reloadInto("삭제 중…");
-    }).then(function () { toast("'" + v.name + "' 버전을 삭제했어요"); })
+    }).then(function () { toast("'" + v.name + "' 제안서를 삭제했어요"); })
       .catch(function (err) { toast("삭제 실패: " + (err.message || err), true); });
   }
 

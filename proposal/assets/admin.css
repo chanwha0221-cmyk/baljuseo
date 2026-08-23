@@ -255,3 +255,29 @@ textarea:focus{outline:2px solid var(--teal);border-color:var(--teal);}
 .hist-row .hm{color:var(--muted);font-size:11.5px;white-space:nowrap;flex:0 0 auto;max-width:180px;
   overflow:hidden;text-overflow:ellipsis;}
 .hist-row .hx{padding:4px 8px;font-size:11px;flex:0 0 auto;}
+
+/* ── 제안서(업체) 셀렉트가 비었을 때 ── */
+.ver-none{font-size:13px;font-weight:700;color:var(--muted);padding:0 6px;}
+
+/* ── 카테고리 고르고 상품 담기 (목록 맨 아래 한 줄) ── */
+.add-any{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding:12px 14px;
+  border:1px dashed var(--accent);border-radius:10px;background:var(--surface);}
+.add-any select{padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;
+  font-size:13px;background:#fff;color:var(--text);min-width:130px;}
+
+/* ── 📝 제안 이력: 업체·날짜로 접었다 폈다 ── */
+.hist-groups{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+.hist-g{border:1px solid var(--border);border-radius:9px;background:var(--surface);overflow:hidden;}
+.hist-g > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;
+  padding:9px 12px;font-size:13px;}
+.hist-g > summary::-webkit-details-marker{display:none;}
+.hist-g > summary:hover{background:var(--accent-light);}
+.hist-g[open] > summary{border-bottom:1px solid var(--border);}
+.hist-g .hgd{color:var(--muted);font-size:11.5px;white-space:nowrap;flex:0 0 82px;}
+.hist-g .hgc{font-weight:800;white-space:nowrap;}
+.hist-g .hgn{color:var(--muted);font-size:12px;white-space:nowrap;}
+.hist-g .hgs{font-weight:800;color:var(--teal);white-space:nowrap;}
+.hist-g .hgm{color:var(--muted);font-size:11.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hist-g .hgb{margin-left:auto;padding:4px 9px;font-size:11px;flex:0 0 auto;}
+.hist-g .hgm + .hgb{margin-left:0;}
+.hist-g .hist-list{border:0;border-radius:0;max-height:none;}
