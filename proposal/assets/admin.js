@@ -465,6 +465,11 @@
      ⚠️ 상품명이 완전히 같을 때만 넣는다(§3-3). 원가는 제안서·PDF에 절대 안 나간다.
      그 표의 '등록일시' 최신값 = 원가표 기준일. 버튼 밑에 같이 보여줘 언제 자료인지 알 수 있게 한다. */
   var costOpen = false, costResult = null, costBase = "", costPulledAt = "";
+  /* 원가표(전체상품원가) 자체를 마지막으로 갈아끼운 시각 — 원가업데이트 도구가 '설정' 탭에 남긴다.
+     ⚠️ costBase(등록일시 최신값)와 다른 값이다. 아무 상품도 안 바뀐 날엔 등록일시가 안 올라가서
+        "며칠 전 자료"처럼 보이기 때문에, 낡음 판정은 반드시 이 값으로 한다. (2026-08-24) */
+  var costSheetAt = "";
+  var COST_TOOL_URL = "../원가업데이트.html";
   var costMap = {};       // 상품명 → 실제 원가 (전체상품원가 탭, 필요하면 원가택배비 포함)
   var costShipMap = {};   // 그중 원가에 더해 넣은 배송비 (표시용)
   var COST_SHEET_URL = "https://docs.google.com/spreadsheets/d/" +
@@ -506,12 +511,13 @@
           (costBase ? '<br><span class="ct-sub">원가표(전체상품원가) 기준일 <b>' + esc(costBase) + '</b></span>' : '') +
         '</div>' +
         '<div class="ct-btns">' +
+          '<a class="btn-open" href="' + COST_TOOL_URL + '" target="_blank" rel="noopener">📥 원가 업데이트 ↗</a>' +
           '<a class="btn-open" href="' + esc(COST_SHEET_URL) + '" target="_blank" rel="noopener">📗 원가 시트 열기 ↗</a>' +
           '<button class="btn-addsave" id="btn-cost-pull">지금 원가 가져오기</button>' +
         '</div>' +
       '</div>' +
-      '<div class="sp-note" style="margin:10px 0;">리모컨에서 최신 원가를 <b>[📗 원가 시트 열기]</b> → <code>전체상품원가</code> 탭에 붙여넣은 뒤 ' +
-      '<b>[지금 원가 가져오기]</b>를 누르세요. 상품을 새로 넣을 땐 <b>안 눌러도 됩니다</b> — 상품명을 고르면 원가가 같이 들어옵니다.</div>';
+      '<div class="sp-note" style="margin:10px 0;">순서는 <b>①리모컨에서 [엑셀 내보내기] → ②<a href="' + COST_TOOL_URL + '" target="_blank" rel="noopener">📥 원가 업데이트</a>에 파일 끌어다 놓기 → ③여기서 [지금 원가 가져오기]</b>. ' +
+      '(엑셀을 열어 복사·붙여넣기 하던 건 이제 안 해도 됩니다.)<br>상품을 새로 넣을 땐 <b>안 눌러도 됩니다</b> — 상품명을 고르면 원가가 같이 들어옵니다.</div>';
 
     var body;
     if (costResult === "loading") body = '<div class="st-empty">전체상품원가에서 가져오는 중…</div>';
@@ -600,14 +606,41 @@
   function loadCostStamp() {
     return window.SVC.readTab("설정").then(function (rows) {
       (rows || []).forEach(function (r) {
-        if (String(r[0] || "").trim() === "제안서원가가져온시각") {
+        var k = String(r[0] || "").trim();
+        if (k === "제안서원가가져온시각") {
           var v = String(r[1] || "");
           costPulledAt = v.split(" (")[0] || "";
           var m = v.match(/기준일\s*([\d.\-\/ ]+)/);
           costBase = m ? m[1].trim() : "";
         }
+        if (k === "원가표반영시각") costSheetAt = String(r[1] || "").trim();
       });
     }).catch(function () {});
+  }
+
+  /* 원가표가 오늘 것인가 — 제안 단가가 옛 원가로 나가는 걸 막는 자리
+     (2026-08-24 홍팀장: "제안서 보낼 때 원가 잘못 들어가서 제안 단가 잘못 가면 안 된다") */
+  function costFreshness() {
+    var m = costSheetAt.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return { known: false };
+    var d = new Date(+m[1], +m[2] - 1, +m[3]);
+    var t = new Date(); t.setHours(0, 0, 0, 0);
+    var days = Math.round((t - d) / 86400000);
+    return { known: true, days: days, when: costSheetAt, stale: days >= 1 };
+  }
+  function costLineHTML() {
+    var f = costFreshness();
+    if (!f.known) {
+      return '<div class="costline" style="background:#fff4f4;color:#a02020;">🧾 원가표를 한 번도 갱신한 적이 없습니다 — ' +
+        '<a href="' + COST_TOOL_URL + '" target="_blank" rel="noopener"><b>📥 원가 업데이트</b></a> 먼저 하고 제안하세요.</div>';
+    }
+    if (f.stale) {
+      return '<div class="costline" style="background:#fff4f4;color:#a02020;">⚠️ 원가표가 <b>' + (f.days === 1 ? '어제' : f.days + '일 전') + '</b> 자료입니다 (' + esc(f.when) + ') — ' +
+        '제안 단가 내보내기 전에 <a href="' + COST_TOOL_URL + '" target="_blank" rel="noopener"><b>📥 원가 업데이트</b></a>부터 하세요.' +
+        (costPulledAt ? '<span class="cl-none"> · 이 제안서로 원가 가져온 건 ' + esc(costPulledAt) + '</span>' : '') + '</div>';
+    }
+    return '<div class="costline" style="background:#f0f9f3;color:#1d6b40;">✅ 원가표 <b>오늘</b> 갱신됨 (' + esc(f.when) + ')' +
+      (costPulledAt ? '<span class="cl-none"> · 이 제안서로 원가 가져온 건 ' + esc(costPulledAt) + '</span>' : '') + '</div>';
   }
 
   /* ================= 공급가 점검 =================
@@ -699,12 +732,23 @@
   }
   function isOn(v) { return v === true || v === "1" || v === "true"; }
   function isHidePrice(s) { return isOn(s.hide_price); }
+  /* 접혀 있어도 «명함을 넣었는지 뺐는지»가 헤더에 보이게 — 업체마다 매번 정해야 하는 값이라
+     패널을 열어봐야 알 수 있으면 못 쓴다. (2026-08-24 홍팀장) */
+  function spSummary() {
+    var s = siteSettings || {};
+    var on = function (v) { var t = String(v == null ? "" : v).trim().toLowerCase(); return t === "true" || t === "1" || t === "y" || t === "on" || t === "숨김"; };
+    var bits = [];
+    bits.push(on(s.hide_contact) ? "<b class=\"sp-off\">명함 뺌</b>" : "<b class=\"sp-on\">명함 넣음</b>");
+    if (on(s.hide_price)) bits.push("<b class=\"sp-off\">공급가 숨김</b>");
+    if (on(s.hide_callout)) bits.push("<b class=\"sp-off\">전체리스트 박스 뺌</b>");
+    return " <span class=\"sp-sum\">· " + bits.join(" · ") + "</span>";
+  }
   function settingsPanelHTML() {
     var s = settingsEffective();
     function ti(k, label, ph) { return '<div><span class="mini">' + label + '</span><input data-sf="' + k + '" value="' + esc(s[k]) + '" placeholder="' + (ph || "") + '"></div>'; }
-    if (!settingsOpen) return '<div class="settings-panel"><div class="sp-head" id="sp-toggle"><span>📝 상단·회사 문구 편집</span><span class="sp-caret">펼치기 ▾</span></div></div>';
+    if (!settingsOpen) return '<div class="settings-panel"><div class="sp-head" id="sp-toggle"><span>📝 상단·회사 문구 편집</span>' + spSummary() + '<span class="sp-caret">펼치기 ▾</span></div></div>';
     return '<div class="settings-panel open">' +
-      '<div class="sp-head" id="sp-toggle"><span>📝 상단·회사 문구 편집</span><span class="sp-caret">접기 ▴</span></div>' +
+      '<div class="sp-head" id="sp-toggle"><span>📝 상단·회사 문구 편집</span>' + spSummary() + '<span class="sp-caret">접기 ▴</span></div>' +
       '<div class="sp-body">' +
         '<div class="sp-sec">표지(상단)</div>' +
         '<div class="row r2">' + ti("hero_eyebrow", "상단 작은 문구", "공동구매 마켓 제안서 · B2B 도매") +
@@ -809,12 +853,8 @@
       '<button class="btn-ghost" id="btn-price-check" title="제안서 공급가가 유통시트와 다른 것만 찾아 줍니다">💰 공급가 점검</button>' +
       '<button class="btn-ghost" id="btn-cost" title="원가 시트를 열어 최신 원가를 넣고, 제안서로 가져옵니다 (제안서엔 안 나갑니다)">🧾 원가 업데이트</button>' +
       '<a href="' + pubHref + '" target="_blank" rel="noopener" title="여기서 캡처하거나 인쇄(Ctrl+P)로 PDF 저장해서 보내세요">제안서 보기 ↗</a></div>' +
-      // 원가를 언제 어느 자료로 가져왔는지 — 버튼 바로 밑에 항상 보이게 (2026-08-20 홍팀장)
-      '<div class="costline">🧾 원가 업데이트 ' +
-        (costPulledAt
-          ? '<b>' + esc(costPulledAt) + '</b>' + (costBase ? ' · 원가표 기준일 <b>' + esc(costBase) + '</b>' : '')
-          : '<span class="cl-none">아직 없음 — [🧾 원가 업데이트]에서 가져오세요</span>') +
-      '</div>' +
+      // 원가표가 오늘 것인지 — 버튼 바로 밑에 항상 보이게 (2026-08-20 / 낡음 경고는 2026-08-24)
+      costLineHTML() +
       '<div class="wrap">' +
       '<div class="hint">상품을 고친 뒤 그 상품의 <b>[저장]</b> 버튼을 누르면 바로 반영됩니다. 삭제는 <b>[삭제]</b>로 즉시 처리돼요.<br>' +
         '<b>[전체 저장]</b>을 누르면 여러 상품이 한 번에 저장되고, <b>그때의 제안 내용이 📝 제안 이력에 자동으로 남습니다.</b></div>' +

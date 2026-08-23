@@ -8,10 +8,16 @@
   <meta property="og:title" content="상품 제안서 · 주식회사 마스터">
   <meta property="og:description" content="공동구매 마켓 / B2B 도매 상품 제안서 — 공급가·택배 조건 한눈에">
   <meta property="og:type" content="website">
+  <!-- 이 화면은 캡처·PDF를 뜨는 원본이다. 옛 버전이 캐시로 뜨면 그대로 업체에 나가므로 캐시를 끊는다. -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=20260824e">
+  <!-- ⚠️ css·js 주소에 «지금 시각»을 붙여 매번 새로 받는다.
+       ?v=날짜 방식은 이 html 자체가 캐시되면 무용지물이라 실제로 당했다(2026-08-24). 되돌리지 말 것. -->
+  <script>window.__CB = Date.now();
+    document.write('<link rel="stylesheet" href="assets/style.css?t=' + window.__CB + '">');</script>
 </head>
 <body>
   <main id="app" class="page">
@@ -20,9 +26,10 @@
     </noscript>
   </main>
 
-  <!-- ⚠️ ?v= 는 브라우저 캐시를 끊는 용도. assets/*.js 를 고치면 이 날짜도 같이 올릴 것. -->
-  <script src="config.js?v=20260824e"></script>
-  <script src="assets/svc.js?v=20260824e"></script>
-  <script src="assets/app.js?v=20260824e"></script>
+  <script>
+    document.write('<scr' + 'ipt src="config.js?t=' + window.__CB + '"><\/scr' + 'ipt>');
+    document.write('<scr' + 'ipt src="assets/svc.js?t=' + window.__CB + '"><\/scr' + 'ipt>');
+    document.write('<scr' + 'ipt src="assets/app.js?t=' + window.__CB + '"><\/scr' + 'ipt>');
+  </script>
 </body>
 </html>

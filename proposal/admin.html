@@ -5,23 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>상품 관리자 · 주식회사 마스터</title>
   <meta name="robots" content="noindex">
+  <!-- 이 페이지는 홍팀장 혼자 쓰는 관리 화면이다. 캐시로 옛 버전이 뜨는 사고가
+       반복돼서(2026-08-20, 2026-08-24 "문구 편집이 안 펴진다") 아예 캐시를 끊는다. -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/admin.css?v=20260824e">
+  <!-- ⚠️ css·js 주소에 «지금 시각»을 붙여 매번 새로 받는다.
+       ?v=날짜 방식은 admin.html 자체가 캐시되면 무용지물이라 실제로 당했다. 되돌리지 말 것. -->
+  <script>window.__CB = Date.now();
+    document.write('<link rel="stylesheet" href="assets/admin.css?t=' + window.__CB + '">');</script>
 </head>
 <body>
   <!-- 팀장님 전용 — 로그인 없음(주소를 아는 사람만 들어온다, noindex).
        원비님 원본(Supabase + 로그인)을 구글 시트 백엔드로 옮긴 카피본이다.
-       데이터: 도구시트의 제안서버전 / 제안서카테고리 / 제안서상품 탭. -->
+       데이터: 도구시트의 제안서버전 / 제안서카테고리 / 제안서상품 / 제안이력 탭. -->
   <div id="admin-root">
     <div class="loading">불러오는 중…</div>
   </div>
 
-  <!-- ⚠️ ?v= 는 브라우저 캐시를 끊는 용도다. assets/*.js 를 고치면 이 날짜도 같이 올릴 것.
-       (안 올리면 홍팀장 브라우저가 옛 파일을 계속 쓴다 — 2026-08-20 실제로 겪음) -->
-  <script src="config.js?v=20260824e"></script>
-  <script src="assets/svc.js?v=20260824e"></script>
-  <script src="assets/admin.js?v=20260824e"></script>
+  <script>
+    document.write('<scr' + 'ipt src="config.js?t=' + window.__CB + '"><\/scr' + 'ipt>');
+    document.write('<scr' + 'ipt src="assets/svc.js?t=' + window.__CB + '"><\/scr' + 'ipt>');
+    document.write('<scr' + 'ipt src="assets/admin.js?t=' + window.__CB + '"><\/scr' + 'ipt>');
+  </script>
 </body>
 </html>
