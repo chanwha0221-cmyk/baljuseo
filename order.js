@@ -627,7 +627,12 @@ function paintOut(ok, bad){
   const noFor = master && (oldApp || !(FOR && S(FOR.name)));
   h += '<div class="ordbar" style="margin-top:12px">'
     + (!hasApi()
-        ? '<button class="ordb2 pri" disabled>🧾 발주 넣기 (준비 중)</button><span class="hint" style="align-self:center">발주 접수는 곧 열립니다. 지금은 위 발주서를 복사해 보내주세요.</span>'
+        /* 🔴 여기 걸리는 건 대개 **로그인 토큰이 없어서**다(웹앱 전환 전에 로그인해 둔 세션).
+           "준비 중"이라고만 쓰면 업체는 우리가 막아둔 줄 안다 — 뭘 하면 되는지 말해준다
+           (2026-08-24 플랜컴퍼니: "왜 발주넣기가 준비중이냐"). */
+        ? '<button class="ordb2 pri" disabled>🧾 발주 넣기</button>'
+          + '<button class="ordb2" id="ord_relogin">🔑 다시 로그인</button>'
+          + '<span class="hint" style="align-self:center">로그인이 오래돼 발주 접수가 잠겼습니다. <b>다시 로그인하시면 바로 됩니다.</b></span>'
         : (noFor
             ? '<button class="ordb2 pri" disabled>📤 발주 넣고 당일 시트로 보내기</button><span class="hint" style="align-self:center">'
               + (oldApp ? '발주 웹앱을 최신 코드로 올린 뒤에 쓸 수 있습니다.' : '위에서 <b>어느 업체 발주인지</b> 먼저 골라주세요.') + '</span>'
@@ -638,6 +643,9 @@ function paintOut(ok, bad){
   box.__out = o;
   const sb = document.getElementById('ord_submit');
   if(sb) sb.onclick = submit;
+  // 토큰이 없어 잠긴 경우 — 발주 내용은 남겨둔 채 로그인 화면만 띄운다(임시저장돼 있어 안 날아간다)
+  const rl = document.getElementById('ord_relogin');
+  if(rl) rl.onclick = () => { try{ localStorage.removeItem(NS + 'catalog_auth_v1'); }catch(e){} location.reload(); };
 }
 
 // ── 발주 제출 ───────────────────────────────────────────────────
