@@ -257,7 +257,8 @@
       siteSettings = Object.assign({}, (currentVersion && currentVersion.settings) || {});
       loadedOK = true;
       baseSig = itemSig(items);
-      checkDraft();   // 💾 저장 안 된 작업이 남아 있나
+      checkDraft();
+      setTimeout(autoFillPhotos, 300);   // 📷 사진 빈 상품은 알아서 채운다   // 💾 저장 안 된 작업이 남아 있나
       /* 공개 사이트(app.js)가 읽는 제안서카테고리 탭을 분류표 결과로 맞춰 둔다 — 조용히, 실패해도 무시. */
       saveCatsSheet().catch(function () {});
       /* 옛 카테고리(fish/meal/living)로 남아 있던 상품은 시트에도 바로 새 분류로 적어 둔다.
@@ -1271,6 +1272,38 @@
     });
   }
 
+  /* 📷 사진은 «기본 동작»으로 알아서 가져온다 (2026-08-24 홍팀장:
+     "PDF에 상품 사진이 없으면 이걸 만든 의미가 없잖아 — 그냥 디폴트가 사진 빌려오는 걸로").
+     제안서를 열 때 사진 빈 상품이 있으면 유통시트·상품이미지_v2 에서 찾아 채우고 바로 저장한다.
+     ⚠️ 상품명이 완전히 같을 때만 붙인다(§3-3). 이미 사진이 있는 상품은 절대 건들지 않는다. */
+  var _photoTried = false;
+  function autoFillPhotos() {
+    if (_photoTried || !loadedOK || !currentVersion) return;
+    var need = items.filter(function (it) { return !String(it.image || "").trim(); });
+    if (!need.length) return;
+    _photoTried = true;
+    loadCatalog();
+    var tries = 0;
+    var timer = setInterval(function () {
+      if (!catalogCache) { if (++tries > 75) clearInterval(timer); return; }   // 최대 30초
+      clearInterval(timer);
+      var map = {};
+      catalogCache.forEach(function (r) { map[pkey(r.name)] = r; });
+      var got = 0;
+      need.forEach(function (it) {
+        var hit = map[pkey(it.name)];
+        if (!hit || !hit.image) return;
+        it.image = hit.image; got++;
+        if (hit.spec && !String(it.spec || "").trim()) it.spec = hit.spec;
+        if (hit.link && !String(it.link || "").trim()) it.link = hit.link;
+      });
+      if (!got) { renderEditor(); return; }
+      saveProducts().then(function () {
+        baseSig = itemSig(items); renderEditor();
+        toast("📷 사진 " + got + "개를 자동으로 채웠어요");
+      }).catch(function () { setDirty(true); renderEditor(); });
+    }, 400);
+  }
   /* 기존 상품의 사진·링크를 캐시에서 찾아 채운다.
      ⚠️ 상품명이 완전히 같을 때만 붙인다 — 비슷한 이름에 엉뚱한 사진이 붙으면
         거래처가 그걸 보고 주문한다(CLAUDE.md §3-3 절대규칙). */
@@ -1323,6 +1356,15 @@
     if (!newItem) return;
     if (!(newItem.name || "").trim()) { toast("상품명을 입력하세요", true); focusNewName(); return; }
     btn.disabled = true; btn.textContent = "추가 중…";
+    // 자동완성을 안 쓰고 손으로 치고 담아도 사진은 붙여 준다 (상품명 완전일치일 때만)
+    if (!String(newItem.image || "").trim() && catalogCache) {
+      var _hit = catalogCache.filter(function (r) { return pkey(r.name) === pkey(newItem.name); })[0];
+      if (_hit && _hit.image) {
+        newItem.image = _hit.image;
+        if (_hit.spec && !String(newItem.spec || "").trim()) newItem.spec = _hit.spec;
+        if (_hit.link && !String(newItem.link || "").trim()) newItem.link = _hit.link;
+      }
+    }
     var it = Object.assign({}, newItem, { _key: uid() });
     items.push(it);
     saveProducts().then(function () {
@@ -1377,6 +1419,7 @@
     return s;
   }
   function reloadInto(msg) {
+    _photoTried = false;
     root.innerHTML = '<div class="loading">' + (msg || "불러오는 중…") + '</div>';
     _delegated = false;
     return loadAll().then(function () { dirty = false; renderEditor(); });
