@@ -862,6 +862,7 @@
   /* ================= 문구 설정 ================= */
   function settingsEffective() {
     var d = {
+      greeting: CFG.greeting || "",
       hero_eyebrow: CFG.heroEyebrow || "", hero_lead: CFG.heroLead || "",
       hero_title1: (CFG.heroTitleLines || [])[0] || "", hero_title2: (CFG.heroTitleLines || [])[1] || "", hero_title3: (CFG.heroTitleLines || [])[2] || "",
       company: CFG.company || "", team: CFG.team || "", manager_name: CFG.managerName || "", manager_title: CFG.managerTitle || "",
@@ -893,6 +894,10 @@
     return '<details class="settings-panel" id="sp-details"' + (settingsOpen ? ' open' : '') + '>' +
       '<summary class="sp-head" id="sp-toggle"><span>📝 상단·회사 문구 편집</span>' + spSummary() + '<span class="sp-caret"></span></summary>' +
       '<div class="sp-body">' +
+        /* 💬 인사말 — 카톡은 사진과 글을 한 번에 못 붙여넣는다(클립보드가 둘 중 하나만 담는다).
+           그래서 보낼 인사말을 제안서 «안»에 넣어 캡처 한 장으로 끝낸다. (2026-08-24 홍팀장) */
+        '<div class="sp-sec">💬 인사말 <span class="mini" style="font-weight:400;margin:0;">— 제안서 맨 위에 그대로 들어갑니다. 비우면 안 나옵니다.</span></div>' +
+        '<div class="row"><div><textarea data-sf="greeting" rows="4" placeholder="안녕하세요. 대표님 오늘 하루도 고생 많으셨습니다.&#10;현재 출고 가능한 추석 선물세트 상품 제안 드립니다!!!&#10;추가 문의 사항 있으신 경우 언제든지 연락 주십시요!!! 감사합니다.">' + esc(s.greeting) + '</textarea></div></div>' +
         '<div class="sp-sec">표지(상단)</div>' +
         '<div class="row r2">' + ti("hero_eyebrow", "상단 작은 문구", "공동구매 마켓 제안서 · B2B 도매") +
           '<div><span class="mini">표지 설명(문단)</span><textarea data-sf="hero_lead" rows="2">' + esc(s.hero_lead) + '</textarea></div></div>' +
@@ -924,7 +929,8 @@
   function saveSettings(btn) {
     if (!currentVersion) return;
     btn.disabled = true; btn.textContent = "저장 중…";
-    var keys = ["hero_eyebrow", "hero_title1", "hero_title2", "hero_title3", "hero_lead", "company", "team", "manager_name", "manager_title", "phone", "email", "kakao"];
+    /* ⚠️ 여기 안 적힌 칸은 저장되지 않는다 — 문구 칸을 새로 만들면 반드시 이 목록에도 넣을 것. */
+    var keys = ["greeting", "hero_eyebrow", "hero_title1", "hero_title2", "hero_title3", "hero_lead", "company", "team", "manager_name", "manager_title", "phone", "email", "kakao"];
     var eff = settingsEffective(), obj = {};
     keys.forEach(function (k) { obj[k] = (eff[k] != null ? String(eff[k]) : ""); });
     ["hide_price", "hide_callout", "hide_contact"].forEach(function (k) { obj[k] = isOn(eff[k]) ? "1" : ""; });

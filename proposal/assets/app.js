@@ -325,6 +325,17 @@
       '</section>';
   }
 
+  /* 💬 인사말 — 제안서 맨 위(표지 바로 아래)에 그대로 나온다. (2026-08-24 홍팀장)
+     카톡은 사진과 글을 한 번에 붙여넣을 수 없어서(클립보드가 둘 중 하나만 담는다),
+     보낼 인사말을 아예 제안서 안에 넣어 **캡처 한 장으로** 끝내려는 자리다.
+     ⚠️ 비어 있으면 아무것도 안 그린다 — 안 쓰는 제안서에 빈 상자가 생기면 안 된다. */
+  function greetingHTML() {
+    var t = String(CFG.greeting || "").trim();
+    if (!t) return "";
+    var body = t.split(/\r?\n/).map(function (l) { return esc(l); }).join("<br>");
+    return '<section class="greet"><div class="greet-box">' + body + '</div></section>';
+  }
+
   function calloutHTML() {
     return '' +
       '<section class="callout-sec">' +
@@ -371,7 +382,7 @@
     CAT_ORDER.forEach(function (k) { grouped[k] = []; });
     products.forEach(function (p) { if (grouped[p.cat]) grouped[p.cat].push(p); });
 
-    var html = heroHTML();
+    var html = heroHTML() + greetingHTML();
     CAT_ORDER.forEach(function (k) {
       if (grouped[k].length) html += sectionHTML(k, grouped[k]);
     });
@@ -550,6 +561,7 @@
     if (!m) return;
     if (m.hero_eyebrow != null) CFG.heroEyebrow = m.hero_eyebrow;
     if (m.hero_lead != null) CFG.heroLead = m.hero_lead;
+    if (m.greeting != null) CFG.greeting = m.greeting;   // 💬 인사말 (제안서마다 다름)
     if (m.hero_title1 != null || m.hero_title2 != null || m.hero_title3 != null) {
       CFG.heroTitleLines = [
         m.hero_title1 != null ? m.hero_title1 : (CFG.heroTitleLines || [])[0] || "",

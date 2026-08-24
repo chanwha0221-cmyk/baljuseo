@@ -80,6 +80,17 @@ a:hover { color: var(--navy); }
 }
 .hero-wave .w-back { fill: var(--cream); opacity: 0.28; }
 .hero-wave .w-front { fill: var(--cream); }
+
+/* 💬 인사말 — 표지 바로 아래. 카톡에 사진과 글을 같이 못 붙여넣어서
+   보낼 인사말을 제안서 안에 넣는 자리다(캡처 한 장으로 끝내려고). 2026-08-24 홍팀장 */
+.greet { padding: 26px 40px 0; }
+.greet-box {
+  background: #fff; border: 1px solid #e6dfd2; border-left: 5px solid var(--amber);
+  border-radius: 12px; padding: 20px 24px;
+  font-size: 19px; line-height: 1.75; color: #3a3226; font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+}
+@media (max-width: 700px) { .greet { padding: 18px 16px 0; } .greet-box { font-size: 16px; padding: 16px 18px; } }
 .eyebrow { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: 2px; font-size: 15px; color: var(--amber); }
 .eyebrow .bar { width: 34px; height: 4px; background: var(--amber); border-radius: 2px; }
 .hero h1 { font-size: 76px; line-height: 1.0; margin: 20px 0 0; letter-spacing: -1px; }
