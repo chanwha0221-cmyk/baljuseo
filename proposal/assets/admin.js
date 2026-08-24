@@ -352,6 +352,21 @@
       '<span class="mh-note">' + note + ' · 이 줄은 관리자만 봅니다</span></div>';
   }
 
+  /* 📄 마스터씨 게시물 바로가기 — 사진을 바꾸려면 결국 게시물에 가야 한다 (2026-08-24 홍팀장:
+       "상품사진 교체하고 싶을 때가 있잖아, 그럴 때를 대비해서 상품 게시물 링크 달아줘").
+     · 링크 칸(K열)이 있으면 그 글로 바로
+     · 없으면 상품명으로 게시판 제목검색 — 링크가 비어도 찾아갈 수는 있게 한다
+     ⚠️ 새 탭으로 연다. 이 화면에 저장 안 된 작업이 있을 수 있어 같은 탭에서 나가면 안 된다. */
+  var BOARD_SEARCH = "https://masterc.kr/board_eJGl96?search_target=title&search_keyword=";
+  function postLinkHTML(it) {
+    var nm = String(it.name || "").trim();
+    var lk = String(it.link || "").trim();
+    if (!lk && !nm) return "";
+    return lk
+      ? '<a class="btn-post" href="' + esc(lk) + '" target="_blank" rel="noopener" title="이 상품의 마스터씨 게시물을 새 탭으로 엽니다 — 사진을 바꾸려면 여기서">📄 게시물 ↗</a>'
+      : '<a class="btn-post ghost" href="' + esc(BOARD_SEARCH + encodeURIComponent(nm)) + '" target="_blank" rel="noopener" title="링크가 저장돼 있지 않아 상품명으로 게시판을 검색합니다">🔎 게시판 검색 ↗</a>';
+  }
+
   /* ================= 상품 카드 ================= */
   function cardHTML(it) {
     var pv = imgUrl(it.image);
@@ -362,6 +377,7 @@
         '<div class="imgbox">' + (pv ? '<img src="' + esc(pv) + '" alt="">' : '<span style="font-size:12px;color:#9aa7ad;">사진 없음</span>') + '</div>' +
         '<div class="up">' +
           '<button class="btn-findpic" data-findpic="' + it._key + '" title="상품명이 똑같은 유통시트·마스터씨 게시물에서 사진·스펙·공급가·택배 정보를 가져옵니다">🔄 시트에서 채우기</button>' +
+          postLinkHTML(it) +
           // 파일 업로드는 드라이브 API가 막혀 있다 → 사진 주소를 직접 넣는 길을 열어둔다
           '<input class="in-img" data-f="image" value="' + esc(it.image || "") + '" placeholder="사진 주소 붙여넣기" title="masterc 사진 주소나 이미지 URL을 붙여넣으면 바로 반영됩니다">' +
         '</div>' +
@@ -927,7 +943,8 @@
     return '<div class="card new-card">' +
       '<div class="thumb">' +
         '<div class="imgbox">' + (pv ? '<img src="' + esc(pv) + '" alt="">' : '<span style="font-size:12px;color:#9aa7ad;">사진 없음</span>') + '</div>' +
-        '<div class="up"><input class="in-img" data-nf="image" value="' + esc(it.image || "") + '" placeholder="사진 주소 붙여넣기"></div>' +
+        '<div class="up">' + postLinkHTML(it) +
+          '<input class="in-img" data-nf="image" value="' + esc(it.image || "") + '" placeholder="사진 주소 붙여넣기"></div>' +
       '</div>' +
       '<div class="fields">' +
         '<div class="new-badge">＋ 새 상품 입력</div>' +

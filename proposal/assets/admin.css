@@ -207,6 +207,13 @@ textarea:focus{outline:2px solid var(--teal);border-color:var(--teal);}
 .btn-findpic:hover{background:var(--accent-light);}
 .btn-findpic:disabled{opacity:.55;cursor:default;}
 
+/* 📄 마스터씨 게시물 바로가기 — 사진 교체하러 갈 때 (2026-08-24 홍팀장 요청) */
+.btn-post{display:block;margin-top:6px;width:100%;box-sizing:border-box;text-align:center;
+  background:#fff;color:#5a6b7a;border:1px solid #cfd8de;text-decoration:none;
+  font-size:11.5px;font-weight:700;padding:6px 8px;border-radius:6px;}
+.btn-post:hover{background:#f2f6f8;color:#2f4a5c;border-color:#a9bcc8;}
+.btn-post.ghost{color:#8a949c;border-style:dashed;}
+
 /* ── 특별 제안가 · 원가 (2026-08-20) ──────────────────────────
    원가는 관리자 전용이라 화면에서도 다른 색으로 구분한다. */
 .mini.special{color:#c0392b;}
