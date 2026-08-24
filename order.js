@@ -395,6 +395,14 @@ table.olist td.ad input.ein{min-width:230px}
 @media(prefers-color-scheme:dark){.ordpop .oph{color:var(--accent)}}
 .ordpop .opx{position:absolute;top:3px;right:5px;border:none;background:none;color:var(--muted);font-size:14px;cursor:pointer;padding:5px}
 .onewb{font-size:10px;font-weight:800;color:#fff;background:var(--up);padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle}
+/* 👀 누가 확인했나 (사장님 2026-08-25 — 찬화·원비 둘 다 눌러야 알림이 꺼진다) */
+.ordst.wait{background:color-mix(in srgb,var(--up) 12%,transparent);color:var(--up)}
+.ackline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed var(--line);font-size:11.5px}
+.ackline .ackok{color:var(--muted);font-weight:700}
+.ackline .ackok b{color:var(--accent-d);font-weight:700}
+.ackline .ackno{color:var(--up);font-weight:800}
+.ordb2.ackb{margin-left:auto;border-color:var(--accent);color:var(--accent-d);font-weight:800}
+.ordb2.ackb:hover{background:var(--accent);color:#fff}
 `;
   document.head.appendChild(s);
 }
@@ -740,8 +748,8 @@ async function ordersView(){
   const j = await api('list', {token: ME.token});
   LIST = j.rows || [];
   OPAGE = 1;
-  // 🆕 이 기기에서 아직 안 본 발주 — 카드에 NEW 를 달아준다 (이번 화면을 그리는 동안 유지)
-  if(master){ const s = seenSet(); NEWNOS = new Set(LIST.map(r => S(r.no)).filter(no => !s.has(no))); }
+  // 🆕 아직 내가 [👀 확인함]을 안 누른 발주 — 카드에 NEW 를 달아준다
+  if(master){ takeAcks(j); NEWNOS = newSet(LIST); }
   let h = subHead(master ? '📋 전체 발주 내역' : '📋 내 발주 내역',
                   master ? '마스터 계정 — 모든 업체의 발주가 보입니다' : '내가 넣은 발주만 보입니다');
   h += '<div class="ordwrap">';
@@ -839,6 +847,8 @@ function orderCard(no, list, master){
       +       (st === '완료' ? (master ? '✅ 당일 시트 전송됨' : '✅ 발주 확인됨') : (st === '취소' ? '취소됨' : '접수'))
       +     '</span>'
       +     (master && NEWNOS.has(S(no)) ? '<span class="onewb">NEW</span>' : '')
+      +     (master && ACKON && st === '접수' && ackMissing(no).length
+              ? '<span class="ordst wait">👀 ' + ackMissing(no).map(m => esc(nick(m.name))).join('·') + ' 미확인</span>' : '')
       +   '</div>'
       +   '<div class="ometa">' + esc(short(f.at)) + ' · ' + list.length + '건'
       +     (master ? ' · <b>' + esc(f.cname) + '</b>' : '') + '</div>'
@@ -877,6 +887,7 @@ function orderCard(no, list, master){
                      + '<button class="ordb2 warn" data-ocn="' + esc(no) + '">✕ 선택한 건 취소</button>' : ''))
       + '</div>'
       + (master && sent ? '<div class="hint" style="margin-top:6px">' + esc(f.done ? short(f.done) + ' 전송' : '전송됨') + ' — 다시 보내지지 않습니다</div>' : '')
+      + (master && ACKON ? ackLine(no) : '')
       + '</div>';
   }
   return h;
@@ -965,9 +976,12 @@ function ordersBind(){
     s.onkeydown = e => { if(e.key === 'Escape'){ s.value = ''; OQ = ''; OPAGE = 1; resetEdit(); ordersPaint(); } };
   }
   ordersPaint();
-  // 내역을 연 순간이 '확인'이다 — 배지·팝업을 접고, 지금 온 것들은 본 것으로 기록한다.
-  // (카드의 NEW 표시는 NEWNOS 로 이번 화면이 그려져 있는 동안은 계속 보인다)
-  if(ME && ME.master) seenMarkAll();
+  /* 🔴 화면을 연 것은 확인이 아니다 (사장님 2026-08-25) — [👀 확인함]을 눌러야 확인이다.
+     예전엔 여기서 전부 읽음 처리해서, 목록이 뜨기도 전에 닫으면 알림만 조용히 꺼졌다. */
+  if(ME && ME.master){
+    if(ACKON){ badgeOrders(unackNos(LIST).length); popHide(); }
+    else seenMarkAll();                       // 구버전 웹앱이 붙어 있는 동안만 옛 방식
+  }
 }
 
 /* ══ 🔔 새 발주 알림 (마스터 전용 · 홍팀장 2026-08-24) ═══════════════
@@ -980,6 +994,67 @@ function ordersBind(){
 const SEENK = NS + 'orders_seen_v1';
 let NEWNOS = new Set();          // 이번 내역 화면에서 NEW 를 달아줄 발주번호
 let NOTIFIED = new Set();        // 이미 팝업으로 알린 발주번호 (1분마다 같은 팝업이 또 뜨지 않게)
+
+/* ══ 👀 확인 — 찬화·원비 **둘 다** 눌러야 알림이 꺼진다 (사장님 2026-08-25) ═══
+   사장님: "내가 안 누르면 확인해야 할 발주로 해줘. 나랑 원비 둘 중 하나가 확인 안 했으면 알림 떠 있게."
+   🔴 왜 바꿨나 — 2026-08-24 밤 22:48 발주를 아무도 못 보고 아침을 맞을 뻔했다. 원인은 두 가지였다.
+      ① '봤다'를 **브라우저(localStorage)** 에 적었다 → 기기가 다르면 따로 놀고, 무엇보다
+         한 사람이 본 것이 두 사람 다 본 것처럼 취급돼 알림이 꺼졌다.
+      ② **화면을 여는 것만으로 읽음 처리**했다 → 목록이 뜨기 전에 닫아도 알림만 사라졌다.
+   → 이제 확인은 **사람이 [👀 확인함]을 누른 것**이고, 기록은 **시트(발주_확인 탭)** 에 남는다.
+   ⚠️ 알림(배지·팝업)이 붙는 대상은 **아직 처리 안 된(접수) 발주**다. 당일 시트로 나갔거나
+      취소된 건은 이미 결말이 난 것이라 알림에서 빠진다 — 카드의 '누가 봤나' 표시는 그대로 남는다. */
+let ACKON = false;               // 웹앱이 확인 기능을 아는 버전인가 (구버전이면 옛 방식으로 돈다)
+let MASTERS = [];                // 확인해야 할 사람들 — 계정 시트에서 권한이 '마스터'인 전원
+let ACKS = {};                   // 발주번호 → [{id,name,at}]
+let MEID = '';
+const lower = s => S(s).toLowerCase();
+// '마스터 유통(찬화)' → '찬화'. 카드에 이름 두 개가 나란히 붙어서 짧아야 읽힌다.
+function nick(name){ const m = S(name).match(/\(([^)]+)\)/); return m ? m[1] : S(name); }
+function takeAcks(j){
+  ACKON = !!(j && j.masters && j.masters.length);
+  if(!ACKON) return;
+  MASTERS = j.masters; ACKS = j.acks || {}; MEID = lower(j.meId || (ME && ME.id));
+}
+function ackedBy(no){ return (ACKS[S(no)] || []).map(a => lower(a.id)); }
+function ackMissing(no){ const done = ackedBy(no); return MASTERS.filter(m => done.indexOf(lower(m.id)) < 0); }
+function ackedMe(no){ return ackedBy(no).indexOf(MEID) >= 0; }
+// 발주번호 → 그 묶음의 줄들
+function groupNos(rows){
+  const m = new Map();
+  (rows || []).forEach(r => { const k = S(r.no); if(!m.has(k)) m.set(k, []); m.get(k).push(r); });
+  return m;
+}
+// 아직 처리 안 된(접수) 묶음인가 — 취소·전송완료는 알림 대상이 아니다
+function pending(list){
+  const live = list.filter(r => S(r.state) !== '취소');
+  return !!live.length && !live.every(r => S(r.state) === '완료');
+}
+// 🔔 알림에 걸릴 발주 = 아직 처리 안 됐고, 둘 중 하나라도 확인 안 누른 것
+function unackNos(rows){
+  const out = [];
+  groupNos(rows).forEach((list, no) => { if(pending(list) && ackMissing(no).length) out.push(no); });
+  return out;
+}
+// 카드의 NEW = 내가 아직 안 누른 미처리 발주 (상대만 안 누른 건 NEW 없이 '미확인' 표시만)
+function newSet(rows){
+  if(!ACKON){ const s = seenSet(); return new Set((rows || []).map(r => S(r.no)).filter(no => !s.has(no))); }
+  const out = new Set();
+  groupNos(rows).forEach((list, no) => { if(pending(list) && !ackedMe(no)) out.add(no); });
+  return out;
+}
+/* 카드 아래 '누가 봤나' 한 줄 — 누가 안 봤는지가 한눈에 보여야 서로 미루지 않는다 */
+function ackLine(no){
+  const done = ACKS[S(no)] || [];
+  const chips = MASTERS.map(m => {
+    const hit = done.filter(a => lower(a.id) === lower(m.id))[0];
+    return hit ? '<span class="ackok">✅ ' + esc(nick(m.name)) + ' <b>' + esc(short(hit.at)) + '</b></span>'
+               : '<span class="ackno">⬜ ' + esc(nick(m.name)) + ' 미확인</span>';
+  }).join('');
+  return '<div class="ackline">' + chips
+    + (ackedMe(no) ? '' : '<button class="ordb2 ackb" data-oack="' + esc(no) + '">👀 확인했습니다</button>')
+    + '</div>';
+}
 function seenSet(){ try{ return new Set(JSON.parse(localStorage.getItem(SEENK) || '[]')); }catch(e){ return new Set(); } }
 function seenSave(s){ try{ localStorage.setItem(SEENK, JSON.stringify(Array.from(s).slice(-800))); }catch(e){} }
 function seenMarkAll(){
@@ -1004,7 +1079,7 @@ function popShow(groups, total){
   const names = groups.slice(0, 3).map(g => '<b>' + esc(g.name || '이름없음') + '</b> ' + g.cnt + '건').join(' · ')
     + (groups.length > 3 ? ' 외 ' + (groups.length - 3) + '곳' : '');
   d.innerHTML = '<button class="opx" title="닫기">✕</button>'
-    + '<div class="opt">🔔 새 발주 ' + total + '건이 들어왔습니다</div>'
+    + '<div class="opt">' + (ACKON ? '👀 확인 안 한 발주 ' + total + '건' : '🔔 새 발주 ' + total + '건이 들어왔습니다') + '</div>'
     + '<div class="opl">' + names + '</div>'
     + '<div class="oph">눌러서 발주 내역 확인 →</div>';
   d.onclick = e => {
@@ -1023,17 +1098,22 @@ async function pollOrders(){
   try{
     const j = await api('list', {token: ME.token});
     const rows = j.rows || [];
-    const first = (localStorage.getItem(SEENK) == null);
-    const seen = seenSet();
-    const byNo = new Map();
-    rows.forEach(r => { const no = S(r.no); if(!byNo.has(no)) byNo.set(no, []); byNo.get(no).push(r); });
-    if(first){
-      /* 이 기기에서 처음 켠 경우 — 옛날에 이미 보내고 끝난 발주까지 전부 NEW 로 쏟아지지 않게,
-         아직 접수 상태(처리 전)인 것만 새 발주로 치고 나머지는 본 것으로 깐다. */
-      byNo.forEach((list, no) => { if(!list.some(r => r.state === '접수')) seen.add(no); });
-      seenSave(seen);
+    takeAcks(j);
+    const byNo = groupNos(rows);
+    let unseen;
+    if(ACKON){
+      // 👀 둘 중 하나라도 [확인함]을 안 누른 미처리 발주 — 눌러야만 꺼진다
+      unseen = unackNos(rows);
+    } else {
+      /* 구버전 웹앱이 붙어 있는 동안의 옛 방식 (화면을 열면 읽음) — 웹앱을 새로 배포하면 위로 넘어간다 */
+      const first = (localStorage.getItem(SEENK) == null);
+      const seen = seenSet();
+      if(first){
+        byNo.forEach((list, no) => { if(!list.some(r => r.state === '접수')) seen.add(no); });
+        seenSave(seen);
+      }
+      unseen = Array.from(byNo.keys()).filter(no => !seen.has(no));
     }
-    const unseen = Array.from(byNo.keys()).filter(no => !seen.has(no));
     badgeOrders(unseen.length);
     if(!unseen.length){ NOTIFIED = new Set(); return; }
     const fresh = unseen.filter(no => !NOTIFIED.has(no));
@@ -1546,6 +1626,24 @@ document.addEventListener('click', e => {
     api('push', {token: ME.token, orderNo: no})
       .then(j => { toast(no + ' → 당일 시트 ' + j.col + j.row + '행에 ' + j.count + '줄'); reloadOrders(); })
       .catch(err => { alert(err.message || '보내지 못했습니다'); op.disabled = false; op.textContent = '📤 당일 시트로 보내기'; });
+    return;
+  }
+  /* 👀 확인했습니다 — 내 이름으로 시트에 남는다. 상대가 아직 안 눌렀으면 알림은 그대로 켜져 있다. */
+  const oak = e.target.closest && e.target.closest('[data-oack]');
+  if(oak){
+    const no = oak.getAttribute('data-oack');
+    oak.disabled = true; oak.textContent = '확인 중…';
+    api('ack', {token: ME.token, orderNo: no})
+      .then(j => {
+        if(j.masters){ MASTERS = j.masters; ACKS = j.acks || ACKS; ACKON = true; }
+        NEWNOS = newSet(LIST);
+        badgeOrders(unackNos(LIST).length);
+        const left = ackMissing(no);
+        toast(left.length ? no + ' 확인 — ' + left.map(m => nick(m.name)).join('·') + ' 팀장은 아직입니다'
+                          : no + ' — 두 분 다 확인하셨습니다');
+        ordersPaint();
+      })
+      .catch(err => { alert(err.message || '확인 처리를 하지 못했습니다'); oak.disabled = false; oak.textContent = '👀 확인했습니다'; });
     return;
   }
   /* ✏️ 선택한 줄 수정 — 체크한 줄이 그 자리에서 입력칸으로 바뀐다 */
