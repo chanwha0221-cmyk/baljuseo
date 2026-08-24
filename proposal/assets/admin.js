@@ -254,9 +254,26 @@
         })
         .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
 
+      /* 🔴 시트에 이미 같은 상품이 두 줄 들어 있으면 화면에도 두 개로 뜬다 —
+         그걸 홍팀장이 손으로 하나씩 지우고 있었다(2026-08-24). 읽을 때 걸러서 알린다.
+         ⚠️ 화면에서만 정리하고 시트는 [전체 저장] 때 정리된다(읽자마자 시트를 고치지 않는다). */
+      var _seen = {}, _dupNames = [];
+      items = items.filter(function (it) {
+        var k = pkey(it.name || "");
+        if (!k) return true;
+        if (_seen[k]) { _dupNames.push(it.name); return false; }
+        _seen[k] = 1; return true;
+      });
+
       siteSettings = Object.assign({}, (currentVersion && currentVersion.settings) || {});
       loadedOK = true;
       baseSig = itemSig(items);
+      if (_dupNames.length) {
+        setDirty(true);
+        setTimeout(function () {
+          toast("같은 상품이 두 번 들어가 있었어요 — " + _dupNames.length + "개 정리했습니다(" + _dupNames.join(", ") + "). [전체 저장]을 누르면 시트에도 반영됩니다.");
+        }, 700);
+      }
       checkDraft();
       setTimeout(autoFillPhotos, 300);   // 📷 사진 빈 상품은 알아서 채운다   // 💾 저장 안 된 작업이 남아 있나
       /* 공개 사이트(app.js)가 읽는 제안서카테고리 탭을 분류표 결과로 맞춰 둔다 — 조용히, 실패해도 무시. */
@@ -283,6 +300,22 @@
     var ordered = [];
     CATS.forEach(function (c) { items.filter(function (i) { return i.category === c.key; }).forEach(function (i) { ordered.push(i); }); });
     items.forEach(function (i) { if (ordered.indexOf(i) < 0) ordered.push(i); });   // 없는 카테고리 소속도 유실 금지
+    /* 🔴 같은 상품이 두 줄로 들어가는 것을 저장 직전에 막는다 (2026-08-24 홍팀장:
+         "상품이 중복돼서 2개씩 저장됨 — 내가 하나씩 지웠다").
+       한 제안서에 같은 상품을 두 번 넣을 일은 없다. 어디서 겹쳤는지와 상관없이
+       여기서 한 번 걸러두면 홍팀장이 손으로 지우는 일은 다시 없다.
+       ⚠️ 조용히 지우지 않는다 — 몇 개를 걸렀는지 반드시 알린다. */
+    var seen = {}, dropped = [];
+    ordered = ordered.filter(function (it) {
+      var k = pkey(it.name || "");
+      if (!k) return true;
+      if (seen[k]) { dropped.push(it.name); return false; }
+      seen[k] = 1; return true;
+    });
+    if (dropped.length) {
+      items = items.filter(function (it) { return ordered.indexOf(it) >= 0; });
+      toast("같은 상품이 두 번 들어가 있어 " + dropped.length + "개를 정리했어요: " + dropped.join(", "));
+    }
     var mine = ordered.map(function (it, i) { it.sort_order = (i + 1) * 10; return itemToRow(it, it.sort_order); });
     return window.SVC.writeTab(T.products, [window.SVC.HEADERS[T.products]].concat(otherRows, mine));
   }
