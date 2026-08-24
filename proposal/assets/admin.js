@@ -924,7 +924,15 @@
     /* 제안서 = 업체 하나에 보낸 제안 한 건. 상설 "기본 제안서" 같은 건 없다. (2026-08-24 홍팀장) */
     var verCtrl = (versions.length
         ? '<select id="ver-select" class="ver-select" title="업체 고르기">' +
-            versions.map(function (v) { return '<option value="' + v.id + '"' + (currentVersion && v.id === currentVersion.id ? ' selected' : '') + '>' + esc(v.name) + '</option>'; }).join("") +
+            /* 같은 업체명이 둘 이상이면 뒤에 상품 수를 붙여 구분한다 — 이름만으로는 어느 쪽인지 알 수 없다
+               (2026-08-24 '후르츠온'이 두 개로 갈라져 상품이 7개/3개로 나뉜 건). */
+            versions.map(function (v) {
+              var same = versions.filter(function (x) { return (x.name || "").trim() === (v.name || "").trim(); }).length > 1;
+              var cnt = same ? (v.id === (currentVersion || {}).id ? items.length
+                                 : otherRows.filter(function (r) { return String(r[0] || "").trim() === v.slug; }).length) : 0;
+              return '<option value="' + v.id + '"' + (currentVersion && v.id === currentVersion.id ? ' selected' : '') + '>'
+                + esc(v.name) + (same ? ' (' + cnt + '개 · ' + esc(v.slug) + ')' : '') + '</option>';
+            }).join("") +
           '</select>'
         : '<span class="ver-none">제안서 없음</span>') +
       '<button class="btn-ghost" id="btn-ver-new">+ 새 제안서</button>' +
@@ -1365,16 +1373,17 @@
         if (_hit.link && !String(newItem.link || "").trim()) newItem.link = _hit.link;
       }
     }
+    /* 🔴 담기는 화면에만 한다 — 여기서 시트에 쓰지 않는다
+         (2026-08-24 홍팀장: "전체 저장 누르면 그냥 한 번에 저장되게 하라고 했잖아").
+       예전엔 여기서 곧바로 saveProducts() 를 불렀다. 저장 경로가 둘이면
+       ①어디까지 저장됐는지 사람이 알 수 없고 ②담자마자 공개 사이트로 나가고
+       ③제안 이력은 [전체 저장]에만 남아 시트와 기록이 어긋난다.
+       → 저장하는 곳은 [전체 저장] 한 곳뿐이다. */
     var it = Object.assign({}, newItem, { _key: uid() });
     items.push(it);
-    saveProducts().then(function () {
-      addingCat = null; newItem = null; dirty = false; baseSig = itemSig(items); clearDraft(); renderEditor();
-      toast("상품이 추가됐어요 ✅");
-    }).catch(function (err) {
-      items = items.filter(function (x) { return x !== it; });
-      btn.disabled = false; btn.textContent = "이 상품 추가";
-      toast("추가 실패: " + (err.message || err), true);
-    });
+    addingCat = null; newItem = null;
+    setDirty(true); renderEditor();
+    toast("담았어요 — 맨 아래 [전체 저장]을 눌러야 시트에 남습니다");
   }
   function saveOne(key, btn) {
     var it = findItem(key); if (!it) return;
@@ -1451,6 +1460,12 @@
   }
   function createVersion(name, src) {
     name = (name || "").trim(); if (!name) return;
+    /* 🔴 같은 업체명으로 제안서가 조용히 두 개 생기는 걸 막는다 (2026-08-24).
+       실제로 '후르츠온'이 v2·v2-2 두 개로 갈라져 상품이 7개/3개로 나뉘어 있었다.
+       한글 업체명은 slug 가 v2·v3 처럼 뜻 없는 번호라, 목록에서 이름만 보면 둘을 구분할 수 없다.
+       → 만들기 전에 되묻는다. 지점이 정말 따로면 이름을 다르게 적게 한다. */
+    var dupV = versions.filter(function (v) { return (v.name || "").trim() === name; })[0];
+    if (dupV && !window.confirm("이미 [" + name + "] 제안서가 있습니다.\n\n같은 이름으로 하나 더 만들면 목록에서 둘을 구분할 수 없고,\n상품이 두 곳으로 갈라집니다.\n\n· 기존 것을 고치려면 → [취소] 후 목록에서 그 제안서를 고르세요\n· 지점이 정말 따로면 → 이름을 다르게 적어주세요\n\n그래도 하나 더 만들까요?")) return;
     var slug = slugify(name);
     var sort = (versions.length ? Math.max.apply(null, versions.map(function (v) { return v.sort_order || 0; })) : 0) + 10;
     var nv = { id: uid(), slug: slug, name: name, sort_order: sort, settings: src ? Object.assign({}, src.settings || {}) : {} };
