@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.15</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.16</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1581,5 +1581,7 @@ $('gver').textContent=APP_VER;
 // localStorage 접두어를 넘겨서 업체 화면 임시저장과 섞이지 않게 한다.
 window.ORDER_NS='TEST_';
 </script>
-<script src="order.js?v=1"></script>
+<!-- 🔄 발주 변환 엔진 — index.html 에서 자동 추출(직접 고치지 말 것). order.js 보다 먼저. -->
+<script src="convert-core.js?v=1"></script>
+<script src="order.js?v=2"></script>
 </body></html>

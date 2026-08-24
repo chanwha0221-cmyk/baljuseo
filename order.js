@@ -305,6 +305,14 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .orddel:hover{color:var(--up)}
 .orderr{font-size:11.5px;color:var(--up);font-weight:700;line-height:1.6;padding:2px 8px 8px}
 .ordwarn{font-size:11.5px;color:var(--gold);font-weight:700;line-height:1.6;padding:2px 8px 8px}
+/* 🔄 업체 양식 변환 결과 — 변환기의 원문 대조 바를 그대로 옮겨 담는다(누락 감지가 여기 뜬다) */
+.ordrecon{font-size:12px;line-height:1.7;margin-top:8px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card)}
+.ordrecon.ok{border-color:#a9d5bb;background:rgba(45,140,85,.08)}
+.ordrecon.bad{border-color:#e8b4b4;background:rgba(200,40,40,.08)}
+.ordrecon b{font-weight:800}
+.ordrecon .recon-list{margin-top:6px;font-size:11.5px;line-height:1.75;word-break:break-all}
+.ordrecon .recon-note,.ordrecon .recon-warn{margin-top:5px;font-size:11.5px}
+.ordrecon .recon-warn{color:#c62828;font-weight:700}
 .ordcand{padding:4px 8px 10px;display:flex;gap:7px;flex-wrap:wrap}
 .ordcd{display:flex;gap:8px;align-items:center;border:1.5px solid var(--line);border-radius:10px;padding:6px 10px 6px 6px;background:var(--card);cursor:pointer;font-family:inherit;text-align:left;max-width:290px}
 .ordcd:hover{border-color:var(--accent)}
@@ -480,13 +488,26 @@ function view(){
     +   '<div class="ordtip">📂 쓰시던 <b>엑셀 파일을 그대로 올리셔도</b> 됩니다.'
     +      '<span>엑셀(xlsx)·CSV 모두 됩니다. 칸 순서만 <b>업체명 / 상품명 / 수량 / 성함 / 주소 / 연락처 / 배송메시지</b> 로 맞춰주세요. 위 <b>[📥 발주 양식 받기]</b>를 쓰시면 가장 확실합니다.</span></div>'
     +   '<div class="ordbar">'
+    +     (master && hasEngine() ? '<button class="ordb2 pri" id="ord_conv">🔄 업체 양식 그대로 넣기</button>' : '')
     +     '<button class="ordb2" id="ord_tpl">📥 발주 양식 받기</button>'
-    +     '<button class="ordb2 pri" id="ord_pick">📂 파일 넣기</button>'
+    +     '<button class="ordb2' + (master ? '' : ' pri') + '" id="ord_pick">📂 파일 넣기</button>'
     +     '<input type="file" id="ord_file" accept=".csv,.tsv,.txt,.xlsx,.xls" style="display:none">'
     +     '<button class="ordb2" id="ord_paste">📋 붙여넣기</button>'
     +     '<button class="ordb2" id="ord_add">+ 줄 추가</button>'
     +     '<button class="ordb2" id="ord_clr">🗑 전체 비우기</button>'
     +   '</div>'
+    // 🔄 업체가 준 양식 그대로 — 발주서 변환기 엔진이 우리 양식으로 바꿔 표에 채운다 (마스터 전용)
+    +   (master && hasEngine()
+        ? '<div id="ord_convbox" style="display:none;margin-bottom:10px">'
+        +   '<div class="ordtip big">🔄 <b>업체가 보낸 그대로</b> 붙여넣으세요 — 카톡·엑셀·게시판 어느 양식이든 됩니다.'
+        +     '<span>발주서 변환기(v' + (window.CONVERT.VERSION || '') + ')와 <b>같은 엔진</b>으로 읽습니다. 읽은 결과는 아래 표에 채워지고, 상품명이 안 맞으면 빨갛게 표시됩니다.</span></div>'
+        +   '<textarea class="ordpaste" id="ord_cv" style="min-height:170px" placeholder="업체가 카톡·메일·엑셀로 보낸 발주를 그대로 붙여넣으세요 (Ctrl+V)&#10;양식을 맞출 필요 없습니다 — 변환기가 읽습니다."></textarea>'
+        +   '<div class="ordbar"><button class="ordb2 pri" id="ord_cvok">변환해서 표에 넣기</button>'
+        +     '<button class="ordb2" id="ord_cvadd">기존 줄 아래에 이어붙이기</button>'
+        +     '<button class="ordb2" id="ord_cvno">취소</button></div>'
+        +   '<div id="ord_cvlog"></div>'
+        + '</div>'
+        : '')
     +   '<div id="ord_pastebox" style="display:none;margin-bottom:10px">'
     +     '<textarea class="ordpaste" id="ord_pt" placeholder="엑셀에서 표를 복사해 여기에 붙여넣으세요 (Ctrl+V)&#10;업체명 / 상품명 / 수량 / 받는분 성함 / 받는분 주소 / 받는분 연락처 / 배송메시지"></textarea>'
     +     '<div class="ordbar"><button class="ordb2 pri" id="ord_ptok">가져오기</button><button class="ordb2" id="ord_ptno">취소</button></div>'
@@ -915,6 +936,95 @@ function template(){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 3000);
 }
+/* ══════════════════════════════════════════════════════════════════
+   🔄 업체 양식 그대로 변환 (마스터 대신 발주 전용) — 홍팀장 2026-08-24
+     "우리 양식이 아니라 업체에서 주는 양식으로 바로 넣을 거야.
+      최대한 우리 양식으로 수정해서 발주 넣어줘야 해."
+   ──────────────────────────────────────────────────────────────────
+   발주서 변환기(index.html)의 엔진을 그대로 쓴다(convert-core.js).
+   업체별 예외 처리(혜인·빅피시·365바겐·식봄·배민대용량·킹콩·카톡세로·게시판·라벨세로형…)가
+   전부 살아 있어야 하므로 여기서 다시 짜지 않는다. 엔진은 index.html 에서 자동 추출된다 —
+   변환기를 고쳤으면 `claude/github/발주변환엔진_추출.js` 를 다시 돌릴 것.
+
+   🔴 변환기 출력(9칸/10칸 완성행)을 그대로 시트로 보내지 않고 **발주 표로 되돌린다.**
+      상품명 완전일치 검증·합포장·마감시간 판정을 이 화면이 다시 하기 위해서다.
+      변환만 믿고 바로 내보내면 카탈로그에 없는 이름이 조용히 시트로 들어간다. */
+const hasEngine = () => { try{ return !!(window.CONVERT && window.CONVERT.convert); }catch(e){ return false; } };
+
+/* 변환기 완성행 → 발주 표 행
+   9칸  [정산][주소][연락처][창고][상품][성함][주소][연락처][메시지]
+   10칸 [정산][송장][주소][연락처][창고][상품][성함][주소][연락처][메시지]
+   ⚠️ 합포장(' / ')은 표에서 다시 줄로 나눈다 — 한 줄 = 한 상품이라야 상품명 검증이 걸린다. */
+function rowsFromConverted(cols){
+  const out = [], bizes = [];
+  (cols || []).forEach(c => {
+    if(!c || c.length < 9) return;
+    const ten  = c.length >= 10;
+    const pay  = S(c[0]);                       // 정산업체명 — 어느 업체 발주인지 확인용
+    if(pay && bizes.indexOf(pay) < 0) bizes.push(pay);
+    const biz  = ten ? S(c[1]) : '';            // 송장업체명(있을 때만 표 첫 칸)
+    const prod = S(c[ten ? 5 : 4]);
+    const rcv  = S(c[ten ? 6 : 5]);
+    const addr = S(c[ten ? 7 : 6]);
+    const tel  = S(c[ten ? 8 : 7]);
+    const msg  = S(c[ten ? 9 : 8]);
+    if(!prod && !rcv && !addr) return;
+    prod.split(' / ').forEach(seg => {
+      seg = S(seg);
+      if(!seg) return;
+      // '상품명 x 3' → 이름·수량 분리. 뒤에 괄호 옵션이 붙어 있으면 이름에 그대로 둔다.
+      const m = seg.match(/^(.*?)\s*[x×X]\s*(\d+)\s*$/);
+      out.push({ biz: biz, name: S(m ? m[1] : seg), qty: m ? m[2] : '1', rcv: rcv, addr: addr, tel: tel, msg: msg });
+    });
+  });
+  return { rows: out, bizes: bizes };
+}
+
+/* 변환 실행 — 붙여넣은 원문을 변환기 엔진에 넘기고, 결과를 표에 채운다.
+   append=true 면 기존 줄 아래에 이어붙인다(여러 업체 발주를 한 번에 처리할 때). */
+function runConvert(append){
+  const box = document.getElementById('ord_cv'), logEl = document.getElementById('ord_cvlog');
+  const raw = box ? box.value : '';
+  if(!S(raw)){ toast('붙여넣은 내용이 없습니다'); return; }
+  if(!hasEngine()){ toast('변환 엔진을 못 불러왔습니다'); return; }
+
+  const r = window.CONVERT.convert(raw);
+  if(r.error){ logEl.innerHTML = '<div class="ordwarn">변환 중 오류 — ' + esc(r.error) + '</div>'; return; }
+  const got = rowsFromConverted(r.cols);
+  if(!got.rows.length){
+    logEl.innerHTML = '<div class="ordwarn">읽어낸 발주가 없습니다.'
+      + (r.log ? '<br><span class="hint">변환기 메시지: ' + esc(r.log) + '</span>' : '')
+      + '<br><span class="hint">업체 양식이 처음 보는 형태일 수 있습니다 — 발주서 변환기에서 먼저 돌려보고, 거기서도 안 되면 알려주세요.</span></div>';
+    return;
+  }
+
+  // 기존 줄 중 빈 줄은 버리고 채운다(처음 화면의 빈 3줄이 그대로 남지 않게)
+  const keep = append ? ROWS.filter(x => FIELDS.some(f => S(x[f]))) : [];
+  ROWS = keep.concat(got.rows);
+  saveDraft(); paint();
+
+  /* 🔴 어느 업체 발주인지 확인시킨다 — 조용히 FOR 를 덮어쓰지 않는다.
+     정산업체명이 잘못 박히면 그대로 시트로 나가고, 그건 되돌리기 어렵다. */
+  const notes = [];
+  if(got.bizes.length > 1){
+    notes.push('<div class="ordwarn">⚠️ 원문에 업체가 <b>' + got.bizes.length + '곳</b> 섞여 있습니다 — <b>' + esc(got.bizes.join(', ')) + '</b>'
+      + '<br>대신 발주는 <b>한 업체씩</b> 넣어야 정산업체명이 정확합니다. 업체별로 나눠서 다시 넣어주세요.</div>');
+  } else if(got.bizes.length === 1){
+    const read = got.bizes[0], cur = FOR && FOR.name ? FOR.name : '';
+    const same = cur && read.replace(/\s/g, '') === cur.replace(/\s/g, '');
+    if(!cur) notes.push('<div class="ordwarn">📌 원문에서 <b>' + esc(read) + '</b> 발주로 읽었습니다 — 위에서 <b>어느 업체 발주인지</b> 골라주세요.</div>');
+    else if(!same) notes.push('<div class="ordwarn">⚠️ 원문은 <b>' + esc(read) + '</b> 발주인데, 위에 고른 업체는 <b>' + esc(cur) + '</b> 입니다. 맞는지 확인하세요.</div>');
+  }
+  // 변환기의 원문 대조(누락 감지) 결과를 그대로 보여준다 — 이게 누락 사고를 잡는 자리다
+  if(r.recon && r.recon.html) notes.push('<div class="ordrecon ' + esc(r.recon.state || '') + '">' + r.recon.html + '</div>');
+  if(r.log) notes.push('<div class="hint">변환기: ' + esc(r.log) + '</div>');
+  logEl.innerHTML = notes.join('');
+
+  toast(got.rows.length + '줄 가져왔습니다');
+  const bad = ROWS.filter(x => FIELDS.some(f => S(x[f])) && checkRow(x).errs.length).length;
+  if(bad) toast(bad + '줄은 상품명 확인이 필요합니다');
+}
+
 /* 붙여넣기 파싱 — 탭(엑셀 복사) 우선, 없으면 쉼표. */
 function parsePaste(text){
   const lines = [];
@@ -1124,6 +1234,11 @@ function bind(){
     finally{ if(btn){ btn.disabled = false; btn.textContent = '📂 파일 넣기'; } }
   };
   on('ord_paste', () => { const b = $$('ord_pastebox'); b.style.display = (b.style.display === 'none' ? '' : 'none'); if(b.style.display === '') $$('ord_pt').focus(); });
+  // 🔄 업체 양식 그대로 넣기 (마스터)
+  on('ord_conv', () => { const b = $$('ord_convbox'); b.style.display = (b.style.display === 'none' ? '' : 'none'); if(b.style.display === '') $$('ord_cv').focus(); });
+  on('ord_cvno', () => { $$('ord_convbox').style.display = 'none'; $$('ord_cv').value = ''; $$('ord_cvlog').innerHTML = ''; });
+  on('ord_cvok',  () => runConvert(false));
+  on('ord_cvadd', () => runConvert(true));
   on('ord_ptno', () => { $$('ord_pastebox').style.display = 'none'; $$('ord_pt').value = ''; });
   on('ord_ptok', () => {
     const got = parsePaste($$('ord_pt').value);
@@ -1302,7 +1417,8 @@ function add(name){
 function badge(){
   const b = document.getElementById('ordCount');
   if(!b) return;
-  if(ME && ME.master){ b.style.display = 'none'; return; }   // 마스터에겐 발주 메뉴 자체가 없다
+  // 마스터의 '대신 발주'는 카탈로그에서 담는 자리가 아니라 원문을 넣는 자리라 배지를 안 띄운다
+  if(ME && ME.master){ b.style.display = 'none'; return; }
   const n = ROWS.filter(r => S(r.name)).length;
   b.textContent = n;
   b.style.display = n ? '' : 'none';
@@ -1312,5 +1428,6 @@ function badge(){
 window.addEventListener('load', () => { if(!ROWS.length) ROWS = loadDraft(); badge(); });
 
 // _build·_check는 검증용 출구다(브라우저 없이 변환 결과를 확인할 때 쓴다). 화면 동작과 무관.
-window.ORDER = {view, bind, add, orders: ordersView, ordersBind, rows: () => ROWS, _build: buildOut, _check: checkRow};
+window.ORDER = {view, bind, add, orders: ordersView, ordersBind, rows: () => ROWS, _build: buildOut, _check: checkRow,
+                _fromConverted: rowsFromConverted, _setRows: r => { ROWS = r; }};
 })();
