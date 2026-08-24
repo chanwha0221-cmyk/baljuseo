@@ -1060,8 +1060,13 @@
   }
 
   function bindEditor() {
-    if (_delegated) return;
+    /* 🔴 이중 등록 방지는 «root 자체»에 표시해 둔다.
+       플래그 변수(_delegated)만 믿으면 누가 그걸 false 로 풀었을 때 리스너가 하나 더 붙고,
+       그때부터 클릭 한 번이 두 번 처리된다(2026-08-24 사고 — 펼치기 먹통·상품 2개 저장).
+       root 는 페이지가 살아 있는 한 그대로이므로 여기 찍어두면 어떤 경로로도 두 번 안 붙는다. */
+    if (_delegated || root.__masBound) return;
     _delegated = true;
+    root.__masBound = true;
 
     root.addEventListener("toggle", function (e) {
       if (e.target.id === "sp-details") settingsOpen = e.target.open;
@@ -1463,7 +1468,14 @@
   function reloadInto(msg) {
     _photoTried = false;
     root.innerHTML = '<div class="loading">' + (msg || "불러오는 중…") + '</div>';
-    _delegated = false;
+    /* 🔴 여기서 _delegated 를 false 로 풀면 안 된다 (2026-08-24 홍팀장:
+         "또 이거 안 펴지는 건 뭔데?" / "상품이 중복돼서 2개씩 저장됨").
+       클릭·입력 핸들러는 root 에 «위임»으로 붙어 있고, root 는 innerHTML 을 갈아도
+       그대로 살아 있다. 그런데 여기서 풀어버리면 다음 renderEditor 의 bindEditor() 가
+       **같은 root 에 리스너를 하나 더** 붙인다 → 한 번 누르면 핸들러가 두 번 돈다.
+         · 카테고리 펼치기: true 로 켰다가 곧바로 false → 영영 안 펼쳐진다
+         · 상품 담기: items.push 가 두 번 → 상품이 2개로 저장된다
+       최초 로드는 멀쩡하고 **제안서를 한 번 바꾼 뒤부터** 증상이 나서 찾기 어려웠다. */
     return loadAll().then(function () { dirty = false; renderEditor(); });
   }
   function switchVersion(id) {
