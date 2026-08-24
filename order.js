@@ -305,6 +305,9 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .orddel:hover{color:var(--up)}
 .orderr{font-size:11.5px;color:var(--up);font-weight:700;line-height:1.6;padding:2px 8px 8px}
 .ordwarn{font-size:11.5px;color:var(--gold);font-weight:700;line-height:1.6;padding:2px 8px 8px}
+/* 📂 파일 끌어다 놓는 자리 */
+.ordcvdrop{border:1.5px dashed var(--line);border-radius:10px;padding:12px;text-align:center;font-size:12px;color:var(--muted);margin-bottom:8px;transition:.15s}
+.ordcvdrop.on{border-color:var(--accent);color:var(--accent-d);background:rgba(45,140,85,.07)}
 /* 🔄 업체 양식 변환 결과 — 변환기의 원문 대조 바를 그대로 옮겨 담는다(누락 감지가 여기 뜬다) */
 .ordrecon{font-size:12px;line-height:1.7;margin-top:8px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card)}
 .ordrecon.ok{border-color:#a9d5bb;background:rgba(45,140,85,.08)}
@@ -501,6 +504,13 @@ function view(){
         ? '<div id="ord_convbox" style="display:none;margin-bottom:10px">'
         +   '<div class="ordtip big">🔄 <b>업체가 보낸 그대로</b> 붙여넣으세요 — 카톡·엑셀·게시판 어느 양식이든 됩니다.'
         +     '<span>발주서 변환기(v' + (window.CONVERT.VERSION || '') + ')와 <b>같은 엔진</b>으로 읽습니다. 읽은 결과는 아래 표에 채워지고, 상품명이 안 맞으면 빨갛게 표시됩니다.</span></div>'
+        // 📂 파일로 주는 업체는 파일째로 — 열어서 다시 복붙하는 건 두 번 일이다 (홍팀장 2026-08-24)
+        +   '<div class="ordbar" style="margin-bottom:8px">'
+        +     '<button class="ordb2 pri" id="ord_cvpick">📂 파일에서 읽기</button>'
+        +     '<input type="file" id="ord_cvfile" accept=".csv,.tsv,.txt,.xlsx,.xls" style="display:none">'
+        +     '<span class="hint" style="align-self:center">엑셀·CSV 그대로 / 카톡은 아래에 붙여넣기</span>'
+        +   '</div>'
+        +   '<div id="ord_cvdrop" class="ordcvdrop">여기에 <b>파일을 끌어다 놓아도</b> 됩니다</div>'
         +   '<textarea class="ordpaste" id="ord_cv" style="min-height:170px" placeholder="업체가 카톡·메일·엑셀로 보낸 발주를 그대로 붙여넣으세요 (Ctrl+V)&#10;양식을 맞출 필요 없습니다 — 변환기가 읽습니다."></textarea>'
         +   '<div class="ordbar"><button class="ordb2 pri" id="ord_cvok">변환해서 표에 넣기</button>'
         +     '<button class="ordb2" id="ord_cvadd">기존 줄 아래에 이어붙이기</button>'
@@ -980,6 +990,23 @@ function rowsFromConverted(cols){
   return { rows: out, bizes: bizes };
 }
 
+/* 📂 파일 → 원문 칸에 펼치고 바로 변환.
+   🔴 파일 내용을 화면에 보여준 뒤 변환한다 — 뭐가 들어갔는지 안 보이면 틀려도 모른다. */
+async function convertFile(file){
+  const box = document.getElementById('ord_cv'), logEl = document.getElementById('ord_cvlog');
+  if(logEl) logEl.innerHTML = '<div class="hint">📖 ' + esc(file.name) + ' 읽는 중…</div>';
+  try{
+    const raw = await fileToRaw(file);
+    if(!S(raw)){ logEl.innerHTML = '<div class="ordwarn">파일이 비어 있습니다 — ' + esc(file.name) + '</div>'; return; }
+    box.value = raw;
+    runConvert(false);
+    // 어느 파일에서 온 건지 결과 위에 남긴다(여러 업체 파일을 연달아 넣을 때 헷갈리지 않게)
+    logEl.innerHTML = '<div class="hint">📂 ' + esc(file.name) + '</div>' + logEl.innerHTML;
+  }catch(e){
+    logEl.innerHTML = '<div class="ordwarn">' + esc(e.message || String(e)) + '</div>';
+  }
+}
+
 /* 변환 실행 — 붙여넣은 원문을 변환기 엔진에 넘기고, 결과를 표에 채운다.
    append=true 면 기존 줄 아래에 이어붙인다(여러 업체 발주를 한 번에 처리할 때). */
 function runConvert(append){
@@ -1087,6 +1114,30 @@ async function readExcel(file){
   const sh = wb.Sheets[wb.SheetNames[0]];
   const grid = X.utils.sheet_to_json(sh, {header:1, raw:false, defval:''});
   return rowsFromCells(grid);
+}
+
+/* 📂 업체 양식 변환용 파일 읽기 — 여기서는 **행으로 쪼개지 않고 원문 텍스트로** 돌려준다.
+   변환기 엔진이 스스로 양식을 알아봐야 하기 때문(칸 순서를 우리가 정하는 게 아니다).
+   홍팀장 2026-08-24: "카톡 같은 건 어쩔 수 없이 복붙이지만 파일로 주는 데도 있어."
+   · 엑셀 → 첫 시트를 탭 구분 표로 펴서 넘긴다(변환기가 제일 잘 읽는 모양)
+   · CSV/TSV/TXT → 손대지 않고 그대로 넘긴다(따옴표 삼킴 복구까지 변환기가 한다) */
+async function fileToRaw(file){
+  const name = (file.name || '').toLowerCase();
+  if(/\.(xlsx|xls)$/.test(name)){
+    const X = await loadXlsx();
+    const wb = X.read(await file.arrayBuffer(), {type:'array'});
+    const sh = wb.Sheets[wb.SheetNames[0]];
+    const grid = X.utils.sheet_to_json(sh, {header:1, raw:false, defval:''});
+    return grid.map(r => (r || []).map(c => S(c)).join('\t'))
+               .filter(l => l.replace(/\t/g, '').trim())      // 통째로 빈 줄은 버린다
+               .join('\n');
+  }
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(String(fr.result || '').replace(/^﻿/, ''));
+    fr.onerror = () => rej(new Error('파일을 읽지 못했습니다.'));
+    fr.readAsText(file, 'utf-8');
+  });
 }
 function splitCsv(line){
   const out = []; let cur = '', q = false;
@@ -1239,6 +1290,16 @@ function bind(){
   on('ord_cvno', () => { $$('ord_convbox').style.display = 'none'; $$('ord_cv').value = ''; $$('ord_cvlog').innerHTML = ''; });
   on('ord_cvok',  () => runConvert(false));
   on('ord_cvadd', () => runConvert(true));
+  // 📂 파일로 받은 발주 — 파일을 고르면 원문 칸에 펼쳐 보여주고 바로 변환한다(무엇이 들어갔는지 눈으로 보게)
+  on('ord_cvpick', () => $$('ord_cvfile').click());
+  const cvf = $$('ord_cvfile');
+  if(cvf) cvf.onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(f) convertFile(f); };
+  const dz = $$('ord_cvdrop');
+  if(dz){
+    ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('on'); }));
+    ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('on'); }));
+    dz.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if(f) convertFile(f); });
+  }
   on('ord_ptno', () => { $$('ord_pastebox').style.display = 'none'; $$('ord_pt').value = ''; });
   on('ord_ptok', () => {
     const got = parsePaste($$('ord_pt').value);
