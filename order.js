@@ -1070,6 +1070,26 @@ function parsePaste(text){
   });
   return rowsFromCells(lines);
 }
+/* 🧹 배송메시지 정리 (2026-08-24 지투지샵).
+   업체 파일에 따라 배송메모 칸에 우리한테 필요 없는 게 딸려 온다 —
+   창고명, 주문처 연락처, 안심번호가 한 번 더 박혀 있고 `[고객배송메모]` 뒤에 진짜 메모가 붙는다.
+   홍팀장: **"고객 배송메모가 아닌 이상 배송메모 그냥 빼버려."**
+     ① `[…]` 태그가 있으면 그 뒤만 남긴다
+     ② 남은 게 번호뿐이거나 창고명이면 버린다 (기사님이 읽을 말이 아니다)
+   ⚠️ 태그 없이 제대로 쓴 메모("부재 시 문 앞에")는 그대로 둔다. */
+function cleanMsg(v){
+  let t = S(v);
+  if(!t) return '';
+  const m = t.match(/\[[^\]]*메모[^\]]*\]\s*([\s\S]*)$/);
+  if(m) t = S(m[1]);
+  else t = S(t.replace(/\[[^\]]{0,20}\]/g, ''));       // 그 밖의 대괄호 표시는 떼어낸다
+  if(!t) return '';
+  if(!/[가-힣a-zA-Z]/.test(t)) return '';               // 숫자·기호뿐 = 연락처가 딸려온 것
+  const bare = pkey(t);
+  if(prodIndex() && (WHS || []).some(w => pkey(w) === bare || pkey(w + '창고') === bare)) return '';
+  return t;
+}
+
 /* 셀 배열 → 발주 행. 붙여넣기·파일 둘 다 여기로 모인다.
    6칸으로 들어오면(업체명 생략) 첫 칸이 우리 상품일 때만 업체명이 빠진 것으로 본다 — 추측하지 않기 위해. */
 function rowsFromCells(lines){
@@ -1084,6 +1104,7 @@ function rowsFromCells(lines){
     while(cells.length < 7) cells.push('');
     const r = blank();
     FIELDS.forEach((f, i) => { r[f] = S(cells[i]); });
+    r.msg = cleanMsg(r.msg);      // 창고명·연락처가 딸려온 배송메모는 여기서 걷어낸다
     if(FIELDS.some(f => S(r[f]))) out.push(r);
   });
   return out;
