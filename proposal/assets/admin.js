@@ -1583,11 +1583,26 @@
       .catch(function (err) { toast("삭제 실패: " + (err.message || err), true); });
   }
 
-  /* ================= 시작 ================= */
-  if (!(window.SVC && CFG.dataSheet && CFG.dataSheet.id && CFG.svc && CFG.svc.key)) {
-    root.innerHTML = '<div class="center-wrap"><div class="panel"><h1>설정이 필요합니다</h1>' +
-      '<p class="sub">config.js 의 <code>dataSheet</code>·<code>svc</code> 값이 비어 있습니다.</p></div></div>';
+  /* ================= 시작 =================
+     🔴 설정 파일(config.js)이 «한 번» 못 내려오면 화면이 통째로 안 뜬다.
+        2026-08-24 라이브에서 실제로 GitHub Pages 가 config.js 에 503 을 준 적이 있다(내 코드 문제 아님).
+        그때 뜨던 "config.js 의 dataSheet·svc 값이 비어 있습니다"는 사람이 보고 할 수 있는 게 없는 문구다.
+        → 한 번 더 받아보고, 그래도 안 되면 **[다시 시도] 버튼**과 함께 사람 말로 안내한다. */
+  function cfgOK() { return !!(window.SVC && CFG.dataSheet && CFG.dataSheet.id && CFG.svc && CFG.svc.key); }
+  if (!cfgOK()) {
+    root.innerHTML = '<div class="loading">설정을 다시 받는 중…</div>';
+    var s = document.createElement("script");
+    s.src = "config.js?retry=" + Date.now();
+    s.onload = function () { if (cfgOK()) location.reload(); else cfgFail(); };
+    s.onerror = cfgFail;
+    document.head.appendChild(s);
     return;
+  }
+  function cfgFail() {
+    root.innerHTML = '<div class="center-wrap"><div class="panel"><h1>잠깐 연결이 안 됩니다</h1>' +
+      '<p class="sub">설정 파일을 못 받았습니다. 잠시 뒤 다시 시도하면 대부분 풀립니다.<br>' +
+      '<span style="font-size:12px;color:#8a8f98;">(작업하신 내용은 안 사라집니다 — 임시저장에 남아 있습니다)</span></p>' +
+      '<p><button class="btn-addsave" onclick="location.reload()">다시 시도</button></p></div></div>';
   }
   root.innerHTML = '<div class="loading">불러오는 중…</div>';
   window.SVC.ensureTabs()
