@@ -448,12 +448,17 @@
     var n = brokenPhotos();
     return n ? ("저장했습니다.\n다만 사진 " + n + "장은 불러오지 못해 빈칸입니다.\n하비서에게 '제안서 사진 확인해줘'라고 하세요.") : "";
   }
+  /* 파일명 = 마스터_상품제안서_<업체명>_MMDD  (2026-08-24 홍팀장)
+     ⚠️ 업체명은 팀장님이 관리자에서 입력한 «제안서 이름»이다. 내부 주소(slug: v2 …)를 쓰면
+        받는 쪽에서 무슨 파일인지 알 수 없다 — slug 는 최후 폴백으로만 쓴다. */
   function downloadBlob(blob, ext) {
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    var v = (new URLSearchParams(location.search)).get("v") || "제안서";
+    var name = (CURRENT_VERSION && String(CURRENT_VERSION.name || "").trim()) ||
+               (new URLSearchParams(location.search)).get("v") || "제안서";
+    name = name.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim();   // 파일명에 못 쓰는 문자 제거
     var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
-    a.download = "마스터_상품제안서_" + v + "_" + (d.getMonth() + 1) + p(d.getDate()) + "." + ext;
+    a.download = "마스터_상품제안서_" + name + "_" + p(d.getMonth() + 1) + p(d.getDate()) + "." + ext;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
   }
