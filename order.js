@@ -385,6 +385,16 @@ table.olist td.ad input.ein{min-width:230px}
 .ordpaste:focus{border-color:var(--accent)}
 .ordb{margin-top:6px;width:100%;border:1.5px solid var(--accent);background:var(--soft);color:var(--accent-d);padding:6px 0;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
 .ordb:hover{background:var(--accent);color:#fff}
+/* 🔔 새 발주 알림 — 오른쪽 아래 팝업 + 내역 카드 NEW 표시 (홍팀장 2026-08-24) */
+.ordpop{position:fixed;right:16px;bottom:24px;z-index:120;background:var(--card);border:2px solid var(--accent);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.28);padding:13px 34px 12px 15px;max-width:330px;cursor:pointer;animation:ordpopin .25s;font-family:inherit}
+@keyframes ordpopin{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+.ordpop .opt{font-size:14px;font-weight:800;letter-spacing:-.3px;color:var(--ink)}
+.ordpop .opl{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.65}
+.ordpop .opl b{color:var(--ink)}
+.ordpop .oph{font-size:11px;color:var(--accent-d);font-weight:700;margin-top:7px}
+@media(prefers-color-scheme:dark){.ordpop .oph{color:var(--accent)}}
+.ordpop .opx{position:absolute;top:3px;right:5px;border:none;background:none;color:var(--muted);font-size:14px;cursor:pointer;padding:5px}
+.onewb{font-size:10px;font-weight:800;color:#fff;background:var(--up);padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle}
 `;
   document.head.appendChild(s);
 }
@@ -730,6 +740,8 @@ async function ordersView(){
   const j = await api('list', {token: ME.token});
   LIST = j.rows || [];
   OPAGE = 1;
+  // 🆕 이 기기에서 아직 안 본 발주 — 카드에 NEW 를 달아준다 (이번 화면을 그리는 동안 유지)
+  if(master){ const s = seenSet(); NEWNOS = new Set(LIST.map(r => S(r.no)).filter(no => !s.has(no))); }
   let h = subHead(master ? '📋 전체 발주 내역' : '📋 내 발주 내역',
                   master ? '마스터 계정 — 모든 업체의 발주가 보입니다' : '내가 넣은 발주만 보입니다');
   h += '<div class="ordwrap">';
@@ -825,7 +837,9 @@ function orderCard(no, list, master){
       +   '<div><span class="ono">' + esc(no) + '</span>'
       +     '<span class="ordst ' + (st === '취소' ? 'no' : (st === '접수' ? 'new' : 'go')) + '">'
       +       (st === '완료' ? (master ? '✅ 당일 시트 전송됨' : '✅ 발주 확인됨') : (st === '취소' ? '취소됨' : '접수'))
-      +     '</span></div>'
+      +     '</span>'
+      +     (master && NEWNOS.has(S(no)) ? '<span class="onewb">NEW</span>' : '')
+      +   '</div>'
       +   '<div class="ometa">' + esc(short(f.at)) + ' · ' + list.length + '건'
       +     (master ? ' · <b>' + esc(f.cname) + '</b>' : '') + '</div>'
       + '</div>'
@@ -951,7 +965,98 @@ function ordersBind(){
     s.onkeydown = e => { if(e.key === 'Escape'){ s.value = ''; OQ = ''; OPAGE = 1; resetEdit(); ordersPaint(); } };
   }
   ordersPaint();
+  // 내역을 연 순간이 '확인'이다 — 배지·팝업을 접고, 지금 온 것들은 본 것으로 기록한다.
+  // (카드의 NEW 표시는 NEWNOS 로 이번 화면이 그려져 있는 동안은 계속 보인다)
+  if(ME && ME.master) seenMarkAll();
 }
+
+/* ══ 🔔 새 발주 알림 (마스터 전용 · 홍팀장 2026-08-24) ═══════════════
+   "업체가 발주해도 new 나 수량이 안 떠. 이럼 알 수가 없잖아."
+   ① 1분마다 발주 목록을 뒤에서 확인한다 (탭이 보일 때만 — 숨은 탭은 쉰다)
+   ② 안 본 발주 개수를 [📋 발주 내역] 메뉴 배지에 띄운다
+   ③ 새로 들어온 발주는 오른쪽 아래 팝업으로 알린다 — 누르면 발주 내역으로 간다
+   ④ 발주 내역을 보고 있는 중이면 팝업 대신 목록을 바로 새로 그린다 (수정 중엔 안 건드린다)
+   '봤다'의 기준 = 발주 내역 화면을 연 것. 기기별 localStorage 에 발주번호로 기록한다. */
+const SEENK = NS + 'orders_seen_v1';
+let NEWNOS = new Set();          // 이번 내역 화면에서 NEW 를 달아줄 발주번호
+let NOTIFIED = new Set();        // 이미 팝업으로 알린 발주번호 (1분마다 같은 팝업이 또 뜨지 않게)
+function seenSet(){ try{ return new Set(JSON.parse(localStorage.getItem(SEENK) || '[]')); }catch(e){ return new Set(); } }
+function seenSave(s){ try{ localStorage.setItem(SEENK, JSON.stringify(Array.from(s).slice(-800))); }catch(e){} }
+function seenMarkAll(){
+  const s = seenSet();
+  LIST.forEach(r => s.add(S(r.no)));
+  seenSave(s);
+  badgeOrders(0);
+  popHide();
+}
+function badgeOrders(n){
+  const b = document.getElementById('ordsBadge');
+  if(!b) return;
+  b.textContent = n > 99 ? '99+' : String(n);
+  b.style.display = n ? '' : 'none';
+}
+function popHide(){ const p = document.getElementById('ordpop'); if(p) p.remove(); }
+function popShow(groups, total){
+  css();                                   // 발주 화면을 안 거쳐도 스타일이 있어야 한다
+  popHide();
+  const d = document.createElement('div');
+  d.className = 'ordpop'; d.id = 'ordpop';
+  const names = groups.slice(0, 3).map(g => '<b>' + esc(g.name || '이름없음') + '</b> ' + g.cnt + '건').join(' · ')
+    + (groups.length > 3 ? ' 외 ' + (groups.length - 3) + '곳' : '');
+  d.innerHTML = '<button class="opx" title="닫기">✕</button>'
+    + '<div class="opt">🔔 새 발주 ' + total + '건이 들어왔습니다</div>'
+    + '<div class="opl">' + names + '</div>'
+    + '<div class="oph">눌러서 발주 내역 확인 →</div>';
+  d.onclick = e => {
+    if(e.target.closest && e.target.closest('.opx')){ popHide(); return; }   // ✕는 닫기만 — 배지는 남는다
+    popHide();
+    if(location.hash.replace(/^#/, '') === 'orders') reloadOrders();
+    else location.hash = 'orders';
+  };
+  document.body.appendChild(d);
+}
+let PBUSY = false;
+async function pollOrders(){
+  if(PBUSY || document.hidden) return;
+  if(!hasApi() || !amMaster()) return;
+  PBUSY = true;
+  try{
+    const j = await api('list', {token: ME.token});
+    const rows = j.rows || [];
+    const first = (localStorage.getItem(SEENK) == null);
+    const seen = seenSet();
+    const byNo = new Map();
+    rows.forEach(r => { const no = S(r.no); if(!byNo.has(no)) byNo.set(no, []); byNo.get(no).push(r); });
+    if(first){
+      /* 이 기기에서 처음 켠 경우 — 옛날에 이미 보내고 끝난 발주까지 전부 NEW 로 쏟아지지 않게,
+         아직 접수 상태(처리 전)인 것만 새 발주로 치고 나머지는 본 것으로 깐다. */
+      byNo.forEach((list, no) => { if(!list.some(r => r.state === '접수')) seen.add(no); });
+      seenSave(seen);
+    }
+    const unseen = Array.from(byNo.keys()).filter(no => !seen.has(no));
+    badgeOrders(unseen.length);
+    if(!unseen.length){ NOTIFIED = new Set(); return; }
+    const fresh = unseen.filter(no => !NOTIFIED.has(no));
+    if(!fresh.length) return;
+    fresh.forEach(no => NOTIFIED.add(no));
+    const freshCnt = fresh.reduce((a, no) => a + byNo.get(no).length, 0);
+    // 발주 내역을 보고 있는 중이면 팝업 대신 목록을 바로 새로 그린다 — 단, 수정 중엔 건드리지 않는다
+    if(location.hash.replace(/^#/, '') === 'orders' && !EDIT_NO){
+      toast('🔔 새 발주 ' + freshCnt + '건 — 목록을 새로 불러왔습니다');
+      reloadOrders();
+      return;
+    }
+    // 업체별로 묶어서 보여준다 (같은 업체가 연달아 넣으면 한 줄로)
+    const agg = new Map();
+    unseen.forEach(no => { const l = byNo.get(no); const nm = S(l[0].cname) || '이름없음'; agg.set(nm, (agg.get(nm) || 0) + l.length); });
+    const total = unseen.reduce((a, no) => a + byNo.get(no).length, 0);
+    popShow(Array.from(agg, x => ({name: x[0], cnt: x[1]})), total);
+  }catch(e){ /* 조용히 넘긴다 — 다음 확인 때 다시 */ }
+  finally{ PBUSY = false; }
+}
+setTimeout(pollOrders, 2500);                       // 들어오자마자 한 번
+setInterval(pollOrders, 60000);                     // 이후 1분마다
+document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(pollOrders, 400); });
 
 // ── 엑셀 양식 · 붙여넣기 ─────────────────────────────────────────
 function template(){
