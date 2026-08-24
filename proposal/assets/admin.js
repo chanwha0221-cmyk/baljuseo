@@ -81,11 +81,17 @@
   function isShow(v) { var s = String(v == null ? "" : v).trim(); return !(s === "숨김" || s === "숨기기" || s === "false" || s === "FALSE" || s === "0" || s === "N"); }
   var NUMF = { supply_price: 1, ship_fee: 1, special_price: 1, cost: 1 };   // 숫자로 받아야 하는 칸
 
+  /* [전체 저장]은 항상 누를 수 있다 (2026-08-24 홍팀장: "각각 저장이 뭐 소용이냐, 그냥 다 하고 전체 저장").
+     저장이 곧 제안 이력 기록이라, 바꾸었든 아니든 누르고 싶을 때 눌 수 있어야 한다. */
   function setDirty(v) {
     dirty = v;
     var st = document.getElementById("save-status"), bt = document.getElementById("btn-save");
-    if (st) { st.textContent = v ? "저장 안 된 변경사항이 있습니다 — [저장] 또는 [전체 저장]" : "각 상품의 [저장] 버튼으로 저장하세요"; st.className = "status" + (v ? " dirty" : ""); }
-    if (bt) bt.disabled = !v;
+    if (st) {
+      st.textContent = v ? "저장 안 된 변경사항이 있습니다 — [전체 저장]을 눌러주세요"
+                       : "고치고 나서 [전체 저장] — 그때의 제안 내용이 제안 이력에 남습니다";
+      st.className = "status" + (v ? " dirty" : "");
+    }
+    if (bt) bt.disabled = false;
   }
   function toast(msg, isErr) {
     var t = document.createElement("div"); t.className = "toast" + (isErr ? " err" : ""); t.textContent = msg;
@@ -261,7 +267,6 @@
         marginHintHTML(it) +
         '<div class="card-foot">' +
           '<label class="toggle"><input type="checkbox" data-f="show"' + (it.show !== false ? ' checked' : '') + '> 사이트에 표시</label>' +
-          '<button class="btn-saveone" data-saveone="' + it._key + '">저장</button>' +
           '<button class="btn-del" data-del="' + it._key + '">삭제</button>' +
         '</div>' +
       '</div>' +
@@ -856,8 +861,8 @@
       // 원가표가 오늘 것인지 — 버튼 바로 밑에 항상 보이게 (2026-08-20 / 낡음 경고는 2026-08-24)
       costLineHTML() +
       '<div class="wrap">' +
-      '<div class="hint">상품을 고친 뒤 그 상품의 <b>[저장]</b> 버튼을 누르면 바로 반영됩니다. 삭제는 <b>[삭제]</b>로 즉시 처리돼요.<br>' +
-        '<b>[전체 저장]</b>을 누르면 여러 상품이 한 번에 저장되고, <b>그때의 제안 내용이 📝 제안 이력에 자동으로 남습니다.</b></div>' +
+      '<div class="hint">상품을 다 담고 고친 뒤 맨 아래 <b>[전체 저장]</b> 한 번이면 끝납니다. 삭제만 <b>[삭제]</b>로 즉시 처리돼요.<br>' +
+        '저장하면 <b>그때의 제안 내용이 📝 제안 이력에 자동으로 남습니다.</b></div>' +
       catPanelHTML() + histPanelHTML() + settingsPanelHTML();
 
     if (!currentVersion) {
@@ -902,8 +907,8 @@
       '</div>';
     }
 
-    html += '</div><div class="savebar"><span class="status" id="save-status">각 상품의 [저장] 버튼으로 저장하세요</span>' +
-      '<button class="btn-save" id="btn-save" disabled>전체 저장</button></div>' + pricePanelHTML() + costPanelHTML();
+    html += '</div><div class="savebar"><span class="status" id="save-status">고치고 나서 [전체 저장] — 그때의 제안 내용이 제안 이력에 남습니다</span>' +
+      '<button class="btn-save" id="btn-save">전체 저장</button></div>' + pricePanelHTML() + costPanelHTML();
     /* ⚠️ 화면을 통째로 다시 그리기 때문에, 스크롤이 그대로면 «펼쳤는데 안 펼쳐진» 것처럼 보인다
        (2026-08-24 홍팀장: "문구 편집은 왜 안 펼쳐지냐" — 실제로는 열렸는데 화면이 딴 데를 보고 있었다).
        그래서 방금 펼친 패널을 화면 안으로 끌어온다. */

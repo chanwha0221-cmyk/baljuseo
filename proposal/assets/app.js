@@ -223,6 +223,9 @@
       '<div class="prod-card">' +
         '<div class="prod-img' + (c.fit === "contain" ? " contain" : "") + '" style="background:' + c.imgBg + ';">' +
           imgHtml +
+          // 📦 창고명 노출 (2026-08-24 홍팀장: "업체들 혹시라도 합포장 할 수도 있어서")
+          // 같은 창고 상품끼리만 한 박스로 묶이므로, 업체가 판단하려면 창고가 보여야 한다.
+          (p.warehouse ? '<div class="badge-tag" style="background:' + p.badgeColor + ';" title="같은 창고 상품끼리 합포장 가능">📦 ' + esc(p.warehouse) + '</div>' : '') +
           (p.tax ? '<div class="badge-tax">' + esc(p.tax) + '</div>' : '') +
         '</div>' +
         '<div class="prod-body">' +
