@@ -125,6 +125,22 @@
     return "images/products/" + s.replace(/^\/+/, "");
   }
 
+  /* 🚨 외부 사진은 «프록시»를 거쳐 불러온다 — 안 그러면 PDF·JPG에 사진이 통째로 빠진다.
+     (2026-08-24 홍팀장: "PDF에 상품 사진이 없으면 만든 의미가 없잖아")
+     masterc.co.kr 사진은 화면에는 잘 뜨지만 CORS 헤더가 없어서, 캡처(html2canvas)가
+     crossOrigin 으로 다시 불러올 때 실패한다 → 캔버스에 안 담기고 빈칸으로 저장된다.
+     images.weserv.nl 은 CORS 헤더를 붙여 주므로 화면·PDF·JPG 모두에서 나온다.
+     ⚠️ 우리 사이트 안의 파일은 그대로 둔다. 프록시가 죽으면 <img onerror>가 원본으로 되돌린다. */
+  function photoSrc(u) {
+    var s = String(u || "").trim();
+    if (!s) return "";
+    if (s.indexOf("data:") === 0) return s;
+    if (!/^https?:\/\//i.test(s)) return s;                    // images/products/... 는 같은 출처
+    if (s.indexOf(location.origin) === 0) return s;
+    return "https://images.weserv.nl/?url=" + encodeURIComponent(s.replace(/^https?:\/\//i, "")) +
+           "&w=1000&we&output=jpg&q=88";
+  }
+
   // ---------- CSV 파서 ----------
   function parseCSV(text) {
     var rows = [], row = [], field = "", inQ = false, i = 0, c;
@@ -210,8 +226,11 @@
   // ---------- 렌더 ----------
   function cardHTML(p) {
     var c = CAT[p.cat];
+    // loading="lazy" 금지 — 스크롤 안 한 상품은 로드가 안 돼서 PDF·JPG에 빈칸으로 찍힌다.
+    // onerror = 프록시가 죽으면 원본 주소로 한 번 되돌린다(화면에라도 나오게).
     var imgHtml = p.image
-      ? '<img src="' + esc(p.image) + '" alt="' + esc(p.name) + '" loading="lazy" decoding="async">'
+      ? '<img src="' + esc(photoSrc(p.image)) + '" alt="' + esc(p.name) + '" decoding="async" crossorigin="anonymous"' +
+        ' onerror="this.onerror=null;this.removeAttribute(\'crossorigin\');this.src=\'' + esc(p.image).replace(/'/g, "&#39;") + '\';">'
       : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#9aa7ad;font-size:13px;">사진 준비중</div>';
     /* 스펙은 '※ …' 줄을 그대로 목록으로 보여준다(게시물 스펙 요약을 옮겨온 것).
        ※ 가 없는 옛 설명은 한 줄 그대로 쓴다. */
@@ -380,11 +399,26 @@
         혹시 외부 사진이 섞여 있으면 그 장수를 세어 알려주고, 저장은 되게 한다. */
   /* ── 화면을 통째로 캔버스에 담는다 (JPG 저장 · PDF 저장 공용) ──
      캔버스에는 브라우저 한계가 있어서(높이 약 32,767px) 문서가 길면 배율을 알아서 낮춘다. */
+  /* 사진이 다 뜰 때까지 기다렸다가 찍는다 — 로딩 중에 찍으면 그 자리가 빈칸으로 남는다 (2026-08-24) */
+  function waitPhotos(root, done) {
+    var imgs = [].slice.call(root.querySelectorAll("img"));
+    var left = 0, finished = false;
+    var tick = function () { if (--left <= 0 && !finished) { finished = true; done(); } };
+    imgs.forEach(function (im) {
+      if (im.complete) return;
+      left++;
+      im.addEventListener("load", tick, { once: true });
+      im.addEventListener("error", tick, { once: true });
+    });
+    if (!left) { done(); return; }
+    setTimeout(function () { if (!finished) { finished = true; done(); } }, 12000);   // 너무 오래 걸리면 그냥 진행
+  }
   function captureApp(cb, fail) {
     var app = document.getElementById("app");
     var run = function () {
       var box = document.querySelector(".save-btns");
       if (box) box.style.visibility = "hidden";                 // 버튼은 빼고 찍는다
+      waitPhotos(app, function () {
       var h = app.scrollHeight, scale = 2;
       while (scale > 1 && h * scale > 15000) scale -= 0.5;      // 길면 배율을 낮춰 안전하게
       window.html2canvas(app, {
@@ -394,6 +428,7 @@
         if (box) box.style.visibility = "";
         cb(canvas);
       }).catch(function (e) { if (box) box.style.visibility = ""; fail(e); });
+      });
     };
     if (window.html2canvas) return run();
     var s = document.createElement("script");
@@ -402,14 +437,16 @@
     s.onerror = function () { fail(new Error("html2canvas 로드 실패")); };
     document.head.appendChild(s);
   }
-  function outsidePhotos() {
+  /* «실제로 안 뜬 사진»만 센다. 프록시를 거치면 외부 주소도 잘 담기므로,
+     예전처럼 «외부 주소면 경고»하면 멀쩡한데도 매번 겁주는 안내가 뜬다. (2026-08-24) */
+  function brokenPhotos() {
     return [].slice.call(document.querySelectorAll("#app .prod-img img")).filter(function (im) {
-      return im.src && im.src.indexOf(location.origin) !== 0;
+      return !im.complete || !im.naturalWidth;
     }).length;
   }
   function outsideNote() {
-    var n = outsidePhotos();
-    return n ? ("저장했습니다.\n다만 사진 " + n + "장은 외부 주소라 파일에 안 담겼을 수 있습니다.\n하비서에게 '제안서 사진 사이트로 옮겨줘'라고 하면 해결됩니다.") : "";
+    var n = brokenPhotos();
+    return n ? ("저장했습니다.\n다만 사진 " + n + "장은 불러오지 못해 빈칸입니다.\n하비서에게 '제안서 사진 확인해줘'라고 하세요.") : "";
   }
   function downloadBlob(blob, ext) {
     var a = document.createElement("a");
