@@ -115,6 +115,7 @@
      ⚠️ 자동으로 시트에 써버리지 않는다 — 뭐를 되살릴지는 반드시 홍팀장이 고른다. */
   var DRAFT_KEY = "mas_proposal_draft_v1";
   var _draftTimer = null, draftFound = null;
+  var baseSig = "";   // 마지막으로 시트에서 읽어온 상태의 서명 — 임시저장이 낡았는지 판단하는 기준
   function itemSig(list) {
     return (list || []).map(function (it) {
       return [it.category, it.name, it.warehouse, it.spec, num(it.supply_price), it.courier,
@@ -126,7 +127,7 @@
     if (!currentVersion || !loadedOK) return;
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
-        slug: currentVersion.slug, name: currentVersion.name,
+        slug: currentVersion.slug, name: currentVersion.name, base: baseSig,
         at: stampNow(), items: items, settings: siteSettings
       }));
     } catch (e) { /* 용량 초과 등은 조용히 무시 */ }
@@ -145,6 +146,10 @@
     var d = readDraft();
     if (!d || !currentVersion || d.slug !== currentVersion.slug) return;
     if (itemSig(d.items) === itemSig(items)) { clearDraft(); return; }
+    /* ⚠️ 임시저장을 만들 때의 시트 상태와 지금 시트가 다르면, 그 뒤에 시트가 바뀐 것이다.
+       낡은 임시저장을 복구하면 «복구»가 아니라 «되돌리기»가 된다 — 묻지 말고 버린다.
+       (2026-08-24 실제로 올 믿한 사고) */
+    if (typeof d.base === "string" && d.base !== baseSig) { clearDraft(); return; }
     draftFound = d;
   }
   function draftBannerHTML() {
@@ -173,7 +178,7 @@
   }
   /* 저장 안 한 채 나가려고 할 때 붙잡는다 */
   window.addEventListener("beforeunload", function (e) {
-    if (!dirty) return;
+    if (!dirty || !loadedOK) return;   // 깨끗한 상태면 아무것도 남기지 않는다
     saveDraft();
     e.preventDefault(); e.returnValue = "";
     return "";
@@ -249,6 +254,7 @@
 
       siteSettings = Object.assign({}, (currentVersion && currentVersion.settings) || {});
       loadedOK = true;
+      baseSig = itemSig(items);
       checkDraft();   // 💾 저장 안 된 작업이 남아 있나
       /* 공개 사이트(app.js)가 읽는 제안서카테고리 탭을 분류표 결과로 맞춰 둔다 — 조용히, 실패해도 무시. */
       saveCatsSheet().catch(function () {});
@@ -1318,7 +1324,7 @@
     var it = Object.assign({}, newItem, { _key: uid() });
     items.push(it);
     saveProducts().then(function () {
-      addingCat = null; newItem = null; dirty = false; clearDraft(); renderEditor();
+      addingCat = null; newItem = null; dirty = false; baseSig = itemSig(items); clearDraft(); renderEditor();
       toast("상품이 추가됐어요 ✅");
     }).catch(function (err) {
       items = items.filter(function (x) { return x !== it; });
@@ -1347,7 +1353,7 @@
   function saveAll() {
     var btn = document.getElementById("btn-save"); btn.disabled = true; btn.textContent = "저장 중…";
     saveProducts().then(histRecordCurrent).then(function (n) {
-      dirty = false; clearDraft(); renderEditor();
+      dirty = false; baseSig = itemSig(items); clearDraft(); renderEditor();
       toast(n > 0 ? ("저장 완료 ✅ · 📝 [" + currentVersion.name + "] " + todayStr() + " 제안 " + n + "건 기록됨")
                   : (n < 0 ? "저장 완료 ✅ (제안 이력 기록만 실패 — 다시 저장해 보세요)" : "저장 완료 ✅"));
     }).catch(function (err) {
