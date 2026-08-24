@@ -294,3 +294,6 @@ details.settings-panel > summary::-webkit-details-marker{display:none;}
 details.settings-panel[open]{border-color:var(--amber);box-shadow:0 8px 24px rgba(255,176,32,0.12);}
 .sp-caret::after{content:"펼치기 ▾";}
 details.settings-panel[open] > summary .sp-caret::after{content:"접기 ▴";}
+
+/* 개별 [저장] 버튼을 없앤 뒤(2026-08-24) 삭제 버튼이 오른쪽 끝으로 가도록 — 예전엔 .btn-saveone 이 밀어주고 있었다 */
+.card-foot .btn-del{margin-left:auto;}
