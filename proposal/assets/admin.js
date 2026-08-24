@@ -966,6 +966,12 @@
      ①버튼을 한 번 더 눌러야 했고 ②화면의 개수와 저장되는 개수가 어긋났다("4개인데 3개 저장됐다고 나옴").
      ⚠️ 이름이 빈 카드는 저장할 때 알아서 빠진다(saveProducts). */
   function addNewCard(k) {
+    /* 아직 이름도 안 채운 빈 카드가 열려 있으면 새로 만들지 않는다 — 빈 카드가 쌓이지 않게.
+       그 카드의 카테고리만 바꿔 주고 이름 칸으로 보낸다. */
+    if (newItem && !String(newItem.name || "").trim()) {
+      newItem.category = k; addingCat = k; expandedCats[k] = true;
+      renderEditor(); focusNewName(); return;
+    }
     newItem = { _key: uid(), category: k, name: "", warehouse: "", spec: "", supply_price: 0,
                 courier: "", ship_fee: 4000, tax: "면세", image: "", link: "", show: true, special_price: 0, cost: 0 };
     items.push(newItem);
@@ -1043,17 +1049,19 @@
       html += '</div>';
     });
 
-    // 카테고리를 고르고 상품 하나 담기 — 목록 맨 아래 한 줄
-    if (!addingCat) {
-      html += '<div class="add-any">' +
-        '<span class="mini" style="margin:0;">카테고리</span>' +
-        '<select id="add-cat-pick">' + CATS.map(function (c) {
-          return '<option value="' + esc(c.key) + '"' + (c.key === lastAddCat ? ' selected' : '') + '>' + esc(c.name) + '</option>';
-        }).join("") + '</select>' +
-        '<button class="btn-add" id="btn-add-any">+ 상품 담기</button>' +
-        '<span class="sp-note" style="flex:1;">상품명을 치면 유통시트에서 찾아 공급가·사진·분류까지 같이 가져옵니다.</span>' +
-      '</div>';
-    }
+    /* 카테고리를 고르고 상품 하나 담기 — 목록 맨 아래 한 줄.
+       🔴 «항상» 보여준다 (2026-08-24 홍팀장: "상품 추가 버튼이 없어졌잖아 하나 추가 하니까").
+          예전엔 `if(!addingCat)` 이라 담는 중에는 이 줄이 사라졌고, [이 상품 추가]를 눌러야
+          addingCat 이 풀리며 다시 나타났다. 그 버튼을 없앤 뒤로는 **한 개 담으면 더 담을 수가 없었다.**
+          이제 연달아 담을 수 있어야 하므로 조건 없이 항상 그린다. */
+    html += '<div class="add-any">' +
+      '<span class="mini" style="margin:0;">카테고리</span>' +
+      '<select id="add-cat-pick">' + CATS.map(function (c) {
+        return '<option value="' + esc(c.key) + '"' + (c.key === lastAddCat ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+      }).join("") + '</select>' +
+      '<button class="btn-add" id="btn-add-any">+ 상품 담기</button>' +
+      '<span class="sp-note" style="flex:1;">상품명을 치면 유통시트에서 찾아 공급가·사진·분류까지 같이 가져옵니다. 계속 담고 <b>맨 아래 [전체 저장]</b> 한 번이면 끝납니다.</span>' +
+    '</div>';
 
     html += '</div><div class="savebar"><span class="status" id="save-status">고치고 나서 [전체 저장] — 그때의 제안 내용이 제안 이력에 남습니다</span>' +
       '<button class="btn-save" id="btn-save">전체 저장</button></div>' + pricePanelHTML() + costPanelHTML();
