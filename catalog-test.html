@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.16</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.17</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -538,13 +538,17 @@ async function loadCatalog(){
   if(meta.error)throw new Error('시트 접근 실패 ('+meta.error.status+') — 공유 권한을 확인해 주세요');
   const tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0).map(p=>p.title);
   const ranges=tabs.map(t=>'ranges='+encodeURIComponent(`'${t.replace(/'/g,"''")}'!A1:N400`)).join('&');
-  const fields='sheets(properties.title,data.rowData.values(formattedValue,hyperlink,textFormatRuns(format.link.uri),userEnteredValue.formulaValue))';
+  /* 🙈 숨겨진 «행»도 같이 받아온다 (홍팀장 2026-08-24: "숨겨져 있는 상품들도 품절로 인식해줘라").
+     팀이 안 파는 상품을 지우지 않고 행을 숨겨두는데, values API 로는 숨김 여부가 안 보여
+     그동안 카탈로그에 그대로 떴다(실측: 단독(유) 탭 4건). 탭 숨김은 이미 걸렀고 행만 빠져 있었다. */
+  const fields='sheets(properties.title,data(rowMetadata.hiddenByUser,rowData.values(formattedValue,hyperlink,textFormatRuns(format.link.uri),userEnteredValue.formulaValue)))';
   const grid=await(await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?${ranges}&fields=${encodeURIComponent(fields)}`,{headers:{Authorization:'Bearer '+token}})).json();
   if(grid.error)throw new Error('데이터 로드 실패 ('+grid.error.status+')');
   const groups=[];
   for(const sh of (grid.sheets||[])){
     const name=sh.properties.title;
     const rows=((sh.data&&sh.data[0]&&sh.data[0].rowData)||[]).map(r=>r.values||[]);
+    const rowHidden=((sh.data&&sh.data[0]&&sh.data[0].rowMetadata)||[]).map(m=>!!(m&&m.hiddenByUser));
     if(rows.length<2)continue;
     const disp=rows.map(r=>r.map(c=>(c&&c.formattedValue)||''));
     // 헤더행: '상품명'+'공급가' 있는 행 탐색 (당일생물 탭은 공지 텍스트 아래 22행쯤에 표가 있어 넉넉히 훑는다)
@@ -575,8 +579,11 @@ async function loadCatalog(){
       const row=disp[r];
       const nm=(row[ci.name]||'').trim();
       if(!nm||nm==='상품명')continue;
+      // 🙈 숨긴 행 = 지금 안 파는 상품 → 품절과 똑같이 취급한다 (홍팀장 2026-08-24)
+      if(rowHidden[r])continue;
       // 📢 <택배사 변동> 같은 공지 행은 상품이 아니다 — 상품 카드로 만들지 않는다 (사장님 2026-08-20)
-      if(/^[<〈][sS]*[>〉]$/.test(nm))continue;
+      // ⚠️ 2026-08-24: 여기 정규식이 `[sS]*`(백슬래시 누락)로 깨져 있어 실사이트와 갈라져 있었다 → `[\s\S]*` 로 복구
+      if(/^[<〈][\s\S]*[>〉]$/.test(nm))continue;
       const pr=parsePrice(row[ci.price]);
       if(!pr||pr.cur==null)continue;
       products.push({

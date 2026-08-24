@@ -185,13 +185,15 @@ async function loadProducts(){
   if(meta.error)throw new Error('유통시트 접근 실패: '+meta.error.status);
   const tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0).map(p=>p.title);
   const ranges=tabs.map(t=>'ranges='+q("'"+t.replace(/'/g,"''")+"'!A1:N400")).join('&');
-  const fields=q('sheets(properties(title,sheetId),data.rowData.values(formattedValue,hyperlink,textFormatRuns(format.link.uri),userEnteredValue.formulaValue))');
+  // 🙈 숨겨진 행도 같이 받는다 — 숨긴 상품은 안 파는 것이니 '손봐야 할 상품'에 올리지 않는다 (홍팀장 2026-08-24)
+  const fields=q('sheets(properties(title,sheetId),data(rowMetadata.hiddenByUser,rowData.values(formattedValue,hyperlink,textFormatRuns(format.link.uri),userEnteredValue.formulaValue)))');
   const grid=await api(YUTONG,'?'+ranges+'&fields='+fields);
   const out=[],seen={};
   for(const sh of (grid.sheets||[])){
     const tabName=sh.properties.title;
     const gid=sh.properties.sheetId;
     const rows=((sh.data&&sh.data[0]&&sh.data[0].rowData)||[]).map(r=>r.values||[]);
+    const rowHidden=((sh.data&&sh.data[0]&&sh.data[0].rowMetadata)||[]).map(m=>!!(m&&m.hiddenByUser));
     const disp=rows.map(r=>r.map(c=>(c&&c.formattedValue)||''));
     let hr=-1;
     for(let i=0;i<Math.min(40,disp.length);i++){const j=disp[i].join('|');if(j.indexOf('상품명')>=0&&j.indexOf('공급가')>=0){hr=i;break;}}
@@ -210,6 +212,8 @@ async function loadProducts(){
          이건 팔 물건이 아니라 코멘트다 — 사진·링크가 없는 게 정상이라 '손봐야 할 상품'에 올리면 안 된다.
          판정 = ①이름이 <…>로 감싸였거나 ②공급가 칸이 비었거나(카탈로그도 같은 기준으로 거른다). */
       if(/^[<〈][\s\S]*[>〉]$/.test(nm))continue;
+      // 🙈 숨긴 행 = 지금 안 파는 상품 → 품절과 똑같이 취급(카탈로그·링크정본도 같은 기준) — 홍팀장 2026-08-24
+      if(rowHidden[i])continue;
       if(cp>=0&&!(disp[i][cp]||'').trim())continue;
       if(seen[pkey(nm)])continue;seen[pkey(nm)]=1;
       const cell=rows[i][ci]||{};
