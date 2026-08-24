@@ -181,6 +181,13 @@ function checkRow(r){
 
   if(!S(r.rcv)) errs.push('받는분 성함을 넣어주세요.');
 
+  /* 업체명 칸에 **자기 업체명**을 적는 경우 (2026-08-24 에버몰).
+     그 칸은 "송장에 다른 이름이 나가야 할 때만" 쓰는 칸이라, 자기 이름을 적으면
+     같은 업체 발주가 어떤 건 9칸 어떤 건 10칸으로 갈린다. 알려주고 비운다. */
+  if(S(r.biz) && ME && pkey(r.biz) === pkey(ME.name)){
+    warns.push('ℹ️ 업체명 칸은 비워두셔도 됩니다 — ' + S(ME.name) + ' 으로 나갑니다.');
+  }
+
   const ad = S(r.addr);
   if(!ad) errs.push('받는분 주소를 넣어주세요.');
   else if(ad.length < 10 || !/\d/.test(ad)) errs.push('주소가 너무 짧습니다. 건물·동·호수까지 넣어주세요.');
@@ -241,8 +248,10 @@ function buildOut(){
     g.items.forEach(it => { if(it.lim && it.qty > it.lim) warn.push(it.name + ' ' + it.qty + '개 (합포장 한도 ' + it.lim + ') — 박스 분리 확인 필요'); });
     const tel = fmtTel(g.tel) || g.tel;                     // 받는분 연락처는 하이픈 넣어 정리
     const myTel = fmtTel(me.phone) || S(me.phone);          // 주문처 연락처도 같은 규칙
-    if(g.biz) ten.push([me.name || '', g.biz, me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
-    else      nine.push([me.name || '', me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
+    // 자기 업체명을 적은 건 10칸으로 치지 않는다 — 같은 업체 발주가 날마다 갈리는 원인 (2026-08-24)
+    const biz = (S(g.biz) && pkey(g.biz) === pkey(me.name)) ? '' : S(g.biz);
+    if(biz) ten.push([me.name || '', biz, me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
+    else    nine.push([me.name || '', me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
   });
   return {nine, ten, notes, warn};
 }
