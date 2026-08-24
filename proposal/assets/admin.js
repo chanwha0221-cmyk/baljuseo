@@ -297,23 +297,29 @@
   function saveProducts() {
     if (!loadedOK) return Promise.reject(new Error("아직 시트를 못 읽었습니다 — 새로고침 후 다시 시도하세요"));
     if (!currentVersion) return Promise.reject(new Error("먼저 [+ 새 제안서]로 업체를 만들어 주세요"));
+    fillMissingPics();
+    /* 🔴 이름이 빈 카드는 저장하지 않는다 — [+ 상품 담기]만 눌러놓고 안 채운 카드가
+       시트에 빈 줄로 나가면 안 된다(2026-08-24 담기 방식 변경 이후 필수). 화면에는 그대로 남는다. */
     var ordered = [];
-    CATS.forEach(function (c) { items.filter(function (i) { return i.category === c.key; }).forEach(function (i) { ordered.push(i); }); });
-    items.forEach(function (i) { if (ordered.indexOf(i) < 0) ordered.push(i); });   // 없는 카테고리 소속도 유실 금지
+    var named = items.filter(function (i) { return String(i.name || "").trim(); });
+    CATS.forEach(function (c) { named.filter(function (i) { return i.category === c.key; }).forEach(function (i) { ordered.push(i); }); });
+    named.forEach(function (i) { if (ordered.indexOf(i) < 0) ordered.push(i); });   // 없는 카테고리 소속도 유실 금지
     /* 🔴 같은 상품이 두 줄로 들어가는 것을 저장 직전에 막는다 (2026-08-24 홍팀장:
          "상품이 중복돼서 2개씩 저장됨 — 내가 하나씩 지웠다").
        한 제안서에 같은 상품을 두 번 넣을 일은 없다. 어디서 겹쳤는지와 상관없이
        여기서 한 번 걸러두면 홍팀장이 손으로 지우는 일은 다시 없다.
        ⚠️ 조용히 지우지 않는다 — 몇 개를 걸렀는지 반드시 알린다. */
-    var seen = {}, dropped = [];
+    var seen = {}, dropped = [], dupObjs = [];
     ordered = ordered.filter(function (it) {
       var k = pkey(it.name || "");
       if (!k) return true;
-      if (seen[k]) { dropped.push(it.name); return false; }
+      if (seen[k]) { dropped.push(it.name); dupObjs.push(it); return false; }
       seen[k] = 1; return true;
     });
     if (dropped.length) {
-      items = items.filter(function (it) { return ordered.indexOf(it) >= 0; });
+      /* ⚠️ 중복분«만» 뺀다. `ordered` 기준으로 items를 다시 만들면 이름을 아직 안 채운
+         입력 중인 카드까지 통째로 사라진다(ordered 에는 이름 있는 것만 들어 있다). */
+      items = items.filter(function (it) { return dupObjs.indexOf(it) < 0; });
       toast("같은 상품이 두 번 들어가 있어 " + dropped.length + "개를 정리했어요: " + dropped.join(", "));
     }
     var mine = ordered.map(function (it, i) { it.sort_order = (i + 1) * 10; return itemToRow(it, it.sort_order); });
@@ -943,13 +949,28 @@
           '<div><span class="mini">택배사</span><input data-nf="courier" value="' + esc(it.courier) + '" placeholder="예: 씨제이대한통운"></div>' +
           '<div><span class="mini">택배비(원)</span><input data-nf="ship_fee" type="number" inputmode="numeric" value="' + esc(it.ship_fee) + '"></div>' +
         '</div>' +
+        /* 🔴 [이 상품 추가] 버튼 없음 (2026-08-24 홍팀장: "이 스텝 줄이라고").
+           이 카드는 이미 목록에 들어가 있다 — 다 채우고 맨 아래 [전체 저장] 한 번이면 끝난다.
+           잘못 담았으면 [빼기]로 목록에서 뺀다(시트는 [전체 저장] 때 정리된다). */
         '<div class="card-foot">' +
           '<label class="toggle"><input type="checkbox" data-nf="show"' + (it.show !== false ? ' checked' : '') + '> 사이트에 표시</label>' +
-          '<button class="btn-cancel" id="btn-add-cancel">취소</button>' +
-          '<button class="btn-addsave" id="btn-add-save">이 상품 추가</button>' +
+          '<span class="sp-note" style="flex:1;margin:0;">다 채우셨으면 <b>맨 아래 [전체 저장]</b> — 따로 누를 것 없습니다.</span>' +
+          '<button class="btn-del" id="btn-add-cancel">빼기</button>' +
         '</div>' +
       '</div>' +
     '</div>';
+  }
+
+  /* 새 상품 한 장 — 목록에 «바로» 넣는다 (2026-08-24 홍팀장: "그냥 다 추가한 다음에 전체 저장 한 번에").
+     예전엔 items 밖의 임시 객체였다가 [이 상품 추가]를 눌러야 목록에 들어갔다. 그래서
+     ①버튼을 한 번 더 눌러야 했고 ②화면의 개수와 저장되는 개수가 어긋났다("4개인데 3개 저장됐다고 나옴").
+     ⚠️ 이름이 빈 카드는 저장할 때 알아서 빠진다(saveProducts). */
+  function addNewCard(k) {
+    newItem = { _key: uid(), category: k, name: "", warehouse: "", spec: "", supply_price: 0,
+                courier: "", ship_fee: 4000, tax: "면세", image: "", link: "", show: true, special_price: 0, cost: 0 };
+    items.push(newItem);
+    addingCat = k; expandedCats[k] = true;
+    setDirty(true); renderEditor(); focusNewName();
   }
 
   /* ================= 화면 ================= */
@@ -1007,14 +1028,17 @@
       (used.length ? '(카테고리 제목을 눌러 펼치기/접기)' : '(아래에서 카테고리를 고르고 상품을 담으세요)') + '</span></span>' +
       (used.length ? '<button class="btn-ghost2" id="btn-expand-all">' + (anyOpen ? '전체 접기 ▴' : '전체 펼치기 ▾') + '</button>' : '') + '</div>';
 
+    /* 새로 담는 상품은 items 안에 «이미» 들어 있다(2026-08-24 홍팀장: "이 상품 저장 버튼 필요 없다고,
+       그냥 다 추가한 다음에 전체 저장 한 번에 하게 하라니까"). 그래서 개수에도 같이 잡히고
+       [전체 저장]에 그대로 실려 나간다. 화면에서만 «입력 중인 카드»로 크게 그린다(자동완성이 붙어 있다). */
     used.forEach(function (c) {
       var list = items.filter(function (i) { return i.category === c.key; });
       var isOpen = !!expandedCats[c.key] || addingCat === c.key;
       html += '<div class="cat-block' + (c.show === false ? ' cat-hidden' : '') + '">';
       html += '<div class="cat-title cat-toggle-head" data-catview="' + esc(c.key) + '"><span class="tcaret">' + (isOpen ? '▾' : '▸') + '</span><span class="dot" style="background:' + c.accent + '"></span>' + esc(c.name) + ' <span class="count">' + list.length + '개</span>' + (c.show === false ? ' <span style="color:#e0483d;font-weight:800;">· 숨김</span>' : '') + '</div>';
       if (isOpen) {
-        html += list.map(cardHTML).join("");
-        if (addingCat === c.key) html += addFormHTML();
+        html += list.filter(function (i) { return i !== newItem; }).map(cardHTML).join("");
+        if (newItem && newItem.category === c.key) html += addFormHTML();
       }
       html += '</div>';
     });
@@ -1171,15 +1195,11 @@
         var pick = document.getElementById("add-cat-pick");
         var k = (pick && pick.value) || lastAddCat || (CATS[0] && CATS[0].key);
         lastAddCat = k;
-        addingCat = k; expandedCats[k] = true;
-        newItem = { _key: "NEW", category: k, name: "", warehouse: "", spec: "", supply_price: 0, courier: "", ship_fee: 4000, tax: "면세", image: "", link: "", show: true, special_price: 0, cost: 0 };
-        renderEditor(); focusNewName(); return;
+        addNewCard(k); return;
       }
       var addCat = e.target.getAttribute("data-add");
       if (addCat) {
-        addingCat = addCat; expandedCats[addCat] = true;
-        newItem = { _key: "NEW", category: addCat, name: "", warehouse: "", spec: "", supply_price: 0, courier: "", ship_fee: 4000, tax: "면세", image: "", link: "", show: true, special_price: 0, cost: 0 };
-        renderEditor(); focusNewName(); return;
+        addNewCard(addCat); return;
       }
       var acEl = e.target.closest && e.target.closest(".ac-item");
       if (acEl && newItem) {
@@ -1199,8 +1219,11 @@
         }
         renderEditor(); focusNewName(); return;
       }
-      if (e.target.id === "btn-add-cancel") { addingCat = null; newItem = null; renderEditor(); return; }
-      if (e.target.id === "btn-add-save") { saveNewItem(e.target); return; }
+      // [빼기] — 방금 담은 카드를 목록에서 뺀다(이제 items 안에 있으므로 같이 빼야 한다)
+      if (e.target.id === "btn-add-cancel") {
+        if (newItem) items = items.filter(function (x) { return x !== newItem; });
+        addingCat = null; newItem = null; setDirty(true); renderEditor(); return;
+      }
       var findKey = e.target.getAttribute("data-findpic"); if (findKey) { fillPhoto(findKey, e.target); return; }
       var saveKey = e.target.getAttribute("data-saveone"); if (saveKey) { saveOne(saveKey, e.target); return; }
       var delKey = e.target.getAttribute("data-del"); if (delKey) { deleteOne(delKey); return; }
@@ -1397,31 +1420,22 @@
     renderAcList(list);
   }
 
-  /* ================= 상품 저장/삭제 ================= */
-  function saveNewItem(btn) {
-    if (!newItem) return;
-    if (!(newItem.name || "").trim()) { toast("상품명을 입력하세요", true); focusNewName(); return; }
-    btn.disabled = true; btn.textContent = "추가 중…";
-    // 자동완성을 안 쓰고 손으로 치고 담아도 사진은 붙여 준다 (상품명 완전일치일 때만)
-    if (!String(newItem.image || "").trim() && catalogCache) {
-      var _hit = catalogCache.filter(function (r) { return pkey(r.name) === pkey(newItem.name); })[0];
-      if (_hit && _hit.image) {
-        newItem.image = _hit.image;
-        if (_hit.spec && !String(newItem.spec || "").trim()) newItem.spec = _hit.spec;
-        if (_hit.link && !String(newItem.link || "").trim()) newItem.link = _hit.link;
-      }
-    }
-    /* 🔴 담기는 화면에만 한다 — 여기서 시트에 쓰지 않는다
-         (2026-08-24 홍팀장: "전체 저장 누르면 그냥 한 번에 저장되게 하라고 했잖아").
-       예전엔 여기서 곧바로 saveProducts() 를 불렀다. 저장 경로가 둘이면
-       ①어디까지 저장됐는지 사람이 알 수 없고 ②담자마자 공개 사이트로 나가고
-       ③제안 이력은 [전체 저장]에만 남아 시트와 기록이 어긋난다.
-       → 저장하는 곳은 [전체 저장] 한 곳뿐이다. */
-    var it = Object.assign({}, newItem, { _key: uid() });
-    items.push(it);
-    addingCat = null; newItem = null;
-    setDirty(true); renderEditor();
-    toast("담았어요 — 맨 아래 [전체 저장]을 눌러야 시트에 남습니다");
+  /* ================= 상품 저장/삭제 =================
+     ⚠️ `saveNewItem`(이 상품 추가)은 2026-08-24 폐기했다. 새 상품은 담는 즉시 items 에 들어가고
+        저장은 [전체 저장] 한 곳뿐이다(홍팀장: "이 스텝 줄이라고"). 되살리지 말 것. */
+
+  /* 손으로 이름만 치고 자동완성을 안 쓴 카드도 사진·스펙을 붙여준다 — [전체 저장] 직전에 한 번.
+     ⚠️ 상품명이 «완전히 같을 때만» 붙인다(CLAUDE.md §3-3). */
+  function fillMissingPics() {
+    if (!catalogCache) return;
+    items.forEach(function (it) {
+      if (String(it.image || "").trim() || !String(it.name || "").trim()) return;
+      var hit = catalogCache.filter(function (r) { return pkey(r.name) === pkey(it.name); })[0];
+      if (!hit || !hit.image) return;
+      it.image = hit.image;
+      if (hit.spec && !String(it.spec || "").trim()) it.spec = hit.spec;
+      if (hit.link && !String(it.link || "").trim()) it.link = hit.link;
+    });
   }
   function saveOne(key, btn) {
     var it = findItem(key); if (!it) return;
