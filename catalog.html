@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.16).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.17).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.16</title>
+<title>마스터 유통 카탈로그 v2.17</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -521,8 +521,36 @@ h1{letter-spacing:-.6px}
 const SHEET_ID='1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';
 const EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
 const RENAME={'공지_당일생물':'당일생물'};
-const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDtp37rFMnb+f5e\nkpdJm8VEPbvu/Pr2cEfdLvvVxvnM/WpeIlm2GwXkck0PJUJpx2d3HZB61vScNxzN\n2uaBPf490X9o0qVJW63IJQCmWRNObcWXCxqMd9kxcFVL80PgdhN4CcjoenVMk2oV\nHjx98x5K5ivpGw2dr85RwW7JnX8xxEaa0RI0qcebNtI1xzG/O72+QAy6iw3KGgJE\nSDkLX3YMjPqYpcr45+nxUBI88k6ZdFE2y198d+csMZLPN9Zq0is0LbXaI+NFpXYg\nRoUahEEvjtM0diKwEpPnZ+hfanCFvu5rQq2wqHlVfWYOXNGa0qfnkstsXkv4bpcB\n6Fsb/ZP/AgMBAAECggEAEA8T6/W1KDit4B0evPoaK+DSDLWqjbGLoZ4VpV3zLk9n\neyHuFviffs7cdywI31X6n1lvlGVnFRFCUIS8s7oJLos0BVTKl3jq9s3NS/BT9iZD\nxk+ZRSmqEwWotd+j1AyWhzN+EHuJ5plFf1TSOJ6Pivcfu3o5AtFI60xbXKNYX3fn\nCZgcFMfdEEgUV09CfDJMZ5WZxQFj6cQU8cZxkQH4L6mxXGk2a4nDleAEsSHp53tT\nDYyGlmDdCiiHtjSFkTTZj0aI3eoGSy+5uAwyVuhNv9wZDSdShBOG+4vhFYUGI3/F\n3oNOttROq9PzbjlgFtkfkG2GbKgO5XrAob3SPubUWQKBgQD4FI4Ca6bFsMxBojfy\nWe6RaeEvSVkELD+oxLQU8mzAZRL9QB6qkDTrBabeHLmzvsbBE4knaQG3xgjCrsOC\ny7YSRqtaZtXtA5ABvzh+UAPA5Ei+ZQOAswLUvbnu+/h4rvlC3PylA+5CLAIhWfzP\n6KHmc4Pf/Gq2oirQc2lzy14OxwKBgQD1PbvtQGqFRkr3RxMW2KspgPf572E2jYXL\nTOq+4SlxJRHvWbVpQrzud2AaMMbd406VYGoRwVlfdvLMrHNMnRde5XfxlELSbywm\nQ/uI4WoQFJjHpt/SNKtykFMX6qaBgYLpBHNXfLeV0FXhhqG3K18QgIK3ZnF0s9im\n77OYgrV5CQKBgH/JJrU8enVOcohEZQkjJe4lWecfowixOkFWwWQg07/u0G8+/gzh\np0CAcsnqhgV+eaaux3FTd50QFychGnhfMnQLjuxMGFm0AhPESfdWg/hyHr5kDf/X\nNdgbupDNndmcV60HY+QkODBBtv8y+TSnIe4xBnbz8IwO0Hr7WBBbayG1AoGATDH0\nE5CyB9qBLDcO/UgwVeLWKPdxEswBx9qMDOZUQ+0ql10d+ihcHxND7p89Cm+3WL3t\n9rpGFF0WrvTdle4w9rEBBTP1VwBnjTQOEMdIdtqPZWi5ncvzgNLKnmGvfglJLTDO\nzV3YhFmIdVupHwoArVXgRy8zDPlb1PIgsL/btlECgYB4WoD0Nifwfyt84vm7Ixyi\nO9TZF0nXN20Z3JQbzV84DNTMvyG+FyGAmtTwj2gFRwrQaSXxMAr0g2RjsP2QOfL9\nXd7/MhL5p6ri9vIKcnGGd1K133ZLyWFskEPCGpYFHwanR9uT3jy+9DOtYs9xH289\n4k+8F7+ROHiYYPc5EeKr/g==\n-----END PRIVATE KEY-----\n`;
-const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
+const PRIVATE_KEY=`-----BEGIN PRIVATE KEY-----
+MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCkr7LeLSfhdfvu
+Vz93DnABjn+NmkLlv7lTKkCKUORclPYi2uImk3D36nVYyun2P0j55ZJLbmnR+lnY
+0XVqv7AjKGgrvXreRknV+dHmozypLtHOA/n6198Pc/SZWkgKsn+vgqdK4eSIJ2Nr
+KOJ99CcGiLeD5pQpJq+2YJOsmYga28oLs9ouqUnXzqZfNMMqediphKTgvzX+tqgf
+UJ3fM8Dfi7s398SI47Rpux5U3XTJjJaFVfXWMmcHxpjdcs2f8YSeGHdUk1nyCMWd
+HIG4khcxAt/U1M89jEjOpn+q+R9iMSKX3/kEqoXQb0zcKpzad3A0SsVueYcC7E19
+wT5jcRIXAgMBAAECggEAC9b0PXQMBlhP6mZFxWHTIs/p0ty6ROYwHqiBx1ZIp9dI
+8sYltOKr7OB9DnGLUtn6sLlhqrnSmPcuRAY0mNFH8N8gzhqealVHTaWnz4FnOD29
+DtoxiJuO1jLFIDLhzWytY7xsgCR8isVTwnDhoTu1hCS9r//nVIxxdknvLZBEI4B4
+HEp87d6+MMMNNd9ka7WaDdCJ0eYoL72tW+uz4FYIT1VzEKZ9Sdv7kYYc45T7l6V+
+0pxmUIwyqJUCoGEsHvMROK8KBEzyzNTB3AK9J4pWZWg/m8mIDJqdfqYqzrJ/YYey
+Vc3J0oa0b9hel5D6Oy+fKe7l5iKaiHV0cPocjpgIgQKBgQDUTsGMhLlO3vcQ37zX
+A044Nc7ygJBLZ1uySvyEEuXokRdE+hsmL+Tg4tCnTjgVvJJ7eFm9OqB5KVmhNYup
+F1fTtixXREjaUniy7Y/kZGccBcKiUFye3OjhbjrMJ54IuGHyJQ8ay57NLSXFMHNV
+n/fsP08Qok3nIthpxriSGtEPtwKBgQDGlA4IytaSDCOnLqx1Vz5wbkQSWWdVBrQ0
+LuZg/sZB5qWJUX1dEA25IDLQvLGLIr0Hz4sMJ4zMuejTogu3AursA1uUnQHOF/KN
+yVumknZVvygPkhmGvUvEwyy/Ljg5PW44pcCyZAy2Td+1ArIHmvtE7pcWvPkZ35mn
+gt1tPVtQoQKBgG64S9P+e62YNf0E0bTIMoi59x0c0yOf2YBX/uzZ9jCdSidcz7/Q
+hmqJnwtBjZo4Z6QglZxL8Nh/KhEanaUnWVQ9004HfH7vN6cIoVwYyHUiw+hmRIdM
+6d524A8MMiyWC+5+SSxOOJkEDIiTxfJHpMH+GjuwiTQbRgWT7zmy5ohtAoGAWBXu
+z8miOrC11AApMffcU6Ul/vm3k4jgwNEZEmeRbEQyo+II+RIY9EirIdrB6tUjAub2
+aBLXKy1AcThNeAYMTVsD8b1fwpru1iQ+ynnnkgu0aovFVPZ9OK/XFosbF5D/ZpNo
+Efm9hdSvaizi6eq+kQpA7S4wVWDRWPP84us3qWECgYBZYey6G1vtx43TEu9V0vEh
+s+QVtqSMz/Xhj9XRqcIgaNUBlxjTJ8iJIhkiZCGMALigv1D8E1wix3WRKXXGH0rp
+sLZpZvwm3JDbVytwCfd7Y9p/LRhuzi0/ey5sBxSlEwxmzedPjtEU7mL0NwDg0v7q
+LTr2slf/bhftyuvl+nw7mQ==
+-----END PRIVATE KEY-----
+`;
+const CLIENT_EMAIL='catalog-reader@baljuseo-sheets.iam.gserviceaccount.com';
 let _tk=null,_te=0;
 async function getAccessToken(){
   const now=Math.floor(Date.now()/1000);
