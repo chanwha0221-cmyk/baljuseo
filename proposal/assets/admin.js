@@ -85,6 +85,7 @@
      저장이 곧 제안 이력 기록이라, 바꾸었든 아니든 누르고 싶을 때 눌 수 있어야 한다. */
   function setDirty(v) {
     dirty = v;
+    if (v) scheduleDraft();   // 💾 고치는 즉시 임시저장 예약
     var st = document.getElementById("save-status"), bt = document.getElementById("btn-save");
     if (st) {
       st.textContent = v ? "저장 안 된 변경사항이 있습니다 — [전체 저장]을 눌러주세요"
@@ -105,6 +106,73 @@
       var o = {}; keys.forEach(function (k, i) { o[k] = r[i]; }); return o;
     });
   }
+
+  /* ================= 💾 임시저장 (2026-08-24 홍팀장: "싹다 날아갔네 임시저장 만들어라") =================
+     상품을 «담는» 것과 «지우는» 것은 즉시 시트에 쓰인다. 하지만 담은 뒤 카드에서 고친 값
+     (공급가·특별제안가·설명 등)은 [전체 저장] 전까지 브라우저 메모리에만 있어서,
+     새로고침·탭 닫기·제안서 전환 한 번에 통째로 날아갔다.
+     → 고칠 때마다 localStorage 에 자동으로 받아두고, 다음에 열 때 복구할지 묻는다.
+     ⚠️ 자동으로 시트에 써버리지 않는다 — 뭐를 되살릴지는 반드시 홍팀장이 고른다. */
+  var DRAFT_KEY = "mas_proposal_draft_v1";
+  var _draftTimer = null, draftFound = null;
+  function itemSig(list) {
+    return (list || []).map(function (it) {
+      return [it.category, it.name, it.warehouse, it.spec, num(it.supply_price), it.courier,
+        num(it.ship_fee), it.tax, it.image, it.link, it.show === false ? 0 : 1,
+        num(it.special_price), num(it.cost)].join("\u241F");
+    }).join("\u241E");
+  }
+  function saveDraft() {
+    if (!currentVersion || !loadedOK) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        slug: currentVersion.slug, name: currentVersion.name,
+        at: new Date().toISOString(), items: items, settings: siteSettings
+      }));
+    } catch (e) { /* 용량 초과 등은 조용히 무시 */ }
+  }
+  function scheduleDraft() { if (_draftTimer) clearTimeout(_draftTimer); _draftTimer = setTimeout(saveDraft, 600); }
+  function clearDraft() { draftFound = null; try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+  function readDraft() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) { return null; } }
+  /* 시트에서 막 읽어온 상태와 다를 때만 «복구할까요» 를 띄운다 */
+  function checkDraft() {
+    draftFound = null;
+    var d = readDraft();
+    if (!d || !currentVersion || d.slug !== currentVersion.slug) return;
+    if (itemSig(d.items) === itemSig(items)) { clearDraft(); return; }
+    draftFound = d;
+  }
+  function draftBannerHTML() {
+    if (!draftFound) return "";
+    var when = String(draftFound.at || "").replace("T", " ").slice(0, 16);
+    return '<div class="draft-bar">' +
+      '<span class="db-ico">💾</span>' +
+      '<span class="db-txt"><b>저장 안 된 작업이 남아 있습니다</b> — [' + esc(draftFound.name || draftFound.slug) + '] 상품 ' +
+        (draftFound.items || []).length + '개, ' + esc(when) + ' 기준.' +
+        '<br><span class="db-sub">복구하면 화면에만 올라옵니다 — 확인한 뒤 <b>[전체 저장]</b>을 눌러야 시트에 남습니다.</span></span>' +
+      '<button class="btn-addsave" id="btn-draft-restore">↩ 복구하기</button>' +
+      '<button class="btn-ghost2" id="btn-draft-drop">버리기</button>' +
+    '</div>';
+  }
+  function restoreDraft() {
+    if (!draftFound) return;
+    items = (draftFound.items || []).map(function (it) { return Object.assign({}, it, { _key: uid() }); });
+    if (draftFound.settings) siteSettings = Object.assign({}, draftFound.settings);
+    draftFound = null;
+    setDirty(true); renderEditor();
+    toast("복구했어요 — 확인하고 [전체 저장]을 누르세요");
+  }
+  function dropDraft() {
+    if (!confirm("저장 안 된 작업을 버립니다. 되돌릴 수 없습니다.\n계속할까요?")) return;
+    clearDraft(); renderEditor(); toast("임시저장을 버렸습니다");
+  }
+  /* 저장 안 한 채 나가려고 할 때 붙잡는다 */
+  window.addEventListener("beforeunload", function (e) {
+    if (!dirty) return;
+    saveDraft();
+    e.preventDefault(); e.returnValue = "";
+    return "";
+  });
 
   /* 상품명 키 — 카탈로그/유통시트와 같은 규칙(공백 제거). 상품명은 완전일치만 믿는다. */
   function pkey(s) { return String(s == null ? "" : s).replace(/\s+/g, ""); }
@@ -176,6 +244,7 @@
 
       siteSettings = Object.assign({}, (currentVersion && currentVersion.settings) || {});
       loadedOK = true;
+      checkDraft();   // 💾 저장 안 된 작업이 남아 있나
       /* 공개 사이트(app.js)가 읽는 제안서카테고리 탭을 분류표 결과로 맞춰 둔다 — 조용히, 실패해도 무시. */
       saveCatsSheet().catch(function () {});
       /* 옛 카테고리(fish/meal/living)로 남아 있던 상품은 시트에도 바로 새 분류로 적어 둔다.
@@ -860,7 +929,7 @@
       '<a href="' + pubHref + '" target="_blank" rel="noopener" title="여기서 캡처하거나 인쇄(Ctrl+P)로 PDF 저장해서 보내세요">제안서 보기 ↗</a></div>' +
       // 원가표가 오늘 것인지 — 버튼 바로 밑에 항상 보이게 (2026-08-20 / 낡음 경고는 2026-08-24)
       costLineHTML() +
-      '<div class="wrap">' +
+      '<div class="wrap">' + draftBannerHTML() +
       '<div class="hint">상품을 다 담고 고친 뒤 맨 아래 <b>[전체 저장]</b> 한 번이면 끝납니다. 삭제만 <b>[삭제]</b>로 즉시 처리돼요.<br>' +
         '저장하면 <b>그때의 제안 내용이 📝 제안 이력에 자동으로 남습니다.</b></div>' +
       catPanelHTML() + histPanelHTML() + settingsPanelHTML();
@@ -1012,6 +1081,8 @@
       if (hcp) { e.preventDefault(); histCopyOne(hcp.getAttribute("data-histcopyone")); return; }
       var hdel = e.target.closest && e.target.closest("[data-histdelgroup]");
       if (hdel) { e.preventDefault(); histDeleteGroup(hdel.getAttribute("data-histdelgroup")); return; }
+      if (e.target.id === "btn-draft-restore") { restoreDraft(); return; }
+      if (e.target.id === "btn-draft-drop") { dropDraft(); return; }
       if (e.target.id === "btn-save") { saveAll(); return; }
       if (e.target.id === "btn-price-check") { runPriceCheck(); return; }
       if (e.target.id === "btn-price-apply") { applyPriceFixes(); return; }
@@ -1242,7 +1313,7 @@
     var it = Object.assign({}, newItem, { _key: uid() });
     items.push(it);
     saveProducts().then(function () {
-      addingCat = null; newItem = null; dirty = false; renderEditor();
+      addingCat = null; newItem = null; dirty = false; clearDraft(); renderEditor();
       toast("상품이 추가됐어요 ✅");
     }).catch(function (err) {
       items = items.filter(function (x) { return x !== it; });
@@ -1271,7 +1342,7 @@
   function saveAll() {
     var btn = document.getElementById("btn-save"); btn.disabled = true; btn.textContent = "저장 중…";
     saveProducts().then(histRecordCurrent).then(function (n) {
-      dirty = false; renderEditor();
+      dirty = false; clearDraft(); renderEditor();
       toast(n > 0 ? ("저장 완료 ✅ · 📝 [" + currentVersion.name + "] " + todayStr() + " 제안 " + n + "건 기록됨")
                   : (n < 0 ? "저장 완료 ✅ (제안 이력 기록만 실패 — 다시 저장해 보세요)" : "저장 완료 ✅"));
     }).catch(function (err) {
