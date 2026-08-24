@@ -127,9 +127,14 @@
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         slug: currentVersion.slug, name: currentVersion.name,
-        at: new Date().toISOString(), items: items, settings: siteSettings
+        at: stampNow(), items: items, settings: siteSettings
       }));
     } catch (e) { /* 용량 초과 등은 조용히 무시 */ }
+  }
+  /* 한국시간 기준 «YYYY-MM-DD HH:mm» — toISOString 은 UTC라 9시간 어긋난 시각이 배너에 찍힌다 */
+  function stampNow() {
+    var d = new Date(), z = function (n) { return (n < 10 ? "0" : "") + n; };
+    return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()) + " " + z(d.getHours()) + ":" + z(d.getMinutes());
   }
   function scheduleDraft() { if (_draftTimer) clearTimeout(_draftTimer); _draftTimer = setTimeout(saveDraft, 600); }
   function clearDraft() { draftFound = null; try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
