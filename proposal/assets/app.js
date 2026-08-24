@@ -18,11 +18,26 @@
     function h(c) { return ("0" + m(c).toString(16)).slice(-2); }
     return "#" + h(r) + h(g) + h(b);
   }
+  /* 🚨 고정 규칙 (2026-08-24 홍팀장): 카테고리 앞 네모 안은 «이모지»다. 한자(魚·肉·食…) 박지 말 것.
+     catalog.html 의 분류 아이콘과 같은 것을 쓴다 — 카탈로그와 제안서에서 같은 그림이 보이게.
+     시트(제안서카테고리)에 옛 한자가 남아 있어도 여기서 덮어쓴다. */
+  var CAT_ICON = {
+    "수산": "🐟", "축산": "🥩", "가공식품": "🥫", "김치·반찬": "🥬", "김치반찬": "🥬",
+    "농산물": "🌾", "쌀·잡곡": "🌾", "채소": "🥕", "과일": "🍎", "생활용품": "🧴", "기타": "📦",
+    // 옛 key 폴백
+    "fish": "🐟", "meal": "🥫", "living": "🧴"
+  };
+  function catIcon(key, fallback) {
+    if (CAT_ICON[key]) return CAT_ICON[key];
+    var f = String(fallback || "").trim();
+    // 한자 한 글자짜리 옛 표시는 버린다
+    return (f && !/^[一-鿿]$/.test(f)) ? f : "📦";
+  }
   function buildCat(row) {
     var accent = row.accent || "#0E8A8F";
     var fit = row.fit || "cover";
     return {
-      key: row.key, name: row.name || "", mark: row.mark || "", eyebrow: row.eyebrow || "",
+      key: row.key, name: row.name || "", mark: catIcon(row.key, row.mark), eyebrow: row.eyebrow || "",
       descr: row.descr || "", meta: row.meta || "", accent: accent, fit: fit,
       soft: mix(accent, 0.12), imgBg: fit === "contain" ? "#ffffff" : mix(accent, 0.12),
       rowBg: mix(accent, 0.06), pillBg: mix(accent, 0.18)
@@ -30,9 +45,9 @@
   }
   // 기본 카테고리(테이블 없거나 비었을 때 폴백)
   var DEFAULT_CATS = [
-    { key: "fish",   name: "신선 수산물", mark: "魚", eyebrow: "SEAFOOD · 메인 카테고리", descr: "동해·군산·인천·충무 창고를 직접 운영하여 수산물 공급", meta: "동해 · 군산 · 인천 창고", accent: "#0E8A8F", fit: "cover" },
-    { key: "meal",   name: "간편식품",   mark: "食", eyebrow: "CONVENIENCE FOOD",       descr: "탕·전골·튀김 등 회전율 높은 즉석·냉동 품목 (하남·김포).",       meta: "하남 · 김포 · 푸카 창고", accent: "#FF5B39", fit: "cover" },
-    { key: "living", name: "생활용품",   mark: "生", eyebrow: "LIVING GOODS",           descr: "찐한국 위생·주방 소모품, 정기 납품에 유리한 저단가 구성.",       meta: "찐한국 · 위생/주방",     accent: "#3BA559", fit: "contain" }
+    { key: "fish",   name: "신선 수산물", mark: "🐟", eyebrow: "SEAFOOD · 메인 카테고리", descr: "동해·군산·인천·충무 창고를 직접 운영하여 수산물 공급", meta: "동해 · 군산 · 인천 창고", accent: "#0E8A8F", fit: "cover" },
+    { key: "meal",   name: "간편식품",   mark: "🥫", eyebrow: "CONVENIENCE FOOD",       descr: "탕·전골·튀김 등 회전율 높은 즉석·냉동 품목 (하남·김포).",       meta: "하남 · 김포 · 푸카 창고", accent: "#FF5B39", fit: "cover" },
+    { key: "living", name: "생활용품",   mark: "🧴", eyebrow: "LIVING GOODS",           descr: "찐한국 위생·주방 소모품, 정기 납품에 유리한 저단가 구성.",       meta: "찐한국 · 위생/주방",     accent: "#3BA559", fit: "contain" }
   ];
   var CAT = {};
   var CAT_ORDER = [];

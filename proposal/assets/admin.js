@@ -20,22 +20,24 @@
        · 카테고리 key = 분류명 그대로 ('수산', '축산' …). 옛 key(fish/meal/living)는 로드할 때 자동 이관.
        · 아이콘·색은 아래 프리셋 고정 — 관리 화면에서 손댈 일이 없다(카테고리 관리 패널 폐기).
        · 제안서카테고리 탭은 공개 사이트(app.js)가 읽으므로 계속 채워 준다(자동 동기화). */
+  /* 🚨 고정 규칙 (2026-08-24 홍팀장): mark 는 «이모지» 다. 한자(魚·肉·食…) 박지 말 것.
+     catalog.html 의 분류 아이콘과 같은 걸 쓴다. */
   var CAT_PRESET = [
-    { key: "수산",      mark: "魚", eyebrow: "SEAFOOD",        accent: "#0E8A8F", fit: "cover" },
-    { key: "축산",      mark: "肉", eyebrow: "MEAT",           accent: "#C0392B", fit: "cover" },
-    { key: "가공식품",  mark: "食", eyebrow: "PROCESSED FOOD", accent: "#FF5B39", fit: "cover" },
-    { key: "김치·반찬", mark: "菜", eyebrow: "SIDE DISH",      accent: "#3BA559", fit: "cover" },
-    { key: "농산물",    mark: "農", eyebrow: "FARM",           accent: "#A67C2E", fit: "cover" },
-    { key: "과일",      mark: "果", eyebrow: "FRUIT",          accent: "#E0483D", fit: "cover" },
-    { key: "생활용품",  mark: "生", eyebrow: "LIVING GOODS",   accent: "#6B5BD2", fit: "contain" },
-    { key: "기타",      mark: "他", eyebrow: "ETC",            accent: "#6B6760", fit: "cover" }
+    { key: "수산",      mark: "🐟", eyebrow: "SEAFOOD",        accent: "#0E8A8F", fit: "cover" },
+    { key: "축산",      mark: "🥩", eyebrow: "MEAT",           accent: "#C0392B", fit: "cover" },
+    { key: "가공식품",  mark: "🥫", eyebrow: "PROCESSED FOOD", accent: "#FF5B39", fit: "cover" },
+    { key: "김치·반찬", mark: "🥬", eyebrow: "SIDE DISH",      accent: "#3BA559", fit: "cover" },
+    { key: "농산물",    mark: "🌾", eyebrow: "FARM",           accent: "#A67C2E", fit: "cover" },
+    { key: "과일",      mark: "🍎", eyebrow: "FRUIT",          accent: "#E0483D", fit: "cover" },
+    { key: "생활용품",  mark: "🧴", eyebrow: "LIVING GOODS",   accent: "#6B5BD2", fit: "contain" },
+    { key: "기타",      mark: "📦", eyebrow: "ETC",            accent: "#6B6760", fit: "cover" }
   ];
   /* 옛 카테고리 key → 새 분류. 상품분류 탭에서 못 찾은 상품만 이걸로 떨어진다. */
   var LEGACY_CAT = { fish: "수산", meal: "가공식품", living: "생활용품" };
 
   function presetFor(key) {
     for (var i = 0; i < CAT_PRESET.length; i++) if (CAT_PRESET[i].key === key) return CAT_PRESET[i];
-    return { key: key, mark: "他", eyebrow: "", accent: "#6B6760", fit: "cover" };
+    return { key: key, mark: "📦", eyebrow: "", accent: "#6B6760", fit: "cover" };
   }
   function makeCat(key, order) {
     var p = presetFor(key);
