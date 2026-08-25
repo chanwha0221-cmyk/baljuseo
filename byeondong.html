@@ -395,6 +395,7 @@
   function findTabByKeyword(tabGids, kw){ for(var t in tabGids){ if(String(t).indexOf(kw)>=0) return {tab:t, gid:tabGids[t]}; } return null; }
 
   var tokenClient = null, accessToken = null, tokenExp = 0, pending = null, LAST = null;
+  var LAST_RANGE = null;   // 불러오기로 잡은 원본 변동공지 구간 {floor, endRow, col} — 적용 성공 후 여기에 ㅇ 자동 표시
   var WRITE_OK = false, consentTried = false;   // 쓰기(수정) 권한 확보 여부
   var WONGA = {}, PRICE = {}, MAGAM = {}, MAGAM_LOADED = false, LINKMAP = {};
   var WONGA_ROWS = [], WONGA_HDR = [], WONGA_NAMES = {}, WONGA_ROWMAP = {};   // 리모컨(원가파일) 전체 행/헤더/상품명셋/상품명→행 — 엑셀 생성용
@@ -748,7 +749,9 @@
 
     var lastSheetRow = offset+values.length-1;
     var endRow = rows.length ? rows.reduce(function(m,r){ return Math.max(m,r.row); }, 0) : lastSheetRow;   // 마지막 신규 상품 행(ㅇ 표시 끝행) — 병합 후 순서 무관하게 최대 행번호
-    setStatus('✅ <b>'+rows.length+'건</b> 발견 · <b>시작행 '+floor+' ~ 끝행 '+endRow+'</b> (이 구간에 ㅇ 표시)'+(dupN?' · <b style="color:#0369a1">같은 상품 '+dupN+'건 병합(최신 건 기준)</b>':'')+(endCap!=null?' · <b style="color:#b45309">끝 행 '+endCap+'까지 컷(내일치 제외)</b>':' · 읽은 마지막행 '+lastSheetRow), 'ok');
+    setStatus('✅ <b>'+rows.length+'건</b> 발견 · <b>시작행 '+floor+' ~ 끝행 '+endRow+'</b> (적용하면 이 구간에 ⭕ㅇ 자동 표시 — 손으로 안 쳐도 됨)'+(dupN?' · <b style="color:#0369a1">같은 상품 '+dupN+'건 병합(최신 건 기준)</b>':'')+(endCap!=null?' · <b style="color:#b45309">끝 행 '+endCap+'까지 컷(내일치 제외)</b>':' · 읽은 마지막행 '+lastSheetRow), 'ok');
+    // ★ㅇ 자동 표시용 구간 기억 (2026-08-25 사장님 지시 — "어디까지 했는지 까먹는다"). 적용 성공 후 markSyncDone()이 씀.
+    LAST_RANGE = rows.length ? { floor:floor, endRow:endRow, col:SYNC_COL } : null;
     if(rows.length===0){ document.getElementById('result').innerHTML='<div style="padding:20px;color:#888">신규 변동이 없어요. 시작 행을 위로 낮춰보세요.</div>'; return; }
 
     var h='<table id="qtytable"><thead><tr>';
@@ -1058,6 +1061,29 @@
     });
   }
 
+  // ===== ⭕ 원본 변동공지에 ㅇ 자동 표시 (2026-08-25) =====
+  //   적용이 끝나면 이번에 처리한 구간(불러오기에서 잡은 시작행~끝행)의 「내 표시 열」에 ㅇ를 찍는다.
+  //   손으로 색칠/동그라미 치다 까먹는 사고 방지 — 다음 불러오기의 시작행도 이걸로 자동 계산되므로 이게 곧 책갈피.
+  //   ★이미 뭔가 적혀 있는 칸은 건드리지 않음(빈칸만 채움). 실패해도 적용 자체는 성공이므로 경고만 남긴다.
+  var SYNC_MARK = 'ㅇ';
+  function markSyncDone(){
+    if(!LAST_RANGE || LAST_RANGE.col<0) return Promise.resolve(null);
+    var col=idxToCol(LAST_RANGE.col), a=LAST_RANGE.floor, b=LAST_RANGE.endRow;
+    if(!(b>=a)) return Promise.resolve(null);
+    var range="'"+TAB+"'!"+col+a+":"+col+b;
+    return readRange(SPREADSHEET_ID, range).then(function(cur){
+      var vals=[], n=0;
+      for(var i=0;i<=b-a;i++){
+        var had=(cur && cur[i] && String(cur[i][0]||'').trim()) || '';
+        if(had) vals.push([had]); else { vals.push([SYNC_MARK]); n++; }
+      }
+      if(!n) return { n:0, col:col, a:a, b:b };
+      var url='https://sheets.googleapis.com/v4/spreadsheets/'+SPREADSHEET_ID+'/values/'+encodeURIComponent(range)+'?valueInputOption=RAW';
+      return fetch(url,{method:'PUT',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({values:vals})})
+        .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return { n:n, col:col, a:a, b:b }; });
+    }).catch(function(e){ return { err:e.message, col:col, a:a, b:b }; });
+  }
+
   // ===== 🔀 각 시트 적용 — 한 번에: 상품변동사항(전체) + 당일생물(당일) + 창고(상시) + 품절삭제 =====
   document.getElementById('allBtn').addEventListener('click', function(){
     var items=readItems();
@@ -1189,8 +1215,12 @@
             .then(function(){ i++; return nextTab(); });
         }
         return nextTab();
-      }).then(function(){
+      }).then(function(){ setBtn('원본에 ㅇ 표시...'); return markSyncDone(); })
+      .then(function(mk){
         btn.disabled=false; btn.innerHTML=o;
+        var mkTxt='', mkHtml='';
+        if(mk && mk.err){ mkTxt='\n⚠️ 원본 ㅇ 표시 실패: '+mk.err+' — '+mk.col+'열 '+mk.a+'~'+mk.b+'행 직접 확인'; mkHtml='<li style="color:#c0392b">⚠️ 원본 변동공지 ㅇ 표시 실패 ('+esc(mk.err)+') — <b>'+mk.col+'열 '+mk.a+'~'+mk.b+'행</b> 직접 표시하세요</li>'; }
+        else if(mk){ mkTxt='\n· ⭕ 원본 변동공지 '+mk.col+'열 '+mk.a+'~'+mk.b+'행에 ㅇ 표시 ('+mk.n+'칸)'; mkHtml='<li>⭕ 원본 변동공지 <b>'+mk.col+'열 '+mk.a+'~'+mk.b+'행</b>에 ㅇ 표시: <b>'+mk.n+'</b>칸 (다음 불러오기는 '+(mk.b+1)+'행부터)</li>'; }
         // 화면 하단 적용 결과 리포트(각 시트 링크)
         var base='https://docs.google.com/spreadsheets/d/'+APPLY_ID+'/edit#gid=';
         function li(gid,label,cnt){ return '<li><a href="'+base+gid+'" target="_blank">'+esc(label)+'</a> : <b>'+cnt+'</b>건</li>'; }
@@ -1205,6 +1235,7 @@
           else rh+='<li>🚚 전상품 일괄 · '+esc(b.tab)+' 「'+esc(b.wh)+'」창고 → <b>'+esc(b.label)+'</b> <b>'+b.n+'</b>건 변경+스펙 문구'+(b.n===0?' <b style="color:#c0392b">(그 창고 상품 0건 — 창고명 확인!)</b>':'')+'</li>';
         });
         if(rep.unmatched.length) rh+='<li style="color:#c0392b">⚠️ 미매칭 공급처(못 넣음): <b>'+esc(rep.unmatched.join(', '))+'</b> — 공급처 이름이 창고 탭 이름과 달라요. 수동 확인!</li>';
+        rh+=mkHtml;
         rh+='</ul></div>';
         // 적용된 상품명 목록 + 복사 버튼(시트에서 검색 확인용)
         // 🔎 적용 써머리 (2026-08-05 사장님: "뭐가 수정된 건지 다시 안 올라가봐도 되게") — 상품명 옆에
@@ -1239,7 +1270,7 @@
         var whSum=Object.keys(rep.wh).map(function(t){return t+'('+rep.wh[t]+')';}).join(', ')||'없음';
         var bulkSum=rep.bulk.map(function(b){ return b.skip ? (b.tab+' 「'+b.wh+'」스킵(수동 확인)') : (b.tab+' 「'+b.wh+'」'+b.n+'건→'+b.label); }).join('\n   ');
         setStatus('✅ 각 시트 적용 완료 (변동'+rep.vari+'·당일'+rep.notice+'·창고'+Object.keys(rep.wh).length+'탭·품절삭제'+rep.poomDel+'·기존정리'+rep.dupDel+(rep.bulk.length?'·전상품일괄'+rep.bulk.length:'')+(dupSkip?'·중복스킵'+dupSkip:'')+(rep.unmatched.length?'·미매칭'+rep.unmatched.length:'')+') — 아래 리포트 확인','ok');
-        alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건\n· 기존에 있던 같은 상품 정리: '+rep.dupDel+'건 (새 건이 맨 위로)'+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건은 마지막(최신) 건 기준으로 병합 반영':'')+(costDrop?'\n· 🚫 원가 관련 '+costDrop+'건은 업체 비노출로 제외됨':'')+(bulkSum?'\n· 🚚 전상품 일괄(택배사 변경+스펙):\n   '+bulkSum:'')+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
+        alert('✅ 각 시트 적용 완료\n· 상품변동사항: '+rep.vari+'건\n· 당일생물: '+rep.notice+'건\n· 창고: '+whSum+'\n· 품절 삭제: '+rep.poomDel+'건\n· 기존에 있던 같은 상품 정리: '+rep.dupDel+'건 (새 건이 맨 위로)'+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건은 마지막(최신) 건 기준으로 병합 반영':'')+(costDrop?'\n· 🚫 원가 관련 '+costDrop+'건은 업체 비노출로 제외됨':'')+(bulkSum?'\n· 🚚 전상품 일괄(택배사 변경+스펙):\n   '+bulkSum:'')+(rep.unmatched.length?'\n⚠️ 미매칭: '+rep.unmatched.join(', '):'')+mkTxt+'\n\n아래 리포트에서 각 시트 클릭해 확인하세요.');
       }).catch(function(e){ btn.disabled=false; btn.innerHTML=o; setStatus('⚠️ 적용 실패: '+e.message,'warn'); alert('적용 실패: '+e.message+'\n(일부만 적용됐을 수 있어요. 시트 확인 후 재시도)'); });
     });
   });
