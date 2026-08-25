@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.24).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.25).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.24</title>
+<title>마스터 유통 카탈로그 v2.25</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -41,7 +41,10 @@ h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .sub{font-size:11.5px;color:var(--muted);margin-top:2px}
 .ver{display:inline-block;margin-left:7px;font-size:11px;font-weight:700;color:var(--muted);background:var(--soft);padding:2px 7px;border-radius:20px;vertical-align:middle;letter-spacing:0}
 .note{margin-top:11px;background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:9px 12px;font-size:11.5px;color:var(--accent-d);line-height:1.5}
-.controls{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 93%,transparent);backdrop-filter:blur(10px);padding:10px 0;border-bottom:1px solid var(--line);margin-top:11px}
+/* ⚠️ 예전엔 position:sticky 였다 (2026-08-25 사장님: "위에 고정된 것도 이상하게 고정되고 화면이 답답해").
+   검색칸·창고·카테고리까지 통째로 붙어 있는 블록이라 화면 절반을 물고 늘어졌다.
+   이제 그냥 같이 흐르게 두고, 대신 상품 목록(#view)에 자기 스크롤을 달았다 — 아래 .controls 밑 규칙 참고. */
+.controls{padding:10px 0;border-bottom:1px solid var(--line);margin-top:11px}
 .search{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:11px 13px;font-size:15px;background:var(--card);color:var(--ink);outline:none}
 /* 로그인 직후 2초만 disabled(크롬 자동완성 차단용) — 흐려 보이면 고장난 줄 아시니 평소와 똑같이 */
 .search:disabled{background:var(--card);color:var(--ink);opacity:1;-webkit-text-fill-color:var(--ink);cursor:text}
@@ -462,6 +465,21 @@ h1{letter-spacing:-.6px}
 .mvp s{color:var(--muted);font-weight:600;margin-right:3px}
 .mvd{white-space:nowrap;font-size:10.5px;color:var(--muted)}
 .mvempty{padding:12px 10px;font-size:12px;color:var(--muted);text-align:center}
+
+/* 📜 상품 목록만 따로 스크롤 (사장님 2026-08-25: "전체 스크롤은 화면이 통째로 움직이고,
+   여기 상품만 스크롤할 수 있게 스크롤 하나 더 달자"). 위 검색·창고 줄은 sticky를 뗐으니
+   화면을 조금만 내리면 이 상자가 화면을 꽉 채우고, 그 안에서 상품만 굴러간다.
+   끝까지 굴리면 페이지 스크롤로 자연스럽게 넘어간다(overscroll-behavior를 일부러 안 건다).
+   📱 좁은 화면은 손가락으로 미는 게 자연스러워서 적용하지 않는다 — 예전처럼 통째 스크롤. */
+@media(min-width:769px){
+  #view{max-height:calc(100vh - 130px);overflow-y:auto;padding:2px 8px 2px 2px;
+    border-radius:12px;scrollbar-gutter:stable}
+  #view::-webkit-scrollbar{width:11px}
+  #view::-webkit-scrollbar-track{background:transparent}
+  #view::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 42%,transparent);border-radius:8px;
+    border:3px solid transparent;background-clip:content-box}
+  #view::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--muted) 65%,transparent);background-clip:content-box}
+}
 </style></head><body>
 <div class="wrap">
 <header><div class="brand"><div class="logomark"><img src="media/logo.png" alt="주식회사 마스터" onerror="this.closest('.logomark').classList.add('nofile');this.remove()"><span>Master</span></div><div><div class="eyebrow">수산물 전문 도매 · 당일 출고</div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
