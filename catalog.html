@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.19).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.20).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.19</title>
+<title>마스터 유통 카탈로그 v2.20</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -480,14 +480,14 @@ h1{letter-spacing:-.6px}
   <div class="gbox">
     <div class="logomark"><img src="media/logo.png" alt="주식회사 마스터" onerror="this.closest('.logomark').classList.add('nofile');this.remove()"><span>Master</span></div>
     <div class="gt">마스터 유통 카탈로그<span class="ver" id="gver"></span></div>
-    <div class="gs" id="gsub">거래처 전용입니다.<br>받으신 아이디로 로그인해 주세요.</div>
+    <div class="gs" id="gsub">마스터 유통 카탈로그 사이트입니다.<br>상품 리스트를 편하게 보실 수 있습니다.</div>
 
     <div class="gf" id="loginForm">
       <input class="gin" id="li_id" type="text" placeholder="아이디" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
       <input class="gin" id="li_pw" type="password" placeholder="비밀번호" autocomplete="current-password">
       <div class="gerr" id="li_err"></div>
       <button class="gbtn" id="li_btn">로그인</button>
-      <button class="gbtn ghost" id="li_signup">처음이신가요? 회원가입</button>
+      <button class="gbtn ghost" id="li_signup">처음이신가요? 정보등록</button>
     </div>
 
     <div class="gf" id="signForm" style="display:none">
@@ -499,7 +499,7 @@ h1{letter-spacing:-.6px}
       <input class="gin" id="sg_pw2" type="password" placeholder="비밀번호 다시 입력" autocomplete="new-password">
       <div class="gerr" id="sg_err"></div>
       <div class="gok" id="sg_ok"></div>
-      <button class="gbtn" id="sg_btn">회원가입</button>
+      <button class="gbtn" id="sg_btn">정보등록</button>
       <button class="gbtn ghost" id="sg_cancel">← 로그인으로 돌아가기</button>
     </div>
 
@@ -513,7 +513,7 @@ h1{letter-spacing:-.6px}
       <button class="gbtn ghost" id="pw_cancel">취소</button>
     </div>
 
-    <div class="ghelp" id="ghelp">처음 오셨으면 <b>회원가입</b>을 해주세요.<br>아이디·비밀번호 문의<br><b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원비 팀장</b></div>
+    <div class="ghelp" id="ghelp"><b>업체명·아이디·비밀번호</b>만 등록하시면 바로 사용 가능합니다.<br>아이디·비밀번호 문의<br><b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원비 팀장</b></div>
   </div>
 </div>
 <script>
@@ -1457,12 +1457,12 @@ async function doLogin(id,pw){
 }
 function showLoginForm(){
   $('loginForm').style.display='flex';$('pwForm').style.display='none';$('signForm').style.display='none';$('ghelp').style.display='';
-  $('gsub').innerHTML='거래처 전용입니다.<br>로그인하시거나 회원가입을 해주세요.';
+  $('gsub').innerHTML='마스터 유통 카탈로그 사이트입니다.<br>상품 리스트를 편하게 보실 수 있습니다.';
   $('li_err').textContent='';$('li_pw').value='';
 }
 function showSignForm(){
   $('loginForm').style.display='none';$('pwForm').style.display='none';$('signForm').style.display='flex';$('ghelp').style.display='';
-  $('gsub').innerHTML='처음 오셨나요?<br>업체 정보를 남기시면 바로 이용하실 수 있습니다.';
+  $('gsub').innerHTML='처음 오셨나요?<br>업체명·아이디·비밀번호만 등록하시면 바로 사용 가능합니다.';
   $('sg_err').textContent='';$('sg_ok').textContent='';
   $('sg_name_warn').textContent='';$('sg_name_warn').style.display='none';
   gateShow(true);$('sg_name').focus();
@@ -1535,12 +1535,12 @@ $('sg_btn').onclick=async()=>{
   if(!/^[A-Za-z0-9._-]{3,20}$/.test(id)){$('sg_err').textContent='아이디는 영문·숫자 3~20자로 만들어 주세요.';return;}
   if(p1.length<4){$('sg_err').textContent='비밀번호는 4자 이상으로 해주세요.';return;}
   if(p1!==p2){$('sg_err').textContent='비밀번호가 서로 다릅니다.';return;}
-  gbusy=true;$('sg_btn').disabled=true;$('sg_btn').textContent='가입 중…';
+  gbusy=true;$('sg_btn').disabled=true;$('sg_btn').textContent='등록 중…';
   try{
     if(API){   // 웹앱 가입 — 아이디 중복 확인·저장 모두 서버가 한다
       const j=await api('signup',{id,pw:p1,name:nm});
       saveMe(j);
-      $('sg_ok').textContent='회원가입이 완료되었습니다. 카탈로그로 이동합니다…';
+      $('sg_ok').textContent='등록이 완료되었습니다. 카탈로그로 이동합니다…';
       const me=ME;
       setTimeout(()=>{gateShow(false);showLoginForm();enterApp(me);},1000);
       return;
@@ -1562,11 +1562,11 @@ $('sg_btn').onclick=async()=>{
     // 시트에 진짜 들어갔는지 다시 읽어 확인한 뒤에만 완료 처리
     const a=findAcc(await accSheet(),id);
     if(!a||a.pw!==p1)throw new Error('가입 확인에 실패했습니다. 다시 시도해 주세요.');
-    $('sg_ok').textContent='회원가입이 완료되었습니다. 카탈로그로 이동합니다…';
+    $('sg_ok').textContent='등록이 완료되었습니다. 카탈로그로 이동합니다…';
     saveMe(a);stampLogin(a);
     setTimeout(()=>{gateShow(false);showLoginForm();enterApp(a);},1000);
   }catch(e){$('sg_err').textContent=e.message||'가입에 실패했습니다.';}
-  finally{gbusy=false;$('sg_btn').disabled=false;$('sg_btn').textContent='회원가입';}
+  finally{gbusy=false;$('sg_btn').disabled=false;$('sg_btn').textContent='정보등록';}
 };
 $('sg_pw2').addEventListener('keydown',e=>{if(e.key==='Enter')$('sg_btn').click();});
 // 다 치고 [회원가입] 누를 때까지 기다리지 말고, 숫자 박는 순간 바로 빨간 글씨로 알려준다
