@@ -1806,6 +1806,8 @@ function bind(){
         EDIT = false;
         redrawMe();
         toast('업체 정보를 저장했습니다');
+        // 들어올 때 띄웠던 "연락처를 안 넣으셨습니다" 배너를 지운다 (사장님 2026-08-25)
+        try{ if(window.infoNudge) window.infoNudge(); }catch(e){}
         paint();
       }catch(e){
         msg.textContent = (e.message || '저장 실패') + ' — ' + TEL_HELP;
