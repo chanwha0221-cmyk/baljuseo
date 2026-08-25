@@ -53,6 +53,22 @@ if (-not $Files -or $Files.Count -eq 0) {
   })
 }
 if (-not $Files -or $Files.Count -eq 0) { Say '바뀐 파일이 없습니다. 배포할 게 없어 그냥 끝냅니다.' 'Yellow'; exit 0 }
+
+# 🔗 딸린 js 만 고쳤을 때도 그걸 불러오는 html 을 같이 올린다 (2026-08-25 사고)
+#   catalog.html 은 order.js 를 <title> 의 앱 버전으로 캐시 버스팅한다(order.js?v2.25).
+#   order.js 만 배포하면 버전이 그대로라 이미 들어온 브라우저는 옛 order.js 를 계속 쓴다.
+#   → 실제로 원비씨 화면에만 발주 알림이 안 뜨던 원인이 이것이었다. 여기서 뿌리를 막는다.
+$OwnerOf = @{ 'order.js' = @('catalog.html','catalog-test.html'); 'convert-core.js' = @('catalog.html','catalog-test.html','index.html') }
+foreach ($k in $OwnerOf.Keys) {
+  if ($Files -contains $k) {
+    foreach ($owner in $OwnerOf[$k]) {
+      if ((Test-Path $owner) -and ($Files -notcontains $owner)) {
+        $Files += $owner
+        Say ("      + $owner 같이 올림 ($k 캐시 버전 올리려고)") 'DarkGray'
+      }
+    }
+  }
+}
 Say ("[1/4] 배포 대상: " + ($Files -join ', ')) 'Cyan'
 
 # ── 2. 버전 +1 (title 안의 v숫자.숫자) ────────────────────────────────
