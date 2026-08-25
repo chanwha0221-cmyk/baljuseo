@@ -1675,7 +1675,8 @@ function bindFor(){
          이번 발주는 화면에 넣은 값 그대로 나간다(시트에만 안 남을 뿐). */
       const old = /알 수 없는 요청/.test(e.message || '');
       msg.innerHTML = old
-        ? '⚠️ 발주 웹앱이 옛 버전이라 시트 저장은 안 됩니다 — <b>이번 발주엔 이 연락처가 그대로 쓰입니다</b>'
+        ? '⚠️ <b>계정 시트엔 아직 못 넣었습니다</b> (발주 웹앱 새 버전 배포 전) — 지금 값은 <b>이 브라우저에만</b> 남아 있습니다.'
+          + '<br>이번 발주는 이대로 나갑니다. 다만 <b>다른 PC·원비씨 화면에는 안 보이고</b>, 업체를 바꿨다가 돌아오면 다시 넣어야 합니다.'
         : esc(e.message || '저장하지 못했습니다');
       if(old){ FOR.phone = tel; FOR.addr = ad; saveFor(); paint(); }
       fx.disabled = false;
