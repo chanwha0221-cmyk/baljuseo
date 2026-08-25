@@ -283,6 +283,11 @@ function css(){
 .ordme b{font-weight:800}
 .ordme .k{color:var(--muted);font-size:11.5px;display:block}
 .ordin{border:1.5px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;background:var(--card);color:var(--ink);outline:none;font-family:inherit;width:100%}
+/* 📇 고른 업체 연락처·출고지 즉석 수정 (홍팀장 2026-08-25) — 비어 있으면 저절로 펼쳐진다 */
+.ordfix{margin-top:9px;border:1px dashed var(--line);border-radius:10px;padding:9px 11px;background:var(--bg)}
+.ordfix[open]{border-style:solid}
+.ordfix>summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink);list-style:none}
+.ordfix>summary::-webkit-details-marker{display:none}
 /* 🔎 대신 발주 — 업체 쳐서 찾기 목록 (드롭다운은 업체가 200곳 넘으면 못 고른다) */
 .forlist{display:none;position:absolute;left:0;right:0;top:100%;z-index:30;margin-top:4px;background:var(--card);
   border:1.5px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);max-height:290px;overflow:auto}
@@ -482,8 +487,33 @@ function forCard(){
           + '<div><span class="k">연락처</span><b>' + (S(f.phone) ? esc(f.phone) : '<span style="color:var(--up)">⚠️ 넣어주세요 (필수)</span>') + '</b></div>'
           + '<div><span class="k">출고지</span><b>' + (S(f.addr) ? esc(f.addr) : '<span style="color:var(--muted);font-weight:600">안 씀</span>') + '</b></div>'
           + '</div>'
+          + (manual ? '' : fixCard(f))
         : '')
     + '</div>';
+}
+
+/* 📇 고른 업체의 연락처·출고지를 그 자리에서 채워 넣는 칸 (홍팀장 2026-08-25)
+   계정은 있는데 연락처가 비어 있는 업체가 대부분이라(77곳 중 65곳) 발주가 거기서 막혔다.
+   계정 시트를 따로 열어 고치면 어느 줄인지 찾다가 엉뚱한 줄을 건드린다 → 고른 자리에서 바로.
+   저장을 누르면 웹앱 updclient 로 **계정 시트 I(연락처)·J(출고지)** 두 칸만 갱신한다.
+   저장 안 하고 그냥 두면 이번 발주에만 쓰이고 시트는 그대로다.
+   ⚠️ 직접 넣기(manual) 모드에는 안 붙인다 — 거긴 미가입 명부용 저장이 따로 있다. */
+function fixCard(f){
+  const need = !S(f.phone);
+  return '<details class="ordfix" id="for_fix"' + (need ? ' open' : '') + '>'
+    + '<summary>' + (need
+        ? '⚠️ <b>연락처가 비어 있습니다</b> — 여기서 바로 넣고 저장하세요'
+        : '✏️ 연락처·출고지 고치기')
+    + '</summary>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'
+    +   '<div><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 연락처 <b style="color:var(--up)">필수</b></span>'
+    +     '<input class="ordin" id="fix_ph" autocomplete="off" value="' + esc(f.phone || '') + '" placeholder="02-000-0000 / 010-0000-0000"></div>'
+    +   '<div><span class="k" style="font-size:11.5px;color:var(--muted)">출고지 주소 (선택)</span>'
+    +     '<input class="ordin" id="fix_ad" autocomplete="off" value="' + esc(f.addr || '') + '" placeholder="안 쓰는 업체는 비워두세요"></div>'
+    + '</div>'
+    + '<div class="ordbar" style="margin:8px 0 0"><button class="ordb2 pri" id="fix_save">💾 계정 시트에 저장</button>'
+    +   '<span class="hint" id="fix_msg" style="align-self:center">저장하면 다음부터 자동으로 따라옵니다</span></div>'
+    + '</details>';
 }
 
 function view(){
@@ -1496,6 +1526,49 @@ function bindFor(){
       redraw();
     }catch(e){ msg.textContent = e.message || '저장하지 못했습니다'; sv.disabled = false; }
   };
+  /* 📇 계정 있는 업체의 연락처·출고지 채우기 → 계정 시트 I·J열 갱신 (홍팀장 2026-08-25).
+     저장 성공하면 화면(FOR)·검색 목록(CLIENTS)까지 같이 맞춰둔다 — 다시 불러오지 않아도
+     바로 그 자리에서 검색되고, 발주 버튼 잠금도 그 즉시 풀린다. */
+  const fx = $$('fix_save');
+  if(fx) fx.onclick = async () => {
+    const ph = S($$('fix_ph').value), ad = S($$('fix_ad').value), msg = $$('fix_msg');
+    if(!ph){ msg.textContent = '연락처를 넣어주세요. (출고지는 선택입니다)'; $$('fix_ph').focus(); return; }
+    if(!(FOR && S(FOR.name))){ msg.textContent = '업체를 먼저 골라주세요.'; return; }
+    const tel = fmtTel(ph) || ph;
+    fx.disabled = true; msg.textContent = '저장 중…';
+    try{
+      const j = await api('updclient', {token: ME.token, id: FOR.id || '', name: FOR.name, phone: tel, addr: ad});
+      FOR.phone = j.phone || tel; FOR.addr = (j.addr != null ? j.addr : ad);
+      saveFor();
+      if(Array.isArray(CLIENTS)){
+        const i = CLIENTS.findIndex(c => (FOR.id && c.id === FOR.id) || pkey(c.name) === pkey(FOR.name));
+        if(i >= 0){ CLIENTS[i].phone = FOR.phone; CLIENTS[i].addr = FOR.addr; }
+      }
+      toast(FOR.name + ' 연락처를 계정 시트에 저장했습니다');
+      redraw();
+    }catch(e){
+      /* 웹앱이 아직 옛 버전이면 'updclient'를 모른다 — 무슨 일인지 알려주고 잠그지는 않는다.
+         이번 발주는 화면에 넣은 값 그대로 나간다(시트에만 안 남을 뿐). */
+      const old = /알 수 없는 요청/.test(e.message || '');
+      msg.innerHTML = old
+        ? '⚠️ 발주 웹앱이 옛 버전이라 시트 저장은 안 됩니다 — <b>이번 발주엔 이 연락처가 그대로 쓰입니다</b>'
+        : esc(e.message || '저장하지 못했습니다');
+      if(old){ FOR.phone = tel; FOR.addr = ad; saveFor(); paint(); }
+      fx.disabled = false;
+    }
+  };
+  // 저장을 안 눌러도 이번 발주엔 쓰이도록 — 칸을 벗어나면 화면 값에 반영해 발주 잠금이 풀린다
+  ['fix_ph','fix_ad'].forEach(id => {
+    const el = $$(id);
+    if(!el) return;
+    el.onchange = () => {
+      if(!(FOR && S(FOR.name))) return;
+      const ph = S($$('fix_ph') ? $$('fix_ph').value : '');
+      FOR.phone = fmtTel(ph) || ph;
+      FOR.addr = S($$('fix_ad') ? $$('fix_ad').value : FOR.addr);
+      saveFor(); paint();
+    };
+  });
   // 직접 입력칸은 타이핑할 때마다 다시 그리면 포커스가 튄다 → 값만 붙잡고 있다가 벗어날 때 반영
   ['for_nm','for_ph','for_ad'].forEach(id => {
     const el = $$(id);
