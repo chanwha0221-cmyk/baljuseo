@@ -331,6 +331,7 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .ordrecon{font-size:12px;line-height:1.7;margin-top:8px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card)}
 .ordrecon.ok{border-color:#a9d5bb;background:rgba(45,140,85,.08)}
 .ordrecon.bad{border-color:#e8b4b4;background:rgba(200,40,40,.08)}
+.ordrecon.warn{border-color:#e8cfa0;background:rgba(190,140,20,.10)}
 .ordrecon b{font-weight:800}
 .ordrecon .recon-list{margin-top:6px;font-size:11.5px;line-height:1.75;word-break:break-all}
 .ordrecon .recon-note,.ordrecon .recon-warn{margin-top:5px;font-size:11.5px}
@@ -1264,6 +1265,58 @@ function rowsFromConverted(cols){
   return { rows: out, bizes: bizes };
 }
 
+/* 📋 머리글 보고 뽑기 — 식봄 '발송관리' 같은 **쇼핑몰 내려받기 파일** (홍팀장 2026-08-25)
+   식봄 파일은 칸이 40개다(고유번호·상품주문번호·쿠폰 6종·정산금액…). 사람이 손으로 골라내던 걸
+   여기서 머리글 이름으로 찾아 우리 7칸만 남긴다.
+   🔴 칸 순서를 믿지 않고 **머리글 글자로 찾는다** — 쇼핑몰이 칸을 하나 끼워 넣어도 안 밀린다.
+   🔴 정산업체명은 뽑지 않는다. 그건 위에서 고른 업체가 정답이다(파일엔 우리 업체명이 없다).
+   🔴 취소·반품·교환 줄은 버린다 — 그건 발주가 아니다.
+   ⚠️ 변환기가 한 줄이라도 읽어냈으면 이 함수는 돌지 않는다. */
+const HDR_MAP = {
+  name: ['상품명', '제품명', '품목명', '상품이름'],
+  qty : ['수량', '주문수량', '개수'],
+  rcv : ['받는사람', '받는분', '수취인', '수령인', '고객명', '수취인명', '받는분 성함'],
+  addr: ['배송지', '배송주소', '받는분 주소', '주소', '수취인주소'],
+  tel : ['배송지연락처', '수취인연락처', '받는분 연락처', '받는분연락처', '수취인 연락처', '연락처', '휴대폰'],
+  msg : ['배송위치', '배송메시지', '배송요청사항', '배송메모', '요청사항', '배송시요청사항']
+};
+function headerItems(raw){
+  const lines = S(raw).split(/\r?\n/).filter(l => l.replace(/\t/g, '').trim());
+  if(lines.length < 2) return [];
+  const cut = l => l.split('\t').map(x => S(x));
+  // 머리글 줄 찾기 — 상품명·수량·받는사람 계열이 한 줄에 다 있어야 한다
+  let hr = -1, head = null;
+  for(let i = 0; i < Math.min(6, lines.length); i++){
+    const c = cut(lines[i]);
+    const has = keys => c.some(x => keys.some(k => x === k || x.indexOf(k) === 0));
+    if(has(HDR_MAP.name) && has(HDR_MAP.qty) && has(HDR_MAP.rcv)){ hr = i; head = c; break; }
+  }
+  if(hr < 0) return [];
+  // 머리글 → 칸번호. 정확히 같은 이름이 먼저, 없으면 앞글자가 같은 것(배송위치/(출입정보)… 같은 긴 이름)
+  const pick = keys => {
+    for(const k of keys){ const i = head.indexOf(k); if(i >= 0) return i; }
+    for(const k of keys){ const i = head.findIndex(x => x.indexOf(k) === 0); if(i >= 0) return i; }
+    return -1;
+  };
+  const at = {}; Object.keys(HDR_MAP).forEach(f => { at[f] = pick(HDR_MAP[f]); });
+  if(at.name < 0 || at.qty < 0) return [];
+  const stIdx = head.findIndex(x => x.indexOf('배송상태') === 0 || x === '주문상태' || x === '상태');
+  const dash = v => { const s = S(v); return (s === '-' || s === '_') ? '' : s; };   // 식봄은 빈칸을 '-' 로 준다
+  const out = [], skipped = [];
+  for(let i = hr + 1; i < lines.length; i++){
+    const c = cut(lines[i]);
+    const g = f => (at[f] >= 0 ? dash(c[at[f]]) : '');
+    const nm = g('name');
+    if(!nm) continue;
+    const st = stIdx >= 0 ? S(c[stIdx]) : '';
+    if(/취소|반품|교환/.test(st)){ skipped.push(nm + (st ? '(' + st + ')' : '')); continue; }
+    const q = S(g('qty')).replace(/[^\d]/g, '');
+    out.push({ biz:'', name:nm, qty:q || '1', rcv:g('rcv'), addr:g('addr'), tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') });
+  }
+  out.skipped = skipped;
+  return out;
+}
+
 /* 🧾 상품·수량만 온 발주 (홍팀장 2026-08-25)
    반찬가게처럼 **사장님이 자기 가게로 받는** 발주는 카톡에 이것만 온다:
        1. 통통돌문어 17,000*3
@@ -1321,9 +1374,13 @@ function runConvert(append){
   const r = window.CONVERT.convert(raw);
   if(r.error){ logEl.innerHTML = '<div class="ordwarn">변환 중 오류 — ' + esc(r.error) + '</div>'; return; }
   const got = rowsFromConverted(r.cols);
-  let simple = false;
+  let simple = false, byHead = null;
   if(!got.rows.length){
-    // 상품·수량만 온 발주면 거기까지라도 채운다 (받는분은 아래 버튼으로) — simpleItems 주석 참고
+    // ① 머리글이 있는 쇼핑몰 파일(식봄 발송관리 등) — 필요한 칸만 뽑는다
+    const hd = headerItems(raw);
+    if(hd.length){ got.rows = hd; byHead = hd.skipped || []; }
+    else{
+    // ② 상품·수량만 온 발주면 거기까지라도 채운다 (받는분은 아래 버튼으로) — simpleItems 주석 참고
     const only = simpleItems(raw);
     if(only.length){ got.rows = only; simple = true; }
     else{
@@ -1331,6 +1388,7 @@ function runConvert(append){
         + (r.log ? '<br><span class="hint">변환기 메시지: ' + esc(r.log) + '</span>' : '')
         + '<br><span class="hint">업체 양식이 처음 보는 형태일 수 있습니다 — 발주서 변환기에서 먼저 돌려보고, 거기서도 안 되면 알려주세요.</span></div>';
       return;
+    }
     }
   }
 
@@ -1342,6 +1400,14 @@ function runConvert(append){
   /* 🔴 어느 업체 발주인지 확인시킨다 — 조용히 FOR 를 덮어쓰지 않는다.
      정산업체명이 잘못 박히면 그대로 시트로 나가고, 그건 되돌리기 어렵다. */
   const notes = [];
+  if(byHead){
+    const who = orderer();
+    notes.push('<div class="ordrecon ok">📋 <b>머리글을 보고 필요한 칸만 뽑았습니다</b> — ' + got.rows.length + '줄'
+      + ' <span class="hint">(상품명·수량·받는분 성함·주소·연락처·배송메시지)</span>'
+      + (S(who.name) ? '<br>정산업체명은 위에서 고른 <b>' + esc(who.name) + '</b> 로 나갑니다 — 파일 안의 판매처가 아닙니다.' : '<br>위에서 <b>어느 업체 발주인지</b> 골라주세요.')
+      + (byHead.length ? '<br><b style="color:var(--up)">🚫 취소·반품·교환 ' + byHead.length + '줄은 뺐습니다</b> — ' + esc(byHead.slice(0, 5).join(', ')) + (byHead.length > 5 ? ' 외' : '') : '')
+      + '</div>');
+  }
   if(simple){
     const who = orderer();
     notes.push('<div class="ordrecon warn">🧾 <b>상품·수량만</b> 읽었습니다 (' + got.rows.length + '줄) — 받는분 칸이 원문에 없습니다.'
