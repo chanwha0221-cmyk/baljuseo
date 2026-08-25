@@ -1371,24 +1371,28 @@ function runConvert(append){
   if(!S(raw)){ toast('붙여넣은 내용이 없습니다'); return; }
   if(!hasEngine()){ toast('변환 엔진을 못 불러왔습니다'); return; }
 
-  const r = window.CONVERT.convert(raw);
-  if(r.error){ logEl.innerHTML = '<div class="ordwarn">변환 중 오류 — ' + esc(r.error) + '</div>'; return; }
-  const got = rowsFromConverted(r.cols);
-  let simple = false, byHead = null;
-  if(!got.rows.length){
-    // ① 머리글이 있는 쇼핑몰 파일(식봄 발송관리 등) — 필요한 칸만 뽑는다
-    const hd = headerItems(raw);
-    if(hd.length){ got.rows = hd; byHead = hd.skipped || []; }
-    else{
-    // ② 상품·수량만 온 발주면 거기까지라도 채운다 (받는분은 아래 버튼으로) — simpleItems 주석 참고
-    const only = simpleItems(raw);
-    if(only.length){ got.rows = only; simple = true; }
-    else{
-      logEl.innerHTML = '<div class="ordwarn">읽어낸 발주가 없습니다.'
-        + (r.log ? '<br><span class="hint">변환기 메시지: ' + esc(r.log) + '</span>' : '')
-        + '<br><span class="hint">업체 양식이 처음 보는 형태일 수 있습니다 — 발주서 변환기에서 먼저 돌려보고, 거기서도 안 되면 알려주세요.</span></div>';
-      return;
-    }
+  /* ① 머리글이 있는 쇼핑몰 파일(식봄 발송관리 등)이면 **변환기보다 먼저** 이쪽으로 간다.
+     ⚠️ 순서가 중요하다 (2026-08-25 식봄 파일에서 확인): 40칸짜리 파일을 변환기에 넣으면
+        자기 9칸 양식으로 알고 상품코드를 받는분으로, 규격을 주소로 읽어 **그럴듯한 쓰레기**를 뱉는다.
+        빈 결과였으면 이쪽으로 넘어왔겠지만, 결과가 있으니 넘어오질 않았다.
+        머리글이 있으면 이름으로 찾는 쪽이 언제나 정확하다 → 그쪽을 먼저 본다. */
+  let r = null, got = null, simple = false, byHead = null;
+  const hd = headerItems(raw);
+  if(hd.length){ got = {rows: hd, bizes: []}; byHead = hd.skipped || []; }
+  else{
+    r = window.CONVERT.convert(raw);
+    if(r.error){ logEl.innerHTML = '<div class="ordwarn">변환 중 오류 — ' + esc(r.error) + '</div>'; return; }
+    got = rowsFromConverted(r.cols);
+    if(!got.rows.length){
+      // ② 상품·수량만 온 발주면 거기까지라도 채운다 (받는분은 아래 버튼으로) — simpleItems 주석 참고
+      const only = simpleItems(raw);
+      if(only.length){ got.rows = only; simple = true; }
+      else{
+        logEl.innerHTML = '<div class="ordwarn">읽어낸 발주가 없습니다.'
+          + (r.log ? '<br><span class="hint">변환기 메시지: ' + esc(r.log) + '</span>' : '')
+          + '<br><span class="hint">업체 양식이 처음 보는 형태일 수 있습니다 — 발주서 변환기에서 먼저 돌려보고, 거기서도 안 되면 알려주세요.</span></div>';
+        return;
+      }
     }
   }
 
@@ -1424,9 +1428,10 @@ function runConvert(append){
     if(!cur) notes.push('<div class="ordwarn">📌 원문에서 <b>' + esc(read) + '</b> 발주로 읽었습니다 — 위에서 <b>어느 업체 발주인지</b> 골라주세요.</div>');
     else if(!same) notes.push('<div class="ordwarn">⚠️ 원문은 <b>' + esc(read) + '</b> 발주인데, 위에 고른 업체는 <b>' + esc(cur) + '</b> 입니다. 맞는지 확인하세요.</div>');
   }
-  // 변환기의 원문 대조(누락 감지) 결과를 그대로 보여준다 — 이게 누락 사고를 잡는 자리다
-  if(r.recon && r.recon.html) notes.push('<div class="ordrecon ' + esc(r.recon.state || '') + '">' + r.recon.html + '</div>');
-  if(r.log) notes.push('<div class="hint">변환기: ' + esc(r.log) + '</div>');
+  // 변환기의 원문 대조(누락 감지) 결과를 그대로 보여준다 — 이게 누락 사고를 잡는 자리다.
+  // 머리글로 뽑은 경우엔 변환기를 아예 안 돌렸으므로 대조도 없다(r이 null).
+  if(r && r.recon && r.recon.html) notes.push('<div class="ordrecon ' + esc(r.recon.state || '') + '">' + r.recon.html + '</div>');
+  if(r && r.log) notes.push('<div class="hint">변환기: ' + esc(r.log) + '</div>');
   logEl.innerHTML = notes.join('');
 
   toast(got.rows.length + '줄 가져왔습니다');
