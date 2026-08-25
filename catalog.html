@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.22).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.23).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.22</title>
+<title>마스터 유통 카탈로그 v2.23</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1178,12 +1178,19 @@ function renderMoveBox(){
   items.forEach(it=>{
     if(!it.day||days.indexOf(it.day)<0)return;
     if(/품절/.test(it.kind))return;                       // 품절은 가격 얘기가 아니다 — 변동사항 페이지에서 따로 본다
+    if(!/인상|인하/.test(it.kind))return;                 // '이벤트[인하]'·'재입고 및 인상'도 여기 걸린다
     const k=pkey(it.name); if(seen[k])return;
-    if(/인상/.test(it.kind)){seen[k]=1;up.push(it);}
-    else if(/인하/.test(it.kind)){seen[k]=1;down.push(it);}   // '이벤트[인하]'도 여기 걸린다
+    // ⚠️ 어느 쪽인지는 **숫자가 먼저**다 (2026-08-25). 변동칸은 '인하'인데 금액은 올라간 줄이
+    //    실제로 있다(흑산도 전통 홍어 30,500>32,500). 바로 옆에 금액을 같이 보여주는 목록이라
+    //    글자와 숫자가 어긋나면 업체가 우리를 못 믿는다. 금액이 둘 다 있으면 금액대로 가른다.
+    const pp=parsePrice(it.price);
+    const byNum=(pp&&pp.old!=null&&pp.cur!=null&&pp.old!==pp.cur)?(pp.cur>pp.old?'up':'down'):'';
+    ((byNum||(/인상/.test(it.kind)?'up':'down'))==='up'?up:down).push(it);
+    seen[k]=1;
   });
   if(!up.length&&!down.length){box.innerHTML='';return;}
-  const shortDay=d=>String(d||'').replace(/^\d{4}[-.\/]/,'').replace(/[.\/]/g,'-');
+  // 적용날짜는 '2026. 08. 25' 형태로 들어온다 → 연도 떼고 '08-25'
+  const shortDay=d=>String(d||'').replace(/^\s*\d{4}\s*[-.\/]\s*/,'').replace(/\s*[-.\/]\s*/g,'-').trim();
   const row=it=>{
     const p=parsePrice(it.price)||{old:null,cur:null};
     const price=(p.cur==null)?'<span class="mvp">문의</span>'
