@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.21).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.22).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.21</title>
+<title>마스터 유통 카탈로그 v2.22</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -427,6 +427,30 @@ h1{letter-spacing:-.6px}
 @media(hover:hover){.gbtn:hover{filter:brightness(1.06)}.gbtn.ghost:hover{filter:none}}
 
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* 💹 최근 3일 인상·인하 (사장님 2026-08-25: "업체가 제일 무서워하는 게 인상·인하다 — 검색칸 밑에 깔자")
+   상품변동사항 페이지에 들어가야 보이던 걸 첫 화면으로 끌어올린 것. 데이터는 같은 CHG를 그대로 쓴다. */
+.mvbox{margin:11px 0 2px}
+.mvhd{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:7px}
+.mvhd small{font-weight:600;color:var(--muted);font-size:11.5px}
+.mvgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+@media(max-width:640px){.mvgrid{grid-template-columns:1fr}}
+.mvcol{background:var(--card);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.mvch{padding:7px 11px;font-size:12.5px;font-weight:800;color:#fff;display:flex;justify-content:space-between;align-items:center}
+.mvcol.up .mvch{background:var(--up)}
+.mvcol.down .mvch{background:var(--down)}
+.mvlist{max-height:212px;overflow-y:auto}
+.mvit{display:flex;align-items:center;gap:6px;padding:6px 10px;border-top:1px solid var(--line2)}
+.mvit:first-child{border-top:none}
+.mvn{flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--ink);cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:none;border:none;padding:0;text-align:left;font-family:inherit}
+@media(hover:hover){.mvn:hover{text-decoration:underline}}
+.mvp{white-space:nowrap;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.mvcol.up .mvp{color:var(--up)}
+.mvcol.down .mvp{color:var(--down)}
+.mvp s{color:var(--muted);font-weight:600;margin-right:3px}
+.mvd{white-space:nowrap;font-size:10.5px;color:var(--muted)}
+.mvempty{padding:12px 10px;font-size:12px;color:var(--muted);text-align:center}
 </style></head><body>
 <div class="wrap">
 <header><div class="brand"><div class="logomark"><img src="media/logo.png" alt="주식회사 마스터" onerror="this.closest('.logomark').classList.add('nofile');this.remove()"><span>Master</span></div><div><div class="eyebrow">수산물 전문 도매 · 당일 출고</div><h1>마스터 유통 카탈로그<span class="ver" id="ver"></span></h1><div class="sub" id="sub">상품을 불러오는 중…</div></div>
@@ -463,6 +487,7 @@ h1{letter-spacing:-.6px}
 <button class="sclr" id="qclr" type="button" aria-label="검색어 지우기">✕</button>
 </div>
 <div class="clicktip">👆 <b>상품명을 클릭</b>하시면 상품 상세 및 사진을 확인하실 수 있습니다!</div>
+<div class="mvbox" id="mvbox"></div>
 <button class="allbtn" id="allbtn">🏠 전체 상품 보기</button>
 <div class="lbl">창고 선택</div><div class="row" id="whrow"></div>
 <div class="lbl" id="catlbl">카테고리 선택</div><div class="row" id="catrow"></div>
@@ -974,6 +999,13 @@ document.addEventListener('click',e=>{
     window.scrollTo({top:0,behavior:'smooth'});return;}
   const lc=e.target.closest('.lcchip');
   if(lc){const c=lc.getAttribute('data-c');st.cat=(st.cat===c)?'전체':c;render();return;}
+  // 💹 인상·인하 목록에서 상품명을 누르면 그 상품을 바로 검색해 카드를 보여준다 (사장님 2026-08-25)
+  const mv=e.target.closest('.mvn');
+  if(mv){const nm=mv.getAttribute('data-mv')||'';
+    st.wh='전체';st.mode='group';st.cat='전체';st.q=nm;$('q').value=nm;buildWhChips();render();
+    if(location.hash)location.hash='';
+    const v=$('view');if(v)v.scrollIntoView({behavior:'smooth',block:'start'});
+    return;}
   const b=e.target.closest('.cpbtn');if(!b)return;
   navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast(b.getAttribute('data-cpmsg')||'상품명 복사됨'));
 });
@@ -1037,7 +1069,7 @@ async function startCatalog(){
                                  loadChanges().catch(()=>null),loadNotices().catch(()=>null),loadLinks().catch(()=>({})),
                                  loadHap().catch(()=>({})),loadRecs().catch(()=>null)]);
       media=r[0];cats=r[1];sales=r[2];
-      if(r[3]){CHG=r[3];buildTint();}   // 살구색 표시를 카탈로그 카드에도 입히려면 시작할 때 읽어야 한다
+      if(r[3]){CHG=r[3];buildTint();renderMoveBox();}   // 살구색 표시를 카탈로그 카드에도 입히려면 시작할 때 읽어야 한다
       if(r[4]){NOTI=r[4];renderNoticeBox();}
       if(r[5]&&Object.keys(r[5]).length)LINKS=r[5];
       if(r[6]&&r[6].map&&Object.keys(r[6].map).length){HAP=r[6].map;HAPROWS=r[6].rows||[];}   // 📦 합포장 — 같은 Promise.all이라 로딩이 느려지지 않는다
@@ -1131,6 +1163,39 @@ function buildTint(){
     if(/인상/.test(it.kind))KIND[k]={up:1,day:it.day};
     else if(/인하/.test(it.kind))KIND[k]={up:0,day:it.day};
   });
+}
+// 💹 최근 3일 인상·인하 목록 (사장님 2026-08-25: "업체가 제일 무서워하는 게 인상·인하다")
+//   원래 📊상품변동사항 페이지까지 들어가야 보이던 걸 첫 화면 검색칸 밑으로 끌어올린 것.
+//   데이터는 이미 받아둔 CHG 그대로라 요청이 늘지 않는다. 기간은 변동사항 페이지와 같은
+//   '최근 3개 적용날짜'(CHG_DAYS) — 날짜 수가 아니라 실제로 변동이 있었던 날 3개다.
+//   같은 상품이 사흘 안에 여러 번 움직였으면 최신 것만 (CHG.items가 최신순).
+function renderMoveBox(){
+  const box=$('mvbox'); if(!box)return;
+  const items=(CHG&&CHG.items)||[];
+  const days=[];
+  items.forEach(it=>{ if(it.day&&days.length<CHG_DAYS&&days.indexOf(it.day)<0)days.push(it.day); });
+  const up=[],down=[],seen={};
+  items.forEach(it=>{
+    if(!it.day||days.indexOf(it.day)<0)return;
+    if(/품절/.test(it.kind))return;                       // 품절은 가격 얘기가 아니다 — 변동사항 페이지에서 따로 본다
+    const k=pkey(it.name); if(seen[k])return;
+    if(/인상/.test(it.kind)){seen[k]=1;up.push(it);}
+    else if(/인하/.test(it.kind)){seen[k]=1;down.push(it);}   // '이벤트[인하]'도 여기 걸린다
+  });
+  if(!up.length&&!down.length){box.innerHTML='';return;}
+  const shortDay=d=>String(d||'').replace(/^\d{4}[-.\/]/,'').replace(/[.\/]/g,'-');
+  const row=it=>{
+    const p=parsePrice(it.price)||{old:null,cur:null};
+    const price=(p.cur==null)?'<span class="mvp">문의</span>'
+      :('<span class="mvp">'+((p.old!=null&&p.old!==p.cur)?'<s>'+won(p.old)+'</s>':'')+won(p.cur)+'원</span>');
+    return '<div class="mvit"><button class="mvn" data-mv="'+esc(it.name)+'" title="이 상품 검색">'+esc(it.name)+'</button>'
+      +price+'<span class="mvd">'+esc(shortDay(it.day))+'</span>'
+      +'<button class="cpbtn" data-cp="'+esc(it.name)+'" title="상품명 복사">📋</button></div>';
+  };
+  const col=(cls,label,list)=>'<div class="mvcol '+cls+'"><div class="mvch"><span>'+label+'</span><span>'+list.length+'건</span></div>'
+    +(list.length?'<div class="mvlist">'+list.map(row).join('')+'</div>':'<div class="mvempty">해당 없음</div>')+'</div>';
+  box.innerHTML='<div class="mvhd">💹 최근 가격 변동 <small>'+esc(days.map(shortDay).join(' · '))+' 적용 · 상품명을 누르면 바로 검색됩니다</small></div>'
+    +'<div class="mvgrid">'+col('up','▲ 인상 상품',up)+col('down','▼ 인하 상품',down)+'</div>';
 }
 // 공지는 메뉴 바로 밑에 펼쳐 보여준다 — 최근 3건까지 (중요 공지가 위)
 /* 📢 공지는 1건만 펼치고 나머지는 접는다 (사장님 2026-08-19:
