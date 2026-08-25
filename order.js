@@ -414,13 +414,17 @@ function meCard(){
   // 출고지(주문처 주소)는 안 쓰는 업체가 있다 → 연락처만 필수 (사장님 2026-08-20)
   const need = EDIT || !S(me.phone);
   if(need){
+    /* 문구는 사장님이 준 그대로 쓴다 (2026-08-25) — 바꿔 쓰지 말 것.
+       업체가 이 칸을 그냥 지나쳐서 주문처 주소·연락처가 둘 다 빈 발주가 계속 들어왔다. */
     return '<div class="ordbox" id="ordme">'
       + '<h3>📇 업체 정보를 한 번만 넣어주세요</h3>'
-      + '<div class="hint">발주서의 <b>주문처 연락처·출고지</b>로 들어갑니다. 한 번 넣으시면 다음 발주부터는 자동으로 채워지고, 언제든 수정하실 수 있습니다.<br><b>출고지를 안 쓰시는 업체는 비워두셔도 발주 가능합니다.</b></div>'
+      + '<div class="hint">발주서의 <b>주문처 연락처·출고지</b>로 들어갑니다.<br>'
+      +   '<b>저장해 놓으시면 계속 해당 정보로 입력 됩니다.(수정 가능)</b></div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
       + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">업체명</span><input class="ordin" value="' + esc(me.name || '') + '" disabled></div>'
-      + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">연락처</span><input class="ordin" id="ord_ph" value="' + esc(me.phone || '') + '" placeholder="02-000-0000 / 010-0000-0000"></div>'
-      + '<div style="grid-column:1/-1"><span class="k" style="font-size:11.5px;color:var(--muted)">출고지 주소 <b style="color:var(--accent-d)">(선택 — 안 쓰시면 비워두세요)</b></span><input class="ordin" id="ord_ad" value="' + esc(me.addr || '') + '" placeholder="안 쓰시는 업체는 비워두셔도 발주 가능합니다"></div>'
+      + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 연락처 <b style="color:var(--up)">*필수</b></span><input class="ordin" id="ord_ph" value="' + esc(me.phone || '') + '" placeholder="02-000-0000 / 010-0000-0000"></div>'
+      + '<div style="grid-column:1/-1"><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 주소 <b style="color:var(--accent-d)">(선택)</b></span><input class="ordin" id="ord_ad" value="' + esc(me.addr || '') + '" placeholder="주소는 생략 가능합니다">'
+      +   '<div class="hint" style="margin-top:5px">주소는 생략 가능합니다. 송장에 주소를 노출하지 않으시려면 빈칸으로 두세요.</div></div>'
       + '</div>'
       + '<div class="ordbar" style="margin-bottom:0"><button class="ordb2 pri" id="ord_save">💾 저장</button>'
       + (EDIT ? '<button class="ordb2" id="ord_cancel">취소</button>' : '')
@@ -643,6 +647,11 @@ function paintOut(ok, bad){
   // 대신 발주는 업체를 고르기 전엔 버튼을 잠근다 — 안 고르면 마스터 이름으로 발주가 나간다.
   const oldApp = master && CLIENTS === false;      // 웹앱이 옛 버전 — 넣으면 마스터 이름으로 박힌다
   const noFor = master && (oldApp || !(FOR && S(FOR.name)));
+  /* 🔴 주문처 연락처가 없으면 발주 버튼을 잠근다 (사장님 2026-08-25).
+     "자꾸 둘 다 빈칸으로 발주 들어온다" — 안내만 띄우고 통과시키니 그냥 지나쳐 버렸다.
+     빈 채로 나가면 송장에 주문처 연락처가 없어 배송사고가 우리 쪽으로 온다.
+     주소는 선택이다(송장에 주소를 노출하기 싫어 일부러 비우는 업체가 있다). */
+  const noPhone = !master && !S(ME && ME.phone);
   h += '<div class="ordbar" style="margin-top:12px">'
     + (!hasApi()
         /* 🔴 여기 걸리는 건 대개 **로그인 토큰이 없어서**다(웹앱 전환 전에 로그인해 둔 세션).
@@ -654,6 +663,10 @@ function paintOut(ok, bad){
         : (noFor
             ? '<button class="ordb2 pri" disabled>📤 발주 넣고 당일 시트로 보내기</button><span class="hint" style="align-self:center">'
               + (oldApp ? '발주 웹앱을 최신 코드로 올린 뒤에 쓸 수 있습니다.' : '위에서 <b>어느 업체 발주인지</b> 먼저 골라주세요.') + '</span>'
+          : noPhone
+            ? '<button class="ordb2 pri" disabled>🧾 발주 넣기</button>'
+              + '<button class="ordb2" id="ord_gotome">📇 주문처 정보 넣기</button>'
+              + '<span class="hint" style="align-self:center"><b style="color:var(--up)">주문처 연락처가 비어 있어 발주가 잠겼습니다.</b> 위 <b>📇 업체 정보</b> 칸에 연락처를 넣고 저장해 주세요.</span>'
             : '<button class="ordb2 pri" id="ord_submit">' + (master ? '📤 발주 넣고 당일 시트로 바로 보내기' : '🧾 이대로 발주 넣기') + '</button>'
               + '<span class="hint" id="ord_smsg" style="align-self:center">' + (master ? '넣는 즉시 당일 시트 맨 아래에 붙습니다.' : '') + '</span>'))
     + '</div>';
@@ -661,6 +674,15 @@ function paintOut(ok, bad){
   box.__out = o;
   const sb = document.getElementById('ord_submit');
   if(sb) sb.onclick = submit;
+  // 📇 잠긴 화면에서 바로 정보 칸으로 데려간다 — "어디에 넣으라는 거냐"를 없앤다
+  const gm = document.getElementById('ord_gotome');
+  if(gm) gm.onclick = () => {
+    EDIT = true; paint();
+    const el = document.getElementById('ordme');
+    if(el) window.scrollTo({top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 80), behavior:'smooth'});
+    const ph = document.getElementById('ord_ph');
+    if(ph) setTimeout(() => ph.focus(), 300);
+  };
   // 토큰이 없어 잠긴 경우 — 발주 내용은 남겨둔 채 로그인 화면만 띄운다(임시저장돼 있어 안 날아간다)
   const rl = document.getElementById('ord_relogin');
   if(rl) rl.onclick = () => { try{ localStorage.removeItem(NS + 'catalog_auth_v1'); }catch(e){} location.reload(); };
@@ -685,6 +707,15 @@ async function submit(){
   if(!items.length) return;
   const master = amMaster();
   if(master && !(FOR && S(FOR.name))){ if(msg) msg.textContent = '어느 업체 발주인지 먼저 골라주세요.'; return; }
+  /* 업체 본인 발주도 주문처 연락처는 필수다 (사장님 2026-08-25) — 웹앱도 같은 검사를 한다.
+     여기까지 온 건 버튼 잠금을 빠져나온 경우(저장 직후 등)라 한 번 더 붙잡는다. */
+  if(!master && !S(ME && ME.phone)){
+    if(msg) msg.textContent = '주문처 연락처를 먼저 넣어주세요. (주소는 비워두셔도 됩니다)';
+    EDIT = true; paint();
+    const ph = document.getElementById('ord_ph');
+    if(ph) ph.focus();
+    return;
+  }
   /* 대행 발주는 **연락처 필수 · 주소 선택** (홍팀장 2026-08-21).
      비워두면 마스터 계정 번호가 주문처 연락처로 박혀 나간다 — 웹앱도 같은 검사를 한다. */
   if(master && !S(FOR.phone)){
