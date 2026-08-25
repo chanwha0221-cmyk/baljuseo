@@ -213,10 +213,15 @@ function checkRow(r){
 // ── 우리 양식으로 변환 ───────────────────────────────────────────
 /* 주소·성함·연락처·송장업체명·창고가 모두 같으면 한 줄로 합친다(합포장).
    9칸과 10칸은 컬럼 수가 달라 섞어서 붙여넣으면 시트가 밀린다 → 블록을 나눠서 낸다. */
+/* 지금 이 발주의 '주문처' — 마스터면 고른 업체, 업체면 자기 계정.
+   발주서에 박히는 주문처이자 [받는분 = 주문 업체와 동일] 버튼이 퍼 오는 곳이다. */
+function orderer(){
+  return amMaster() ? (FOR || {name:'', addr:'', phone:''})
+                    : ((typeof ME !== 'undefined' && ME) ? ME : {name:'', addr:'', phone:''});
+}
 function buildOut(){
   // 대신 발주(마스터)면 발주서에 박히는 주문처는 **고른 업체**다 — 마스터 계정이 아니라.
-  const me = amMaster() ? (FOR || {name:'', addr:'', phone:''})
-                        : ((typeof ME !== 'undefined' && ME) ? ME : {name:'', addr:'', phone:''});
+  const me = orderer();
   const groups = new Map();
   const notes = [];
   ROWS.forEach((r, i) => {
@@ -583,6 +588,12 @@ function view(){
     +     '<textarea class="ordpaste" id="ord_pt" placeholder="엑셀에서 표를 복사해 여기에 붙여넣으세요 (Ctrl+V)&#10;업체명 / 상품명 / 수량 / 받는분 성함 / 받는분 주소 / 받는분 연락처 / 배송메시지"></textarea>'
     +     '<div class="ordbar"><button class="ordb2 pri" id="ord_ptok">가져오기</button><button class="ordb2" id="ord_ptno">취소</button></div>'
     +   '</div>'
+    /* 👤 받는분 = 주문 업체 (홍팀장 2026-08-25)
+       반찬가게처럼 **사장님이 자기 가게로 받는** 발주가 흔하다. 그런 발주는 카톡에 상품·수량만 오고
+       받는분 칸이 통째로 비어 온다 → 매번 손으로 옮겨 적던 것을 한 번에 채운다.
+       ⚠️ 비어 있는 칸만 채운다 — 이미 적힌 받는분을 덮어쓰면 남의 주소로 나갈 수 있다. */
+    +   '<div class="ordbar" style="margin:0 0 8px"><button class="ordb2" id="ord_self">👤 받는분 = 주문 업체와 동일</button>'
+    +     '<span class="hint" id="ord_selfmsg" style="align-self:center">사장님이 자기 가게로 받는 발주면 눌러서 한 번에 채우세요 (빈 칸만)</span></div>'
     +   '<div class="ordtblwrap"><table class="ordtbl"><thead><tr><th></th>'
     +     HEADS.map((h, i) => '<th' + (i === 2 ? ' style="width:70px"' : (i === 0 ? ' style="color:var(--accent-d);min-width:120px"' : '')) + '>' + h + (i === 0 ? '<span style="display:block;font-weight:700;color:var(--accent-d)">송장에 다른 이름<br>나갈 때만</span>' : '') + '</th>').join('')
     +     '<th style="width:34px"></th></tr></thead><tbody id="ordbody"></tbody></table></div>'
@@ -1253,6 +1264,35 @@ function rowsFromConverted(cols){
   return { rows: out, bizes: bizes };
 }
 
+/* 🧾 상품·수량만 온 발주 (홍팀장 2026-08-25)
+   반찬가게처럼 **사장님이 자기 가게로 받는** 발주는 카톡에 이것만 온다:
+       1. 통통돌문어 17,000*3
+       2. 천대왕박대5미 7,500*5
+   변환기는 받는분·주소가 없으면 0행을 낸다(그게 맞다 — 남의 발주는 주소가 생명이다).
+   하지만 여기선 **누구한테 가는지 이미 위에서 골랐다.** 그러니 상품·수량까지는 채워주고
+   받는분은 [👤 받는분 = 주문 업체와 동일] 로 한 번에 넣게 한다.
+   🔴 변환기가 한 줄이라도 읽어냈으면 이 파서는 절대 돌지 않는다 — 진짜 발주를 덮으면 안 된다.
+   🔴 상품명은 여기서도 추측하지 않는다. 표에 그대로 넣고, 안 맞으면 늘 하던 대로 빨갛게 뜬다. */
+function simpleItems(raw){
+  const out = [];
+  S(raw).split(/\r?\n/).forEach(line => {
+    let t = S(line);
+    if(!t) return;
+    if(/\d{2,3}-\d{3,4}-\d{4}/.test(t)) return;              // 연락처가 있으면 진짜 발주문이다 — 손대지 않는다
+    if(/(시|도)\s|[가-힣]+(로|길)\s*\d/.test(t)) return;       // 주소 같은 줄도 제외
+    t = t.replace(/^\s*(?:\d{1,2}\s*[.)]|[-•*·>]|▶|▪)\s*/, '');   // 앞머리 번호·불릿 제거
+    // 끝에 붙은 수량: '*3' 'x3' 'X 3' '×3' '3개' '3ea'
+    const m = t.match(/^(.*?)[\s]*(?:[*xX×]\s*(\d{1,3})|(\d{1,3})\s*(?:개|ea|EA|팩|박스|봉))\s*$/);
+    if(!m) return;
+    const qty = m[2] || m[3];
+    let name = S(m[1]).replace(/[\s,·\-–]*[\d,]{3,}\s*원?\s*$/, '');   // 뒤에 남은 단가(17,000 / 17,000원) 제거
+    name = S(name).replace(/[\s:,\-–]+$/, '');
+    if(name.length < 2 || /^[\d,\s원]+$/.test(name)) return;
+    out.push({ biz:'', name:name, qty:qty, rcv:'', addr:'', tel:'', msg:'' });
+  });
+  return out;
+}
+
 /* 📂 파일 → 원문 칸에 펼치고 바로 변환.
    🔴 파일 내용을 화면에 보여준 뒤 변환한다 — 뭐가 들어갔는지 안 보이면 틀려도 모른다. */
 async function convertFile(file){
@@ -1281,11 +1321,17 @@ function runConvert(append){
   const r = window.CONVERT.convert(raw);
   if(r.error){ logEl.innerHTML = '<div class="ordwarn">변환 중 오류 — ' + esc(r.error) + '</div>'; return; }
   const got = rowsFromConverted(r.cols);
+  let simple = false;
   if(!got.rows.length){
-    logEl.innerHTML = '<div class="ordwarn">읽어낸 발주가 없습니다.'
-      + (r.log ? '<br><span class="hint">변환기 메시지: ' + esc(r.log) + '</span>' : '')
-      + '<br><span class="hint">업체 양식이 처음 보는 형태일 수 있습니다 — 발주서 변환기에서 먼저 돌려보고, 거기서도 안 되면 알려주세요.</span></div>';
-    return;
+    // 상품·수량만 온 발주면 거기까지라도 채운다 (받는분은 아래 버튼으로) — simpleItems 주석 참고
+    const only = simpleItems(raw);
+    if(only.length){ got.rows = only; simple = true; }
+    else{
+      logEl.innerHTML = '<div class="ordwarn">읽어낸 발주가 없습니다.'
+        + (r.log ? '<br><span class="hint">변환기 메시지: ' + esc(r.log) + '</span>' : '')
+        + '<br><span class="hint">업체 양식이 처음 보는 형태일 수 있습니다 — 발주서 변환기에서 먼저 돌려보고, 거기서도 안 되면 알려주세요.</span></div>';
+      return;
+    }
   }
 
   // 기존 줄 중 빈 줄은 버리고 채운다(처음 화면의 빈 3줄이 그대로 남지 않게)
@@ -1296,6 +1342,13 @@ function runConvert(append){
   /* 🔴 어느 업체 발주인지 확인시킨다 — 조용히 FOR 를 덮어쓰지 않는다.
      정산업체명이 잘못 박히면 그대로 시트로 나가고, 그건 되돌리기 어렵다. */
   const notes = [];
+  if(simple){
+    const who = orderer();
+    notes.push('<div class="ordrecon warn">🧾 <b>상품·수량만</b> 읽었습니다 (' + got.rows.length + '줄) — 받는분 칸이 원문에 없습니다.'
+      + '<br>사장님이 <b>자기 가게로 받는 발주</b>면 표 위 <b>[👤 받는분 = 주문 업체와 동일]</b> 을 누르세요'
+      + (S(who.name) ? ' — <b>' + esc(who.name) + '</b> 정보로 채워집니다.' : ' (업체를 먼저 골라주세요).')
+      + '<br><span class="hint">다른 곳으로 보내는 발주면 받는분 성함·주소·연락처를 직접 넣어주세요.</span></div>');
+  }
   if(got.bizes.length > 1){
     notes.push('<div class="ordwarn">⚠️ 원문에 업체가 <b>' + got.bizes.length + '곳</b> 섞여 있습니다 — <b>' + esc(got.bizes.join(', ')) + '</b>'
       + '<br>대신 발주는 <b>한 업체씩</b> 넣어야 정산업체명이 정확합니다. 업체별로 나눠서 다시 넣어주세요.</div>');
@@ -1611,6 +1664,31 @@ function bind(){
     }catch(e){ alert(e.message || '파일을 읽지 못했습니다.'); }
     finally{ if(btn){ btn.disabled = false; btn.textContent = '📂 파일 넣기'; } }
   };
+  // 👤 받는분 = 주문 업체와 동일 (홍팀장 2026-08-25)
+  on('ord_self', () => {
+    const msg = $$('ord_selfmsg');
+    const who = orderer();
+    if(!S(who.name)){ msg.innerHTML = '<b style="color:var(--up)">어느 업체 발주인지 먼저 골라주세요.</b>'; return; }
+    let n = 0;
+    ROWS.forEach(r => {
+      if(!S(r.name)) return;                                   // 상품명 없는 빈 줄은 건드리지 않는다
+      let hit = false;
+      if(!S(r.rcv) && S(who.name)){ r.rcv = S(who.name); hit = true; }
+      if(!S(r.tel) && S(who.phone)){ r.tel = S(who.phone); hit = true; }
+      if(!S(r.addr) && S(who.addr)){ r.addr = S(who.addr); hit = true; }
+      if(hit) n++;
+    });
+    saveDraft(); paint();
+    /* 연락처·출고지가 계정에 없으면 이름만 채워지고 끝난다 — 그럼 왜 여전히 빨간지 알려줘야 한다.
+       (계정 77곳 중 65곳이 연락처가 비어 있다 — 위 [💾 계정 시트에 저장]으로 채우면 다음부터 자동) */
+    const lack = [];
+    if(!S(who.phone)) lack.push('연락처');
+    if(!S(who.addr))  lack.push('출고지 주소');
+    const m = $$('ord_selfmsg');
+    if(m) m.innerHTML = (n ? '✅ <b>' + n + '줄</b> 채웠습니다' : '채울 빈 칸이 없습니다')
+      + (lack.length ? ' · <b style="color:var(--up)">' + esc(who.name) + ' 의 ' + lack.join('·') + '이(가) 계정에 없습니다</b> — 위 칸에 넣고 [💾 계정 시트에 저장] 하면 다음부터 자동으로 채워집니다' : '');
+    if(n) toast(who.name + ' 정보로 ' + n + '줄 채웠습니다');
+  });
   on('ord_paste', () => { const b = $$('ord_pastebox'); b.style.display = (b.style.display === 'none' ? '' : 'none'); if(b.style.display === '') $$('ord_pt').focus(); });
   // 🔄 업체 양식 그대로 넣기 (마스터)
   on('ord_conv', () => { const b = $$('ord_convbox'); b.style.display = (b.style.display === 'none' ? '' : 'none'); if(b.style.display === '') $$('ord_cv').focus(); });
