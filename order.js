@@ -783,6 +783,15 @@ async function submit(){
     ROWS = [blank(), blank(), blank()];
     OPEN = -1;
     saveDraft();
+    /* 🔴 발주가 나갔으면 '어느 업체' 칸은 비운다 (홍팀장 2026-08-26)
+       마지막에 고른 업체가 화면에 남아 있으면, 다음 발주 때 그 업체 것으로 착각하고
+       그대로 넣어버릴 수 있다. 정산업체명이 잘못 박히면 되돌리기 어렵다.
+       ⚠️ localStorage 까지 지운다 — 안 지우면 다음 진입의 loadFor() 가 되살린다. */
+    if(master){
+      FOR = null; saveFor();
+      const fb = document.getElementById('ordfor');
+      if(fb){ fb.outerHTML = forCard(); bindFor(); }
+    }
     paint();
     if(master){
       const p = j.push || {};
