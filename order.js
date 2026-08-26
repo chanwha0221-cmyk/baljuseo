@@ -469,11 +469,14 @@ function forCard(){
     /* 🔎 업체가 200곳이 넘어가면 드롭다운으로는 못 고른다(홍팀장 2026-08-21) → 쳐서 찾는다.
        ⚠️ input에 name을 넣지 않는다 — 크롬이 폼 필드로 보고 저장된 아이디를 꽂아버린다(2026-08-19 검색칸 사고). */
     + '<div style="margin-top:10px;position:relative">'
-    +   (CLIENTS
-          ? '<input class="ordin" id="for_q" autocomplete="off" placeholder="업체명 또는 아이디를 치세요 (예: 청년수산 / mausel)" value="">'
-            + '<div id="for_list" class="forlist"></div>'
-            + '<div class="hint" style="margin-top:6px">등록된 업체 ' + CLIENTS.length + '곳</div>'
-          : '<div class="hint">업체 목록을 불러오는 중입니다…</div>')
+    /* ⏳ 목록이 아직 안 왔어도 **입력칸은 먼저 그린다** (홍팀장 2026-08-26: "로딩 걸리면서 좀 늦게 뜨거든").
+       예전엔 목록이 도착해야 칸이 생겨서 그때까지 아무것도 칠 수 없었다. 지금은 먼저 쳐 두면
+       목록이 도착하는 순간 그 글자로 후보가 뜬다(친 글자·커서는 view() 쪽에서 그대로 살린다). */
+    +   '<input class="ordin" id="for_q" autocomplete="off" placeholder="업체명 또는 아이디를 치세요 (예: 청년수산 / mausel)" value="">'
+    +   '<div id="for_list" class="forlist"></div>'
+    +   '<div class="hint" style="margin-top:6px">'
+    +     (CLIENTS ? '등록된 업체 ' + CLIENTS.length + '곳' : '⏳ 업체 목록 불러오는 중 — 먼저 치고 계셔도 됩니다')
+    +   '</div>'
     + '</div>'
     + '<div class="ordbar" style="margin:8px 0 0"><button class="ordb2" id="for_manual">' + (manual ? '↩ 목록에서 고르기' : '✍️ 계정 없는 업체 직접 넣기') + '</button></div>'
     + (manual
@@ -534,7 +537,20 @@ function view(){
       CLIENTS = j.rows || [];
     }).catch(() => { CLIENTS = false; }).then(() => {
       const box = document.getElementById('ordfor');
-      if(box){ box.outerHTML = forCard(); bindFor(); }
+      if(box){
+        /* 🔴 목록이 도착했다고 치던 글자를 날리지 않는다 — 먼저 칠 수 있게 해놓고 지우면 더 나쁘다.
+           카드를 다시 그린 뒤 값·커서를 되돌리고, 그 글자로 후보를 바로 띄운다. */
+        const q0 = document.getElementById('for_q');
+        const kept = q0 ? q0.value : '';
+        const focused = !!(q0 && document.activeElement === q0);
+        box.outerHTML = forCard(); bindFor();
+        const q1 = document.getElementById('for_q');
+        if(q1 && kept){
+          q1.value = kept;
+          if(focused){ q1.focus(); try{ q1.setSelectionRange(kept.length, kept.length); }catch(e){} }
+          if(q1.oninput) q1.oninput();
+        }
+      }
       paint();
     });
   }
@@ -1604,6 +1620,14 @@ function bindFor(){
          "등록된 업체인지 아닌지" 확인이 안 된다(홍팀장 2026-08-21). */
       const kw = pkey(q.value);
       if(!kw){ list.innerHTML = ''; list.style.display = 'none'; hits = []; return; }
+      /* 목록이 아직 안 왔을 때 "등록된 업체가 없습니다"를 띄우면 안 된다 — 있는 업체를 없다고 하는 셈이다. */
+      if(!CLIENTS){
+        hits = [];
+        list.innerHTML = '<div class="foritem none"><b>⏳ 업체 목록을 불러오는 중입니다…</b>'
+          + '<span>도착하면 치신 글자로 후보가 바로 뜹니다</span></div>';
+        list.style.display = '';
+        return;
+      }
       hits = (CLIENTS || []).filter(c => pkey(c.name).indexOf(kw) >= 0 || pkey(c.id).indexOf(kw) >= 0).slice(0, 12);
       list.innerHTML = hits.length
         ? hits.map((c, i) => '<div class="foritem" data-fi="' + i + '">'
