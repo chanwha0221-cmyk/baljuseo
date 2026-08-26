@@ -1207,11 +1207,39 @@ function popShow(groups, total){
   document.body.appendChild(d);
 }
 let PBUSY = false;
+/* 🔔 1분마다 도는 자리라 **여기가 제일 가벼워야 한다** (홍팀장 2026-08-26: "속도가 너무 느리다").
+   예전엔 이 자리에서 `list` 를 불러 발주 표 전체를 받아왔다 — 화면이 쓰는 건 건수뿐인데.
+   지금은 요약만 주는 `poll` 을 쓰고, 웹앱이 옛 버전이라 `poll` 을 모르면 한 번만 옛 방식으로 내려간다. */
+let POLL_LIGHT = true;
 async function pollOrders(){
   if(PBUSY || document.hidden) return;
   if(!hasApi() || !amMaster()) return;
   PBUSY = true;
   try{
+    if(POLL_LIGHT){
+      let p = null;
+      try{ p = await api('poll', {token: ME.token}); }
+      catch(e){ POLL_LIGHT = false; }        // 옛 웹앱 — 아래 옛 경로로 계속
+      if(p){
+        if(p.masters && p.masters.length){ ACKON = true; MASTERS = p.masters; MEID = lower(p.meId || (ME && ME.id)); }
+        const list = p.nos || [];
+        badgeOrders(list.length);
+        if(!list.length){ NOTIFIED = new Set(); return; }
+        const fresh = list.filter(x => !NOTIFIED.has(x.no));
+        if(!fresh.length) return;
+        fresh.forEach(x => NOTIFIED.add(x.no));
+        const freshCnt = fresh.reduce((a, x) => a + (x.cnt || 0), 0);
+        if(location.hash.replace(/^#/, '') === 'orders' && !EDIT_NO){
+          toast('🔔 새 발주 ' + freshCnt + '건 — 목록을 새로 불러왔습니다');
+          reloadOrders();
+          return;
+        }
+        const agg2 = new Map();
+        list.forEach(x => { const nm = S(x.cname) || '이름없음'; agg2.set(nm, (agg2.get(nm) || 0) + (x.cnt || 0)); });
+        popShow(Array.from(agg2, x => ({name: x[0], cnt: x[1]})), p.total || 0);
+        return;
+      }
+    }
     const j = await api('list', {token: ME.token});
     const rows = j.rows || [];
     takeAcks(j);
