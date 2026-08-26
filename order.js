@@ -902,7 +902,8 @@ function ordersPaint(){
   if(OPAGE > pages) OPAGE = pages;
   const page = nos.slice((OPAGE - 1) * PAGE, OPAGE * PAGE);
 
-  let h = '<div class="ordsum">발주 <b>' + nos.length + '</b>묶음 · <b>' + hit.length + '</b>건'
+  let h = dupBanner(master)
+    + '<div class="ordsum">발주 <b>' + nos.length + '</b>묶음 · <b>' + hit.length + '</b>건'
     + (OQ || OST ? ' <button class="ordb2" id="oclr" style="padding:2px 9px;font-size:11px">검색 지우기</button>' : '') + '</div>';
   if(!nos.length){ box.innerHTML = h + '<div class="empty">' + (LIST.length ? '찾는 발주가 없습니다.' : '아직 발주 내역이 없습니다.') + '</div>'; bindPager(); return; }
   page.forEach(no => { h += orderCard(no, byNo.get(no), master); });
@@ -917,6 +918,53 @@ function ordersPaint(){
   box.innerHTML = h;
   bindPager();
 }
+/* 🔁 중복 발주 찾기 (홍팀장 2026-08-26: "업체에서도 안 되니까 여러 번 눌러서 중복발주가 들어간 것 같다")
+   앞으로는 서버가 같은 발주를 막지만, **이미 들어와 버린 것**은 사람이 지워야 한다.
+   그걸 눈으로 찾게 두지 않는다 — 화면이 짚어준다.
+   🔴 판정은 **서로 다른 발주번호에 같은 내용(업체·상품·받는분·주소·연락처)이 있을 때만**.
+      한 발주번호 안의 같은 상품 두 줄은 수량을 나눠 적은 정상 발주일 수 있어서 세지 않는다.
+   🔴 자동으로 지우지 않는다. 어느 것을 남길지는 홍팀장이 정한다(§3-3과 같은 뿌리 — 조용히 틀리는 게 제일 나쁘다). */
+function dupKeyOf(r){
+  return pkey([S(r.cid), S(r.prod), S(r.rcv), S(r.addr)].join('|')) + '|' + S(r.tel).replace(/[^0-9]/g, '');
+}
+function dupGroups(list){
+  const m = new Map();
+  (list || []).forEach(r => {
+    if(S(r.state) === '취소') return;                 // 이미 취소한 건 중복이 아니다
+    if(!S(r.prod) || !S(r.rcv)) return;
+    const k = dupKeyOf(r);
+    if(!m.has(k)) m.set(k, []);
+    m.get(k).push(r);
+  });
+  const out = [];
+  m.forEach(rows => {
+    const nos = new Set(rows.map(r => S(r.no)));
+    if(nos.size > 1) out.push(rows);
+  });
+  out.sort((a, b) => S(b[0].at).localeCompare(S(a[0].at)));
+  return out;
+}
+function dupBanner(master){
+  const gs = dupGroups(LIST);
+  if(!gs.length) return '';
+  const show = gs.slice(0, 8);
+  return '<div class="ordbox" style="border-color:#e8b4b4;background:#fff7f7">'
+    + '<h3 style="color:#c0392b">🔁 같은 발주가 두 번 들어온 것으로 보입니다 — ' + gs.length + '건</h3>'
+    + '<div class="hint">발주번호가 다른데 <b>업체·상품·받는분·주소·연락처가 모두 같습니다.</b> '
+    + '눌러서 확인하시고, 잘못 들어온 쪽을 <b>취소</b>해 주세요. (수량을 나눠 넣으신 것이면 그대로 두시면 됩니다)</div>'
+    + show.map(rows => {
+        const r = rows[0];
+        const nos = Array.from(new Set(rows.map(x => S(x.no))));
+        return '<div class="dupit" data-dupq="' + esc(S(r.rcv)) + '" style="margin-top:8px;padding:8px 10px;'
+          + 'border:1px solid #f0d4d4;border-radius:8px;background:#fff;cursor:pointer">'
+          + '<b>' + esc(S(r.prod)) + '</b> · ' + esc(S(r.rcv))
+          + (master && S(r.cname) ? ' <span style="color:var(--muted)">(' + esc(S(r.cname)) + ')</span>' : '')
+          + '<div style="font-size:12px;color:var(--muted);margin-top:3px">'
+          + nos.map(n => esc(n)).join(' · ') + ' — 눌러서 찾기</div></div>';
+      }).join('')
+    + (gs.length > show.length ? '<div class="hint" style="margin-top:8px">외 ' + (gs.length - show.length) + '건 더 있습니다.</div>' : '')
+    + '</div>';
+}
 // 1 … 4 [5] 6 … 20 — 페이지가 많아도 버튼이 한 줄을 안 넘게
 function pageNums(cur, total){
   const out = [];
@@ -927,6 +975,16 @@ function pageNums(cur, total){
   return out;
 }
 function bindPager(){
+  // 🔁 중복 항목을 누르면 그 받는분으로 검색해 두 발주를 나란히 보여준다
+  document.querySelectorAll('[data-dupq]').forEach(el => {
+    el.onclick = () => {
+      OQ = el.getAttribute('data-dupq') || '';
+      OST = '';
+      const s = document.getElementById('osearch');
+      if(s) s.value = OQ;
+      syncFbtn(); OPAGE = 1; resetEdit(); ordersPaint();
+    };
+  });
   const c = document.getElementById('oclr');
   if(c) c.onclick = () => { OQ = ''; OST = ''; const s = document.getElementById('osearch'); if(s) s.value = ''; syncFbtn(); OPAGE = 1; resetEdit(); ordersPaint(); };
 }
