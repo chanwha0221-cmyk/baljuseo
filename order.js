@@ -795,7 +795,25 @@ async function submit(){
       req.forName = FOR.name; req.forAddr = FOR.addr || ''; req.forPhone = FOR.phone || '';
       req.andPush = true;
     }
-    const j = await api('submit', req);
+    /* 🔴 같은 발주가 두 번 들어가는 것을 서버가 막으면 `dup` 으로 돌아온다 (2026-08-26).
+       조용히 넘어가지도, 조용히 또 넣지도 않는다 — 이미 접수된 발주번호를 보여주고 사람이 정한다. */
+    let j;
+    try{
+      j = await api('submit', req);
+    }catch(err){
+      const dd = err && err.data;
+      if(!(dd && dd.dup)) throw err;
+      const again = confirm('같은 내용의 발주가 방금 접수되어 있습니다.\n발주번호 ' + dd.orderNo
+        + '\n\n[취소] 를 누르면 넣지 않습니다 (발주 내역에서 확인하세요).\n[확인] 을 누르면 한 번 더 넣습니다.');
+      if(!again){
+        if(msg) msg.textContent = '이미 접수된 발주입니다 — ' + dd.orderNo;
+        sb.disabled = false; sb.textContent = master ? '📤 발주 넣고 당일 시트로 바로 보내기' : '🧾 이대로 발주 넣기';
+        location.hash = 'orders';
+        return;
+      }
+      req.force = true;
+      j = await api('submit', req);
+    }
     ROWS = [blank(), blank(), blank()];
     OPEN = -1;
     saveDraft();

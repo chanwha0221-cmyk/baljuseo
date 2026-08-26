@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.33).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.34).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.33</title>
+<title>마스터 유통 카탈로그 v2.34</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1518,13 +1518,41 @@ const ACC_TAB='카탈로그_계정', AK='catalog_auth_v1';
       (상품 도구의 '🔐 카탈로그 로그인 계정 시트' 버튼도 새 시트를 가리킨다.)
    ⚠️ 주소가 비어 있으면 예전 방식(계정 시트 직접 읽기)으로 되돌아간다. */
 const API='https://script.google.com/macros/s/AKfycbxCX-MP7zcps0SeiZzHuft3d_pXRLNMUWroo6lZpukGJGT4wSJSEQjjCUpKZdaPic6d/exec';
+/* 🔴 서버가 JSON이 아니라 HTML을 돌려주는 일이 있다 (2026-08-26 사고).
+   Apps Script가 몰려서 못 받아내면 오류 **페이지**를 주는데, 예전 코드는 r.json() 을 바로 불러
+   화면에 `Unexpected token '<'` 라는 개발자 말이 그대로 떴다. 업체는 무슨 소린지 모르니
+   될 때까지 다시 눌렀고 — 그중 몇 건은 서버에 실제로 들어가서 **발주가 겹쳐 들어왔다.**
+   → ① 응답을 글자로 받아 JSON인지 먼저 본다. 아니면 사람 말로 알린다.
+     ② **읽기 요청만** 한 번 자동으로 다시 부른다.
+     🔴 쓰기 요청(발주·취소·수정·전송)은 절대 자동 재시도하지 않는다 — 그게 중복의 원인이다.
+        서버에도 같은 발주를 막는 장치가 있지만, 여기서 안 보내는 것이 먼저다. */
+const API_READONLY={list:1,clients:1,me:1,getcfg:1};
 async function api(action,payload){
   if(!API)throw new Error('서버 주소가 설정되지 않았습니다.');
-  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify(Object.assign({action},payload||{}))});
-  const j=await r.json();
-  if(!j.ok)throw new Error(j.error||'요청을 처리하지 못했습니다.');
-  return j;
+  const body=JSON.stringify(Object.assign({action},payload||{}));
+  const tries=API_READONLY[action]?2:1;
+  let lastErr=null;
+  for(let n=0;n<tries;n++){
+    if(n)await new Promise(r=>setTimeout(r,1200));
+    let txt=null;
+    try{
+      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body});
+      txt=await r.text();
+    }catch(e){
+      lastErr=new Error('서버에 연결하지 못했습니다. 인터넷 상태를 확인하고 잠시 후 다시 시도해 주세요.');
+      continue;
+    }
+    let j=null;
+    try{ j=JSON.parse(txt); }catch(e){ j=null; }
+    if(!j){
+      lastErr=new Error('서버가 잠시 응답하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+        +(API_READONLY[action]?'':' ⚠️ 여러 번 누르시면 같은 발주가 겹칠 수 있습니다 — 먼저 📋 발주 내역을 확인해 주세요.'));
+      continue;
+    }
+    if(!j.ok){ const e=new Error(j.error||'요청을 처리하지 못했습니다.'); e.data=j; throw e; }
+    return j;
+  }
+  throw lastErr;
 }
 let ME=null,gbusy=false;
 const norm=s=>String(s==null?'':s).trim();
