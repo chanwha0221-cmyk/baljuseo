@@ -143,16 +143,40 @@ function doPost(e) {
 // 카탈로그 무인증 범위의 기본값.
 // 시트 ID 와 탭 이름은 비밀이 아니라 클라이언트 HTML 에 이미 들어있는 값이므로
 // 코드에 둔다. Script Property 로 덮어쓸 수 있다.
+/* 🔴 2026-08-27 사고 — 여기에 탭을 빠뜨리면 **에러도 안 뜨고 화면만 빈다.**
+   처음엔 도구시트를 `카탈로그_계정` 하나만 열어뒀는데, 카탈로그는 그 시트에서
+   사진·합포장·분류·추천상품·공지사항까지 읽는다 → 전부 403 → 상품 584개가
+   통째로 "사진 준비중"으로 떴다. 링크 정본 시트는 아예 빠져 있었다.
+   ⚠️ 목록의 근거는 catalog.html 이다. 거기서 읽는 탭이 늘면 **여기도 같이 늘려야 한다.**
+      확인: `grep -oE "'[가-힣A-Za-z_0-9]+'![A-Z]" catalog.html | sort -u`
+   ⚠️ 시트를 통째로 열지 않는다. 도구시트엔 전체판매·업무관리 같은 내부 탭이 같이 있다. */
+var DOGU_ = '1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';   // 도구시트
+var LINK_ = '1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';   // 상품정보 업데이트(링크 정본)
 var DEFAULT_PUBLIC = {
-  // 상품시트는 통째로 읽기 허용(거래처에게 보여주는 카탈로그 그 자체) +
-  // 도구시트는 계정 탭 하나만. 전체판매·업무관리 같은 내부 탭은 막힌다.
-  PUBLIC_READ: '1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY,' +
-               '1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM|카탈로그_계정',
-  PUBLIC_WRITE: '1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM|카탈로그_계정'
+  // 상품시트(유통시트)는 통째로 읽기 허용 — 거래처에게 보여주는 카탈로그 그 자체다.
+  // 도구시트·링크시트는 **카탈로그가 실제로 읽는 탭만** 연다.
+  PUBLIC_READ: [
+    '1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY',   // 유통시트 (상품 목록·변동사항)
+    DOGU_ + '|카탈로그_계정',      // 로그인
+    DOGU_ + '|상품이미지_v2',      // 상품 사진·스펙
+    DOGU_ + '|상품링크',           // 링크 미러
+    DOGU_ + '|상품분류',           // 카테고리
+    DOGU_ + '|합포장',             // 합포장 묶음
+    DOGU_ + '|추천상품',           // 추천
+    DOGU_ + '|공지사항',           // 공지
+    DOGU_ + '|상품별판매',         // 머리글 한 줄만 읽는다(A1:ZZ1)
+    LINK_ + '|링크'                // 링크 정본
+  ].join(','),
+  PUBLIC_WRITE: DOGU_ + '|카탈로그_계정'
 };
 
+/* 🔴 2026-08-27 — 허용목록은 **코드가 정본이다.** Script Property 로 덮어쓰지 않는다.
+   예전엔 `props_().getProperty(name) || DEFAULT_PUBLIC[name]` 였다. 그래서
+   setupCatalogPublic() 이 저장해둔 옛 목록이 코드를 조용히 덮어썼고,
+   코드를 고쳐 배포해도 **아무 일이 안 일어났다. 이유 표시도 없이.**
+   허용목록은 보안 관련이라 깃에 남고 리뷰되는 곳에 있어야 한다. */
 function parseRules_(name) {
-  return (props_().getProperty(name) || DEFAULT_PUBLIC[name] || '').split(',')
+  return (DEFAULT_PUBLIC[name] || '').split(',')
     .map(function (s) { return s.trim(); })
     .filter(String)
     .map(function (s) {
@@ -259,14 +283,14 @@ function setupCatalogPublic() {
   var 도구시트 = '1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
   var 계정탭 = '카탈로그_계정';
 
-  props_().setProperties({
-    // 상품시트는 통째로 읽기 허용(거래처에게 보여주는 카탈로그 그 자체),
-    // 도구시트는 계정 탭 하나만 — 전체판매·업무관리 같은 내부 탭은 막힌다
-    PUBLIC_READ: 상품시트 + ',' + 도구시트 + '|' + 계정탭,
-    PUBLIC_WRITE: 도구시트 + '|' + 계정탭
-  }, false);
-  Logger.log('카탈로그 무인증 범위 설정 완료:\n  읽기 = %s\n  쓰기 = %s',
-    props_().getProperty('PUBLIC_READ'), props_().getProperty('PUBLIC_WRITE'));
+  /* 🔴 2026-08-27 — 이 함수는 이제 **설정값을 지우는 일만** 한다.
+     허용목록의 정본은 코드의 DEFAULT_PUBLIC 이다(위 parseRules_ 주석 참고).
+     예전에 이 함수가 저장해둔 좁은 목록이 코드를 덮어써서, 카탈로그가 사진·합포장·
+     분류·추천상품·공지사항을 통째로 못 읽었다(상품 584개가 "사진 준비중"). */
+  props_().deleteProperty('PUBLIC_READ');
+  props_().deleteProperty('PUBLIC_WRITE');
+  Logger.log('옛 설정값을 지웠습니다. 이제 코드의 DEFAULT_PUBLIC 이 정본입니다:\n  읽기 = %s\n  쓰기 = %s',
+    DEFAULT_PUBLIC.PUBLIC_READ, DEFAULT_PUBLIC.PUBLIC_WRITE);
 }
 
 // 비밀번호만 바꾸고 싶을 때 (기존 세션은 그대로 살아있다)
