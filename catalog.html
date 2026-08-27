@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.36).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.37).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.36</title>
+<title>마스터 유통 카탈로그 v2.37</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -794,16 +794,36 @@ function hapAlias(){
   });
   return n;
 }
+// 링크 정본 원본 = '상품정보 업데이트' 시트의 '링크' 탭 (A상품명 B링크, 위쪽이 최신).
+const LINKSS='1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';
+/* 🔗 미러(도구시트 '상품링크')를 먼저 읽고, 그 위에 정본을 덮는다 (홍팀장 2026-08-27).
+   🔴 왜 이렇게 바꿨나: 미러는 사람이 버튼을 눌러야 갱신된다. "매시간 스케줄이 덮어쓴다"던 게
+      실제로는 안 돌아서, 정본에 새 글번호가 다 들어와 있는데도 카탈로그는 옛 글번호를 내보냈다.
+      2026-08-27 경기창고 게시판 신설 때 판매중 74건이 낡았고 그중 54건이 죽은 글이었다 —
+      업체가 상품명을 누르면 상세가 아니라 마스터 메인으로 튕겼다.
+      정본을 직접 보면 누가 뭘 안 눌러도 카탈로그는 항상 맞다.
+   미러를 버리지 않는 이유: 미러에만 있는 '상태' 칸과, 정본에 아직 안 올라온 상품이 있다.
+   ⚠️ 정본 B칸엔 '당일' 같은 메모가 섞인 행이 있다 — 주소 아닌 값은 버린다. */
 async function loadLinks(){
   const token=await getAccessToken();
-  // ⚠️ 범위는 정본 건수보다 넉넉해야 한다 — 1400으로 두면 2,170건 중 뒤가 통째로 잘린다(2026-08-19).
-  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품링크'!A2:F2400"),{headers:{Authorization:'Bearer '+token}});
-  const j=await r.json();
-  if(j.error)return {};
+  const get=async(id,range)=>{
+    // ⚠️ 범위는 정본 건수보다 넉넉해야 한다 — 1400으로 두면 2,170건 중 뒤가 통째로 잘린다(2026-08-19).
+    const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+id+'/values/'+encodeURIComponent(range),{headers:{Authorization:'Bearer '+token}});
+    const j=await r.json();
+    return j.error?null:(j.values||[]);
+  };
+  const [mir,can]=await Promise.all([get(DOGU_ID,"'상품링크'!A2:F2400"),get(LINKSS,"'링크'!A2:B3000")]);
   const m={};
-  for(const v of (j.values||[])){
+  for(const v of (mir||[])){
     const nm=(v[0]||'').trim(); if(!nm)continue;
     m[pkey(nm)]={url:(v[2]||'').trim(),state:(v[3]||'').trim()};
+  }
+  const done={};
+  for(const v of (can||[])){
+    const nm=(v[0]||'').trim(),u=(v[1]||'').trim();
+    if(!nm||!/^https?:\/\//.test(u))continue;
+    const k=pkey(nm); if(done[k])continue; done[k]=1;   // 위쪽이 최신
+    m[k]=Object.assign({state:''},m[k]||{},{url:u});
   }
   return m;
 }

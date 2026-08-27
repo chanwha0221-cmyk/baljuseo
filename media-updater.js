@@ -556,6 +556,65 @@ function liveTitle(url){
 }
 function isDeadTitle(t){ return t !== null && (!t || t.indexOf('(주)마스터') === 0); }
 
+/* 🔗 정본 → 미러 통째 동기화 (홍팀장 2026-08-27: "매번 링크 깨졌다고 수정 요청 할 수가 없잖아").
+   🔴 왜 필요했나: 카탈로그가 1순위로 읽는 건 도구시트 `상품링크` 미러인데,
+      "스케줄 작업이 매시간 덮어쓴다"던 게 실제로는 안 돌고 있었다. 그래서 정본 시트에
+      새 글번호가 다 들어와 있어도 미러는 옛 글번호 그대로 — 업체가 누르면 마스터 메인으로 튕겼다.
+      (2026-08-27 경기창고 게시판 신설: 판매중 74건이 낡았고 그중 54건이 죽은 글)
+   🩺 fixDeadLinks 로는 못 막는다 — 그건 masterc 페이지 위에서만 돌고, 살아 있는 옛 글은 안 고친다.
+      이건 masterc 없이도 돌고, 정본과 다르면 무조건 맞춘다.
+   ⚠️ 안 건드리는 것 둘:
+      ① 정본 B칸에 '당일' 같은 메모가 섞인 행 — 주소가 아니면 버린다.
+      ② masterc.kr/618298 과 masterc.kr/board_eJGl96/618298 — 글번호가 같으면 같은 글이다.
+         표기만 다른 걸 바꿔 얻는 게 없고, 멀쩡한 걸 건드리면 그게 사고다. */
+async function syncCanonLinks(linkMap){
+  const cur = await api(DOGU, '/values/' + q("'상품링크'!A2:F2400"));
+  if(cur.error) return {error:cur.error};
+  const rows = cur.values || [];
+  const today = new Date().toISOString().slice(0,10);
+  const upd=[], add=[], seen={}, changed=[];
+  for(let i=0;i<rows.length;i++){
+    const nm=(rows[i][0]||'').trim(); if(!nm) continue;
+    const k=pkey(nm); seen[k]=1;
+    const nu=linkMap[k]; if(!nu) continue;
+    const now=(rows[i][2]||'').trim();
+    if(now===nu) continue;
+    if(now && idOf(now) && idOf(now)===idOf(nu)) continue;
+    upd.push({range:"'상품링크'!A"+(i+2)+':F'+(i+2),
+      values:[[nm, idOf(nu), nu, (rows[i][3]||'판매').trim()||'판매', '정본동기화', today]]});
+    changed.push(nm+' → '+idOf(nu));
+  }
+  for(const k in linkMap){
+    if(seen[k]) continue;
+    const p=PRODUCTS.filter(function(x){return pkey(x.name)===k;})[0];
+    if(!p) continue;                                  // 지금 파는 상품만 새로 올린다
+    add.push([p.name, idOf(linkMap[k]), linkMap[k], '판매', '정본동기화', today]);
+  }
+  if(upd.length){
+    const j=await api(DOGU,'/values:batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({valueInputOption:'RAW',data:upd})});
+    if(j.error) return {error:j.error};
+  }
+  if(add.length){
+    const j=await api(DOGU,'/values/'+q("'상품링크'!A2")+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:add})});
+    if(j.error) return {error:j.error};
+  }
+  return {fixed:upd.length, added:add.length, changed:changed};
+}
+
+/* 전부 업데이트 / 링크 업데이트 앞에 공통으로 붙는 단계 — 로그도 여기서 찍는다 */
+async function runLinkSync(){
+  log('🔗 링크 정본 맞추는 중…', true);
+  LINKS = await loadLinks();
+  const s = await syncCanonLinks(LINKS);
+  if(s.error){ log('❌ 링크 정본 동기화 실패: '+(s.error.message||s.error), true); return s; }
+  if(!s.fixed && !s.added) log('✅ 링크 정본 이미 최신 — 고칠 것 없음', true);
+  else log('🔗 링크 정본 '+s.fixed+'건 고침'+(s.added?' · 새로 올린 것 '+s.added+'건':'')
+      +(s.changed.length?'\n   '+s.changed.slice(0,40).join('\n   ')+(s.changed.length>40?'\n   …외 '+(s.changed.length-40)+'건':''):''), true);
+  return s;
+}
+
 async function fixDeadLinks(linkMap){
   const CANON = "'상품링크'!A2:F2400";
   const cur = await api(DOGU, '/values/' + q(CANON));
@@ -608,7 +667,7 @@ $('mu-link').onclick=async function(){
   if(BUSY)return;
   BUSY=true;$('mu-link').disabled=true;log('링크 시트에서 최신 링크 가져오는 중…');
   try{
-    LINKS=await loadLinks();
+    await runLinkSync();      // 정본 → 미러 통째로 먼저 맞추고 (LINKS 도 여기서 채워진다)
     let changed=0,added=0;
     SEL={};
     for(const p of PRODUCTS){
@@ -758,11 +817,18 @@ async function runSelected(){
 
 /* 🖼 지금 손봐야 할 것 전부 — 사장님이 누르는 단 하나의 버튼.
    사진없음 + 사진깨짐 + 📮 대기를 한꺼번에 처리한다(예전엔 버튼 두 개로 나뉘어 있어 대기가 안 지워졌음).
-   링크 있는 건 그 페이지에서, 링크 없는 건 게시판 제목 검색으로 찾아서 채운다. */
-$('mu-fill').onclick=function(){
+   링크 있는 건 그 페이지에서, 링크 없는 건 게시판 제목 검색으로 찾아서 채운다.
+   🔗 사진·스펙에 앞서 링크 정본부터 맞춘다 (홍팀장 2026-08-27) — 링크가 낡으면 그 낡은 글에서
+      사진을 긁어오게 되고, 업체 화면 링크도 죽은 글로 남는다. 순서가 뒤집히면 둘 다 헛일이다.
+      손볼 사진이 하나도 없어도 링크 동기화는 돈다. */
+$('mu-fill').onclick=async function(){
   if(BUSY)return;
+  BUSY=true;$('mu-fill').disabled=true;
+  log('🔗 링크 정본 맞추는 중…');
+  try{ await runLinkSync(); }catch(e){ log('❌ 링크 정본 동기화 실패: '+(e.message||e),true); }
+  BUSY=false;$('mu-fill').disabled=false;
   const t=PRODUCTS.filter(needsFix);
-  if(!t.length){log('🎉 손봐야 할 상품이 없습니다.');return;}
+  if(!t.length){log('🎉 사진·스펙은 손볼 게 없습니다.',true);renderRun();return;}
   SEL={};t.forEach(p=>SEL[pkey(p.name)]=1);
   renderSum();renderList();renderRun();
   runSelected();
