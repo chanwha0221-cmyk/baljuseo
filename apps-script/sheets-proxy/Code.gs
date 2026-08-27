@@ -110,7 +110,11 @@ function doPost(e) {
   if (req.action === 'public') {
     var verdict = publicAllowed_(req);
     if (!verdict.ok) return out_({ error: { code: 403, message: verdict.why } });
-    return out_(relay_(req));
+    /* 🔴 카탈로그는 **거래처 여러 곳이 동시에** 본다. 그 읽기가 전부 이 계정 몫으로 잡혀서
+       구글 "분당 읽기" 한도를 먹어치우고, 그 바람에 팀 도구(수량관리)까지 같이 죽었다.
+       카탈로그가 보는 것은 상품 목록·사진·분류 — **하루에 몇 번 바뀌는 자료**다. 길게 담아둔다.
+       ⚠️ 그래서 유통시트를 고친 뒤 카탈로그 🔄 새로고침을 눌러도 최대 이 시간만큼은 옛 값이 보인다. */
+    return out_(relay_(req, 60));
   }
 
   // 제안서 도구의 상품 이미지 업로드.
@@ -233,7 +237,7 @@ function publicAllowed_(req) {
 }
 
 // ── Sheets API 중계 ───────────────────────────────────────────────────
-function relay_(req) {
+function relay_(req, ttlSec) {
   var path = String(req.path || '');
   if (!path) return { error: { code: 400, message: 'path 없음' } };
 
@@ -259,11 +263,61 @@ function relay_(req) {
     opts.payload = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
   }
 
+  /* 🔴 2026-08-27 — 읽기 캐시. 없으면 구글 할당량이 터진다.
+     예전엔 도구마다 자기 서비스계정으로 시트를 읽어 **여러 신분에 부하가 나뉘어** 있었다.
+     프록시로 모으면서 전부 **한 계정 한 줄**로 서게 됐고, 구글의 "사용자당 분당 읽기" 한도를
+     넘겼다 → `Quota exceeded for quota metric 'Read requests'` + 429 + 간헐 404.
+     수량관리는 15초마다 같은 범위를 다시 읽고, 그걸 팀원 수만큼 곱한다. 카탈로그도 같이 붙는다.
+     → **같은 범위 읽기를 잠깐 재사용**한다. 적중률이 높아서 실제 호출이 확 준다.
+     ⚠️ 쓰기가 지나가면 그 시트의 캐시를 **즉시 무효화**한다(아래 bumpVer_).
+        그래서 우리 도구를 통해 바꾼 것은 곧바로 보인다.
+        사람이 시트를 **직접** 고친 것만 최대 CACHE_SEC 만큼 늦게 보인다. */
+  // 팀 도구(call)는 10초 — 남이 고친 것을 빨리 봐야 한다. 카탈로그(public)는 위에서 60초를 준다.
+  var CACHE_SEC = ttlSec || 10;
+  var sheetId = path.split(/[\/?:]/)[0];
+
+  if (method === 'get') {
+    var ck = cacheKey_(sheetId, path);
+    var hit = null;
+    try { hit = CacheService.getScriptCache().get(ck); } catch (_) {}
+    if (hit) { try { return JSON.parse(hit); } catch (_) {} }
+
+    var res0 = UrlFetchApp.fetch(SHEETS_BASE + path, opts);
+    var out0 = { status: res0.getResponseCode(), body: res0.getContentText() };
+    // 성공한 응답만, 그리고 캐시 한 칸(100KB)에 들어갈 때만 담는다
+    if (out0.status === 200 && out0.body.length < 90000) {
+      try { CacheService.getScriptCache().put(ck, JSON.stringify(out0), CACHE_SEC); } catch (_) {}
+    }
+    return out0;
+  }
+
   var res = UrlFetchApp.fetch(SHEETS_BASE + path, opts);
-  return {
-    status: res.getResponseCode(),
-    body: res.getContentText()
-  };
+  // 쓰기가 성공했으면 그 시트의 읽기 캐시를 버린다 — 방금 쓴 것이 바로 보여야 한다
+  var code = res.getResponseCode();
+  if (code >= 200 && code < 300) bumpVer_(sheetId);
+  return { status: code, body: res.getContentText() };
+}
+
+/* 시트별 '판 번호'. 쓰기가 있으면 올려서 그 시트의 옛 캐시를 통째로 못 쓰게 만든다.
+   CacheService 는 키를 훑을 수 없어서, 키 안에 판 번호를 넣는 방식으로 무효화한다. */
+function verKey_(id) { return 'v_' + id; }
+function sheetVer_(id) {
+  try {
+    var c = CacheService.getScriptCache(), v = c.get(verKey_(id));
+    if (!v) { v = '1'; c.put(verKey_(id), v, 21600); }
+    return v;
+  } catch (_) { return '1'; }
+}
+function bumpVer_(id) {
+  try { CacheService.getScriptCache().put(verKey_(id), String(new Date().getTime()), 21600); } catch (_) {}
+}
+function cacheKey_(id, path) {
+  // 캐시 키는 250자 제한이 있다 → 경로는 해시로 줄인다
+  var raw = sheetVer_(id) + '|' + path;
+  var b = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, raw, Utilities.Charset.UTF_8);
+  var h = '';
+  for (var i = 0; i < b.length; i++) { var x = (b[i] < 0 ? b[i] + 256 : b[i]).toString(16); h += (x.length === 1 ? '0' : '') + x; }
+  return 'r_' + id.slice(0, 12) + '_' + h;
 }
 
 // ── 최초 1회 설정 ─────────────────────────────────────────────────────
