@@ -53,7 +53,57 @@
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
-    }).then(function (r) { return r.json(); });
+    }).then(function (r) { return r.text(); }).then(function (t) {
+      /* 🔴 2026-08-27 사고 — Apps Script 는 몰리면 POST 를 doGet 으로 답한다.
+         그러면 {ok:true, service:'sheets-proxy', note:'…'} 가 돌아오는데,
+         예전 코드는 그걸 정상 응답으로 보고 new Response(undefined) 를 만들었다.
+         → 본문이 빈 응답 → 도구에서 .json() 이 'Unexpected end of input' 로 터졌다.
+         발주서 변환기가 "자꾸" 에러난 게 이것이다(몰릴 때만 나서 재현이 어려웠다). */
+      var j;
+      try { j = JSON.parse(t); }
+      catch (e) { return { __transient: 'JSON아님: ' + t.slice(0, 80) }; }
+      if (j && j.service === 'sheets-proxy' && j.body === undefined && !j.error) {
+        return { __transient: 'POST가 doGet으로 응답됨' };
+      }
+      return j;
+    });
+  }
+
+  // 읽기만 자동으로 다시 부른다.
+  // 🔴 쓰기(PUT·POST·batchUpdate)는 절대 재시도하지 않는다 — 같은 저장이 두 번 들어간다.
+  //    (카탈로그의 API_READONLY 와 같은 규칙이다. 중복이 응답 실패보다 나쁘다.)
+  function postWithRetry(payload, retriable) {
+    var tries = retriable ? 3 : 1;
+    function attempt(n) {
+      return post(payload).then(function (res) {
+        if (res && res.__transient && n < tries) {
+          return new Promise(function (r) { setTimeout(r, 400 * n); }).then(function () { return attempt(n + 1); });
+        }
+        return res;
+      });
+    }
+    return attempt(1);
+  }
+
+  // 본문도 오류도 없는 응답을 절대 그대로 흘리지 않는다 — 사람 말로 바꿔 돌려준다.
+  function toResponse(res) {
+    if (res && res.__transient) {
+      return new Response(JSON.stringify({ error: {
+        code: 503,
+        message: '시트 서버가 잠시 응답하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      } }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (res && res.error) {
+      return new Response(JSON.stringify({ error: res.error }),
+        { status: res.error.code || 500, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (!res || res.body === undefined) {
+      return new Response(JSON.stringify({ error: {
+        code: 502,
+        message: '시트 서버 응답을 읽지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      } }), { status: 502, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(res.body, { status: res.status, headers: { 'Content-Type': 'application/json' } });
   }
 
   // ── 비밀번호 입력창 ─────────────────────────────────────────────────
@@ -140,41 +190,23 @@
     // 카탈로그처럼 거래처(고객)가 쓰는 페이지는 팀 비밀번호를 물을 수 없다.
     // 페이지가 shim 을 불러오기 전에 window.SHEETS_PROXY_PUBLIC = true 를 켜두면
     // 비밀번호 없이 나가고, 대신 서버가 허용된 시트·탭인지만 본다.
+    var readOnly = (method === 'GET');
+
     if (window.SHEETS_PROXY_PUBLIC) {
-      return post({ action: 'public', path: path, method: method, body: body })
-        .then(function (res) {
-          if (res && res.error) {
-            return new Response(JSON.stringify({ error: res.error }), {
-              status: res.error.code || 500,
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          return new Response(res.body, {
-            status: res.status,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        });
+      return postWithRetry({ action: 'public', path: path, method: method, body: body }, readOnly)
+        .then(toResponse);
     }
 
     function call(token, retried) {
-      return post({ action: 'call', token: token, path: path, method: method, body: body })
+      return postWithRetry({ action: 'call', token: token, path: path, method: method, body: body }, readOnly)
         .then(function (res) {
-          if (res && res.error) {
-            // 세션이 죽었으면 한 번만 다시 물어보고 재시도한다
-            if (res.error.message === 'session-expired' && !retried) {
-              clearToken();
-              return ensureSession('세션이 만료됐습니다. 다시 입력해 주세요.')
-                .then(function (t) { return call(t, true); });
-            }
-            return new Response(JSON.stringify({ error: res.error }), {
-              status: res.error.code || 500,
-              headers: { 'Content-Type': 'application/json' }
-            });
+          // 세션이 죽었으면 한 번만 다시 물어보고 재시도한다
+          if (res && res.error && res.error.message === 'session-expired' && !retried) {
+            clearToken();
+            return ensureSession('세션이 만료됐습니다. 다시 입력해 주세요.')
+              .then(function (t) { return call(t, true); });
           }
-          return new Response(res.body, {
-            status: res.status,
-            headers: { 'Content-Type': 'application/json' }
-          });
+          return toResponse(res);
         });
     }
 
