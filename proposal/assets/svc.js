@@ -27,27 +27,10 @@
 
   function sheetId() { return (CFG.dataSheet && CFG.dataSheet.id) || ''; }
 
-  async function svcToken() {
-    if (_tok && Date.now() < _exp - 60000) return _tok;
-    var s = CFG.svc || {};
-    var now = Math.floor(Date.now() / 1000);
-    var enc = function (obj) { return btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'); };
-    var toSign = enc({ alg: 'RS256', typ: 'JWT' }) + '.' +
-      enc({ iss: s.email, scope: SCOPE, aud: 'https://oauth2.googleapis.com/token', exp: now + 3600, iat: now });
-    var pem = String(s.key || '').replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g, '');
-    var bin = Uint8Array.from(atob(pem), function (c) { return c.charCodeAt(0); });
-    var key = await crypto.subtle.importKey('pkcs8', bin, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
-    var sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(toSign));
-    var jwt = toSign + '.' + btoa(String.fromCharCode.apply(null, new Uint8Array(sig))).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-    var res = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=' + jwt
-    });
-    var d = await res.json();
-    if (!d.access_token) throw new Error('토큰 발급 실패');
-    _tok = d.access_token; _exp = Date.now() + (d.expires_in ? d.expires_in : 3300) * 1000;
-    return _tok;
-  }
+  async function svcToken(){
+  // 실제 인증은 sheets-proxy.js 가 프록시로 처리한다. 이 값은 쓰이지 않는다.
+  return 'via-proxy';
+}
 
   // 네트워크가 한 번 튀는 것만으로 화면 전체가 "불러오지 못했습니다"가 되지 않게
   // 일시적 실패(fetch 예외·5xx·429)는 한 번 더 시도한다.
