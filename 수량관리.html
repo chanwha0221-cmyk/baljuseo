@@ -125,7 +125,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v3.1</span>
+  <span class="ver">v3.2</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
@@ -377,12 +377,37 @@ function loadCache(){
 
 //=================== 시트 ⇄ 앱 ===================
 // 시트가 truth: 로드시 시트에서 읽어옴 (행 순서 = 우선순위)
+/* 🔴 2026-08-27 — 시트를 **한 번에** 읽는다(batchGet).
+   예전엔 범위마다 따로 불렀다. 브라우저가 직접 부를 땐 그래도 견뎠는데,
+   프록시(Apps Script)를 거치면서 한 번에 3~5초씩 붙었다. Apps Script 는 같은 사용자의
+   요청을 줄 세우기 때문에 Promise.all 로 묶어도 실제로는 동시에 안 간다.
+   → 실측 **27초**. 화면이 "불러오는 중"에서 안 넘어갔다.
+   범위 4개를 batchGet 하나로 합치면 왕복이 한 번이다. */
+async function sheetBatchGet(ranges){
+  const token=await getAccessToken();
+  const qs=ranges.map(r=>'ranges='+encodeURIComponent(r)).join('&');
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchGet?majorDimension=ROWS&${qs}`;
+  const r=await fetch(url,{headers:{'Authorization':'Bearer '+token}});
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message);
+  return (d.valueRanges||[]).map(v=>v.values||[]);
+}
+
 async function loadFromSheet(){
   setSync('loading');
   try{
-    let [inp,stat,log]=await Promise.all([
-      sheetGet(SH_INPUT,'A2:E'), sheetGet(SH_STATUS,'A2:C'), sheetGet(SH_LOG,'A2:F')
-    ]);
+    let inp,stat,log,dlRows=null;
+    try{
+      // 한 번에: 입력 · 현황판 · 삭제로그 · 마감시간
+      const got=await sheetBatchGet([SH_INPUT+'!A2:E', SH_STATUS+'!A2:C', SH_LOG+'!A2:F', SH_DEADLINE+'!A2:J']);
+      inp=got[0]||[]; stat=got[1]||[]; log=got[2]||[]; dlRows=got[3]||[];
+    }catch(e){
+      // 탭 하나가 없으면 batchGet 은 통째로 실패한다 → 예전 방식으로 물러난다
+      console.warn('batchGet 실패 — 개별 읽기로 물러남', e);
+      [inp,stat,log]=await Promise.all([
+        sheetGet(SH_INPUT,'A2:E'), sheetGet(SH_STATUS,'A2:C'), sheetGet(SH_LOG,'A2:F')
+      ]);
+    }
     // 🛡️ [2] '0줄'을 곧이곧대로 믿지 않는다 (2026-08-12 사고).
     //   남의 저장이 진행 중인 순간을 읽으면 시트가 실제로 비어 보일 수 있다.
     //   방금까지 데이터가 있었는데 갑자기 0줄이면 1.5초 뒤 한 번 더 확인한다.
@@ -402,7 +427,8 @@ async function loadFromSheet(){
     // 마감시간 시트 (A:창고 / B:상품 / J:발주마감시간) — 상품명만으로 매칭 (창고명 다를 수 있어 무시)
     deadlineMap = {};
     try{
-      const dl = await sheetGet(SH_DEADLINE,'A2:J');
+      // 위 batchGet 에서 이미 받아왔으면 그걸 쓴다. 물러난 경우에만 따로 읽는다.
+      const dl = dlRows !== null ? dlRows : await sheetGet(SH_DEADLINE,'A2:J');
       dl.forEach(r=>{ if(!r)return; const it=String(r[1]||'').trim(), t=String(r[9]||'').trim(); if(it&&t) deadlineMap[it]=t; });
     }catch(e){ console.warn('마감시간 시트 없음 — 무시',e); }
     deleteLog = log.filter(r=>r&&r[2]).map(r=>({at:String(r[0]||''),time:String(r[1]||''),team:String(r[2]||''),wh:String(r[3]||''),it:String(r[4]||''),qty:Number(r[5])||0}));
