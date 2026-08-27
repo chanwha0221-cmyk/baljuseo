@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v4.7</title>
+<title>밴드글 메이커 v4.9</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v4.7 🤖</span>
+  <span class="ver">v4.9 🤖</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -73,6 +73,8 @@ textarea:focus{border-color:var(--accent)}
     </div>
   </div>
   <div class="bar">
+    <!-- 2026-08-27 신설: 올릴 밴드 글 주소를 같이 보낸다 → 하비서가 글 완성과 동시에 그 탭을 열어줌(주소 찾느라 왕복 X) -->
+    <input id="post-url" type="text" placeholder="🔗 올릴 밴드 글 주소 (예: band.us/band/101255714/post/140 · 새 글이면 밴드 홈 주소)" style="flex:1;min-width:260px;padding:7px 10px;border:1px solid #d5d5d5;border-radius:6px;font-size:13px" title="여기 넣어두면 하비서가 글 완성하면서 이 탭을 자동으로 열어줍니다">
     <button class="btn primary" onclick="sendToClaude()" title="원문을 작업대(시트)에 저장 — 하비서가 어느 창에서든 가져갑니다">📮 하비서에게 보내기</button>
     <button class="btn" onclick="resetAll()" title="원문·결과·사진 전부 비우고 처음부터">🧹 초기화</button>
     <span class="hint">📮 보내기 → 채팅에 <b>"밴드글 쓰자"</b> → 🤖 가져오기 · 스타일 교본 <b id="sampleCnt">0</b>건 · ====== 잠금 블록은 글자 하나 안 건드립니다</span>
@@ -548,6 +550,15 @@ function claudeSetBand(marked){
 /* ===== 📮 작업대 (시트 큐, 2026-08-03 v4.1) — 하비서가 사장님 창을 찾을 필요 없게 ===== */
 // 사장님: [📮 하비서에게 보내기] → 채팅에 "밴드글 쓰자" → [🤖 하비서 글 가져오기]. 어느 창·어느 PC든 무관.
 const WORK_TAB='밴드_작업대';
+// 🔗 올릴 밴드 글 주소 정규화 (2026-08-27) — 프로토콜 없어도 붙여주고, 아니면 빈 값
+function normPostUrl(s){
+  s=String(s||'').trim();
+  if(!s) return '';
+  if(!/^https?:\/\//i.test(s)) s='https://'+s.replace(/^\/+/,'');
+  return /band\.us/i.test(s) ? s : '';
+}
+// 마지막에 쓴 주소 기억 (같은 밴드에 계속 올리므로)
+try{ window.addEventListener('DOMContentLoaded',function(){ const v=localStorage.getItem('band_post_url'); if(v&&$('post-url')&&!$('post-url').value) $('post-url').value=v; }); }catch(_){}
 async function ensureWorkTab(){
   const t=await getToken();
   const m=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,{headers:{Authorization:`Bearer ${t}`}});
@@ -563,7 +574,9 @@ async function sendToClaude(){
   try{
     await ensureWorkTab();
     const t=await getToken();
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!A1')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['요청',nowKST(),src1,src2,JSON.stringify(IMGS),JSON.stringify(LOCKS),String(TAIL_LOCK)],['결과','','']]})});
+    const purl=normPostUrl($('post-url').value);
+    try{ localStorage.setItem('band_post_url', purl); }catch(_){}
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!A1')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:[['요청',nowKST(),src1,src2,JSON.stringify(IMGS),JSON.stringify(LOCKS),String(TAIL_LOCK),purl],['결과','','']]})});
     // 💡 사장님 아이디어 (2026-08-03): 호출 문구를 클립보드에 담아줌 → 채팅창에서 Ctrl+V → Enter면 끝
     try{ await navigator.clipboard.writeText('밴드글 쓰자'); }catch(_){}
     toast('📮 보냈습니다 — 채팅창에 Ctrl+V → Enter 하세요 ("밴드글 쓰자" 복사돼 있음). 결과는 여기 자동으로 뜹니다');
@@ -611,14 +624,15 @@ async function fetchFromClaude(){
 // ── 하비서 쪽 (Claude가 자기 인앱 브라우저에서 호출 — 사장님 창 불필요) ──
 async function claudeReadWork(){
   const t=await getToken();
-  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!A1:G1')}`,{headers:{Authorization:`Bearer ${t}`}});
+  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(WORK_TAB+'!A1:H1')}`,{headers:{Authorization:`Bearer ${t}`}});
   const v=(((await r.json()).values)||[])[0]||[];
   if(v[0]!=='요청') return JSON.stringify({error:'작업대에 요청 없음 — 사장님이 [📮 하비서에게 보내기]를 아직 안 누름'});
   try{ IMGS=JSON.parse(v[4]||'[]'); }catch(_){ IMGS=[]; }
   try{ LOCKS=JSON.parse(v[5]||'[]'); }catch(_){ LOCKS=[]; }
   const _tl=parseInt(v[6]); TAIL_LOCK=isNaN(_tl)?-1:_tl;
   if(!loaded) await loadAll().catch(function(){});
-  return JSON.stringify({at:v[1], src1_marked:v[2]||'', src2:v[3]||'', locks:LOCKS.length, imgs:IMGS.length, samples:[...DATA].slice(-3).map(x=>({title:x.title,body:x.body}))});
+  // postUrl: 하비서는 글을 완성하는 그 응답에서 이 주소를 자기 크롬 탭에 띄우고 "[글 옵션 → 글 수정] 눌러주세요"라고 요청한다 (2026-08-27)
+  return JSON.stringify({at:v[1], src1_marked:v[2]||'', src2:v[3]||'', locks:LOCKS.length, imgs:IMGS.length, postUrl:v[7]||'', samples:[...DATA].slice(-3).map(x=>({title:x.title,body:x.body}))});
 }
 async function claudeWriteResult(marked){
   let out=String(marked||'').replace(/\r\n/g,'\n').trim();
