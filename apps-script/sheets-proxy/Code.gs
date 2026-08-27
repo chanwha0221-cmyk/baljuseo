@@ -156,6 +156,11 @@ function doPost(e) {
    ⚠️ 시트를 통째로 열지 않는다. 도구시트엔 전체판매·업무관리 같은 내부 탭이 같이 있다. */
 var DOGU_ = '1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';   // 도구시트
 var LINK_ = '1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';   // 상품정보 업데이트(링크 정본)
+/* 수량 리더 시트 — 팀끼리 재고 수량만 주고받는 표다(창고/상품명/수량/팀).
+   개인정보도 단가도 없다. 그래서 **비밀번호 없이** 열어둔다(홍팀장 2026-08-27 지시).
+   원래 이 도구는 로그인이 없었다. 오늘 개인키를 걷어내면서 로그인이 생겨버렸는데,
+   그건 보안이 아니라 **일하는 사람을 막는 것**이었다. 시트 하나만 여는 것이라 범위도 좁다. */
+var SURYANG_ = '1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI';
 var DEFAULT_PUBLIC = {
   // 상품시트(유통시트)는 통째로 읽기 허용 — 거래처에게 보여주는 카탈로그 그 자체다.
   // 도구시트·링크시트는 **카탈로그가 실제로 읽는 탭만** 연다.
@@ -169,9 +174,13 @@ var DEFAULT_PUBLIC = {
     DOGU_ + '|추천상품',           // 추천
     DOGU_ + '|공지사항',           // 공지
     DOGU_ + '|상품별판매',         // 머리글 한 줄만 읽는다(A1:ZZ1)
-    LINK_ + '|링크'                // 링크 정본
+    LINK_ + '|링크',               // 링크 정본
+    SURYANG_                       // 수량 리더 시트 — 아래 설명 참고
   ].join(','),
-  PUBLIC_WRITE: DOGU_ + '|카탈로그_계정'
+  PUBLIC_WRITE: [
+    DOGU_ + '|카탈로그_계정',
+    SURYANG_
+  ].join(',')
 };
 
 /* 🔴 2026-08-27 — 허용목록은 **코드가 정본이다.** Script Property 로 덮어쓰지 않는다.
