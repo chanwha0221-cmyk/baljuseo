@@ -125,7 +125,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v3.3</span>
+  <span class="ver">v3.4</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
@@ -393,8 +393,13 @@ async function sheetBatchGet(ranges){
   return (d.valueRanges||[]).map(v=>v.values||[]);
 }
 
-async function loadFromSheet(){
-  setSync('loading');
+/* silent=true 면 "불러오는 중…" 을 띄우지 않는다.
+   🔴 2026-08-27 — 아래 15초 배경 동기화가 매번 이 표시를 켰다. 예전엔 시트를 직접 불러
+   0.2초면 끝나 눈에 안 띄었는데, sheets-proxy 경유로 바뀌면서 1~3초가 걸린다.
+   그래서 아무것도 안 하고 있는데 화면이 계속 "불러오는 중"으로 보였다.
+   사람이 시킨 로드만 표시하고, 배경 동기화는 조용히 돈다. (실패·성공 표시는 그대로 둔다) */
+async function loadFromSheet(silent){
+  if(!silent) setSync('loading');
   try{
     let inp,stat,log,dlRows=null;
     try{
@@ -1051,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     if(localStorage.getItem(K_DIRTY)==='1') return;             // 내 저장 아직 대기 중
     try{ await _chain; }catch(e){}
     if(localStorage.getItem(K_DIRTY)==='1') return;
-    const fresh = await loadFromSheet();
+    const fresh = await loadFromSheet(true);   // 배경 동기화 — 표시 없이 조용히
     if(fresh) render();
   }, 15000);
 
