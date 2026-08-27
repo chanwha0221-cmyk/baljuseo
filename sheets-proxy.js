@@ -137,6 +137,25 @@
     var method = (init.method || 'GET').toUpperCase();
     var body = init.body;
 
+    // 카탈로그처럼 거래처(고객)가 쓰는 페이지는 팀 비밀번호를 물을 수 없다.
+    // 페이지가 shim 을 불러오기 전에 window.SHEETS_PROXY_PUBLIC = true 를 켜두면
+    // 비밀번호 없이 나가고, 대신 서버가 허용된 시트·탭인지만 본다.
+    if (window.SHEETS_PROXY_PUBLIC) {
+      return post({ action: 'public', path: path, method: method, body: body })
+        .then(function (res) {
+          if (res && res.error) {
+            return new Response(JSON.stringify({ error: res.error }), {
+              status: res.error.code || 500,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          return new Response(res.body, {
+            status: res.status,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        });
+    }
+
     function call(token, retried) {
       return post({ action: 'call', token: token, path: path, method: method, body: body })
         .then(function (res) {
