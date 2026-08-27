@@ -125,7 +125,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v2.9</span>
+  <span class="ver">v3.0</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
@@ -292,36 +292,75 @@ function _initTokenClient(){
   return true;
 }
 
-/* 토큰을 받아온다. 이미 있으면 그대로 쓰고, 없거나 곧 만료면 새로 받는다.
-   처음 한 번은 구글 계정 선택창이 뜬다(그 뒤로는 조용히 갱신된다). */
+/* 🔴 2026-08-27 두 번째 수정 — 처음엔 이 함수가 부를 때마다 로그인 창을 띄우려 했다.
+   화면 한 번 뜨는 데 시트를 6군데 읽어서 **팝업을 6개 띄우려다 브라우저가 전부 막았고**
+   (`Failed to open popup window ... blocked by the browser`) 화면이 "불러오는 중"에서 멈췄다.
+   → ① 토큰 요청은 **하나로 묶는다**(_pending). 여섯이 불러도 실제 요청은 한 번.
+      ② **자동으로 팝업을 띄우지 않는다.** 브라우저는 사람이 누르지 않은 팝업을 막는다.
+         조용히 받기(prompt:'')를 먼저 해보고, 안 되면 화면에 로그인 버튼을 띄워
+         **사람이 누른 순간** 창을 연다. */
+let _pending=null, _loginBtn=null;
+
+function _showLoginButton(){
+  if(_loginBtn) return;
+  _loginBtn=document.createElement('div');
+  _loginBtn.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.55);'
+    +'display:flex;align-items:center;justify-content:center;font-family:inherit';
+  _loginBtn.innerHTML='<div style="background:#fff;color:#111;border-radius:12px;padding:26px 28px;'
+    +'width:min(360px,90vw);box-shadow:0 12px 40px rgba(0,0,0,.3);text-align:center">'
+    +'<div style="font-weight:800;font-size:17px;margin-bottom:8px">구글 로그인이 필요합니다</div>'
+    +'<div style="font-size:13px;color:#666;line-height:1.6;margin-bottom:18px">'
+    +'수량 리더 시트를 읽고 쓰려면 회사 구글 계정으로 한 번 로그인해 주세요.<br>'
+    +'<b>시트에 편집 권한이 있는 계정</b>이어야 저장까지 됩니다.</div>'
+    +'<button id="sqm_login" style="width:100%;padding:12px;border:0;border-radius:8px;'
+    +'background:#1a73e8;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">'
+    +'구글 계정으로 로그인</button></div>';
+  document.body.appendChild(_loginBtn);
+  _loginBtn.querySelector('#sqm_login').addEventListener('click',()=>{
+    // ← 사람이 누른 것이므로 이때는 팝업이 막히지 않는다
+    _tokenClient.requestAccessToken({prompt:'consent'});
+  });
+}
+function _hideLoginButton(){
+  if(_loginBtn){ try{ document.body.removeChild(_loginBtn); }catch(e){} _loginBtn=null; }
+}
+
 function getAccessToken(){
   if(_cachedToken && Date.now() < _tokenExp-60000) return Promise.resolve(_cachedToken);
-  return new Promise((resolve,reject)=>{
+  if(_pending) return _pending;                       // ← 여섯이 불러도 요청은 한 번
+  _pending = new Promise((resolve,reject)=>{
     // gsi 라이브러리가 아직 안 실렸으면 잠깐 기다린다 (async defer 로 불러온다)
     let waited=0;
     (function ready(){
       if(_initTokenClient()) return go();
-      if((waited+=200) > 10000) return reject(new Error('구글 로그인 라이브러리를 불러오지 못했습니다. 새로고침(F5) 해주세요.'));
+      if((waited+=200) > 10000){ _pending=null; return reject(new Error('구글 로그인 라이브러리를 불러오지 못했습니다. 새로고침(F5) 해주세요.')); }
       setTimeout(ready,200);
     })();
     function go(){
       _tokenClient.callback = (resp)=>{
         if(!(resp && resp.access_token)){
-          return reject(new Error('구글 로그인이 취소되었거나 실패했습니다'+(resp&&resp.error?(' ('+resp.error+')'):'')));
+          _showLoginButton();          // 조용히 받기 실패 → 사람이 누르게 한다
+          return;                      // reject 하지 않는다. 버튼 누르면 이 콜백이 다시 온다
         }
         // 쓰기 권한까지 승인됐는지 확인 — 읽기만 허용하면 저장이 조용히 실패한다
         const okScope = (typeof google.accounts.oauth2.hasGrantedAllScopes!=='function')
           || google.accounts.oauth2.hasGrantedAllScopes(resp, OAUTH_SCOPE);
         if(!okScope && !_consentTried){
           _consentTried=true;
-          _tokenClient.requestAccessToken({prompt:'consent'});   // 수정 권한을 다시 물어본다
+          _showLoginButton();          // 수정 권한이 빠졌다 → 다시 눌러 받게 한다
           return;
         }
         _cachedToken=resp.access_token;
         _tokenExp=Date.now()+((resp.expires_in||3300)*1000);
+        _hideLoginButton();
+        _pending=null;
         resolve(_cachedToken);
       };
-      _tokenClient.requestAccessToken({prompt:''});   // 이미 승인했으면 창 없이 조용히
+      // 조용히 시도. 팝업이 막히면 위 콜백이 실패로 오고, 그때 버튼을 띄운다.
+      try{ _tokenClient.requestAccessToken({prompt:''}); }
+      catch(e){ _showLoginButton(); }
+      // 팝업이 막히면 콜백조차 안 오는 경우가 있다 → 3초 뒤에도 조용하면 버튼을 띄운다
+      setTimeout(()=>{ if(!_cachedToken) _showLoginButton(); }, 3000);
     }
   });
 }
