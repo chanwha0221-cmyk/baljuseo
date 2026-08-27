@@ -35,7 +35,32 @@ async function token(){
   // 실제 인증은 sheets-proxy.js 가 프록시로 처리한다. 이 값은 쓰이지 않는다.
   return 'via-proxy';
 }
+/* 🔴 2026-08-27 — 이 파일은 **북마클릿으로 masterc.kr 페이지에 주입**된다.
+   그 페이지에는 sheets-proxy.js 가 없다. 그런데 개인키를 걷어내면서 인증을 그 shim 에 맡겨버려서,
+   가짜 토큰 `Bearer via-proxy` 를 그대로 구글로 보내고 있었다 → 사진 채우기가 통째로 죽었다(전부 401).
+   도구 HTML 들은 <script src="sheets-proxy.js"> 로 미리 불러오지만 **여기는 아니다.**
+   그래서 이 파일이 **스스로** shim 을 불러온다. shim 이 먼저 실려야 fetch 가로채기가 걸린다.
+   ⚠️ masterc.kr 은 github.io 와 다른 출처라 팀 비밀번호를 여기서 한 번 더 묻는다(그 브라우저에 30일 저장). */
+var PROXY_SRC='https://chanwha0221-cmyk.github.io/baljuseo/sheets-proxy.js';
+var _proxyReady=null;
+function ensureProxy(){
+  if(window.SheetsProxy) return Promise.resolve();
+  if(_proxyReady) return _proxyReady;
+  _proxyReady=new Promise(function(res,rej){
+    var s=document.createElement('script');
+    s.src=PROXY_SRC+'?v='+Date.now();        // 캐시로 옛 shim 이 물리면 또 조용히 죽는다
+    s.onload=function(){
+      if(window.SheetsProxy) res();
+      else rej(new Error('시트 연결 도구를 불러왔지만 준비되지 않았습니다.'));
+    };
+    s.onerror=function(){ rej(new Error('시트 연결 도구를 불러오지 못했습니다. 인터넷 상태를 확인해 주세요.')); };
+    document.head.appendChild(s);
+  });
+  return _proxyReady;
+}
+
 async function api(ss,path,opt){
+  await ensureProxy();                        // ← 이게 먼저다. 빠지면 인증 없이 나가서 전부 401
   const t=await token();
   const o=Object.assign({headers:{}},opt||{});
   o.headers=Object.assign({Authorization:'Bearer '+t},o.headers||{});
