@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.38</title>
+<title>마스터 유통 카탈로그 v2.39</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1500,7 +1500,16 @@ const ACC_TAB='카탈로그_계정', AK='catalog_auth_v1';
    ⚠️ 계정을 옮긴 뒤로 **도구시트의 옛 계정 탭은 쓰지 않는다** — 거기서 고쳐도 로그인에 반영되지 않는다.
       (상품 도구의 '🔐 카탈로그 로그인 계정 시트' 버튼도 새 시트를 가리킨다.)
    ⚠️ 주소가 비어 있으면 예전 방식(계정 시트 직접 읽기)으로 되돌아간다. */
-const API='https://script.google.com/macros/s/AKfycbxCX-MP7zcps0SeiZzHuft3d_pXRLNMUWroo6lZpukGJGT4wSJSEQjjCUpKZdaPic6d/exec';
+/* 🚀 2026-08-27 컷오버 — 발주·계정의 정본이 **Supabase**로 넘어갔다.
+   왜: Apps Script + 시트는 전역 락 하나로 모든 쓰기를 줄 세운다. 시트는 DB가 아니라 파일이라
+       동시 쓰기가 안 되기 때문이다. 그래서 바쁠수록 막혔고, 8/26에 발주가 실제로 실패했다.
+       Postgres는 줄 단위라 줄 세울 이유가 없다. 응답 2~5초 → 0.5초.
+   🔴 되돌리려면 이 한 줄을 아래 옛 주소로 바꾸면 된다:
+      https://script.google.com/macros/s/AKfycbxCX-MP7zcps0SeiZzHuft3d_pXRLNMUWroo6lZpukGJGT4wSJSEQjjCUpKZdaPic6d/exec
+      ⚠️ 단 그동안 Supabase에 쌓인 발주는 시트에 없다 — 되돌릴 땐 그것부터 옮겨야 한다.
+   🔴 옛 주소도 **살려둔다.** 이미 열려 있는 업체 화면은 새로고침 전까지 거기로 보내는데,
+      그쪽이 받아서 여기로 넘겨준다(브리지). 유입이 0으로 굳기 전에 닫으면 발주가 조용히 사라진다. */
+const API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
 /* 🔴 서버가 JSON이 아니라 HTML을 돌려주는 일이 있다 (2026-08-26 사고).
    Apps Script가 몰려서 못 받아내면 오류 **페이지**를 주는데, 예전 코드는 r.json() 을 바로 불러
    화면에 `Unexpected token '<'` 라는 개발자 말이 그대로 떴다. 업체는 무슨 소린지 모르니
