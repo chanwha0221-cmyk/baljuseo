@@ -95,6 +95,19 @@ function fmtTel(raw){
 //    안 묶는 것보다 나쁘므로, 여기선 일부러 보수적으로만 정규화한다.
 const addrKey = s => S(s).replace(/[\s,\-()]/g, '');
 
+/* 📦 합포장 안 되는 상품 — 서버(app_config NO_HAP)에 남는다 (홍팀장 2026-08-28).
+   지정은 마스터만, 적용은 모두에게. 업체가 직접 넣어도 나뉘어야 창고가 그대로 보낸다. */
+let NOHAP = new Set();
+const isNoHap = n => NOHAP.has(pkey(n));
+async function loadNoHap(){
+  try{
+    if(!(typeof ME !== 'undefined' && ME && ME.token)) return;
+    const j = await api('nohap', {token: ME.token});
+    NOHAP = new Set((j.rows || []).map(r => pkey(r.name)));
+  }catch(e){ /* 못 받으면 예전대로 합쳐 나간다 — 모르면서 나누는 것보다 낫다 */ }
+}
+window.loadNoHap = loadNoHap;
+
 // ── 상품 찾기 (완전일치만) ───────────────────────────────────────
 let PIDX = null, WHS = null;
 function prodIndex(){
@@ -252,7 +265,7 @@ function buildOut(){
     if(list.length > 1) notes.push('같은 분(' + k.split('|')[0] + ')께 가는 건이 주소 표기가 서로 달라 합포장으로 묶지 않았습니다: ' + list.join(' / '));
   });
 
-  const nine = [], ten = [], warn = [], merged = [];
+  const nine = [], ten = [], warn = [], merged = [], split = [];
   groups.forEach(g => {
     /* 🔢 같은 상품이 두 줄로 들어온 것 (홍팀장 2026-08-28 — 「점보 닭다리 1kg x 2 / 점보 닭다리 1kg x 2」).
        예전엔 그대로 이어붙여 발주서에 같은 상품이 두 번 나갔다. 창고가 두 번 읽을 표기다.
@@ -276,16 +289,28 @@ function buildOut(){
           + (amMaster() ? '업체에 확인해 주세요.' : '확인해 주세요.'));
       }
     });
-    const prod = items.map(it => it.name + ' x ' + it.qty).join(' / ');
     items.forEach(it => { if(it.lim && it.qty > it.lim) warn.push('📦 ' + it.name + ' ' + it.qty + '개 (합포장 한도 ' + it.lim + ') — 박스 분리 확인 필요'); });
     const tel = fmtTel(g.tel) || g.tel;                     // 받는분 연락처는 하이픈 넣어 정리
     const myTel = fmtTel(me.phone) || S(me.phone);          // 주문처 연락처도 같은 규칙
     // 자기 업체명을 적은 건 10칸으로 치지 않는다 — 같은 업체 발주가 날마다 갈리는 원인 (2026-08-24)
     const biz = (S(g.biz) && pkey(g.biz) === pkey(me.name)) ? '' : S(g.biz);
-    if(biz) ten.push([me.name || '', biz, me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
-    else    nine.push([me.name || '', me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
+    const put = prod => {
+      if(biz) ten.push([me.name || '', biz, me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
+      else    nine.push([me.name || '', me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
+    };
+    /* 📦 합포장 안 되는 상품은 **한 줄에 하나씩, 1개씩** 떨어진다 (홍팀장 2026-08-28 — 참치 오마카세 한판).
+       한 상자에 같이 못 담는 물건이라 발주서에서부터 나눠야 창고가 그대로 보낸다.
+       한 번 지정해두면 다음 발주부터 사람 손이 안 든다. */
+    const solo = [], rest = [];
+    items.forEach(it => (isNoHap(it.name) ? solo : rest).push(it));
+    if(rest.length) put(rest.map(it => it.name + ' x ' + it.qty).join(' / '));
+    solo.forEach(it => {
+      for(let n = 0; n < it.qty; n++) put(it.name + ' x 1');
+      if(it.qty > 1) warn.push('📦 ' + it.name + ' — 합포장이 안 되는 상품이라 ' + it.qty + '줄로 나눠 넣었습니다.');
+      split.push({name:it.name, qty:it.qty, rcv:S(g.rcv)});
+    });
   });
-  return {nine, ten, notes, warn, merged};
+  return {nine, ten, notes, warn, merged, split};
 }
 const tsv = rows => rows.map(r => r.join('\t')).join('\n');
 
@@ -730,6 +755,18 @@ function paintOut(ok, bad){
   h += '<div class="hint">같은 주소·같은 창고 상품은 <b>합포장으로 묶었습니다</b>.</div>';
   if(o.notes.length) h += '<div class="ordnote" style="margin-top:8px">' + o.notes.map(esc).join('<br>') + '</div>';
   if(o.warn.length)  h += '<div class="ordnote" style="margin-top:8px">' + o.warn.map(esc).join('<br>') + '</div>';
+  /* 📦 합쳐진 상품을 **그 자리에서 나눌 수 있게** (홍팀장 2026-08-28
+     — "업체한테 확인을 하면 수정이 되게끔 해줘야지").
+     경고만 띄우고 끝내면 사람이 입력칸으로 돌아가 손으로 나눠야 했다.
+     이 버튼은 그 상품을 **합포장 안 되는 상품으로 지정**한다 — 지금 미리보기가 바로 나뉘고,
+     다음 발주부터도 자동으로 나뉜다. 마스터만 보인다. */
+  if(amMaster() && o.merged.length){
+    const todo = o.merged.filter(m => !isNoHap(m.name));
+    if(todo.length) h += '<div class="ordnote" style="margin-top:8px">'
+      + todo.map(m => '<button class="ordb2" data-nohap="' + esc(m.name) + '" style="margin:3px 5px 0 0">'
+          + '📦 ' + esc(m.name) + ' — 합포장 안 됨으로 지정하고 ' + m.qty + '줄로 나누기</button>').join('')
+      + '<div class="hint" style="margin-top:4px">한 번 지정하면 다음 발주부터 자동으로 나뉩니다.</div></div>';
+  }
   if(o.nine.length){
     h += '<div class="ordsum" style="margin-top:12px"><b>일반 발주 (9칸)</b> · ' + o.nine.length + '줄</div>'
       + '<div class="ordout">' + esc(tsv(o.nine)) + '</div>'
@@ -2124,6 +2161,20 @@ document.addEventListener('click', e => {
   if(pick){
     const i = +pick.getAttribute('data-i');
     if(ROWS[i]){ ROWS[i].name = pick.getAttribute('data-pick'); OPEN = -1; paint(); toast('상품을 바꿨습니다'); }
+    return;
+  }
+  /* 📦 합포장 안 됨으로 지정 — 누르는 즉시 미리보기가 나뉜다 (홍팀장 2026-08-28) */
+  const nh = e.target.closest && e.target.closest('[data-nohap]');
+  if(nh){
+    const nm = nh.getAttribute('data-nohap');
+    nh.disabled = true; const old = nh.textContent; nh.textContent = '지정 중…';
+    api('nohapset', {token: ME.token, name: nm, on: true})
+      .then(j => {
+        NOHAP = new Set((j.rows || []).map(r => pkey(r.name)));
+        toast('📦 ' + nm + ' — 합포장 안 되는 상품으로 지정했습니다');
+        paint();
+      })
+      .catch(err => { alert(err.message || '지정하지 못했습니다'); nh.disabled = false; nh.textContent = old; });
     return;
   }
   const cpx = e.target.closest && e.target.closest('[data-cpx]');

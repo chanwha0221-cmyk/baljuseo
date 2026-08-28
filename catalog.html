@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.48).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.49).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.48</title>
+<title>마스터 유통 카탈로그 v2.49</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1217,6 +1217,8 @@ async function startCatalog(){
   /* 🚫 예외 목록을 먼저 받아온다 — 늦게 오면 감춰야 할 상품이 잠깐 보였다 사라진다.
      받아온 뒤 화면을 한 번 더 그린다(캐시로 먼저 그린 화면도 여기서 정리된다). */
   loadExc().then(()=>{ if(GROUPS.length){buildAll();buildWhChips();render();} });
+  // 📦 합포장 안 되는 상품 목록 — 발주 화면(order.js)이 쓴다. 여기서 같이 받아둔다.
+  if(window.loadNoHap)window.loadNoHap();
   let usedCache=false;
   try{
     const c=JSON.parse(localStorage.getItem(CK)||'null');
