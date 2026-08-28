@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v7.2</title>
+<title>통장 내역 조회 v7.3</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v7.2</span>
+  <span class="ver">v7.3</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -694,9 +694,17 @@ async function handleSettleFile(file){
         // 📚 누적 기록: 입금완료(색칠)든 미입금이든 이 정산 셀 자체는 저장 (전월 대조용). 유효 업체명만.
         if(rowDate && nm && !/^col\d+$/.test(nm)){ const _hk=rowDate+'|'+nm; if(_histAgg[_hk]){ _histAgg[_hk].amount+=amt; _histAgg[_hk].paid=_histAgg[_hk].paid&&_paid; } else { _histAgg[_hk]={date:rowDate, company:nm, amount:amt, paid:_paid}; } }   // 면세+과세 합산(같은 키)
         if(_paid){ colored+=amt; continue; }   // 미정산 현황엔 입금완료 셀 제외 (기존 동작 유지)
-        if(!stat[nm]) stat[nm]={amt:0,from:'',to:''};
+        if(!stat[nm]) stat[nm]={amt:0,from:'',to:'',cells:{}};
         stat[nm].amt+=amt;
-        if(rowDate){ if(!stat[nm].from||rowDate<stat[nm].from) stat[nm].from=rowDate; if(!stat[nm].to||rowDate>stat[nm].to) stat[nm].to=rowDate; }
+        /* 📅 날짜별로도 쌓는다 (홍팀장 2026-08-28).
+           from~to 만 두면 오래 밀린 한 건 때문에 "44일째 미정산"으로 읽힌다.
+           실제로는 7/16 한 건이 누락된 것이고 나머지는 최근 건이라, 완전히 다른 얘기다.
+           홍팀장: "16일 지연 한 건 하고, 그다음에 며칠 지연인지 뽑자." */
+        if(rowDate){
+          if(!stat[nm].from||rowDate<stat[nm].from) stat[nm].from=rowDate;
+          if(!stat[nm].to||rowDate>stat[nm].to) stat[nm].to=rowDate;
+          stat[nm].cells[rowDate]=(stat[nm].cells[rowDate]||0)+amt;
+        }
       }
     }
     // 📅 매칭 기간 자동 입력 (2026-07-29): 파일명(YYYYMMDD_YYYYMMDD)에서 못 잡았으면 파일 내용의 첫 일자~오늘로.
@@ -707,7 +715,7 @@ async function handleSettleFile(file){
       if(_a&&!_a.value)_a.value=_dMin;
       if(_b&&!_b.value)_b.value=_today;
     }
-    MIS_DATA=Object.entries(stat).map(([name,v])=>({name,amt:v.amt,from:v.from,to:v.to})).sort((a,b)=>b.amt-a.amt);
+    MIS_DATA=Object.entries(stat).map(([name,v])=>({name,amt:v.amt,from:v.from,to:v.to,cells:v.cells||{}})).sort((a,b)=>b.amt-a.amt);
     MIS_BASIS=file.name.replace(/\.xlsx$/i,'');
     const total=MIS_DATA.reduce((s,e)=>s+e.amt,0);
     document.getElementById('s-mis').textContent=fmtN(total);
@@ -812,6 +820,25 @@ function lastPayOf(company){
   }
   return best;
 }
+/* 📅 미정산 날짜를 **덩어리로 나눈다** (홍팀장 2026-08-28).
+   "7월 16일 ~ 8월 28일 (44일째)"는 44일 내내 안 준 것처럼 읽힌다. 실제로는 7/16 한 건이
+   누락됐고 나머지는 최근 건이었다 — 업체에 보낼 말도, 우리 판단도 완전히 달라진다.
+   홍팀장: "16일 지연 한 건 하고, 그다음에 며칠 지연인지 뽑자."
+   → 날짜가 7일 이상 벌어지면 다른 덩어리로 보고, 덩어리마다 며칠 지연인지 따로 적는다. */
+function misChunks(e){
+  const cells=e.cells||{};
+  const days=Object.keys(cells).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+  if(!days.length) return [];
+  const dnum=d=>{ const m=d.match(/(\d{4})-(\d{2})-(\d{2})/); return new Date(+m[1],+m[2]-1,+m[3]).getTime(); };
+  const out=[]; let cur=[days[0]];
+  for(let i=1;i<days.length;i++){
+    if((dnum(days[i])-dnum(days[i-1]))/86400000 >= 7){ out.push(cur); cur=[]; }
+    cur.push(days[i]);
+  }
+  out.push(cur);
+  return out.map(g=>({from:g[0], to:g[g.length-1], n:g.length,
+                      amt:g.reduce((s,d)=>s+(cells[d]||0),0)}));
+}
 function renderMisPanel(){
   const box=document.getElementById('misBody'); if(!box) return;
   document.getElementById('misBasis').textContent=MIS_BASIS?('('+MIS_BASIS+' 기준)'):'';
@@ -841,7 +868,21 @@ function renderMisPanel(){
       const ds=daysSince(e.from);
       return '<tr>'
       +'<td style="border:1px solid #eee;padding:6px 8px;font-weight:700">'+escH(e.name)+'</td>'
-      +'<td style="border:1px solid #eee;padding:6px 8px;text-align:center;color:#666">'+fmtKDate(e.from)+' ~ '+fmtKDate(e.to)+(ds?' <span style="color:'+(ds>=14?'#c0392b;font-weight:700':'#a8a49e')+';font-size:11px">('+ds+'일째)</span>':'')
+      +'<td style="border:1px solid #eee;padding:6px 8px;text-align:center;color:#666">'
+      +(function(){
+          /* 덩어리가 둘 이상이면 기간 한 줄로 뭉뚱그리지 않는다 — 그게 44일 오해의 원인이었다 */
+          const cs=misChunks(e);
+          if(cs.length<2) return fmtKDate(e.from)+' ~ '+fmtKDate(e.to)
+            +(ds?' <span style="color:'+(ds>=14?'#c0392b;font-weight:700':'#a8a49e')+';font-size:11px">('+ds+'일 지연)</span>':'');
+          return cs.map((c,ci)=>{
+            const cd=daysSince(c.from), old=cd&&cd>=14;
+            return '<div style="'+(ci?'margin-top:2px':'')+'">'
+              +(old?'🔴 ':'')+fmtKDate(c.from)+(c.to!==c.from?(' ~ '+fmtKDate(c.to)):'')
+              +' <span style="font-size:11px;color:#a8a49e">'+c.n+'건 · '+fmtN(c.amt)+'</span>'
+              +(cd?' <span style="font-size:11px;color:'+(old?'#c0392b;font-weight:700':'#a8a49e')+'">('+cd+'일 지연)</span>':'')
+              +'</div>';
+          }).join('');
+        })()
       +(function(){
           const p=lastPayOf(e.name); if(!p) return '';
           const late=String(p.dateOnly)>=String(e.from||'');     // 미정산 시작일 뒤에 들어온 입금
@@ -859,7 +900,14 @@ async function copyMisMsg(i){
   const e=MIS_DATA[i]; if(!e) return;
   const h=(HONOR[e.name]||'').trim();
   if(!h){ alert('호칭 칸을 먼저 채워주세요 (예: 김대표)'); return; }
-  const msg='안녕하세요 '+h+'님\n'+fmtKDate(e.from)+'부터 '+fmtKDate(e.to)+'까지 미정산 금액 '+fmtN(e.amt)+' 입니다.\n입금 요청 드립니다.\n정산 이상 있으시면 연락주세요.';
+  /* 업체에 보내는 말도 덩어리로 적는다 (홍팀장 2026-08-28).
+     "7월 16일부터 8월 28일까지 미정산"이라고 보내면 업체는 44일치를 안 준 걸로 읽는다.
+     실제로는 오래 밀린 한 건 + 최근 몇 건이라, 그대로 적어야 업체도 바로 찾는다. */
+  const cs=misChunks(e);
+  const detail=(cs.length>1)
+    ? cs.map(c=>'· '+fmtKDate(c.from)+(c.to!==c.from?(' ~ '+fmtKDate(c.to)):'')+' '+c.n+'건 '+fmtN(c.amt)).join('\n')
+    : fmtKDate(e.from)+' ~ '+fmtKDate(e.to)+' '+fmtN(e.amt);
+  const msg='안녕하세요 '+h+'님\n미정산 내역 안내드립니다.\n'+detail+'\n합계 '+fmtN(e.amt)+' 입니다.\n입금 요청 드립니다.\n정산 이상 있으시면 연락주세요.';
   try{ await navigator.clipboard.writeText(msg); if(typeof showToast==='function')showToast('📋 '+e.name+' 입금요청 메시지 복사됨'); }
   catch(err){ alert(msg); }
 }
