@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.46).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.47).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.46</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.47</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1089,7 +1089,14 @@ function render(){
     const gh=excGhosts();
     bannerHtml='<div class="excbar">🚫 예외 상품 — 업체 화면에서는 보이지 않습니다.'
       +'<div style="font-weight:600;font-size:12px;margin-top:3px">시트가 갱신돼도 계속 감춰집니다. '
-      +'입고가 되면 카드의 <b>[↩ 판매 재개]</b>를 누르세요. 시트는 건드리지 않았으니 단가·마감 그대로 살아납니다.</div>'
+      +'입고가 되면 카드의 <b>[↩ 판매 재개]</b>를 누르세요. 단가·마감은 시트에 그대로 살아 있습니다.</div>'
+      /* 🔄 유통시트 동기화 — 아직 시트를 직접 보는 업체가 있는 과도기라 시트에서도 가려야 한다
+         (홍팀장 2026-08-28). 지우는 게 아니라 **줄을 숨긴다** — 값이 남아 되돌리기가 한 번이고,
+         카탈로그는 이미 숨긴 줄을 안 판다(2026-08-24 규칙)라 양쪽이 한 번에 맞는다. */
+      +'<div style="margin-top:9px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +'<button class="ordb2" id="excsync">🔄 유통시트에서도 숨기기</button>'
+      +'<span style="font-weight:600;font-size:11.5px">시트를 직접 보는 업체가 아직 있어서 그 줄을 숨깁니다. 판매 재개하면 다시 열립니다.</span>'
+      +'</div><div id="excsyncmsg" style="font-weight:600;font-size:12px;margin-top:7px;line-height:1.8"></div>'
       +(gh.length?('<div style="margin-top:7px">시트에서는 이미 빠진 '+gh.length+'개 — 목록에만 남아 있습니다.'
         +'<div>'+gh.map(v=>'<span class="gh">'+esc(v.name)+'<button data-excg="'+esc(v.name)+'">↩ 되돌리기</button></span>').join('')+'</div></div>'):'')
       +'</div>';
@@ -1118,6 +1125,22 @@ function render(){
   }
   view.innerHTML=bannerHtml+headHtml
     +'<div class="grid">'+list.map(function(p){return card(p);}).join('')+'</div>';
+  const sy=$('excsync');
+  if(sy)sy.onclick=async()=>{
+    const msg=$('excsyncmsg');
+    sy.disabled=true;sy.textContent='시트 확인 중…';msg.textContent='';
+    try{
+      const j=await api('excsync',{token:ME.token});
+      let h='';
+      if(j.hid.length)h+='🔒 시트에서 숨김 '+j.hid.length+'줄<br>'+j.hid.map(esc).join('<br>');
+      if(j.shown.length)h+=(h?'<br><br>':'')+'🔓 다시 열림 '+j.shown.length+'줄<br>'+j.shown.map(esc).join('<br>');
+      // 못 찾은 것은 조용히 넘기지 않는다 — 시트에 없으면 이미 빠진 것이거나 이름이 다른 것이다
+      if(j.missing.length)h+=(h?'<br><br>':'')+'⚠️ 시트에서 못 찾은 '+j.missing.length+'개 (이미 빠졌거나 이름이 다릅니다)<br>'+j.missing.map(esc).join(' · ');
+      msg.innerHTML=h||'시트와 이미 맞아 있습니다. 바꿀 것이 없었습니다.';
+      toast('시트 동기화 완료');
+    }catch(e){ msg.innerHTML='<span style="color:#c0392b">'+esc(e.message||'동기화하지 못했습니다')+'</span>'; }
+    finally{ sy.disabled=false;sy.textContent='🔄 유통시트에서도 숨기기'; }
+  };
 }
 document.addEventListener('click',e=>{
   /* 🚫 예외 등록 / 판매 재개 — 마스터만. 되돌리기가 한 번이라 등록은 확인 없이,
