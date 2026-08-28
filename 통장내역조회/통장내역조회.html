@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v7.4</title>
+<title>통장 내역 조회 v7.5</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v7.4</span>
+  <span class="ver">v7.5</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -907,7 +907,21 @@ async function copyMisMsg(i){
   const detail=(cs.length>1)
     ? cs.map(c=>'· '+fmtKDate(c.from)+(c.to!==c.from?(' ~ '+fmtKDate(c.to)):'')+' '+c.n+'건 '+fmtN(c.amt)).join('\n')
     : fmtKDate(e.from)+' ~ '+fmtKDate(e.to)+' '+fmtN(e.amt);
-  const msg='안녕하세요 '+h+'님\n미정산 내역 안내드립니다.\n'+detail+'\n합계 '+fmtN(e.amt)+' 입니다.\n입금 요청 드립니다.\n정산 이상 있으시면 연락주세요.';
+  /* ✉️ 문구 (홍팀장 2026-08-28 지시 원문).
+     🔴 월말 안내에 날짜를 박지 않는다 — 이번 달 마지막 날과 요일을 그때그때 계산한다.
+        박아두면 다음 달에도 "31일 월요일"이 그대로 나가 거짓말이 된다(9월은 30일 수요일).
+     월말 주간(마지막 날까지 7일 이내)에만 마지막 정산일 안내가 붙고, 평소엔 예전 문구가 나간다. */
+  const _n=new Date(), _WD=['일','월','화','수','목','금','토'];
+  const _last=new Date(_n.getFullYear(), _n.getMonth()+1, 0);
+  const _left=Math.round((_last-new Date(_n.getFullYear(),_n.getMonth(),_n.getDate()))/86400000);
+  const tail=(_left<=7)
+    ? '\n'+_last.getDate()+'일 '+_WD[_last.getDay()]+'요일이 '+(_last.getMonth()+1)+'월 마지막 정산일 입니다.'
+      +'\n해당 금액 주말까지 입금 요청 드리고'
+      +'\n'+_last.getDate()+'일 정산 금액도 가능한 입금해 주시면 감사드리겠습니다~'
+      +'\n\n즐거운 주말 되십시요!!!'
+    : '\n입금 요청 드립니다.\n정산 이상 있으시면 연락주세요.';
+  const msg='안녕하세요 '+h+'님\n이번 한주도 고생 많으셨습니다.\n미정산 내역 알려드립니다.\n'
+    +detail+'\n합계 '+fmtN(e.amt)+' 입니다.\n'+tail;
   try{ await navigator.clipboard.writeText(msg); if(typeof showToast==='function')showToast('📋 '+e.name+' 입금요청 메시지 복사됨'); }
   catch(err){ alert(msg); }
 }
