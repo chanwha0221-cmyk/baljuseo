@@ -927,6 +927,37 @@ function ordersPaint(){
 function dupKeyOf(r){
   return pkey([S(r.cid), S(r.prod), S(r.rcv), S(r.addr)].join('|')) + '|' + S(r.tel).replace(/[^0-9]/g, '');
 }
+/* 🔢 한 줄 안에 같은 상품이 두 번 들어온 것 (홍팀장 2026-08-28).
+   예: 「점보 닭다리 1kg x 2 / 점보 닭다리 1kg x 2」 = 4개. 업체가 담기를 두 번 눌렀거나
+   진짜로 4개를 시킨 것이거나 둘 중 하나인데, **묻지 않으면 알 수 없다.**
+   🔴 자동으로 합치지도, 지우지도 않는다 — 어느 쪽인지는 업체만 안다. 화면이 짚어주고 사람이 묻는다.
+   ⚠️ 규격이 다르면(1kg / 500g) 이름이 달라 안 잡힌다. 이름이 **완전히 같을 때만**(§3-3). */
+const pkeyO = s => String(s || '').replace(/\s+/g, '').toLowerCase();
+function splitProds(prod){
+  return S(prod).split('/').map(s => s.trim()).filter(Boolean).map(it => {
+    const m = it.match(/\s*[xX×]\s*(\d+)\s*$/);
+    return { name: m ? it.slice(0, m.index).trim() : it, qty: m ? parseInt(m[1], 10) : 1 };
+  });
+}
+function sameProdGroups(list){
+  const out = [];
+  (list || []).forEach(r => {
+    if(S(r.state) === '취소') return;
+    const parts = splitProds(r.prod);
+    if(parts.length < 2) return;
+    const m = new Map();
+    parts.forEach(p => {
+      const k = pkeyO(p.name);
+      if(!m.has(k)) m.set(k, { name: p.name, n: 0, qty: 0 });
+      const g = m.get(k); g.n++; g.qty += p.qty;
+    });
+    m.forEach(g => { if(g.n > 1) out.push({ r, g }); });
+  });
+  out.sort((a, b) => S(b.r.at).localeCompare(S(a.r.at)));
+  return out;
+}
+const sameKeyOf = it => 'same|' + S(it.r.no) + '|' + pkeyO(it.g.name);
+
 /* 🔁 확인 끝난 중복 쌍 — 서버(app_config DUP_OK)에 남는다 (홍팀장 2026-08-28).
    브라우저에 적지 않는 이유는 §1175 와 같다: 기기마다 따로 놀면 확인의 뜻이 사라진다.
    ⚠️ 여기 담기는 건 "수량을 나눠 넣은 정상 발주"다. 잘못 들어온 건은 [취소]하면 알아서 빠진다. */
@@ -949,41 +980,63 @@ function dupGroups(list){
   out.sort((a, b) => S(b[0].at).localeCompare(S(a[0].at)));
   return out;
 }
+// 배너 한 줄 — 왼쪽은 눌러서 찾기, 오른쪽은 [확인함]. 두 종류(발주번호 중복·한 줄 중복)가 같은 모양을 쓴다.
+function dupRow(inner, q, k){
+  const off = DUPOK.has(k);
+  return '<div style="margin-top:8px;padding:8px 10px;border:1px solid #f0d4d4;border-radius:8px;'
+    + 'background:#fff;display:flex;gap:8px;align-items:center">'
+    + '<div class="dupit" data-dupq="' + esc(q) + '" style="flex:1;min-width:0;cursor:pointer">' + inner + '</div>'
+    + '<button class="ordb2" data-dupok="' + esc(k) + '" data-dupon="' + (off ? '0' : '1') + '"'
+    + ' style="white-space:nowrap">' + (off ? '되돌리기' : '✓ 확인함') + '</button></div>';
+}
 function dupBanner(master){
+  const cname = r => (master && S(r.cname)) ? ' <span style="color:var(--muted)">(' + esc(S(r.cname)) + ')</span>' : '';
+
+  // ① 발주번호가 다른데 내용이 같은 것
   const all = dupGroups(LIST);
-  const hidden = all.filter(rows => DUPOK.has(dupKeyOf(rows[0])));
+  const hidA = all.filter(rows => DUPOK.has(dupKeyOf(rows[0])));
   const gs = DUPSHOWALL ? all : all.filter(rows => !DUPOK.has(dupKeyOf(rows[0])));
-  // 남은 게 없으면 배너를 통째로 지운다 — 다 처리했는데도 빨간 상자가 남아 있으면 아래가 밀린다
-  if(!gs.length && !hidden.length) return '';
-  if(!gs.length) return '<div class="hint" style="margin:6px 2px">'
-    + '🔁 확인 끝낸 중복 ' + hidden.length + '건이 숨겨져 있습니다. '
-    + '<a href="#" id="dupshowall" style="color:var(--accent)">다시 보기</a></div>';
-  const show = gs.slice(0, 8);
-  return '<div class="ordbox" style="border-color:#e8b4b4;background:#fff7f7">'
-    + '<h3 style="color:#c0392b">🔁 같은 발주가 두 번 들어온 것으로 보입니다 — ' + gs.length + '건</h3>'
-    + '<div class="hint">발주번호가 다른데 <b>업체·상품·받는분·주소·연락처가 모두 같습니다.</b> '
-    + '눌러서 확인하시고, 잘못 들어온 쪽을 <b>취소</b>해 주세요. '
-    + '수량을 나눠 넣으신 것이면 <b>[확인함]</b>을 누르시면 목록에서 사라집니다.</div>'
-    + show.map(rows => {
-        const r = rows[0];
-        const nos = Array.from(new Set(rows.map(x => S(x.no))));
-        const k = dupKeyOf(r), off = DUPOK.has(k);
-        return '<div style="margin-top:8px;padding:8px 10px;border:1px solid #f0d4d4;border-radius:8px;'
-          + 'background:#fff;display:flex;gap:8px;align-items:center"'
-          + (off ? ' data-dupdone="1"' : '') + '>'
-          + '<div class="dupit" data-dupq="' + esc(S(r.rcv)) + '" style="flex:1;min-width:0;cursor:pointer">'
-          + '<b>' + esc(S(r.prod)) + '</b> · ' + esc(S(r.rcv))
-          + (master && S(r.cname) ? ' <span style="color:var(--muted)">(' + esc(S(r.cname)) + ')</span>' : '')
-          + '<div style="font-size:12px;color:var(--muted);margin-top:3px">'
-          + nos.map(n => esc(n)).join(' · ') + ' — 눌러서 찾기</div></div>'
-          + '<button class="ordb2" data-dupok="' + esc(k) + '" data-dupon="' + (off ? '0' : '1') + '"'
-          + ' style="white-space:nowrap">' + (off ? '되돌리기' : '✓ 확인함') + '</button>'
-          + '</div>';
-      }).join('')
-    + (gs.length > show.length ? '<div class="hint" style="margin-top:8px">외 ' + (gs.length - show.length) + '건 더 있습니다.</div>' : '')
-    + (hidden.length && !DUPSHOWALL ? '<div class="hint" style="margin-top:8px">확인 끝낸 ' + hidden.length + '건은 숨겨져 있습니다. '
-        + '<a href="#" id="dupshowall" style="color:var(--accent)">다시 보기</a></div>' : '')
-    + '</div>';
+  // ② 한 줄 안에 같은 상품이 두 번
+  const sall = sameProdGroups(LIST);
+  const hidB = sall.filter(it => DUPOK.has(sameKeyOf(it)));
+  const ss = DUPSHOWALL ? sall : sall.filter(it => !DUPOK.has(sameKeyOf(it)));
+
+  const hidden = hidA.length + hidB.length;
+  if(!gs.length && !ss.length && !hidden) return '';
+  const showAgain = '<a href="#" id="dupshowall" style="color:var(--accent)">다시 보기</a>';
+  if(!gs.length && !ss.length) return '<div class="hint" style="margin:6px 2px">'
+    + '🔁 확인 끝낸 ' + hidden + '건이 숨겨져 있습니다. ' + showAgain + '</div>';
+
+  let h = '<div class="ordbox" style="border-color:#e8b4b4;background:#fff7f7">';
+  if(gs.length){
+    const show = gs.slice(0, 8);
+    h += '<h3 style="color:#c0392b">🔁 같은 발주가 두 번 들어온 것으로 보입니다 — ' + gs.length + '건</h3>'
+      + '<div class="hint">발주번호가 다른데 <b>업체·상품·받는분·주소·연락처가 모두 같습니다.</b> '
+      + '눌러서 확인하시고, 잘못 들어온 쪽을 <b>취소</b>해 주세요. '
+      + '수량을 나눠 넣으신 것이면 <b>[확인함]</b>을 누르시면 목록에서 사라집니다.</div>'
+      + show.map(rows => {
+          const r = rows[0], nos = Array.from(new Set(rows.map(x => S(x.no))));
+          return dupRow('<b>' + esc(S(r.prod)) + '</b> · ' + esc(S(r.rcv)) + cname(r)
+            + '<div style="font-size:12px;color:var(--muted);margin-top:3px">'
+            + nos.map(n => esc(n)).join(' · ') + ' — 눌러서 찾기</div>', S(r.rcv), dupKeyOf(r));
+        }).join('')
+      + (gs.length > show.length ? '<div class="hint" style="margin-top:8px">외 ' + (gs.length - show.length) + '건 더 있습니다.</div>' : '');
+  }
+  if(ss.length){
+    const show = ss.slice(0, 8);
+    h += '<h3 style="color:#c0392b' + (gs.length ? ';margin-top:14px' : '') + '">🔢 한 발주 안에 같은 상품이 두 번 — ' + ss.length + '건</h3>'
+      + '<div class="hint">업체에 <b>수량이 맞는지 물어보세요.</b> '
+      + '맞으면 <b>[확인함]</b>, 잘못 담긴 것이면 업체가 <b>발주 내역에서 그 부분을 지우면</b> 됩니다.</div>'
+      + show.map(it => {
+          const r = it.r, g = it.g;
+          return dupRow('<b>' + esc(g.name) + '</b> — ' + g.n + '번 = <b>' + g.qty + '개</b> · ' + esc(S(r.rcv)) + cname(r)
+            + '<div style="font-size:12px;color:var(--muted);margin-top:3px">'
+            + esc(S(r.no)) + ' · ' + esc(S(r.prod)) + ' — 눌러서 찾기</div>', S(r.rcv), sameKeyOf(it));
+        }).join('')
+      + (ss.length > show.length ? '<div class="hint" style="margin-top:8px">외 ' + (ss.length - show.length) + '건 더 있습니다.</div>' : '');
+  }
+  if(hidden && !DUPSHOWALL) h += '<div class="hint" style="margin-top:8px">확인 끝낸 ' + hidden + '건은 숨겨져 있습니다. ' + showAgain + '</div>';
+  return h + '</div>';
 }
 // 1 … 4 [5] 6 … 20 — 페이지가 많아도 버튼이 한 줄을 안 넘게
 function pageNums(cur, total){
