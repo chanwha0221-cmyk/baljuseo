@@ -386,7 +386,7 @@ function pp(cl,pr,qty){
   // 수량 추출 — x/X/× 패턴 우선, 못 잡으면 " - N" 패턴 (카톡 발주 "1k - 26" 같은 케이스, 2026-05-15 버그픽스)
   const qm=r.match(/\s*[xX×]\s*(\d+)$/) || r.match(/\s+-\s+(\d+)$/);let cn=r;
   if(qm){qty=parseInt(qm[1]);cn=r.slice(0,qm.index).trim();}
-  cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace('난간','난각').replace(/건갈지/g,'건갈치').replace(/알가\s+생물\s+호래기/g,'생물 호래기').replace(/(\d+(?:\.\d+)?)\s*(KG|MG|ML|G|L)\b/gi,(m,n,u)=>n+u.toLowerCase()).replace(/(\d+)[kK]\b/g,'$1kg').trim();
+  cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace(/활\s*새우\s*/g,'활 새우 ').replace('난간','난각').replace(/건갈지/g,'건갈치').replace(/알가\s+생물\s+호래기/g,'생물 호래기').replace(/(\d+(?:\.\d+)?)\s*(KG|MG|ML|G|L)\b/gi,(m,n,u)=>n+u.toLowerCase()).replace(/(\d+)[kK]\b/g,'$1kg').trim();
   // 🦆 양념 접두어 복원 — 괄호에서 뺀 고추장/간장을 상품명 맨 앞에 붙여 표준 상품명화
   if(_saucePrefix&&!cn.startsWith(_saucePrefix.trim()))cn=(_saucePrefix+cn).replace(/\s+/g,' ').trim();
   if(cn.includes('자연산 급냉 대구'))cn='급냉 국내산 대구 1.5kg';

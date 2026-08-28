@@ -927,6 +927,11 @@ function ordersPaint(){
 function dupKeyOf(r){
   return pkey([S(r.cid), S(r.prod), S(r.rcv), S(r.addr)].join('|')) + '|' + S(r.tel).replace(/[^0-9]/g, '');
 }
+/* 🔁 확인 끝난 중복 쌍 — 서버(app_config DUP_OK)에 남는다 (홍팀장 2026-08-28).
+   브라우저에 적지 않는 이유는 §1175 와 같다: 기기마다 따로 놀면 확인의 뜻이 사라진다.
+   ⚠️ 여기 담기는 건 "수량을 나눠 넣은 정상 발주"다. 잘못 들어온 건은 [취소]하면 알아서 빠진다. */
+let DUPOK = new Set();
+let DUPSHOWALL = false;          // '숨긴 것 다시 보기'를 눌렀나
 function dupGroups(list){
   const m = new Map();
   (list || []).forEach(r => {
@@ -945,24 +950,39 @@ function dupGroups(list){
   return out;
 }
 function dupBanner(master){
-  const gs = dupGroups(LIST);
-  if(!gs.length) return '';
+  const all = dupGroups(LIST);
+  const hidden = all.filter(rows => DUPOK.has(dupKeyOf(rows[0])));
+  const gs = DUPSHOWALL ? all : all.filter(rows => !DUPOK.has(dupKeyOf(rows[0])));
+  // 남은 게 없으면 배너를 통째로 지운다 — 다 처리했는데도 빨간 상자가 남아 있으면 아래가 밀린다
+  if(!gs.length && !hidden.length) return '';
+  if(!gs.length) return '<div class="hint" style="margin:6px 2px">'
+    + '🔁 확인 끝낸 중복 ' + hidden.length + '건이 숨겨져 있습니다. '
+    + '<a href="#" id="dupshowall" style="color:var(--accent)">다시 보기</a></div>';
   const show = gs.slice(0, 8);
   return '<div class="ordbox" style="border-color:#e8b4b4;background:#fff7f7">'
     + '<h3 style="color:#c0392b">🔁 같은 발주가 두 번 들어온 것으로 보입니다 — ' + gs.length + '건</h3>'
     + '<div class="hint">발주번호가 다른데 <b>업체·상품·받는분·주소·연락처가 모두 같습니다.</b> '
-    + '눌러서 확인하시고, 잘못 들어온 쪽을 <b>취소</b>해 주세요. (수량을 나눠 넣으신 것이면 그대로 두시면 됩니다)</div>'
+    + '눌러서 확인하시고, 잘못 들어온 쪽을 <b>취소</b>해 주세요. '
+    + '수량을 나눠 넣으신 것이면 <b>[확인함]</b>을 누르시면 목록에서 사라집니다.</div>'
     + show.map(rows => {
         const r = rows[0];
         const nos = Array.from(new Set(rows.map(x => S(x.no))));
-        return '<div class="dupit" data-dupq="' + esc(S(r.rcv)) + '" style="margin-top:8px;padding:8px 10px;'
-          + 'border:1px solid #f0d4d4;border-radius:8px;background:#fff;cursor:pointer">'
+        const k = dupKeyOf(r), off = DUPOK.has(k);
+        return '<div style="margin-top:8px;padding:8px 10px;border:1px solid #f0d4d4;border-radius:8px;'
+          + 'background:#fff;display:flex;gap:8px;align-items:center"'
+          + (off ? ' data-dupdone="1"' : '') + '>'
+          + '<div class="dupit" data-dupq="' + esc(S(r.rcv)) + '" style="flex:1;min-width:0;cursor:pointer">'
           + '<b>' + esc(S(r.prod)) + '</b> · ' + esc(S(r.rcv))
           + (master && S(r.cname) ? ' <span style="color:var(--muted)">(' + esc(S(r.cname)) + ')</span>' : '')
           + '<div style="font-size:12px;color:var(--muted);margin-top:3px">'
-          + nos.map(n => esc(n)).join(' · ') + ' — 눌러서 찾기</div></div>';
+          + nos.map(n => esc(n)).join(' · ') + ' — 눌러서 찾기</div></div>'
+          + '<button class="ordb2" data-dupok="' + esc(k) + '" data-dupon="' + (off ? '0' : '1') + '"'
+          + ' style="white-space:nowrap">' + (off ? '되돌리기' : '✓ 확인함') + '</button>'
+          + '</div>';
       }).join('')
     + (gs.length > show.length ? '<div class="hint" style="margin-top:8px">외 ' + (gs.length - show.length) + '건 더 있습니다.</div>' : '')
+    + (hidden.length && !DUPSHOWALL ? '<div class="hint" style="margin-top:8px">확인 끝낸 ' + hidden.length + '건은 숨겨져 있습니다. '
+        + '<a href="#" id="dupshowall" style="color:var(--accent)">다시 보기</a></div>' : '')
     + '</div>';
 }
 // 1 … 4 [5] 6 … 20 — 페이지가 많아도 버튼이 한 줄을 안 넘게
@@ -975,6 +995,22 @@ function pageNums(cur, total){
   return out;
 }
 function bindPager(){
+  /* 🔁 [확인함] — 서버에 남긴다. 화면에서 지우는 게 아니라 "봤다"를 적는 것이라
+     원비 팀장 화면에서도 같이 사라진다 (홍팀장 2026-08-28). */
+  document.querySelectorAll('[data-dupok]').forEach(btn => {
+    btn.onclick = async e => {
+      e.stopPropagation();
+      const k = btn.getAttribute('data-dupok'), on = btn.getAttribute('data-dupon') === '1';
+      btn.disabled = true; const old = btn.textContent; btn.textContent = '…';
+      try{
+        const j = await api('dupok', { token: ME.token, key: k, on });
+        DUPOK = new Set(j.dupok || []);
+        ordersPaint();
+      }catch(err){ alert(err.message); btn.disabled = false; btn.textContent = old; }
+    };
+  });
+  const sa = document.getElementById('dupshowall');
+  if(sa) sa.onclick = e => { e.preventDefault(); DUPSHOWALL = true; ordersPaint(); };
   // 🔁 중복 항목을 누르면 그 받는분으로 검색해 두 발주를 나란히 보여준다
   document.querySelectorAll('[data-dupq]').forEach(el => {
     el.onclick = () => {
@@ -1186,6 +1222,7 @@ const lower = s => S(s).toLowerCase();
 // '마스터 유통(찬화)' → '찬화'. 카드에 이름 두 개가 나란히 붙어서 짧아야 읽힌다.
 function nick(name){ const m = S(name).match(/\(([^)]+)\)/); return m ? m[1] : S(name); }
 function takeAcks(j){
+  if(j && Array.isArray(j.dupok)) DUPOK = new Set(j.dupok);   // 🔁 확인 끝난 중복 쌍 (서버가 들고 있다)
   ACKON = !!(j && j.masters && j.masters.length);
   if(!ACKON) return;
   MASTERS = j.masters; ACKS = j.acks || {}; MEID = lower(j.meId || (ME && ME.id));
