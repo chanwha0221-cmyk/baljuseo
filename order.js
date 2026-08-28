@@ -249,8 +249,24 @@ function buildOut(){
 
   const nine = [], ten = [], warn = [];
   groups.forEach(g => {
-    const prod = g.items.map(it => it.name + ' x ' + it.qty).join(' / ');
-    g.items.forEach(it => { if(it.lim && it.qty > it.lim) warn.push(it.name + ' ' + it.qty + '개 (합포장 한도 ' + it.lim + ') — 박스 분리 확인 필요'); });
+    /* 🔢 같은 상품이 두 줄로 들어온 것 (홍팀장 2026-08-28 — 「점보 닭다리 1kg x 2 / 점보 닭다리 1kg x 2」).
+       예전엔 그대로 이어붙여 발주서에 같은 상품이 두 번 나갔다. 창고가 두 번 읽을 표기다.
+       → **수량을 합쳐 한 번만 적는다.** 다만 4개가 맞는지는 업체만 아니까 **경고로 반드시 알린다.**
+       🔴 상품명이 완전히 같을 때만 합친다(§3-3). 1kg / 500g 처럼 규격이 다르면 각각 남는다.
+       ⚠️ 합포장 한도(박스 분리)도 **합친 뒤 수량**으로 본다 — 나눠 적힌 걸 따로 세면 한도를 넘겨도 안 걸린다. */
+    const items = [];
+    g.items.forEach(it => {
+      const hit = items.find(m => pkey(m.name) === pkey(it.name));
+      if(hit){ hit.qty += it.qty; hit.parts.push(it.qty); }
+      else items.push({name:it.name, qty:it.qty, lim:it.lim, parts:[it.qty]});
+    });
+    items.forEach(it => {
+      if(it.parts.length > 1)
+        warn.push('🔢 ' + it.name + ' — 같은 상품이 ' + it.parts.length + '줄(' + it.parts.join('+') + ')이라 '
+          + 'x ' + it.qty + ' 로 합쳤습니다. ' + it.qty + '개가 맞는지 업체에 확인해 주세요.');
+    });
+    const prod = items.map(it => it.name + ' x ' + it.qty).join(' / ');
+    items.forEach(it => { if(it.lim && it.qty > it.lim) warn.push('📦 ' + it.name + ' ' + it.qty + '개 (합포장 한도 ' + it.lim + ') — 박스 분리 확인 필요'); });
     const tel = fmtTel(g.tel) || g.tel;                     // 받는분 연락처는 하이픈 넣어 정리
     const myTel = fmtTel(me.phone) || S(me.phone);          // 주문처 연락처도 같은 규칙
     // 자기 업체명을 적은 건 10칸으로 치지 않는다 — 같은 업체 발주가 날마다 갈리는 원인 (2026-08-24)
@@ -689,7 +705,7 @@ function paintOut(ok, bad){
   // ⚠️ 창고명 칸을 왜 비우는지는 우리 사정이다 — 업체 화면에 쓰지 않는다 (사장님 2026-08-20)
   h += '<div class="hint">같은 주소·같은 창고 상품은 <b>합포장으로 묶었습니다</b>.</div>';
   if(o.notes.length) h += '<div class="ordnote" style="margin-top:8px">' + o.notes.map(esc).join('<br>') + '</div>';
-  if(o.warn.length)  h += '<div class="ordnote" style="margin-top:8px">📦 ' + o.warn.map(esc).join('<br>📦 ') + '</div>';
+  if(o.warn.length)  h += '<div class="ordnote" style="margin-top:8px">' + o.warn.map(esc).join('<br>') + '</div>';
   if(o.nine.length){
     h += '<div class="ordsum" style="margin-top:12px"><b>일반 발주 (9칸)</b> · ' + o.nine.length + '줄</div>'
       + '<div class="ordout">' + esc(tsv(o.nine)) + '</div>'
