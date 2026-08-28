@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v7.5</title>
+<title>통장 내역 조회 v7.6</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v7.5</span>
+  <span class="ver">v7.6</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -883,12 +883,11 @@ function renderMisPanel(){
               +'</div>';
           }).join('');
         })()
-      +(function(){
-          const p=lastPayOf(e.name); if(!p) return '';
-          const late=String(p.dateOnly)>=String(e.from||'');     // 미정산 시작일 뒤에 들어온 입금
-          return '<div style="font-size:11px;margin-top:3px;'+(late?'color:#15803d;font-weight:700':'color:#a8a49e')+'">'
-            +(late?'💸 ':'')+fmtKDate(p.dateOnly)+' '+fmtN(p.in)+' 입금 있음'+(late?' — 정산시트 색칠 확인':'')+'</div>';
-        })()+'</td>'
+      /* ⛔ 2026-08-28 되돌림 — 여기에 "입금 있음"을 띄웠다가 홍팀장 지적을 받았다.
+         이 표는 **돈 받을 목록**이다. 입금이 들어왔는데 색칠이 안 된 건은
+         [🎨 색칠할 업체 보기](매칭 화면)에서 처리하는 것이지 여기서 알릴 일이 아니다.
+         두 화면이 같은 말을 하면 어느 쪽을 봐야 하는지가 흐려진다. */
+      +'</td>'
       +'<td style="border:1px solid #eee;padding:6px 8px;text-align:right;color:#d9480f;font-weight:700">'+fmtN(e.amt)+'</td>'
       +'<td style="border:1px solid #eee;padding:4px 6px"><input value="'+escH(HONOR[e.name]||'')+'" placeholder="호칭" onchange="misSetHonor('+i+',this.value)" style="width:110px;border:1px solid #ddd;border-radius:5px;padding:5px 7px;font-size:12px;font-family:inherit"></td>'
       +'<td style="border:1px solid #eee;padding:4px 6px;text-align:center"><button onclick="copyMisMsg('+i+')" style="border:none;background:#15803d;color:#fff;border-radius:5px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 메시지 복사</button></td>'
