@@ -247,7 +247,7 @@ function buildOut(){
     if(list.length > 1) notes.push('같은 분(' + k.split('|')[0] + ')께 가는 건이 주소 표기가 서로 달라 합포장으로 묶지 않았습니다: ' + list.join(' / '));
   });
 
-  const nine = [], ten = [], warn = [];
+  const nine = [], ten = [], warn = [], merged = [];
   groups.forEach(g => {
     /* 🔢 같은 상품이 두 줄로 들어온 것 (홍팀장 2026-08-28 — 「점보 닭다리 1kg x 2 / 점보 닭다리 1kg x 2」).
        예전엔 그대로 이어붙여 발주서에 같은 상품이 두 번 나갔다. 창고가 두 번 읽을 표기다.
@@ -260,10 +260,16 @@ function buildOut(){
       if(hit){ hit.qty += it.qty; hit.parts.push(it.qty); }
       else items.push({name:it.name, qty:it.qty, lim:it.lim, parts:[it.qty]});
     });
+    /* 합쳤다는 말은 **보는 사람에 따라 다르다** (홍팀장 2026-08-28).
+       대신 발주면 답을 아는 사람은 업체다 → "업체에 확인해 주세요".
+       업체가 직접 넣는 중이면 답을 아는 사람이 지금 화면 앞에 있다 → 보내기 직전에 그 자리에서 묻는다. */
     items.forEach(it => {
-      if(it.parts.length > 1)
+      if(it.parts.length > 1){
+        merged.push({name:it.name, parts:it.parts.slice(), qty:it.qty, rcv:S(g.rcv)});
         warn.push('🔢 ' + it.name + ' — 같은 상품이 ' + it.parts.length + '줄(' + it.parts.join('+') + ')이라 '
-          + 'x ' + it.qty + ' 로 합쳤습니다. ' + it.qty + '개가 맞는지 업체에 확인해 주세요.');
+          + 'x ' + it.qty + ' 로 합쳤습니다. ' + it.qty + '개가 맞는지 '
+          + (amMaster() ? '업체에 확인해 주세요.' : '확인해 주세요.'));
+      }
     });
     const prod = items.map(it => it.name + ' x ' + it.qty).join(' / ');
     items.forEach(it => { if(it.lim && it.qty > it.lim) warn.push('📦 ' + it.name + ' ' + it.qty + '개 (합포장 한도 ' + it.lim + ') — 박스 분리 확인 필요'); });
@@ -274,7 +280,7 @@ function buildOut(){
     if(biz) ten.push([me.name || '', biz, me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
     else    nine.push([me.name || '', me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
   });
-  return {nine, ten, notes, warn};
+  return {nine, ten, notes, warn, merged};
 }
 const tsv = rows => rows.map(r => r.join('\t')).join('\n');
 
@@ -797,6 +803,20 @@ async function submit(){
     const ph = document.getElementById('for_ph');
     if(ph) ph.focus();
     return;
+  }
+  /* 🔢 같은 상품을 두 줄로 적으신 경우 — 업체가 직접 넣는 중이면 **여기서 본인에게 묻는다**
+     (홍팀장 2026-08-28). 대신 발주는 우리가 나중에 업체에 물어야 하지만, 직접 발주는
+     답을 아는 사람이 지금 화면 앞에 있다. 보내고 나서 전화하는 것보다 여기서 한 번 묻는 게 싸다.
+     ⚠️ 막지 않는다 — 진짜로 4개를 시키는 경우도 있다. [확인]이면 그대로 간다. */
+  if(!master){
+    const mg = o.merged || [];       // 미리보기가 이미 계산해 둔 것 — 다시 세지 않는다
+    if(mg.length){
+      const lines = mg.map(m => '· ' + m.name + ' — ' + m.parts.join(' + ') + ' = 총 ' + m.qty + '개'
+        + (S(m.rcv) ? ' (' + m.rcv + ' 님)' : ''));
+      if(!confirm('같은 상품을 여러 줄에 나눠 적으셨습니다. 수량을 합쳐서 넣습니다.\n\n'
+        + lines.join('\n')
+        + '\n\n이 수량이 맞으면 [확인],\n잘못 담으신 것이면 [취소] 후 그 줄을 지워주세요.')) return;
+    }
   }
   const ask = master
     ? ('[' + FOR.name + '] 발주 ' + items.length + '건을 넣고 당일 시트로 바로 보낼까요?\n\n보낸 뒤에는 그 줄을 고치거나 취소할 수 없습니다.')
