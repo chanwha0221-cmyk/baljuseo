@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v7.3</title>
+<title>통장 내역 조회 v7.4</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v7.3</span>
+  <span class="ver">v7.4</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -946,6 +946,16 @@ async function loadMisDetail(){
       const rows=(((await r.json()).values)||[]).filter(x=>String(x[0]||'').trim());
       if(rows.length){
         MIS_DATA=rows.map(x=>({name:String(x[0]),from:String(x[1]||''),to:String(x[2]||''),amt:Number(x[3]||0)})).sort((a,b)=>b.amt-a.amt);
+        /* 🔴 '미정산상세' 탭엔 기간·합계뿐이라 날짜별 내역이 없다 (홍팀장 2026-08-28).
+           안 채우면 새로고침한 화면에서는 덩어리가 안 갈리고 예전처럼 "44일째"만 뜬다 —
+           파일을 다시 올려야만 보이는 반쪽짜리가 된다.
+           날짜별 미정산은 '정산내역누적'(SETTLE_HISTORY)에 이미 다 있다. 거기서 되살린다. */
+        const byC={};
+        (SETTLE_HISTORY||[]).forEach(h=>{
+          if(h.paid||!(h.amount>0)||!h.company||!h.date) return;
+          (byC[h.company]=byC[h.company]||{})[h.date]=(byC[h.company][h.date]||0)+h.amount;
+        });
+        MIS_DATA.forEach(e=>{ e.cells=byC[e.name]||{}; });
         MIS_BASIS=String(rows[0][4]||'');
         renderMisPanel();
       }
