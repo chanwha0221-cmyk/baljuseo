@@ -1,24 +1,10 @@
 @echo off
 chcp 65001 > nul
-title GitHub Auto Update
+title 발주서 배포
 
 cd /d "%~dp0"
 
-if exist ".git\index.lock" del /f /q ".git\index.lock"
-
-echo.
-echo ============================================
-echo    GitHub Auto Update - Baljuseo Repo
-echo ============================================
-echo.
-
-echo [ Bumping version... ]
-powershell -ExecutionPolicy Bypass -NoProfile -Command "foreach($f in @('index.html','catalog.html')){ if(-not (Test-Path $f)){Write-Host ($f+': not found'); continue}; $enc=New-Object System.Text.UTF8Encoding $false; $c=[IO.File]::ReadAllText($f,$enc); $m=[regex]::Match($c,'v(\d+)\.(\d+)'); if($m.Success){$oldV='v'+$m.Groups[1].Value+'.'+$m.Groups[2].Value; $newV='v'+$m.Groups[1].Value+'.'+([int]$m.Groups[2].Value+1); $c=$c.Replace($oldV,$newV); [IO.File]::WriteAllText($f,$c,$enc); Write-Host ($f+': '+$oldV+' -^> '+$newV)} else{Write-Host ($f+': version pattern not found')} }"
-echo.
-
-echo [ Checking git... ]
-git config --global user.email "chanwha0221@gmail.com"
-git config --global user.name "hongchanwha"
+rem ── git 이 PATH 에 없을 때 흔한 설치 경로를 붙여준다 ────────────────
 where git >nul 2>&1
 if %errorlevel% neq 0 (
   if exist "C:\Program Files\Git\cmd\git.exe" (
@@ -34,27 +20,10 @@ if %errorlevel% neq 0 (
     exit /b 1
   )
 )
-echo.
 
-echo [ Pulling latest from GitHub... ]
-git pull
-echo.
+rem 🔴 예전 update.bat 은 여기서 `git config --global user.name hongchanwha` 를 박았다.
+rem    박원비 팀장 PC 에서 그대로 돌면 원비씨 커밋이 전부 홍찬화 이름으로 올라간다.
+rem    그래서 뺐다 (2026-08-28). 각자 PC 의 git 계정을 그대로 쓴다.
 
-echo [ Changed Files ]
-git status -s
-echo.
-
-set /p msg="Commit message (Enter to use 'update'): "
-if "%msg%"=="" set msg=update
-
-echo.
-echo [ Uploading... ]
-echo --------------------------------------------
-git add .
-git commit -m "%msg%"
-git push
-echo --------------------------------------------
-echo.
-echo === Done! Webpage updates in 1-3 minutes ===
-echo.
-pause
+powershell -ExecutionPolicy Bypass -NoProfile -File "%~dp0_deploy_menu.ps1"
+exit /b %errorlevel%
