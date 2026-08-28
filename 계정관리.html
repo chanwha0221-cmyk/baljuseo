@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>마스터 유통 · 업체 계정 관리 v1.1</title>
+</head>
+<body>
+<!--
+  업체 계정 관리 (홍팀장 2026-08-28)
+  ─────────────────────────────────────────────────────────────
+  왜 만들었나: 계정이 시트에서 Supabase로 옮겨간 뒤, 관리 화면이 Supabase 기본 표뿐이라
+  검색·수정이 시트보다 불편해졌다. 매일 봐야 하는 화면이라 우리 손에 맞는 걸 따로 만든다.
+
+  🔴 서비스 키는 이 파일에 없다. 마스터 계정으로 로그인해 받은 **토큰**으로만 서버에 묻는다.
+     (GitHub Pages는 repo가 private이어도 공개다 — 키를 넣으면 그날로 털린다.)
+  🔴 쓰기는 accsave 하나뿐이고, 아이디는 못 바꾼다. 발주·토큰이 아이디로 묶여 있어서다.
+-->
+<style>
+:root{
+  --accent:#0e8f9e;--accent-d:#0b6a75;--accent-l:#17aab8;
+  --bg:#eef3f6;--card:#fff;--ink:#12242c;--muted:#6c7d84;
+  --line:#e2e9ee;--line2:#eef3f6;--soft:#e6f4f5;--chip:#eef3f6;
+  --gold:#a9761c;--gold-s:#fbf1dd;--bad:#c0392b;--bad-s:#fbe6e3;--ok:#0f7a5a;--ok-s:#e2f2ec;
+  --radius:14px;--shadow:0 1px 2px rgba(12,30,48,.05),0 4px 16px rgba(12,30,48,.07);
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#101619;--card:#161d21;--ink:#e6edf0;--muted:#8b9aa1;
+  --line:#242e33;--line2:#1c2427;--soft:#12312f;--chip:#1c2427;
+  --gold:#d6a34a;--gold-s:#2b2312;--bad:#e2776f;--bad-s:#33191a;--ok:#63bb90;--ok-s:#12301f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  font-size:14px;line-height:1.6;-webkit-text-size-adjust:100%}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 14px 80px}
+h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.3px}
+.head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.head .sp{flex:1}
+.ver{font-size:11px;color:var(--muted);font-weight:700}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;
+  padding:8px 13px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn:hover{background:var(--chip)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.pri:hover{background:var(--accent-d)}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.sm{padding:4px 10px;font-size:12px;border-radius:16px}
+
+/* 지금 손봐야 할 것 한 줄 — 도구는 버튼 하나 (홍팀장 규칙) */
+.todo{background:var(--gold-s);border:1.5px solid color-mix(in srgb,var(--gold) 45%,transparent);
+  color:var(--gold);border-radius:var(--radius);padding:12px 15px;margin-bottom:13px;
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-weight:800;font-size:14px}
+.todo small{font-weight:600;font-size:12px;opacity:.9;display:block}
+.todo .sp{flex:1}
+
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.search{flex:1;min-width:220px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+  border-radius:11px;padding:11px 13px;font-size:14px;font-family:inherit;box-shadow:var(--shadow)}
+.search:focus{outline:none;border-color:var(--accent)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:18px;
+  padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab b{font-weight:800}
+
+.tblwrap{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:880px}
+th,td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--line2);vertical-align:middle}
+th{font-size:11.5px;color:var(--muted);font-weight:700;background:var(--chip);position:sticky;top:0;z-index:2;
+  border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+th.plain{cursor:default}
+tbody tr:hover{background:var(--line2)}
+td.nm{font-weight:700}
+td.id,td.num{font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+td.mut{color:var(--muted);font-size:12.5px}
+.cp{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:12px;padding:0 3px;font-family:inherit}
+.cp:hover{color:var(--accent)}
+.rl{display:inline-block;border-radius:14px;padding:2px 9px;font-size:11.5px;font-weight:800;white-space:nowrap}
+.rl.업체{background:var(--ok-s);color:var(--ok)}
+.rl.임시{background:var(--gold-s);color:var(--gold)}
+.rl.차단{background:var(--bad-s);color:var(--bad)}
+.rl.마스터{background:var(--soft);color:var(--accent-d)}
+.rl.기타{background:var(--chip);color:var(--muted)}
+.acts{display:flex;gap:5px;flex-wrap:wrap;white-space:nowrap}
+.empty{padding:34px;text-align:center;color:var(--muted);font-size:13px}
+
+/* 편집 서랍 */
+.mask{position:fixed;inset:0;background:rgba(8,20,26,.45);display:none;z-index:40}
+.mask.on{display:block}
+.drw{position:fixed;top:0;right:0;bottom:0;width:min(430px,100%);background:var(--card);z-index:41;
+  box-shadow:-8px 0 30px rgba(0,0,0,.18);transform:translateX(100%);transition:transform .18s ease;
+  display:flex;flex-direction:column}
+.drw.on{transform:none}
+.drw header{padding:15px 17px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.drw header .t{font-size:16px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drw .body{padding:15px 17px;overflow:auto;flex:1}
+.drw footer{padding:13px 17px;border-top:1px solid var(--line);display:flex;gap:8px}
+.fld{margin-bottom:12px}
+.fld label{display:block;font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:4px}
+.fld input,.fld textarea{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);
+  border-radius:9px;padding:9px 11px;font-size:14px;font-family:inherit}
+.fld input:focus,.fld textarea:focus{outline:none;border-color:var(--accent);background:var(--card)}
+.fld textarea{min-height:62px;resize:vertical}
+.roles{display:flex;gap:6px;flex-wrap:wrap}
+.rbtn{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:9px;
+  padding:8px 14px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+.rbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.meta{font-size:12px;color:var(--muted);line-height:1.9;border-top:1px dashed var(--line);padding-top:11px;margin-top:4px}
+.msg{font-size:12.5px;font-weight:700;min-height:18px;margin-top:4px}
+.msg.err{color:var(--bad)}.msg.ok{color:var(--ok)}
+
+/* 로그인 */
+.gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+.gbox{width:100%;max-width:330px;background:var(--card);border:1px solid var(--line);border-radius:18px;
+  padding:26px 22px;box-shadow:var(--shadow);text-align:center}
+.gbox h2{margin:0 0 4px;font-size:17px}
+.gbox p{margin:0 0 16px;font-size:12.5px;color:var(--muted)}
+.gbox input{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);
+  border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;margin-bottom:8px}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);opacity:0;
+  background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:20px;font-size:13px;font-weight:700;
+  pointer-events:none;transition:.18s;z-index:60}
+.toast.on{opacity:1;transform:translateX(-50%)}
+</style>
+
+<div class="wrap" id="app" style="display:none">
+  <div class="head">
+    <h1>👤 업체 계정 관리</h1><span class="ver" id="ver">v1.1</span>
+    <span class="sp"></span>
+    <span class="ver" id="who"></span>
+    <button class="btn" id="reload">🔄 새로고침</button>
+    <button class="btn" id="out">로그아웃</button>
+  </div>
+
+  <div class="todo" id="todo" style="display:none"></div>
+
+  <div class="bar">
+    <input class="search" id="q" type="search" placeholder="업체명 · 아이디 · 연락처 · 메모 검색" autocomplete="off">
+    <div class="tabs" id="tabs"></div>
+  </div>
+
+  <div class="tblwrap">
+    <table>
+      <thead><tr>
+        <th data-s="name">업체명</th>
+        <th data-s="id">아이디</th>
+        <th data-s="role">권한</th>
+        <th data-s="phone">연락처</th>
+        <th data-s="orders">발주</th>
+        <th data-s="last_login">마지막 접속</th>
+        <th data-s="joined_at">가입</th>
+        <th data-s="owner">담당</th>
+        <th class="plain">조치</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none">해당하는 계정이 없습니다.</div>
+  </div>
+</div>
+
+<div class="mask" id="mask"></div>
+<aside class="drw" id="drw">
+  <header><div class="t" id="d_title">계정</div><button class="btn sm" id="d_close">닫기</button></header>
+  <div class="body">
+    <div class="fld"><label>업체명 (사업자등록증상 상호)</label><input id="d_name"></div>
+    <div class="fld"><label>권한</label>
+      <div class="roles" id="d_roles">
+        <button class="rbtn" data-r="업체">업체</button>
+        <button class="rbtn" data-r="임시">임시</button>
+        <button class="rbtn" data-r="차단">차단</button>
+        <button class="rbtn" data-r="마스터">마스터</button>
+      </div>
+    </div>
+    <div class="fld"><label>주문처 연락처</label><input id="d_phone" inputmode="tel"></div>
+    <div class="fld"><label>출고지 주소 (선택)</label><input id="d_addr"></div>
+    <div class="fld"><label>담당 (원비 / 찬화)</label><input id="d_owner"></div>
+    <div class="fld"><label>비밀번호 (바꿀 때만 고치세요)</label><input id="d_pw"></div>
+    <div class="fld"><label>메모</label><textarea id="d_memo"></textarea></div>
+    <div class="msg" id="d_msg"></div>
+    <div class="meta" id="d_meta"></div>
+  </div>
+  <footer>
+    <button class="btn pri" id="d_save" style="flex:1">저장</button>
+    <button class="btn" id="d_cancel">취소</button>
+  </footer>
+</aside>
+
+<div class="gate" id="gate">
+  <div class="gbox">
+    <h2>업체 계정 관리</h2>
+    <p>마스터 권한 계정으로 로그인해 주세요.</p>
+    <input id="li_id" placeholder="아이디" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <input id="li_pw" type="password" placeholder="비밀번호">
+    <div class="msg err" id="li_err"></div>
+    <button class="btn pri" id="li_btn" style="width:100%">로그인</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* 카탈로그와 **같은 서버**를 본다. 카탈로그가 옮겨가면 이 한 줄도 같이 옮긴다. */
+const API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
+const TK='acct_admin_tk_v1';
+const $=id=>document.getElementById(id);
+const T=s=>String(s==null?'':s).trim();
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let TOKEN=null,ROWS=[],FILTER='임시',SORT='name',DESC=false,CUR=null;
+
+async function api(action,payload){
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(Object.assign({action},payload||{}))});
+  const txt=await r.text();
+  let j=null;try{j=JSON.parse(txt);}catch(e){}
+  if(!j)throw new Error('서버가 잠시 응답하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  if(!j.ok)throw new Error(j.error||'요청을 처리하지 못했습니다.');
+  return j;
+}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1600);}
+function copy(txt,label){
+  navigator.clipboard.writeText(txt).then(()=>toast((label||'')+' 복사됨')).catch(()=>toast('복사하지 못했습니다'));
+}
+/* 날짜는 '몇 일 전'이 제일 빨리 읽힌다 — 관리 화면에서 보고 싶은 건 절대 시각이 아니라 방치 기간이다 */
+function ago(iso){
+  if(!iso)return '—';
+  const d=new Date(iso); if(isNaN(d))return '—';
+  const day=Math.floor((Date.now()-d.getTime())/86400000);
+  const s=d.toLocaleDateString('ko-KR',{year:'2-digit',month:'2-digit',day:'2-digit'}).replace(/\.$/,'');
+  if(day<=0)return '오늘';
+  if(day===1)return '어제';
+  if(day<30)return day+'일 전';
+  return s;
+}
+const roleClass=r=>['업체','임시','차단','마스터'].find(k=>T(r).indexOf(k)>=0)||'기타';
+
+// ── 목록 ────────────────────────────────────────────────────
+async function load(){
+  const j=await api('accounts',{token:TOKEN});
+  ROWS=j.rows||[];
+  $('who').textContent=j.me?('로그인: '+j.me):'';
+  render();
+}
+function counts(){
+  const c={전체:ROWS.length,업체:0,임시:0,차단:0,마스터:0};
+  ROWS.forEach(a=>{const k=roleClass(a.role);if(c[k]!==undefined&&k!=='기타')c[k]++;});
+  return c;
+}
+function render(){
+  const c=counts();
+  // 지금 손봐야 할 것 한 줄 — 임시 계정이 곧 할 일이다
+  const todo=$('todo');
+  if(c.임시>0){
+    todo.style.display='';
+    todo.innerHTML='<div>🕒 확인이 필요한 임시 계정 <b>'+c.임시+'곳</b>'
+      +'<small>연락이 닿으면 [승인], 끝내 연락이 없으면 [차단]으로 정리하세요.</small></div>'
+      +'<span class="sp"></span><button class="btn sm" id="todobtn">임시만 보기</button>';
+    $('todobtn').onclick=()=>{FILTER='임시';render();};
+  }else todo.style.display='none';
+
+  const tabs=['전체','임시','업체','차단','마스터'];
+  $('tabs').innerHTML=tabs.map(t=>'<button class="tab'+(FILTER===t?' on':'')+'" data-t="'+t+'">'+t+' <b>'+(c[t]||0)+'</b></button>').join('');
+  $('tabs').querySelectorAll('.tab').forEach(b=>b.onclick=()=>{FILTER=b.dataset.t;render();});
+
+  const q=T($('q').value).toLowerCase();
+  let list=ROWS.filter(a=>{
+    if(FILTER!=='전체'&&roleClass(a.role)!==FILTER)return false;
+    if(!q)return true;
+    return [a.name,a.id,a.phone,a.memo,a.owner,a.addr].some(v=>String(v||'').toLowerCase().indexOf(q)>=0);
+  });
+  const val=a=>{
+    const v=a[SORT];
+    if(SORT==='orders')return Number(v||0);
+    return String(v||'');
+  };
+  list.sort((x,y)=>{const a=val(x),b=val(y);return (a<b?-1:a>b?1:0)*(DESC?-1:1);});
+
+  $('rows').innerHTML=list.map(a=>{
+    const rc=roleClass(a.role);
+    return '<tr data-id="'+esc(a.id)+'">'
+      +'<td class="nm">'+esc(a.name||'—')+' <button class="cp" data-cp="'+esc(a.name)+'" title="업체명 복사">📋</button></td>'
+      +'<td class="id">'+esc(a.id)+' <button class="cp" data-cp="'+esc(a.id)+'" title="아이디 복사">📋</button></td>'
+      +'<td><span class="rl '+rc+'">'+esc(T(a.role)||'—')+'</span></td>'
+      +'<td class="id">'+esc(a.phone||'—')+'</td>'
+      +'<td class="num">'+(a.orders?(a.orders+'건 · '+ago(a.last_order)):'—')+'</td>'
+      +'<td class="mut">'+ago(a.last_login)+'</td>'
+      +'<td class="mut">'+ago(a.joined_at)+'</td>'
+      +'<td class="mut">'+esc(a.owner||'—')+'</td>'
+      +'<td><div class="acts">'
+        +(rc!=='업체'&&rc!=='마스터'?'<button class="btn sm" data-act="업체">승인</button>':'')
+        +(rc!=='차단'&&rc!=='마스터'?'<button class="btn sm danger" data-act="차단">차단</button>':'')
+        +'<button class="btn sm" data-act="edit">수정</button>'
+      +'</div></td></tr>';
+  }).join('');
+  $('empty').style.display=list.length?'none':'';
+
+  $('rows').querySelectorAll('.cp').forEach(b=>b.onclick=e=>{e.stopPropagation();copy(b.dataset.cp);});
+  $('rows').querySelectorAll('tr').forEach(tr=>{
+    const a=ROWS.find(x=>x.id===tr.dataset.id);
+    tr.querySelectorAll('[data-act]').forEach(b=>b.onclick=e=>{
+      e.stopPropagation();
+      const act=b.dataset.act;
+      if(act==='edit')return openDrawer(a);
+      quickRole(a,act,b);
+    });
+    tr.onclick=()=>openDrawer(a);
+  });
+}
+/* 승인·차단은 한 번에 — 매일 하는 동작이라 서랍을 열게 하지 않는다.
+   차단은 되돌릴 수 있지만 그 업체가 당장 못 들어오므로 한 번 묻는다. */
+async function quickRole(a,role,btn){
+  if(role==='차단'&&!confirm('「'+(a.name||a.id)+'」을(를) 차단할까요?\n\n로그인 화면에 "업체 확인이 되지 않아 접근이 보류되었습니다" 안내가 뜹니다.'))return;
+  btn.disabled=true;const old=btn.textContent;btn.textContent='…';
+  try{
+    await api('accsave',{token:TOKEN,id:a.id,role});
+    a.role=role;toast((a.name||a.id)+' → '+role);render();
+  }catch(e){alert(e.message);btn.disabled=false;btn.textContent=old;}
+}
+
+// ── 편집 서랍 ────────────────────────────────────────────────
+function openDrawer(a){
+  CUR=a;
+  $('d_title').textContent=(a.name||a.id);
+  $('d_name').value=a.name||'';$('d_phone').value=a.phone||'';$('d_addr').value=a.addr||'';
+  $('d_owner').value=a.owner||'';$('d_pw').value=a.pw||'';$('d_memo').value=a.memo||'';
+  $('d_msg').textContent='';$('d_msg').className='msg';
+  setRole(T(a.role));
+  $('d_meta').innerHTML='아이디 <b>'+esc(a.id)+'</b> (바꿀 수 없음)<br>'
+    +'가입 '+ago(a.joined_at)+' · 접속 '+(a.login_count||0)+'회 · 마지막 '+ago(a.last_login)+'<br>'
+    +'발주 '+(a.orders||0)+'건'+(a.orders?(' · 마지막 '+ago(a.last_order)):'');
+  $('mask').classList.add('on');$('drw').classList.add('on');
+  setTimeout(()=>$('d_name').focus(),120);
+}
+function setRole(r){
+  $('d_roles').querySelectorAll('.rbtn').forEach(b=>b.classList.toggle('on',b.dataset.r===r));
+  $('d_roles').dataset.val=r;
+}
+$('d_roles').querySelectorAll('.rbtn').forEach(b=>b.onclick=()=>setRole(b.dataset.r));
+function closeDrawer(){$('mask').classList.remove('on');$('drw').classList.remove('on');CUR=null;}
+$('d_close').onclick=closeDrawer;$('d_cancel').onclick=closeDrawer;$('mask').onclick=closeDrawer;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&CUR)closeDrawer();});
+
+$('d_save').onclick=async()=>{
+  if(!CUR)return;
+  const patch={token:TOKEN,id:CUR.id,name:T($('d_name').value),role:$('d_roles').dataset.val||T(CUR.role),
+    phone:T($('d_phone').value),addr:T($('d_addr').value),owner:T($('d_owner').value),memo:T($('d_memo').value)};
+  const pw=T($('d_pw').value);
+  if(pw&&pw!==CUR.pw)patch.pw=pw;          // 안 건드렸으면 아예 보내지 않는다
+  const m=$('d_msg');m.className='msg';m.textContent='저장 중…';
+  $('d_save').disabled=true;
+  try{
+    await api('accsave',patch);
+    Object.assign(CUR,{name:patch.name,role:patch.role,phone:patch.phone,addr:patch.addr,owner:patch.owner,memo:patch.memo});
+    if(patch.pw)CUR.pw=patch.pw;
+    m.className='msg ok';m.textContent='저장했습니다.';
+    toast('저장했습니다');render();
+    setTimeout(closeDrawer,450);
+  }catch(e){m.className='msg err';m.textContent=e.message;}
+  finally{$('d_save').disabled=false;}
+};
+
+// ── 정렬·검색·머리 ───────────────────────────────────────────
+document.querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{
+  const k=th.dataset.s;
+  if(SORT===k)DESC=!DESC;else{SORT=k;DESC=(k==='orders'||k==='last_login'||k==='joined_at');}
+  render();
+});
+$('q').addEventListener('input',render);
+$('reload').onclick=async()=>{$('reload').disabled=true;try{await load();toast('불러왔습니다');}catch(e){alert(e.message);}finally{$('reload').disabled=false;}};
+$('out').onclick=()=>{if(!confirm('로그아웃 할까요?'))return;try{localStorage.removeItem(TK);}catch(e){}location.reload();};
+
+// ── 로그인 ──────────────────────────────────────────────────
+async function enter(token){
+  TOKEN=token;
+  await load();
+  $('gate').style.display='none';$('app').style.display='';
+}
+$('li_btn').onclick=async()=>{
+  const id=T($('li_id').value),pw=T($('li_pw').value);
+  if(!id||!pw){$('li_err').textContent='아이디와 비밀번호를 넣어주세요.';return;}
+  $('li_btn').disabled=true;$('li_btn').textContent='확인 중…';$('li_err').textContent='';
+  try{
+    const j=await api('login',{id,pw});
+    if(!j.master)throw new Error('마스터 권한 계정만 들어올 수 있습니다.');
+    try{localStorage.setItem(TK,j.token);}catch(e){}
+    await enter(j.token);
+  }catch(e){$('li_err').textContent=e.message;}
+  finally{$('li_btn').disabled=false;$('li_btn').textContent='로그인';}
+};
+$('li_pw').addEventListener('keydown',e=>{if(e.key==='Enter')$('li_btn').click();});
+$('li_id').addEventListener('keydown',e=>{if(e.key==='Enter')$('li_pw').focus();});
+
+(async()=>{
+  let tk=null;try{tk=localStorage.getItem(TK);}catch(e){}
+  if(!tk){$('li_id').focus();return;}
+  try{await enter(tk);}          // 토큰이 죽었으면 로그인 화면으로 떨어진다
+  catch(e){try{localStorage.removeItem(TK);}catch(_){}$('li_err').textContent='다시 로그인해 주세요.';$('li_id').focus();}
+})();
+</script>
+</body>
+</html>

@@ -77,11 +77,16 @@ const rules = [
   { what: '공지읽음 키', from: /'catalog_ntc_seen_'/g,   to: "'TEST_catalog_ntc_seen_'",   want: 1 },
   { what: '로그인 키',   from: /'catalog_auth_v1'/g,     to: "'TEST_catalog_auth_v1'",     want: 1 },
   { what: 'order 네임스페이스', from: /window\.ORDER_NS='';/, to: "window.ORDER_NS='TEST_';", want: 1 },
+  /* 🔴 2026-08-28 — 컷오버가 끝나 **실사이트도 Supabase**를 본다. 주소가 이미 같아서 바꿀 게 없다.
+     규칙을 지우지 않고 남긴 이유: 되돌려서 실사이트가 Apps Script로 돌아가면 이게 다시 살아나야 한다.
+     ⚠️ 지금은 테스트본과 실사이트가 **같은 DB**를 본다 — 테스트 발주가 실발주에 섞인다.
+        테스트본으로 발주를 넣어보기 전에 홍팀장에게 먼저 알릴 것. */
   {
     what: 'API 주소',
     from: /const API='https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec';/,
     to: API_NOTE + "\nconst API='" + SUPABASE_API + "';",
-    want: 1
+    want: 1,
+    skipIf: src => src.indexOf("const API='" + SUPABASE_API + "'") >= 0
   },
   {
     what: '오류 문구',
@@ -95,6 +100,7 @@ let out = fs.readFileSync(SRC, 'utf8');
 const problems = [];
 
 for (const r of rules) {
+  if (r.skipIf && r.skipIf(out)) { r.skipped = true; continue; }
   const hits = (out.match(r.from instanceof RegExp && r.from.global ? r.from : new RegExp(r.from.source, r.from.flags + 'g')) || []).length;
   if (hits !== r.want) {
     problems.push(`${r.what}: ${r.want}번 바뀌어야 하는데 ${hits}번 일치`);
@@ -119,4 +125,4 @@ if (process.argv.includes('--check')) {
 
 fs.writeFileSync(DST, out);
 console.log('✅ catalog-test.html 생성 완료');
-rules.forEach(r => console.log('   · ' + r.what));
+rules.forEach(r => console.log('   · ' + r.what + (r.skipped ? ' (건너뜀 — 이미 같음)' : '')));
