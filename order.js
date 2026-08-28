@@ -174,6 +174,11 @@ function checkRow(r){
   const p = res.p;
   if(!S(r.name)) errs.push('상품명을 넣어주세요.');
   else if(!p) errs.push('카탈로그에 없는 상품명입니다. 아래에서 정확한 상품을 골라주세요.');
+  /* 🚫 예외로 뺀 상품은 대신 발주로도 못 나간다 (홍팀장 2026-08-28).
+     마스터 화면에는 카드가 남아 있어(되돌리려고) 이름으로 찾아진다 — 여기서 막지 않으면
+     "업체 화면엔 안 보이는데 우리가 넣어버리는" 일이 생긴다. */
+  else if(typeof isExc === 'function' && isExc(p.name))
+    errs.push('🚫 예외로 빼놓은 상품입니다 — 오늘 판매하지 않습니다. 판매하려면 카탈로그에서 [↩ 판매 재개]를 먼저 누르세요.');
 
   const q = parseInt(D(r.qty), 10);
   if(!S(r.qty)) errs.push('수량을 넣어주세요.');
@@ -418,6 +423,19 @@ table.olist td.ad input.ein{min-width:230px}
 .ordpaste:focus{border-color:var(--accent)}
 .ordb{margin-top:6px;width:100%;border:1.5px solid var(--accent);background:var(--soft);color:var(--accent-d);padding:6px 0;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
 .ordb:hover{background:var(--accent);color:#fff}
+/* 🚫 예외 등록 — 마스터에게만 보이는 버튼이라 눈에 덜 띄는 회색으로 (홍팀장 2026-08-28) */
+.excb{margin-top:5px;width:100%;border:1.5px dashed var(--line);background:transparent;color:var(--muted);
+  padding:5px 0;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
+.excb:hover{border-color:#c0392b;color:#c0392b;border-style:solid}
+.excb.off{border-color:var(--accent);color:var(--accent-d);border-style:solid}
+.excb.off:hover{background:var(--accent);color:#fff}
+.excnote{margin-top:6px;padding:6px 0;text-align:center;border-radius:9px;font-size:11.5px;font-weight:800;
+  color:#c0392b;background:rgba(192,57,43,.08)}
+.excbar{background:#fff7f7;border:1px solid #e8b4b4;border-radius:var(--radius);padding:11px 14px;margin-bottom:11px;
+  font-size:12.5px;line-height:1.7;color:#c0392b;font-weight:700}
+.excbar .gh{display:inline-flex;gap:6px;align-items:center;background:#fff;border:1px solid #f0d4d4;
+  border-radius:14px;padding:3px 6px 3px 10px;margin:4px 5px 0 0;font-size:12px}
+.excbar .gh button{border:none;background:transparent;color:var(--accent-d);font-weight:800;cursor:pointer;font-family:inherit;font-size:12px}
 /* 🔔 새 발주 알림 — 오른쪽 아래 팝업 + 내역 카드 NEW 표시 (홍팀장 2026-08-24) */
 .ordpop{position:fixed;right:16px;bottom:24px;z-index:120;background:var(--card);border:2px solid var(--accent);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.28);padding:13px 34px 12px 15px;max-width:330px;cursor:pointer;animation:ordpopin .25s;font-family:inherit}
 @keyframes ordpopin{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}

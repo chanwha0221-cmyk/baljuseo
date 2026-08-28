@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.43).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.44).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.43</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.44</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -896,18 +896,67 @@ function bySales(list){
 }
 // 추천 0 · 소식글 1 · 나머지 9 (작을수록 앞). 추천상품 화면의 순서 규칙과 같게 맞춘다.
 function recRank(name){ const r=RECMAP[pkey(name)]; return r?(r.news?1:0):9; }
+/* 🚫 예외 상품 (홍팀장 2026-08-28) — 당일생물 전용.
+   시트에는 올라와 있지만 **그날 입고가 안 돼 못 파는** 물건. 상시 상품은 품절·재입고가 공지로 도는데
+   생물은 그게 안 돼서, 시트가 갱신될 때마다 못 파는 물건이 되살아났다.
+   🔴 시트를 지우지 않고 **가린다.** 그릴 때마다 이 목록을 적용하므로 시트가 갱신돼도 계속 안 보이고,
+      되돌리기는 목록에서 빼는 것 하나뿐이다(단가·마감이 시트에 그대로 살아 있다).
+   ⚠️ 업체 화면에서는 아예 사라진다 — 검색·카테고리·추천 어디에도 안 뜬다.
+      마스터 화면에서는 '🚫 예외' 창고로 모여 보이고 거기서 되돌린다. */
+let EXC=new Map();               // pkey(상품명) → {name,wh,by,at}
+const isExc=n=>EXC.has(pkey(n));
+const amMasterC=()=>!!(ME&&ME.master);
+// 당일생물 자리에서만 쓴다 — 상시 상품은 품절·재입고 공지로 관리한다(홍팀장)
+const isFresh=p=>p.group==='당일생물'||p.effWh==='당일생물';
+const EXCWH='🚫 예외';
 function buildAll(){
   ALL=[];
+  const master=amMasterC(),excCards=[];
+  GROUPS=GROUPS.filter(g=>!g.virtual);       // 다시 그릴 때 가상 그룹이 겹쳐 쌓이지 않게
   GROUPS.forEach(g=>{
+    const keep=[];
     g.products.forEach(p=>{
       p.group=g.wh;
       p.effWh=p.srcWh||g.wh;   // 배지 클릭 기준: 창고명 칸이 있으면 그 창고, 없으면 탭 이름
       p.qty=SALES[pkey(p.name)]||0;
+      p.exc=isExc(p.name);
+      // 예외는 어느 목록에도 남기지 않는다 — '다른 카테고리에 살아있는' 구멍을 구조로 막는다
+      if(p.exc){ if(master)excCards.push(p); return; }
+      keep.push(p);
       ALL.push(p);
     });
-    g.products=bySales(g.products);   // 창고 안에서도 많이 나간 순
+    g.products=bySales(keep);   // 창고 안에서도 많이 나간 순
   });
   ALL=bySales(ALL);
+  // 마스터에게만 보이는 가상 창고. 당일생물 바로 옆에 세운다.
+  if(master&&(excCards.length||EXC.size)){
+    const g={wh:EXCWH,products:bySales(excCards),mixed:true,virtual:true};
+    const at=GROUPS.findIndex(x=>x.wh==='당일생물');
+    GROUPS.splice(at<0?0:at+1,0,g);
+    excCards.forEach(p=>ALL.push(p));   // 마스터 검색에서도 잡혀야 되돌릴 수 있다
+  }
+}
+/* 시트에서 이미 사라진 예외 상품 — 카드가 없어 화면에 못 그린다.
+   이름만이라도 남겨두지 않으면 되돌릴 방법이 없어진다. */
+function excGhosts(){
+  const live=new Set();
+  ALL.forEach(p=>live.add(pkey(p.name)));
+  const out=[];
+  EXC.forEach((v,k)=>{ if(!live.has(k))out.push(v); });
+  return out;
+}
+async function loadExc(){
+  if(!API||!ME||!ME.token)return;
+  try{
+    const j=await api('excepts',{token:ME.token});
+    EXC=new Map((j.rows||[]).map(r=>[pkey(r.name),r]));
+  }catch(e){ /* 목록을 못 받으면 가리지 않는다 — 상품이 통째로 사라지는 것보다 낫다 */ }
+}
+async function setExc(name,on,wh){
+  const j=await api('exceptset',{token:ME.token,name,on,wh:wh||''});
+  EXC=new Map((j.rows||[]).map(r=>[pkey(r.name),r]));
+  buildAll();buildWhChips();render();
+  toast(on?('🚫 '+name+' — 업체 화면에서 감췄습니다'):('↩ '+name+' — 다시 판매합니다'));
 }
 const $=id=>document.getElementById(id);
 const whrow=$('whrow'),catrow=$('catrow'),view=$('view'),empty=$('empty');
@@ -976,7 +1025,14 @@ function card(p,extra,top){
     +'<div class="prow"><div>'+priceHtml(p.price)+'</div><div class="ship">'+sh+(p.cut?'<br>'+esc(p.cut):'')+'</div></div>'
     +(extra||'')
     // 🧾 발주담기 — 업체가 상품명을 타이핑하지 않게 하는 것이 이 버튼의 존재 이유다 (2026-08-20)
-    +'<button class="ordb" data-ord="'+esc(p.name)+'">+ 발주담기</button>'
+    // 🚫 예외로 뺀 상품은 담을 수 없다 — 대신 발주로도 못 나가게 (홍팀장 2026-08-28)
+    +(p.exc?'<div class="excnote">🚫 예외 — 업체 화면에서 감춰져 있습니다</div>'
+           :'<button class="ordb" data-ord="'+esc(p.name)+'">+ 발주담기</button>')
+    /* 예외 등록/해제는 **마스터에게만**, **당일생물에서만** 보인다.
+       상시 상품은 품절·재입고가 공지로 도니 여기서 건드릴 이유가 없다(홍팀장). */
+    +((amMasterC()&&(isFresh(p)||p.exc))
+        ?'<button class="excb'+(p.exc?' off':'')+'" data-exc="'+esc(p.name)+'" data-excon="'+(p.exc?'0':'1')
+          +'" data-excwh="'+esc(p.effWh||p.group||'')+'">'+(p.exc?'↩ 판매 재개':'🚫 예외 등록')+'</button>':'')
     +'</div></div>';
 }
 function buildWhChips(){
@@ -1025,6 +1081,18 @@ function render(){
     bannerHtml='<div class="banner"><span class="wn">📦 '+esc(st.wh)+'</span><span class="pk">이 창고에서 판매하는 상품만 보는 중</span><span class="sp">위 [✕]를 누르면 전체로</span></div>';
   }else if(st.wh==='전체'){
     items=ALL;
+  }else if(st.wh===EXCWH){
+    /* 🚫 예외 창고 — 마스터만 온다. 여기서 되돌린다.
+       시트에서 이미 빠진 것은 카드가 없으니 이름만 칩으로 띄운다(안 그러면 되돌릴 길이 없다). */
+    const g=GROUPS.find(x=>x.wh===EXCWH);
+    items=g?g.products:[];
+    const gh=excGhosts();
+    bannerHtml='<div class="excbar">🚫 예외 상품 — 업체 화면에서는 보이지 않습니다.'
+      +'<div style="font-weight:600;font-size:12px;margin-top:3px">시트가 갱신돼도 계속 감춰집니다. '
+      +'입고가 되면 카드의 <b>[↩ 판매 재개]</b>를 누르세요. 시트는 건드리지 않았으니 단가·마감 그대로 살아납니다.</div>'
+      +(gh.length?('<div style="margin-top:7px">시트에서는 이미 빠진 '+gh.length+'개 — 목록에만 남아 있습니다.'
+        +'<div>'+gh.map(v=>'<span class="gh">'+esc(v.name)+'<button data-excg="'+esc(v.name)+'">↩ 되돌리기</button></span>').join('')+'</div></div>'):'')
+      +'</div>';
   }else{
     const g=GROUPS.find(x=>x.wh===st.wh);
     items=g?g.products:[];
@@ -1052,6 +1120,23 @@ function render(){
     +'<div class="grid">'+list.map(function(p){return card(p);}).join('')+'</div>';
 }
 document.addEventListener('click',e=>{
+  /* 🚫 예외 등록 / 판매 재개 — 마스터만. 되돌리기가 한 번이라 등록은 확인 없이,
+     판매 재개도 확인 없이 간다(둘 다 서로를 되돌리는 짝이라 잘못 눌러도 한 번 더 누르면 끝). */
+  const ex=e.target.closest('[data-exc]');
+  if(ex){
+    const nm=ex.getAttribute('data-exc'),on=ex.getAttribute('data-excon')==='1';
+    ex.disabled=true;const old=ex.textContent;ex.textContent='…';
+    setExc(nm,on,ex.getAttribute('data-excwh'))
+      .catch(err=>{alert(err.message||'처리하지 못했습니다');ex.disabled=false;ex.textContent=old;});
+    return;
+  }
+  const exg=e.target.closest('[data-excg]');
+  if(exg){
+    const nm=exg.getAttribute('data-excg');
+    exg.disabled=true;exg.textContent='…';
+    setExc(nm,false,'').catch(err=>{alert(err.message||'처리하지 못했습니다');exg.disabled=false;exg.textContent='↩ 되돌리기';});
+    return;
+  }
   const w=e.target.closest('.whb');
   if(w){st.wh=w.getAttribute('data-wh');st.mode='src';st.cat='전체';st.q='';$('q').value='';buildWhChips();render();
     if(location.hash)location.hash='';   // 변동사항·추천 페이지에서 눌렀으면 카탈로그로 돌아온다
@@ -1110,6 +1195,9 @@ function finishRender(atMs,fromCache){
   buildWhChips();render();
 }
 async function startCatalog(){
+  /* 🚫 예외 목록을 먼저 받아온다 — 늦게 오면 감춰야 할 상품이 잠깐 보였다 사라진다.
+     받아온 뒤 화면을 한 번 더 그린다(캐시로 먼저 그린 화면도 여기서 정리된다). */
+  loadExc().then(()=>{ if(GROUPS.length){buildAll();buildWhChips();render();} });
   let usedCache=false;
   try{
     const c=JSON.parse(localStorage.getItem(CK)||'null');
@@ -1396,6 +1484,8 @@ function renderChange(d){
   h+='<div class="hotnote">🟠 <b>살구색으로 표시된 상품</b>은 조업은 되고 있지만 <b>입고량이 일정하지 않은 상품</b>입니다.<br>'
    +'상시 판매(고정 등록)보다는 <b>그날그날 수량을 확인하고 판매</b>해 주세요. 카탈로그에서도 같은 색으로 표시됩니다.</div>';
   if(d.notes.length)h+='<div class="note" style="display:block;margin-top:11px">'+d.notes.map(esc).join('<br>')+'</div>';
+  // 🚫 예외 상품은 변동 목록에서도 뺀다 — 업체가 보고 "이거 되나요" 문의가 온다 (홍팀장 2026-08-28)
+  if(!amMasterC())d={notes:d.notes,items:d.items.filter(it=>!isExc(it.name))};
   if(!d.items.length)return h+'<div class="empty">변동사항이 없습니다.</div>';
   const order=[],by={};
   d.items.forEach(it=>{const k=it.day||'날짜 미기재';if(!by[k]){by[k]=[];order.push(k);}by[k].push(it);});
@@ -1446,6 +1536,10 @@ async function loadRecs(){
     });
 }
 function renderRecs(list){
+  /* 🚫 예외 상품은 추천에서도 빠진다 (홍팀장 2026-08-28).
+     ⚠️ 여기는 카탈로그에 없는 상품도 간이 카드로 그려주는 자리라, ALL 에서 뺀 것만으로는 안 막힌다.
+        이 줄이 없으면 업체 추천 목록에 못 파는 물건이 그대로 남는다. */
+  if(!amMasterC())list=list.filter(r=>!isExc(r.name));
   let h=subHead('⭐ 추천상품','마스터 유통이 요즘 밀고 있는 상품입니다.');
   if(!list.length)return h+'<div class="empty">아직 등록된 추천상품이 없습니다.</div>';
   h+='<div class="grid" style="margin-top:14px">'+list.map(r=>{
