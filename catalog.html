@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.47).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.48).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.47</title>
+<title>마스터 유통 카탈로그 v2.48</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1129,6 +1129,9 @@ function render(){
       if(j.shown.length)h+=(h?'<br><br>':'')+'🔓 다시 열림 '+j.shown.length+'줄<br>'+j.shown.map(esc).join('<br>');
       // 못 찾은 것은 조용히 넘기지 않는다 — 시트에 없으면 이미 빠진 것이거나 이름이 다른 것이다
       if(j.missing.length)h+=(h?'<br><br>':'')+'⚠️ 시트에서 못 찾은 '+j.missing.length+'개 (이미 빠졌거나 이름이 다릅니다)<br>'+j.missing.map(esc).join(' · ');
+      // 못 찾았을 때만 어느 탭을 왜 건너뛰었는지 보여준다 — 원인을 눈으로 잡으려고
+      if(j.missing.length&&j.scan&&j.scan.length)
+        h+='<br><br><span style="font-weight:600;font-size:11.5px;opacity:.85">훑은 탭 '+j.tabs+'개 · 건너뛴 탭<br>'+j.scan.map(esc).join('<br>')+'</span>';
       msg.innerHTML=h||'시트와 이미 맞아 있습니다. 바꿀 것이 없었습니다.';
       toast('시트 동기화 완료');
     }catch(e){ msg.innerHTML='<span style="color:#c0392b">'+esc(e.message||'동기화하지 못했습니다')+'</span>'; }
