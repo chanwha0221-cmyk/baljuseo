@@ -1106,6 +1106,10 @@ function dupBanner(master){
     + '🔁 확인 끝낸 ' + hidden + '건이 숨겨져 있습니다. ' + showAgain + '</div>';
 
   let h = '<div class="ordbox" style="border-color:#e8b4b4;background:#fff7f7">';
+  /* 🔴 2026-08-31 홍팀장 "접기가 너무 작게 있잖아" — 펼치는 건 링크 한 번인데 접으려면
+     배너 맨 아래 잔글씨를 찾아야 했다. 접기는 **맨 위에 버튼으로** 둔다(스크롤 없이 닫히게). */
+  if(hidden && DUPSHOWALL) h += '<div style="display:flex;justify-content:flex-end;margin-bottom:8px">'
+    + '<button class="ordb2" id="dupfold" style="white-space:nowrap">✕ 확인 끝낸 ' + hidden + '건 접기</button></div>';
   if(gs.length){
     const show = gs.slice(0, 8);
     h += '<h3 style="color:#c0392b">🔁 같은 발주가 두 번 들어온 것으로 보입니다 — ' + gs.length + '건</h3>'
@@ -1133,13 +1137,8 @@ function dupBanner(master){
         }).join('')
       + (ss.length > show.length ? '<div class="hint" style="margin-top:8px">외 ' + (ss.length - show.length) + '건 더 있습니다.</div>' : '');
   }
-  /* 🔴 2026-08-31 홍팀장: [다시 보기]로 펼친 뒤 **다시 접는 링크가 없어** 확인 끝낸 건이 화면에 계속 남았다.
-     펼친 상태에서도 접기를 내준다 — 확인한 건을 지우는 게 아니라(되돌리기가 살아 있어야 한다) 도로 숨기는 것. */
-  if(hidden) h += '<div class="hint" style="margin-top:8px">'
-    + (DUPSHOWALL
-        ? '확인 끝낸 ' + hidden + '건까지 같이 보고 있습니다. <a href="#" id="dupfold" style="color:var(--accent)">확인한 것 접기</a>'
-        : '확인 끝낸 ' + hidden + '건은 숨겨져 있습니다. ' + showAgain)
-    + '</div>';
+  // 접기 버튼은 배너 맨 위에 있다(위 참조) — 여기서 또 내면 id 가 둘이 돼 위 버튼이 안 잡힌다.
+  if(hidden && !DUPSHOWALL) h += '<div class="hint" style="margin-top:8px">확인 끝낸 ' + hidden + '건은 숨겨져 있습니다. ' + showAgain + '</div>';
   return h + '</div>';
 }
 // 1 … 4 [5] 6 … 20 — 페이지가 많아도 버튼이 한 줄을 안 넘게
