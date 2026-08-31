@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.51).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.52).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.51</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.52</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1575,11 +1575,35 @@ async function loadRecs(){
   let n=0;
   return rows.filter(r=>!r.news||(++n<=NEWS_MAX));
 }
+/* 카탈로그에서 빠진 추천 상품을 예외로 넣는다 — 마스터 화면에서만, 상품당 한 번만.
+   하나씩 순서대로 보낸다(웹앱이 예외 목록을 통째로 되쓰기 때문에 동시에 보내면 서로 덮는다). */
+const EXCAUTO=new Set();
+let excAutoBusy=false;
+async function autoExcGone(rows){
+  if(excAutoBusy)return;
+  const todo=rows.filter(r=>{const k=pkey(r.name);return k&&!EXCAUTO.has(k)&&!isExc(r.name);});
+  if(!todo.length)return;
+  excAutoBusy=true;
+  for(const r of todo){
+    EXCAUTO.add(pkey(r.name));
+    try{ await setExc(r.name,true,''); }catch(e){ EXCAUTO.delete(pkey(r.name)); }
+  }
+  excAutoBusy=false;
+  renderRoute();   // 방금 예외가 된 것들을 배지까지 반영해 다시 그린다
+}
 function renderRecs(list){
   /* 🚫 예외 상품은 추천에서도 빠진다 (홍팀장 2026-08-28).
      ⚠️ 여기는 카탈로그에 없는 상품도 간이 카드로 그려주는 자리라, ALL 에서 뺀 것만으로는 안 막힌다.
         이 줄이 없으면 업체 추천 목록에 못 파는 물건이 그대로 남는다. */
   if(!amMasterC())list=list.filter(r=>!isExc(r.name));
+  /* 🚫 카탈로그에서 빠진 상품은 추천에도 남기지 않는다 (홍팀장 2026-08-31).
+     업체 화면에서는 즉시 빼고, 마스터가 열었을 때 예외로 등록해 🚫 예외 창고에 남긴다.
+     🔴 ALL 이 비었을 때 돌면 추천 전부를 통째로 예외 처리한다 — 반드시 가드. */
+  if(ALL.length){
+    const gone=list.filter(r=>!ALL.find(x=>pkey(x.name)===pkey(r.name)));
+    if(amMasterC())autoExcGone(gone);
+    else list=list.filter(r=>ALL.find(x=>pkey(x.name)===pkey(r.name)));
+  }
   let h=subHead('⭐ 추천상품','마스터 유통이 요즘 밀고 있는 상품입니다.');
   if(!list.length)return h+'<div class="empty">아직 등록된 추천상품이 없습니다.</div>';
   h+='<div class="grid" style="margin-top:14px">'+list.map(r=>{
@@ -1594,7 +1618,8 @@ function renderRecs(list){
     const nm=(m&&m.link)?('<a href="'+esc(m.link)+'" target="_blank" rel="noopener">'+esc(r.name)+'</a>'):esc(r.name);
     return '<div class="card">'+thumb+'<div class="bd">'+bg
       +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(r.name)+'">📋</button></div>'
-      +'<div class="rf">지금은 카탈로그에 없는 상품입니다</div>'+cm+'</div></div>';
+      +'<div class="rf">지금은 카탈로그에 없는 상품입니다'
+      +(isExc(r.name)?' — 🚫 예외로 넣었습니다(업체 화면에는 안 보입니다)':'')+'</div>'+cm+'</div></div>';
   }).join('')+'</div>';
   return h;
 }
