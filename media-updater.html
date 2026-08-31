@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.11</title>
+<title>마스터 유통 상품 도구 v1.12</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -119,6 +119,20 @@ a{color:var(--accent)}
       <span style="font-size:11.5px">드래그가 안 되면 복사 → 즐겨찾기 추가 → URL 칸에 붙여넣기</span>
     </div>
   </details>
+</div>
+<!-- 🖼 대표 사진 바꾸기 (홍팀장 2026-08-31)
+     "사진은 붙어 있는데 그게 장어인지 양식장인지 모르겠다" — 게시판 글 첫 사진이 상품 사진이 아닐 때가 있다.
+     여기서 고른 사진은 '상품사진고정' 탭에 남아 자동 채우기가 다시 덮지 못한다. -->
+<div class="card">
+  <h2>🖼 대표 사진 바꾸기 <span id="thStat" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
+  <p style="font-size:12.5px;color:var(--muted)">카탈로그 카드에 뜨는 사진을 바꿉니다. <b>여기서 고른 사진은 자동 채우기가 덮어쓰지 않습니다</b>(🔒 고정).<br>
+  게시판 글에서 받아둔 <b>후보 사진</b>을 눌러 고르는 게 제일 빠릅니다. 마땅한 게 없으면 사진 주소를 직접 넣으세요.</p>
+  <div class="ct-bulk" style="margin-top:10px">
+    <input id="thQ" list="thDL" placeholder="상품명 — 카탈로그 카드의 📋 로 복사해 붙여넣기" autocomplete="off" style="flex:1;min-width:200px">
+    <datalist id="thDL"></datalist>
+    <button class="cp" id="thLoad" style="margin-top:0">불러오기</button>
+  </div>
+  <div id="thBox" style="margin-top:11px"></div>
 </div>
 <div class="card">
   <h2>🔧 사진·링크 수정 <span id="fxStat" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
@@ -843,8 +857,14 @@ $f('fxRun').onclick=async function(){
     async function w(){ while(bi<withImg.length){ const p=withImg[bi++]; const ok=await imgTest(FX.cache[pkey(p.name)].img); done++; if(done%40===0)$f('fxStat').textContent='— 사진 검사 중… ('+done+'/'+withImg.length+')'; if(!ok)broken.push(p); } }
     await Promise.all(Array.from({length:20},(_, i)=>i).map(w));
     // 대표 사진이 깨졌어도 예비 사진 중 살아있는 게 있으면 자동으로 교체하고 목록에 안 올린다 (사장님 2026-08-10)
+    // 🔒 [🖼 대표 사진 바꾸기]로 고정한 상품은 자동 승격 대상이 아니다 (홍팀장 2026-08-31).
+    //    사람이 고른 사진이 깨졌으면 조용히 딴 사진으로 바꾸지 말고 목록에 남겨 다시 고르게 한다.
+    let LK={};
+    try{ const lv=await api(DOGU,'/values/'+q1("'상품사진고정'!A2:B500"));
+         ((lv.values)||[]).forEach(r=>{const n=(r[0]||'').trim();if(n)LK[pkey(n)]=1;}); }catch(e){}
     for(let k2=broken.length-1;k2>=0;k2--){
       const p=broken[k2];const c=FX.cache[pkey(p.name)];
+      if(LK[pkey(p.name)])continue;
       if(!c||!c.backs||!c.backs.length)continue;
       const strict=u=>new Promise(res=>{const im=new Image();const t2=setTimeout(()=>res(false),8000);im.onload=()=>{clearTimeout(t2);res(true);};im.onerror=()=>{clearTimeout(t2);res(false);};im.src=u;});
       let picked='';
@@ -1237,6 +1257,157 @@ $h('hapRun').onclick=async function(){
   }catch(e){ $h('hapStat').textContent='— ⚠️ '+(e.message||e); }
   this.disabled=false;
 };
+})();
+
+/* ── 🖼 대표 사진 바꾸기 (홍팀장 2026-08-31) ────────────────────────────────
+   왜 만들었나: 게시판 글의 첫 사진이 상품 사진이 아닌 경우가 있다(민물장어 → 양식장 항공사진).
+   카탈로그 카드만 보고는 그게 무슨 상품인지 알 수 없어서 업체가 안 누른다.
+
+   🔴 고정은 별도 탭 '상품사진고정'(A상품명 B사진주소 C지정일)에 남긴다. '상품이미지_v2'의 남는 칸에
+      표시하는 방법은 쓰면 안 된다 — 북마클릿 saveCache()가 그 탭을 **이름순으로 다시 정렬해 통째로**
+      되쓰기 때문에, 열 하나만 따로 남기면 플래그가 엉뚱한 상품 줄에 가서 붙는다.
+   자동 채우기(media-updater.js)는 이 탭을 먼저 읽고, 여기 있는 상품의 사진은 건드리지 않는다. */
+(function(){
+const S=window.__sheets; if(!S)return;
+const DOGU=S.DOGU, e1=encodeURIComponent, TAB='상품이미지_v2', LTAB='상품사진고정';
+const $t=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const t=x=>(x==null?'':String(x)).trim();
+const pkey=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+const day=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());};
+let CUR=null, LOCKS=[], PICK='';
+
+async function loadLocks(){
+  const j=await S.api(DOGU,'/values/'+e1("'"+LTAB+"'!A2:C500"));
+  if(j.error)return [];                     // 탭이 아직 없으면 빈 목록 — 저장할 때 만든다
+  return (j.values||[]).map(r=>({name:t(r[0]),img:t(r[1]),at:t(r[2])})).filter(r=>r.name);
+}
+async function ensureLockTab(){
+  const meta=await S.api(DOGU,'?fields=sheets.properties.title');
+  if(((meta.sheets)||[]).some(s=>s.properties.title===LTAB))return;
+  await S.api(DOGU,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({requests:[{addSheet:{properties:{title:LTAB}}}]})});
+  await S.api(DOGU,'/values/'+e1("'"+LTAB+"'!A1:C1")+'?valueInputOption=RAW',{method:'PUT',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[['상품명','사진주소','지정일']]})});
+}
+async function saveLocks(){
+  await ensureLockTab();
+  const rows=[['상품명','사진주소','지정일']].concat(LOCKS.map(r=>[r.name,r.img,r.at]));
+  while(rows.length<200)rows.push(['','','']);   // 지운 줄이 남지 않게 여백까지 덮는다
+  const j=await S.api(DOGU,'/values/'+e1("'"+LTAB+"'!A1:C200")+'?valueInputOption=RAW',
+    {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+  if(j.error)throw new Error(j.error.message||'고정 저장 실패');
+}
+async function findRow(nm){
+  const j=await S.api(DOGU,'/values/'+e1("'"+TAB+"'!A1:G3000"));
+  if(j.error)throw new Error(j.error.message||'사진 캐시를 읽지 못했습니다');
+  const rows=j.values||[], k=pkey(nm);
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i]||[];
+    if(pkey(r[0])===k)return {row:i+1,name:t(r[0]),img:t(r[2]),link:t(r[5]),
+      backs:(r[6]?String(r[6]).split('\n').map(t).filter(Boolean):[])};
+  }
+  return null;
+}
+function draw(){
+  const b=$t('thBox');
+  if(!CUR){b.innerHTML='';return;}
+  const lock=LOCKS.find(r=>pkey(r.name)===pkey(CUR.name));
+  const shot=(u,sel,lb)=>'<button class="thpick" data-u="'+esc(u)+'" style="border:'+(sel?'3px solid var(--accent)':'1px solid var(--line)')
+    +';border-radius:9px;padding:0;overflow:hidden;background:var(--card);cursor:pointer;width:132px">'
+    +'<img src="'+esc(u)+'" style="width:130px;height:98px;object-fit:cover;display:block" loading="lazy" onerror="this.parentNode.style.opacity=.35;this.parentNode.title=\'사진이 열리지 않습니다\'">'
+    +'<div style="font-size:10.5px;padding:3px 4px;color:var(--muted)">'+lb+'</div></button>';
+  const cur=CUR.img?shot(CUR.img,PICK===CUR.img,'지금 쓰는 사진'):'<div class="ci" style="color:var(--muted)">지금 사진 없음</div>';
+  const backs=(CUR.backs||[]).filter(u=>u!==CUR.img);
+  b.innerHTML='<div style="font-size:13px;font-weight:800;margin-bottom:6px">'+esc(CUR.name)
+    +(lock?' <span style="font-size:10.5px;font-weight:700;color:#1f6fd6;background:rgba(31,111,214,.12);padding:2px 7px;border-radius:5px">🔒 고정됨 '+esc(lock.at)+'</span>'
+          :' <span style="font-size:10.5px;font-weight:700;color:var(--muted);background:var(--chip);padding:2px 7px;border-radius:5px">자동 — 채우기가 덮어씁니다</span>')
+    +(CUR.link?' <a href="'+esc(CUR.link)+'" target="_blank" rel="noopener" style="font-size:11.5px">게시판 글 열기↗</a>':'')+'</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start">'+cur
+    +(backs.length?backs.map((u,i)=>shot(u,PICK===u,'후보 '+(i+1))).join(''):'')+'</div>'
+    +(backs.length?'':'<div style="font-size:12px;color:var(--muted);margin-top:6px">게시판 글에서 받아둔 후보 사진이 없습니다 — 아래에 주소를 직접 넣으세요.</div>')
+    +'<div class="ct-bulk" style="margin-top:10px"><input id="thUrl" placeholder="사진 주소 직접 입력 (https://…)" autocomplete="off" style="flex:1;min-width:220px" value="'+esc(PICK&&PICK!==CUR.img&&(CUR.backs||[]).indexOf(PICK)<0?PICK:'')+'">'
+    +'<button class="fxg" id="thPrev" title="이 주소로 미리보기">👁</button></div>'
+    +'<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
+    +'<button class="cp" id="thSave" style="margin-top:0">🔒 이 사진으로 고정</button>'
+    +(lock?'<button class="cp" id="thFree" style="margin-top:0;background:var(--chip);color:var(--ink)">🔓 고정 풀기</button>':'')
+    +'</div><div id="thLog" style="font-size:11.5px;color:var(--muted);margin-top:7px;line-height:1.7"></div>';
+}
+$t('thBox').addEventListener('click',function(ev){
+  const p=ev.target.closest('.thpick');
+  if(p){PICK=p.getAttribute('data-u');draw();return;}
+  if(ev.target.id==='thPrev'){
+    const u=t($t('thUrl').value);
+    if(!/^https?:\/\//.test(u))return alert('http로 시작하는 사진 주소를 넣어주세요.');
+    PICK=u;draw();return;
+  }
+  if(ev.target.id==='thSave')doSave();
+  else if(ev.target.id==='thFree')doFree();
+});
+async function doSave(){
+  const u=t($t('thUrl').value)||PICK;
+  if(!u)return alert('사진을 고르거나 주소를 넣어주세요.');
+  if(!/^https?:\/\//.test(u))return alert('http로 시작하는 사진 주소를 넣어주세요.');
+  const btn=$t('thSave');btn.disabled=true;btn.textContent='저장 중…';
+  try{
+    // ① 카탈로그가 읽는 자리(대표 사진)를 바꾸고 ② 고정 목록에 남긴다. 둘 다 돼야 다음 채우기에서 안 밀린다.
+    const j=await S.api(DOGU,'/values:batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({valueInputOption:'RAW',data:[
+        {range:"'"+TAB+"'!C"+CUR.row,values:[[u]]},
+        {range:"'"+TAB+"'!E"+CUR.row,values:[[day()]]}]})});
+    if(j.error)throw new Error(j.error.message||'사진 저장 실패');
+    const ex=LOCKS.find(r=>pkey(r.name)===pkey(CUR.name));
+    if(ex){ex.img=u;ex.at=day();}else LOCKS.push({name:CUR.name,img:u,at:day()});
+    await saveLocks();
+    CUR.img=u;PICK=u;draw();
+    $t('thLog').innerHTML='✅ 고정했습니다. 카탈로그에서 <b>🔄 새로고침</b>하면 바뀝니다. 자동 채우기는 이제 이 상품 사진을 건드리지 않습니다.';
+  }catch(e){ btn.disabled=false;btn.textContent='🔒 이 사진으로 고정'; alert('저장 실패: '+(e.message||e)); }
+}
+async function doFree(){
+  if(!confirm('"'+CUR.name+'" 사진 고정을 풀까요?\n\n다음 자동 채우기 때 게시판 사진으로 다시 바뀔 수 있습니다.'))return;
+  const btn=$t('thFree');btn.disabled=true;btn.textContent='처리 중…';
+  try{
+    LOCKS=LOCKS.filter(r=>pkey(r.name)!==pkey(CUR.name));
+    await saveLocks();
+    draw();
+    $t('thLog').textContent='🔓 고정을 풀었습니다.';
+  }catch(e){ btn.disabled=false;btn.textContent='🔓 고정 풀기'; alert('실패: '+(e.message||e)); }
+}
+async function load(nm){
+  nm=t(nm); if(!nm)return alert('상품명을 넣어주세요.');
+  $t('thStat').textContent='— 불러오는 중…';
+  try{
+    const r=await Promise.all([findRow(nm),loadLocks()]);
+    LOCKS=r[1];
+    if(!r[0]){
+      CUR=null;draw();
+      $t('thStat').textContent='';
+      $t('thBox').innerHTML='<div class="ci" style="color:#c0392b">사진 캐시에 <b>'+esc(nm)+'</b> 이(가) 없습니다 — 이름이 정확한지 확인해 주세요(카탈로그 카드의 📋 로 복사하면 정확합니다). 아직 한 번도 사진을 받아온 적 없는 상품이면 먼저 자동 채우기가 돌아야 합니다.</div>';
+      return;
+    }
+    CUR=r[0];PICK=CUR.img||'';draw();
+    $t('thStat').textContent='';
+  }catch(e){ $t('thStat').textContent='— ⚠️ '+(e.message||e); }
+}
+$t('thLoad').onclick=function(){load($t('thQ').value);};
+$t('thQ').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();load(this.value);}});
+// 상품명 자동완성 — 사진 캐시에 실제로 들어 있는 이름만 (여기서 못 고치는 상품을 보여줄 이유가 없다)
+(async function(){
+  try{
+    const j=await S.api(DOGU,'/values/'+e1("'"+TAB+"'!A2:A3000"));
+    const seen={},op=[];
+    ((j.values)||[]).forEach(r=>{const n=t(r[0]);if(n&&!seen[n]){seen[n]=1;op.push('<option value="'+esc(n)+'">');}});
+    $t('thDL').innerHTML=op.join('');
+  }catch(e){}
+})();
+/* 카탈로그에서 [🖼 사진 바꾸기]로 넘어오면 주소 끝에 #photo=상품명 이 붙는다 — 바로 열어준다 */
+(function(){
+  const m=String(location.hash||'').match(/^#photo=(.+)$/);
+  if(!m)return;
+  const nm=decodeURIComponent(m[1]);
+  const b=document.querySelector('.tabbtn[data-t="photo"]'); if(b)b.click();
+  $t('thQ').value=nm; load(nm);
+})();
 })();
 
 </script>

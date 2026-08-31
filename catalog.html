@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.51).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.52).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.51</title>
+<title>마스터 유통 카탈로그 v2.52</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -77,6 +77,9 @@ h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .pn a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted)}
 .cpbtn{border:1px solid var(--line);background:var(--chip);border-radius:6px;font-size:10.5px;padding:1px 6px;cursor:pointer;color:var(--muted);flex:none;line-height:1.5}
 .cpbtn:hover{border-color:var(--accent);color:var(--accent)}
+/* 🖼 사진 바꾸기 — 마스터에게만 보이는 버튼 (홍팀장 2026-08-31) */
+.thb{margin-top:6px;border:1px solid var(--line);background:var(--chip);color:var(--muted);border-radius:7px;font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;font-family:inherit}
+.thb:hover{border-color:var(--accent);color:var(--accent)}
 .tg{font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;background:var(--chip);color:var(--muted);align-self:flex-start}
 .tg.tax{background:var(--soft);color:var(--accent-d)}.tg.tx{color:var(--up)}
 /* 💹 인상·인하 — 면세/과세 배지 옆에 나란히 (사장님 2026-08-19) */
@@ -1026,6 +1029,10 @@ function card(p,extra,top){
     +(amMasterC()
         ?'<button class="excb'+(p.exc?' off':'')+'" data-exc="'+esc(p.name)+'" data-excon="'+(p.exc?'0':'1')
           +'" data-excwh="'+esc(p.effWh||p.group||'')+'">'+(p.exc?'↩ 판매 재개':'🚫 예외 등록')+'</button>':'')
+    /* 🖼 사진 바꾸기 — 마스터에게만. 게시판 첫 사진이 상품 사진이 아닐 때(민물장어 → 양식장 항공사진)
+       카드를 보다가 바로 고치러 간다. 카탈로그는 사진 시트에 쓰지 않는다 —
+       상품도구를 그 상품으로 열어줄 뿐이다(#photo=). 쓰기는 권한을 가진 도구 쪽에서만. */
+    +(amMasterC()?'<button class="excb thb" data-thumb="'+esc(p.name)+'" title="카탈로그 사진을 다른 사진으로 바꿉니다">🖼 사진 바꾸기</button>':'')
     +'</div></div>';
 }
 function buildWhChips(){
@@ -1170,6 +1177,9 @@ document.addEventListener('click',e=>{
     const dt=$('mvbox');if(dt)dt.open=false;   // 목록은 접고 상품 카드로 시선을 넘긴다 (사장님 2026-08-25)
     const v=$('view');if(v)v.scrollIntoView({behavior:'smooth',block:'start'});
     return;}
+  // 🖼 사진 바꾸기 — 상품도구를 그 상품으로 열어준다 (쓰기는 도구 쪽에서만)
+  const th=e.target.closest('[data-thumb]');
+  if(th){window.open('media-updater.html#photo='+encodeURIComponent(th.getAttribute('data-thumb')),'_blank','noopener');return;}
   const b=e.target.closest('.cpbtn');if(!b)return;
   navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast(b.getAttribute('data-cpmsg')||'상품명 복사됨'));
 });

@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.49).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.50).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.49</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.50</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -77,6 +77,9 @@ h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .pn a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted)}
 .cpbtn{border:1px solid var(--line);background:var(--chip);border-radius:6px;font-size:10.5px;padding:1px 6px;cursor:pointer;color:var(--muted);flex:none;line-height:1.5}
 .cpbtn:hover{border-color:var(--accent);color:var(--accent)}
+/* 🖼 사진 바꾸기 — 마스터에게만 보이는 버튼 (홍팀장 2026-08-31) */
+.thb{margin-top:6px;border:1px solid var(--line);background:var(--chip);color:var(--muted);border-radius:7px;font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;font-family:inherit}
+.thb:hover{border-color:var(--accent);color:var(--accent)}
 .tg{font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;background:var(--chip);color:var(--muted);align-self:flex-start}
 .tg.tax{background:var(--soft);color:var(--accent-d)}.tg.tx{color:var(--up)}
 /* 💹 인상·인하 — 면세/과세 배지 옆에 나란히 (사장님 2026-08-19) */
@@ -1033,6 +1036,8 @@ function card(p,extra,top){
     +(amMasterC()
         ?'<button class="excb'+(p.exc?' off':'')+'" data-exc="'+esc(p.name)+'" data-excon="'+(p.exc?'0':'1')
           +'" data-excwh="'+esc(p.effWh||p.group||'')+'">'+(p.exc?'↩ 판매 재개':'🚫 예외 등록')+'</button>':'')
+    /* 🖼 사진 바꾸기 — 마스터에게만. 쓰기는 권한을 가진 상품도구 쪽에서만 한다(#photo=). */
+    +(amMasterC()?'<button class="excb thb" data-thumb="'+esc(p.name)+'" title="카탈로그 사진을 다른 사진으로 바꿉니다">🖼 사진 바꾸기</button>':'')
     +'</div></div>';
 }
 function buildWhChips(){
@@ -1177,6 +1182,9 @@ document.addEventListener('click',e=>{
     const dt=$('mvbox');if(dt)dt.open=false;   // 목록은 접고 상품 카드로 시선을 넘긴다 (사장님 2026-08-25)
     const v=$('view');if(v)v.scrollIntoView({behavior:'smooth',block:'start'});
     return;}
+  // 🖼 사진 바꾸기 — 상품도구를 그 상품으로 열어준다 (쓰기는 도구 쪽에서만)
+  const th=e.target.closest('[data-thumb]');
+  if(th){window.open('media-updater.html#photo='+encodeURIComponent(th.getAttribute('data-thumb')),'_blank','noopener');return;}
   const b=e.target.closest('.cpbtn');if(!b)return;
   navigator.clipboard.writeText(b.getAttribute('data-cp')).then(()=>toast(b.getAttribute('data-cpmsg')||'상품명 복사됨'));
 });
@@ -1536,7 +1544,8 @@ function renderChange(d){
 // ── 2) 추천상품 — 도구시트 '추천상품' 탭 (상품명 · 코멘트 · 노출 · 순서 · 등록일) ──
 // 소식글에서 올라온 상품은 등록일부터 10일만 노출하고 11일차에 저절로 내려간다.
 // 사장님이 직접 넣은 '추천'은 지울 때까지 계속 간다. (사장님 2026-08-18)
-const NEWS_DAYS=10;
+/* 📰 소식글 딱지는 최신 10개까지만 — 11번째가 올라오면 가장 오래된 게 내려간다 (홍팀장 2026-08-31) */
+const NEWS_DAYS=10, NEWS_MAX=10;
 function daysSince(s){
   const m=String(s||'').match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
   if(!m)return 0;
@@ -1549,7 +1558,7 @@ async function loadRecs(){
   const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'추천상품'!A2:F300"),{headers:{Authorization:'Bearer '+token}})).json();
   if(j.error)throw new Error('추천상품을 읽지 못했습니다.');
   const t=x=>(x==null?'':String(x)).trim();
-  return (j.values||[]).map((v,i)=>({name:t(v[0]),cmt:t(v[1]),show:t(v[2])||'Y',
+  const rows=(j.values||[]).map((v,i)=>({name:t(v[0]),cmt:t(v[1]),show:t(v[2])||'Y',
       ord:parseInt(t(v[3]).replace(/[^\d]/g,''),10)||999,at:t(v[4]),
       news:t(v[5])==='소식글',i}))
     .filter(r=>{
@@ -1562,6 +1571,9 @@ async function loadRecs(){
       if(a.news)return (b.at||'').localeCompare(a.at||'')||(a.i-b.i); // 소식글은 최신 먼저
       return (a.ord-b.ord)||(a.i-b.i);
     });
+  // 소식글 딱지는 최신 10개까지 — 위 정렬이 이미 최신 먼저라 앞에서부터 세면 된다
+  let n=0;
+  return rows.filter(r=>!r.news||(++n<=NEWS_MAX));
 }
 function renderRecs(list){
   /* 🚫 예외 상품은 추천에서도 빠진다 (홍팀장 2026-08-28).
@@ -1798,7 +1810,9 @@ function renderUser(){
      그 문제가 없다. 카톡·엑셀로 발주를 주는 업체 몫을 우리가 대신 넣고 당일 시트로 바로 보내는 자리다. */
   const mk=menuEl.querySelector('[data-go="order"]');
   if(mk){mk.style.display='';mk.childNodes[0].nodeValue=ME.master?'🧾 대신 발주':'🧾 발주하기';}
+  /* 🔗 업체에 줄 카탈로그 주소 복사 — 마스터에게만. 주소는 하드코딩(테스트본에서 눌러도 라이브 주소가 나가야 한다) */
   $('userbar').innerHTML='<span class="uname">'+esc(ME.name||ME.id)+'</span>'
+    +(ME.master?'<button class="ubtn cpbtn" data-cp="https://chanwha0221-cmyk.github.io/baljuseo/catalog.html" data-cpmsg="카탈로그 주소 복사됨" title="업체에 보낼 카탈로그 주소를 복사합니다">🔗 카탈로그 주소 복사</button>':'')
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
     +'<button class="ubtn" id="ub_out">로그아웃</button>'
     +'<button class="ubtn rl" id="ub_reload" title="저장된 내용을 버리고 시트에서 다시 받아옵니다">🔄 새로고침</button>';

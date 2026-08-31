@@ -251,6 +251,18 @@ async function loadCache(){
   }
   return m;
 }
+/* 🔒 사진 고정 — 상품도구 [🖼 대표 사진 바꾸기]에서 사람이 직접 고른 사진(도구시트 '상품사진고정' 탭).
+   게시판 첫 사진이 상품 사진이 아닌 경우(민물장어 → 양식장 항공사진)에 사람이 고쳐놓은 것이라
+   **여기서 다시 덮으면 안 된다.** 스펙·링크는 계속 갱신한다 — 고정한 건 사진뿐. */
+async function loadLocks(){
+  const v=await api(DOGU,'/values/'+q("'상품사진고정'!A2:C500"));
+  const m={};
+  ((v.values)||[]).forEach(function(r){
+    const n=(r[0]||'').trim(), u=(r[1]||'').trim();
+    if(n&&u)m[pkey(n)]=u;
+  });
+  return m;
+}
 /* ✓ 문제없음 — 도구 페이지에서 "확인해 봤는데 이상 없음"으로 넘긴 상품(도구시트 '문제없음' 탭).
    여기서도 똑같이 빼줘야 못 고치는 상품(예: 게시글 자체가 없는 추가옵션)이 버튼에 계속 남지 않는다. */
 async function loadOkList(){
@@ -453,7 +465,7 @@ const $=function(id){return document.getElementById(id);};
 const log=function(m,keep){$('mu-log').textContent=keep?($('mu-log').textContent+'\n'+m):m;};
 $('mu-x').onclick=function(){W.style.display='none';};
 
-let PRODUCTS=[],CACHE={},LINKS={},QUEUE=[],SEL={},BUSY=false,LASTFAIL=[],FILTER='',BROKEN={},OKLIST={};
+let PRODUCTS=[],CACHE={},LINKS={},QUEUE=[],SEL={},BUSY=false,LASTFAIL=[],FILTER='',BROKEN={},OKLIST={},LOCKS={};
 const cacheOf=p=>CACHE[pkey(p.name)];
 const linkOf=p=>{const c=cacheOf(p);return LINKS[pkey(p.name)]||(c&&c.link)||p.sheetUrl||'';};
 const noImg=p=>{const c=cacheOf(p);return !c||!c.img;};
@@ -785,7 +797,9 @@ async function runSelected(){
     c.name=x.t.name;c.link=x.t.url;c.id=idOf(x.t.url);
     // 수집 실패 시 기존 사진·스펙을 빈 값으로 덮어쓰지 않는다 (2026-08-09 왕갈치 사고)
     // 멀쩡한 사진을 '안 열리는 사진'으로 바꾸지도 않는다 (2026-08-11)
-    if(x.r.img&&!(x.r.bad&&c.img))c.img=x.r.img;
+    // 🔒 사람이 고른 사진은 아예 손대지 않는다 (홍팀장 2026-08-31) — 게시판 첫 사진이 상품 사진이 아닌 건들
+    if(LOCKS[k])c.img=LOCKS[k];
+    else if(x.r.img&&!(x.r.bad&&c.img))c.img=x.r.img;
     if(x.r.spec.length)c.spec=x.r.spec;
     if(x.r.backs&&x.r.backs.length)c.backs=x.r.backs;
     if(x.r.img||x.r.spec.length)c.updated=today;
@@ -858,8 +872,8 @@ $('mu-failcp').onclick=function(){
 (async function(){
   try{
     log('유통시트·링크시트·캐시 불러오는 중…');
-    const r=await Promise.all([loadProducts(),loadCache(),loadLinks(),loadQueue().catch(function(){return [];}),loadOkList().catch(function(){return {};})]);
-    PRODUCTS=r[0];CACHE=r[1];LINKS=r[2];QUEUE=r[3];OKLIST=r[4];
+    const r=await Promise.all([loadProducts(),loadCache(),loadLinks(),loadQueue().catch(function(){return [];}),loadOkList().catch(function(){return {};}),loadLocks().catch(function(){return {};})]);
+    PRODUCTS=r[0];CACHE=r[1];LINKS=r[2];QUEUE=r[3];OKLIST=r[4];LOCKS=r[5];
     renderSum();renderList();renderRun();
     log('🩹 사진이 실제로 열리는지 검사 중… (처음 한 번만 오래 걸립니다)');
     await scanBroken();
