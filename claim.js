@@ -237,8 +237,7 @@ function listHtml(master){
   return MINE.map(function(c){
     var ok = !!T(c.ack_at);
     var ty = typeOf(S(c.type));
-    var n = 0, im = c.imgs || {};
-    for(var k in im) n += (im[k]||[]).length;
+    var n = +c.imgn || 0;   // 목록엔 장수만 온다 — 사진 자체는 [펼쳐보기] 때 따로 받는다
     return '<div class="ordbox" style="margin-bottom:10px'+(ok?'':';border-color:#e8b4b4')+'">'
       + '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">'
       +   '<b>'+E(ty?ty.t:S(c.type))+'</b>'
@@ -312,18 +311,24 @@ var CLAIM = {
     }
     box.innerHTML = listHtml(master);
     box.querySelectorAll('[data-see]').forEach(function(a){
-      a.onclick = function(ev){
+      a.onclick = async function(ev){
         ev.preventDefault();
         var id = a.getAttribute('data-see'), wrap = $c('climg_' + id);
         if(wrap.style.display !== 'none'){ wrap.style.display = 'none'; a.textContent = '펼쳐보기'; return; }
-        var c = MINE.filter(function(x){ return S(x.id) === id; })[0];
-        var im = (c && c.imgs) || {}, h = '';
+        wrap.style.display = ''; wrap.innerHTML = '<div class="hint">⏳ 사진을 불러오는 중입니다…</div>';
+        a.textContent = '접기';
+        var im = {};
+        try{
+          var j = await api('claimimgs', { token: ME.token, id: id });
+          if(!j || !j.ok) throw new Error((j && j.error) || '사진을 불러오지 못했습니다');
+          im = j.imgs || {};
+        }catch(e){ wrap.innerHTML = '<div class="hint" style="color:#c0392b">'+E(e.message||String(e))+'</div>'; return; }
+        var h = '';
         for(var k in im) (im[k]||[]).forEach(function(f){
           h += '<div style="margin-bottom:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:3px">'
             + E(SLOT[k] || k) + '</div><img src="' + S(f.b64) + '" style="max-width:100%;border-radius:8px;border:1px solid var(--line)"></div>';
         });
         wrap.innerHTML = h || '<div class="hint">사진이 없습니다.</div>';
-        wrap.style.display = ''; a.textContent = '접기';
       };
     });
     box.querySelectorAll('[data-ack]').forEach(function(b){

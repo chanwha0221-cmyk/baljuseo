@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.59).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.60).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.59</title>
+<title>마스터 유통 카탈로그 v2.60</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -529,6 +529,7 @@ h1{letter-spacing:-.6px}
   <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="order">🧾 발주하기<span class="nbadge" id="ordCount" style="display:none"></span></button>
   <button class="mbtn" data-go="orders" id="mbOrders" style="display:none">📋 발주 내역<span class="nbadge" id="ordsBadge" style="display:none"></span></button>
+  <button class="mbtn" data-go="claim" id="mbClaim">📮 클레임<span class="nbadge" id="clBadge" style="display:none"></span></button>
 </div>
 <!-- 공지는 메뉴 바로 밑에 그대로 펼쳐 보여준다 (사장님 2026-08-12) -->
 <div class="ntcbox" id="ntcbox"></div>
@@ -1728,6 +1729,8 @@ async function renderRoute(){
     }
     // 📋 발주 내역 — 업체는 자기 것만, 마스터는 전체. 거르는 건 웹앱이 한다.
     else if(v==='orders'){subV.innerHTML=await ORDER.orders();ORDER.ordersBind();}
+    // 📮 클레임 — 업체는 등록+내 목록, 마스터는 들어온 클레임+[확인] (2026-08-31)
+    else if(v==='claim'){subV.innerHTML=CLAIM.view();await CLAIM.bind();}
     else{location.hash='';}
   }catch(e){
     subV.innerHTML=subHead('⚠️ 불러오지 못했습니다','')+'<div class="empty">'+esc(e.message||String(e))+'</div>';
@@ -2125,5 +2128,7 @@ window.ORDER_NS='';
      document.write 는 파서가 순서를 지켜준다 → convert-core → order 순서도 그대로. -->
 <script>(function(){var v=(document.title.match(/v[\d.]+/)||['v0'])[0];
 document.write('<scr'+'ipt src="convert-core.js?'+v+'"><\/scr'+'ipt>');
-document.write('<scr'+'ipt src="order.js?'+v+'"><\/scr'+'ipt>');})();</script>
+document.write('<scr'+'ipt src="order.js?'+v+'"><\/scr'+'ipt>');
+// 📮 클레임 — 2026-08-31 신설 (claimadd/claimlist/claimimgs/claimack)
+document.write('<scr'+'ipt src="claim.js?'+v+'"><\/scr'+'ipt>');})();</script>
 </body></html>
