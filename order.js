@@ -1133,7 +1133,13 @@ function dupBanner(master){
         }).join('')
       + (ss.length > show.length ? '<div class="hint" style="margin-top:8px">외 ' + (ss.length - show.length) + '건 더 있습니다.</div>' : '');
   }
-  if(hidden && !DUPSHOWALL) h += '<div class="hint" style="margin-top:8px">확인 끝낸 ' + hidden + '건은 숨겨져 있습니다. ' + showAgain + '</div>';
+  /* 🔴 2026-08-31 홍팀장: [다시 보기]로 펼친 뒤 **다시 접는 링크가 없어** 확인 끝낸 건이 화면에 계속 남았다.
+     펼친 상태에서도 접기를 내준다 — 확인한 건을 지우는 게 아니라(되돌리기가 살아 있어야 한다) 도로 숨기는 것. */
+  if(hidden) h += '<div class="hint" style="margin-top:8px">'
+    + (DUPSHOWALL
+        ? '확인 끝낸 ' + hidden + '건까지 같이 보고 있습니다. <a href="#" id="dupfold" style="color:var(--accent)">확인한 것 접기</a>'
+        : '확인 끝낸 ' + hidden + '건은 숨겨져 있습니다. ' + showAgain)
+    + '</div>';
   return h + '</div>';
 }
 // 1 … 4 [5] 6 … 20 — 페이지가 많아도 버튼이 한 줄을 안 넘게
@@ -1162,6 +1168,8 @@ function bindPager(){
   });
   const sa = document.getElementById('dupshowall');
   if(sa) sa.onclick = e => { e.preventDefault(); DUPSHOWALL = true; ordersPaint(); };
+  const fo = document.getElementById('dupfold');
+  if(fo) fo.onclick = e => { e.preventDefault(); DUPSHOWALL = false; ordersPaint(); };
   // 🔁 중복 항목을 누르면 그 받는분으로 검색해 두 발주를 나란히 보여준다
   document.querySelectorAll('[data-dupq]').forEach(el => {
     el.onclick = () => {
