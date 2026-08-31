@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.49).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.50).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.49</title>
+<title>마스터 유통 카탈로그 v2.50</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1791,7 +1791,11 @@ function renderUser(){
      그 문제가 없다. 카톡·엑셀로 발주를 주는 업체 몫을 우리가 대신 넣고 당일 시트로 바로 보내는 자리다. */
   const mk=menuEl.querySelector('[data-go="order"]');
   if(mk){mk.style.display='';mk.childNodes[0].nodeValue=ME.master?'🧾 대신 발주':'🧾 발주하기';}
+  /* 🔗 업체에 카탈로그 주소를 줄 때 쓰는 복사 버튼 — 마스터에게만 보인다 (홍팀장 2026-08-31).
+     주소는 일부러 하드코딩이다. 로컬 파일·테스트 사본에서 눌러도 항상 라이브 주소가 나가야 한다.
+     클릭 처리는 .cpbtn 공용 핸들러가 맡는다(모양은 .ubtn 이 이긴다 — 선언이 뒤라서). */
   $('userbar').innerHTML='<span class="uname">'+esc(ME.name||ME.id)+'</span>'
+    +(ME.master?'<button class="ubtn cpbtn" data-cp="https://chanwha0221-cmyk.github.io/baljuseo/catalog.html" data-cpmsg="카탈로그 주소 복사됨" title="업체에 보낼 카탈로그 주소를 복사합니다">🔗 카탈로그 주소 복사</button>':'')
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
     +'<button class="ubtn" id="ub_out">로그아웃</button>'
     +'<button class="ubtn rl" id="ub_reload" title="저장된 내용을 버리고 시트에서 다시 받아옵니다">🔄 새로고침</button>';
