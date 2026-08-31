@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.8</title>
+<title>마스터 유통 상품 도구 v1.9</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -71,12 +71,13 @@ a{color:var(--accent)}
 <div class="sub">카탈로그에 뜨는 상품 사진·스펙·카테고리를 여기서 관리합니다</div>
 <!-- 카탈로그 로그인 계정 바로가기 (2026-08-12 홍팀장 지시 — "여기에 박아줘")
      ⚠️ 2026-08-27 컷오버: 계정 정본이 **구글 시트 → Supabase**로 넘어갔다. 로그인·가입·비번변경은 전부
-        Supabase Edge Function(`functions/v1/api`)이 처리한다. 관리 화면은 `계정관리.html`(마스터 로그인 전용).
+        Supabase Edge Function(`functions/v1/api`)이 처리한다. 이 버튼은 홍팀장 지시로 **Supabase `accounts` 테이블**로 직행한다
+        (승인·차단만 할 거면 `계정관리.html` 화면도 있다).
         옛 계정 시트(15YSaa…)·도구시트 옛 탭(gid=1988438394)은 **더 이상 로그인에 쓰이지 않는다** —
         거기서 고치면 반영되지 않는다. 2026-08-31 링크 교체. -->
 <div class="sub" style="margin-top:-14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-  <a class="fxg" target="_blank" rel="noopener" href="계정관리.html">🔐 업체 계정 관리↗</a>
-  <span style="font-size:11.5px">업체 아이디·비밀번호 관리 — 새로 가입한 업체는 <b>임시</b>로 들어오니 확인 후 <b>[승인]</b>, 아니면 <b>[차단]</b><br><b style="color:var(--gold)">2026-08-27부터 계정은 Supabase입니다</b> — 옛 계정 시트에서 고치면 로그인에 반영되지 않습니다</span>
+  <a class="fxg" target="_blank" rel="noopener" href="https://supabase.com/dashboard/project/yzttmdrlujgstfjsbser/editor">🔐 카탈로그 로그인 계정 테이블↗</a>
+  <span style="font-size:11.5px">업체 아이디·비밀번호 관리 — Supabase <b>accounts</b> 테이블에서 직접 수정<br><b style="color:var(--gold)">2026-08-27부터 계정은 Supabase입니다</b> — 옛 계정 시트에서 고치면 로그인에 반영되지 않습니다</span>
 </div>
 <div class="tabs">
   <button class="tabbtn on" data-t="cat">🏷️ 카테고리 분류</button>
