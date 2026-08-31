@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.55).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.56).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.55</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.56</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -220,6 +220,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .uname{font-size:12px;font-weight:700;color:var(--accent-d);background:var(--soft);padding:5px 11px;border-radius:20px;white-space:nowrap}
 .ubtn{border:1.5px solid var(--line);background:var(--card);color:var(--muted);padding:5px 10px;border-radius:20px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
 .ubtn:hover{border-color:var(--accent);color:var(--accent)}
+a.ubtn{display:inline-block;text-decoration:none;line-height:1.6}   /* 👤 계정관리 링크 — button 들 사이에 껴도 키가 맞게 */
 .ubtn.rl{border-color:var(--accent);background:var(--soft);color:var(--accent-d);font-weight:700}
 .ubtn.rl:hover{background:var(--accent);color:#fff}
 /* 🕒 임시 계정 배너 (홍팀장 2026-08-28) — 확인 전 업체에게 계속 뜬다.
@@ -1861,6 +1862,10 @@ function renderUser(){
      클릭 처리는 .cpbtn 공용 핸들러가 맡는다(모양은 .ubtn 이 이긴다 — 선언이 뒤라서). */
   $('userbar').innerHTML='<span class="uname">'+esc(ME.name||ME.id)+'</span>'
     +(ME.master?'<button class="ubtn cpbtn" data-cp="https://chanwha0221-cmyk.github.io/baljuseo/catalog.html" data-cpmsg="카탈로그 주소 복사됨" title="업체에 보낼 카탈로그 주소를 복사합니다">🔗 카탈로그 주소 복사</button>':'')
+    /* 👤 업체 계정 관리 — 마스터에게만 (홍팀장 2026-08-31 지적: "그런 화면이 있는 줄도 몰랐다").
+       어디에서도 링크가 걸려 있지 않아 주소를 아는 사람만 쓰는 화면이었다. 매일 보는 자리에 박는다.
+       상대경로라 로컬·테스트본에서도 같은 폴더의 화면으로 열린다. */
+    +(ME.master?'<a class="ubtn" href="계정관리.html" target="_blank" rel="noopener" title="업체 권한(업체·단가숨김·임시·차단) 승인·수정">👤 계정관리</a>':'')
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
     +'<button class="ubtn" id="ub_out">로그아웃</button>'
     +'<button class="ubtn rl" id="ub_reload" title="저장된 내용을 버리고 시트에서 다시 받아옵니다">🔄 새로고침</button>';
