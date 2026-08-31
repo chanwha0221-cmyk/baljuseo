@@ -18,16 +18,19 @@ var T = function(v){ return S(v).trim(); };
 var E = function(s){ return S(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
 var $c = function(id){ return document.getElementById(id); };
 
-/* 사진 칸 — 키 : 화면에 뜨는 이름 */
+/* 사진 칸 — n:버튼에 뜨는 이름, d:무엇을 올리라는 설명
+   🔴 2026-08-31 홍팀장 "사진을 어떤 걸 올리라는지 명확하지가 않다" → 이름만 두지 말고 설명을 같이 띄운다. */
 var SLOT = {
-  invoice: '송장 사진',
-  inner:   '전체 내품사진',
-  defect:  '이상 부위 사진',
-  broken:  '파손 부위 사진',
-  talk:    '대화내용',
-  order:   '주문내역서 + 입금내역',
-  refund:  '환불 내역'
+  invoice: { n:'송장 사진',            d:'운송장 번호가 보이게 찍어주세요' },
+  inner:   { n:'전체 내품사진',        d:'송장 및 상품 도착사진' },
+  defect:  { n:'이상 부위 사진',       d:'문제가 있는 부분이 드러나게' },
+  broken:  { n:'파손 부위 사진',       d:'파손된 곳이 드러나게' },
+  talk:    { n:'대화내용',             d:'클레임 내용 사진 및 고객 응대 내역 (문자나 카톡 모두 좋습니다)' },
+  order:   { n:'주문내역서 + 입금내역', d:'두 가지 모두 필요합니다' },
+  refund:  { n:'환불 내역',            d:'환불한 내역이 보이게' }
 };
+function slotName(k){ return (SLOT[k] && SLOT[k].n) || k; }
+function slotDesc(k){ return (SLOT[k] && SLOT[k].d) || ''; }
 
 /* 클레임 유형별 필요 사진 (홍팀장이 준 <클레임 상황별 필요 이미지 가이드> 그대로).
    refundOnly:true 인 칸은 처리방법에 '환불'이 들어갈 때만 필수로 본다. */
@@ -109,7 +112,9 @@ function formHtml(){
 
   + '<div class="ordfix" style="margin-top:9px">'
   + '<div style="font-size:12.5px;font-weight:800;margin-bottom:7px">3. 클레임 내용</div>'
-  + '<textarea id="cl_body" class="ordin" rows="4" placeholder="어떤 문제가 있었는지 적어주세요."></textarea>'
+  // 🔴 2026-08-31 홍팀장 "사유 적는 칸이 너무 작다" — 넉넉하게 키우고 손으로 더 늘릴 수 있게 둔다
+  + '<textarea id="cl_body" class="ordin" rows="10" style="min-height:190px;resize:vertical;line-height:1.65" '
+  +   'placeholder="어떤 문제가 있었는지 적어주세요.&#10;&#10;· 고객이 뭐라고 하셨는지&#10;· 언제 받으셨고 언제 발견하셨는지&#10;· 몇 개 중 몇 개가 문제인지"></textarea>'
   + '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:7px">'
   +   '<select id="cl_how" class="ordin" style="flex:0 0 170px"><option value="">— 처리방법 —</option>'+how+'</select>'
   +   '<input id="cl_amt" class="ordin" style="flex:0 0 170px" inputmode="numeric" placeholder="환불금액 (숫자만)" autocomplete="off">'
@@ -137,14 +142,17 @@ function drawSlots(){
   if(gd) gd.innerHTML = '<b>'+E(ty.t)+'</b> 은(는) 아래 <b>'+keys.length+'가지</b> 사진이 필요합니다. '
     + '<span style="color:#c0392b">빠지면 CS 처리가 안 될 수 있습니다.</span>';
   box.innerHTML = keys.map(function(k){
-    var got = (PICK[k]||[]).length;
-    return '<div style="display:flex;gap:8px;align-items:center;margin-bottom:7px;flex-wrap:wrap">'
-      + '<button class="ordb2" type="button" data-slot="'+E(k)+'" style="white-space:nowrap">'
-      +   (got ? '✅ ' : '📷 ') + E(SLOT[k]) + (got ? ' ('+got+'장)' : '')
-      + '</button>'
-      + (got ? '<span style="font-size:12px;color:var(--muted)">'+E((PICK[k]||[]).map(function(f){return f.name;}).join(', '))+'</span>'
-             + '<button class="orddel" type="button" data-clr="'+E(k)+'" title="지우기">✕</button>'
-             : '<span style="font-size:12px;color:#c0392b">아직 없음</span>')
+    var got = (PICK[k]||[]).length, ds = slotDesc(k);
+    return '<div style="margin-bottom:11px;padding-bottom:9px;border-bottom:1px dashed var(--line)">'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +   '<button class="ordb2" type="button" data-slot="'+E(k)+'" style="white-space:nowrap">'
+      +     (got ? '✅ ' : '📷 ') + E(slotName(k)) + (got ? ' ('+got+'장)' : '')
+      +   '</button>'
+      +   (got ? '<span style="font-size:12px;color:var(--muted)">'+E((PICK[k]||[]).map(function(f){return f.name;}).join(', '))+'</span>'
+              + '<button class="orddel" type="button" data-clr="'+E(k)+'" title="지우기">✕</button>'
+              : '<span style="font-size:12px;color:#c0392b;font-weight:700">아직 없음</span>')
+      + '</div>'
+      + (ds ? '<div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">↳ '+E(ds)+'</div>' : '')
       + '</div>';
   }).join('');
   bindSlots();
@@ -243,7 +251,7 @@ function validate(d){
   if(!d.how)  e.push('처리방법을 골라주세요.');
   if(isRefund(d.how) && !d.amt) e.push('환불금액을 적어주세요.');
   var miss = slotsFor(CUR, d.how).filter(function(k){ return !(d.imgs[k]||[]).length; });
-  if(miss.length) e.push('사진이 빠졌습니다 — ' + miss.map(function(k){ return SLOT[k]; }).join(' / ')
+  if(miss.length) e.push('사진이 빠졌습니다 — ' + miss.map(function(k){ return slotName(k); }).join(' / ')
     + '. 이 사진이 없으면 CS 처리가 안 될 수 있습니다.');
   return e;
 }
@@ -343,7 +351,7 @@ var CLAIM = {
         var h = '';
         for(var k in im) (im[k]||[]).forEach(function(f){
           h += '<div style="margin-bottom:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:3px">'
-            + E(SLOT[k] || k) + '</div><img src="' + S(f.b64) + '" style="max-width:100%;border-radius:8px;border:1px solid var(--line)"></div>';
+            + E(slotName(k)) + '</div><img src="' + S(f.b64) + '" style="max-width:100%;border-radius:8px;border:1px solid var(--line)"></div>';
         });
         wrap.innerHTML = h || '<div class="hint">사진이 없습니다.</div>';
       };
