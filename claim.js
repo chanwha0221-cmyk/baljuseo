@@ -113,7 +113,8 @@ function formHtml(){
   + '<div class="ordfix" style="margin-top:9px">'
   + '<div style="font-size:12.5px;font-weight:800;margin-bottom:7px">3. 클레임 내용</div>'
   // 🔴 2026-08-31 홍팀장 "사유 적는 칸이 너무 작다" — 넉넉하게 키우고 손으로 더 늘릴 수 있게 둔다
-  + '<textarea id="cl_body" class="ordin" rows="10" style="min-height:190px;resize:vertical;line-height:1.65" '
+  // width 를 인라인으로 못 박는다 — 안 그러면 textarea 의 cols 기본값(20자)이 이겨 칸이 손바닥만 해진다
+  + '<textarea id="cl_body" class="ordin" rows="10" style="width:100%;box-sizing:border-box;min-height:190px;resize:vertical;line-height:1.65" '
   +   'placeholder="어떤 문제가 있었는지 적어주세요.&#10;&#10;· 고객이 뭐라고 하셨는지&#10;· 언제 받으셨고 언제 발견하셨는지&#10;· 몇 개 중 몇 개가 문제인지"></textarea>'
   + '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:7px">'
   +   '<select id="cl_how" class="ordin" style="flex:0 0 170px"><option value="">— 처리방법 —</option>'+how+'</select>'
