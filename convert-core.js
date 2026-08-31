@@ -830,8 +830,18 @@ function preprocessBalbolLine(raw){
   const tripleIdx=raw.indexOf('///');
   const afterPart=raw.slice(tripleIdx+3).trim();
   if(!afterPart)return null;
-  const allFields=afterPart.split(',').map(f=>f.trim()).filter(Boolean);
   const headerKW=['받는 사람','전화','주소','상품','메모'];
+  // 🔴 2026-08-31: 발볼 아저씨가 필드 구분자를 콤마 대신 '/'로 보내는 건이 생겼다.
+  //   슬래시가 있으면 슬래시를 우선한다 — 주소 안에 콤마가 섞여 와도("(야음동 ,동부아파트")
+  //   주소가 쪼개지지 않아 오히려 정확하다. 콤마 포맷은 기존 그대로(하위호환).
+  let allFields;
+  if(afterPart.includes('/')){
+    allFields=afterPart.split('/').map(f=>f.trim()).filter(Boolean);
+    // 첫 조각이 "받는 사람,전화,주소,상품,메모" 같은 라벨 묶음이면 통째로 버린다
+    if(allFields.length&&allFields[0].split(',').every(x=>headerKW.includes(x.trim())))allFields.shift();
+  }else{
+    allFields=afterPart.split(',').map(f=>f.trim()).filter(Boolean);
+  }
   let dataStart=0;
   for(let i=0;i<Math.min(allFields.length,8);i++){
     if(headerKW.includes(allFields[i]))dataStart=i+1;else break;
