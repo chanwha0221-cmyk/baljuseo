@@ -155,7 +155,12 @@ function candidates(raw){
 }
 function whOf(p){ return p ? (p.effWh || p.srcWh || p.group || '') : ''; }
 function hapLimit(name){ try{ return (typeof HAP !== 'undefined' && HAP) ? (HAP[pkey(name)] || 0) : 0; }catch(e){ return 0; } }
+/* 💰 단가숨김 업체 (홍팀장 2026-08-31, 빅피쉬) — 카탈로그 쪽 noPrice()와 같은 뜻.
+   이름을 달리 쓰는 건 catalog.html이 전역 const noPrice 를 이미 잡고 있어서다
+   (같은 이름으로 또 선언하면 order.js가 통째로 안 돌아간다 — 발주가 죽는다). */
+const amNoPrice = () => !!(typeof ME !== 'undefined' && ME && ME.noprice);
 function priceText(p){
+  if(amNoPrice()) return '단가 별도 안내';
   const c = p && p.price ? p.price.cur : null;
   if(c == null) return '';
   const tx = (p.tax && p.tax.indexOf('과세') >= 0 && p.tax.indexOf('면') < 0) ? '과세' : (p.tax ? '면세' : '');
@@ -703,7 +708,9 @@ function rowHtml(r, i){
     if(c.warns.length) h += '<div class="ordwarn">' + c.warns.map(esc).join('<br>') + '</div>';
     if(!c.p && S(r.name)){
       if(c.cands.length){
-        h += '<div class="ordask">혹시 이 상품 말씀이신가요? <b>단가를 꼭 확인</b>하시고 골라주세요.</div><div class="ordcand">'
+        h += '<div class="ordask">혹시 이 상품 말씀이신가요? '
+          + (amNoPrice() ? '<b>상품명·창고를 꼭 확인</b>하시고 골라주세요.' : '<b>단가를 꼭 확인</b>하시고 골라주세요.')
+          + '</div><div class="ordcand">'
           + c.cands.map(p => {
               const im = imgOf(p);
               return '<button class="ordcd" data-pick="' + esc(p.name) + '" data-i="' + i + '">'

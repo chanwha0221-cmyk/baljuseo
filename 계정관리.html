@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>마스터 유통 · 업체 계정 관리 v1.1</title>
+<title>마스터 유통 · 업체 계정 관리 v1.2</title>
 </head>
 <body>
 <!--
@@ -109,6 +109,7 @@ td.mut{color:var(--muted);font-size:12.5px}
 .rbtn{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:9px;
   padding:8px 14px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
 .rbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.hint{margin-top:7px;font-size:12px;color:var(--muted);line-height:1.7}
 .meta{font-size:12px;color:var(--muted);line-height:1.9;border-top:1px dashed var(--line);padding-top:11px;margin-top:4px}
 .msg{font-size:12.5px;font-weight:700;min-height:18px;margin-top:4px}
 .msg.err{color:var(--bad)}.msg.ok{color:var(--ok)}
@@ -129,7 +130,7 @@ td.mut{color:var(--muted);font-size:12.5px}
 
 <div class="wrap" id="app" style="display:none">
   <div class="head">
-    <h1>👤 업체 계정 관리</h1><span class="ver" id="ver">v1.1</span>
+    <h1>👤 업체 계정 관리</h1><span class="ver" id="ver">v1.2</span>
     <span class="sp"></span>
     <span class="ver" id="who"></span>
     <button class="btn" id="reload">🔄 새로고침</button>
@@ -170,10 +171,14 @@ td.mut{color:var(--muted);font-size:12.5px}
     <div class="fld"><label>권한</label>
       <div class="roles" id="d_roles">
         <button class="rbtn" data-r="업체">업체</button>
+        <!-- 💰 우리에게 납품도 하고 우리 물건도 파는 업체 (홍팀장 2026-08-31, 빅피쉬).
+             값에 '업체'가 들어 있어야 목록에서 업체로 묶이고, '단가숨김'이 판정 키워드다. -->
+        <button class="rbtn" data-r="업체(단가숨김)" title="상품·발주는 그대로, 단가 금액만 안 보입니다">업체 · 단가숨김</button>
         <button class="rbtn" data-r="임시">임시</button>
         <button class="rbtn" data-r="차단">차단</button>
         <button class="rbtn" data-r="마스터">마스터</button>
       </div>
+      <div class="hint">💰 <b>단가숨김</b> = 상품 목록·발주 화면에서 <b>금액만</b> '단가 별도 안내'로 바뀝니다. 상품·창고·마감·배송비·발주는 그대로입니다.</div>
     </div>
     <div class="fld"><label>주문처 연락처</label><input id="d_phone" inputmode="tel"></div>
     <div class="fld"><label>출고지 주소 (선택)</label><input id="d_addr"></div>

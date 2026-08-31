@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.52).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.55).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.52</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.55</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -909,6 +909,14 @@ function recRank(name){ const r=RECMAP[pkey(name)]; return r?(r.news?1:0):9; }
 let EXC=new Map();               // pkey(상품명) → {name,wh,by,at}
 const isExc=n=>EXC.has(pkey(n));
 const amMasterC=()=>!!(ME&&ME.master);
+/* 💰 단가숨김 업체 (홍팀장 2026-08-31, 빅피쉬) — 우리에게 납품도 하고 우리 물건도 파는 곳이다.
+   자기가 넣은 물건을 우리가 얼마에 파는지 보이면 곤란하니 **금액만 가린다.**
+   상품·창고·마감·배송비·발주는 그대로다(막으면 발주를 못 넣는다 — 가리는 게 목적이지 막는 게 아니다).
+   권한 값은 '업체(단가숨김)', 판정은 서버 lib.ts `isNoPrice`가 하고 로그인 응답의 `noprice`로 온다.
+   ⚠️ 이건 **화면에서 지우는 것**이지 데이터가 안 내려오는 게 아니다 — 카탈로그는 유통시트를
+      브라우저가 직접 읽는 구조라 개발자도구를 열면 공급가가 보인다. 진짜로 막으려면
+      시트 읽기를 서버 경유로 바꿔 공급가 칸을 서버에서 떼야 한다(홍팀장께 보고함). */
+const noPrice=()=>!!(ME&&ME.noprice);
 const EXCWH='🚫 예외';
 function buildAll(){
   ALL=[];
@@ -975,6 +983,8 @@ function thumbFail(el){
   el.outerHTML='<div class="nothumb">사진 준비중</div>';
 }
 function priceHtml(p){
+  // 💰 단가숨김 업체는 금액 자리에 안내만 — 카드 모양(칸 높이)은 그대로 둔다
+  if(noPrice())return '<div class="price" style="font-size:13px;color:var(--gold)">단가 별도 안내</div>';
   if(p.cur==null)return '<div class="price" style="font-size:13px;color:var(--gold)">수량·단가 문의</div>';
   const cls='price'+(p.dir==='up'?' up':(p.dir==='down'?' down':''));
   const oldh=(p.old!=null&&p.old!==p.cur)?'<span class="old">'+won(p.old)+'원</span>':'';
@@ -1036,7 +1046,9 @@ function card(p,extra,top){
     +(amMasterC()
         ?'<button class="excb'+(p.exc?' off':'')+'" data-exc="'+esc(p.name)+'" data-excon="'+(p.exc?'0':'1')
           +'" data-excwh="'+esc(p.effWh||p.group||'')+'">'+(p.exc?'↩ 판매 재개':'🚫 예외 등록')+'</button>':'')
-    /* 🖼 사진 바꾸기 — 마스터에게만. 쓰기는 권한을 가진 상품도구 쪽에서만 한다(#photo=). */
+    /* 🖼 사진 바꾸기 — 마스터에게만. 게시판 첫 사진이 상품 사진이 아닐 때(민물장어 → 양식장 항공사진)
+       카드를 보다가 바로 고치러 간다. 카탈로그는 사진 시트에 쓰지 않는다 —
+       상품도구를 그 상품으로 열어줄 뿐이다(#photo=). 쓰기는 권한을 가진 도구 쪽에서만. */
     +(amMasterC()?'<button class="excb thb" data-thumb="'+esc(p.name)+'" title="카탈로그 사진을 다른 사진으로 바꿉니다">🖼 사진 바꾸기</button>':'')
     +'</div></div>';
 }
@@ -1377,7 +1389,9 @@ function renderMoveBox(){
   const shortDay=d=>String(d||'').replace(/^\s*\d{4}\s*[-.\/]\s*/,'').replace(/\s*[-.\/]\s*/g,'-').trim();
   const row=it=>{
     const p=parsePrice(it.price)||{old:null,cur:null};
-    const price=(p.cur==null)?'<span class="mvp">문의</span>'
+    // 💰 단가숨김 업체 — 오르내린 사실은 알려주되 금액은 안 띄운다 (인상/인하 칸은 그대로 갈린다)
+    const price=noPrice()?'<span class="mvp">별도 안내</span>'
+      :(p.cur==null)?'<span class="mvp">문의</span>'
       :('<span class="mvp">'+((p.old!=null&&p.old!==p.cur)?'<s>'+won(p.old)+'</s>':'')+won(p.cur)+'원</span>');
     return '<div class="mvit"><button class="mvn" data-mv="'+esc(it.name)+'" title="이 상품 검색">'+esc(it.name)+'</button>'
       +price+'<span class="mvd">'+esc(shortDay(it.day))+'</span>'
@@ -1544,7 +1558,9 @@ function renderChange(d){
 // ── 2) 추천상품 — 도구시트 '추천상품' 탭 (상품명 · 코멘트 · 노출 · 순서 · 등록일) ──
 // 소식글에서 올라온 상품은 등록일부터 10일만 노출하고 11일차에 저절로 내려간다.
 // 사장님이 직접 넣은 '추천'은 지울 때까지 계속 간다. (사장님 2026-08-18)
-/* 📰 소식글 딱지는 최신 10개까지만 — 11번째가 올라오면 가장 오래된 게 내려간다 (홍팀장 2026-08-31) */
+/* 📰 소식글 딱지는 **최신 10개까지만.** 11번째가 올라오면 가장 오래된 게 화면에서 내려간다
+   (홍팀장 2026-08-31). 시트 줄은 그대로 두고 화면에서만 자른다 — 되돌리기가 쉽고,
+   지웠다가 잘못 지운 걸 복구할 일이 없다. 수동 '⭐ 추천'은 이 상한과 무관하게 계속 남는다. */
 const NEWS_DAYS=10, NEWS_MAX=10;
 function daysSince(s){
   const m=String(s||'').match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
@@ -1576,7 +1592,7 @@ async function loadRecs(){
   return rows.filter(r=>!r.news||(++n<=NEWS_MAX));
 }
 /* 카탈로그에서 빠진 추천 상품을 예외로 넣는다 — 마스터 화면에서만, 상품당 한 번만.
-   하나씩 순서대로 보낸다(웹앱이 예외 목록을 통째로 되쓰기 때문에 동시에 보내면 서로 덮는다). */
+   순서대로 하나씩 보낸다(웹앱이 예외 목록을 통째로 되쓰기 때문에 동시에 보내면 서로 덮는다). */
 const EXCAUTO=new Set();
 let excAutoBusy=false;
 async function autoExcGone(rows){
@@ -1597,8 +1613,10 @@ function renderRecs(list){
         이 줄이 없으면 업체 추천 목록에 못 파는 물건이 그대로 남는다. */
   if(!amMasterC())list=list.filter(r=>!isExc(r.name));
   /* 🚫 카탈로그에서 빠진 상품은 추천에도 남기지 않는다 (홍팀장 2026-08-31).
-     업체 화면에서는 즉시 빼고, 마스터가 열었을 때 예외로 등록해 🚫 예외 창고에 남긴다.
-     🔴 ALL 이 비었을 때 돌면 추천 전부를 통째로 예외 처리한다 — 반드시 가드. */
+     유통시트에서 내려간 상품이 "지금은 카탈로그에 없는 상품입니다" 카드로 남아 있으면
+     업체는 그걸 보고 달라고 한다. 업체 화면에서는 즉시 빼고, 마스터가 열었을 때
+     예외로 등록해 🚫 예외 창고에 남긴다(되돌리기 한 번이면 다시 판다).
+     🔴 ALL 이 아직 안 채워졌을 때 돌면 추천 전부를 '없는 상품'으로 보고 통째로 예외 처리한다 — 반드시 가드. */
   if(ALL.length){
     const gone=list.filter(r=>!ALL.find(x=>pkey(x.name)===pkey(r.name)));
     if(amMasterC())autoExcGone(gone);
@@ -1769,7 +1787,10 @@ async function stampLogin(a){
 // 업체명·연락처·주소를 다시 묻지 않으려는 것 (사장님 2026-08-12). 연락처·주소는 시트 I·J열.
 // token = 계정 웹앱 세션 열쇠. 발주가 붙으면 이걸로 "누구 발주인지"를 웹앱이 가린다.
 function saveMe(a){ME={id:a.id,name:a.name,role:a.role,row:a.row,phone:a.phone||'',addr:a.addr||'',
-  token:a.token||(ME&&ME.token)||'',master:!!a.master};try{localStorage.setItem(AK,JSON.stringify(ME));}catch(e){}}
+  token:a.token||(ME&&ME.token)||'',master:!!a.master,
+  // 💰 단가숨김 — 서버가 준 값이 없으면(옛 세션·시트 폴백) 권한 글자에서 직접 읽는다
+  noprice:(a.noprice!==undefined)?!!a.noprice:(String(a.role||'').indexOf('단가숨김')>=0)};
+  try{localStorage.setItem(AK,JSON.stringify(ME));}catch(e){}}
 function logout(){try{localStorage.removeItem(AK);}catch(e){}location.replace(location.pathname);}
 async function doLogin(id,pw){
   if(API){   // 웹앱 로그인 — 계정 시트를 브라우저가 아예 안 읽는다
@@ -1835,7 +1856,9 @@ function renderUser(){
      그 문제가 없다. 카톡·엑셀로 발주를 주는 업체 몫을 우리가 대신 넣고 당일 시트로 바로 보내는 자리다. */
   const mk=menuEl.querySelector('[data-go="order"]');
   if(mk){mk.style.display='';mk.childNodes[0].nodeValue=ME.master?'🧾 대신 발주':'🧾 발주하기';}
-  /* 🔗 업체에 줄 카탈로그 주소 복사 — 마스터에게만. 주소는 하드코딩(테스트본에서 눌러도 라이브 주소가 나가야 한다) */
+  /* 🔗 업체에 카탈로그 주소를 줄 때 쓰는 복사 버튼 — 마스터에게만 보인다 (홍팀장 2026-08-31).
+     주소는 일부러 하드코딩이다. 로컬 파일·테스트 사본에서 눌러도 항상 라이브 주소가 나가야 한다.
+     클릭 처리는 .cpbtn 공용 핸들러가 맡는다(모양은 .ubtn 이 이긴다 — 선언이 뒤라서). */
   $('userbar').innerHTML='<span class="uname">'+esc(ME.name||ME.id)+'</span>'
     +(ME.master?'<button class="ubtn cpbtn" data-cp="https://chanwha0221-cmyk.github.io/baljuseo/catalog.html" data-cpmsg="카탈로그 주소 복사됨" title="업체에 보낼 카탈로그 주소를 복사합니다">🔗 카탈로그 주소 복사</button>':'')
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
