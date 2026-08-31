@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.58).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.59).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.58</title>
+<title>마스터 유통 카탈로그 v2.59</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -710,6 +710,8 @@ async function loadCatalog(){
         tax:(ci.tax>=0?(row[ci.tax]||'').trim():''),
         cut:(ci.cut>=0?(row[ci.cut]||'').trim():''),
         ref:(refCol>=0&&refCol<row.length?(row[refCol]||'').trim():''),
+        // 유통기한 — 카탈로그 화면은 안 쓰지만 📤 제안서 데이터 내보내기(shelfLife)가 쓴다 (2026-08-31)
+        exp:(ci.exp>=0?(row[ci.exp]||'').trim():''),
         srcWh:(ci.wh>=0?(row[ci.wh]||'').trim():'')
       });
     }
@@ -966,6 +968,55 @@ const whrow=$('whrow'),catrow=$('catrow'),view=$('view'),empty=$('empty');
 function won(n){return(n||0).toLocaleString('ko-KR');}
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(m){const t=$('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',1800);}
+
+/* ══ 📤 제안서 데이터 내보내기 (홍팀장 2026-08-31) ═══════════════════════
+   원비 팀장이 만든 제안서 사이트(wonbi.github.io/allproduct)는 `data/products.json`
+   파일 하나로 굴러간다. 그 파일을 **카탈로그가 지금 보고 있는 상품 그대로** 뽑아준다.
+
+   🔴 왜 파싱을 다시 짜지 않았나 — 유통시트 읽는 규칙(헤더행 탐색·숨긴 행 제외·공지행 제외·
+      택배사/배송비 칸 판별·예외 상품 제외)이 여기 이미 다 들어 있다. 밖에서 새로 짜면
+      규칙이 두 벌이 되어 언젠가 갈라진다. **GROUPS 를 그대로 옮겨 담기만 한다.**
+   🔴 예외(🚫)로 빼둔 상품은 안 나간다 — 못 파는 물건이 제안서에 실리면 안 된다.
+      가상 창고('🚫 예외')도 통째로 건너뛴다(g.virtual).
+   ⚠️ 스키마는 원비씨 파일 14칸을 그대로 맞춘 것이다. 칸 이름을 바꾸면 그쪽 사이트가 깨진다. */
+function exportProposal(){
+  if(!ALL.length){ toast('상품을 아직 불러오는 중입니다 — 잠시 뒤 눌러주세요'); return; }
+  const out=[];
+  GROUPS.filter(g=>!g.virtual).forEach(g=>{
+    g.products.forEach(p=>{
+      if(p.exc)return;
+      const m=MEDIA['n:'+pkey(p.name)]||(p.url?(MEDIA[(p.url.match(/(\d{5,})/)||[])[1]]||null):null);
+      out.push({
+        warehouse:g.wh||'',
+        sourceWarehouse:p.srcWh||'',
+        category:(p.cat&&p.cat!=='미분류')?p.cat:'',
+        name:p.name,
+        spec:(m&&Array.isArray(m.spec))?m.spec:[],
+        supplyPrice:(p.price&&p.price.cur!=null)?p.price.cur:0,
+        previousPrice:(p.price&&p.price.old!=null)?p.price.old:0,
+        tax:p.tax||'',
+        courier:p.courier||'',
+        shipFee:(p.ship>0?p.ship:0),
+        orderCutoff:p.cut||'',
+        shelfLife:p.exp||'',
+        image:(m&&m.img)||'',
+        note:p.ref||''
+      });
+    });
+  });
+  const d=new Date(),z=n=>String(n).padStart(2,'0');
+  const doc={
+    updatedAt:d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes()),
+    supplier:'마스터 유통',
+    products:out
+  };
+  // 들여쓰기 1칸 — 원비씨 파일과 같은 모양이라 갈아끼웠을 때 차이가 눈에 보인다
+  const url=URL.createObjectURL(new Blob([JSON.stringify(doc,null,1)],{type:'application/json'}));
+  const a=document.createElement('a');
+  a.href=url;a.download='products.json';document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);
+  toast('제안서 데이터 '+out.length+'개 상품 내려받았습니다');
+}
 // 원본 사진이 장당 0.3~1MB라 그대로 쓰면 거래처 휴대폰에서 느림 → 리사이즈 프록시로 썸네일(약 30KB).
 // 프록시가 죽으면 원본으로, 원본도 실패하면 '사진 준비중'으로 단계 폴백.
 function thumbUrl(u){
@@ -1859,11 +1910,14 @@ function renderUser(){
        어디에서도 링크가 걸려 있지 않아 주소를 아는 사람만 쓰는 화면이었다. 매일 보는 자리에 박는다.
        상대경로라 로컬·테스트본에서도 같은 폴더의 화면으로 열린다. */
     +(ME.master?'<a class="ubtn" href="계정관리.html" target="_blank" rel="noopener" title="업체 권한(업체·단가숨김·임시·차단) 승인·수정">👤 계정관리</a>':'')
+    /* 📤 제안서 데이터 — 마스터에게만. 원비씨 제안서 사이트에 넣을 products.json 을 내려받는다. */
+    +(ME.master?'<button class="ubtn" id="ub_exp" title="원비 팀장 제안서 사이트(allproduct)에 넣을 products.json 을 지금 카탈로그 그대로 내려받습니다">📤 제안서 데이터</button>':'')
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
     +'<button class="ubtn" id="ub_out">로그아웃</button>'
     +'<button class="ubtn rl" id="ub_reload" title="저장된 내용을 버리고 시트에서 다시 받아옵니다">🔄 새로고침</button>';
   $('ub_pw').onclick=showPwForm;
   $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
+  { const e=$('ub_exp'); if(e)e.onclick=exportProposal; }   // 📤 제안서 데이터 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
   // 거래처가 보고 있는 게 최신인지 확신할 수 있게 — 저장본을 버리고 시트에서 새로 받는다 (사장님 2026-08-18)
   $('ub_reload').onclick=()=>{
     try{localStorage.removeItem(CK);}catch(e){}
