@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v7.7</title>
+<title>통장 내역 조회 v7.8</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v7.7</span>
+  <span class="ver">v7.8</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -913,13 +913,21 @@ async function copyMisMsg(i){
   const _n=new Date(), _WD=['일','월','화','수','목','금','토'];
   const _last=new Date(_n.getFullYear(), _n.getMonth()+1, 0);
   const _left=Math.round((_last-new Date(_n.getFullYear(),_n.getMonth(),_n.getDate()))/86400000);
-  const tail=(_left<=7)
+  /* 🔴 마감 «당일»은 따로 (홍팀장 2026-08-31 지시 원문: "금일 정산 마감일 입니다. 입금 꼭 부탁드립니다.")
+     _left===0 = 오늘이 그 달 마지막 날. 이날 아래 문구를 쓰면 "31일 월요일이 8월 마지막 정산일 입니다"가
+     되어 **오늘이라는 말이 없다.** 마감 당일엔 그 한 줄이 제일 세다.
+     ⚠️ 날짜를 글자로 박지 말 것 — 다음 달에 그대로 나가면 거짓말이 된다(위 주석과 같은 이유). */
+  const tail=(_left===0)
+    ? '\n금일 정산 마감일 입니다. 입금 꼭 부탁드립니다.'
+    : (_left<=7)
     ? '\n'+_last.getDate()+'일 '+_WD[_last.getDay()]+'요일이 '+(_last.getMonth()+1)+'월 마지막 정산일 입니다.'
       +'\n해당 금액 주말까지 입금 요청 드리고'
       +'\n'+_last.getDate()+'일 정산 금액도 가능한 입금해 주시면 감사드리겠습니다~'
       +'\n\n즐거운 주말 되십시요!!!'
     : '\n입금 요청 드립니다.\n정산 이상 있으시면 연락주세요.';
-  const msg='안녕하세요 '+h+'님\n이번 한주도 고생 많으셨습니다.\n미정산 내역 알려드립니다.\n'
+  /* 인사 뒤에 빈 줄을 넣고 "이번 한주도 고생 많으셨습니다"는 뺐다 (홍팀장 2026-08-31, 준 문구 그대로).
+     마감 안내가 붙는 날은 인사가 길면 요지가 묻힌다. */
+  const msg='안녕하세요 '+h+'님\n\n미정산 내역 알려드립니다.\n'
     +detail+'\n합계 '+fmtN(e.amt)+' 입니다.\n'+tail;
   try{ await navigator.clipboard.writeText(msg); if(typeof showToast==='function')showToast('📋 '+e.name+' 입금요청 메시지 복사됨'); }
   catch(err){ alert(msg); }
