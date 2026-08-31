@@ -49,12 +49,16 @@
 - **2026-07-27 `baljuseo-sheets` OAuth 동의화면을 프로덕션 게시** → 아무 구글계정이나 로그인 가능(첫 로그인 시 '확인되지 않은 앱' 경고 → 고급>계속). 테스트 사용자 등록 불필요.
 - 팀이 넣는 건 **반영 시트·링크 시트 2개뿐**(둘 다 기본값 없음·비면 막힘). Client ID는 안 건드림. → **"팀마다 Client ID 각자 발급"은 옛 설명(게시 전). 이제 공용 하나.**
 
-## 구글시트 서비스계정 (브라우저에서 직접 API 호출)
-- `CLIENT_EMAIL = sheets-writer@baljuseo-sheets.iam.gserviceaccount.com`
-- `OAUTH_SCOPE = https://www.googleapis.com/auth/spreadsheets`
+## 구글시트 접근 — 전부 `sheets-proxy` 경유 (서비스계정 없음)
+> 🔴 **2026-08-31 정정.** 예전 이 자리엔 "PRIVATE_KEY가 secretary/식봄ERP/수량관리에 하드코딩"이라고 적혀 있었으나 **틀렸다.** 8/27에 21개 도구 전부 프록시로 옮기며 걷어냈고, 8/31엔 서비스계정 자체를 GCP에서 삭제했다.
+
+- **비밀값은 브라우저에 하나도 없다.** 각 도구의 `getAccessToken()`은 `return 'via-proxy'` 한 줄이고, 실제 인증은 `sheets-proxy.js`(fetch 가로채기) → Apps Script 웹앱이 한다.
+- **프록시는 서비스계정을 안 쓴다** — `ScriptApp.getOAuthToken()` + `executeAs: USER_DEPLOYING`, 즉 **배포자(홍팀장) 구글 계정 권한**으로 시트에 붙는다. 그래서 `sheets-writer`·`catalog-reader` 계정은 삭제해도 아무것도 안 깨졌다.
+- 문지기는 **팀 비밀번호(`TEAM_PASSCODE`)**. 거래처가 쓰는 페이지(catalog·수량관리)만 `window.SHEETS_PROXY_PUBLIC = true`로 비밀번호 없이 나가고, 서버가 허용된 시트·탭인지 본다(`DEFAULT_PUBLIC`, 코드가 정본).
+- ⚠️ **프록시를 안 타는 도구 2개**: `byeondong.html`·`판매캘린더.html` — 사용자 OAuth Client ID 방식(공개돼도 되는 값). 서비스계정과 무관.
 - **secretary/식봄ERP 시트** ID: `1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM` (전체상품원가 등)
 - **수량 리더 시트** ID: `1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI` — 탭: `입력 시트`(업데이트시간/팀명/창고명/상품명/필요수량), `현황판`(창고명/품목명/수량보유팀/1~10순위/합계), `삭제 로그`
-- PRIVATE_KEY는 secretary.html / 식봄ERP.html / 수량관리.html에 하드코딩 (`getAccessToken()` JWT RS256, crypto.subtle)
+- 🚨 **새 도구를 만들 때 개인키를 다시 박지 말 것.** 프록시 한 줄(`<script src="sheets-proxy.js"></script>`)만 넣으면 된다.
 
 ## 🚨 배포 (Claude는 `deploy.ps1`만 쓴다 — 2026-08-19 사장님 지시)
 
