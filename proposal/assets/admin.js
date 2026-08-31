@@ -1611,7 +1611,12 @@
         2026-08-24 라이브에서 실제로 GitHub Pages 가 config.js 에 503 을 준 적이 있다(내 코드 문제 아님).
         그때 뜨던 "config.js 의 dataSheet·svc 값이 비어 있습니다"는 사람이 보고 할 수 있는 게 없는 문구다.
         → 한 번 더 받아보고, 그래도 안 되면 **[다시 시도] 버튼**과 함께 사람 말로 안내한다. */
-  function cfgOK() { return !!(window.SVC && CFG.dataSheet && CFG.dataSheet.id && CFG.svc && CFG.svc.key); }
+  /* 🔑 2026-08-31 — `CFG.svc.key` 검사를 뺀다 (홍팀장: 원비씨가 제안서를 못 만든다).
+     8/27에 전 도구에서 구글 개인키를 걷어내고 sheets-proxy 경유로 바꾸면서 config.js 의
+     svc.key 도 빈 값이 됐는데, **이 게이트만 그대로 남아** 화면이 통째로
+     "설정 파일을 못 받았습니다"로 죽었다. 인증은 프록시가 한다 — 여기서 키를 볼 이유가 없다.
+     ⚠️ 키를 도로 넣어서 고치지 말 것. 그건 8/27에 막은 구멍을 다시 뚫는 것이다. */
+  function cfgOK() { return !!(window.SVC && CFG.dataSheet && CFG.dataSheet.id); }
   if (!cfgOK()) {
     root.innerHTML = '<div class="loading">설정을 다시 받는 중…</div>';
     var s = document.createElement("script");
