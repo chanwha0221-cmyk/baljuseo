@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.10</title>
+<title>마스터 유통 상품 도구 v1.11</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1014,8 +1014,8 @@ $p('rcNewsAdd').onclick=function(){
   if(over.length)REC=REC.filter(r=>over.indexOf(r)<0);
   recDraw();
   $p('rcNews').value='';
-  const L=[];
-  if(add.length)L.push('📰 소식글로 올림 '+add.length+'건 — '+add.join(', '));
+  const L=[], dn=over.map(r=>r.name), up=add.filter(n=>dn.indexOf(n)<0);   // 넣자마자 밀려난 건 '올림'에서 뺀다
+  if(up.length)L.push('📰 소식글로 올림 '+up.length+'건 — '+esc(up.join(', ')));
   if(over.length)L.push('<span style="color:var(--muted)">↓ 오래돼서 내림 '+over.length+'건 — '+esc(over.map(r=>r.name).join(', '))+'</span>');
   if(keep.length)L.push('<span style="color:var(--muted)">⭐ 추천이라 그대로 둠 — '+esc(keep.join(', '))+'</span>');
   if(bad.length)L.push('<b style="color:#c0392b">⚠️ 카탈로그에 이 이름이 없어 못 넣음 — '+esc(bad.join(', '))+'</b>');
