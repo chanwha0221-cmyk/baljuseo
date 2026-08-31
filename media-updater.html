@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.9</title>
+<title>마스터 유통 상품 도구 v1.10</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -147,6 +147,17 @@ a{color:var(--accent)}
     <datalist id="rcDL"></datalist>
     <button class="cp" id="rcAdd" style="margin-top:0">＋ 추가</button>
   </div>
+  <!-- 📰 소식글에 나간 상품을 한 번에 올리는 자리 (홍팀장 2026-08-31).
+       소식글 딱지는 최신 10개까지만 남고 오래된 건 여기서 자동으로 빠진다. -->
+  <details id="rcNewsBox" style="margin-top:10px;border:1px solid var(--line);border-radius:8px;padding:9px 11px">
+    <summary style="cursor:pointer;font-size:12.5px;font-weight:700">📰 소식글 상품 한 번에 넣기</summary>
+    <p style="font-size:12px;color:var(--muted);margin:7px 0 0">한 줄에 상품 하나. <b>상품명 | 코멘트</b> 로 쓰면 코멘트까지 같이 들어갑니다.<br>
+      📰 소식글 딱지는 <b>최신 10개</b>까지만 남습니다 — 11번째를 넣으면 가장 오래된 소식글이 내려갑니다. ⭐ 추천(손으로 넣은 것)은 그대로 있습니다.<br>
+      상품명은 <b>카탈로그에 있는 이름과 한 글자도 다르면 안 됩니다</b> — 다르면 안 들어가고 아래에 표시됩니다.</p>
+    <textarea id="rcNews" rows="5" placeholder="활 숫꽃게 1kg | 지금이 살이 제일 찼습니다&#10;손질 갑오징어 1kg" style="width:100%;margin-top:7px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7"></textarea>
+    <div><button class="cp" id="rcNewsAdd">＋ 소식글로 추가</button></div>
+    <div id="rcNewsLog" style="font-size:11.5px;margin-top:6px;line-height:1.7"></div>
+  </details>
   <div id="rcRows" style="margin-top:10px"></div>
   <button class="cp" id="rcSave">💾 저장</button>
   <span id="rcLog" style="font-size:11.5px;color:var(--muted);margin-left:8px"></span>
@@ -897,7 +908,9 @@ const t=x=>(x==null?'':String(x)).trim();
 const day=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());};
 let REC=[],NOT=[],RECN=0,NOTN=0;
 // 소식글에서 올라온 상품은 등록일부터 10일만 노출된다 (11일차에 카탈로그에서 자동으로 빠짐)
-const NEWS_DAYS=10;
+// 📰 딱지 자체도 최신 10개까지만 — 11번째가 올라오면 가장 오래된 게 내려간다 (홍팀장 2026-08-31)
+const NEWS_DAYS=10, NEWS_MAX=10;
+const NAMES=new Set();   // 도구시트 '상품분류' 정본 상품명 — 소식글 일괄 등록의 완전일치 검사용
 function left(at){
   const m=String(at||'').match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
   if(!m)return '';
@@ -971,6 +984,44 @@ $p('rcAdd').onclick=function(){
   $p('rcQ').value='';recDraw();
   $p('rcLog').textContent='추가했습니다 — 저장을 눌러야 반영됩니다.';
 };
+/* 📰 소식글 상품 일괄 등록 (홍팀장 2026-08-31)
+   소식글에 나간 상품을 그대로 붙여넣어 📰 딱지로 올린다.
+   ⚠️ 이름은 완전일치만 받는다 — 비슷한 이름으로 들어가면 카탈로그에서 사진·가격이 안 붙고
+      "카탈로그에 없는 상품" 카드로 뜬다. 안 맞는 줄은 넣지 않고 그대로 돌려준다.
+   ⚠️ 이미 ⭐ 추천으로 들어 있는 상품은 건드리지 않는다 — 상시로 미는 물건인데
+      소식글로 바꾸면 10일 뒤 저절로 내려가 버린다. */
+$p('rcNewsAdd').onclick=function(){
+  const lines=String($p('rcNews').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(!lines.length)return alert('상품명을 한 줄에 하나씩 붙여넣으세요.');
+  const add=[],keep=[],bad=[];
+  lines.forEach(function(ln){
+    const p=ln.split('|'), nm=t(p[0]), cm=t(p.slice(1).join('|'));
+    if(!nm)return;
+    if(NAMES.size&&!NAMES.has(nm)){bad.push(nm);return;}
+    const ex=REC.find(r=>r.name===nm);
+    if(ex){
+      if(!ex.news){keep.push(nm);return;}        // ⭐ 추천은 그대로 둔다
+      ex.at=day(); if(cm)ex.cmt=cm; add.push(nm); // 이미 소식글이면 날짜만 오늘로 되살린다
+      return;
+    }
+    REC.push({name:nm,cmt:cm,show:true,at:day(),news:true});
+    add.push(nm);
+  });
+  // 최신 10개만 남긴다 — 같은 날짜면 나중에 넣은 것이 최신
+  const news=REC.map((r,i)=>({r:r,i:i})).filter(x=>x.r.news)
+    .sort((a,b)=>(b.r.at||'').localeCompare(a.r.at||'')||(b.i-a.i));
+  const over=news.slice(NEWS_MAX).map(x=>x.r);
+  if(over.length)REC=REC.filter(r=>over.indexOf(r)<0);
+  recDraw();
+  $p('rcNews').value='';
+  const L=[];
+  if(add.length)L.push('📰 소식글로 올림 '+add.length+'건 — '+add.join(', '));
+  if(over.length)L.push('<span style="color:var(--muted)">↓ 오래돼서 내림 '+over.length+'건 — '+esc(over.map(r=>r.name).join(', '))+'</span>');
+  if(keep.length)L.push('<span style="color:var(--muted)">⭐ 추천이라 그대로 둠 — '+esc(keep.join(', '))+'</span>');
+  if(bad.length)L.push('<b style="color:#c0392b">⚠️ 카탈로그에 이 이름이 없어 못 넣음 — '+esc(bad.join(', '))+'</b>');
+  L.push('<b>저장을 눌러야 반영됩니다.</b>');
+  $p('rcNewsLog').innerHTML=L.join('<br>');
+};
 $p('rcSave').onclick=async function(){
   const b=this;b.disabled=true;b.textContent='저장 중…';$p('rcLog').textContent='';
   try{
@@ -986,7 +1037,7 @@ $p('rcSave').onclick=async function(){
   try{
     const j=await S.api(DOGU,'/values/'+e1("'상품분류'!A2:A5000"));
     const seen={},op=[];
-    (j.values||[]).forEach(r=>{const n=t(r[0]);if(n&&!seen[n]){seen[n]=1;op.push('<option value="'+esc(n)+'">');}});
+    (j.values||[]).forEach(r=>{const n=t(r[0]);if(n&&!seen[n]){seen[n]=1;NAMES.add(n);op.push('<option value="'+esc(n)+'">');}});
     $p('rcDL').innerHTML=op.join('');
   }catch(e){}
 })();
