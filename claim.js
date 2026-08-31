@@ -176,10 +176,27 @@ function bindSlots(){
 
 /* 고객 이름으로 이 업체의 발주를 찾아 발주날짜·상품명을 채운다.
    ⚠️ 상품명은 발주에 적힌 그대로 넣는다 — 손대지 않는다(§3-3 완전일치 원칙). */
-function findOrders(){
+var ORD = null;   // 이 화면에서 쓸 발주 목록 (한 번 받아 들고 있는다)
+
+/* 🔴 2026-08-31 홍팀장 "정효로 발주가 있는데 왜 못 찾냐" —
+   order.js 의 `LIST` 는 [📋 발주 내역] 화면을 한 번 열어야 채워진다.
+   클레임 화면만 열면 비어 있어서 무조건 '못 찾았습니다'가 떴다.
+   → 여기서 직접 부른다. 이미 받아둔 게 있으면 그걸 쓴다. */
+async function orderList(){
+  if(ORD) return ORD;
+  if(typeof LIST !== 'undefined' && LIST && LIST.length){ ORD = LIST; return ORD; }
+  var j = await api('list', { token: ME.token });
+  ORD = (j && j.rows) ? j.rows : [];
+  return ORD;
+}
+
+async function findOrders(){
   var nm = T($c('cl_rcv').value), box = $c('cl_hits');
   if(!nm){ box.innerHTML = '<div class="hint">고객 이름을 먼저 적어주세요.</div>'; return; }
-  var list = (typeof LIST !== 'undefined' && LIST) ? LIST : [];
+  box.innerHTML = '<div class="hint">⏳ 발주를 찾는 중입니다…</div>';
+  var list;
+  try{ list = await orderList(); }
+  catch(e){ box.innerHTML = '<div class="hint" style="color:#c0392b">발주를 불러오지 못했습니다 — '+E(e.message||String(e))+'</div>'; return; }
   var key = nm.replace(/\s+/g,'');
   var hit = list.filter(function(r){ return S(r.rcv).replace(/\s+/g,'').indexOf(key) >= 0; });
   if(!hit.length){ box.innerHTML = '<div class="hint">그 이름으로 들어온 발주를 못 찾았습니다 — 아래에 직접 적어주세요.</div>'; return; }
