@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v7.6</title>
+<title>통장 내역 조회 v7.7</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v7.6</span>
+  <span class="ver">v7.7</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -2755,11 +2755,25 @@ function renderToPaint(arr){
      (2026-08-18 사장님: "이거 색칠해 이거 색칠해가 아니고 11,12,13일 색칠하세요 이렇게 알려주기로 했잖아")
      같은 입금 건(payKey)끼리 묶어서 날짜를 나열하고, 칸별 금액은 괄호로 붙인다. */
   const _dayOnly = k => String(k||'').replace(/^\d{1,2}\/(\d{1,2})$/, '$1').replace(/^(\d{1,2})\/(\d{1,2})$/,'$2');
+  /* 🔴 2026-08-31 홍팀장 지적("이거 5개 더한 게 139,100원 맞냐?") — 묶음 키를 고쳤다.
+     증상: 「8/30 입금 139,100원 → 18, 19, 20, 21, 28일 색칠」처럼 떠서 **금액과 칸 합이 안 맞았다.**
+       · 실제로는 8/30에 입금이 두 건(139,100 → 18~21 / 15,000 → 28)이었다.
+       · `payKey`(=tx.dateKey)는 `8/30` 처럼 **날짜뿐이라 같은 날 여러 입금을 못 가른다.**
+         그래서 두 건이 한 줄로 뭉쳤고, 금액은 `g[0].payAmount`(앞 건)만 찍혀 뒤 건 칸이 얹혀 보였다.
+     🔴 색칠 자체는 맞았다 — 합산 매칭은 오차 1,000원 안에서만 확정하므로 한 입금에 15,000원이
+        더 붙는 일은 애초에 일어날 수 없다. **표시만 틀렸는데 그게 더 나쁘다** — 사람이 검산하면
+        안 맞으니 도구를 못 믿게 된다.
+     → 입금액·입금자까지 묶음 키에 넣어 **입금 건별로** 가른다. 화면에 찍는 날짜는 payKey 그대로. */
   function _groupLines(items){
     const byPay={}, order=[];
-    items.forEach(i=>{ const k=i.payKey||'-'; if(!byPay[k]){byPay[k]=[];order.push(k);} byPay[k].push(i); });
-    return order.map(pk=>{
-      const g=byPay[pk];
+    items.forEach(i=>{
+      const k=(i.payKey||'-')+'§'+(i.payAmount||0)+'§'+(i.payer||'');
+      if(!byPay[k]){byPay[k]=[];order.push(k);}
+      byPay[k].push(i);
+    });
+    return order.map(k=>{
+      const g=byPay[k];
+      const pk=g[0].payKey||'-';
       const days=g.map(i=>_dayOnly(i.key)).join(', ');
       const detail=g.map(i=>i.key+' '+i.amount.toLocaleString()+'원').join(' · ');
       const payAmt=g[0].payAmount||g.reduce((a,i)=>a+i.amount,0);
