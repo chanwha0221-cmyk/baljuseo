@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.14</title>
+<title>마스터 유통 상품 도구 v1.15</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1030,8 +1030,28 @@ $p('rcAdd').onclick=function(){
    ⚠️ 이미 ⭐ 추천으로 들어 있는 상품은 건드리지 않는다 — 상시로 미는 물건인데
       소식글로 바꾸면 10일 뒤 저절로 내려가 버린다. */
 $p('rcNewsAdd').onclick=function(){
-  const lines=String($p('rcNews').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  if(!lines.length)return alert('상품명을 한 줄에 하나씩 붙여넣으세요.');
+  const raw=String($p('rcNews').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(!raw.length)return alert('상품명을 한 줄에 하나씩 붙여넣으세요.');
+  /* 🔧 2026-08-31 홍팀장 "상품 하나도 안 보인다" — 붙여넣는 모양이 매번 달라 전부 튕겼다.
+     ① 한 줄에 슬래시로 여러 개(`A급 정품 홍게 4kg / 활 홍가리비 1kg`)
+     ② 창고명이 앞에 붙은 줄(`민장 ⇥ 민물장어 1kg`)
+     🔴 추측 매칭이 아니다(§3-3) — 손질한 결과가 **정본과 완전일치**할 때만 채택하고,
+        아니면 원문 그대로 남겨 아래 '못 넣음' 목록에 뜨게 한다. */
+  const lines=[];
+  raw.forEach(function(ln){
+    const bar=ln.indexOf('|');
+    const head=t(bar>=0?ln.slice(0,bar):ln), cmt=bar>=0?ln.slice(bar+1):'';
+    if(!NAMES.size||NAMES.has(head)){lines.push(ln);return;}   // 줄 통째가 정본이면 그대로
+    const fixed=head.split('/').map(s=>t(s)).filter(Boolean).map(function(pt){
+      if(NAMES.has(pt))return pt;
+      const cut=t(pt.replace(/^[^\t]*\t+/,''));                 // 창고명 ⇥ 상품명
+      if(cut!==pt&&NAMES.has(cut))return cut;
+      const sp=t(pt.replace(/^\S+\s+/,''));                     // 창고명 공백 상품명
+      if(sp!==pt&&NAMES.has(sp))return sp;
+      return pt;
+    });
+    fixed.forEach(function(f){ lines.push(cmt?f+'|'+cmt:f); });
+  });
   const add=[],keep=[],bad=[];
   lines.forEach(function(ln){
     const p=ln.split('|'), nm=t(p[0]), cm=t(p.slice(1).join('|'));
