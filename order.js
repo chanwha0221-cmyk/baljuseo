@@ -503,7 +503,7 @@ function meCard(){
       +   '<b>저장해 놓으시면 계속 해당 정보로 입력 됩니다.(수정 가능)</b></div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
       + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">업체명</span><input class="ordin" value="' + esc(me.name || '') + '" disabled></div>'
-      + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 연락처 <b style="color:var(--up)">*필수</b></span><input class="ordin" id="ord_ph" value="' + esc(me.phone || '') + '" placeholder="02-000-0000 / 010-0000-0000"></div>'
+      + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 연락처 <b style="color:var(--up)">*필수</b></span><input class="ordin" id="ord_ph" value="' + esc(me.phone || '') + '" placeholder="02-000-0000 / 010-0000-0000 / 1533-0000"></div>'
       + '<div style="grid-column:1/-1"><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 주소 <b style="color:var(--accent-d)">(선택)</b></span><input class="ordin" id="ord_ad" value="' + esc(me.addr || '') + '" placeholder="주소는 생략 가능합니다">'
       +   '<div class="hint" style="margin-top:5px">주소는 생략 가능합니다. 송장에 주소를 노출하지 않으시려면 빈칸으로 두세요.</div></div>'
       + '</div>'
@@ -2130,7 +2130,13 @@ function bind(){
     sv.onclick = async () => {
       const ph = S($$('ord_ph').value), ad = S($$('ord_ad').value);
       const msg = $$('ord_msg');
-      if(D(ph).length < 9){ msg.textContent = '연락처를 정확히 넣어주세요.'; return; }
+      /* 8자리 대표번호(1533-2981, 1588-1588 등)도 받는다 (홍팀장 2026-09-01).
+         원래 9자리 미만을 다 막고 있어서 대표번호만 쓰는 업체가 저장을 못 했다.
+         대표번호는 15·16·18로 시작하는 8자리 — 앞자리 1 + 8자리일 때만 열어준다. */
+      const phd = D(ph);
+      if(!(phd.length >= 9 || (phd.length === 8 && phd[0] === '1'))){
+        msg.textContent = '연락처를 정확히 넣어주세요.'; return;
+      }
       // 출고지는 비워둔 채로도 저장된다 — 안 쓰는 업체가 있다 (사장님 2026-08-20)
       sv.disabled = true; msg.textContent = '저장 중…';
       try{
