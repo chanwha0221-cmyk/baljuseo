@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.73).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.74).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.73</title>
+<title>마스터 유통 카탈로그 v2.74</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1118,34 +1118,55 @@ async function ghGetSha(token){
   if(!r.ok)throw new Error('GitHub 응답 '+r.status);
   return (await r.json()).sha;
 }
+async function ghPutProposal(token,doc,note){
+  const sha=await ghGetSha(token);
+  const body={message:'제안서 데이터 갱신 — '+doc.updatedAt+' 기준 '+doc.products.length+'개'+(note?(' ('+note+')'):''),
+    content:ghB64(JSON.stringify(doc,null,1)),branch:'main'};
+  if(sha)body.sha=sha;
+  const r=await fetch('https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+GH_FILE,
+    {method:'PUT',headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Content-Type':'application/json'},
+     body:JSON.stringify(body)});
+  if(!r.ok){
+    let why=''; try{why=(await r.json()).message||'';}catch(e){}
+    throw new Error('GitHub 응답 '+r.status+(why?(' — '+why):''));
+  }
+  return true;
+}
+/* 🔁 카탈로그를 열면 제안서 데이터도 저절로 맞춘다 (홍팀장 2026-09-01)
+   "원비씨가 언제 업데이트할 줄 알고 그걸 잡느냐" — 맞는 말이다. 사람이 누르는 걸 전제로 하면
+   언젠가 또 며칠 묵는다(실제로 8/31→9/1 그렇게 됐다). 마스터가 카탈로그를 열 때마다 조용히 맞춰 둔다.
+   ⚠️ 상품이 **실제로 바뀌었을 때만** 올린다(updatedAt 빼고 비교) — 안 그러면 열 때마다 커밋이 쌓인다.
+   ⚠️ 토큰이 없으면 아무 일도 안 한다. 자동으로 도는 일이 비밀번호를 묻고 나서면 안 된다.
+   ⚠️ 실패해도 조용하다 — 곁다리 작업이 화면을 막으면 안 된다. 손으로는 [🔄 제안서 업데이트]로 언제든 올린다. */
+async function autoSyncProposal(){
+  try{
+    if(!(ME&&ME.master)||!ALL.length)return;
+    let token=''; try{token=localStorage.getItem(GH_KEY)||'';}catch(e){}
+    if(!token)return;
+    const doc=buildProposalDoc();
+    let live=null;
+    try{ live=await(await fetch('data/allproduct.json?cb='+Date.now(),{cache:'no-cache'})).json(); }catch(e){}
+    if(live&&live.products&&JSON.stringify(live.products)===JSON.stringify(doc.products))return;  // 그대로면 안 올린다
+    await ghPutProposal(token,doc,'카탈로그 열 때 자동');
+    toast('📤 제안서 데이터도 최신으로 맞췄습니다 ('+doc.products.length+'개)');
+  }catch(e){ /* 곁다리다 — 조용히 넘긴다 */ }
+}
 async function updateProposal(){
   const btn=$('ub_exp');
   if(!ALL.length){ toast('상품을 아직 불러오는 중입니다 — 잠시 뒤 눌러주세요'); return; }
   const doc=buildProposalDoc();
-  const txt=JSON.stringify(doc,null,1);
   let token=''; try{token=localStorage.getItem(GH_KEY)||'';}catch(e){}
   if(!token)token=ghAsk();
   if(!token)return;
   if(btn){btn.disabled=true;btn.textContent='⏳ 올리는 중…';}
   try{
-    let sha;
-    try{ sha=await ghGetSha(token); }
+    try{ await ghPutProposal(token,doc,'카탈로그에서 바로 올림'); }
     catch(e){
       if(e.message!=='AUTH')throw e;
       try{localStorage.removeItem(GH_KEY);}catch(x){}
       token=ghAsk('토큰이 거절됐습니다. 다시 붙여넣어 주세요.\n(baljuseo 저장소에 Contents: Read and write 권한이 있어야 합니다)');
       if(!token){if(btn){btn.disabled=false;btn.textContent='🔄 제안서 업데이트';}return;}
-      sha=await ghGetSha(token);
-    }
-    const body={message:'제안서 데이터 갱신 — '+doc.updatedAt+' 기준 '+doc.products.length+'개 (카탈로그에서 바로 올림)',
-      content:ghB64(txt),branch:'main'};
-    if(sha)body.sha=sha;
-    const r=await fetch('https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+GH_FILE,
-      {method:'PUT',headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Content-Type':'application/json'},
-       body:JSON.stringify(body)});
-    if(!r.ok){
-      let why=''; try{why=(await r.json()).message||'';}catch(e){}
-      throw new Error('GitHub 응답 '+r.status+(why?(' — '+why):''));
+      await ghPutProposal(token,doc,'카탈로그에서 바로 올림');
     }
     toast('✅ 제안서 '+doc.products.length+'개 올렸습니다 — 1~2분 뒤 새로고침하면 반영됩니다');
     alert('제안서 데이터를 올렸습니다.\n\n'
@@ -1429,7 +1450,7 @@ function finishRender(atMs,fromCache){
 async function startCatalog(){
   /* 🚫 예외 목록을 먼저 받아온다 — 늦게 오면 감춰야 할 상품이 잠깐 보였다 사라진다.
      받아온 뒤 화면을 한 번 더 그린다(캐시로 먼저 그린 화면도 여기서 정리된다). */
-  loadExc().then(()=>{ if(GROUPS.length){buildAll();buildWhChips();render();} });
+  const excDone=loadExc().then(()=>{ if(GROUPS.length){buildAll();buildWhChips();render();} }).catch(()=>{});
   // 📦 합포장 안 되는 상품 목록 — 발주 화면(order.js)이 쓴다. 여기서 같이 받아둔다.
   if(window.loadNoHap)window.loadNoHap();
   let usedCache=false;
@@ -1472,6 +1493,10 @@ async function startCatalog(){
     // (안 그러면 사진·스펙을 새로 받아왔는데도 '사진 준비중'이 그대로 남는다 — 2026-08-12 탱글 생물 중하)
     if(location.hash.replace(/^#/,''))renderRoute();
     try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,noti:NOTI,links:LINKS,hap:HAP,recmap:RECMAP})); }catch(e){}
+    /* 📤 제안서 데이터 자동 맞춤 — 🚫예외 목록까지 도착한 뒤에 해야 한다.
+       먼저 하면 못 파는 상품이 제안서에 실린다. */
+    try{ await excDone; }catch(e){}
+    autoSyncProposal();
   }catch(e){
     if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
   }
