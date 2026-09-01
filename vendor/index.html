@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v3.5</title>
+<title>외부 업체 등록 도구 v3.6</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -79,7 +79,7 @@ details.extra .form-grid{margin-top:10px}
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v3.5 통합등록</span>
+  <span class="ver">v3.6 통합등록</span>
   <span class="subtitle">사업자등록증 + 업체자료 조합 → 리모컨 붙여넣기</span>
 </header>
 <div class="main">
@@ -257,6 +257,9 @@ function fixEmailTypos(email){
 
 function formatPhone(n){
   if (!n) return '';
+  // 엑셀 복사시 앞 0 소실 복원 (2026-09-01 — 변환기 fp()와 같은 규칙으로 맞춤).
+  // 한국 번호는 8자리 대표번호(1577·1833 등)만 빼고 전부 0으로 시작한다. 5051234567 → 0505-123-4567
+  if (!n.startsWith('0') && n.length >= 8 && !(n.length === 8 && n.startsWith('1'))) n = '0' + n;
   // 050 안심·평생번호는 국번이 네 자리(0505·0507)다 — 11자리도 4-3-4로 끊는다 (2026-09-01 fix).
   // 아래 11자리 일반 규칙(3-4-4)에 걸리면 0505-123-4567 이 050-5123-4567 로 나간다.
   if (n.length === 11 && n.startsWith('050')) return n.slice(0,4) + '-' + n.slice(4,7) + '-' + n.slice(7);
