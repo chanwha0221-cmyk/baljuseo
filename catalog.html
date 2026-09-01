@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.68).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.69).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.68</title>
+<title>마스터 유통 카탈로그 v2.69</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -218,6 +218,27 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   animation:nbpulse 1.6s ease-in-out infinite}
 .ntclist{margin-top:4px}
 .ntcbox{margin-top:11px}
+/* ── 📰 소식글 (사장님 2026-09-01) ──────────────────────────────────
+   공지와 같은 아코디언을 쓰되 왼쪽 선 색으로 갈라 놓는다(공지=빨강/회색, 소식=파랑).
+   업체가 "운영 안내"와 "파는 글"을 눈으로 바로 구분해야 둘 다 읽힌다. */
+.ntcac.news{border-left-color:var(--down)}
+.newsb{font-size:10px;font-weight:800;color:#fff;background:var(--down);padding:2px 7px;border-radius:5px;white-space:nowrap}
+/* 👇 글 안의 상품 — 소식글의 존재 이유다. 여기서 상품으로 못 넘어가면 그냥 읽고 마는 글이 된다 */
+.newsp{padding:11px 15px 13px;border-top:1px dashed var(--line);font-size:11.5px;color:var(--muted)}
+.newspl{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.newspl .mvn{flex:0 0 auto;min-width:0;background:var(--soft);border:1px solid color-mix(in srgb,var(--accent) 32%,var(--line));
+  color:var(--accent-d);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:700;text-align:left}
+@media(hover:hover){.newspl .mvn:hover{background:var(--card);text-decoration:none}}
+/* 첫 화면 한 줄 — 카탈로그의 본질은 상품이라 소식글은 제목 한 줄만 놓고 자리를 안 먹는다 */
+.newsone{margin-top:9px}
+.newsonebtn{width:100%;display:flex;align-items:center;gap:8px;background:var(--card);cursor:pointer;
+  border:1px solid var(--line);border-left:4px solid var(--down);border-radius:12px;padding:10px 14px;
+  box-shadow:var(--shadow);text-align:left;font-family:inherit}
+.newsonebtn .t{flex:1;min-width:0;font-size:13.5px;font-weight:700;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.newsonebtn .d{font-size:11px;color:var(--muted);white-space:nowrap}
+.newsonebtn .go{font-size:11.5px;font-weight:800;color:var(--down);white-space:nowrap}
+@media(hover:hover){.newsonebtn:hover{background:var(--soft)}}
 @media(max-width:640px){
   .menu{gap:5px;margin-top:8px}
   .mbtn{min-width:0;padding:9px 4px;font-size:11.5px;border-radius:9px}
@@ -538,6 +559,7 @@ h1{letter-spacing:-.6px}
 <!-- 메뉴 — 검색창 위. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
 <div class="menu" id="menu">
   <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
+  <button class="mbtn" data-go="news">📰 소식글<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="change">📊 상품변동사항<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="order">🧾 발주하기<span class="nbadge" id="ordCount" style="display:none"></span></button>
@@ -546,6 +568,9 @@ h1{letter-spacing:-.6px}
 </div>
 <!-- 공지는 메뉴 바로 밑에 그대로 펼쳐 보여준다 (사장님 2026-08-12) -->
 <div class="ntcbox" id="ntcbox"></div>
+<!-- 📰 최신 소식글은 제목 한 줄만 (사장님 2026-09-01). 공지가 이미 위를 먹고 있고
+     카탈로그의 본질은 상품이라, 소식글까지 펼치면 첫 화면에서 상품이 안 보인다. -->
+<div class="newsone" id="newsone"></div>
 <div id="mainView">
 <div class="controls">
 <!-- 🔒 검색칸은 일부러 <input> 이 아니다. (2026-08-20)
@@ -1322,13 +1347,14 @@ async function startCatalog(){
     try{
       const r=await Promise.all([loadMedia().catch(()=>({})),loadCats().catch(()=>({})),loadSales().catch(()=>({})),
                                  loadChanges().catch(()=>null),loadNotices().catch(()=>null),loadLinks().catch(()=>({})),
-                                 loadHap().catch(()=>({})),loadRecs().catch(()=>null)]);
+                                 loadHap().catch(()=>({})),loadRecs().catch(()=>null),loadNews().catch(()=>null)]);
       media=r[0];cats=r[1];sales=r[2];
       if(r[3]){CHG=r[3];buildTint();renderMoveBox();}   // 살구색 표시를 카탈로그 카드에도 입히려면 시작할 때 읽어야 한다
       if(r[4]){NOTI=r[4];renderNoticeBox();}
       if(r[5]&&Object.keys(r[5]).length)LINKS=r[5];
       if(r[6]&&r[6].map&&Object.keys(r[6].map).length){HAP=r[6].map;HAPROWS=r[6].rows||[];}   // 📦 합포장 — 같은 Promise.all이라 로딩이 느려지지 않는다
       if(r[7]){RECS=r[7];buildRecMap();}            // ⭐ 추천상품을 창고 목록 맨 앞에 세우려면 시작할 때 필요
+      if(r[8]){NEWS=r[8];renderNewsOne();}          // 📰 최신 소식글 한 줄 (같은 Promise.all이라 로딩이 안 느려진다)
     }catch(e){}
     if(Object.keys(sales).length)SALES=sales;
     if(!Object.keys(media).length){
@@ -1356,7 +1382,7 @@ async function startCatalog(){
 // 추천상품·공지사항 내용은 '마스터 유통 상품 도구'(media-updater)에서 등록한다.
 // ══════════════════════════════════════════════════════════════════
 const subV=$('subView'),mainV=$('mainView'),menuEl=$('menu');
-let CHG=null,RECS=null,NOTI=null;
+let CHG=null,RECS=null,NOTI=null,NEWS=null;
 /* ⭐ 추천상품을 창고 목록에서도 맨 앞에 세우려면 시작할 때 읽어야 한다 (사장님 2026-08-19).
    예전엔 [⭐추천상품] 메뉴를 눌러야 읽었다. RECMAP = 상품명 → {news} */
 let RECMAP={};
@@ -1720,14 +1746,76 @@ function renderNotices(list){
   h+='<div class="ntclist">'+list.map(n=>noticeItem(n,!seen.has(ntcKey(n)))).join('')+'</div>';
   return h;
 }
+// ── 4) 📰 소식글 — 도구시트 '소식글' 탭 (제목 · 본문 · 노출 · 작성일 · 연결상품) ──
+/* 왜 만들었나 (사장님 2026-09-01):
+   소식글은 카톡으로 나가고 그걸로 끝이었다. 나중에 들어온 업체는 못 보고, 지난 글은 찾을 수가 없다.
+   무엇보다 **파는 글인데 상품으로 갈 길이 없었다.** 그래서 글 아래에 그 글에 나온 상품을 버튼으로 달았다.
+   버튼은 변동사항 목록과 같은 .mvn — 누르면 그 상품이 검색돼 카드가 뜬다.
+   등록은 상품도구(media-updater)의 [📰 소식글 등록]에서 한다. 사장님은 본문만 붙여넣으면 된다. */
+const NEWS_MAX_SHOW=10;   /* 최근 10건. '일주일'로 끊지 않은 이유 — 발송이 주 3~4회라
+                             일주일이면 두세 건이고 연휴가 끼면 화면이 통째로 빈다. */
+async function loadNews(){
+  const token=await getAccessToken();
+  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'소식글'!A2:E300"),{headers:{Authorization:'Bearer '+token}})).json();
+  // 탭이 아직 없을 수 있다(첫 등록 전) — 그건 오류가 아니라 '아직 없음'이다
+  if(j.error)return [];
+  const t=x=>(x==null?'':String(x)).trim();
+  return (j.values||[]).map((v,i)=>({title:t(v[0]),body:t(v[1]),show:t(v[2])||'Y',at:t(v[3]),
+      items:t(v[4]).split(',').map(s=>s.trim()).filter(Boolean),i}))
+    .filter(n=>n.title&&n.show.toUpperCase()!=='N')
+    .sort((a,b)=>(b.at||'').localeCompare(a.at||'')||(b.i-a.i))
+    .slice(0,NEWS_MAX_SHOW);
+}
+/* 본문 다듬기 — 카탈로그 안에서 읽는 글이라 카탈로그로 가는 링크 줄은 군더더기다.
+   ([상세보기] https://…/catalog.html — 지금 보고 있는 이 페이지로 가는 링크) */
+function newsBody(b){
+  return String(b||'').split(/\r?\n/)
+    .filter(ln=>!/https?:\/\/\S*catalog\.html/i.test(ln))
+    .join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+// 카탈로그에 실제로 있는 상품만 버튼으로 만든다 — 눌렀는데 검색 결과가 0이면 안 만든 것만 못하다
+function newsInCatalog(nm){
+  if(typeof ALL==='undefined'||!ALL.length)return false;
+  const k=pkey(nm);
+  return ALL.some(p=>pkey(p.name)===k);
+}
+function newsItem(n,open){
+  const btns=(n.items||[]).filter(newsInCatalog);
+  return '<details class="ntcac news"'+(open?' open':'')+'>'
+    +'<summary><span class="newsb">소식</span><span class="ntt">'+esc(n.title)+'</span>'
+      +(n.at?'<span class="nd2">'+esc(n.at)+'</span>':'')+'<span class="ntarrow">▾</span></summary>'
+    +'<div class="nb">'+esc(newsBody(n.body)||'(내용 없음)')+'</div>'
+    +(btns.length?('<div class="newsp">👇 이 글에 나온 상품 — 누르시면 바로 보실 수 있어요'
+        +'<div class="newspl">'+btns.map(nm=>'<button class="mvn" data-mv="'+esc(nm)+'" title="이 상품 보기">'+esc(nm)+'</button>').join('')+'</div></div>'):'')
+    +'</details>';
+}
+function renderNews(list){
+  let h=subHead('📰 소식글','카톡으로 보내드린 소식글입니다. 글 안의 상품은 눌러서 바로 보실 수 있어요.');
+  if(!list.length)return h+'<div class="empty">아직 올라온 소식글이 없습니다.</div>';
+  return h+'<div class="ntclist">'+list.map((n,i)=>newsItem(n,i===0)).join('')+'</div>';
+}
+// 첫 화면 한 줄 — 최신 1건 제목만. 누르면 소식글 페이지로 넘어간다.
+async function renderNewsOne(){
+  const box=$('newsone'); if(!box)return;
+  try{ if(!NEWS)NEWS=await loadNews(); }catch(e){ return; }
+  if(!NEWS.length){box.innerHTML='';return;}
+  const n=NEWS[0];
+  box.innerHTML='<button class="newsonebtn" data-newsone="1">'
+    +'<span class="newsb">소식</span><span class="t">'+esc(n.title)+'</span>'
+    +(n.at?'<span class="d">'+esc(n.at)+'</span>':'')+'<span class="go">보기 ›</span></button>';
+}
+document.addEventListener('click',function(e){
+  if(e.target.closest('[data-newsone]'))location.hash='news';
+});
 // ── 라우팅 ──
 async function renderRoute(){
   const v=location.hash.replace(/^#/,'');
   menuEl.querySelectorAll('.mbtn').forEach(b=>b.classList.toggle('on',b.getAttribute('data-go')===v));
-  const nb=$('ntcbox');
-  if(!v||v==='main'){mainV.style.display='';subV.style.display='none';subV.innerHTML='';if(nb)nb.style.display='';window.scrollTo({top:0});return;}
+  const nb=$('ntcbox'), n1=$('newsone');
+  if(!v||v==='main'){mainV.style.display='';subV.style.display='none';subV.innerHTML='';if(nb)nb.style.display='';if(n1)n1.style.display='';window.scrollTo({top:0});return;}
   mainV.style.display='none';subV.style.display='';
   if(nb)nb.style.display='none';   // 서브페이지에선 위쪽 공지 상자를 접는다(공지 페이지와 중복)
+  if(n1)n1.style.display='none';   // 소식글 한 줄도 마찬가지
   subV.innerHTML='<div class="load">⏳ 불러오는 중입니다…</div>';
   window.scrollTo({top:0});
   try{
@@ -1735,6 +1823,8 @@ async function renderRoute(){
     else if(v==='rec'){if(!RECS){RECS=await loadRecs();buildRecMap();}subV.innerHTML=renderRecs(RECS);}
     // ⚠️ 공지 화면에 들어왔다고 전부 읽음 처리하지 않는다 — 제목을 눌러야 확인이다(사장님 2026-08-19).
     else if(v==='notice'){if(!NOTI)NOTI=await loadNotices();subV.innerHTML=renderNotices(NOTI);renderNtcBadge();}
+    // 📰 소식글 — 글 안의 상품 버튼을 만들려면 상품(ALL)이 먼저 들어와 있어야 한다
+    else if(v==='news'){if(!NEWS)NEWS=await loadNews();subV.innerHTML=renderNews(NEWS);}
     // 🧾 발주 — order.js. 상품(ALL)이 있어야 상품명 검증이 되므로 카탈로그가 먼저 로드된 뒤에만 연다.
     else if(v==='order'){
       if(!(typeof ALL!=='undefined'&&ALL.length)){subV.innerHTML=subHead('🧾 발주하기','')+'<div class="empty">상품을 불러오는 중입니다. 잠시 후 다시 눌러주세요.</div>';}

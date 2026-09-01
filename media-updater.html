@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.15</title>
+<title>마스터 유통 상품 도구 v1.16</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -164,30 +164,32 @@ a{color:var(--accent)}
     <datalist id="rcDL"></datalist>
     <button class="cp" id="rcAdd" style="margin-top:0">＋ 추가</button>
   </div>
-  <!-- 📰 소식글에 나간 상품을 한 번에 올리는 자리 (홍팀장 2026-08-31).
-       소식글 딱지는 최신 10개까지만 남고 오래된 건 여기서 자동으로 빠진다. -->
-  <details id="rcNewsBox" style="margin-top:10px;border:1px solid var(--line);border-radius:8px;padding:9px 11px">
-    <summary style="cursor:pointer;font-size:12.5px;font-weight:700">📰 소식글 상품 한 번에 넣기</summary>
-    <p style="font-size:12px;color:var(--muted);margin:7px 0 0">한 줄에 상품 하나. <b>상품명 | 코멘트</b> 로 쓰면 코멘트까지 같이 들어갑니다.<br>
-      📰 소식글 딱지는 <b>최신 10개</b>까지만 남습니다 — 11번째를 넣으면 가장 오래된 소식글이 내려갑니다. ⭐ 추천(손으로 넣은 것)은 그대로 있습니다.<br>
-      상품명은 <b>카탈로그에 있는 이름과 한 글자도 다르면 안 됩니다</b> — 다르면 안 들어가고 아래에 표시됩니다.</p>
-    <textarea id="rcNews" rows="5" placeholder="활 숫꽃게 1kg | 지금이 살이 제일 찼습니다&#10;손질 갑오징어 1kg" style="width:100%;margin-top:7px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7"></textarea>
-    <div><button class="cp" id="rcNewsAdd">＋ 소식글로 추가</button></div>
-    <div id="rcNewsLog" style="font-size:11.5px;margin-top:6px;line-height:1.7"></div>
-  </details>
-  <!-- 💾 소식글 본문을 히스토리 시트에 저장 (홍팀장 2026-08-31 — 소식글.html 대체).
-       ⚠️ 이 시트는 다음 세션 클로드가 톤을 복원하려고 읽는 원본이다. 저장이 끊기면 톤이 맨땅에서 다시 시작된다.
-       위 칸(상품명 목록)과 입력이 달라 칸을 나눴다 — 여기는 카톡에 보낸 본문을 통째로 넣는 자리. -->
-  <details id="ngBox" style="margin-top:10px;border:1px solid var(--line);border-radius:8px;padding:9px 11px">
-    <summary style="cursor:pointer;font-size:12.5px;font-weight:700">💾 소식글 본문 저장 <span style="font-weight:400;color:var(--muted)">— 톤 학습용 기록</span></summary>
-    <p style="font-size:12px;color:var(--muted);margin:7px 0 0">카톡으로 <b>보낸 글 전체</b>를 그대로 붙여넣고 저장하세요. 날짜·시간대·상품키워드는 자동으로 채웁니다.<br>
-      같은 글이 이미 저장돼 있으면 다시 넣지 않습니다.</p>
-    <textarea id="ngBody" rows="6" placeholder="마스터 8월 31일 소식글&#10;&#10;좋은 아침입니다 대표님!!&#10;..." style="width:100%;margin-top:7px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7"></textarea>
+  <!-- 📰 소식글 등록 (홍팀장 2026-09-01)
+       원래는 두 칸이었다 — '소식글 상품 한 번에 넣기'(추천상품에 📰딱지)와 '본문 저장'(톤 기록).
+       홍팀장: "상품 한 번에 넣기는 필요 없고, 최종본을 넣으면 소식글 게시판에 글이 올라가고
+       글에서 상품 정보로 바로 갈 수 있게 해라." → 칸 하나로 합쳤다.
+       본문만 붙여넣으면 ① 카탈로그 [📰 소식글] 게시판에 글 ② 톤 학습용 히스토리 시트 기록
+       ③ 글 안의 상품 자동 연결(카탈로그에서 눌러 상품으로 이동)까지 한 번에 간다.
+       ⚠️ 히스토리 시트는 다음 세션 클로드가 톤을 복원하려고 읽는 원본이다. 기록이 끊기면 톤이 맨땅에서 다시 시작된다. -->
+  <details id="ngBox" open style="margin-top:10px;border:1px solid var(--line);border-radius:8px;padding:9px 11px">
+    <summary style="cursor:pointer;font-size:12.5px;font-weight:700">📰 소식글 등록 <span style="font-weight:400;color:var(--muted)">— 카탈로그 게시 + 톤 기록</span></summary>
+    <p style="font-size:12px;color:var(--muted);margin:7px 0 0">카톡으로 <b>보낸 글 전체</b>를 그대로 붙여넣으세요.
+      <a href="catalog.html#news" target="_blank" rel="noopener">카탈로그 [📰 소식글]</a> 메뉴에 글로 올라가고,
+      글에 나온 상품은 <b>눌러서 바로 그 상품으로</b> 갑니다.<br>
+      제목·날짜·상품 연결은 자동입니다. 같은 글이 이미 있으면 다시 넣지 않습니다.</p>
+    <textarea id="ngBody" rows="8" placeholder="마스터 9월 1일 소식글&#10;&#10;좋은 아침입니다 대표님!!&#10;..." style="width:100%;margin-top:7px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7"></textarea>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:7px">
+      <input id="ngTitle" placeholder="제목 — 비우면 본문에서 자동으로 만듭니다" autocomplete="off" style="flex:1;min-width:200px">
       <select id="ngType" style="border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:12.5px;background:var(--card);color:var(--ink)">
         <option>소식글</option><option>상품추천</option><option>배송공지</option><option>기타</option>
       </select>
-      <button class="cp" id="ngSave" style="margin-top:0">💾 소식글 시트에 저장</button>
+    </div>
+    <!-- 🔗 본문에서 찾아낸 상품 — 카탈로그 정본 이름과 완전일치할 때만 잡는다.
+         틀린 게 섞이면 ✕로 빼고 등록한다(추측 매칭 금지 규칙). -->
+    <div id="ngHit" style="font-size:11.5px;margin-top:7px;line-height:1.9"></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:7px">
+      <label style="font-size:12px;display:inline-flex;gap:5px;align-items:center"><input type="checkbox" id="ngPost" checked> 카탈로그 [📰 소식글]에 게시</label>
+      <button class="cp" id="ngSave" style="margin-top:0">📰 소식글 등록</button>
     </div>
     <div id="ngLog" style="font-size:11.5px;margin-top:6px;line-height:1.7"></div>
   </details>
@@ -1023,75 +1025,27 @@ $p('rcAdd').onclick=function(){
   $p('rcQ').value='';recDraw();
   $p('rcLog').textContent='추가했습니다 — 저장을 눌러야 반영됩니다.';
 };
-/* 📰 소식글 상품 일괄 등록 (홍팀장 2026-08-31)
-   소식글에 나간 상품을 그대로 붙여넣어 📰 딱지로 올린다.
-   ⚠️ 이름은 완전일치만 받는다 — 비슷한 이름으로 들어가면 카탈로그에서 사진·가격이 안 붙고
-      "카탈로그에 없는 상품" 카드로 뜬다. 안 맞는 줄은 넣지 않고 그대로 돌려준다.
-   ⚠️ 이미 ⭐ 추천으로 들어 있는 상품은 건드리지 않는다 — 상시로 미는 물건인데
-      소식글로 바꾸면 10일 뒤 저절로 내려가 버린다. */
-$p('rcNewsAdd').onclick=function(){
-  const raw=String($p('rcNews').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  if(!raw.length)return alert('상품명을 한 줄에 하나씩 붙여넣으세요.');
-  /* 🔧 2026-08-31 홍팀장 "상품 하나도 안 보인다" — 붙여넣는 모양이 매번 달라 전부 튕겼다.
-     ① 한 줄에 슬래시로 여러 개(`A급 정품 홍게 4kg / 활 홍가리비 1kg`)
-     ② 창고명이 앞에 붙은 줄(`민장 ⇥ 민물장어 1kg`)
-     🔴 추측 매칭이 아니다(§3-3) — 손질한 결과가 **정본과 완전일치**할 때만 채택하고,
-        아니면 원문 그대로 남겨 아래 '못 넣음' 목록에 뜨게 한다. */
-  const lines=[];
-  raw.forEach(function(ln){
-    const bar=ln.indexOf('|');
-    const head=t(bar>=0?ln.slice(0,bar):ln), cmt=bar>=0?ln.slice(bar+1):'';
-    if(!NAMES.size||NAMES.has(head)){lines.push(ln);return;}   // 줄 통째가 정본이면 그대로
-    const fixed=head.split('/').map(s=>t(s)).filter(Boolean).map(function(pt){
-      if(NAMES.has(pt))return pt;
-      const cut=t(pt.replace(/^[^\t]*\t+/,''));                 // 창고명 ⇥ 상품명
-      if(cut!==pt&&NAMES.has(cut))return cut;
-      const sp=t(pt.replace(/^\S+\s+/,''));                     // 창고명 공백 상품명
-      if(sp!==pt&&NAMES.has(sp))return sp;
-      return pt;
-    });
-    fixed.forEach(function(f){ lines.push(cmt?f+'|'+cmt:f); });
-  });
-  const add=[],keep=[],bad=[];
-  lines.forEach(function(ln){
-    const p=ln.split('|'), nm=t(p[0]), cm=t(p.slice(1).join('|'));
-    if(!nm)return;
-    if(NAMES.size&&!NAMES.has(nm)){bad.push(nm);return;}
-    const ex=REC.find(r=>r.name===nm);
-    if(ex){
-      if(!ex.news){keep.push(nm);return;}        // ⭐ 추천은 그대로 둔다
-      ex.at=day(); if(cm)ex.cmt=cm; add.push(nm); // 이미 소식글이면 날짜만 오늘로 되살린다
-      return;
-    }
-    REC.push({name:nm,cmt:cm,show:true,at:day(),news:true});
-    add.push(nm);
-  });
-  // 최신 10개만 남긴다 — 같은 날짜면 나중에 넣은 것이 최신
-  const news=REC.map((r,i)=>({r:r,i:i})).filter(x=>x.r.news)
-    .sort((a,b)=>(b.r.at||'').localeCompare(a.r.at||'')||(b.i-a.i));
-  const over=news.slice(NEWS_MAX).map(x=>x.r);
-  if(over.length)REC=REC.filter(r=>over.indexOf(r)<0);
-  recDraw();
-  $p('rcNews').value='';
-  const L=[], dn=over.map(r=>r.name), up=add.filter(n=>dn.indexOf(n)<0);   // 넣자마자 밀려난 건 '올림'에서 뺀다
-  if(up.length)L.push('📰 소식글로 올림 '+up.length+'건 — '+esc(up.join(', ')));
-  if(over.length)L.push('<span style="color:var(--muted)">↓ 오래돼서 내림 '+over.length+'건 — '+esc(over.map(r=>r.name).join(', '))+'</span>');
-  if(keep.length)L.push('<span style="color:var(--muted)">⭐ 추천이라 그대로 둠 — '+esc(keep.join(', '))+'</span>');
-  if(bad.length)L.push('<b style="color:#c0392b">⚠️ 카탈로그에 이 이름이 없어 못 넣음 — '+esc(bad.join(', '))+'</b>');
-  L.push('<b>저장을 눌러야 반영됩니다.</b>');
-  $p('rcNewsLog').innerHTML=L.join('<br>');
-};
-/* 💾 소식글 본문 → 히스토리 시트 저장 (홍팀장 2026-08-31)
-   소식글.html이 하던 일을 여기로 가져왔다. 스키마·시트 ID는 그 도구와 동일해야 한다
-   (A:J = id/날짜/시간대/형식/상품키워드/태그/본문/상세링크/출처/등록일시).
-   ⚠️ append만 한다 — 기존 행은 절대 건드리지 않는다(2026-05-27 데이터 유실 사고 규칙).
-   ⚠️ 이 시트는 다음 세션 클로드가 톤 복원하려고 읽는 원본이다. */
-const NEWS_SHEET_ID='1JJkkWo3mKIFzdQHw73k4Wc_Dl_NHvrDgmabDFD9ktrk';
+/* ══ 📰 소식글 등록 (홍팀장 2026-09-01) ══════════════════════════════════
+   예전엔 칸이 둘이었다 — '소식글 상품 한 번에 넣기'(추천상품에 📰딱지)와 '본문 저장'(톤 기록).
+   홍팀장: "상품 한 번에 넣기는 필요 없고, 최종본을 넣으면 소식글 게시판에 글이 올라가고
+   글에서 상품 정보로 바로 갈 수 있게 해라." → 본문 하나로 세 가지를 한다.
+     ① 카탈로그 [📰 소식글] 게시판 — 도구시트 '소식글' 탭 (A제목 B본문 C노출 D작성일 E연결상품)
+     ② 톤 학습용 기록             — 소식글 히스토리 시트 A:J (소식글.html과 같은 스키마)
+     ③ 글 ↔ 상품 연결             — 본문에서 정본 상품명을 찾아 E칸에 넣는다.
+                                    카탈로그가 그걸 버튼으로 그려서, 누르면 그 상품이 검색된다.
+   🔴 상품 매칭은 완전일치다(§3-3). 본문에 정본 이름이 **그대로** 들어있을 때만 잡는다.
+      비슷한 이름을 추측해 넣으면 카탈로그에서 엉뚱한 상품으로 넘어간다.
+   ⚠️ 두 시트 다 append 만 한다 — 기존 행은 건드리지 않는다(2026-05-27 데이터 유실 사고 규칙).
+   🔴 2026-09-01: 이 블록이 쓰던 api()/q1()/today() 는 **다른 IIFE 안에 있어 여기선 없는 이름**이었다.
+      어제 만든 [소식글 시트에 저장] 버튼이 눌러도 아무 일이 없던 원인이 이것이다.
+      → 이 IIFE가 실제로 가진 것만 쓴다: S.api · e1 · day · esc · NAMES. */
+const NEWS_SHEET_ID='1JJkkWo3mKIFzdQHw73k4Wc_Dl_NHvrDgmabDFD9ktrk';   // 톤 학습용 히스토리(사장님 개인 시트)
 const NEWS_TAB='소식글';
-const BISEO_SHEET_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
+const POST_TAB='소식글';        // 도구시트 안의 게시판 탭 — 카탈로그가 이걸 읽는다
+const pk=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 // 발송 시간대 — 소식글 인사말 기준과 같게 맞춘다(아침 05~10 / 점심 11~16 / 저녁 17~21)
 function ngSlot(h){ return h>=5&&h<11?'아침':h>=11&&h<17?'점심':h>=17&&h<22?'저녁':'기타'; }
-// 상품키워드 — 본문의 [태그] 뒤 제목 줄을 뽑는다. 없으면 첫 상품 줄로 대체
+// 상품키워드 — 본문의 [태그] 뒤 제목 줄을 뽑는다
 function ngKeywords(body){
   const out=[];
   String(body||'').split(/\r?\n/).forEach(function(ln){
@@ -1101,45 +1055,130 @@ function ngKeywords(body){
   return out.slice(0,5).join(', ');
 }
 function ngLink(body){ const m=String(body||'').match(/https?:\/\/\S+/); return m?m[0]:''; }
+/* 제목 — [태그] 줄이 있으면 그게 제목이다.
+   게시판에선 제목만 보고 열지 말지를 정하는데 "마스터 9월 1일 소식글"은 아무것도 안 알려준다. */
+function ngAutoTitle(body){
+  const lines=String(body||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const tags=lines.map(function(ln){const m=ln.match(/^\[([^\]]+)\]\s*(.*)$/);return m?('['+m[1]+'] '+(m[2]||'')).trim():'';}).filter(Boolean);
+  if(tags.length)return tags[0]+(tags.length>1?(' 외 '+(tags.length-1)+'건'):'');
+  for(let i=0;i<lines.length;i++){
+    const ln=lines[i];
+    if(/^마스터\s.*소식/.test(ln))continue;
+    if(/^(좋은 아침|안녕하세요|오늘도|오늘 하루)/.test(ln))continue;
+    return ln.slice(0,60);
+  }
+  return lines[0]||'소식글';
+}
+/* 🔗 본문 → 정본 상품명. 공백만 무시하고 이름이 통째로 들어있는지 본다.
+   짧은 이름은 우연히 걸리니(‘김치’가 ‘포기김치 10kg’ 설명문에 스침) 5글자 미만은 안 잡고,
+   긴 이름이 잡히면 그 안에 든 짧은 이름은 뺀다('활 홍가리비 1kg' 이 있으면 '홍가리비'는 버림). */
+let NGHIT=[], NGOUT={};          // NGOUT = 사장님이 ✕로 뺀 것
+function ngMatch(body){
+  const hay=pk(body); if(!hay||!NAMES.size)return [];
+  const hit=[];
+  NAMES.forEach(function(n){ const k=pk(n); if(k.length>=5&&hay.indexOf(k)>=0)hit.push(n); });
+  hit.sort(function(a,b){ return pk(b).length-pk(a).length; });
+  const out=[];
+  hit.forEach(function(n){ if(!out.some(function(o){return pk(o).indexOf(pk(n))>=0;}))out.push(n); });
+  return out;
+}
+function ngDrawHit(){
+  const box=$p('ngHit'); if(!box)return;
+  if(!NGHIT.length){
+    box.innerHTML='<span style="color:var(--muted)">🔗 글에서 찾은 상품 없음 — 상품명이 카탈로그 이름과 한 글자라도 다르면 못 찾습니다. 그래도 글은 그대로 올라갑니다.</span>';
+    return;
+  }
+  const live=NGHIT.filter(function(n){return !NGOUT[n];});
+  box.innerHTML='<b>🔗 이 글에서 찾은 상품 '+live.length+'건</b> <span style="color:var(--muted)">— 카탈로그에서 눌러 바로 갈 수 있게 붙습니다. 틀린 건 ✕</span><br>'
+    +NGHIT.map(function(n){
+      const off=!!NGOUT[n];
+      return '<span data-ngx="'+esc(n)+'" title="'+(off?'다시 넣기':'빼기')+'" style="display:inline-flex;align-items:center;gap:5px;margin:2px 5px 2px 0;padding:2px 8px;border-radius:6px;cursor:pointer;'
+        +(off?'background:rgba(128,128,128,.14);color:var(--muted);text-decoration:line-through'
+             :'background:rgba(31,111,214,.12);color:#1f6fd6;font-weight:700')
+        +'">'+esc(n)+'<b style="opacity:.55">'+(off?'↩':'✕')+'</b></span>';
+    }).join('');
+}
+$p('ngHit').addEventListener('click',function(ev){
+  const s=ev.target.closest('[data-ngx]'); if(!s)return;
+  const n=s.getAttribute('data-ngx');
+  if(NGOUT[n])delete NGOUT[n]; else NGOUT[n]=1;
+  ngDrawHit();
+});
+let ngTimer=null;
+$p('ngBody').addEventListener('input',function(){
+  clearTimeout(ngTimer);
+  ngTimer=setTimeout(function(){
+    NGHIT=ngMatch($p('ngBody').value); NGOUT={};
+    ngDrawHit();
+    const auto=ngAutoTitle($p('ngBody').value);
+    if(!$p('ngTitle').value.trim())$p('ngTitle').placeholder=auto?('제목 — 자동: '+auto):'제목 — 비우면 본문에서 자동으로 만듭니다';
+  },250);
+});
+// 도구시트에 '소식글' 탭이 없으면 머리글까지 만들어 둔다
+async function ngEnsurePostTab(){
+  const m=await S.api(DOGU,'?fields=sheets.properties.title');
+  if(m&&m.error)throw new Error(m.error.message||'도구시트를 열지 못했습니다');
+  const has=(((m||{}).sheets)||[]).some(function(s){return s.properties&&s.properties.title===POST_TAB;});
+  if(has)return;
+  const a=await S.api(DOGU,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({requests:[{addSheet:{properties:{title:POST_TAB}}}]})});
+  if(a&&a.error)throw new Error(a.error.message||'소식글 탭을 만들지 못했습니다');
+  await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!A1:E1")+'?valueInputOption=RAW',
+    {method:'PUT',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({values:[['제목','본문','노출','작성일','연결상품']]})});
+}
 $p('ngSave').onclick=async function(){
   const b=this, body=String($p('ngBody').value||'').trim();
   const log=function(h){ $p('ngLog').innerHTML=h; };
   if(!body)return alert('보낸 소식글 본문을 붙여넣으세요.');
-  b.disabled=true; b.textContent='저장 중…'; log('');
+  b.disabled=true; b.textContent='등록 중…'; log('');
   try{
-    // 중복 확인 — 본문 열(G)만 읽어 공백 무시 비교
-    const got=await api(NEWS_SHEET_ID,'/values/'+q1(NEWS_TAB+'!G:G'));
-    const seen=((got&&got.values)||[]).map(function(r){return String(r[0]||'').replace(/\s+/g,'');});
-    if(seen.indexOf(body.replace(/\s+/g,''))>=0){
-      log('<b style="color:var(--muted)">이미 저장돼 있는 글입니다 — 중복 저장하지 않았습니다.</b>');
-      return;
-    }
+    // 중복 확인 — 히스토리 시트 본문 열(G)만 읽어 공백 무시 비교
+    const got=await S.api(NEWS_SHEET_ID,'/values/'+e1(NEWS_TAB+'!G:G'));
+    if(got&&got.error)throw new Error('소식글 시트를 읽지 못했습니다: '+(got.error.message||''));
+    const seen=(((got||{}).values)||[]).map(function(r){return String(r[0]||'').replace(/\s+/g,'');});
+    const dup=seen.indexOf(body.replace(/\s+/g,''))>=0;
+
     const n=new Date(), type=$p('ngType').value, kw=ngKeywords(body);
-    const row=[String(Date.now()),today(),ngSlot(n.getHours()),type,kw,'',body,ngLink(body),'발송',
-      n.toISOString().slice(0,19)];
-    const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+NEWS_SHEET_ID
-      +'/values/'+q1(NEWS_TAB+'!A:J')+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
-      {method:'POST',headers:{Authorization:'Bearer via-proxy','Content-Type':'application/json'},
-       body:JSON.stringify({values:[row]})});
-    if(!r.ok)throw new Error('소식글 시트 응답 '+r.status);
-    // 비서 업무관리 탭에도 한 줄 — 소식글.html appendToBiseo()와 같은 스키마
-    let biseo='';
-    try{
-      const pts=(n.getMonth()+1)+'/'+n.getDate()+' '+String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
-      const label=(type&&type!=='소식글')?'['+type+'] ':'';
-      const brow=[String(Date.now()),'',today(),'1','📰 아침소식글: '+label+kw,'TRUE',
-        JSON.stringify([{text:'📰 소식글 발송 (상품도구 자동기록)',ts:pts}]),'메모','FALSE',n.toISOString()];
-      const br=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+BISEO_SHEET_ID
-        +'/values/'+q1('업무관리!A:J')+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
-        {method:'POST',headers:{Authorization:'Bearer via-proxy','Content-Type':'application/json'},
-         body:JSON.stringify({values:[brow]})});
-      biseo=br.ok?' · 📰 비서에도 기록됨':' · ⚠️ 비서 기록 실패';
-    }catch(e){ biseo=' · ⚠️ 비서 기록 실패'; }
-    $p('ngBody').value='';
-    log('✅ 저장했습니다 ('+ngSlot(n.getHours())+' · '+type+(kw?' · '+esc(kw):'')+')'+biseo);
-  }catch(e){ log('<b style="color:#c0392b">⚠️ '+esc(e.message)+'</b>'); }
-  finally{ b.disabled=false; b.textContent='💾 소식글 시트에 저장'; }
+    const title=String($p('ngTitle').value||'').trim()||ngAutoTitle(body);
+    const links=NGHIT.filter(function(x){return !NGOUT[x];});
+    const L=[];
+
+    // ① 카탈로그 게시판
+    if($p('ngPost').checked){
+      await ngEnsurePostTab();
+      const j=await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!A:E")+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
+        {method:'POST',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({values:[[title,body,'Y',day(),links.join(', ')]]})});
+      if(j&&j.error)throw new Error(j.error.message||'게시판에 올리지 못했습니다');
+      L.push('✅ 카탈로그에 올렸습니다 — <b>'+esc(title)+'</b>'
+        +(links.length?(' · 🔗 상품 '+links.length+'건 연결'):' · <span style="color:var(--muted)">연결된 상품 없음</span>'));
+    }
+    // ② 톤 학습용 기록 (다음 세션 클로드가 톤을 복원하는 원본)
+    if(dup){ L.push('<span style="color:var(--muted)">📚 톤 기록은 이미 있어 건너뛰었습니다.</span>'); }
+    else{
+      const row=[String(Date.now()),day(),ngSlot(n.getHours()),type,kw,'',body,ngLink(body),'발송',n.toISOString().slice(0,19)];
+      const j2=await S.api(NEWS_SHEET_ID,'/values/'+e1(NEWS_TAB+'!A:J')+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
+      if(j2&&j2.error)throw new Error(j2.error.message||'소식글 시트에 저장하지 못했습니다');
+      L.push('📚 톤 기록 저장 ('+ngSlot(n.getHours())+' · '+esc(type)+(kw?(' · '+esc(kw)):'')+')');
+      // ③ 비서 업무관리에도 한 줄 — 소식글.html appendToBiseo() 와 같은 스키마
+      try{
+        const pts=(n.getMonth()+1)+'/'+n.getDate()+' '+String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+        const label=(type&&type!=='소식글')?'['+type+'] ':'';
+        const brow=[String(Date.now()),'',day(),'1','📰 아침소식글: '+label+kw,'TRUE',
+          JSON.stringify([{text:'📰 소식글 발송 (상품도구 자동기록)',ts:pts}]),'메모','FALSE',n.toISOString()];
+        await S.api(DOGU,'/values/'+e1('업무관리!A:J')+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
+          {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[brow]})});
+        L.push('<span style="color:var(--muted)">📋 비서 업무관리에도 기록됨</span>');
+      }catch(e){ L.push('<span style="color:var(--muted)">⚠️ 비서 기록만 실패 — 글은 올라갔습니다</span>'); }
+    }
+    $p('ngBody').value=''; $p('ngTitle').value=''; NGHIT=[]; NGOUT={}; ngDrawHit();
+    log(L.join('<br>'));
+  }catch(e){ log('<b style="color:#c0392b">⚠️ '+esc(e.message||e)+'</b>'); }
+  finally{ b.disabled=false; b.textContent='📰 소식글 등록'; }
 };
+ngDrawHit();
 $p('rcSave').onclick=async function(){
   const b=this;b.disabled=true;b.textContent='저장 중…';$p('rcLog').textContent='';
   try{
