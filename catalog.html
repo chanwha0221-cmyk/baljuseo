@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.76).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.77).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.76</title>
+<title>마스터 유통 카탈로그 v2.77</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1517,6 +1517,12 @@ async function startCatalog(){
 // 폰 뒤로가기·브라우저 뒤로가기를 누르면 카탈로그로 그대로 돌아온다.
 // 추천상품·공지사항 내용은 '마스터 유통 상품 도구'(media-updater)에서 등록한다.
 // ══════════════════════════════════════════════════════════════════
+/* 🏠 들어오면 언제나 전체 상품 화면부터 (홍팀장 2026-09-01)
+   주소에 #order·#news·#orders 가 남아 있으면 지난번 보던 서브화면이 열린 채로 시작했다.
+   업체든 우리든 **처음 보는 화면은 상품**이어야 한다 — 카탈로그의 본질이 그것이다.
+   ⚠️ 지우는 건 들어올 때 딱 한 번. 세션 중에 메뉴를 눌러 옮겨 다니는 건 그대로 둔다.
+      hashchange 리스너는 이 아래에서 붙으므로 이 replaceState 는 아무 이벤트도 일으키지 않는다. */
+if(location.hash)history.replaceState(null,'',location.pathname+location.search);
 const subV=$('subView'),mainV=$('mainView'),menuEl=$('menu');
 let CHG=null,RECS=null,NOTI=null,NEWS=null;
 /* ⭐ 추천상품을 창고 목록에서도 맨 앞에 세우려면 시작할 때 읽어야 한다 (사장님 2026-08-19).
