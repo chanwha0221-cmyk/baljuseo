@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.4</title>
+<title>마스터 유통 카탈로그 v23.5</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -163,7 +163,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .chg.out{background:var(--chip);color:var(--muted)}
 .chg.ev{background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold)}
 .recc{font-size:11.5px;line-height:1.6;color:var(--accent-d);background:var(--soft);border-radius:8px;padding:7px 9px;margin-top:2px}
-/* 추천상품 출처 배지 — 수동 추천은 계속, 소식글은 10일 뒤 자동으로 내려간다 */
+/* 추천상품 출처 배지 — 수동 추천은 계속, 소식글은 10일 뒤 자동으로 내려간다(개수 제한은 없다) */
 .recb{font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px;align-self:flex-start}
 .recb.rec{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-d)}
 .recb.news{background:color-mix(in srgb,var(--down) 15%,transparent);color:var(--down)}
@@ -1888,10 +1888,11 @@ function renderChange(d){
 // ── 2) 추천상품 — 도구시트 '추천상품' 탭 (상품명 · 코멘트 · 노출 · 순서 · 등록일) ──
 // 소식글에서 올라온 상품은 등록일부터 10일만 노출하고 11일차에 저절로 내려간다.
 // 사장님이 직접 넣은 '추천'은 지울 때까지 계속 간다. (사장님 2026-08-18)
-/* 📰 소식글 딱지는 **최신 10개까지만.** 11번째가 올라오면 가장 오래된 게 화면에서 내려간다
-   (홍팀장 2026-08-31). 시트 줄은 그대로 두고 화면에서만 자른다 — 되돌리기가 쉽고,
-   지웠다가 잘못 지운 걸 복구할 일이 없다. 수동 '⭐ 추천'은 이 상한과 무관하게 계속 남는다. */
-const NEWS_DAYS=10, NEWS_MAX=10;
+/* 🔴 개수 상한 폐지 (홍팀장 2026-09-02 "소식글로 올라갔는데 그게 추천상품까지 되면
+   10개 넘어도 강제로 내리지 마라"). 옛 NEWS_MAX=10 은 11번째가 올라오면 가장 오래된 📰를
+   화면에서 잘랐는데, 아직 파는 상품이 개수 때문에 사라지는 게 말이 안 된다.
+   이제 📰가 내려가는 기준은 **날짜 하나뿐** — 등록일부터 10일. 수동 '⭐ 추천'은 지울 때까지 남는다. */
+const NEWS_DAYS=10;
 function daysSince(s){
   const m=String(s||'').match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
   if(!m)return 0;
@@ -1917,9 +1918,7 @@ async function loadRecs(){
       if(a.news)return (b.at||'').localeCompare(a.at||'')||(a.i-b.i); // 소식글은 최신 먼저
       return (a.ord-b.ord)||(a.i-b.i);
     });
-  // 소식글 딱지는 최신 10개까지 — 위 정렬이 이미 최신 먼저라 앞에서부터 세면 된다
-  let n=0;
-  return rows.filter(r=>!r.news||(++n<=NEWS_MAX));
+  return rows;   // 📰 개수 컷 없음 — 날짜(NEWS_DAYS)로만 내려간다
 }
 /* 카탈로그에서 빠진 추천 상품을 예외로 넣는다 — 마스터 화면에서만, 상품당 한 번만.
    순서대로 하나씩 보낸다(웹앱이 예외 목록을 통째로 되쓰기 때문에 동시에 보내면 서로 덮는다). */
