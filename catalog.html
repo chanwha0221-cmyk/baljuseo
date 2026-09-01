@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.70).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.71).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.70</title>
+<title>마스터 유통 카탈로그 v2.71</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -264,6 +264,20 @@ a.ubtn{display:inline-block;text-decoration:none;line-height:1.6}   /* 👤 계�
 .pendnudge small{display:block;font-weight:600;font-size:11.5px;opacity:.9;margin-top:3px}
 .pendnudge .tel{display:inline-block;margin-top:7px;margin-right:7px;border:1px solid currentColor;
   border-radius:16px;padding:4px 11px;font-size:11.5px;font-weight:800;color:inherit;text-decoration:none}
+/* 🔒 확인 전(임시) 계정은 상품·단가·발주를 아예 못 본다 (홍팀장 2026-09-01)
+   — 화면에서 통째로 걷어내고 연락 안내만 남긴다. 아래 pendNudge() 주석에 경위. */
+body.pending #menu,body.pending .controls,body.pending #view,body.pending #empty,
+body.pending #load,body.pending .ntcbox,body.pending .newsone,body.pending #subView,
+body.pending .noteTg,body.pending .note{display:none!important}
+.pendwall{margin-top:11px;background:var(--card);border:2px solid color-mix(in srgb,var(--gold) 55%,transparent);
+  border-radius:14px;padding:20px 18px;box-shadow:var(--shadow);text-align:center}
+.pendwall .pw1{font-size:16px;font-weight:800;color:var(--gold);line-height:1.5}
+.pendwall .pw2{font-size:13px;color:var(--ink);font-weight:600;line-height:1.7;margin-top:9px}
+.pendwall .pw3{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:11px}
+.pendwall .tels{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.pendwall .tel{border:1.5px solid var(--accent);background:var(--soft);color:var(--accent-d);
+  border-radius:999px;padding:9px 16px;font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap}
+@media(max-width:640px){.pendwall{padding:16px 13px}.pendwall .pw1{font-size:14.5px}.pendwall .tel{width:100%}}
 .pwnudge{margin-top:9px;background:color-mix(in srgb,var(--gold) 12%,transparent);border:1px solid color-mix(in srgb,var(--gold) 35%,transparent);color:var(--gold);border-radius:11px;padding:8px 12px;font-size:11.5px;font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pwnudge button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:16px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
 /* 📇 주문처 연락처가 없는 업체에게 **들어오자마자** 요청 (사장님 2026-08-25:
@@ -1862,6 +1876,12 @@ document.addEventListener('click',function(e){
 async function renderRoute(){
   const v=location.hash.replace(/^#/,'');
   menuEl.querySelectorAll('.mbtn').forEach(b=>b.classList.toggle('on',b.getAttribute('data-go')===v));
+  // 🔒 확인 전 계정은 어느 화면에도 못 들어간다 — 주소창에 #order 를 쳐 넣어도 여기서 막힌다
+  if(typeof isPending==='function'&&isPending()){
+    mainV.style.display='';subV.style.display='none';subV.innerHTML='';
+    if(location.hash){history.replaceState(null,'',location.pathname+location.search);}
+    return;
+  }
   const nb=$('ntcbox'), n1=$('newsone');
   if(!v||v==='main'){mainV.style.display='';subV.style.display='none';subV.innerHTML='';if(nb)nb.style.display='';if(n1)n1.style.display='';window.scrollTo({top:0});return;}
   mainV.style.display='none';subV.style.display='';
@@ -2036,16 +2056,35 @@ function showHiForm(me,after){
   gateShow(true);
   $('hi_btn').onclick=()=>{gateShow(false);showLoginForm();after();};
 }
-/* 🕒 임시 계정 안내 배너 — 확인이 끝나 권한이 '업체'로 바뀔 때까지 매번 뜬다.
-   ⚠️ 상품·발주를 막지는 않는다(홍팀장 2026-08-28). 막으면 진짜 거래처까지 전화가 온다. */
+/* 🔒 확인 전(임시) 계정 — 상품·단가·발주를 **막는다** (홍팀장 2026-09-01)
+   경위: 2026-08-28 엔 반대로 열어뒀다("막으면 진짜 거래처까지 전화가 온다"). 그런데 오늘
+   계정관리 화면에서 확인 전 계정이 상품도 보고 발주까지 넣을 수 있는 걸 보고 홍팀장이 뒤집었다
+   — 확인 안 된 사람에게 우리 단가표가 통째로 나가고 있었던 것이다.
+   ⚠️ 막되 막다른 길로 두지 않는다. 담당자 번호를 크게 띄워 전화 한 통이면 풀리게 한다.
+   화면을 걷어내는 건 body.pending CSS 가 한다(#menu·상품·공지·소식글까지 통째로).
+   주소창에 #order 를 쳐 넣는 길은 renderRoute() 가 막는다. */
+function isPending(){
+  const me=(typeof ME!=='undefined'&&ME)?ME:null;
+  return !!(me&&String(me.role||'').indexOf('임시')>=0);
+}
 function pendNudge(){
   const box=$('pendnudge'); if(!box) return;
-  const me=(typeof ME!=='undefined'&&ME)?ME:null;
-  if(!me||String(me.role||'').indexOf('임시')<0){ box.innerHTML=''; return; }
-  box.innerHTML='<div class="pendnudge">🕒 아직 <b>업체 확인 전(임시 계정)</b>입니다.'
-    +'<small>담당자에게 카톡이나 전화로 연락 주시면 바로 승인해 드립니다. 승인 요청 부탁드립니다.</small>'
-    +'<a class="tel" href="tel:01024554156">📞 홍찬화 팀장 010-2455-4156</a>'
-    +'<a class="tel" href="tel:01023265911">📞 박원비 팀장 010-2326-5911</a></div>';
+  if(!isPending()){
+    // 승인이 나면(서버 확인 응답이 늦게 와도) 잠금을 풀고 화면을 원래대로 돌린다
+    if(document.body.classList.contains('pending')){ document.body.classList.remove('pending'); renderRoute(); }
+    box.innerHTML=''; return;
+  }
+  document.body.classList.add('pending');
+  if(location.hash)location.hash='';
+  box.innerHTML='<div class="pendwall">'
+    +'<div class="pw1">🔒 아직 업체 확인 전입니다</div>'
+    +'<div class="pw2">담당자 확인이 끝나면 상품과 단가가 바로 열립니다.<br>아래 번호로 연락 주시면 바로 승인해 드려요!</div>'
+    +'<div class="tels">'
+      +'<a class="tel" href="tel:01024554156">📞 홍찬화 팀장 010-2455-4156</a>'
+      +'<a class="tel" href="tel:01023265911">📞 박원비 팀장 010-2326-5911</a>'
+    +'</div>'
+    +'<div class="pw3">업체명과 사업자등록증을 확인한 뒤 승인해 드립니다.<br>승인 후 새로고침하시면 바로 이용하실 수 있습니다.</div>'
+    +'</div>';
 }
 function renderUser(){
   if(!ME)return;
