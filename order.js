@@ -1609,14 +1609,26 @@ function rowsFromConverted(cols){
    🔴 정산업체명은 뽑지 않는다. 그건 위에서 고른 업체가 정답이다(파일엔 우리 업체명이 없다).
    🔴 취소·반품·교환 줄은 버린다 — 그건 발주가 아니다.
    ⚠️ 변환기가 한 줄이라도 읽어냈으면 이 함수는 돌지 않는다. */
+/* 🛒 쿠팡 DeliveryList (홍팀장 2026-09-01) — 41칸짜리 내려받기 파일.
+   업체가 손으로 옮겨 적던 걸 그대로 재현한다:
+     등록상품명(+등록옵션명) → 상품명 · 구매수(수량) → 수량 · 수취인이름 → 성함
+     (우편번호)수취인 주소   → 주소   · 수취인전화번호 → 연락처 · 배송메세지 → 배송메시지
+   ⚠️ 쿠팡은 '배송메세지'(세)다 — 우리가 쓰던 '배송메시지'(시)와 글자가 다르다.
+   ⚠️ '수취인 주소'는 띄어쓰기가 있어 기존 '수취인주소' 로는 안 걸렸다.
+   ⚠️ '구매자전화번호'가 아니라 '수취인전화번호'다 — 구매자와 받는분이 다른 발주가 흔하다. */
 const HDR_MAP = {
-  name: ['상품명', '제품명', '품목명', '상품이름'],
-  qty : ['수량', '주문수량', '개수'],
+  name: ['상품명', '제품명', '품목명', '상품이름', '등록상품명'],
+  qty : ['수량', '주문수량', '개수', '구매수'],
   rcv : ['받는사람', '받는분', '수취인', '수령인', '고객명', '수취인명', '받는분 성함'],
-  addr: ['배송지', '배송주소', '받는분 주소', '주소', '수취인주소'],
-  tel : ['배송지연락처', '수취인연락처', '받는분 연락처', '받는분연락처', '수취인 연락처', '연락처', '휴대폰'],
-  msg : ['배송위치', '배송메시지', '배송요청사항', '배송메모', '요청사항', '배송시요청사항']
+  addr: ['배송지', '배송주소', '받는분 주소', '주소', '수취인주소', '수취인 주소'],
+  tel : ['배송지연락처', '수취인연락처', '받는분 연락처', '받는분연락처', '수취인 연락처', '수취인전화번호', '연락처', '휴대폰'],
+  msg : ['배송위치', '배송메시지', '배송메세지', '배송요청사항', '배송메모', '요청사항', '배송시요청사항'],
+  // 아래 둘은 우리 7칸에 그대로 들어가지 않고, 상품명·주소를 **거들기만** 한다
+  opt : ['등록옵션명'],
+  zip : ['우편번호']
 };
+// 옵션 미선택 기본값 — 진짜 규격이 아니라 상품명 뒤에 붙이면 안 된다 (변환기와 같은 규칙)
+const DEFAULT_OPT = /^(기본|기본옵션|기본형|기본구성|단일상품|단일|본품|선택안함|선택|없음|-)$/;
 function headerItems(raw){
   const lines = S(raw).split(/\r?\n/).filter(l => l.replace(/\t/g, '').trim());
   if(lines.length < 2) return [];
@@ -1643,14 +1655,26 @@ function headerItems(raw){
   for(let i = hr + 1; i < lines.length; i++){
     const c = cut(lines[i]);
     const g = f => (at[f] >= 0 ? dash(c[at[f]]) : '');
-    const nm = g('name');
-    if(!nm) continue;
+    const nm0 = g('name');
+    if(!nm0) continue;
+    /* 🛒 옵션명은 규격이다 — 쿠팡 '마)이성500' + '1박스 500g'. 상품명만 뽑으면 몇 g 인지 사라진다.
+       어차피 카탈로그 이름과 완전일치가 아니라 빨갛게 뜨고 업체가 고르는데, 그때 규격이 보여야 고를 수 있다.
+       ⚠️ '기본'류 옵션은 안 붙인다(진짜 규격이 아니다). 이미 상품명에 들어 있는 말도 안 붙인다. */
+    const op = g('opt');
+    const nm = (op && !DEFAULT_OPT.test(op) && nm0.indexOf(op) < 0) ? (nm0 + ' ' + op) : nm0;
     const st = stIdx >= 0 ? S(c[stIdx]) : '';
     if(/취소|반품|교환/.test(st)){ skipped.push(nm + (st ? '(' + st + ')' : '')); continue; }
     const q = S(g('qty')).replace(/[^\d]/g, '');
-    out.push({ biz:'', name:nm, qty:q || '1', rcv:g('rcv'), addr:g('addr'), tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') });
+    /* 📮 우편번호가 따로 온 칸이면 주소 앞에 (우편번호) 로 붙인다 — 업체가 손으로 하던 그대로.
+       주소 문자열에 이미 들어 있으면 두 번 붙이지 않는다. */
+    let ad = g('addr');
+    const zp = S(g('zip')).replace(/[^\d]/g, '');
+    if(zp && ad && ad.indexOf(zp) < 0) ad = '(' + zp + ')' + ad;
+    out.push({ biz:'', name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') });
   }
   out.skipped = skipped;
+  // 원문에 없던 손질을 했으면 화면에 그대로 말해준다 — 주소가 왜 달라졌는지 묻지 않게
+  out.used = { opt: at.opt >= 0, zip: at.zip >= 0 };
   return out;
 }
 
@@ -1713,9 +1737,9 @@ function runConvert(append){
         자기 9칸 양식으로 알고 상품코드를 받는분으로, 규격을 주소로 읽어 **그럴듯한 쓰레기**를 뱉는다.
         빈 결과였으면 이쪽으로 넘어왔겠지만, 결과가 있으니 넘어오질 않았다.
         머리글이 있으면 이름으로 찾는 쪽이 언제나 정확하다 → 그쪽을 먼저 본다. */
-  let r = null, got = null, simple = false, byHead = null;
+  let r = null, got = null, simple = false, byHead = null, hdUsed = null;
   const hd = headerItems(raw);
-  if(hd.length){ got = {rows: hd, bizes: []}; byHead = hd.skipped || []; }
+  if(hd.length){ got = {rows: hd, bizes: []}; byHead = hd.skipped || []; hdUsed = hd.used || {}; }
   else{
     r = window.CONVERT.convert(raw);
     if(r.error){ logEl.innerHTML = '<div class="ordwarn">변환 중 오류 — ' + esc(r.error) + '</div>'; return; }
@@ -1751,6 +1775,10 @@ function runConvert(append){
       + ' <span class="hint">(상품명·수량·받는분 성함·주소·연락처·배송메시지)</span>'
       + (S(who.name) ? '<br>정산업체명은 ' + whoLine(who.name) + ' 로 나갑니다 — 파일 안의 판매처가 아닙니다.' : '<br>위에서 <b>어느 업체 발주인지</b> 골라주세요.')
       + (byHead.length ? '<br><b style="color:var(--up)">🚫 취소·반품·교환 ' + byHead.length + '줄은 뺐습니다</b> — ' + esc(byHead.slice(0, 5).join(', ')) + (byHead.length > 5 ? ' 외' : '') : '')
+      + ((hdUsed && (hdUsed.opt || hdUsed.zip))
+          ? '<br><span class="hint">' + [hdUsed.opt ? '옵션명을 상품명 뒤에 붙였습니다(규격이 옵션 칸에 있어서)' : '',
+                                          hdUsed.zip ? '우편번호를 주소 앞에 (00000) 으로 붙였습니다' : ''].filter(Boolean).join(' · ') + '</span>'
+          : '')
       + '</div>');
   }
   if(simple){
@@ -2407,5 +2435,5 @@ window.addEventListener('load', () => { if(!ROWS.length) ROWS = loadDraft(); bad
 // _build·_check는 검증용 출구다(브라우저 없이 변환 결과를 확인할 때 쓴다). 화면 동작과 무관.
 window.ORDER = {view, bind, add, orders: ordersView, ordersBind, rows: () => ROWS, _build: buildOut, _check: checkRow,
                 _fromConverted: rowsFromConverted, _setRows: r => { ROWS = r; },
-                _cells: rowsFromCells, _foreign: foreign};
+                _cells: rowsFromCells, _foreign: foreign, _header: headerItems};
 })();
