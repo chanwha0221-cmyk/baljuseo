@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.20</title>
+<title>마스터 유통 상품 도구 v1.21</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -87,6 +87,7 @@ a{color:var(--accent)}
   <button class="tabbtn" data-t="photo">🔧 사진·링크 수정</button>
   <button class="tabbtn" data-t="promo">📣 추천상품·공지사항</button>
   <button class="tabbtn" data-t="hap">📦 합포장 이름 맞추기<span id="hapCnt" style="margin-left:5px;font-size:11px;color:var(--up);font-weight:800"></span></button>
+  <button class="tabbtn" data-t="close">🔒 발주 마감</button>
 </div>
 
 <div id="tab-cat">
@@ -229,6 +230,32 @@ a{color:var(--accent)}
     <a class="cp" href="https://docs.google.com/spreadsheets/d/1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM/edit#gid=772579466" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none">📊 합포장 시트</a>
   </div>
   <div id="hapList"></div>
+</div>
+
+<!-- 🔒 발주 마감 — 마찬 월 시트 그날 탭의 원가 칸을 채운다 (홍팀장 2026-09-01)
+     그동안 원비씨가 리모컨에 상품명을 하나씩 넣어 원가를 뽑아 손으로 채웠다. 합포장·배송비 때문에
+     기계가 못 할 거라고 봤는데, 9/1 탭 170건으로 맞춰보니 **원 단위까지 170/170 일치**했다.
+     계산식: (원가 × 수량) + 원가 택배비(창고당 1회, 과세 상품이 있으면 과세 칸으로).
+     🔴 원가는 '전체상품원가' 탭에서만 온다 — 그 탭이 낡으면 마진이 통째로 틀린다.
+        (실측: 원가표가 하루 낡았을 때 170건 중 4건이 어긋났다.) 그래서 반영 시각을 먼저 띄우고,
+        오늘 것이 아니면 빨간 경고를 낸다. -->
+<div id="tab-close" style="display:none">
+<div class="card">
+  <h2>🔒 발주 마감 <span id="clStat" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
+  <p style="font-size:12.5px;color:var(--muted)">마찬 월 시트의 <b>그날 탭</b>을 열어 <b>원가(면세)·원가(과세)</b> 칸을 채웁니다.
+    상품명·수량으로 <b>전체상품원가</b>에서 원가를 찾아 <b>(원가×수량)+택배비</b>로 계산해요.<br>
+    택배비는 <b>창고당 한 번</b>만 붙고(합포장), 한 행에 과세 상품이 있으면 <b>과세 칸</b>으로 갑니다.
+    <b>이미 값이 있는 행은 건드리지 않습니다.</b></p>
+  <div id="clCost" style="font-size:12.5px;font-weight:700;margin-top:9px;padding:9px 12px;border-radius:9px"></div>
+  <div class="ct-bulk" style="margin-top:10px">
+    <select id="clDay" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--card);color:var(--ink);min-width:150px"></select>
+    <button class="cp" id="clPrev" style="margin-top:0">🔍 계산해 보기</button>
+    <button class="cp" id="clFill" style="margin-top:0;display:none">✅ 원가 채우기</button>
+    <a class="cp" id="clLink" href="#" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none;display:none">📊 시트 열기</a>
+  </div>
+  <div id="clLog" style="font-size:12.5px;margin-top:10px;line-height:1.8"></div>
+  <div id="clList" style="margin-top:8px"></div>
+</div>
 </div>
 </div>
 </main>
@@ -1623,6 +1650,188 @@ $t('thQ').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDe
   const b=document.querySelector('.tabbtn[data-t="photo"]'); if(b)b.click();
   $t('thQ').value=nm; load(nm);
 })();
+})();
+
+
+/* ══ 🔒 발주 마감 — 마찬 월 시트 그날 탭의 원가 칸 채우기 (홍팀장 2026-09-01) ══════════
+   그동안 원비씨가 리모컨에 상품명을 하나씩 넣어 원가를 뽑고 손으로 채웠다.
+   합포장·배송비 때문에 기계가 못 할 거라 봤는데, 9/1 탭 170건으로 맞춰보니 원 단위까지 전부 같았다.
+
+     원가 = (상품 원가 × 수량) + 원가 택배비
+            · 택배비는 **창고당 한 번**만 (합포장이면 몇 개를 담아도 한 번)
+            · 한 행에 과세 상품이 하나라도 있으면 택배비는 **과세 칸**으로
+            · 면세/과세는 원가표의 과세구분을 따라 각 칸에 나눠 담는다
+
+   🔴 원가는 '전체상품원가' 탭에서만 온다. 그 탭이 낡으면 마진이 통째로 틀린다 —
+      실측으로 원가표가 하루 낡았을 때 170건 중 4건이 어긋났다(뿔소라·특란·전복).
+      그래서 반영 시각을 먼저 띄우고, 오늘 것이 아니면 빨간 경고를 낸다. 조용히 틀리는 게 제일 나쁘다.
+   🔴 이미 값이 있는 행은 절대 덮어쓰지 않는다. 사람이 손으로 넣은 값이 정답인 경우가 있다.
+   🔴 이름을 못 찾은 행도 건드리지 않는다 — 추측 매칭 금지(§3-3). 목록으로 보여주고 사람이 판단한다. */
+(function(){
+const S=window.__sheets; if(!S)return;
+const DOGU=S.DOGU, e1=encodeURIComponent;
+const $c=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const num=s=>{const m=String(s==null?'':s).replace(/,/g,'').match(/-?\d+(\.\d+)?/);return m?parseFloat(m[0]):0;};
+const pk=s=>String(s||'').replace(/[\s·ㆍ•‧∙]+/g,'').toLowerCase();
+const won=n=>(n||0).toLocaleString('ko-KR');
+const today=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());};
+
+let MATID='', COSTMAP=null, PLAN=null, TABROWS=null, HEADROW=-1;
+
+/* 상품명 셀은 "A x 1 / B x 2" 또는 줄바꿈으로 여러 상품이 들어온다 */
+function parseCell(s){
+  return String(s||'').split(/\n|\s\/\s/).map(t=>t.trim()).filter(Boolean).map(function(t){
+    const m=t.match(/^(.*?)\s*[xX×]\s*(\d+)\s*$/);
+    return m?{name:m[1].trim(),qty:parseInt(m[2],10)}:{name:t,qty:1};
+  });
+}
+const isTax=c=>/과세/.test(c.ctax)&&!/면세/.test(c.ctax);
+
+async function loadCost(){
+  const j=await S.api(DOGU,'/values/'+e1("'전체상품원가'!A2:K5000"));
+  if(j&&j.error)throw new Error('전체상품원가를 읽지 못했습니다: '+(j.error.message||''));
+  const m={};
+  (j.values||[]).forEach(function(r){
+    const n=(r[0]||'').trim(); if(!n)return;
+    const k=pk(n); if(m[k])return;
+    m[k]={name:n,cost:num(r[4]),ctax:(r[5]||'').trim(),cship:num(r[6]),wh:(r[7]||'').trim()};
+  });
+  return m;
+}
+// 원가표가 언제 들어온 것인지 — 오늘 것이 아니면 경고 (원가업데이트.html 이 '설정' 탭에 남긴다)
+async function costStamp(){
+  try{
+    const cfg=await S.api(DOGU,'/values/'+e1("'설정'!A1:B50"));
+    const row=((cfg.values||[]).find(r=>String(r[0]||'').replace(/\s/g,'')==='원가표반영시각')||[]);
+    return row[1]||'';
+  }catch(e){ return ''; }
+}
+function showStamp(stamp){
+  const box=$c('clCost'); if(!box)return;
+  const day=String(stamp||'').slice(0,10);
+  const fresh=day===today();
+  box.style.background=fresh?'rgba(15,122,90,.10)':'rgba(214,69,69,.12)';
+  box.style.color=fresh?'#0b5f46':'#c0392b';
+  box.innerHTML=(fresh?'✅ ':'⚠️ ')+'원가표 반영 '+(stamp?esc(stamp):'(기록 없음)')
+    +(fresh?' — 오늘 것입니다.'
+           :'<br>오늘 올린 원가가 아닙니다. <b>[📥 마스터 원가 업데이트]에서 리모컨 파일을 먼저 올리세요.</b>'
+            +' 낡은 원가로 채우면 마진이 틀어집니다.');
+}
+// 마찬 월 시트 ID — 비서가 '비서설정' 탭에 넣어둔 값을 그대로 쓴다(따로 입력받지 않는다)
+async function matId(){
+  const j=await S.api(DOGU,'/values/'+e1("'비서설정'!A2:C50"));
+  const row=((j.values||[]).find(r=>String(r[0]||'').trim()==='matchanSheetId')||[]);
+  return (row[1]||'').trim();
+}
+async function initClose(){
+  const st=$c('clStat'); if(st)st.textContent='불러오는 중…';
+  try{
+    showStamp(await costStamp());
+    MATID=await matId();
+    if(!MATID){ if(st)st.innerHTML='<b style="color:#c0392b">마찬 월 시트 ID가 없습니다 — 비서에서 먼저 저장해 주세요</b>'; return; }
+    const m=await S.api(MATID,'?fields=properties.title,sheets.properties.title');
+    if(m&&m.error)throw new Error(m.error.message||'월 시트를 열지 못했습니다');
+    const tabs=((m.sheets||[]).map(s=>s.properties.title)).filter(t=>/^\s*\d{4}/.test(t));
+    const sel=$c('clDay');
+    sel.innerHTML=tabs.map(t=>'<option>'+esc(t)+'</option>').join('');
+    // 오늘 날짜 탭이 있으면 그걸 기본으로
+    const d=new Date(),mmdd=String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+    const hit=tabs.find(t=>t.trim().indexOf(mmdd)===0); if(hit)sel.value=hit;
+    const link=$c('clLink'); if(link){link.href='https://docs.google.com/spreadsheets/d/'+MATID+'/edit';link.style.display='';}
+    if(st)st.textContent=(m.properties||{}).title+' · 일별 탭 '+tabs.length+'개';
+  }catch(e){ if(st)st.innerHTML='<b style="color:#c0392b">⚠️ '+esc(e.message)+'</b>'; }
+}
+// 계산해 보기 — 쓰지 않고 결과만 보여준다. 눈으로 확인한 뒤에 채운다.
+$c('clPrev').onclick=async function(){
+  const b=this, tab=$c('clDay').value, log=h=>{$c('clLog').innerHTML=h;};
+  if(!MATID||!tab)return alert('먼저 날짜 탭을 골라주세요.');
+  b.disabled=true; b.textContent='계산 중…'; log(''); $c('clList').innerHTML=''; $c('clFill').style.display='none';
+  try{
+    showStamp(await costStamp());
+    if(!COSTMAP)COSTMAP=await loadCost();
+    const j=await S.api(MATID,'/values/'+e1("'"+tab+"'!A1:R2000"));
+    if(j&&j.error)throw new Error(j.error.message||'탭을 읽지 못했습니다');
+    const rows=j.values||[];
+    let h=-1;
+    for(let i=0;i<Math.min(20,rows.length);i++){ if((rows[i]||[]).join('|').indexOf('업체명')>=0){h=i;break;} }
+    if(h<0)throw new Error('머리글(업체명) 줄을 찾지 못했습니다.');
+    TABROWS=rows; HEADROW=h;
+    const fill=[], already=[], unknown=[], empty=[];
+    for(let r=h+1;r<rows.length;r++){
+      const v=rows[r]||[], cell=(v[9]||'').trim();
+      if(!cell&&!(v[5]||'').trim())continue;
+      if(!cell){ empty.push(r+1); continue; }
+      if(num(v[1])!==0||num(v[2])!==0){ already.push(r+1); continue; }   // 이미 채워진 행은 손대지 않는다
+      const items=parseCell(cell);
+      let free=0,tax=0,anyTax=false,ships={},bad=[];
+      for(const it of items){
+        const c=COSTMAP[pk(it.name)];
+        if(!c){ bad.push(it.name); continue; }
+        const amt=c.cost*it.qty;
+        if(isTax(c)){tax+=amt;anyTax=true;} else free+=amt;
+        const key=c.wh||'_'; if(!ships[key]||ships[key]<c.cship)ships[key]=c.cship;
+      }
+      if(bad.length){ unknown.push({row:r+1,cell:cell,bad:bad}); continue; }
+      const ship=Object.keys(ships).reduce((s,k)=>s+ships[k],0);
+      if(anyTax)tax+=ship; else free+=ship;
+      fill.push({row:r+1,cell:cell,free:free,tax:tax});
+    }
+    PLAN={tab:tab,fill:fill};
+    const L=[];
+    L.push('📋 <b>'+esc(tab)+'</b> — 채울 행 <b style="color:#0b5f46">'+fill.length+'건</b>'
+      +' · 이미 있음 '+already.length+'건'+(unknown.length?(' · <b style="color:#c0392b">이름 못 찾음 '+unknown.length+'건</b>'):''));
+    if(fill.length){
+      const sf=fill.reduce((s,x)=>s+x.free,0), stx=fill.reduce((s,x)=>s+x.tax,0);
+      L.push('합계 — 면세 <b>'+won(sf)+'</b>원 · 과세 <b>'+won(stx)+'</b>원');
+    }
+    log(L.join('<br>'));
+    let html='';
+    if(unknown.length){
+      html+='<div style="margin-top:8px;padding:9px 12px;border-radius:9px;background:rgba(214,69,69,.10);color:#c0392b;font-size:12px;line-height:1.9">'
+        +'<b>⚠️ 원가표에 이 이름이 없어 못 채웁니다 — 이 행은 손대지 않습니다</b><br>'
+        +unknown.map(u=>u.row+'행 · '+esc(u.bad.join(', '))).join('<br>')
+        +'<br><span style="font-weight:600">원가 파일에 없는 신상품이거나 이름이 한 글자 다릅니다. 확인 후 다시 돌리세요.</span></div>';
+    }
+    if(fill.length){
+      html+='<div style="margin-top:8px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:9px">'
+        +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+        +'<tr style="background:var(--chip)"><th style="padding:6px 8px;text-align:left">행</th><th style="padding:6px 8px;text-align:left">상품</th>'
+        +'<th style="padding:6px 8px;text-align:right">원가(면세)</th><th style="padding:6px 8px;text-align:right">원가(과세)</th></tr>'
+        +fill.slice(0,300).map(x=>'<tr style="border-top:1px solid var(--line)"><td style="padding:5px 8px">'+x.row+'</td>'
+          +'<td style="padding:5px 8px">'+esc(x.cell)+'</td>'
+          +'<td style="padding:5px 8px;text-align:right">'+won(x.free)+'</td>'
+          +'<td style="padding:5px 8px;text-align:right">'+won(x.tax)+'</td></tr>').join('')
+        +'</table></div>';
+      $c('clFill').style.display='';
+    }
+    $c('clList').innerHTML=html;
+  }catch(e){ log('<b style="color:#c0392b">⚠️ '+esc(e.message||e)+'</b>'); }
+  finally{ b.disabled=false; b.textContent='🔍 계산해 보기'; }
+};
+// 채우기 — 계산해 본 그대로만 쓴다. 빈 칸만, 한 번에.
+$c('clFill').onclick=async function(){
+  if(!PLAN||!PLAN.fill.length)return;
+  const b=this, log=h=>{$c('clLog').innerHTML=h;};
+  if(!confirm(PLAN.tab+' 탭 '+PLAN.fill.length+'건의 원가를 채웁니다.\n\n이미 값이 있는 행은 건드리지 않습니다.\n진행할까요?'))return;
+  b.disabled=true; b.textContent='채우는 중…';
+  try{
+    const data=PLAN.fill.map(x=>({range:"'"+PLAN.tab+"'!B"+x.row+":C"+x.row, values:[[x.free,x.tax]]}));
+    const r=await S.api(MATID,'/values:batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({valueInputOption:'RAW',data:data})});
+    if(r&&r.error)throw new Error(r.error.message||'쓰지 못했습니다');
+    log('✅ <b>'+esc(PLAN.tab)+'</b> — 원가 <b>'+PLAN.fill.length+'건</b> 채웠습니다.<br>'
+      +'<span style="color:var(--muted)">이제 비서에서 [📊 매출 동기화]를 돌리면 매출·마진이 반영됩니다.</span>');
+    $c('clList').innerHTML=''; $c('clFill').style.display='none'; PLAN=null;
+  }catch(e){ log('<b style="color:#c0392b">⚠️ '+esc(e.message||e)+'</b>'); }
+  finally{ b.disabled=false; b.textContent='✅ 원가 채우기'; }
+};
+// 탭을 처음 열 때 한 번만 준비한다(시트 두 개를 읽으므로 미리 돌리지 않는다)
+let clInit=false;
+document.querySelectorAll('.tabbtn').forEach(function(bt){
+  if(bt.getAttribute('data-t')!=='close')return;
+  bt.addEventListener('click',function(){ if(!clInit){clInit=true;initClose();} });
+});
 })();
 
 </script>
