@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.72).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.73).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.72</title>
+<title>마스터 유통 카탈로그 v2.73</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1041,8 +1041,7 @@ function toast(m){const t=$('toast');t.textContent=m;t.style.opacity='1';setTime
    🔴 예외(🚫)로 빼둔 상품은 안 나간다 — 못 파는 물건이 제안서에 실리면 안 된다.
       가상 창고('🚫 예외')도 통째로 건너뛴다(g.virtual).
    ⚠️ 스키마는 원비씨 파일 14칸을 그대로 맞춘 것이다. 칸 이름을 바꾸면 그쪽 사이트가 깨진다. */
-function exportProposal(){
-  if(!ALL.length){ toast('상품을 아직 불러오는 중입니다 — 잠시 뒤 눌러주세요'); return; }
+function buildProposalDoc(){
   const out=[];
   GROUPS.filter(g=>!g.virtual).forEach(g=>{
     g.products.forEach(p=>{
@@ -1072,12 +1071,92 @@ function exportProposal(){
     supplier:'마스터 유통',
     products:out
   };
+  return doc;
+}
+// 못 올릴 때를 위한 손 내림길 — 파일로 받아서 손으로 갈아끼울 수 있게 남겨둔다
+function downloadProposal(doc){
   // 들여쓰기 1칸 — 원비씨 파일과 같은 모양이라 갈아끼웠을 때 차이가 눈에 보인다
   const url=URL.createObjectURL(new Blob([JSON.stringify(doc,null,1)],{type:'application/json'}));
   const a=document.createElement('a');
-  a.href=url;a.download='products.json';document.body.appendChild(a);a.click();
+  a.href=url;a.download='allproduct.json';document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);
-  toast('제안서 데이터 '+out.length+'개 상품 내려받았습니다');
+  toast('제안서 데이터 '+doc.products.length+'개 상품 내려받았습니다');
+}
+
+/* ══ 🔄 제안서 업데이트 (홍팀장 2026-09-01) ═══════════════════════════════
+   원비 팀장 제안서 사이트(wonbi.github.io/allproduct)는 **우리 저장소의**
+   `data/allproduct.json` 을 열 때마다 직접 읽는다. 그래서 그 파일만 새것이면
+   원비씨는 아무것도 안 해도 **새로고침 한 번에 카탈로그와 같은 시점**을 본다.
+
+   🔴 예전엔 이 버튼이 파일을 **내려받기만** 했다. 받은 파일을 저장소에 올리는 건 사람 몫이라
+      8/31 17:06 에서 멈춰 있었고, 원비씨가 "업데이트 해달라"고 해도 그쪽에선 할 수 있는 게
+      없었다(파일이 우리 저장소에 있다). 이제 버튼이 저장소에 바로 커밋한다.
+   🔑 GitHub 토큰은 **이 브라우저에만** 저장한다(localStorage). 소스에는 절대 안 박는다 —
+      이 사이트는 저장소가 private 이어도 인터넷 전체 공개다(2026-08-27 개인키 노출 사고).
+      토큰은 baljuseo 하나에 Contents: Read and write 만 준 fine-grained PAT 를 쓸 것.
+   ⏱ 커밋 뒤 GitHub Pages 가 굽는 데 보통 1~2분 — 그 전에 새로고침하면 옛 데이터가 온다. */
+const GH_OWNER='chanwha0221-cmyk',GH_REPO='baljuseo',GH_FILE='data/allproduct.json',GH_KEY='mc_gh_pat';
+function ghB64(str){                       // 한글이 섞여 있어 btoa 에 그냥 못 넣는다
+  const bytes=new TextEncoder().encode(str);
+  let bin=''; bytes.forEach(b=>{bin+=String.fromCharCode(b);});
+  return btoa(bin);
+}
+function ghAsk(msg){
+  const t=prompt(msg||('GitHub 토큰을 붙여넣어 주세요.\n\n'
+    +'github.com → Settings → Developer settings → Personal access tokens → Fine-grained tokens\n'
+    +'baljuseo 저장소 하나에만 [Contents: Read and write] 권한을 준 토큰을 만들어 주세요.\n\n'
+    +'이 브라우저에만 저장되고, GitHub 외 어디로도 보내지 않습니다.'));
+  const v=(t||'').trim();
+  if(v)try{localStorage.setItem(GH_KEY,v);}catch(e){}
+  return v;
+}
+async function ghGetSha(token){
+  const r=await fetch('https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+GH_FILE+'?ref=main',
+    {headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json'}});
+  if(r.status===401||r.status===403)throw new Error('AUTH');
+  if(r.status===404)return null;                       // 파일이 아직 없으면 새로 만든다
+  if(!r.ok)throw new Error('GitHub 응답 '+r.status);
+  return (await r.json()).sha;
+}
+async function updateProposal(){
+  const btn=$('ub_exp');
+  if(!ALL.length){ toast('상품을 아직 불러오는 중입니다 — 잠시 뒤 눌러주세요'); return; }
+  const doc=buildProposalDoc();
+  const txt=JSON.stringify(doc,null,1);
+  let token=''; try{token=localStorage.getItem(GH_KEY)||'';}catch(e){}
+  if(!token)token=ghAsk();
+  if(!token)return;
+  if(btn){btn.disabled=true;btn.textContent='⏳ 올리는 중…';}
+  try{
+    let sha;
+    try{ sha=await ghGetSha(token); }
+    catch(e){
+      if(e.message!=='AUTH')throw e;
+      try{localStorage.removeItem(GH_KEY);}catch(x){}
+      token=ghAsk('토큰이 거절됐습니다. 다시 붙여넣어 주세요.\n(baljuseo 저장소에 Contents: Read and write 권한이 있어야 합니다)');
+      if(!token){if(btn){btn.disabled=false;btn.textContent='🔄 제안서 업데이트';}return;}
+      sha=await ghGetSha(token);
+    }
+    const body={message:'제안서 데이터 갱신 — '+doc.updatedAt+' 기준 '+doc.products.length+'개 (카탈로그에서 바로 올림)',
+      content:ghB64(txt),branch:'main'};
+    if(sha)body.sha=sha;
+    const r=await fetch('https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+GH_FILE,
+      {method:'PUT',headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Content-Type':'application/json'},
+       body:JSON.stringify(body)});
+    if(!r.ok){
+      let why=''; try{why=(await r.json()).message||'';}catch(e){}
+      throw new Error('GitHub 응답 '+r.status+(why?(' — '+why):''));
+    }
+    toast('✅ 제안서 '+doc.products.length+'개 올렸습니다 — 1~2분 뒤 새로고침하면 반영됩니다');
+    alert('제안서 데이터를 올렸습니다.\n\n'
+      +'· 기준 시각 : '+doc.updatedAt+'\n· 상품 : '+doc.products.length+'개\n\n'
+      +'GitHub 가 굽는 데 1~2분 걸립니다.\n그 뒤 제안서 사이트를 새로고침하면 카탈로그와 같은 시점이 됩니다.');
+  }catch(e){
+    // 못 올렸으면 손으로라도 갈아끼울 수 있게 파일을 내어준다
+    if(confirm('올리지 못했습니다.\n\n'+(e.message||e)+'\n\n대신 파일로 받으시겠습니까?'))downloadProposal(doc);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='🔄 제안서 업데이트';}
+  }
 }
 // 원본 사진이 장당 0.3~1MB라 그대로 쓰면 거래처 휴대폰에서 느림 → 리사이즈 프록시로 썸네일(약 30KB).
 // 프록시가 죽으면 원본으로, 원본도 실패하면 '사진 준비중'으로 단계 폴백.
@@ -2107,13 +2186,13 @@ function renderUser(){
        상대경로라 로컬·테스트본에서도 같은 폴더의 화면으로 열린다. */
     +(ME.master?'<a class="ubtn" href="계정관리.html" target="_blank" rel="noopener" title="업체 권한(업체·단가숨김·임시·차단) 승인·수정">👤 계정관리</a>':'')
     /* 📤 제안서 데이터 — 마스터에게만. 원비씨 제안서 사이트에 넣을 products.json 을 내려받는다. */
-    +(ME.master?'<button class="ubtn" id="ub_exp" title="원비 팀장 제안서 사이트(allproduct)에 넣을 products.json 을 지금 카탈로그 그대로 내려받습니다">📤 제안서 데이터</button>':'')
+    +(ME.master?'<button class="ubtn" id="ub_exp" title="원비 팀장 제안서 사이트(allproduct)가 읽는 데이터를 지금 카탈로그와 같은 시점으로 올립니다. 1~2분 뒤 그쪽 사이트를 새로고침하면 반영됩니다">🔄 제안서 업데이트</button>':'')
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
     +'<button class="ubtn" id="ub_out">로그아웃</button>'
     +'<button class="ubtn rl" id="ub_reload" title="저장된 내용을 버리고 시트에서 다시 받아옵니다">🔄 새로고침</button>';
   $('ub_pw').onclick=showPwForm;
   $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
-  { const e=$('ub_exp'); if(e)e.onclick=exportProposal; }   // 📤 제안서 데이터 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
+  { const e=$('ub_exp'); if(e)e.onclick=updateProposal; }   // 🔄 제안서 업데이트 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
   // 거래처가 보고 있는 게 최신인지 확신할 수 있게 — 저장본을 버리고 시트에서 새로 받는다 (사장님 2026-08-18)
   $('ub_reload').onclick=()=>{
     try{localStorage.removeItem(CK);}catch(e){}
