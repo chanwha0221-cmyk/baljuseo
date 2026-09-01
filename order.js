@@ -139,6 +139,13 @@ function findProd(raw){
   if(s){ p = idx.get(pkey(s)); if(p) return {p, cands:[]}; }
   return {p:null, cands:candidates(t)};
 }
+/* 🚫 오늘 못 파는 물건인가 — 후보·검색 어디에도 띄우지 않는다 (홍팀장 2026-09-01).
+   예전엔 후보에 그대로 떠서, 눌러도 「예외로 빼놓은 상품입니다」 만 나왔다. 누를 수 있게 보여주고
+   누르면 막는 건 함정이다. 마스터도 마찬가지 — checkRow 가 대신 발주도 막는다(§예외).
+   ⚠️ 이름을 **정확히 쳤을 때**는 findProd 가 그대로 찾아내고 checkRow 가 이유를 말해준다.
+      그 길은 건드리지 않는다. 여기서 거르는 건 "골라 담으라고 내미는 목록"뿐이다. */
+const sellable = p => !(p && typeof isExc === 'function' && isExc(p.name));
+
 /* 후보: 참고용일 뿐이다. 점수로 자동 선택하지 않는다. */
 function candidates(raw){
   const t = pkey(raw);
@@ -146,6 +153,7 @@ function candidates(raw){
   const toks = S(raw).split(/[\s,/]+/).filter(x => x.length >= 2).map(x => pkey(x));
   const out = [];
   (typeof ALL !== 'undefined' ? ALL : []).forEach(p => {
+    if(!sellable(p)) return;
     const k = pkey(p.name);
     let sc = 0;
     if(k.indexOf(t) >= 0 || t.indexOf(k) >= 0) sc += 6;
@@ -411,6 +419,9 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .ordfindin::placeholder{color:var(--muted);font-weight:600}
 .ordfindin:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
 .ordfindn{font-size:11px;font-weight:800;color:var(--accent-d);margin:7px 0 0}
+/* 📋 같은 이름 N줄 — 누르기 전에 몇 줄이 바뀌는지 알려주는 줄. 놓치면 안 되니 색을 준다 */
+.ordsame{margin:0 8px 8px;padding:7px 10px;border-radius:9px;font-size:12px;line-height:1.6;font-weight:700;
+  background:var(--soft);border:1.5px solid var(--accent);color:var(--accent-d)}
 .ordfind .ordcand{padding:4px 0 0}
 .ordfind .ordask{padding:7px 0 0}
 .ordout{width:100%;min-height:90px;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--bg);color:var(--ink);white-space:pre;overflow-x:auto}
@@ -730,17 +741,22 @@ function candBtn(p, i){
    겹치는 글자가 없어 후보가 통째로 빗나간다(실제로 도래창·돈뽈항정이 떴다).
    그때 이 칸이 없으면 업체는 발주를 하다 말고 카탈로그로 나갔다가 돌아와야 한다.
    🔴 여기서도 자동 선택은 없다(§1). 찾아서 **직접 누른** 것만 상품명이 된다.
-   🚫 예외 상품은 업체에게 안 보여준다 — 눌러도 못 나가는 걸 띄우는 건 함정이다. */
+   🚫 예외 상품은 안 보여준다 — sellable() 참고. */
 const FIND = {};                     // 행 index → 직접 찾기에 친 글자
 function clearFind(){ Object.keys(FIND).forEach(k => { delete FIND[k]; }); }
+// 표 안에 같은 상품명이 몇 줄인가 — 일괄 수정 안내·적용이 같은 셈을 쓴다
+function sameName(name){
+  const k = pkey(name);
+  if(!k) return 0;
+  return ROWS.filter(r => pkey(S(r.name)) === k).length;
+}
 function findHits(kw){
   const k = pkey(kw);
   if(k.length < 2) return [];
-  const master = amMaster();
   const out = [];
   (typeof ALL !== 'undefined' ? ALL : []).forEach(p => {
+    if(!sellable(p)) return;
     if(pkey(p.name).indexOf(k) < 0) return;
-    if(!master && typeof isExc === 'function' && isExc(p.name)) return;
     out.push(p);
   });
   // 짧은 이름이 먼저 — 친 글자에 가까운 쪽이다 ('오징어' → '오징어 1kg' 이 '통통 생물 오징어 1kg' 보다 앞)
@@ -778,6 +794,13 @@ function rowHtml(r, i){
     if(c.errs.length) h += '<div class="orderr">⚠️ ' + c.errs.map(esc).join('<br>⚠️ ') + '</div>';
     if(c.warns.length) h += '<div class="ordwarn">' + c.warns.map(esc).join('<br>') + '</div>';
     if(!c.p && S(r.name)){
+      /* 📋 같은 이름이 여러 줄 (홍팀장 2026-09-01)
+         "새우를 새유로 올렸으면 이 사람 발주는 다 새유로 되어 있을 거 아니야."
+         맞다. 업체가 자기 몰에 등록한 이름 하나가 틀리면 그날 발주 20줄이 전부 같이 틀린다.
+         한 줄씩 20번 고르게 하면 그건 도구가 아니라 노동이다.
+         🔴 그래도 **몰래** 20줄을 바꾸지는 않는다 — 누르기 **전에** 몇 줄이 같이 바뀌는지 먼저 말한다. */
+      const same = sameName(r.name);
+      if(same > 1) h += '<div class="ordsame">📋 <b>같은 이름이 ' + same + '줄</b> 있습니다 — 하나를 고르시면 <b>' + same + '줄이 한꺼번에</b> 바뀝니다.</div>';
       if(c.cands.length){
         h += '<div class="ordask">혹시 이 상품 말씀이신가요? '
           + (amNoPrice() ? '<b>상품명·창고를 꼭 확인</b>하시고 골라주세요.' : '<b>단가를 꼭 확인</b>하시고 골라주세요.')
@@ -2341,7 +2364,16 @@ document.addEventListener('click', e => {
   const pick = e.target.closest && e.target.closest('[data-pick]');
   if(pick){
     const i = +pick.getAttribute('data-i');
-    if(ROWS[i]){ ROWS[i].name = pick.getAttribute('data-pick'); OPEN = -1; delete FIND[i]; saveDraft(); paint(); toast('상품을 바꿨습니다'); }
+    if(ROWS[i]){
+      /* 📋 같은 이름은 함께 바꾼다 — 몇 줄이 바뀌는지는 누르기 전에 이미 화면에 떠 있다(rowHtml).
+         🔴 바꿀 대상을 **먼저 담아두고** 고친다. 돌면서 고치면 첫 줄을 바꾼 순간 기준 글자가 사라진다. */
+      const was = S(ROWS[i].name), k = pkey(was), nm = pick.getAttribute('data-pick');
+      const hit = [];
+      ROWS.forEach((r, j) => { if(pkey(S(r.name)) === k) hit.push(j); });
+      hit.forEach(j => { ROWS[j].name = nm; delete FIND[j]; });
+      OPEN = -1; saveDraft(); paint();
+      toast(hit.length > 1 ? (hit.length + '줄을 「' + nm + '」 으로 바꿨습니다') : '상품을 바꿨습니다');
+    }
     return;
   }
   /* 📦 합포장 안 됨으로 지정 — 누르는 즉시 미리보기가 나뉜다 (홍팀장 2026-08-28) */
