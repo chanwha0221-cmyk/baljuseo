@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v8.3</title>
+<title>통장 내역 조회 v8.4</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v8.3</span>
+  <span class="ver">v8.4</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1655,7 +1655,8 @@ function _txsFromDataset(from,to){
   return allData.filter(d=>d.in>0 && (!from||d.dateOnly>=from) && (!to||d.dateOnly<=to)).map(d=>{
     const m=(d.dateOnly||'').match(/(\d{4})-(\d{2})-(\d{2})/);
     const dt=m?new Date(+m[1],+m[2]-1,+m[3]):null;
-    return dt?{date:dt,dateKey:(dt.getMonth()+1)+'/'+dt.getDate(),name:(d.desc||'').trim(),amount:d.in,used:false}:null;
+    // 👤 예금주(d.name)도 같이 들고 간다 — 입금자명이 엉뚱해도 예금주로 잡히는 건이 있다 (홍팀장 2026-09-01)
+    return dt?{date:dt,dateKey:(dt.getMonth()+1)+'/'+dt.getDate(),name:(d.desc||'').trim(),holder:(d.name||'').trim(),amount:d.in,used:false}:null;
   }).filter(Boolean);
 }
 // 거래내역 → 입금 row 배열 추출
@@ -2616,9 +2617,25 @@ async function runSettlementMatch(){
           if(matchedCompany) break;
         }
       }
+      /* 👤 입금자명으로 못 찾으면 **예금주**로 한 번 더 본다 (홍팀장 2026-09-01)
+         실제 사례: 2026-06-22 카카오뱅크 3,785,000원이 입금자명 '마스터'로 찍혔는데 예금주는 강훈(썬푸드마켓)이었다.
+         입금자명은 보내는 쪽이 아무렇게나 적을 수 있지만 예금주는 계좌 주인이라 더 단단하다.
+         ⚠️ 부분일치까지는 안 간다 — 예금주는 사람 이름이 많아서 3글자 부분일치를 돌리면 엉뚱하게 붙는다.
+            정확일치와 이미 학습된 별칭만 인정한다. */
+      if(!matchedCompany && tx.holder && tx.holder!==tx.name){
+        for(const k of _nameKeys(tx.holder)){
+          if(meta.companyCols[k]){ matchedCompany=k; break; }
+          if(aliasMap[k]){ matchedCompany=aliasMap[k]; break; }
+          if(SETTLE_ALIAS[k]){ matchedCompany=SETTLE_ALIAS[k]; break; }
+        }
+        if(matchedCompany==='취합안함'){
+          _logLine(`⊘ 취합 제외(예금주 기준): ${tx.dateKey} ${tx.name} / 예금주 ${tx.holder}`); tx.used=true; continue;
+        }
+        if(matchedCompany) _logLine(`👤 예금주로 매칭: ${tx.dateKey} ${tx.name} (예금주 ${tx.holder}) → ${matchedCompany}`);
+      }
       if(!matchedCompany){
-        _logLine(`✖ 매칭 실패: ${tx.dateKey} ${tx.name} ${tx.amount.toLocaleString()}원 (업체 미식별)`);
-        unmatched.push({dateKey:tx.dateKey, name:tx.name, amount:tx.amount});
+        _logLine(`✖ 매칭 실패: ${tx.dateKey} ${tx.name}${tx.holder&&tx.holder!==tx.name?` (예금주 ${tx.holder})`:''} ${tx.amount.toLocaleString()}원 (업체 미식별)`);
+        unmatched.push({dateKey:tx.dateKey, name:tx.name, holder:tx.holder||'', amount:tx.amount});
         failCount++;
         continue;
       }
@@ -2902,7 +2919,7 @@ function renderUnmatched(arr){
   sec.style.display='';
   // 🧑‍🤝‍🧑 같은 예금주명끼리 묶기 — 한 번 확정하면 그 이름 전체 자동 처리 (2026-07-18 사장님: 하나하나 하지 말자)
   const groups={};
-  arr.forEach(x=>{ const k=String(x.name||''); (groups[k]=groups[k]||{name:x.name, items:[]}).items.push(x); });
+  arr.forEach(x=>{ const k=String(x.name||''); (groups[k]=groups[k]||{name:x.name, items:[]}).items.push(x); });   // items 에 holder 가 실려 있다
   const glist=Object.values(groups).sort((a,b)=>b.items.length-a.items.length);
   window._unmatchedGroups=glist;
   if(cnt) cnt.textContent=`(${glist.length}명 · ${arr.length}건)`;
@@ -2911,7 +2928,11 @@ function renderUnmatched(arr){
     const total=g.items.reduce((s,it)=>s+it.amount,0);
     const detail=g.items.map(it=>`${it.dateKey} ${it.amount.toLocaleString()}`).join(' · ');
     return `<div id="umg-${gi}" style="display:flex;gap:6px;align-items:center;padding:7px 9px;border-bottom:1px solid var(--border);flex-wrap:wrap">
-      <span style="font-size:11px;min-width:150px"><b>${g.name}</b>${g.items.length>1?` <span style="color:#d9480f;font-weight:700">${g.items.length}건</span>`:''}<br><span style="color:var(--text3)">${detail}${g.items.length>1?` = ${total.toLocaleString()}원`:'원'}</span></span>
+      <span style="font-size:11px;min-width:150px"><b>${g.name}</b>${g.items.length>1?` <span style="color:#d9480f;font-weight:700">${g.items.length}건</span>`:''}${(function(){
+        // 👤 입금자명과 다른 예금주가 있으면 같이 띄운다 — 누구 입금인지 알아보는 결정적 단서다
+        const hs=[...new Set(g.items.map(it=>it.holder).filter(h=>h&&h!==g.name))];
+        return hs.length?` <span style="color:#1971c2;font-weight:700">👤 ${hs.join(', ')}</span>`:'';
+      })()}<br><span style="color:var(--text3)">${detail}${g.items.length>1?` = ${total.toLocaleString()}원`:'원'}</span></span>
       <input list="companyDL" id="umg-in-${gi}" placeholder="업체 선택/입력" oninput="umCountFilled()" onchange="umCountFilled()" style="flex:1;min-width:120px;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit">
       <button class="btn-copy" style="padding:5px 10px;font-size:11px" onclick="confirmSettleAlias(${gi})">✓ 확정·기억${g.items.length>1?` (${g.items.length}건 전부)`:''}</button>
       <button class="btn-copy" style="padding:5px 8px;font-size:11px;color:#1971c2" onclick="rememberCore(${gi})" title="이름 뒤 날짜가 바뀌어도(예: 서희석_6/15, _6/16…) 이 이름 들어가면 이 업체로 자동. 업체칸 채우고 누르세요">🔁 이름포함</button>
