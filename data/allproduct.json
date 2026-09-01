@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-01 16:25",
+ "updatedAt": "2026-09-01 17:21",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -119,17 +119,26 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "군산",
+   "category": "",
+   "name": "활 광어 필렛 500g",
+   "spec": [],
+   "supplyPrice": 14000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "싱싱",
-   "category": "수산",
-   "name": "싱싱 흰다리새우 500g",
-   "spec": [
-    "※ 구성 : 흰다리새우 1팩",
-    "※ 중량/ 사이즈 : 500g 내외 / 22미 내외(실중량 400g 이상)",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 흰다리새우 100%",
-    "※ 포장방식 : 비닐포장",
-    "※ 특이사항 : 생물 자연감량 20% 발생할 수 있습니다."
-   ],
+   "category": "",
+   "name": "수생 흰다리새우 500g",
+   "spec": [],
    "supplyPrice": 8000,
    "previousPrice": 0,
    "tax": "면세",
@@ -137,7 +146,7 @@
    "shipFee": 4000,
    "orderCutoff": "오후마감 : 14시",
    "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/378/395/025/0750f27e88c76adcbcc5a8b6b8599b36.jpg",
+   "image": "",
    "note": ""
   },
   {
@@ -593,6 +602,28 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "싱싱",
+   "category": "수산",
+   "name": "파백명란 500g+500g",
+   "spec": [
+    "※ 구성 : 파백명란 2통",
+    "※ 중량/ 사이즈 : 1kg(1통 500g)",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 명태알(러시아)82.492%,정제소금(국산)4%,L-글루타민산나트륨(향미증진제)3%,DL-사과산나트륨,D-소르비톨,글리신,젖산칼슘,소브산칼륨(보존료),L-아스코르빈산나트륨,5-리보뉴클레오티드이나트륨,소브산칼륨,고추가루(중국산),소스,조미고추분말,가다랑어추출분말,아질산나트륨(발색제)",
+    "※ 포장방식 : PE포장"
+   ],
+   "supplyPrice": 13000,
+   "previousPrice": 12000,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 4000,
+   "orderCutoff": "오후마감 : 14시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/024/815/022/28a72bb9090ad32a96477f40090f89b0.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "인천",
    "category": "수산",
    "name": "연안 활 전어 500g",
@@ -954,6 +985,60 @@
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/115/913/024/a3c1175186aeb2c43234b76c04671c66.jpg",
    "note": "- 상품명 : 자숙대게 3.5kg > 북해도 대게 3.5kg"
+  },
+  {
+   "warehouse": "군산",
+   "sourceWarehouse": "군산",
+   "category": "",
+   "name": "급냉 대짜 토막갈치 2미",
+   "spec": [],
+   "supplyPrice": 5000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "",
+   "note": ""
+  },
+  {
+   "warehouse": "군산",
+   "sourceWarehouse": "군산",
+   "category": "",
+   "name": "해녀 거북손 500g",
+   "spec": [],
+   "supplyPrice": 7000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "",
+   "note": ""
+  },
+  {
+   "warehouse": "군산",
+   "sourceWarehouse": "군산",
+   "category": "수산",
+   "name": "찐 정품 국내산 피데기 초특대 5미",
+   "spec": [
+    "※ 구성 : 반건조 오징어 5미",
+    "※ 중량/ 사이즈 : 5미 1.15kg~1.3kg 내외 / 1마리 200g~270g내외",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 반건조오징어 100%",
+    "※ 포장방식 : 실링포장"
+   ],
+   "supplyPrice": 28000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/374/388/025/79754b009203ec1417757e1b69b18837.png",
+   "note": ""
   },
   {
    "warehouse": "군산",
@@ -1697,28 +1782,6 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/266/368/025/267213ade28b47a6b4ad59b8d3a0ab92.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "군산",
-   "sourceWarehouse": "군산",
-   "category": "수산",
-   "name": "찐 정품 국내산 피데기 초특대 5미",
-   "spec": [
-    "※ 구성 : 반건조 오징어 5미",
-    "※ 중량/ 사이즈 : 5미 1.15kg~1.3kg 내외 / 1마리 200g~270g내외",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 반건조오징어 100%",
-    "※ 포장방식 : 실링포장"
-   ],
-   "supplyPrice": 28000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/374/388/025/79754b009203ec1417757e1b69b18837.png",
    "note": ""
   },
   {
@@ -5357,28 +5420,6 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "27-07-27",
    "image": "https://masterc.co.kr/files/attach/images/8333658/191/665/024/aa4b7cee35e477e4fa441ff4edf2e058.jpg",
-   "note": "하남 > 경기"
-  },
-  {
-   "warehouse": "경기",
-   "sourceWarehouse": "경기",
-   "category": "축산",
-   "name": "초특가 갈비살 200g",
-   "spec": [
-    "※ 구성 : 소갈비살 1팩",
-    "※ 중량/ 사이즈 : 200g",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 : 진공포장"
-   ],
-   "supplyPrice": 5700,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "27-07-29",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/378/283/023/b38ce50e1a0d872c349d12b4dfebe5b8.jpg",
    "note": "하남 > 경기"
   },
   {
@@ -10034,29 +10075,6 @@
   },
   {
    "warehouse": "단독(유)",
-   "sourceWarehouse": "스키",
-   "category": "축산",
-   "name": "초이스 양념 LA꽃갈비 1kg",
-   "spec": [
-    "※ 구성 : 양념 LA꽃갈비 1팩",
-    "※ 중량/ 사이즈 : 1kg / 8대 내외",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 소갈비(미국산-초이스)60%, 고메프리미엄 남해비파 LA갈비 양념[비파열매소스 1.03%, 마늘(국산), 정제수, 매일수복진간장(정제수, 아미노산액(탈 지대두(외국산:인도산,미국산,중국산등)), 천일염 (호주산), 기타 과당, 카라멜색소III, 주정, 효소처 리스테비아, 파라옥시안식향산에틸(보존료)}, 미 향{정재수,기타과당, 포도당, 레몬식초(레몬농축 과즙(레몬100%:이스라엘산)), 정제소금(국산), 주정}, 배, 설탕] 40%",
-    "※ 포장방식 :트레이포장",
-    "※ 기타 : 초이스 등급 입니다."
-   ],
-   "supplyPrice": 22500,
-   "previousPrice": 0,
-   "tax": "과세",
-   "courier": "씨제이대한통운",
-   "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/827/280/025/712b33fdbba696cf3984fd74ff965ff1.JPG",
-   "note": ""
-  },
-  {
-   "warehouse": "단독(유)",
    "sourceWarehouse": "여수",
    "category": "김치·반찬",
    "name": "새꼬막 무침 300g 2통",
@@ -10898,6 +10916,50 @@
   },
   {
    "warehouse": "단독(무)",
+   "sourceWarehouse": "과일",
+   "category": "과일",
+   "name": "딱딱이 복숭아 2kg 로얄과",
+   "spec": [
+    "※ 구성 : 딱딱이 복숭아",
+    "※ 중량/ 사이즈 : 2kg 10과 내외",
+    "※ 생물여부 : 상온",
+    "※ 성분표시 : 복숭아 100%",
+    "※ 포장방식 : 박스포장"
+   ],
+   "supplyPrice": 14000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 0,
+   "orderCutoff": "오후마감 : 14시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/765/319/025/c0cfe56d98d9688f8e0c0f6d057b5ace.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(무)",
+   "sourceWarehouse": "과일",
+   "category": "과일",
+   "name": "딱딱이 복숭아 4kg 로얄과",
+   "spec": [
+    "※ 구성 : 딱딱이 복숭아",
+    "※ 중량/ 사이즈 : 4kg 20과 내외",
+    "※ 생물여부 : 상온",
+    "※ 성분표시 : 복숭아 100%",
+    "※ 포장방식 : 박스포장"
+   ],
+   "supplyPrice": 24500,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 0,
+   "orderCutoff": "오후마감 : 14시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/834/319/025/603a8bc014f595a9f8382c58d9b6998a.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(무)",
    "sourceWarehouse": "표도",
    "category": "농산물",
    "name": "못난이 생표고버섯 1kg",
@@ -11664,50 +11726,6 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/604/864/024/367adcee8a9d5b218501eb094b2a39af.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "단독(무)",
-   "sourceWarehouse": "과일",
-   "category": "과일",
-   "name": "딱딱이 복숭아 2kg 로얄과",
-   "spec": [
-    "※ 구성 : 딱딱이 복숭아",
-    "※ 중량/ 사이즈 : 2kg 10과 내외",
-    "※ 생물여부 : 상온",
-    "※ 성분표시 : 복숭아 100%",
-    "※ 포장방식 : 박스포장"
-   ],
-   "supplyPrice": 13000,
-   "previousPrice": 12500,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 0,
-   "orderCutoff": "오후마감 : 14시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/765/319/025/c0cfe56d98d9688f8e0c0f6d057b5ace.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "단독(무)",
-   "sourceWarehouse": "과일",
-   "category": "과일",
-   "name": "딱딱이 복숭아 4kg 로얄과",
-   "spec": [
-    "※ 구성 : 딱딱이 복숭아",
-    "※ 중량/ 사이즈 : 4kg 20과 내외",
-    "※ 생물여부 : 상온",
-    "※ 성분표시 : 복숭아 100%",
-    "※ 포장방식 : 박스포장"
-   ],
-   "supplyPrice": 22500,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 0,
-   "orderCutoff": "오후마감 : 14시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/834/319/025/603a8bc014f595a9f8382c58d9b6998a.jpg",
    "note": ""
   },
   {
