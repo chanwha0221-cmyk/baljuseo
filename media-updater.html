@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.24</title>
+<title>마스터 유통 상품 도구 v1.25</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -249,9 +249,11 @@ a{color:var(--accent)}
     <b>이미 값이 있는 행은 건드리지 않습니다.</b></p>
   <div id="clCost" style="font-size:12.5px;font-weight:700;margin-top:9px;padding:9px 12px;border-radius:9px"></div>
   <div class="ct-bulk" style="margin-top:10px">
+    <!-- 📥 원가 업데이트로 가는 입구 — 마감의 1단계다. 주소만 알려주면 아무도 안 쓴다(§도구 링크는 박아둘 것) -->
+    <a class="cp" href="원가업데이트.html" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none">📥 ① 원가 업데이트</a>
     <select id="clDay" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--card);color:var(--ink);min-width:150px"></select>
-    <button class="cp" id="clPrev" style="margin-top:0">🔍 계산해 보기</button>
-    <button class="cp" id="clFill" style="margin-top:0;display:none">✅ 원가 채우기</button>
+    <button class="cp" id="clPrev" style="margin-top:0">🔍 ② 계산해 보기</button>
+    <button class="cp" id="clFill" style="margin-top:0;display:none">✅ ③ 매출·원가 채우기</button>
     <a class="cp" id="clLink" href="#" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none;display:none">📊 시트 열기</a>
   </div>
   <div id="clLog" style="font-size:12.5px;margin-top:10px;line-height:1.8"></div>
@@ -1828,7 +1830,7 @@ $c('clPrev').onclick=async function(){
     }
     $c('clList').innerHTML=html;
   }catch(e){ log('<b style="color:#c0392b">⚠️ '+esc(e.message||e)+'</b>'); }
-  finally{ b.disabled=false; b.textContent='🔍 계산해 보기'; }
+  finally{ b.disabled=false; b.textContent='🔍 ② 계산해 보기'; }
 };
 // 채우기 — 계산해 본 그대로만 쓴다. 빈 칸만, 한 번에.
 $c('clFill').onclick=async function(){
@@ -1853,7 +1855,7 @@ $c('clFill').onclick=async function(){
       +'<span style="color:var(--muted)">이제 비서에서 [📊 매출 동기화]를 돌리면 매출·마진이 반영됩니다.</span>');
     $c('clList').innerHTML=''; $c('clFill').style.display='none'; PLAN=null;
   }catch(e){ log('<b style="color:#c0392b">⚠️ '+esc(e.message||e)+'</b>'); }
-  finally{ b.disabled=false; b.textContent='✅ 원가 채우기'; }
+  finally{ b.disabled=false; b.textContent='✅ ③ 매출·원가 채우기'; }
 };
 // 탭을 처음 열 때 한 번만 준비한다(시트 두 개를 읽으므로 미리 돌리지 않는다)
 let clInit=false;
