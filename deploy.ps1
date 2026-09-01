@@ -70,11 +70,43 @@ foreach ($k in $OwnerOf.Keys) {
     }
   }
 }
+# 🔗 발주 삼형제는 **버전을 같이 간다** (홍팀장 2026-09-01)
+#   마스터 화면·업체 화면(둘 다 catalog.html)과 발주서 변환기(index.html)는 같은 변환 엔진
+#   (convert-core.js)을 쓴다. 그런데 각자 자기 <title> 버전을 따로 올려서 2.79 / 22.595 로
+#   갈라져 있었고, 업체 화면에 v2.70 이 떠 있어도 그게 얼마나 낡은 건지 알 방법이 없었다.
+#   → 하나가 배포되면 셋 다 **같은 번호**로 올라간다. 화면에 뜬 숫자만 보고 맞춰볼 수 있게.
+$SyncSet = @('catalog.html', 'catalog-test.html', 'index.html')
+if (@($Files | Where-Object { $SyncSet -contains $_ }).Count -gt 0) {
+  foreach ($s in $SyncSet) {
+    if ((Test-Path (Join-Path $Repo $s)) -and ($Files -notcontains $s)) {
+      $Files += $s
+      Say ("      + $s 같이 올림 (버전 동기화)") 'DarkGray'
+    }
+  }
+}
 Say ("[1/4] 배포 대상: " + ($Files -join ', ')) 'Cyan'
 
 # ── 2. 버전 +1 (title 안의 v숫자.숫자) ────────────────────────────────
 $enc = New-Object System.Text.UTF8Encoding $false
+function Get-Ver($path) {
+  $m = [regex]::Match([IO.File]::ReadAllText($path, $enc), 'v(\d+)\.(\d+)')
+  if ($m.Success) { return @([int]$m.Groups[1].Value, [int]$m.Groups[2].Value) }
+  return $null
+}
 if (-not $NoBump) {
+  # 동기화 대상은 **하나의 새 번호**로 맞춘다. 지금 셋 중 가장 높은 번호 +1 —
+  # 어느 파일도 버전이 뒤로 가면 안 된다(뒤로 가면 "새 버전인가" 판단이 통째로 깨진다).
+  $syncNew = $null
+  if (@($Files | Where-Object { $SyncSet -contains $_ }).Count -gt 0) {
+    $maj = 0; $min = 0
+    foreach ($s in $SyncSet) {
+      $full = Join-Path $Repo $s
+      if (-not (Test-Path $full)) { continue }
+      $v = Get-Ver $full
+      if ($v -and (($v[0] -gt $maj) -or ($v[0] -eq $maj -and $v[1] -gt $min))) { $maj = $v[0]; $min = $v[1] }
+    }
+    if ($maj -gt 0) { $syncNew = 'v' + $maj + '.' + ($min + 1) }
+  }
   foreach ($f in $Files) {
     $full = Join-Path $Repo $f
     if (-not (Test-Path $full)) { continue }
@@ -82,10 +114,28 @@ if (-not $NoBump) {
     $m = [regex]::Match($c, 'v(\d+)\.(\d+)')
     if ($m.Success) {
       $oldV = 'v' + $m.Groups[1].Value + '.' + $m.Groups[2].Value
-      $newV = 'v' + $m.Groups[1].Value + '.' + ([int]$m.Groups[2].Value + 1)
-      [IO.File]::WriteAllText($full, $c.Replace($oldV, $newV), $enc)
-      Say ("      " + $f + ": " + $oldV + " -> " + $newV)
+      $newV = if (($SyncSet -contains $f) -and $syncNew) { $syncNew }
+              else { 'v' + $m.Groups[1].Value + '.' + ([int]$m.Groups[2].Value + 1) }
+      if ($oldV -ne $newV) {
+        [IO.File]::WriteAllText($full, $c.Replace($oldV, $newV), $enc)
+        Say ("      " + $f + ": " + $oldV + " -> " + $newV)
+      } else { Say ("      " + $f + ": " + $oldV + " (그대로)") }
     }
+  }
+}
+
+# 📣 지금 라이브 버전을 한 줄짜리 파일로 같이 올린다 (홍팀장 2026-09-01)
+#   업체는 카탈로그 탭을 켜둔 채로 며칠 쓴다. 탭을 안 닫으면 브라우저는 catalog.html 을
+#   **아예 다시 받지 않는다.** 그래서 우리가 고쳐 올려도 화면은 v2.70 그대로였고,
+#   쿠팡 파일이 옛 코드로 읽혀 칸이 밀렸다(2026-09-01). 화면이 이 파일을 보고 스스로 알아챈다.
+$catPath = Join-Path $Repo 'catalog.html'
+if (Test-Path $catPath) {
+  $cv = Get-Ver $catPath
+  if ($cv) {
+    $verLine = 'v' + $cv[0] + '.' + $cv[1]
+    [IO.File]::WriteAllText((Join-Path $Repo 'version.txt'), $verLine, $enc)
+    if ($Files -notcontains 'version.txt') { $Files += 'version.txt' }
+    Say ("      version.txt: " + $verLine)
   }
 }
 
