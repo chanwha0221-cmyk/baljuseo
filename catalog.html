@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.7</title>
+<title>마스터 유통 카탈로그 v23.8</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -480,8 +480,8 @@ h1{letter-spacing:-.6px}
 .searchwrap.big .sclr{right:12px}
 /* 메뉴(게시판 입구)는 검색 밑으로 내려왔다 — 검색과 상품 사이에서 너무 튀지 않게 */
 .controls .menu{margin-top:10px}
-/* 💹 최근 가격 변동은 상품 바로 위 */
-.controls .mvbox{margin:12px 0 0}
+/* 💹 최근 가격 변동 — 클릭 안내와 메뉴 사이 */
+.controls .mvbox{margin:9px 0 0}
 @media(max-width:640px){
   .searchwrap.big .search{font-size:16px;padding:13px 38px}
   .searchwrap.big .sico{left:12px;font-size:15px}
@@ -636,6 +636,11 @@ h1{letter-spacing:-.6px}
 <button class="sclr" id="qclr" type="button" aria-label="검색어 지우기">✕</button>
 </div>
 <div class="clicktip">👆 <b>상품명을 클릭</b>하시면 상품 상세 및 사진을 확인하실 수 있습니다!</div>
+<!-- 💹 최근 가격 변동 — 검색 바로 밑, 메뉴 위 (홍팀장 2026-09-01)
+     처음엔 상품 바로 위에 뒀는데 창고·카테고리 칩 아래라 묻혔다.
+     업체가 제일 무서워하고 제일 먼저 보고 싶은 게 인상·인하다(2026-08-25).
+     접힌 채로 한 줄만 차지하니 위로 올려도 상품이 밀리지 않는다. -->
+<details class="mvbox" id="mvbox"></details>
 <!-- 메뉴 = 게시판 입구. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
 <div class="menu" id="menu">
   <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
@@ -652,8 +657,6 @@ h1{letter-spacing:-.6px}
 <!-- 공지·소식글은 게시판으로 갔다 — 첫 화면에선 접어 둔다 (홍팀장 2026-09-01) -->
 <div class="ntcbox" id="ntcbox" hidden></div>
 <div class="newsone" id="newsone" hidden></div>
-<!-- 💹 최근 가격 변동은 상품 바로 위로 (접힌 채로 한 줄만 차지한다) -->
-<details class="mvbox" id="mvbox"></details>
 </div>
 <div class="load" id="load">⏳ 상품을 불러오는 중입니다…</div>
 <div id="view"></div><div class="empty" id="empty" style="display:none">검색 결과가 없습니다.</div>
