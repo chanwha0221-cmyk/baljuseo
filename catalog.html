@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.1</title>
+<title>마스터 유통 카탈로그 v23.2</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -465,6 +465,22 @@ h1{letter-spacing:-.6px}
   color:var(--muted);font-size:14px;line-height:1;padding:6px;cursor:pointer;border-radius:50%}
 .sclr.on{display:block}
 @media(hover:hover){.sclr:hover{background:var(--soft);color:var(--ink)}}
+/* 🔍 검색이 첫 화면의 주인공 (홍팀장 2026-09-01 "지금보다 좀 더 튀게 딱 박아주고")
+   테두리를 강조색 2px 로 세우고 글자를 키운다. 돋보기는 왼쪽 안쪽에 넣어 검색칸임을 한눈에. */
+.searchwrap.big .search{font-size:16.5px;padding:15px 42px;border-width:2px;border-color:var(--accent);
+  box-shadow:var(--shadow-lg);font-weight:600}
+.searchwrap.big .search:empty::before{font-weight:500}
+.searchwrap.big .sico{position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  font-size:16px;line-height:1;pointer-events:none;opacity:.8}
+.searchwrap.big .sclr{right:12px}
+/* 메뉴(게시판 입구)는 검색 밑으로 내려왔다 — 검색과 상품 사이에서 너무 튀지 않게 */
+.controls .menu{margin-top:10px}
+/* 💹 최근 가격 변동은 상품 바로 위 */
+.controls .mvbox{margin:12px 0 0}
+@media(max-width:640px){
+  .searchwrap.big .search{font-size:16px;padding:13px 38px}
+  .searchwrap.big .sico{left:12px;font-size:15px}
+}
 .lbl::before{content:'';display:inline-block;width:14px;height:3px;border-radius:2px;
   background:var(--pop);margin-right:7px;vertical-align:middle}
 .meta b{color:var(--accent-d);font-size:13px}
@@ -593,7 +609,29 @@ h1{letter-spacing:-.6px}
     <small>당일 발송건은 오후 6시 이후 조회 가능합니다</small>
   </a>
 </div></header>
-<!-- 메뉴 — 검색창 위. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
+<!-- 📐 첫 화면 순서 (홍팀장 2026-09-01 정리)
+     "공지 / 소식글 / 상품변동사항 / 추천상품은 다 각자 게시판이 있으니 눌러서 보게 하고,
+      입금계좌 바로 밑에 검색을 튀게 박고, 최근 가격 변동은 밑으로, 바로 상품이 보이게."
+     → 계좌 ▸ 🔍검색 ▸ 클릭 안내 ▸ 메뉴(게시판 입구) ▸ 창고·카테고리 ▸ 최근 가격 변동 ▸ 상품
+     예전엔 메뉴 밑에 공지 상자와 소식글 한 줄이 통째로 펼쳐져 있어 화면을 두 번 넘겨야
+     상품이 나왔다. 카탈로그의 본질은 상품이다. 공지·소식글은 메뉴 배지와 토스트로 알린다.
+     ⚠️ ntcbox·newsone 을 지우지 않고 남겨둔 이유 — renderNoticeBox()/renderNewsOne() 이
+        여기에 그린다. 없애면 화면엔 안 보여도 되지만 함수가 갈 곳을 잃는다. 화면에서만 접는다. -->
+<div id="mainView">
+<div class="controls">
+<!-- 🔒 검색칸은 일부러 <input> 이 아니다. (2026-08-20)
+     같은 문서에 로그인 폼이 있으면 크롬이 저장된 아이디("master")를 검색칸에 밀어넣는데,
+     autocomplete 속성·값 비우기·잠금(disabled/readonly)까지 전부 뚫렸다.
+     (잠금은 글씨조차 못 넣는 사고까지 냈다 — 다시 쓰지 말 것.)
+     크롬 자동완성은 contenteditable 에는 손을 못 댄다 → 이 방식이 유일하게 확실하다.
+     아래 스크립트의 value 어댑터 덕분에 q.value 로 읽고 쓰는 기존 코드는 그대로 동작한다. -->
+<div class="searchwrap big">
+<span class="sico" aria-hidden="true">🔍</span>
+<div class="search" id="q" contenteditable="true" role="searchbox" aria-label="상품명 검색" inputmode="search" enterkeyhint="search" spellcheck="false" data-ph="상품명 검색 — 예: 갈치, 새우, 한우, 김치…"></div>
+<button class="sclr" id="qclr" type="button" aria-label="검색어 지우기">✕</button>
+</div>
+<div class="clicktip">👆 <b>상품명을 클릭</b>하시면 상품 상세 및 사진을 확인하실 수 있습니다!</div>
+<!-- 메뉴 = 게시판 입구. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
 <div class="menu" id="menu">
   <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
   <button class="mbtn" data-go="news">📰 소식글<span class="tapb">눌러서 확인</span></button>
@@ -603,28 +641,14 @@ h1{letter-spacing:-.6px}
   <button class="mbtn" data-go="orders" id="mbOrders" style="display:none">📋 발주 내역<span class="nbadge" id="ordsBadge" style="display:none"></span></button>
   <button class="mbtn" data-go="claim" id="mbClaim">📮 클레임<span class="nbadge" id="clBadge" style="display:none"></span></button>
 </div>
-<!-- 공지는 메뉴 바로 밑에 그대로 펼쳐 보여준다 (사장님 2026-08-12) -->
-<div class="ntcbox" id="ntcbox"></div>
-<!-- 📰 최신 소식글은 제목 한 줄만 (사장님 2026-09-01). 공지가 이미 위를 먹고 있고
-     카탈로그의 본질은 상품이라, 소식글까지 펼치면 첫 화면에서 상품이 안 보인다. -->
-<div class="newsone" id="newsone"></div>
-<div id="mainView">
-<div class="controls">
-<!-- 🔒 검색칸은 일부러 <input> 이 아니다. (2026-08-20)
-     같은 문서에 로그인 폼이 있으면 크롬이 저장된 아이디("master")를 검색칸에 밀어넣는데,
-     autocomplete 속성·값 비우기·잠금(disabled/readonly)까지 전부 뚫렸다.
-     (잠금은 글씨조차 못 넣는 사고까지 냈다 — 다시 쓰지 말 것.)
-     크롬 자동완성은 contenteditable 에는 손을 못 댄다 → 이 방식이 유일하게 확실하다.
-     아래 스크립트의 value 어댑터 덕분에 q.value 로 읽고 쓰는 기존 코드는 그대로 동작한다. -->
-<div class="searchwrap">
-<div class="search" id="q" contenteditable="true" role="searchbox" aria-label="상품명 검색" inputmode="search" enterkeyhint="search" spellcheck="false" data-ph="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…"></div>
-<button class="sclr" id="qclr" type="button" aria-label="검색어 지우기">✕</button>
-</div>
-<div class="clicktip">👆 <b>상품명을 클릭</b>하시면 상품 상세 및 사진을 확인하실 수 있습니다!</div>
-<details class="mvbox" id="mvbox"></details>
 <button class="allbtn" id="allbtn">🏠 전체 상품 보기</button>
 <div class="lbl">창고 선택</div><div class="row" id="whrow"></div>
 <div class="lbl" id="catlbl">카테고리 선택</div><div class="row" id="catrow"></div>
+<!-- 공지·소식글은 게시판으로 갔다 — 첫 화면에선 접어 둔다 (홍팀장 2026-09-01) -->
+<div class="ntcbox" id="ntcbox" hidden></div>
+<div class="newsone" id="newsone" hidden></div>
+<!-- 💹 최근 가격 변동은 상품 바로 위로 (접힌 채로 한 줄만 차지한다) -->
+<details class="mvbox" id="mvbox"></details>
 </div>
 <div class="load" id="load">⏳ 상품을 불러오는 중입니다…</div>
 <div id="view"></div><div class="empty" id="empty" style="display:none">검색 결과가 없습니다.</div>
