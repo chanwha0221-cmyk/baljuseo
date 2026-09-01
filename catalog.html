@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.74).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.75).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.74</title>
+<title>마스터 유통 카탈로그 v2.75</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -234,6 +234,13 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   padding:3px 8px;font-size:11.5px;cursor:pointer;white-space:nowrap;font-family:inherit}
 @media(hover:hover){.delb:hover{border-color:var(--up);color:var(--up)}}
 .delb:disabled{opacity:.5;cursor:default}
+/* 🗑 추천상품 카드 맨 아래 — 카드 폭을 다 쓰는 버튼.
+   ⚠️ 여기서 따로 정의한다. 옆의 [🚫 예외 등록]이 쓰는 .excb 는 order.js 의 css() 안에 있어
+      발주 화면을 한 번도 안 열면 안 실려 있다 — 그걸 빌려 쓰면 첫 화면에서 민무늬 버튼이 된다. */
+.recdel{margin-top:5px;width:100%;border:1.5px dashed var(--line);background:transparent;color:var(--muted);
+  padding:5px 0;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
+@media(hover:hover){.recdel:hover{border-color:var(--up);color:var(--up);border-style:solid}}
+.recdel:disabled{opacity:.5;cursor:default}
 /* 첫 화면 한 줄 — 카탈로그의 본질은 상품이라 소식글은 제목 한 줄만 놓고 자리를 안 먹는다 */
 .newsone{margin-top:9px}
 .newsonebtn{width:100%;display:flex;align-items:center;gap:8px;background:var(--card);cursor:pointer;
@@ -1198,6 +1205,7 @@ function priceHtml(p){
   return oldh+'<div class="'+cls+'">'+won(p.cur)+'<small>원</small></div>';
 }
 // extra = 카드 맨 아래 덧붙임(추천 코멘트), top = 카드 위쪽 배지(추천상품/소식글)
+// foot  = 버튼들 **아래** 맨 끝 (추천 화면의 🗑 내리기 — 발주담기보다 위에 오면 안 된다)
 // ⚠️ 목록에 쓸 땐 반드시 list.map(p=>card(p)) — .map(card) 로 넘기면 배열 번호가 extra로 새어 들어간다
 // 면세/과세 배지 + 그 옆의 인상·인하 배지 (사장님 2026-08-19)
 // 둘 다 없으면 빈 문자열이라 카드 모양이 예전과 같다.
@@ -1211,7 +1219,7 @@ function tagRow(p,taxc){
   const hb=h?('<span class="tg hap" title="한 박스에 이 수량까지 합포장 가능합니다 (같은 창고 상품끼리)">📦 합포장 '+h+'개</span>'):'';
   return (t||c||hb)?('<div class="tgrow">'+t+c+hb+'</div>'):'';
 }
-function card(p,extra,top){
+function card(p,extra,top,foot){
   const m=MEDIA['n:'+pkey(p.name)]||(p.url?(MEDIA[(p.url.match(/(\d{5,})/)||[])[1]]||null):null);
   const taxc=(p.tax&&p.tax.indexOf('과세')>=0&&p.tax.indexOf('면')<0)?'tx':'tax';
   // 링크 우선순위: ①masterc 동기화 목록('상품링크') ②사진 캐시 ③유통시트 하이퍼링크
@@ -1257,6 +1265,7 @@ function card(p,extra,top){
        카드를 보다가 바로 고치러 간다. 카탈로그는 사진 시트에 쓰지 않는다 —
        상품도구를 그 상품으로 열어줄 뿐이다(#photo=). 쓰기는 권한을 가진 도구 쪽에서만. */
     +(amMasterC()?'<button class="excb thb" data-thumb="'+esc(p.name)+'" title="카탈로그 사진을 다른 사진으로 바꿉니다">🖼 사진 바꾸기</button>':'')
+    +(foot||'')
     +'</div></div>';
 }
 function buildWhChips(){
@@ -1637,9 +1646,14 @@ function renderMoveBox(){
    🔒 쓰기는 public 경로로 안 나간다 — SheetsProxy.call(팀 비밀번호)로만 나간다.
       카탈로그는 정적 페이지라 화면의 권한 검사는 소스를 뜯으면 지나칠 수 있다.
       비밀번호는 사장님·원비씨가 다른 도구에서 쓰던 그것이고 세션이 남아 있어 보통 안 묻는다. */
-function delBtn(kind,n){
+/* kind → 도구시트 탭 · 사람한테 보일 이름.
+   ⭐추천상품 탭도 노출칸이 C 라 공지·소식글과 같은 함수로 내린다 (사장님 2026-09-01). */
+const DELTAB={news:'소식글',notice:'공지사항',rec:'추천상품'};
+const DELWHAT={news:'소식글',notice:'공지',rec:'추천상품'};
+function delBtn(kind,n,cls,label){
   if(!(ME&&ME.master))return '';
-  return '<button class="delb" data-del="'+kind+':'+(n.i+2)+'" data-dt="'+esc(n.title||'')+'" title="이 글 내리기">🗑</button>';
+  return '<button class="'+(cls||'delb')+'" data-del="'+kind+':'+(n.i+2)+'" data-dt="'+esc(n.title||'')
+    +'" title="이 '+(DELWHAT[kind]||'글')+'을 화면에서 내립니다">'+(label||'🗑')+'</button>';
 }
 async function adminHideRow(tab,row){
   if(!window.SheetsProxy||!SheetsProxy.call)throw new Error('이 화면에선 지울 수 없습니다.');
@@ -1650,15 +1664,23 @@ document.addEventListener('click',async function(e){
   const b=e.target.closest('[data-del]'); if(!b)return;
   e.preventDefault(); e.stopPropagation();          // summary 안이라 안 막으면 아코디언이 같이 열린다
   const bits=b.getAttribute('data-del').split(':'), kind=bits[0], row=+bits[1];
-  const what=kind==='news'?'소식글':'공지';
+  const what=DELWHAT[kind]||'글', tab=DELTAB[kind]||'공지사항';
+  const label=b.textContent;
   if(!confirm('이 '+what+'을 화면에서 내릴까요?\n\n'+(b.getAttribute('data-dt')||'')+'\n\n시트에는 남아 있어 되살릴 수 있습니다.'))return;
   b.disabled=true; b.textContent='…';
   try{
-    await adminHideRow(kind==='news'?'소식글':'공지사항',row);
+    await adminHideRow(tab,row);
     if(kind==='news'){
       NEWS=(NEWS||[]).filter(n=>n.i+2!==row);
       if(location.hash.replace(/^#/,'')==='news')subV.innerHTML=renderNews(NEWS);
       renderNewsOne();
+    }else if(kind==='rec'){
+      /* 추천에서 빠지면 창고 목록의 ⭐배지·정렬도 같이 바뀐다 → RECMAP 다시 만들고 본목록도 다시 그린다.
+         안 그러면 지운 상품이 창고 목록 맨 앞에 ⭐를 단 채로 남는다. */
+      RECS=(RECS||[]).filter(r=>r.i+2!==row);
+      buildRecMap();
+      if(location.hash.replace(/^#/,'')==='rec')subV.innerHTML=renderRecs(RECS);
+      render();
     }else{
       NOTI=(NOTI||[]).filter(n=>n.i+2!==row);
       if(location.hash.replace(/^#/,'')==='notice')subV.innerHTML=renderNotices(NOTI);
@@ -1667,7 +1689,7 @@ document.addEventListener('click',async function(e){
     toast('내렸습니다 — 업체 화면에서 안 보입니다');
   }catch(err){
     alert('내리지 못했습니다.\n\n'+(err.message||err));
-    b.disabled=false; b.textContent='🗑';
+    b.disabled=false; b.textContent=label;
   }
 });
 function ntcKey(n){ return (String(n.title||'').trim()+'|'+String(n.at||'').trim()); }
@@ -1879,10 +1901,18 @@ function renderRecs(list){
   let h=subHead('⭐ 추천상품','마스터 유통이 요즘 밀고 있는 상품입니다.');
   if(!list.length)return h+'<div class="empty">아직 등록된 추천상품이 없습니다.</div>';
   h+='<div class="grid" style="margin-top:14px">'+list.map(r=>{
-    const cm=r.cmt?'<div class="recc">💬 '+esc(r.cmt)+'</div>':'';
+    /* 🗑 추천에서 내리기 — 마스터만 (사장님 2026-09-01)
+       "저기에 칸 차지하고 업체에만 안 보이는 게 뭔 의미가 있냐, 그냥 삭제해 버리게."
+       🚫 예외 등록은 **업체 화면에서만** 감춘다 — 마스터 화면엔 카드가 그대로 남아 자리를 먹었다.
+          특히 카탈로그에서 내려간 상품은 autoExcGone 이 자동으로 예외를 걸어놔서
+          지울 방법이 상품도구(media-updater)뿐이었다. 여기서 바로 내린다.
+       ⚠️ 공지·소식글과 같은 방식 — 행을 지우지 않고 추천상품 탭 노출칸(C)만 'N'.
+          되살리려면 시트에서 Y 로 되돌리면 되고, 행 번호가 안 밀려 연달아 눌러도 안전하다. */
+    const del=delBtn('rec',{i:r.i,title:r.name},'recdel','🗑 추천에서 내리기');
+    const cm=(r.cmt?'<div class="recc">💬 '+esc(r.cmt)+'</div>':'');
     const bg=r.news?'<span class="recb news">📰 소식글</span>':'<span class="recb rec">⭐ 추천상품</span>';
     const p=ALL.find(x=>pkey(x.name)===pkey(r.name));
-    if(p)return card(p,cm,bg);
+    if(p)return card(p,cm,bg,del);
     // 카탈로그에 없는 상품(품절·미등록)도 사진·링크는 보여준다
     const m=MEDIA['n:'+pkey(r.name)]||null;
     const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(thumbUrl(m.img))+'" data-full="'+esc(m.img)+'" alt="'+esc(r.name)+'" loading="lazy" onerror="thumbFail(this)">')
@@ -1891,7 +1921,7 @@ function renderRecs(list){
     return '<div class="card">'+thumb+'<div class="bd">'+bg
       +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(r.name)+'">📋</button></div>'
       +'<div class="rf">지금은 카탈로그에 없는 상품입니다'
-      +(isExc(r.name)?' — 🚫 예외로 넣었습니다(업체 화면에는 안 보입니다)':'')+'</div>'+cm+'</div></div>';
+      +(isExc(r.name)?' — 🚫 예외로 넣었습니다(업체 화면에는 안 보입니다)':'')+'</div>'+cm+del+'</div></div>';
   }).join('')+'</div>';
   return h;
 }

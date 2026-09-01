@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.68).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.75).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.68</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v2.75</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -110,6 +110,13 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .acct .no{font-size:18px;font-weight:800;letter-spacing:-.2px;color:var(--ink);font-variant-numeric:tabular-nums}
 .acct .nm{font-size:13px;font-weight:700;color:var(--accent-d)}
 .acct .cpbtn{font-size:11.5px;padding:3px 9px}
+/* 🚚 운송장·정산내역 바로가기 — 계좌 줄 오른쪽 끝 (사장님 2026-09-01).
+   조회 시점 안내(오후 6시)를 버튼 안에 같이 넣는다 — 따로 떼면 아무도 안 읽는다. */
+.acct .invbtn{margin-left:auto;display:flex;flex-direction:column;align-items:center;gap:1px;
+  background:var(--accent);color:#fff;border-radius:10px;padding:6px 14px;text-decoration:none;
+  font-size:13px;font-weight:800;line-height:1.25;white-space:nowrap;border:0;cursor:pointer}
+.acct .invbtn small{font-size:10px;font-weight:600;opacity:.88;letter-spacing:-.2px}
+.acct .invbtn:hover{filter:brightness(1.1)}
 /* ── 로그인 (2026-08-12) ── */
 .gate{position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
 .gbox{width:100%;max-width:370px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:26px 22px 22px}
@@ -211,6 +218,39 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   animation:nbpulse 1.6s ease-in-out infinite}
 .ntclist{margin-top:4px}
 .ntcbox{margin-top:11px}
+/* ── 📰 소식글 (사장님 2026-09-01) ──────────────────────────────────
+   공지와 같은 아코디언을 쓰되 왼쪽 선 색으로 갈라 놓는다(공지=빨강/회색, 소식=파랑).
+   업체가 "운영 안내"와 "파는 글"을 눈으로 바로 구분해야 둘 다 읽힌다. */
+.ntcac.news{border-left-color:var(--down)}
+.newsb{font-size:10px;font-weight:800;color:#fff;background:var(--down);padding:2px 7px;border-radius:5px;white-space:nowrap}
+/* 👇 글 안의 상품 — 소식글의 존재 이유다. 여기서 상품으로 못 넘어가면 그냥 읽고 마는 글이 된다 */
+.newsp{padding:11px 15px 13px;border-top:1px dashed var(--line);font-size:11.5px;color:var(--muted)}
+.newspl{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.newspl .mvn{flex:0 0 auto;min-width:0;background:var(--soft);border:1px solid color-mix(in srgb,var(--accent) 32%,var(--line));
+  color:var(--accent-d);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:700;text-align:left}
+@media(hover:hover){.newspl .mvn:hover{background:var(--card);text-decoration:none}}
+/* 🗑 마스터만 보이는 지우기 버튼 (사장님 2026-09-01 "카탈로그에서도 삭제할 수 있게") */
+.delb{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:7px;
+  padding:3px 8px;font-size:11.5px;cursor:pointer;white-space:nowrap;font-family:inherit}
+@media(hover:hover){.delb:hover{border-color:var(--up);color:var(--up)}}
+.delb:disabled{opacity:.5;cursor:default}
+/* 🗑 추천상품 카드 맨 아래 — 카드 폭을 다 쓰는 버튼.
+   ⚠️ 여기서 따로 정의한다. 옆의 [🚫 예외 등록]이 쓰는 .excb 는 order.js 의 css() 안에 있어
+      발주 화면을 한 번도 안 열면 안 실려 있다 — 그걸 빌려 쓰면 첫 화면에서 민무늬 버튼이 된다. */
+.recdel{margin-top:5px;width:100%;border:1.5px dashed var(--line);background:transparent;color:var(--muted);
+  padding:5px 0;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
+@media(hover:hover){.recdel:hover{border-color:var(--up);color:var(--up);border-style:solid}}
+.recdel:disabled{opacity:.5;cursor:default}
+/* 첫 화면 한 줄 — 카탈로그의 본질은 상품이라 소식글은 제목 한 줄만 놓고 자리를 안 먹는다 */
+.newsone{margin-top:9px}
+.newsonebtn{width:100%;display:flex;align-items:center;gap:8px;background:var(--card);cursor:pointer;
+  border:1px solid var(--line);border-left:4px solid var(--down);border-radius:12px;padding:10px 14px;
+  box-shadow:var(--shadow);text-align:left;font-family:inherit}
+.newsonebtn .t{flex:1;min-width:0;font-size:13.5px;font-weight:700;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.newsonebtn .d{font-size:11px;color:var(--muted);white-space:nowrap}
+.newsonebtn .go{font-size:11.5px;font-weight:800;color:var(--down);white-space:nowrap}
+@media(hover:hover){.newsonebtn:hover{background:var(--soft)}}
 @media(max-width:640px){
   .menu{gap:5px;margin-top:8px}
   .mbtn{min-width:0;padding:9px 4px;font-size:11.5px;border-radius:9px}
@@ -231,6 +271,20 @@ a.ubtn{display:inline-block;text-decoration:none;line-height:1.6}   /* 👤 계�
 .pendnudge small{display:block;font-weight:600;font-size:11.5px;opacity:.9;margin-top:3px}
 .pendnudge .tel{display:inline-block;margin-top:7px;margin-right:7px;border:1px solid currentColor;
   border-radius:16px;padding:4px 11px;font-size:11.5px;font-weight:800;color:inherit;text-decoration:none}
+/* 🔒 확인 전(임시) 계정은 상품·단가·발주를 아예 못 본다 (홍팀장 2026-09-01)
+   — 화면에서 통째로 걷어내고 연락 안내만 남긴다. 아래 pendNudge() 주석에 경위. */
+body.pending #menu,body.pending .controls,body.pending #view,body.pending #empty,
+body.pending #load,body.pending .ntcbox,body.pending .newsone,body.pending #subView,
+body.pending .noteTg,body.pending .note,body.pending #sub,body.pending .acct{display:none!important}
+.pendwall{margin-top:11px;background:var(--card);border:2px solid color-mix(in srgb,var(--gold) 55%,transparent);
+  border-radius:14px;padding:20px 18px;box-shadow:var(--shadow);text-align:center}
+.pendwall .pw1{font-size:16px;font-weight:800;color:var(--gold);line-height:1.5}
+.pendwall .pw2{font-size:13px;color:var(--ink);font-weight:600;line-height:1.7;margin-top:9px}
+.pendwall .pw3{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:11px}
+.pendwall .tels{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.pendwall .tel{border:1.5px solid var(--accent);background:var(--soft);color:var(--accent-d);
+  border-radius:999px;padding:9px 16px;font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap}
+@media(max-width:640px){.pendwall{padding:16px 13px}.pendwall .pw1{font-size:14.5px}.pendwall .tel{width:100%}}
 .pwnudge{margin-top:9px;background:color-mix(in srgb,var(--gold) 12%,transparent);border:1px solid color-mix(in srgb,var(--gold) 35%,transparent);color:var(--gold);border-radius:11px;padding:8px 12px;font-size:11.5px;font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pwnudge button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:16px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
 /* 📇 주문처 연락처가 없는 업체에게 **들어오자마자** 요청 (사장님 2026-08-25:
@@ -255,6 +309,8 @@ a.ubtn{display:inline-block;text-decoration:none;line-height:1.6}   /* 👤 계�
   .acct .lb{font-size:11px}
   .acct .no{font-size:16px}
   .acct .nm{font-size:12px}
+  .acct .invbtn{margin-left:0;width:100%;padding:8px 10px;font-size:12.5px}
+  .acct .invbtn small{font-size:9.5px}
   .controls{margin-top:8px;padding:8px 0 6px}
   .search{padding:10px 12px;font-size:16px}
   .lbl{margin:7px 0 4px;font-size:10px}
@@ -528,10 +584,15 @@ h1{letter-spacing:-.6px}
   <span class="no">기업은행 514-049965-04-014</span>
   <span class="nm">주식회사 마스터</span>
   <button class="cpbtn" data-cp="514-049965-04-014" data-cpmsg="계좌번호 복사됨">📋 복사</button>
+  <a class="invbtn" href="https://masterc.co.kr/OutInvoice/5/?mid=OutInvoice&amp;document_srl=5" target="_blank" rel="noopener">
+    🚚 운송장 및 정산내역 확인
+    <small>당일 발송건은 오후 6시 이후 조회 가능합니다</small>
+  </a>
 </div></header>
 <!-- 메뉴 — 검색창 위. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
 <div class="menu" id="menu">
   <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
+  <button class="mbtn" data-go="news">📰 소식글<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="change">📊 상품변동사항<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="order">🧾 발주하기<span class="nbadge" id="ordCount" style="display:none"></span></button>
@@ -540,6 +601,9 @@ h1{letter-spacing:-.6px}
 </div>
 <!-- 공지는 메뉴 바로 밑에 그대로 펼쳐 보여준다 (사장님 2026-08-12) -->
 <div class="ntcbox" id="ntcbox"></div>
+<!-- 📰 최신 소식글은 제목 한 줄만 (사장님 2026-09-01). 공지가 이미 위를 먹고 있고
+     카탈로그의 본질은 상품이라, 소식글까지 펼치면 첫 화면에서 상품이 안 보인다. -->
+<div class="newsone" id="newsone"></div>
 <div id="mainView">
 <div class="controls">
 <!-- 🔒 검색칸은 일부러 <input> 이 아니다. (2026-08-20)
@@ -623,7 +687,11 @@ h1{letter-spacing:-.6px}
   </div>
 </div>
 <script>window.SHEETS_PROXY_PUBLIC=true;</script>
-<script src="sheets-proxy.js"></script>
+<!-- 🔑 sheets-proxy 는 다른 스크립트보다 먼저 와야 한다(window.fetch 를 감싼다).
+     앱 버전을 붙여 캐시를 턴다 — 이 파일에 기능이 늘어도(SheetsProxy.call 등) 이미 들어온
+     브라우저가 옛 파일을 계속 쓰는 일이 없게 (2026-09-01, order.js 와 같은 방식). -->
+<script>(function(){var v=(document.title.match(/v[\d.]+/)||['v0'])[0];
+document.write('<scr'+'ipt src="sheets-proxy.js?'+v+'"><\/scr'+'ipt>');})();</script>
 <script>
 // ── 시트 읽기 (서비스계정 읽기전용, secretary.html 패턴) ──
 const SHEET_ID='1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';
@@ -987,8 +1055,7 @@ function toast(m){const t=$('toast');t.textContent=m;t.style.opacity='1';setTime
    🔴 예외(🚫)로 빼둔 상품은 안 나간다 — 못 파는 물건이 제안서에 실리면 안 된다.
       가상 창고('🚫 예외')도 통째로 건너뛴다(g.virtual).
    ⚠️ 스키마는 원비씨 파일 14칸을 그대로 맞춘 것이다. 칸 이름을 바꾸면 그쪽 사이트가 깨진다. */
-function exportProposal(){
-  if(!ALL.length){ toast('상품을 아직 불러오는 중입니다 — 잠시 뒤 눌러주세요'); return; }
+function buildProposalDoc(){
   const out=[];
   GROUPS.filter(g=>!g.virtual).forEach(g=>{
     g.products.forEach(p=>{
@@ -1018,12 +1085,113 @@ function exportProposal(){
     supplier:'마스터 유통',
     products:out
   };
+  return doc;
+}
+// 못 올릴 때를 위한 손 내림길 — 파일로 받아서 손으로 갈아끼울 수 있게 남겨둔다
+function downloadProposal(doc){
   // 들여쓰기 1칸 — 원비씨 파일과 같은 모양이라 갈아끼웠을 때 차이가 눈에 보인다
   const url=URL.createObjectURL(new Blob([JSON.stringify(doc,null,1)],{type:'application/json'}));
   const a=document.createElement('a');
-  a.href=url;a.download='products.json';document.body.appendChild(a);a.click();
+  a.href=url;a.download='allproduct.json';document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);
-  toast('제안서 데이터 '+out.length+'개 상품 내려받았습니다');
+  toast('제안서 데이터 '+doc.products.length+'개 상품 내려받았습니다');
+}
+
+/* ══ 🔄 제안서 업데이트 (홍팀장 2026-09-01) ═══════════════════════════════
+   원비 팀장 제안서 사이트(wonbi.github.io/allproduct)는 **우리 저장소의**
+   `data/allproduct.json` 을 열 때마다 직접 읽는다. 그래서 그 파일만 새것이면
+   원비씨는 아무것도 안 해도 **새로고침 한 번에 카탈로그와 같은 시점**을 본다.
+
+   🔴 예전엔 이 버튼이 파일을 **내려받기만** 했다. 받은 파일을 저장소에 올리는 건 사람 몫이라
+      8/31 17:06 에서 멈춰 있었고, 원비씨가 "업데이트 해달라"고 해도 그쪽에선 할 수 있는 게
+      없었다(파일이 우리 저장소에 있다). 이제 버튼이 저장소에 바로 커밋한다.
+   🔑 GitHub 토큰은 **이 브라우저에만** 저장한다(localStorage). 소스에는 절대 안 박는다 —
+      이 사이트는 저장소가 private 이어도 인터넷 전체 공개다(2026-08-27 개인키 노출 사고).
+      토큰은 baljuseo 하나에 Contents: Read and write 만 준 fine-grained PAT 를 쓸 것.
+   ⏱ 커밋 뒤 GitHub Pages 가 굽는 데 보통 1~2분 — 그 전에 새로고침하면 옛 데이터가 온다. */
+const GH_OWNER='chanwha0221-cmyk',GH_REPO='baljuseo',GH_FILE='data/allproduct.json',GH_KEY='mc_gh_pat';
+function ghB64(str){                       // 한글이 섞여 있어 btoa 에 그냥 못 넣는다
+  const bytes=new TextEncoder().encode(str);
+  let bin=''; bytes.forEach(b=>{bin+=String.fromCharCode(b);});
+  return btoa(bin);
+}
+function ghAsk(msg){
+  const t=prompt(msg||('GitHub 토큰을 붙여넣어 주세요.\n\n'
+    +'github.com → Settings → Developer settings → Personal access tokens → Fine-grained tokens\n'
+    +'baljuseo 저장소 하나에만 [Contents: Read and write] 권한을 준 토큰을 만들어 주세요.\n\n'
+    +'이 브라우저에만 저장되고, GitHub 외 어디로도 보내지 않습니다.'));
+  const v=(t||'').trim();
+  if(v)try{localStorage.setItem(GH_KEY,v);}catch(e){}
+  return v;
+}
+async function ghGetSha(token){
+  const r=await fetch('https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+GH_FILE+'?ref=main',
+    {headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json'}});
+  if(r.status===401||r.status===403)throw new Error('AUTH');
+  if(r.status===404)return null;                       // 파일이 아직 없으면 새로 만든다
+  if(!r.ok)throw new Error('GitHub 응답 '+r.status);
+  return (await r.json()).sha;
+}
+async function ghPutProposal(token,doc,note){
+  const sha=await ghGetSha(token);
+  const body={message:'제안서 데이터 갱신 — '+doc.updatedAt+' 기준 '+doc.products.length+'개'+(note?(' ('+note+')'):''),
+    content:ghB64(JSON.stringify(doc,null,1)),branch:'main'};
+  if(sha)body.sha=sha;
+  const r=await fetch('https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+GH_FILE,
+    {method:'PUT',headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Content-Type':'application/json'},
+     body:JSON.stringify(body)});
+  if(!r.ok){
+    let why=''; try{why=(await r.json()).message||'';}catch(e){}
+    throw new Error('GitHub 응답 '+r.status+(why?(' — '+why):''));
+  }
+  return true;
+}
+/* 🔁 카탈로그를 열면 제안서 데이터도 저절로 맞춘다 (홍팀장 2026-09-01)
+   "원비씨가 언제 업데이트할 줄 알고 그걸 잡느냐" — 맞는 말이다. 사람이 누르는 걸 전제로 하면
+   언젠가 또 며칠 묵는다(실제로 8/31→9/1 그렇게 됐다). 마스터가 카탈로그를 열 때마다 조용히 맞춰 둔다.
+   ⚠️ 상품이 **실제로 바뀌었을 때만** 올린다(updatedAt 빼고 비교) — 안 그러면 열 때마다 커밋이 쌓인다.
+   ⚠️ 토큰이 없으면 아무 일도 안 한다. 자동으로 도는 일이 비밀번호를 묻고 나서면 안 된다.
+   ⚠️ 실패해도 조용하다 — 곁다리 작업이 화면을 막으면 안 된다. 손으로는 [🔄 제안서 업데이트]로 언제든 올린다. */
+async function autoSyncProposal(){
+  try{
+    if(!(ME&&ME.master)||!ALL.length)return;
+    let token=''; try{token=localStorage.getItem(GH_KEY)||'';}catch(e){}
+    if(!token)return;
+    const doc=buildProposalDoc();
+    let live=null;
+    try{ live=await(await fetch('data/allproduct.json?cb='+Date.now(),{cache:'no-cache'})).json(); }catch(e){}
+    if(live&&live.products&&JSON.stringify(live.products)===JSON.stringify(doc.products))return;  // 그대로면 안 올린다
+    await ghPutProposal(token,doc,'카탈로그 열 때 자동');
+    toast('📤 제안서 데이터도 최신으로 맞췄습니다 ('+doc.products.length+'개)');
+  }catch(e){ /* 곁다리다 — 조용히 넘긴다 */ }
+}
+async function updateProposal(){
+  const btn=$('ub_exp');
+  if(!ALL.length){ toast('상품을 아직 불러오는 중입니다 — 잠시 뒤 눌러주세요'); return; }
+  const doc=buildProposalDoc();
+  let token=''; try{token=localStorage.getItem(GH_KEY)||'';}catch(e){}
+  if(!token)token=ghAsk();
+  if(!token)return;
+  if(btn){btn.disabled=true;btn.textContent='⏳ 올리는 중…';}
+  try{
+    try{ await ghPutProposal(token,doc,'카탈로그에서 바로 올림'); }
+    catch(e){
+      if(e.message!=='AUTH')throw e;
+      try{localStorage.removeItem(GH_KEY);}catch(x){}
+      token=ghAsk('토큰이 거절됐습니다. 다시 붙여넣어 주세요.\n(baljuseo 저장소에 Contents: Read and write 권한이 있어야 합니다)');
+      if(!token){if(btn){btn.disabled=false;btn.textContent='🔄 제안서 업데이트';}return;}
+      await ghPutProposal(token,doc,'카탈로그에서 바로 올림');
+    }
+    toast('✅ 제안서 '+doc.products.length+'개 올렸습니다 — 1~2분 뒤 새로고침하면 반영됩니다');
+    alert('제안서 데이터를 올렸습니다.\n\n'
+      +'· 기준 시각 : '+doc.updatedAt+'\n· 상품 : '+doc.products.length+'개\n\n'
+      +'GitHub 가 굽는 데 1~2분 걸립니다.\n그 뒤 제안서 사이트를 새로고침하면 카탈로그와 같은 시점이 됩니다.');
+  }catch(e){
+    // 못 올렸으면 손으로라도 갈아끼울 수 있게 파일을 내어준다
+    if(confirm('올리지 못했습니다.\n\n'+(e.message||e)+'\n\n대신 파일로 받으시겠습니까?'))downloadProposal(doc);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='🔄 제안서 업데이트';}
+  }
 }
 // 원본 사진이 장당 0.3~1MB라 그대로 쓰면 거래처 휴대폰에서 느림 → 리사이즈 프록시로 썸네일(약 30KB).
 // 프록시가 죽으면 원본으로, 원본도 실패하면 '사진 준비중'으로 단계 폴백.
@@ -1044,6 +1212,7 @@ function priceHtml(p){
   return oldh+'<div class="'+cls+'">'+won(p.cur)+'<small>원</small></div>';
 }
 // extra = 카드 맨 아래 덧붙임(추천 코멘트), top = 카드 위쪽 배지(추천상품/소식글)
+// foot  = 버튼들 **아래** 맨 끝 (추천 화면의 🗑 내리기 — 발주담기보다 위에 오면 안 된다)
 // ⚠️ 목록에 쓸 땐 반드시 list.map(p=>card(p)) — .map(card) 로 넘기면 배열 번호가 extra로 새어 들어간다
 // 면세/과세 배지 + 그 옆의 인상·인하 배지 (사장님 2026-08-19)
 // 둘 다 없으면 빈 문자열이라 카드 모양이 예전과 같다.
@@ -1057,7 +1226,7 @@ function tagRow(p,taxc){
   const hb=h?('<span class="tg hap" title="한 박스에 이 수량까지 합포장 가능합니다 (같은 창고 상품끼리)">📦 합포장 '+h+'개</span>'):'';
   return (t||c||hb)?('<div class="tgrow">'+t+c+hb+'</div>'):'';
 }
-function card(p,extra,top){
+function card(p,extra,top,foot){
   const m=MEDIA['n:'+pkey(p.name)]||(p.url?(MEDIA[(p.url.match(/(\d{5,})/)||[])[1]]||null):null);
   const taxc=(p.tax&&p.tax.indexOf('과세')>=0&&p.tax.indexOf('면')<0)?'tx':'tax';
   // 링크 우선순위: ①masterc 동기화 목록('상품링크') ②사진 캐시 ③유통시트 하이퍼링크
@@ -1103,6 +1272,7 @@ function card(p,extra,top){
        카드를 보다가 바로 고치러 간다. 카탈로그는 사진 시트에 쓰지 않는다 —
        상품도구를 그 상품으로 열어줄 뿐이다(#photo=). 쓰기는 권한을 가진 도구 쪽에서만. */
     +(amMasterC()?'<button class="excb thb" data-thumb="'+esc(p.name)+'" title="카탈로그 사진을 다른 사진으로 바꿉니다">🖼 사진 바꾸기</button>':'')
+    +(foot||'')
     +'</div></div>';
 }
 function buildWhChips(){
@@ -1296,7 +1466,7 @@ function finishRender(atMs,fromCache){
 async function startCatalog(){
   /* 🚫 예외 목록을 먼저 받아온다 — 늦게 오면 감춰야 할 상품이 잠깐 보였다 사라진다.
      받아온 뒤 화면을 한 번 더 그린다(캐시로 먼저 그린 화면도 여기서 정리된다). */
-  loadExc().then(()=>{ if(GROUPS.length){buildAll();buildWhChips();render();} });
+  const excDone=loadExc().then(()=>{ if(GROUPS.length){buildAll();buildWhChips();render();} }).catch(()=>{});
   // 📦 합포장 안 되는 상품 목록 — 발주 화면(order.js)이 쓴다. 여기서 같이 받아둔다.
   if(window.loadNoHap)window.loadNoHap();
   let usedCache=false;
@@ -1316,13 +1486,14 @@ async function startCatalog(){
     try{
       const r=await Promise.all([loadMedia().catch(()=>({})),loadCats().catch(()=>({})),loadSales().catch(()=>({})),
                                  loadChanges().catch(()=>null),loadNotices().catch(()=>null),loadLinks().catch(()=>({})),
-                                 loadHap().catch(()=>({})),loadRecs().catch(()=>null)]);
+                                 loadHap().catch(()=>({})),loadRecs().catch(()=>null),loadNews().catch(()=>null)]);
       media=r[0];cats=r[1];sales=r[2];
       if(r[3]){CHG=r[3];buildTint();renderMoveBox();}   // 살구색 표시를 카탈로그 카드에도 입히려면 시작할 때 읽어야 한다
       if(r[4]){NOTI=r[4];renderNoticeBox();}
       if(r[5]&&Object.keys(r[5]).length)LINKS=r[5];
       if(r[6]&&r[6].map&&Object.keys(r[6].map).length){HAP=r[6].map;HAPROWS=r[6].rows||[];}   // 📦 합포장 — 같은 Promise.all이라 로딩이 느려지지 않는다
       if(r[7]){RECS=r[7];buildRecMap();}            // ⭐ 추천상품을 창고 목록 맨 앞에 세우려면 시작할 때 필요
+      if(r[8]){NEWS=r[8];renderNewsOne();}          // 📰 최신 소식글 한 줄 (같은 Promise.all이라 로딩이 안 느려진다)
     }catch(e){}
     if(Object.keys(sales).length)SALES=sales;
     if(!Object.keys(media).length){
@@ -1338,6 +1509,10 @@ async function startCatalog(){
     // (안 그러면 사진·스펙을 새로 받아왔는데도 '사진 준비중'이 그대로 남는다 — 2026-08-12 탱글 생물 중하)
     if(location.hash.replace(/^#/,''))renderRoute();
     try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,noti:NOTI,links:LINKS,hap:HAP,recmap:RECMAP})); }catch(e){}
+    /* 📤 제안서 데이터 자동 맞춤 — 🚫예외 목록까지 도착한 뒤에 해야 한다.
+       먼저 하면 못 파는 상품이 제안서에 실린다. */
+    try{ await excDone; }catch(e){}
+    autoSyncProposal();
   }catch(e){
     if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
   }
@@ -1350,7 +1525,7 @@ async function startCatalog(){
 // 추천상품·공지사항 내용은 '마스터 유통 상품 도구'(media-updater)에서 등록한다.
 // ══════════════════════════════════════════════════════════════════
 const subV=$('subView'),mainV=$('mainView'),menuEl=$('menu');
-let CHG=null,RECS=null,NOTI=null;
+let CHG=null,RECS=null,NOTI=null,NEWS=null;
 /* ⭐ 추천상품을 창고 목록에서도 맨 앞에 세우려면 시작할 때 읽어야 한다 (사장님 2026-08-19).
    예전엔 [⭐추천상품] 메뉴를 눌러야 읽었다. RECMAP = 상품명 → {news} */
 let RECMAP={};
@@ -1470,6 +1645,60 @@ function renderMoveBox(){
      ② 계정 시트에 업체별 기록을 남기면 관리할 게 늘어난다
      기기를 바꾸면 한 번 더 뜨는데, 못 보고 지나치는 것보다 한 번 더 보는 쪽이 낫다.
    공지 하나하나의 신원은 '제목+작성일'로 잡는다 — 시트에 공지 ID가 따로 없기 때문. */
+/* ══ 🗑 카탈로그에서 공지·소식글 내리기 (사장님 2026-09-01) ═══════════════════
+   "원비씨랑 나랑 마스터 계정 둘밖에 없으니 카탈로그에서도 삭제할 수 있게 만들어줘"
+   ⚠️ 행을 지우지 않는다. 노출칸(C)을 'N' 으로 바꾼다.
+      ① 잘못 눌러도 시트에서 Y 로 되돌리면 살아난다
+      ② 행을 지우면 아래 행 번호가 전부 밀려서, 연달아 지울 때 엉뚱한 글이 사라진다
+   🔒 쓰기는 public 경로로 안 나간다 — SheetsProxy.call(팀 비밀번호)로만 나간다.
+      카탈로그는 정적 페이지라 화면의 권한 검사는 소스를 뜯으면 지나칠 수 있다.
+      비밀번호는 사장님·원비씨가 다른 도구에서 쓰던 그것이고 세션이 남아 있어 보통 안 묻는다. */
+/* kind → 도구시트 탭 · 사람한테 보일 이름.
+   ⭐추천상품 탭도 노출칸이 C 라 공지·소식글과 같은 함수로 내린다 (사장님 2026-09-01). */
+const DELTAB={news:'소식글',notice:'공지사항',rec:'추천상품'};
+const DELWHAT={news:'소식글',notice:'공지',rec:'추천상품'};
+function delBtn(kind,n,cls,label){
+  if(!(ME&&ME.master))return '';
+  return '<button class="'+(cls||'delb')+'" data-del="'+kind+':'+(n.i+2)+'" data-dt="'+esc(n.title||'')
+    +'" title="이 '+(DELWHAT[kind]||'글')+'을 화면에서 내립니다">'+(label||'🗑')+'</button>';
+}
+async function adminHideRow(tab,row){
+  if(!window.SheetsProxy||!SheetsProxy.call)throw new Error('이 화면에선 지울 수 없습니다.');
+  await SheetsProxy.call(DOGU_ID+'/values/'+encodeURIComponent("'"+tab+"'!C"+row)+'?valueInputOption=RAW',
+    'PUT',JSON.stringify({values:[['N']]}));
+}
+document.addEventListener('click',async function(e){
+  const b=e.target.closest('[data-del]'); if(!b)return;
+  e.preventDefault(); e.stopPropagation();          // summary 안이라 안 막으면 아코디언이 같이 열린다
+  const bits=b.getAttribute('data-del').split(':'), kind=bits[0], row=+bits[1];
+  const what=DELWHAT[kind]||'글', tab=DELTAB[kind]||'공지사항';
+  const label=b.textContent;
+  if(!confirm('이 '+what+'을 화면에서 내릴까요?\n\n'+(b.getAttribute('data-dt')||'')+'\n\n시트에는 남아 있어 되살릴 수 있습니다.'))return;
+  b.disabled=true; b.textContent='…';
+  try{
+    await adminHideRow(tab,row);
+    if(kind==='news'){
+      NEWS=(NEWS||[]).filter(n=>n.i+2!==row);
+      if(location.hash.replace(/^#/,'')==='news')subV.innerHTML=renderNews(NEWS);
+      renderNewsOne();
+    }else if(kind==='rec'){
+      /* 추천에서 빠지면 창고 목록의 ⭐배지·정렬도 같이 바뀐다 → RECMAP 다시 만들고 본목록도 다시 그린다.
+         안 그러면 지운 상품이 창고 목록 맨 앞에 ⭐를 단 채로 남는다. */
+      RECS=(RECS||[]).filter(r=>r.i+2!==row);
+      buildRecMap();
+      if(location.hash.replace(/^#/,'')==='rec')subV.innerHTML=renderRecs(RECS);
+      render();
+    }else{
+      NOTI=(NOTI||[]).filter(n=>n.i+2!==row);
+      if(location.hash.replace(/^#/,'')==='notice')subV.innerHTML=renderNotices(NOTI);
+      renderNoticeBox(); renderNtcBadge();
+    }
+    toast('내렸습니다 — 업체 화면에서 안 보입니다');
+  }catch(err){
+    alert('내리지 못했습니다.\n\n'+(err.message||err));
+    b.disabled=false; b.textContent=label;
+  }
+});
 function ntcKey(n){ return (String(n.title||'').trim()+'|'+String(n.at||'').trim()); }
 function ntcSeenKey(){ return 'TEST_catalog_ntc_seen_'+((ME&&ME.id)?ME.id:'guest'); }
 function ntcSeenSet(){
@@ -1500,6 +1729,7 @@ function noticeItem(n,isNew){
       +(n.imp?'<span class="impb">중요</span>':'')
       +'<span class="ntt">'+esc(n.title)+'</span>'
       +(n.at?'<span class="nd2">'+esc(n.at)+'</span>':'')
+      +delBtn('notice',n)
       +'<span class="ntarrow">▾</span>'
     +'</summary>'
     +'<div class="nb">'+(n.body?esc(n.body):'(내용 없음)')+'</div>'
@@ -1678,10 +1908,18 @@ function renderRecs(list){
   let h=subHead('⭐ 추천상품','마스터 유통이 요즘 밀고 있는 상품입니다.');
   if(!list.length)return h+'<div class="empty">아직 등록된 추천상품이 없습니다.</div>';
   h+='<div class="grid" style="margin-top:14px">'+list.map(r=>{
-    const cm=r.cmt?'<div class="recc">💬 '+esc(r.cmt)+'</div>':'';
+    /* 🗑 추천에서 내리기 — 마스터만 (사장님 2026-09-01)
+       "저기에 칸 차지하고 업체에만 안 보이는 게 뭔 의미가 있냐, 그냥 삭제해 버리게."
+       🚫 예외 등록은 **업체 화면에서만** 감춘다 — 마스터 화면엔 카드가 그대로 남아 자리를 먹었다.
+          특히 카탈로그에서 내려간 상품은 autoExcGone 이 자동으로 예외를 걸어놔서
+          지울 방법이 상품도구(media-updater)뿐이었다. 여기서 바로 내린다.
+       ⚠️ 공지·소식글과 같은 방식 — 행을 지우지 않고 추천상품 탭 노출칸(C)만 'N'.
+          되살리려면 시트에서 Y 로 되돌리면 되고, 행 번호가 안 밀려 연달아 눌러도 안전하다. */
+    const del=delBtn('rec',{i:r.i,title:r.name},'recdel','🗑 추천에서 내리기');
+    const cm=(r.cmt?'<div class="recc">💬 '+esc(r.cmt)+'</div>':'');
     const bg=r.news?'<span class="recb news">📰 소식글</span>':'<span class="recb rec">⭐ 추천상품</span>';
     const p=ALL.find(x=>pkey(x.name)===pkey(r.name));
-    if(p)return card(p,cm,bg);
+    if(p)return card(p,cm,bg,del);
     // 카탈로그에 없는 상품(품절·미등록)도 사진·링크는 보여준다
     const m=MEDIA['n:'+pkey(r.name)]||null;
     const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(thumbUrl(m.img))+'" data-full="'+esc(m.img)+'" alt="'+esc(r.name)+'" loading="lazy" onerror="thumbFail(this)">')
@@ -1690,7 +1928,7 @@ function renderRecs(list){
     return '<div class="card">'+thumb+'<div class="bd">'+bg
       +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(r.name)+'">📋</button></div>'
       +'<div class="rf">지금은 카탈로그에 없는 상품입니다'
-      +(isExc(r.name)?' — 🚫 예외로 넣었습니다(업체 화면에는 안 보입니다)':'')+'</div>'+cm+'</div></div>';
+      +(isExc(r.name)?' — 🚫 예외로 넣었습니다(업체 화면에는 안 보입니다)':'')+'</div>'+cm+del+'</div></div>';
   }).join('')+'</div>';
   return h;
 }
@@ -1714,14 +1952,82 @@ function renderNotices(list){
   h+='<div class="ntclist">'+list.map(n=>noticeItem(n,!seen.has(ntcKey(n)))).join('')+'</div>';
   return h;
 }
+// ── 4) 📰 소식글 — 도구시트 '소식글' 탭 (제목 · 본문 · 노출 · 작성일 · 연결상품) ──
+/* 왜 만들었나 (사장님 2026-09-01):
+   소식글은 카톡으로 나가고 그걸로 끝이었다. 나중에 들어온 업체는 못 보고, 지난 글은 찾을 수가 없다.
+   무엇보다 **파는 글인데 상품으로 갈 길이 없었다.** 그래서 글 아래에 그 글에 나온 상품을 버튼으로 달았다.
+   버튼은 변동사항 목록과 같은 .mvn — 누르면 그 상품이 검색돼 카드가 뜬다.
+   등록은 상품도구(media-updater)의 [📰 소식글 등록]에서 한다. 사장님은 본문만 붙여넣으면 된다. */
+const NEWS_MAX_SHOW=10;   /* 최근 10건. '일주일'로 끊지 않은 이유 — 발송이 주 3~4회라
+                             일주일이면 두세 건이고 연휴가 끼면 화면이 통째로 빈다. */
+async function loadNews(){
+  const token=await getAccessToken();
+  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'소식글'!A2:E300"),{headers:{Authorization:'Bearer '+token}})).json();
+  // 탭이 아직 없을 수 있다(첫 등록 전) — 그건 오류가 아니라 '아직 없음'이다
+  if(j.error)return [];
+  const t=x=>(x==null?'':String(x)).trim();
+  return (j.values||[]).map((v,i)=>({title:t(v[0]),body:t(v[1]),show:t(v[2])||'Y',at:t(v[3]),
+      items:t(v[4]).split(',').map(s=>s.trim()).filter(Boolean),i}))
+    .filter(n=>n.title&&n.show.toUpperCase()!=='N')
+    .sort((a,b)=>(b.at||'').localeCompare(a.at||'')||(b.i-a.i))
+    .slice(0,NEWS_MAX_SHOW);
+}
+/* 본문 다듬기 — 카탈로그 안에서 읽는 글이라 카탈로그로 가는 링크 줄은 군더더기다.
+   ([상세보기] https://…/catalog.html — 지금 보고 있는 이 페이지로 가는 링크) */
+function newsBody(b){
+  return String(b||'').split(/\r?\n/)
+    .filter(ln=>!/https?:\/\/\S*catalog\.html/i.test(ln))
+    .join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+// 카탈로그에 실제로 있는 상품만 버튼으로 만든다 — 눌렀는데 검색 결과가 0이면 안 만든 것만 못하다
+function newsInCatalog(nm){
+  if(typeof ALL==='undefined'||!ALL.length)return false;
+  const k=pkey(nm);
+  return ALL.some(p=>pkey(p.name)===k);
+}
+function newsItem(n,open){
+  const btns=(n.items||[]).filter(newsInCatalog);
+  return '<details class="ntcac news"'+(open?' open':'')+'>'
+    +'<summary><span class="newsb">소식</span><span class="ntt">'+esc(n.title)+'</span>'
+      +(n.at?'<span class="nd2">'+esc(n.at)+'</span>':'')+delBtn('news',n)+'<span class="ntarrow">▾</span></summary>'
+    +'<div class="nb">'+esc(newsBody(n.body)||'(내용 없음)')+'</div>'
+    +(btns.length?('<div class="newsp">👇 이 글에 나온 상품 — 누르시면 바로 보실 수 있어요'
+        +'<div class="newspl">'+btns.map(nm=>'<button class="mvn" data-mv="'+esc(nm)+'" title="이 상품 보기">'+esc(nm)+'</button>').join('')+'</div></div>'):'')
+    +'</details>';
+}
+function renderNews(list){
+  let h=subHead('📰 소식글','카톡으로 보내드린 소식글입니다. 글 안의 상품은 눌러서 바로 보실 수 있어요.');
+  if(!list.length)return h+'<div class="empty">아직 올라온 소식글이 없습니다.</div>';
+  return h+'<div class="ntclist">'+list.map((n,i)=>newsItem(n,i===0)).join('')+'</div>';
+}
+// 첫 화면 한 줄 — 최신 1건 제목만. 누르면 소식글 페이지로 넘어간다.
+async function renderNewsOne(){
+  const box=$('newsone'); if(!box)return;
+  try{ if(!NEWS)NEWS=await loadNews(); }catch(e){ return; }
+  if(!NEWS.length){box.innerHTML='';return;}
+  const n=NEWS[0];
+  box.innerHTML='<button class="newsonebtn" data-newsone="1">'
+    +'<span class="newsb">소식</span><span class="t">'+esc(n.title)+'</span>'
+    +(n.at?'<span class="d">'+esc(n.at)+'</span>':'')+'<span class="go">보기 ›</span></button>';
+}
+document.addEventListener('click',function(e){
+  if(e.target.closest('[data-newsone]'))location.hash='news';
+});
 // ── 라우팅 ──
 async function renderRoute(){
   const v=location.hash.replace(/^#/,'');
   menuEl.querySelectorAll('.mbtn').forEach(b=>b.classList.toggle('on',b.getAttribute('data-go')===v));
-  const nb=$('ntcbox');
-  if(!v||v==='main'){mainV.style.display='';subV.style.display='none';subV.innerHTML='';if(nb)nb.style.display='';window.scrollTo({top:0});return;}
+  // 🔒 확인 전 계정은 어느 화면에도 못 들어간다 — 주소창에 #order 를 쳐 넣어도 여기서 막힌다
+  if(typeof isPending==='function'&&isPending()){
+    mainV.style.display='';subV.style.display='none';subV.innerHTML='';
+    if(location.hash){history.replaceState(null,'',location.pathname+location.search);}
+    return;
+  }
+  const nb=$('ntcbox'), n1=$('newsone');
+  if(!v||v==='main'){mainV.style.display='';subV.style.display='none';subV.innerHTML='';if(nb)nb.style.display='';if(n1)n1.style.display='';window.scrollTo({top:0});return;}
   mainV.style.display='none';subV.style.display='';
   if(nb)nb.style.display='none';   // 서브페이지에선 위쪽 공지 상자를 접는다(공지 페이지와 중복)
+  if(n1)n1.style.display='none';   // 소식글 한 줄도 마찬가지
   subV.innerHTML='<div class="load">⏳ 불러오는 중입니다…</div>';
   window.scrollTo({top:0});
   try{
@@ -1729,6 +2035,8 @@ async function renderRoute(){
     else if(v==='rec'){if(!RECS){RECS=await loadRecs();buildRecMap();}subV.innerHTML=renderRecs(RECS);}
     // ⚠️ 공지 화면에 들어왔다고 전부 읽음 처리하지 않는다 — 제목을 눌러야 확인이다(사장님 2026-08-19).
     else if(v==='notice'){if(!NOTI)NOTI=await loadNotices();subV.innerHTML=renderNotices(NOTI);renderNtcBadge();}
+    // 📰 소식글 — 글 안의 상품 버튼을 만들려면 상품(ALL)이 먼저 들어와 있어야 한다
+    else if(v==='news'){if(!NEWS)NEWS=await loadNews();subV.innerHTML=renderNews(NEWS);}
     // 🧾 발주 — order.js. 상품(ALL)이 있어야 상품명 검증이 되므로 카탈로그가 먼저 로드된 뒤에만 연다.
     else if(v==='order'){
       if(!(typeof ALL!=='undefined'&&ALL.length)){subV.innerHTML=subHead('🧾 발주하기','')+'<div class="empty">상품을 불러오는 중입니다. 잠시 후 다시 눌러주세요.</div>';}
@@ -1889,16 +2197,35 @@ function showHiForm(me,after){
   gateShow(true);
   $('hi_btn').onclick=()=>{gateShow(false);showLoginForm();after();};
 }
-/* 🕒 임시 계정 안내 배너 — 확인이 끝나 권한이 '업체'로 바뀔 때까지 매번 뜬다.
-   ⚠️ 상품·발주를 막지는 않는다(홍팀장 2026-08-28). 막으면 진짜 거래처까지 전화가 온다. */
+/* 🔒 확인 전(임시) 계정 — 상품·단가·발주를 **막는다** (홍팀장 2026-09-01)
+   경위: 2026-08-28 엔 반대로 열어뒀다("막으면 진짜 거래처까지 전화가 온다"). 그런데 오늘
+   계정관리 화면에서 확인 전 계정이 상품도 보고 발주까지 넣을 수 있는 걸 보고 홍팀장이 뒤집었다
+   — 확인 안 된 사람에게 우리 단가표가 통째로 나가고 있었던 것이다.
+   ⚠️ 막되 막다른 길로 두지 않는다. 담당자 번호를 크게 띄워 전화 한 통이면 풀리게 한다.
+   화면을 걷어내는 건 body.pending CSS 가 한다(#menu·상품·공지·소식글까지 통째로).
+   주소창에 #order 를 쳐 넣는 길은 renderRoute() 가 막는다. */
+function isPending(){
+  const me=(typeof ME!=='undefined'&&ME)?ME:null;
+  return !!(me&&String(me.role||'').indexOf('임시')>=0);
+}
 function pendNudge(){
   const box=$('pendnudge'); if(!box) return;
-  const me=(typeof ME!=='undefined'&&ME)?ME:null;
-  if(!me||String(me.role||'').indexOf('임시')<0){ box.innerHTML=''; return; }
-  box.innerHTML='<div class="pendnudge">🕒 아직 <b>업체 확인 전(임시 계정)</b>입니다.'
-    +'<small>담당자에게 카톡이나 전화로 연락 주시면 바로 승인해 드립니다. 승인 요청 부탁드립니다.</small>'
-    +'<a class="tel" href="tel:01024554156">📞 홍찬화 팀장 010-2455-4156</a>'
-    +'<a class="tel" href="tel:01023265911">📞 박원비 팀장 010-2326-5911</a></div>';
+  if(!isPending()){
+    // 승인이 나면(서버 확인 응답이 늦게 와도) 잠금을 풀고 화면을 원래대로 돌린다
+    if(document.body.classList.contains('pending')){ document.body.classList.remove('pending'); renderRoute(); }
+    box.innerHTML=''; return;
+  }
+  document.body.classList.add('pending');
+  if(location.hash)location.hash='';
+  box.innerHTML='<div class="pendwall">'
+    +'<div class="pw1">🔒 아직 업체 확인 전입니다</div>'
+    +'<div class="pw2">담당자 확인이 끝나면 상품과 단가가 바로 열립니다.<br>아래 번호로 연락 주시면 바로 승인해 드려요!</div>'
+    +'<div class="tels">'
+      +'<a class="tel" href="tel:01024554156">📞 홍찬화 팀장 010-2455-4156</a>'
+      +'<a class="tel" href="tel:01023265911">📞 박원비 팀장 010-2326-5911</a>'
+    +'</div>'
+    +'<div class="pw3">업체명과 사업자등록증을 확인한 뒤 승인해 드립니다.<br>승인 후 새로고침하시면 바로 이용하실 수 있습니다.</div>'
+    +'</div>';
 }
 function renderUser(){
   if(!ME)return;
@@ -1921,13 +2248,13 @@ function renderUser(){
        상대경로라 로컬·테스트본에서도 같은 폴더의 화면으로 열린다. */
     +(ME.master?'<a class="ubtn" href="계정관리.html" target="_blank" rel="noopener" title="업체 권한(업체·단가숨김·임시·차단) 승인·수정">👤 계정관리</a>':'')
     /* 📤 제안서 데이터 — 마스터에게만. 원비씨 제안서 사이트에 넣을 products.json 을 내려받는다. */
-    +(ME.master?'<button class="ubtn" id="ub_exp" title="원비 팀장 제안서 사이트(allproduct)에 넣을 products.json 을 지금 카탈로그 그대로 내려받습니다">📤 제안서 데이터</button>':'')
+    +(ME.master?'<button class="ubtn" id="ub_exp" title="원비 팀장 제안서 사이트(allproduct)가 읽는 데이터를 지금 카탈로그와 같은 시점으로 올립니다. 1~2분 뒤 그쪽 사이트를 새로고침하면 반영됩니다">🔄 제안서 업데이트</button>':'')
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
     +'<button class="ubtn" id="ub_out">로그아웃</button>'
     +'<button class="ubtn rl" id="ub_reload" title="저장된 내용을 버리고 시트에서 다시 받아옵니다">🔄 새로고침</button>';
   $('ub_pw').onclick=showPwForm;
   $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
-  { const e=$('ub_exp'); if(e)e.onclick=exportProposal; }   // 📤 제안서 데이터 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
+  { const e=$('ub_exp'); if(e)e.onclick=updateProposal; }   // 🔄 제안서 업데이트 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
   // 거래처가 보고 있는 게 최신인지 확신할 수 있게 — 저장본을 버리고 시트에서 새로 받는다 (사장님 2026-08-18)
   $('ub_reload').onclick=()=>{
     try{localStorage.removeItem(CK);}catch(e){}
