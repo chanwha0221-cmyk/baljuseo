@@ -83,6 +83,9 @@ function fp(t){
   // 1039727072→010-3972-7072, 5024433375→0502-443-3375, 서울 23456789→02-345-6789, 지역번호(31/53…)도 동일
   if(!n.startsWith('0')&&n.length>=8&&!(n.length===8&&n.startsWith('1')))n='0'+n;
   if(n.length===12&&n.startsWith('050'))return n.slice(0,4)+'-'+n.slice(4,8)+'-'+n.slice(8);
+  // 050 안심·평생번호는 국번이 네 자리(0505·0507)다 — 11자리도 4-3-4로 끊는다 (2026-09-01 fix).
+  // 아래 11자리 일반 규칙(3-4-4)에 걸리면 0505-123-4567 이 050-5123-4567 로 나간다.
+  if(n.length===11&&n.startsWith('050'))return n.slice(0,4)+'-'+n.slice(4,7)+'-'+n.slice(7);
   if(n.length===8&&n.startsWith('1'))return n.slice(0,4)+'-'+n.slice(4);
   // 서울 02 9자리 (02-XXX-XXXX) — 기존 length>=10 조건에 안 걸려 하이픈 다 빠지던 버그 fix (2026-06-19)
   if(n.length===9&&n.startsWith('02'))return '02-'+n.slice(2,5)+'-'+n.slice(5);
