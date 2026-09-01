@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-01 15:09",
+ "updatedAt": "2026-09-01 15:36",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -72,29 +72,6 @@
   },
   {
    "warehouse": "당일생물",
-   "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 오육미전복 1kg",
-   "spec": [
-    "※ 구성 : 참전복",
-    "※ 중량/사이즈 : 1kg/5-6미",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 참전복 100%",
-    "※ 포장방식 : 산소포장",
-    "※ 특이사항 : 생물특성상 50g정도 차이날 수 있음"
-   ],
-   "supplyPrice": 34000,
-   "previousPrice": 29000,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/349/446/022/370f12f5beeeb988f5f984a6b24616df.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
    "sourceWarehouse": "디디",
    "category": "수산",
    "name": "프리미엄 러시아 초박달대게 3kg 2미",
@@ -115,6 +92,29 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/056/393/025/4d21e543c8d0ec2adca64775b17423cc.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "인천",
+   "category": "수산",
+   "name": "연안 오육미전복 1kg",
+   "spec": [
+    "※ 구성 : 참전복",
+    "※ 중량/사이즈 : 1kg/5-6미",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 참전복 100%",
+    "※ 포장방식 : 산소포장",
+    "※ 특이사항 : 생물특성상 50g정도 차이날 수 있음"
+   ],
+   "supplyPrice": 34000,
+   "previousPrice": 29000,
+   "tax": "면세",
+   "courier": "우체국택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/349/446/022/370f12f5beeeb988f5f984a6b24616df.jpg",
    "note": ""
   },
   {
@@ -10743,6 +10743,29 @@
   },
   {
    "warehouse": "단독(무)",
+   "sourceWarehouse": "쫄깃",
+   "category": "수산",
+   "name": "통통 자연산 바위굴 3kg",
+   "spec": [
+    "※ 구성 : 바위굴",
+    "※ 중량/ 사이즈 :  3kg / 1kg 2-4 미내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 바위굴 100%",
+    "※ 포장방식 : 비닐포장, 빙장포장",
+    "※ 특이사항 : 바위굴 원물로 보내드립니다, 손질 꼭 해셔 드셔야 합니다."
+   ],
+   "supplyPrice": 18000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "씨제이대한통운/롯데택배",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/938/394/025/30a1eaabff3b5a5bf8fe287bab614bf9.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(무)",
    "sourceWarehouse": "난각",
    "category": "축산",
    "name": "1+등급 특란 20구",
@@ -10871,29 +10894,6 @@
    "orderCutoff": "오전마감 : 10시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/774/237/024/6eadd9d7dfa4ee07793ec59a68459d47.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "단독(무)",
-   "sourceWarehouse": "쫄깃",
-   "category": "수산",
-   "name": "통통 자연산 바위굴 3kg",
-   "spec": [
-    "※ 구성 : 바위굴",
-    "※ 중량/ 사이즈 :  3kg / 1kg 2-4 미내외",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 바위굴 100%",
-    "※ 포장방식 : 비닐포장, 빙장포장",
-    "※ 특이사항 : 바위굴 원물로 보내드립니다, 손질 꼭 해셔 드셔야 합니다."
-   ],
-   "supplyPrice": 18000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "씨제이대한통운/롯데택배",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/938/394/025/30a1eaabff3b5a5bf8fe287bab614bf9.jpg",
    "note": ""
   },
   {
