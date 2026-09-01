@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.69).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.70).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.69</title>
+<title>마스터 유통 카탈로그 v2.70</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -229,6 +229,11 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .newspl .mvn{flex:0 0 auto;min-width:0;background:var(--soft);border:1px solid color-mix(in srgb,var(--accent) 32%,var(--line));
   color:var(--accent-d);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:700;text-align:left}
 @media(hover:hover){.newspl .mvn:hover{background:var(--card);text-decoration:none}}
+/* 🗑 마스터만 보이는 지우기 버튼 (사장님 2026-09-01 "카탈로그에서도 삭제할 수 있게") */
+.delb{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:7px;
+  padding:3px 8px;font-size:11.5px;cursor:pointer;white-space:nowrap;font-family:inherit}
+@media(hover:hover){.delb:hover{border-color:var(--up);color:var(--up)}}
+.delb:disabled{opacity:.5;cursor:default}
 /* 첫 화면 한 줄 — 카탈로그의 본질은 상품이라 소식글은 제목 한 줄만 놓고 자리를 안 먹는다 */
 .newsone{margin-top:9px}
 .newsonebtn{width:100%;display:flex;align-items:center;gap:8px;background:var(--card);cursor:pointer;
@@ -654,7 +659,11 @@ h1{letter-spacing:-.6px}
   </div>
 </div>
 <script>window.SHEETS_PROXY_PUBLIC=true;</script>
-<script src="sheets-proxy.js"></script>
+<!-- 🔑 sheets-proxy 는 다른 스크립트보다 먼저 와야 한다(window.fetch 를 감싼다).
+     앱 버전을 붙여 캐시를 턴다 — 이 파일에 기능이 늘어도(SheetsProxy.call 등) 이미 들어온
+     브라우저가 옛 파일을 계속 쓰는 일이 없게 (2026-09-01, order.js 와 같은 방식). -->
+<script>(function(){var v=(document.title.match(/v[\d.]+/)||['v0'])[0];
+document.write('<scr'+'ipt src="sheets-proxy.js?'+v+'"><\/scr'+'ipt>');})();</script>
 <script>
 // ── 시트 읽기 (서비스계정 읽기전용, secretary.html 패턴) ──
 const SHEET_ID='1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';
@@ -1502,6 +1511,47 @@ function renderMoveBox(){
      ② 계정 시트에 업체별 기록을 남기면 관리할 게 늘어난다
      기기를 바꾸면 한 번 더 뜨는데, 못 보고 지나치는 것보다 한 번 더 보는 쪽이 낫다.
    공지 하나하나의 신원은 '제목+작성일'로 잡는다 — 시트에 공지 ID가 따로 없기 때문. */
+/* ══ 🗑 카탈로그에서 공지·소식글 내리기 (사장님 2026-09-01) ═══════════════════
+   "원비씨랑 나랑 마스터 계정 둘밖에 없으니 카탈로그에서도 삭제할 수 있게 만들어줘"
+   ⚠️ 행을 지우지 않는다. 노출칸(C)을 'N' 으로 바꾼다.
+      ① 잘못 눌러도 시트에서 Y 로 되돌리면 살아난다
+      ② 행을 지우면 아래 행 번호가 전부 밀려서, 연달아 지울 때 엉뚱한 글이 사라진다
+   🔒 쓰기는 public 경로로 안 나간다 — SheetsProxy.call(팀 비밀번호)로만 나간다.
+      카탈로그는 정적 페이지라 화면의 권한 검사는 소스를 뜯으면 지나칠 수 있다.
+      비밀번호는 사장님·원비씨가 다른 도구에서 쓰던 그것이고 세션이 남아 있어 보통 안 묻는다. */
+function delBtn(kind,n){
+  if(!(ME&&ME.master))return '';
+  return '<button class="delb" data-del="'+kind+':'+(n.i+2)+'" data-dt="'+esc(n.title||'')+'" title="이 글 내리기">🗑</button>';
+}
+async function adminHideRow(tab,row){
+  if(!window.SheetsProxy||!SheetsProxy.call)throw new Error('이 화면에선 지울 수 없습니다.');
+  await SheetsProxy.call(DOGU_ID+'/values/'+encodeURIComponent("'"+tab+"'!C"+row)+'?valueInputOption=RAW',
+    'PUT',JSON.stringify({values:[['N']]}));
+}
+document.addEventListener('click',async function(e){
+  const b=e.target.closest('[data-del]'); if(!b)return;
+  e.preventDefault(); e.stopPropagation();          // summary 안이라 안 막으면 아코디언이 같이 열린다
+  const bits=b.getAttribute('data-del').split(':'), kind=bits[0], row=+bits[1];
+  const what=kind==='news'?'소식글':'공지';
+  if(!confirm('이 '+what+'을 화면에서 내릴까요?\n\n'+(b.getAttribute('data-dt')||'')+'\n\n시트에는 남아 있어 되살릴 수 있습니다.'))return;
+  b.disabled=true; b.textContent='…';
+  try{
+    await adminHideRow(kind==='news'?'소식글':'공지사항',row);
+    if(kind==='news'){
+      NEWS=(NEWS||[]).filter(n=>n.i+2!==row);
+      if(location.hash.replace(/^#/,'')==='news')subV.innerHTML=renderNews(NEWS);
+      renderNewsOne();
+    }else{
+      NOTI=(NOTI||[]).filter(n=>n.i+2!==row);
+      if(location.hash.replace(/^#/,'')==='notice')subV.innerHTML=renderNotices(NOTI);
+      renderNoticeBox(); renderNtcBadge();
+    }
+    toast('내렸습니다 — 업체 화면에서 안 보입니다');
+  }catch(err){
+    alert('내리지 못했습니다.\n\n'+(err.message||err));
+    b.disabled=false; b.textContent='🗑';
+  }
+});
 function ntcKey(n){ return (String(n.title||'').trim()+'|'+String(n.at||'').trim()); }
 function ntcSeenKey(){ return 'catalog_ntc_seen_'+((ME&&ME.id)?ME.id:'guest'); }
 function ntcSeenSet(){
@@ -1532,6 +1582,7 @@ function noticeItem(n,isNew){
       +(n.imp?'<span class="impb">중요</span>':'')
       +'<span class="ntt">'+esc(n.title)+'</span>'
       +(n.at?'<span class="nd2">'+esc(n.at)+'</span>':'')
+      +delBtn('notice',n)
       +'<span class="ntarrow">▾</span>'
     +'</summary>'
     +'<div class="nb">'+(n.body?esc(n.body):'(내용 없음)')+'</div>'
@@ -1783,7 +1834,7 @@ function newsItem(n,open){
   const btns=(n.items||[]).filter(newsInCatalog);
   return '<details class="ntcac news"'+(open?' open':'')+'>'
     +'<summary><span class="newsb">소식</span><span class="ntt">'+esc(n.title)+'</span>'
-      +(n.at?'<span class="nd2">'+esc(n.at)+'</span>':'')+'<span class="ntarrow">▾</span></summary>'
+      +(n.at?'<span class="nd2">'+esc(n.at)+'</span>':'')+delBtn('news',n)+'<span class="ntarrow">▾</span></summary>'
     +'<div class="nb">'+esc(newsBody(n.body)||'(내용 없음)')+'</div>'
     +(btns.length?('<div class="newsp">👇 이 글에 나온 상품 — 누르시면 바로 보실 수 있어요'
         +'<div class="newspl">'+btns.map(nm=>'<button class="mvn" data-mv="'+esc(nm)+'" title="이 상품 보기">'+esc(nm)+'</button>').join('')+'</div></div>'):'')

@@ -217,6 +217,31 @@
   window.SheetsProxy = {
     ensureSession: ensureSession,
     signOut: function () { clearToken(); location.reload(); },
-    url: PROXY_URL
+    url: PROXY_URL,
+
+    /* 🔑 팀 인증으로 한 번만 호출한다 (2026-09-01).
+       왜 필요한가: 카탈로그는 SHEETS_PROXY_PUBLIC=true 라 모든 요청이 무인증 public 경로로
+       나가고, 서버는 거기에 **읽기만** 열어준다. 그런데 사장님이 카탈로그 화면에서 공지·소식글을
+       지우고 싶어한다(2026-09-01). 그렇다고 public 쓰기를 열면 정적 페이지라 소스만 뜯으면
+       누구나 지울 수 있다 — 사이트는 인터넷 전체 공개다.
+       → 지우기 같은 관리자 동작만 이 함수로 보낸다. 팀 비밀번호를 아는 사람(사장님·원비씨)만
+         통과하고, 세션은 다른 도구와 같은 것을 쓰므로 보통 한 번도 안 묻는다.
+       ⚠️ 재시도하지 않는다 — 쓰기를 두 번 보내는 것이 실패보다 나쁘다. */
+    call: function (path, method, body) {
+      function send(token) {
+        return postWithRetry({ action: 'call', token: token, path: path, method: method || 'GET', body: body }, false);
+      }
+      return ensureSession().then(send).then(function (res) {
+        if (res && res.error && res.error.message === 'session-expired') {
+          clearToken();
+          return ensureSession('세션이 만료됐습니다. 다시 입력해 주세요.').then(send);
+        }
+        return res;
+      }).then(function (res) {
+        if (res && res.__transient) throw new Error('시트 서버가 잠시 응답하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        if (res && res.error) throw new Error(res.error.message || '요청이 거절됐습니다.');
+        return res;
+      });
+    }
   };
 })();

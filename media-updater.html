@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.17</title>
+<title>마스터 유통 상품 도구 v1.18</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1158,12 +1158,24 @@ $p('ngSave').onclick=async function(){
     // ① 카탈로그 게시판
     if($p('ngPost').checked){
       await ngEnsurePostTab();
-      const j=await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!A:E")+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
-        {method:'POST',headers:{'Content-Type':'application/json'},
-         body:JSON.stringify({values:[[title,body,'Y',day(),links.join(', ')]]})});
-      if(j&&j.error)throw new Error(j.error.message||'게시판에 올리지 못했습니다');
-      L.push('✅ 카탈로그에 올렸습니다 — <b>'+esc(title)+'</b>'
-        +(links.length?(' · 🔗 상품 '+links.length+'건 연결'):' · <span style="color:var(--muted)">연결된 상품 없음</span>'));
+      /* 🔴 2026-09-01 사고 — 같은 글이 두 번 올라갔다. 중복 확인을 톤 기록 시트에만 걸어놓고
+         게시판은 무조건 append 했다(홍팀장: "같은 글 있음 안 올라간다며").
+         게시판은 게시판대로 본문(B열)을 보고 막는다. 내린 글(노출 N)도 본문은 남아 있으므로
+         일부러 다시 올리려면 시트에서 그 행을 지우고 넣어야 한다 — 그게 사고보다 낫다. */
+      const cur=await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!B2:B300"));
+      const had=(((cur||{}).values)||[]).some(function(r){
+        return String(r[0]||'').replace(/\s+/g,'')===body.replace(/\s+/g,'');
+      });
+      if(had){
+        L.push('<span style="color:var(--muted)">📰 카탈로그엔 이미 같은 글이 있어 다시 올리지 않았습니다.</span>');
+      }else{
+        const j=await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!A:E")+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
+          {method:'POST',headers:{'Content-Type':'application/json'},
+           body:JSON.stringify({values:[[title,body,'Y',day(),links.join(', ')]]})});
+        if(j&&j.error)throw new Error(j.error.message||'게시판에 올리지 못했습니다');
+        L.push('✅ 카탈로그에 올렸습니다 — <b>'+esc(title)+'</b>'
+          +(links.length?(' · 🔗 상품 '+links.length+'건 연결'):' · <span style="color:var(--muted)">연결된 상품 없음</span>'));
+      }
     }
     // ② 톤 학습용 기록 (다음 세션 클로드가 톤을 복원하는 원본)
     if(dup){ L.push('<span style="color:var(--muted)">📚 톤 기록은 이미 있어 건너뛰었습니다.</span>'); }
