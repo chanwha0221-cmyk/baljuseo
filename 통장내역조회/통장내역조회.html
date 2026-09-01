@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v8.2</title>
+<title>통장 내역 조회 v8.3</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v8.2</span>
+  <span class="ver">v8.3</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -2942,7 +2942,12 @@ function umCountFilled(){
 function _coreOf(name){
   const np=_normPayer(name);
   const core=np.replace(/[_\-].*$/,'').replace(/\d.*$/,'').trim();
-  return (core.length>=2 && core!==np) ? core : null;
+  if(core.length<2 || core===np) return null;
+  /* ⚠️ '전영일(365bar' 처럼 **괄호 안에 업체명이 든** 이름은 날짜꼬리가 아니다.
+     숫자 앞에서 자르면 '전영일(' 이라는 반쪽이 나오는데 그걸 별칭으로 넣으면 안 된다.
+     괄호 짝이 안 맞으면 코어로 보지 않는다. */
+  if((core.match(/[(（]/g)||[]).length !== (core.match(/[)）]/g)||[]).length) return null;
+  return core;
 }
 async function confirmAllSettle(){
   const gs=window._unmatchedGroups||[];
