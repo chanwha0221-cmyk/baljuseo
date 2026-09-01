@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v7.9</title>
+<title>통장 내역 조회 v8.0</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v7.9</span>
+  <span class="ver">v8.0</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1803,18 +1803,32 @@ function _buildAliasMap(memoMap){
 
 // 🧠 사장님 확정 학습 별칭 — 입금자명(공백제거) → 업체명. 시트 '정산별칭' A:B. (SETTLE_ALIAS 선언은 상단 전역 — TDZ 방지)
 function _normPayer(s){ return String(s||'').replace(/\s+/g,''); }
-async function loadSettleAlias(){
+/* 🔴 2026-09-01 별칭 전멸 사고 — 정선국(썬푸드마켓) 50건을 비롯해 학습해 둔 별칭이 통째로 사라지고
+   시트에 1건만 남아 있었다. 범인은 아래 저장 함수의 **읽지 않고 덮어쓰기**다.
+     ① loadSettleAlias() 가 실패해도 조용히 넘어간다(catch 비어 있음) → 메모리 SETTLE_ALIAS 가 빈 채로 남고
+     ② saveSettleAlias() 는 시트 최신본을 안 읽고 그 빈 메모리로 **clear 후 통째 PUT** → 시트가 그대로 비워진다
+     ③ clear/PUT 응답의 ok 를 안 봐서 실패해도 아무도 모른다
+   바로 옆 saveSettleRecords() 는 loadSettleHistory(true) 로 최신본을 먼저 읽고 병합하며 실패 시 throw 한다
+   ("다른 PC가 올린 것 보존"). 별칭 저장만 그 보호가 빠져 있었다. 같은 규칙을 여기에도 적용한다. */
+async function loadSettleAlias(strict){
   try{ const t=await getToken();
     const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산별칭!A2:B10000')}`,{headers:{Authorization:`Bearer ${t}`}});
-    if(r.ok)(((await r.json()).values)||[]).forEach(x=>{ if(x[0]&&x[1]) SETTLE_ALIAS[_normPayer(x[0])]=String(x[1]).trim(); });
-  }catch(e){}
+    if(!r.ok){ if(strict) throw new Error('별칭 로드 실패 HTTP '+r.status); return; }
+    (((await r.json()).values)||[]).forEach(x=>{ if(x[0]&&x[1]) SETTLE_ALIAS[_normPayer(x[0])]=String(x[1]).trim(); });
+  }catch(e){ if(strict) throw e; }
 }
 async function saveSettleAlias(){
-  try{ const t=await getToken(); await ensureTabNamed(t,'정산별칭',['입금자명','업체명']);
-    const rows=Object.entries(SETTLE_ALIAS).filter(([k,v])=>k&&v);
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산별칭!A2:B10000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
-    if(rows.length) await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산별칭!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
-  }catch(e){ console.warn('정산별칭 저장 실패',e); }
+  const t=await getToken(); await ensureTabNamed(t,'정산별칭',['입금자명','업체명']);
+  // 🛡 저장 직전에 시트 최신본을 다시 읽어 **합친다**. 실패하면 여기서 멈춘다 —
+  //    못 읽은 채로 쓰면 남이(또는 다른 PC가) 넣어둔 별칭을 내 메모리로 지워버린다.
+  await loadSettleAlias(true);
+  const rows=Object.entries(SETTLE_ALIAS).filter(([k,v])=>k&&v);
+  if(!rows.length) throw new Error('별칭이 하나도 없습니다 — 시트를 비우지 않고 멈춥니다.');
+  const _cr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산별칭!A2:B10000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+  if(!_cr.ok) throw new Error('별칭시트 clear 실패 HTTP '+_cr.status);
+  const _pr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산별칭!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+  if(!_pr.ok) throw new Error('별칭시트 저장 실패 HTTP '+_pr.status);
+  return rows.length;
 }
 
 // 📚 정산내역 누적 (2026-07-16) — 정산시트 올릴 때마다 전 셀(업체×날짜×정산금액×입금완료)을 시트 '정산내역누적'에 저장.
@@ -2890,7 +2904,7 @@ async function confirmAllSettle(){
   const b=document.getElementById('umSaveAll');
   if(b){ b.disabled=true; b.textContent='저장 중…'; }
   todo.forEach(t=>{ SETTLE_ALIAS[_normPayer(t.name)]=t.company; });
-  try{ await saveSettleAlias(); }catch(e){}
+  try{ await saveSettleAlias(); }catch(e){ alert('⚠ 별칭 저장 실패 — 시트에 안 들어갔습니다.\n\n'+(e.message||e)+'\n\n다시 시도해 주세요.'); }
   showToast(`✓ ${todo.length}명 ${cnt}건 기억 — 다시 매칭합니다`);
   if(b){ b.textContent='💾 채운 것 전부 저장 '; }
   runSettlementMatch();   // 재매칭은 여기서 딱 한 번
@@ -2901,7 +2915,7 @@ async function confirmSettleAlias(gi){
   const inp=document.getElementById('umg-in-'+gi); const company=(inp&&inp.value||'').trim();
   if(!company){ alert('업체를 골라주세요.'); return; }
   SETTLE_ALIAS[_normPayer(g.name)]=company;
-  try{ await saveSettleAlias(); }catch(e){}
+  try{ await saveSettleAlias(); }catch(e){ alert('⚠ 별칭 저장 실패 — 시트에 안 들어갔습니다.\n\n'+(e.message||e)+'\n\n다시 시도해 주세요.'); }
   const row=document.getElementById('umg-'+gi); if(row) row.style.display='none';
   showToast(company==='취합안함' ? (`🚫 ${g.name} 취합 제외 기억 (${g.items.length}건) — 다시 매칭`) : (`✓ ${company} 기억 (${g.name} ${g.items.length}건) — 다시 매칭`));
   runSettlementMatch();   // 별칭 반영 재매칭 → 같은 이름 입금 전부 자동 처리
@@ -2916,7 +2930,7 @@ async function rememberCore(gi){
   const core=_normPayer(g.name).replace(/[_\-].*$/,'').replace(/\d.*$/,'').trim();
   if(core.length<2){ alert('이름을 인식 못 했어요. 그냥 [확정·기억]을 쓰세요.'); return; }
   SETTLE_ALIAS[core]=company;
-  try{ await saveSettleAlias(); }catch(e){}
+  try{ await saveSettleAlias(); }catch(e){ alert('⚠ 별칭 저장 실패 — 시트에 안 들어갔습니다.\n\n'+(e.message||e)+'\n\n다시 시도해 주세요.'); }
   const row=document.getElementById('umg-'+gi); if(row) row.style.display='none';
   showToast(`🔁 '${core}' 들어간 입금은 앞으로 ${company==='취합안함'?'취합 제외':company}로 자동 — 다시 매칭`);
   runSettlementMatch();
