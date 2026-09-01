@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.3</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.4</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -472,6 +472,22 @@ h1{letter-spacing:-.6px}
   color:var(--muted);font-size:14px;line-height:1;padding:6px;cursor:pointer;border-radius:50%}
 .sclr.on{display:block}
 @media(hover:hover){.sclr:hover{background:var(--soft);color:var(--ink)}}
+/* 🔍 검색이 첫 화면의 주인공 (홍팀장 2026-09-01 "지금보다 좀 더 튀게 딱 박아주고")
+   테두리를 강조색 2px 로 세우고 글자를 키운다. 돋보기는 왼쪽 안쪽에 넣어 검색칸임을 한눈에. */
+.searchwrap.big .search{font-size:16.5px;padding:15px 42px;border-width:2px;border-color:var(--accent);
+  box-shadow:var(--shadow-lg);font-weight:600}
+.searchwrap.big .search:empty::before{font-weight:500}
+.searchwrap.big .sico{position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  font-size:16px;line-height:1;pointer-events:none;opacity:.8}
+.searchwrap.big .sclr{right:12px}
+/* 메뉴(게시판 입구)는 검색 밑으로 내려왔다 — 검색과 상품 사이에서 너무 튀지 않게 */
+.controls .menu{margin-top:10px}
+/* 💹 최근 가격 변동은 상품 바로 위 */
+.controls .mvbox{margin:12px 0 0}
+@media(max-width:640px){
+  .searchwrap.big .search{font-size:16px;padding:13px 38px}
+  .searchwrap.big .sico{left:12px;font-size:15px}
+}
 .lbl::before{content:'';display:inline-block;width:14px;height:3px;border-radius:2px;
   background:var(--pop);margin-right:7px;vertical-align:middle}
 .meta b{color:var(--accent-d);font-size:13px}
@@ -600,21 +616,14 @@ h1{letter-spacing:-.6px}
     <small>당일 발송건은 오후 6시 이후 조회 가능합니다</small>
   </a>
 </div></header>
-<!-- 메뉴 — 검색창 위. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
-<div class="menu" id="menu">
-  <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
-  <button class="mbtn" data-go="news">📰 소식글<span class="tapb">눌러서 확인</span></button>
-  <button class="mbtn" data-go="change">📊 상품변동사항<span class="tapb">눌러서 확인</span></button>
-  <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
-  <button class="mbtn" data-go="order">🧾 발주하기<span class="nbadge" id="ordCount" style="display:none"></span></button>
-  <button class="mbtn" data-go="orders" id="mbOrders" style="display:none">📋 발주 내역<span class="nbadge" id="ordsBadge" style="display:none"></span></button>
-  <button class="mbtn" data-go="claim" id="mbClaim">📮 클레임<span class="nbadge" id="clBadge" style="display:none"></span></button>
-</div>
-<!-- 공지는 메뉴 바로 밑에 그대로 펼쳐 보여준다 (사장님 2026-08-12) -->
-<div class="ntcbox" id="ntcbox"></div>
-<!-- 📰 최신 소식글은 제목 한 줄만 (사장님 2026-09-01). 공지가 이미 위를 먹고 있고
-     카탈로그의 본질은 상품이라, 소식글까지 펼치면 첫 화면에서 상품이 안 보인다. -->
-<div class="newsone" id="newsone"></div>
+<!-- 📐 첫 화면 순서 (홍팀장 2026-09-01 정리)
+     "공지 / 소식글 / 상품변동사항 / 추천상품은 다 각자 게시판이 있으니 눌러서 보게 하고,
+      입금계좌 바로 밑에 검색을 튀게 박고, 최근 가격 변동은 밑으로, 바로 상품이 보이게."
+     → 계좌 ▸ 🔍검색 ▸ 클릭 안내 ▸ 메뉴(게시판 입구) ▸ 창고·카테고리 ▸ 최근 가격 변동 ▸ 상품
+     예전엔 메뉴 밑에 공지 상자와 소식글 한 줄이 통째로 펼쳐져 있어 화면을 두 번 넘겨야
+     상품이 나왔다. 카탈로그의 본질은 상품이다. 공지·소식글은 메뉴 배지와 토스트로 알린다.
+     ⚠️ ntcbox·newsone 을 지우지 않고 남겨둔 이유 — renderNoticeBox()/renderNewsOne() 이
+        여기에 그린다. 없애면 화면엔 안 보여도 되지만 함수가 갈 곳을 잃는다. 화면에서만 접는다. -->
 <div id="mainView">
 <div class="controls">
 <!-- 🔒 검색칸은 일부러 <input> 이 아니다. (2026-08-20)
@@ -623,15 +632,30 @@ h1{letter-spacing:-.6px}
      (잠금은 글씨조차 못 넣는 사고까지 냈다 — 다시 쓰지 말 것.)
      크롬 자동완성은 contenteditable 에는 손을 못 댄다 → 이 방식이 유일하게 확실하다.
      아래 스크립트의 value 어댑터 덕분에 q.value 로 읽고 쓰는 기존 코드는 그대로 동작한다. -->
-<div class="searchwrap">
-<div class="search" id="q" contenteditable="true" role="searchbox" aria-label="상품명 검색" inputmode="search" enterkeyhint="search" spellcheck="false" data-ph="상품명 검색 (전체 창고) — 예: 갈치, 새우, 한우, 김치…"></div>
+<div class="searchwrap big">
+<span class="sico" aria-hidden="true">🔍</span>
+<div class="search" id="q" contenteditable="true" role="searchbox" aria-label="상품명 검색" inputmode="search" enterkeyhint="search" spellcheck="false" data-ph="상품명 검색 — 예: 갈치, 새우, 한우, 김치…"></div>
 <button class="sclr" id="qclr" type="button" aria-label="검색어 지우기">✕</button>
 </div>
 <div class="clicktip">👆 <b>상품명을 클릭</b>하시면 상품 상세 및 사진을 확인하실 수 있습니다!</div>
-<details class="mvbox" id="mvbox"></details>
+<!-- 메뉴 = 게시판 입구. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
+<div class="menu" id="menu">
+  <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
+  <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
+  <button class="mbtn" data-go="news">📰 소식글<span class="tapb">눌러서 확인</span></button>
+  <button class="mbtn" data-go="change">📊 상품변동사항<span class="tapb">눌러서 확인</span></button>
+  <button class="mbtn" data-go="order">🧾 발주하기<span class="nbadge" id="ordCount" style="display:none"></span></button>
+  <button class="mbtn" data-go="orders" id="mbOrders" style="display:none">📋 발주 내역<span class="nbadge" id="ordsBadge" style="display:none"></span></button>
+  <button class="mbtn" data-go="claim" id="mbClaim">📮 클레임<span class="nbadge" id="clBadge" style="display:none"></span></button>
+</div>
 <button class="allbtn" id="allbtn">🏠 전체 상품 보기</button>
 <div class="lbl">창고 선택</div><div class="row" id="whrow"></div>
 <div class="lbl" id="catlbl">카테고리 선택</div><div class="row" id="catrow"></div>
+<!-- 공지·소식글은 게시판으로 갔다 — 첫 화면에선 접어 둔다 (홍팀장 2026-09-01) -->
+<div class="ntcbox" id="ntcbox" hidden></div>
+<div class="newsone" id="newsone" hidden></div>
+<!-- 💹 최근 가격 변동은 상품 바로 위로 (접힌 채로 한 줄만 차지한다) -->
+<details class="mvbox" id="mvbox"></details>
 </div>
 <div class="load" id="load">⏳ 상품을 불러오는 중입니다…</div>
 <div id="view"></div><div class="empty" id="empty" style="display:none">검색 결과가 없습니다.</div>
@@ -1006,8 +1030,15 @@ function buildAll(){
   const master=amMasterC(),excCards=[];
   GROUPS=GROUPS.filter(g=>!g.virtual);       // 다시 그릴 때 가상 그룹이 겹쳐 쌓이지 않게
   GROUPS.forEach(g=>{
+    /* 🔴 2026-09-01 판매 재개 사고 — 예전엔 아래에서 g.products 를 걸러낸 결과로 **덮어썼다.**
+       그래서 buildAll 이 두 번째로 돌 때는 창고에 예외 상품이 이미 없었다. 결과:
+         ① [↩ 판매 재개]를 눌러도 그 상품이 화면에 안 돌아온다(새로고침해야 나옴)
+         ② 남은 예외 상품들이 카드로 못 잡혀 전부 "시트에서는 이미 빠진 N개" 유령 줄로 떨어진다
+       (홍팀장: "꽃게 되돌리기 했더니 이렇게 됐어")
+       → 원본은 g.src 에 한 번만 붙잡아 두고, 매번 거기서 다시 계산한다. */
+    if(!g.src)g.src=g.products;
     const keep=[];
-    g.products.forEach(p=>{
+    g.src.forEach(p=>{
       p.group=g.wh;
       p.effWh=p.srcWh||g.wh;   // 배지 클릭 기준: 창고명 칸이 있으면 그 창고, 없으면 탭 이름
       p.qty=SALES[pkey(p.name)]||0;
@@ -1519,7 +1550,13 @@ async function startCatalog(){
     // 서브페이지를 보고 있는 중에 최신 데이터가 도착하면 그 화면도 다시 그린다.
     // (안 그러면 사진·스펙을 새로 받아왔는데도 '사진 준비중'이 그대로 남는다 — 2026-08-12 탱글 생물 중하)
     if(location.hash.replace(/^#/,''))renderRoute();
-    try{ localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:GROUPS,media:MEDIA,sales:SALES,noti:NOTI,links:LINKS,hap:HAP,recmap:RECMAP})); }catch(e){}
+    /* 캐시엔 **원본(g.src)** 을 담는다 — 예외를 걸러낸 g.products 를 담으면 다음 접속 때
+       예외 상품이 통째로 사라진 채로 시작한다. 가상 창고(🚫 예외)와 g.src 자체는 뺀다
+       (넣으면 상품이 두 벌이라 용량이 배로 뛴다). */
+    try{
+      const cacheGroups=GROUPS.filter(g=>!g.virtual).map(g=>({wh:g.wh,mixed:g.mixed,products:g.src||g.products}));
+      localStorage.setItem(CK,JSON.stringify({at:Date.now(),groups:cacheGroups,media:MEDIA,sales:SALES,noti:NOTI,links:LINKS,hap:HAP,recmap:RECMAP}));
+    }catch(e){}
     /* 📤 제안서 데이터 자동 맞춤 — 🚫예외 목록까지 도착한 뒤에 해야 한다.
        먼저 하면 못 파는 상품이 제안서에 실린다. */
     try{ await excDone; }catch(e){}
@@ -2015,7 +2052,8 @@ function newsItem(n,open){
 function renderNews(list){
   let h=subHead('📰 소식글','카톡으로 보내드린 소식글입니다. 글 안의 상품은 눌러서 바로 보실 수 있어요.');
   if(!list.length)return h+'<div class="empty">아직 올라온 소식글이 없습니다.</div>';
-  return h+'<div class="ntclist">'+list.map((n,i)=>newsItem(n,i===0)).join('')+'</div>';
+  // 🔒 게시판이니 전부 접어 둔다 — 제목만 보이고 누른 것만 열린다 (홍팀장 2026-09-01)
+  return h+'<div class="ntclist">'+list.map(n=>newsItem(n,false)).join('')+'</div>';
 }
 // 첫 화면 한 줄 — 최신 1건 제목만. 누르면 소식글 페이지로 넘어간다.
 async function renderNewsOne(){
@@ -2152,7 +2190,7 @@ const API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
         서버에도 같은 발주를 막는 장치가 있지만, 여기서 안 보내는 것이 먼저다. */
 const API_READONLY={list:1,clients:1,me:1,getcfg:1};
 async function api(action,payload){
-  if(!API)throw new Error('발주 서버 주소가 아직 설정되지 않았습니다.');
+  if(!API)throw new Error('서버 주소가 설정되지 않았습니다.');
   const body=JSON.stringify(Object.assign({action},payload||{}));
   const tries=API_READONLY[action]?2:1;
   let lastErr=null;
