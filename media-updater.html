@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.18</title>
+<title>마스터 유통 상품 도구 v1.19</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1066,19 +1066,41 @@ function ngKeywords(body){
     .filter(Boolean).slice(0,5).join(', ');
 }
 function ngLink(body){ const m=String(body||'').match(/https?:\/\/\S+/); return m?m[0]:''; }
-/* 제목 — [태그] 줄이 있으면 그게 제목이다.
-   게시판에선 제목만 보고 열지 말지를 정하는데 "마스터 9월 1일 소식글"은 아무것도 안 알려준다. */
+/* 제목 — 게시판에서 **눌러보고 싶게** (홍팀장 2026-09-01)
+   예전엔 "[SNS 화제] 통통 자연산 바위굴 3kg 외 1건" 이었다. 대괄호와 "외 N건"은 목록 같지
+   제목이 아니다. 홍팀장: "외 1건 이런 식으로 하지 말고 눌러보고 싶게끔, 이모티콘도 좀 박고."
+   → 대괄호를 벗기고 앞에 상품에 맞는 이모지를 세우고, 두 건이면 + 로 이어 붙인다.
+   ⚠️ 자동 제목은 **입력칸에 미리 채워** 준다. 기계가 만든 문장이 늘 자연스럽진 않으니
+      사장님이 그 자리에서 고쳐 쓰게 하는 게 맞다(비워두면 이 값이 그대로 들어간다). */
+const NGEMO=[[/굴|석화/,'🦪'],[/대게|홍게|꽃게|킹크랩|랍스터|게\b|숫게/,'🦀'],[/새우/,'🦐'],
+  [/오징어|한치|쭈꾸미|주꾸미|낙지|문어/,'🦑'],[/조개|가리비|바지락|담치|홍합|소라|전복|멍게|맛조개/,'🐚'],
+  [/장어|고등어|갈치|삼치|병어|민어|대구|명태|박대|가자미|생선|횟감|회\b|연어|참치|굴비/,'🐟'],
+  [/한우|소고기|한돈|돼지|삼겹|닭|오리|축산|갈비/,'🥩'],[/김치|반찬|젓갈/,'🥬'],
+  [/복숭아|바나나|사과|포도|감귤|멜론|수박|과일|딸기/,'🍑'],[/쌀|잡곡|농산|채소|나물/,'🌾'],
+  [/휴무|배송|택배|일정|공지|안내/,'🚚'],[/인하|인상|단가|가격/,'💰'],
+  [/신상|신제품|입고|재입고|오픈|신설/,'🆕'],[/금어기|시즌|제철/,'🎣'],[/보양|삼계|해신탕|초복|중복|말복/,'🍲']];
+function ngEmoji(s){
+  for(let i=0;i<NGEMO.length;i++){ if(NGEMO[i][0].test(s))return NGEMO[i][1]; }
+  return '📌';
+}
 function ngAutoTitle(body){
   const lines=String(body||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const bare=s=>s.replace(/^\[([^\]]*)\]\s*/,'$1 ').replace(/\s+/g,' ').trim();   // [태그] 상품 → 태그 상품
   const tags=ngTags(body);
-  if(tags.length)return tags[0]+(tags.length>1?(' 외 '+(tags.length-1)+'건'):'');
+  if(tags.length){
+    let t=bare(tags[0]);
+    if(tags.length>1)t+=' + '+bare(tags[1]).replace(/\s*—.*$/,'');
+    if(t.length>62)t=t.slice(0,61)+'…';
+    return ngEmoji(t)+' '+t;
+  }
   for(let i=0;i<lines.length;i++){
     const ln=lines[i];
     if(/^마스터\s.*소식/.test(ln))continue;
     if(/^(좋은 아침|안녕하세요|오늘도|오늘 하루)/.test(ln))continue;
-    return ln.slice(0,60);
+    const t=ln.slice(0,60);
+    return ngEmoji(t)+' '+t;
   }
-  return lines[0]||'소식글';
+  return '📌 '+(lines[0]||'소식글');
 }
 /* 🔗 본문 → 정본 상품명. 공백·가운뎃점만 무시하고 이름이 통째로 들어있는지 본다.
    짧은 이름은 우연히 걸리니(‘김치’가 ‘포기김치 10kg’ 설명문에 스침) 5글자 미만은 안 잡고,
@@ -1115,14 +1137,17 @@ $p('ngHit').addEventListener('click',function(ev){
   if(NGOUT[n])delete NGOUT[n]; else NGOUT[n]=1;
   ngDrawHit();
 });
-let ngTimer=null;
+let ngTimer=null, ngTitleTouched=false;
+// 사장님이 제목을 한 글자라도 건드리면 그때부터 자동으로 덮어쓰지 않는다
+$p('ngTitle').addEventListener('input',function(){ ngTitleTouched=!!this.value.trim(); });
 $p('ngBody').addEventListener('input',function(){
   clearTimeout(ngTimer);
   ngTimer=setTimeout(function(){
-    NGHIT=ngMatch($p('ngBody').value); NGOUT={};
+    const body=$p('ngBody').value;
+    NGHIT=ngMatch(body); NGOUT={};
     ngDrawHit();
-    const auto=ngAutoTitle($p('ngBody').value);
-    if(!$p('ngTitle').value.trim())$p('ngTitle').placeholder=auto?('제목 — 자동: '+auto):'제목 — 비우면 본문에서 자동으로 만듭니다';
+    // 자동 제목을 칸에 **채워서** 그 자리에서 고쳐 쓰게 한다 (홍팀장 2026-09-01)
+    if(!ngTitleTouched)$p('ngTitle').value=body.trim()?ngAutoTitle(body):'';
   },250);
 });
 // 도구시트에 '소식글' 탭이 없으면 머리글까지 만들어 둔다
