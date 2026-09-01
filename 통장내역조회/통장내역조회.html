@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v8.1</title>
+<title>통장 내역 조회 v8.2</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v8.1</span>
+  <span class="ver">v8.2</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -2932,25 +2932,49 @@ function umCountFilled(){
   if(b){ b.disabled=!n; b.style.opacity=n?1:.45; b.style.cursor=n?'pointer':'default'; }
   return n;
 }
+/* 🔁 이름 뒤에 날짜·번호가 붙는 입금자는 **코어**로 기억한다 (홍팀장 2026-09-01)
+   "서희석 왜 계속 나오고 지투지 왜 계속 나오는데" —
+   `서희석_6월1일` 을 통째로 기억하면 `서희석_6월15일` 은 새 이름이라 또 묻는다.
+   `지투지0605`·`지투지0612`·`지투지0731` 도 각각 따로 쌓였다.
+   매칭은 startsWith(앞부분 일치)라 코어만 넣어두면 뒤에 뭐가 붙든 자동으로 잡힌다.
+   ⚠️ 코어가 원본과 같으면(=뒤에 붙은 게 없으면) 그냥 원본으로 기억한다. 2글자 미만 코어도 원본으로 —
+      너무 짧으면 남의 입금까지 걸린다(2026-07-29 '주' 1글자가 별칭이 돼 우디 오보 사고). */
+function _coreOf(name){
+  const np=_normPayer(name);
+  const core=np.replace(/[_\-].*$/,'').replace(/\d.*$/,'').trim();
+  return (core.length>=2 && core!==np) ? core : null;
+}
 async function confirmAllSettle(){
   const gs=window._unmatchedGroups||[];
   const todo=[];
   gs.forEach((g,gi)=>{
     const i=document.getElementById('umg-in-'+gi);
     const v=(i&&i.value||'').trim();
-    if(v) todo.push({name:g.name, cnt:g.items.length, company:v});
+    if(v){ const core=_coreOf(g.name); todo.push({name:g.name, cnt:g.items.length, company:v, core:core}); }
   });
   if(!todo.length){ alert('업체칸을 채운 줄이 없어요.'); return; }
   const cnt=todo.reduce((s,t)=>s+t.cnt,0);
-  const preview=todo.slice(0,12).map(t=>`· ${t.name} → ${t.company}`).join('\n');
-  if(!confirm(`${todo.length}명 (${cnt}건)을 한 번에 기억할까요?\n\n${preview}${todo.length>12?`\n…외 ${todo.length-12}명`:''}`)) return;
-  const b=document.getElementById('umSaveAll');
-  if(b){ b.disabled=true; b.textContent='저장 중…'; }
-  todo.forEach(t=>{ SETTLE_ALIAS[_normPayer(t.name)]=t.company; });
-  try{ await saveSettleAlias(); }catch(e){ alert('⚠ 별칭 저장 실패 — 시트에 안 들어갔습니다.\n\n'+(e.message||e)+'\n\n다시 시도해 주세요.'); }
-  showToast(`✓ ${todo.length}명 ${cnt}건 기억 — 다시 매칭합니다`);
-  if(b){ b.textContent='💾 채운 것 전부 저장 '; }
-  runSettlementMatch();   // 재매칭은 여기서 딱 한 번
+  const nCore=todo.filter(t=>t.core).length;
+  const preview=todo.slice(0,12).map(t=>t.core?`· ${t.name} → ${t.company}   (🔁 '${t.core}' 로 기억)`:`· ${t.name} → ${t.company}`).join('\n');
+  if(!confirm(`${todo.length}명 (${cnt}건)을 한 번에 기억할까요?\n\n${preview}${todo.length>12?`\n…외 ${todo.length-12}명`:''}`
+      +(nCore?`\n\n🔁 ${nCore}명은 이름 뒤 날짜·번호를 떼고 기억합니다 — 다음부터 뒤가 바뀌어도 자동으로 잡힙니다.`:''))) return;
+  const btn=()=>document.getElementById('umSaveAll');   // 재매칭이 목록을 다시 그리므로 그때그때 찾는다
+  const setB=(txt,off)=>{ const b=btn(); if(b){ b.textContent=txt; b.disabled=!!off; } };
+  setB('① 저장 중…', true);
+  try{
+    todo.forEach(t=>{ SETTLE_ALIAS[t.core || _normPayer(t.name)]=t.company; });
+    await saveSettleAlias();
+    showToast(`✓ ${todo.length}명 ${cnt}건 기억${nCore?` (${nCore}명은 이름만으로)`:''} — 다시 매칭합니다`);
+    // 재매칭은 수천 건을 훑어서 몇 초 걸린다. 아무 표시가 없으면 멈춘 줄 안다(홍팀장 2026-09-01).
+    setB('② 다시 매칭 중… 잠시만요', true);
+    await new Promise(r=>setTimeout(r,60));      // 버튼 글자가 화면에 그려질 틈
+    await runSettlementMatch();
+  }catch(e){
+    alert('⚠ 저장하지 못했습니다 — 시트는 그대로입니다.\n\n'+(e.message||e));
+  }finally{
+    setB('💾 채운 것 전부 저장 ', false);        // 예외가 나도 버튼이 잠긴 채 남지 않게
+    umCountFilled();
+  }
 }
 // 확정: 이 예금주명 → 업체 별칭 등록 후, 별칭 반영해 전체 재매칭(같은 이름 전부·시간/색칠 규칙 자동 적용)
 async function confirmSettleAlias(gi){
