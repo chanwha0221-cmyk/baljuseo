@@ -644,21 +644,31 @@ function view(){
     +      '<span>헷갈리시면 카탈로그에서 <b>[+ 발주담기]</b>를 누르시면 정확한 이름이 그대로 들어갑니다.</span></div>'
     +   '<div class="ordtip">📦 같은 분께 가는 여러 상품은 <b>줄을 나눠</b> 적어주세요.'
     +      '<span>같은 주소 · 같은 창고 상품이면 저희가 <b>합포장으로 묶어드립니다</b>.</span></div>'
+    /* 📂 파일 안내 (홍팀장 2026-09-01 나행상회).
+       예전엔 업체한테 "칸 순서를 우리 양식으로 맞춰 오라"고 했다. 그래서 쇼핑몰에서 내려받은
+       15칸짜리 파일을 그대로 올리면 칸이 통째로 밀려(상품명 자리에 주소, 받는분 자리에 상품명)
+       한 줄도 못 썼다. 이제는 **맞출 필요가 없다** — 마스터 대신 발주가 쓰던 변환기를 업체도 쓴다. */
     +   '<div class="ordtip">📂 쓰시던 <b>엑셀 파일을 그대로 올리셔도</b> 됩니다.'
-    +      '<span>엑셀(xlsx)·CSV 모두 됩니다. 칸 순서만 <b>업체명 / 상품명 / 수량 / 성함 / 주소 / 연락처 / 배송메시지</b> 로 맞춰주세요. 위 <b>[📥 발주 양식 받기]</b>를 쓰시면 가장 확실합니다.</span></div>'
+    +      '<span>엑셀(xlsx)·CSV 모두 됩니다. '
+    +      (hasEngine()
+        ? '<b>칸 순서를 맞추지 않으셔도 됩니다</b> — 쇼핑몰에서 내려받은 파일 그대로 올리시면 저희 양식으로 알아서 바꿔 읽습니다. 읽고 나면 아래 표에서 눈으로 확인하실 수 있습니다.'
+        : '칸 순서만 <b>업체명 / 상품명 / 수량 / 성함 / 주소 / 연락처 / 배송메시지</b> 로 맞춰주세요. 위 <b>[📥 발주 양식 받기]</b>를 쓰시면 가장 확실합니다.')
+    +      '</span></div>'
     +   '<div class="ordbar">'
-    +     (master && hasEngine() ? '<button class="ordb2 pri" id="ord_conv">🔄 업체 양식 그대로 넣기</button>' : '')
+    +     (hasEngine() ? '<button class="ordb2 pri" id="ord_conv">🔄 ' + (master ? '업체 양식 그대로 넣기' : '쓰시던 양식 그대로 넣기') + '</button>' : '')
     +     '<button class="ordb2" id="ord_tpl">📥 발주 양식 받기</button>'
-    +     '<button class="ordb2' + (master ? '' : ' pri') + '" id="ord_pick">📂 파일 넣기</button>'
+    +     '<button class="ordb2' + (master || hasEngine() ? '' : ' pri') + '" id="ord_pick">📂 파일 넣기</button>'
     +     '<input type="file" id="ord_file" accept=".csv,.tsv,.txt,.xlsx,.xls" style="display:none">'
     +     '<button class="ordb2" id="ord_paste">📋 붙여넣기</button>'
     +     '<button class="ordb2" id="ord_add">+ 줄 추가</button>'
     +     '<button class="ordb2" id="ord_clr">🗑 전체 비우기</button>'
     +   '</div>'
-    // 🔄 업체가 준 양식 그대로 — 발주서 변환기 엔진이 우리 양식으로 바꿔 표에 채운다 (마스터 전용)
-    +   (master && hasEngine()
+    /* 🔄 받은 양식 그대로 — 발주서 변환기 엔진이 우리 양식으로 바꿔 표에 채운다.
+       마스터(대신 발주)와 업체(직접 발주)가 **같은 엔진·같은 화면**을 쓴다 (홍팀장 2026-09-01):
+       "마스터가 알고 있는 건 업체 발주도 공유 받아도 되잖아." — 맞다. 갈라놓을 이유가 없었다. */
+    +   (hasEngine()
         ? '<div id="ord_convbox" style="display:none;margin-bottom:10px">'
-        +   '<div class="ordtip big">🔄 <b>업체가 보낸 그대로</b> 붙여넣으세요 — 카톡·엑셀·게시판 어느 양식이든 됩니다.'
+        +   '<div class="ordtip big">🔄 <b>' + (master ? '업체가 보낸 그대로' : '쓰시던 파일 그대로') + '</b> 붙여넣으세요 — 카톡·엑셀·게시판 어느 양식이든 됩니다.'
         +     '<span>발주서 변환기(v' + (window.CONVERT.VERSION || '') + ')와 <b>같은 엔진</b>으로 읽습니다. 읽은 결과는 아래 표에 채워지고, 상품명이 안 맞으면 빨갛게 표시됩니다.</span></div>'
         // 📂 파일로 주는 업체는 파일째로 — 열어서 다시 복붙하는 건 두 번 일이다 (홍팀장 2026-08-24)
         +   '<div class="ordbar" style="margin-bottom:8px">'
@@ -667,7 +677,7 @@ function view(){
         +     '<span class="hint" style="align-self:center">엑셀·CSV 그대로 / 카톡은 아래에 붙여넣기</span>'
         +   '</div>'
         +   '<div id="ord_cvdrop" class="ordcvdrop">여기에 <b>파일을 끌어다 놓아도</b> 됩니다</div>'
-        +   '<textarea class="ordpaste" id="ord_cv" style="min-height:170px" placeholder="업체가 카톡·메일·엑셀로 보낸 발주를 그대로 붙여넣으세요 (Ctrl+V)&#10;양식을 맞출 필요 없습니다 — 변환기가 읽습니다."></textarea>'
+        +   '<textarea class="ordpaste" id="ord_cv" style="min-height:170px" placeholder="' + (master ? '업체가 카톡·메일·엑셀로 보낸 발주를' : '쇼핑몰에서 내려받은 표를') + ' 그대로 붙여넣으세요 (Ctrl+V)&#10;양식을 맞출 필요 없습니다 — 변환기가 읽습니다."></textarea>'
         +   '<div class="ordbar"><button class="ordb2 pri" id="ord_cvok">변환해서 표에 넣기</button>'
         +     '<button class="ordb2" id="ord_cvadd">기존 줄 아래에 이어붙이기</button>'
         +     '<button class="ordb2" id="ord_cvno">취소</button></div>'
@@ -1729,13 +1739,17 @@ function runConvert(append){
   saveDraft(); paint();
 
   /* 🔴 어느 업체 발주인지 확인시킨다 — 조용히 FOR 를 덮어쓰지 않는다.
-     정산업체명이 잘못 박히면 그대로 시트로 나가고, 그건 되돌리기 어렵다. */
+     정산업체명이 잘못 박히면 그대로 시트로 나가고, 그건 되돌리기 어렵다.
+     ⚠️ 업체가 직접 넣는 중이면 정산업체명은 물어볼 것도 없이 **로그인한 그 업체**다 —
+        고르는 칸이 아예 없으므로 "골라주세요" 같은 말이 뜨면 안 된다 (홍팀장 2026-09-01). */
+  const master = amMaster();
   const notes = [];
+  const whoLine = who => master ? '위에서 고른 <b>' + esc(who) + '</b>' : '로그인하신 <b>' + esc(who) + '</b>';
   if(byHead){
     const who = orderer();
     notes.push('<div class="ordrecon ok">📋 <b>머리글을 보고 필요한 칸만 뽑았습니다</b> — ' + got.rows.length + '줄'
       + ' <span class="hint">(상품명·수량·받는분 성함·주소·연락처·배송메시지)</span>'
-      + (S(who.name) ? '<br>정산업체명은 위에서 고른 <b>' + esc(who.name) + '</b> 로 나갑니다 — 파일 안의 판매처가 아닙니다.' : '<br>위에서 <b>어느 업체 발주인지</b> 골라주세요.')
+      + (S(who.name) ? '<br>정산업체명은 ' + whoLine(who.name) + ' 로 나갑니다 — 파일 안의 판매처가 아닙니다.' : '<br>위에서 <b>어느 업체 발주인지</b> 골라주세요.')
       + (byHead.length ? '<br><b style="color:var(--up)">🚫 취소·반품·교환 ' + byHead.length + '줄은 뺐습니다</b> — ' + esc(byHead.slice(0, 5).join(', ')) + (byHead.length > 5 ? ' 외' : '') : '')
       + '</div>');
   }
@@ -1748,12 +1762,15 @@ function runConvert(append){
   }
   if(got.bizes.length > 1){
     notes.push('<div class="ordwarn">⚠️ 원문에 업체가 <b>' + got.bizes.length + '곳</b> 섞여 있습니다 — <b>' + esc(got.bizes.join(', ')) + '</b>'
-      + '<br>대신 발주는 <b>한 업체씩</b> 넣어야 정산업체명이 정확합니다. 업체별로 나눠서 다시 넣어주세요.</div>');
+      + (master
+        ? '<br>대신 발주는 <b>한 업체씩</b> 넣어야 정산업체명이 정확합니다. 업체별로 나눠서 다시 넣어주세요.'
+        : '<br>정산업체명은 로그인하신 <b>' + esc(S(orderer().name)) + '</b> 하나로 나갑니다. 다른 업체 발주가 섞여 있으면 빼주세요.') + '</div>');
   } else if(got.bizes.length === 1){
-    const read = got.bizes[0], cur = FOR && FOR.name ? FOR.name : '';
+    const read = got.bizes[0], cur = S(orderer().name);
     const same = cur && read.replace(/\s/g, '') === cur.replace(/\s/g, '');
     if(!cur) notes.push('<div class="ordwarn">📌 원문에서 <b>' + esc(read) + '</b> 발주로 읽었습니다 — 위에서 <b>어느 업체 발주인지</b> 골라주세요.</div>');
-    else if(!same) notes.push('<div class="ordwarn">⚠️ 원문은 <b>' + esc(read) + '</b> 발주인데, 위에 고른 업체는 <b>' + esc(cur) + '</b> 입니다. 맞는지 확인하세요.</div>');
+    else if(!same) notes.push('<div class="ordwarn">⚠️ 원문은 <b>' + esc(read) + '</b> 발주인데, ' + (master ? '위에 고른 업체는' : '로그인하신 업체는') + ' <b>' + esc(cur) + '</b> 입니다. 맞는지 확인하세요.'
+      + (master ? '' : '<br><span class="hint">송장에 <b>' + esc(read) + '</b> 이름이 나가야 하면 아래 표 맨 앞 <b>업체명</b> 칸에 적어주세요.</span>') + '</div>');
   }
   // 변환기의 원문 대조(누락 감지) 결과를 그대로 보여준다 — 이게 누락 사고를 잡는 자리다.
   // 머리글로 뽑은 경우엔 변환기를 아예 안 돌렸으므로 대조도 없다(r이 null).
@@ -1813,6 +1830,40 @@ function rowsFromCells(lines){
     if(FIELDS.some(f => S(r[f]))) out.push(r);
   });
   return out;
+}
+
+/* 🚦 우리 양식이 아닌 표인가 (홍팀장 2026-09-01 — 나행상회).
+   [📂 파일 넣기]·[📋 붙여넣기]는 **칸 순서**대로 읽는다. 그래서 쇼핑몰에서 내려받은
+   15칸짜리 파일(주문처·주문처주소·주문자연락처·상품명·성함·주소·연락처…)을 그대로 넣으면
+   통째로 밀려서 상품명 자리에 주소가, 받는분 자리에 상품명이 들어갔다. 한 줄도 못 쓴다.
+   마스터가 같은 파일로 멀쩡한 발주를 뽑던 건 대신 발주만 변환기를 썼기 때문이다.
+   → 읽어낸 상품명이 카탈로그에 **한 줄도** 없으면 우리 양식이 아니다.
+      묻지 말고 변환기로 돌린다 — 마스터 대신 발주가 쓰던 그 엔진이다.
+   🔴 카탈로그가 아직 안 왔으면(prodIndex 비어 있음) 판단하지 않는다 —
+      그때 "하나도 못 찾았다"는 건 양식 탓이 아니라 로딩 탓이다.
+   🔴 한 줄이라도 맞으면 우리 양식으로 본다 — 멀쩡히 읽힌 발주를 변환기로 넘기지 않기 위해서. */
+function foreign(rows){
+  if(!hasEngine()) return false;
+  if(!rows || !rows.length) return false;
+  if(!prodIndex().size) return false;
+  const named = rows.filter(r => S(r.name));
+  if(!named.length) return true;
+  return !named.some(r => findProd(r.name).p);
+}
+/* 🔄 변환 칸 펼치기 — 자동으로 넘어왔을 때도 무엇이 열렸는지 눈에 보이게 한다. */
+function openConvert(){
+  const b = document.getElementById('ord_convbox');
+  if(!b) return;
+  b.style.display = '';
+  try{ b.scrollIntoView({block:'nearest'}); }catch(e){}
+}
+/* 자동으로 변환기로 넘어갔다는 걸 결과 맨 위에 남긴다 — 화면이 갑자기 바뀐 이유를 알려줘야 한다. */
+function autoNote(){
+  const lg = document.getElementById('ord_cvlog');
+  if(!lg) return;
+  lg.innerHTML = '<div class="ordrecon ok">🔄 <b>저희 양식이 아니어서 자동으로 바꿔 읽었습니다</b>'
+    + ' <span class="hint">— 칸 순서를 맞추실 필요 없습니다. 아래 표에서 상품명·받는분이 맞는지만 봐주세요.</span></div>' + lg.innerHTML;
+  toast('양식이 달라 자동으로 변환했습니다');
 }
 
 /* 📂 파일 넣기 — 업체는 자기 쇼핑몰에서 받은 표를 그대로 올린다.
@@ -2062,6 +2113,13 @@ function bind(){
     const btn = $$('ord_pick'); if(btn){ btn.disabled = true; btn.textContent = '읽는 중…'; }
     try{
       const got = await readFile(file);
+      // 🔄 우리 양식이 아니면 칸 순서대로 읽지 않고 변환기로 넘긴다 (foreign 주석 참고)
+      if(foreign(got)){
+        openConvert();
+        await convertFile(file);
+        autoNote();
+        return;
+      }
       if(!got.length){ alert('가져올 내용이 없습니다. 첫 줄은 머리글이어도 되고, 업체명 / 상품명 / 수량 / 성함 / 주소 / 연락처 / 배송메시지 순서로 넣어주세요.'); }
       else{
         ROWS = ROWS.filter(r => FIELDS.some(f => S(r[f]))).concat(got);
@@ -2114,7 +2172,13 @@ function bind(){
   }
   on('ord_ptno', () => { $$('ord_pastebox').style.display = 'none'; $$('ord_pt').value = ''; });
   on('ord_ptok', () => {
-    const got = parsePaste($$('ord_pt').value);
+    const raw = $$('ord_pt').value;
+    const got = parsePaste(raw);
+    if(foreign(got)){
+      $$('ord_pt').value = ''; $$('ord_pastebox').style.display = 'none';
+      openConvert(); $$('ord_cv').value = raw; runConvert(false); autoNote();
+      return;
+    }
     if(!got.length){ toast('가져올 내용이 없습니다'); return; }
     ROWS = ROWS.filter(r => FIELDS.some(f => S(r[f]))).concat(got);
     $$('ord_pt').value = ''; $$('ord_pastebox').style.display = 'none';
@@ -2342,5 +2406,6 @@ window.addEventListener('load', () => { if(!ROWS.length) ROWS = loadDraft(); bad
 
 // _build·_check는 검증용 출구다(브라우저 없이 변환 결과를 확인할 때 쓴다). 화면 동작과 무관.
 window.ORDER = {view, bind, add, orders: ordersView, ordersBind, rows: () => ROWS, _build: buildOut, _check: checkRow,
-                _fromConverted: rowsFromConverted, _setRows: r => { ROWS = r; }};
+                _fromConverted: rowsFromConverted, _setRows: r => { ROWS = r; },
+                _cells: rowsFromCells, _foreign: foreign};
 })();
