@@ -14,7 +14,9 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.79).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (2026-08-20).
+ ※ 여기에 버전(v2.x)을 적지 말 것 — deploy.ps1 이 배포마다 <title> 버전을 파일 전체에서
+    치환해서, 적어두면 그 숫자가 매번 따라 올라가 언제 고친 건지 알 수 없게 된다.
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.79</title>
+<title>마스터 유통 카탈로그 v23.1</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -234,6 +236,15 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   padding:3px 8px;font-size:11.5px;cursor:pointer;white-space:nowrap;font-family:inherit}
 @media(hover:hover){.delb:hover{border-color:var(--up);color:var(--up)}}
 .delb:disabled{opacity:.5;cursor:default}
+/* 🔄 새 버전 알림 바 — 화면 맨 아래에 붙는다.
+   위에 두면 로그인·공지와 겹쳐서 정작 볼 것을 가린다. 발주 중에도 방해되면 안 된다. */
+.verbar{position:fixed;left:12px;right:12px;bottom:12px;z-index:9000;display:flex;align-items:center;gap:10px;
+  flex-wrap:wrap;background:var(--card);border:2px solid var(--accent);border-radius:12px;padding:11px 14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.18);font-size:13px;line-height:1.6;max-width:720px;margin:0 auto}
+.verbar span{flex:1;min-width:180px}
+.verbar button{border:0;background:var(--accent);color:#fff;border-radius:9px;padding:8px 15px;
+  font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
+.verbar button.x{background:transparent;color:var(--muted);padding:8px 6px;font-size:15px}
 /* 🗑 추천상품 카드 맨 아래 — 카드 폭을 다 쓰는 버튼.
    ⚠️ 여기서 따로 정의한다. 옆의 [🚫 예외 등록]이 쓰는 .excb 는 order.js 의 css() 안에 있어
       발주 화면을 한 번도 안 열면 안 실려 있다 — 그걸 빌려 쓰면 첫 화면에서 민무늬 버튼이 된다. */
@@ -2059,6 +2070,44 @@ menuEl.querySelectorAll('.mbtn').forEach(b=>{b.onclick=()=>{
   else location.hash=v;
 };});
 window.addEventListener('hashchange',renderRoute);
+
+/* ══ 🔄 새 버전 알림 (홍팀장 2026-09-01) ═══════════════════════════════
+   업체는 카탈로그 탭을 **켜둔 채로 며칠** 쓴다. 탭을 안 닫으면 브라우저는 catalog.html 을
+   아예 다시 받지 않는다 — GitHub Pages 의 10분 캐시는 새로고침을 해야 도는 이야기다.
+   그래서 우리가 발주 기능을 고쳐 올려도 업체 화면은 옛 코드 그대로였다.
+     실제 사고(2026-09-01): 업체 화면이 v2.70 인 채로 쿠팡 파일을 넣어 머리글 줄이 발주로
+     읽히고 칸이 통째로 밀렸다. 같은 파일이 마스터(최신) 화면에선 멀쩡했고, 그래서
+     "왜 마스터랑 업체가 다르냐"가 됐다. 다른 게 아니라 **낡은 것**이었다.
+   → 배포 때 같이 올리는 version.txt 한 줄을 보고, 화면에 뜬 버전과 다르면 알린다.
+   🔴 자동으로 새로고침하지 않는다 — 발주를 적다 말고 화면이 날아가면 그게 더 나쁘다.
+      누를지 말지는 쓰는 사람이 정한다. (임시저장이 있어도 믿고 날릴 일은 아니다)
+   🔴 실패하면 조용히 넘어간다 — 버전 확인이 안 된다고 카탈로그를 못 쓰게 하면 안 된다. */
+const MYVER=(document.title.match(/v[\d.]+/)||['v0'])[0];
+let VERBAR=false;
+function showVerBar(live){
+  if(VERBAR)return; VERBAR=true;
+  const d=document.createElement('div');
+  d.className='verbar';
+  d.innerHTML='<span>🔄 <b>새 버전이 나왔습니다</b> ('+esc(MYVER)+' → <b>'+esc(live)+'</b>)'
+    +' — 새로고침하셔야 최신 화면으로 바뀝니다.</span>'
+    +'<button id="verReload">새로고침</button>'
+    +'<button id="verClose" class="x" title="나중에">✕</button>';
+  document.body.appendChild(d);
+  d.querySelector('#verReload').onclick=()=>location.reload();
+  d.querySelector('#verClose').onclick=()=>d.remove();
+}
+async function checkVer(){
+  try{
+    const r=await fetch('version.txt?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return;
+    const live=(await r.text()).trim();
+    if(!/^v[\d.]+$/.test(live))return;      // 404 페이지 본문 같은 게 오면 무시
+    if(live!==MYVER)showVerBar(live);
+  }catch(e){}
+}
+setTimeout(checkVer,4000);                                   // 첫 화면을 먼저 그리고 나서
+setInterval(checkVer,10*60*1000);                            // 켜둔 탭도 10분마다 한 번
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden)checkVer(); });  // 탭으로 돌아올 때
 
 // ══════════════════════════════════════════════════════════════════
 // 로그인 (2026-08-12 사장님 지시 — 상용화 1단계)
