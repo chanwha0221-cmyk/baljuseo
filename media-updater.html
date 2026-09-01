@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.23</title>
+<title>마스터 유통 상품 도구 v1.24</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1764,8 +1764,12 @@ $c('clPrev').onclick=async function(){
       const v=rows[r]||[], cell=(v[9]||'').trim();
       if(!cell&&!(v[5]||'').trim())continue;
       if(!cell){ empty.push(r+1); continue; }
-      // 원가(B·C)와 공급가(D·E) 넷 중 하나라도 값이 있으면 손대지 않는다
-      if(num(v[1])!==0||num(v[2])!==0||num(v[3])!==0||num(v[4])!==0){ already.push(r+1); continue; }
+      /* 원가(B·C)와 공급가(D·E)를 **따로** 본다 (홍팀장 2026-09-01).
+         한 덩이로 묶어놨더니 원가는 차 있고 공급가만 빈 날에 그 행을 통째로 건너뛰었다.
+         비어 있는 쪽만 채우고, 이미 채워진 쪽은 손대지 않는다. */
+      const needCost=(num(v[1])===0&&num(v[2])===0);
+      const needSup =(num(v[3])===0&&num(v[4])===0);
+      if(!needCost&&!needSup){ already.push(r+1); continue; }
       const items=parseCell(cell);
       let free=0,tax=0,anyTax=false,ships={},bad=[];          // 원가
       let sfree=0,stax=0,sAnyTax=false,sships={};             // 공급가(매출)
@@ -1785,11 +1789,13 @@ $c('clPrev').onclick=async function(){
       if(anyTax)tax+=ship; else free+=ship;
       const sship=Object.keys(sships).reduce((s,k)=>s+sships[k],0);
       if(sAnyTax)stax+=sship; else sfree+=sship;
-      fill.push({row:r+1,cell:cell,free:free,tax:tax,sfree:sfree,stax:stax});
+      fill.push({row:r+1,cell:cell,free:free,tax:tax,sfree:sfree,stax:stax,needCost:needCost,needSup:needSup});
     }
     PLAN={tab:tab,fill:fill};
     const L=[];
+    const nC=fill.filter(x=>x.needCost).length, nS=fill.filter(x=>x.needSup).length;
     L.push('📋 <b>'+esc(tab)+'</b> — 채울 행 <b style="color:#0b5f46">'+fill.length+'건</b>'
+      +' <span style="color:var(--muted)">(원가 '+nC+'건 · 공급가 '+nS+'건)</span>'
       +' · 이미 있음 '+already.length+'건'+(unknown.length?(' · <b style="color:#c0392b">이름 못 찾음 '+unknown.length+'건</b>'):''));
     if(fill.length){
       const c=fill.reduce((s,x)=>s+x.free+x.tax,0), sv=fill.reduce((s,x)=>s+x.sfree+x.stax,0);
@@ -1831,8 +1837,15 @@ $c('clFill').onclick=async function(){
   if(!confirm(PLAN.tab+' 탭 '+PLAN.fill.length+'건의 매출·원가를 채웁니다.\n\n이미 값이 있는 행은 건드리지 않습니다.\n진행할까요?'))return;
   b.disabled=true; b.textContent='채우는 중…';
   try{
-    // B=원가(면세) C=원가(과세) D=공급가/면세 E=공급가/과세 — 네 칸을 한 번에
-    const data=PLAN.fill.map(x=>({range:"'"+PLAN.tab+"'!B"+x.row+":E"+x.row, values:[[x.free,x.tax,x.sfree,x.stax]]}));
+    /* B=원가(면세) C=원가(과세) D=공급가/면세 E=공급가/과세.
+       비어 있는 쪽만 쓴다 — 원가만 빈 날, 공급가만 빈 날이 각각 있다. */
+    const data=[];
+    PLAN.fill.forEach(function(x){
+      const t="'"+PLAN.tab+"'!";
+      if(x.needCost&&x.needSup) data.push({range:t+'B'+x.row+':E'+x.row, values:[[x.free,x.tax,x.sfree,x.stax]]});
+      else if(x.needCost)       data.push({range:t+'B'+x.row+':C'+x.row, values:[[x.free,x.tax]]});
+      else                      data.push({range:t+'D'+x.row+':E'+x.row, values:[[x.sfree,x.stax]]});
+    });
     const r=await S.api(MATID,'/values:batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({valueInputOption:'RAW',data:data})});
     if(r&&r.error)throw new Error(r.error.message||'쓰지 못했습니다');
