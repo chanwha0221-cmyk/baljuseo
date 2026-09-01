@@ -14,7 +14,7 @@
  사고 2) 막겠다고 disabled/readonly 로 잠갔더니 ** 글씨조차 못 넣게 됐다. **
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
- 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.67).
+ 그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (v2.68).
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
  placeholder(:empty::before + data-ph) · X지우기 버튼 · 엔터 줄바꿈 금지 ·
@@ -23,7 +23,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v2.67</title>
+<title>마스터 유통 카탈로그 v2.68</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -110,6 +110,13 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .acct .no{font-size:18px;font-weight:800;letter-spacing:-.2px;color:var(--ink);font-variant-numeric:tabular-nums}
 .acct .nm{font-size:13px;font-weight:700;color:var(--accent-d)}
 .acct .cpbtn{font-size:11.5px;padding:3px 9px}
+/* 🚚 운송장·정산내역 바로가기 — 계좌 줄 오른쪽 끝 (사장님 2026-09-01).
+   조회 시점 안내(오후 6시)를 버튼 안에 같이 넣는다 — 따로 떼면 아무도 안 읽는다. */
+.acct .invbtn{margin-left:auto;display:flex;flex-direction:column;align-items:center;gap:1px;
+  background:var(--accent);color:#fff;border-radius:10px;padding:6px 14px;text-decoration:none;
+  font-size:13px;font-weight:800;line-height:1.25;white-space:nowrap;border:0;cursor:pointer}
+.acct .invbtn small{font-size:10px;font-weight:600;opacity:.88;letter-spacing:-.2px}
+.acct .invbtn:hover{filter:brightness(1.1)}
 /* ── 로그인 (2026-08-12) ── */
 .gate{position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
 .gbox{width:100%;max-width:370px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:26px 22px 22px}
@@ -255,6 +262,8 @@ a.ubtn{display:inline-block;text-decoration:none;line-height:1.6}   /* 👤 계�
   .acct .lb{font-size:11px}
   .acct .no{font-size:16px}
   .acct .nm{font-size:12px}
+  .acct .invbtn{margin-left:0;width:100%;padding:8px 10px;font-size:12.5px}
+  .acct .invbtn small{font-size:9.5px}
   .controls{margin-top:8px;padding:8px 0 6px}
   .search{padding:10px 12px;font-size:16px}
   .lbl{margin:7px 0 4px;font-size:10px}
@@ -521,6 +530,10 @@ h1{letter-spacing:-.6px}
   <span class="no">기업은행 514-049965-04-014</span>
   <span class="nm">주식회사 마스터</span>
   <button class="cpbtn" data-cp="514-049965-04-014" data-cpmsg="계좌번호 복사됨">📋 복사</button>
+  <a class="invbtn" href="https://masterc.co.kr/OutInvoice/5/?mid=OutInvoice&amp;document_srl=5" target="_blank" rel="noopener">
+    🚚 운송장 및 정산내역 확인
+    <small>당일 발송건은 오후 6시 이후 조회 가능합니다</small>
+  </a>
 </div></header>
 <!-- 메뉴 — 검색창 위. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
 <div class="menu" id="menu">
