@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.16</title>
+<title>마스터 유통 상품 도구 v1.17</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1042,24 +1042,35 @@ $p('rcAdd').onclick=function(){
 const NEWS_SHEET_ID='1JJkkWo3mKIFzdQHw73k4Wc_Dl_NHvrDgmabDFD9ktrk';   // 톤 학습용 히스토리(사장님 개인 시트)
 const NEWS_TAB='소식글';
 const POST_TAB='소식글';        // 도구시트 안의 게시판 탭 — 카탈로그가 이걸 읽는다
-const pk=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+/* 상품명 맞춤용 정규화 — 공백과 **가운뎃점**을 지운다.
+   소식글 상품 줄은 '초박달대게 3kg · 2미'처럼 규격을 · 로 끊어 쓰는데(내 글쓰기 습관),
+   시트 정본은 '초박달대게 3kg 2미'라 공백만 지워선 영영 안 맞는다 (2026-09-01 실제로 대게를 놓쳤다).
+   지우는 건 공백·가운뎃점뿐 — 글자는 하나도 안 건드리니 여전히 완전일치다(§3-3). */
+const pk=s=>String(s||'').replace(/[\s·ㆍ•‧∙]+/g,'').toLowerCase();
 // 발송 시간대 — 소식글 인사말 기준과 같게 맞춘다(아침 05~10 / 점심 11~16 / 저녁 17~21)
 function ngSlot(h){ return h>=5&&h<11?'아침':h>=11&&h<17?'점심':h>=17&&h<22?'저녁':'기타'; }
-// 상품키워드 — 본문의 [태그] 뒤 제목 줄을 뽑는다
+/* [태그] 줄만 뽑는다. [상세보기]·[바로가기]는 링크 안내지 태그가 아니다
+   (2026-09-01: 제목이 "… 외 2건"으로 나와 세어 보니 [상세보기]까지 세고 있었다). */
+const NGNOTTAG=/^(상세보기|바로가기|링크|사이트)$/;
+function ngTags(body){
+  return String(body||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(function(ln){
+    if(/https?:\/\//.test(ln))return '';                  // 링크가 붙은 줄은 태그 줄이 아니다
+    const m=ln.match(/^\[([^\]]+)\]\s*(.*)$/); if(!m)return '';
+    if(NGNOTTAG.test(m[1].trim()))return '';
+    return ('['+m[1]+'] '+(m[2]||'')).trim();
+  }).filter(Boolean);
+}
+// 상품키워드 — 태그 뒤에 붙은 제목 줄
 function ngKeywords(body){
-  const out=[];
-  String(body||'').split(/\r?\n/).forEach(function(ln){
-    const m=ln.trim().match(/^\[[^\]]+\]\s*(.+)$/);
-    if(m&&m[1])out.push(m[1].trim().replace(/\s*—.*$/,''));
-  });
-  return out.slice(0,5).join(', ');
+  return ngTags(body).map(function(s){ return s.replace(/^\[[^\]]*\]\s*/,'').replace(/\s*—.*$/,'').trim(); })
+    .filter(Boolean).slice(0,5).join(', ');
 }
 function ngLink(body){ const m=String(body||'').match(/https?:\/\/\S+/); return m?m[0]:''; }
 /* 제목 — [태그] 줄이 있으면 그게 제목이다.
    게시판에선 제목만 보고 열지 말지를 정하는데 "마스터 9월 1일 소식글"은 아무것도 안 알려준다. */
 function ngAutoTitle(body){
   const lines=String(body||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  const tags=lines.map(function(ln){const m=ln.match(/^\[([^\]]+)\]\s*(.*)$/);return m?('['+m[1]+'] '+(m[2]||'')).trim():'';}).filter(Boolean);
+  const tags=ngTags(body);
   if(tags.length)return tags[0]+(tags.length>1?(' 외 '+(tags.length-1)+'건'):'');
   for(let i=0;i<lines.length;i++){
     const ln=lines[i];
@@ -1069,7 +1080,7 @@ function ngAutoTitle(body){
   }
   return lines[0]||'소식글';
 }
-/* 🔗 본문 → 정본 상품명. 공백만 무시하고 이름이 통째로 들어있는지 본다.
+/* 🔗 본문 → 정본 상품명. 공백·가운뎃점만 무시하고 이름이 통째로 들어있는지 본다.
    짧은 이름은 우연히 걸리니(‘김치’가 ‘포기김치 10kg’ 설명문에 스침) 5글자 미만은 안 잡고,
    긴 이름이 잡히면 그 안에 든 짧은 이름은 뺀다('활 홍가리비 1kg' 이 있으면 '홍가리비'는 버림). */
 let NGHIT=[], NGOUT={};          // NGOUT = 사장님이 ✕로 뺀 것
