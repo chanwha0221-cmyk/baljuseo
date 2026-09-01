@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.6</title>
+<title>마스터 유통 카탈로그 v23.7</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -252,6 +252,11 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   padding:5px 0;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
 @media(hover:hover){.recdel:hover{border-color:var(--up);color:var(--up);border-style:solid}}
 .recdel:disabled{opacity:.5;cursor:default}
+/* 🏷 미분류 상품 카드의 카테고리 지정 칸 — 마스터에게만 뜬다 (홍팀장 2026-09-01).
+   .excb 처럼 order.js 의 css() 를 빌리지 않는다(발주 화면을 안 열면 안 실린다 — 위 주석 참고). */
+.catsel{margin-top:5px;width:100%;border:1.5px solid var(--gold);background:var(--card);color:var(--gold);
+  padding:6px 8px;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
+.catsel:disabled{opacity:.5;cursor:default}
 /* 첫 화면 한 줄 — 카탈로그의 본질은 상품이라 소식글은 제목 한 줄만 놓고 자리를 안 먹는다 */
 .newsone{margin-top:9px}
 .newsonebtn{width:100%;display:flex;align-items:center;gap:8px;background:var(--card);cursor:pointer;
@@ -1054,6 +1059,45 @@ function buildAll(){
 }
 /* 시트에서 이미 사라진 예외 상품 — 카드가 없어 화면에 못 그린다.
    이름만이라도 남겨두지 않으면 되돌릴 방법이 없어진다. */
+// 🏷 카테고리 칸 — 고르는 즉시 저장한다(따로 [저장] 누르게 하지 않는다)
+document.addEventListener('change',function(e){
+  const sel=e.target.closest('[data-catsel]'); if(!sel)return;
+  const nm=sel.getAttribute('data-catsel'), cat=sel.value;
+  if(!cat)return;
+  sel.disabled=true;
+  setCat(nm,cat).catch(function(err){
+    alert('카테고리를 저장하지 못했습니다.\n\n'+(err.message||err));
+    sel.disabled=false; sel.value='';
+  });
+});
+/* 🏷 카드에서 바로 카테고리 지정 (홍팀장 2026-09-01) — 마스터 전용.
+   목록은 상품도구(media-updater)의 PRESET 과 같게 유지할 것. 두 곳이 갈라지면
+   여기서 넣은 값이 도구 화면의 선택지에 없어서 나중에 손댈 수가 없다. */
+const CAT_PRESET=['수산','축산','가공식품','김치·반찬','농산물','과일','생활용품','기타'];
+/* 도구시트 '상품분류' 탭(A상품명 B카테고리)에 쓴다. 행 번호가 필요해 그때 한 번 더 읽는다.
+   ⚠️ 쓰기는 public 경로로 안 나간다 — SheetsProxy.call(팀 비밀번호). 공지·소식글 지우기와 같은 규칙. */
+async function setCat(name,cat){
+  const token=await getAccessToken();
+  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'
+    +encodeURIComponent("'상품분류'!A2:B5000"),{headers:{Authorization:'Bearer '+token}})).json();
+  if(j.error)throw new Error('상품분류를 읽지 못했습니다.');
+  const rows=j.values||[];
+  let row=-1;
+  for(let i=0;i<rows.length;i++){ if(pkey((rows[i]||[])[0])===pkey(name)){row=i+2;break;} }
+  if(row<0){   // 아직 등재 안 된 상품이면 줄을 새로 만든다
+    await SheetsProxy.call(DOGU_ID+'/values/'+encodeURIComponent("'상품분류'!A:B")
+      +':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS','POST',JSON.stringify({values:[[name,cat]]}));
+  }else{
+    await SheetsProxy.call(DOGU_ID+'/values/'+encodeURIComponent("'상품분류'!B"+row)
+      +'?valueInputOption=RAW','PUT',JSON.stringify({values:[[cat]]}));
+  }
+  // 화면 즉시 반영 — 원본(g.src)까지 같이 고쳐야 다시 그려도 유지된다
+  const k=pkey(name);
+  ALL.forEach(p=>{ if(pkey(p.name)===k)p.cat=cat; });
+  GROUPS.forEach(g=>((g.src||g.products)||[]).forEach(p=>{ if(pkey(p.name)===k)p.cat=cat; }));
+  buildAll();buildWhChips();render();
+  toast('🏷 '+name+' → '+cat);
+}
 function excGhosts(){
   const live=new Set();
   ALL.forEach(p=>live.add(pkey(p.name)));
@@ -1307,6 +1351,15 @@ function card(p,extra,top,foot){
        카드를 보다가 바로 고치러 간다. 카탈로그는 사진 시트에 쓰지 않는다 —
        상품도구를 그 상품으로 열어줄 뿐이다(#photo=). 쓰기는 권한을 가진 도구 쪽에서만. */
     +(amMasterC()?'<button class="excb thb" data-thumb="'+esc(p.name)+'" title="카탈로그 사진을 다른 사진으로 바꿉니다">🖼 사진 바꾸기</button>':'')
+    /* 🏷 미분류 상품은 카드에서 바로 분류한다 — 마스터에게만 (홍팀장 2026-09-01)
+       "어차피 마스터에만 뜨는 거니까, 미분류로 뜨면 이 화면에서도 바로 카테고리 잡을 수 있게 하자."
+       상품도구까지 갔다 오면 그 상품을 다시 찾아야 한다. 눈에 보일 때 그 자리에서 끝내는 게 맞다.
+       분류가 이미 된 상품엔 안 띄운다 — 실수로 바꾸는 쪽이 손해다. */
+    +((amMasterC()&&(!p.cat||p.cat==='미분류'))
+        ?'<select class="catsel" data-catsel="'+esc(p.name)+'" title="이 상품의 카테고리를 정합니다">'
+          +'<option value="">🏷 카테고리 지정…</option>'
+          +CAT_PRESET.map(c=>'<option>'+esc(c)+'</option>').join('')
+          +'</select>':'')
     +(foot||'')
     +'</div></div>';
 }
@@ -1442,6 +1495,8 @@ document.addEventListener('click',e=>{
     setExc(nm,false,'').catch(err=>{alert(err.message||'처리하지 못했습니다');exg.disabled=false;exg.textContent='↩ 되돌리기';});
     return;
   }
+  // 🏷 카테고리 칸은 클릭이 카드(상품 상세 링크)로 새지 않게 막는다
+  if(e.target.closest('[data-catsel]')){ e.stopPropagation(); return; }
   const w=e.target.closest('.whb');
   if(w){st.wh=w.getAttribute('data-wh');st.mode='src';st.cat='전체';st.q='';$('q').value='';buildWhChips();render();
     if(location.hash)location.hash='';   // 변동사항·추천 페이지에서 눌렀으면 카탈로그로 돌아온다
