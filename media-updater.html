@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.22</title>
+<title>마스터 유통 상품 도구 v1.23</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -243,8 +243,8 @@ a{color:var(--accent)}
 <div id="tab-close" style="display:none">
 <div class="card">
   <h2>🔒 발주 마감 <span id="clStat" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
-  <p style="font-size:12.5px;color:var(--muted)">마찬 월 시트의 <b>그날 탭</b>을 열어 <b>원가(면세)·원가(과세)</b> 칸을 채웁니다.
-    상품명·수량으로 <b>전체상품원가</b>에서 원가를 찾아 <b>(원가×수량)+택배비</b>로 계산해요.<br>
+  <p style="font-size:12.5px;color:var(--muted)">마찬 월 시트의 <b>그날 탭</b>을 열어 <b>원가(면세)·원가(과세)·공급가/면세·공급가/과세</b> 네 칸을 채웁니다.
+    상품명·수량으로 <b>전체상품원가</b>에서 원가와 공급가를 찾아 <b>(단가×수량)+택배비</b>로 계산해요.<br>
     택배비는 <b>창고당 한 번</b>만 붙고(합포장), 한 행에 과세 상품이 있으면 <b>과세 칸</b>으로 갑니다.
     <b>이미 값이 있는 행은 건드리지 않습니다.</b></p>
   <div id="clCost" style="font-size:12.5px;font-weight:700;margin-top:9px;padding:9px 12px;border-radius:9px"></div>
@@ -1695,7 +1695,9 @@ async function loadCost(){
   (j.values||[]).forEach(function(r){
     const n=(r[0]||'').trim(); if(!n)return;
     const k=pk(n); if(m[k])return;
-    m[k]={name:n,cost:num(r[4]),ctax:(r[5]||'').trim(),cship:num(r[6]),wh:(r[7]||'').trim()};
+    // 공급가(B·C·D)와 원가(E·F·G)를 둘 다 담는다 — 마감은 매출·원가를 같이 채운다(홍팀장 2026-09-01)
+    m[k]={name:n,sup:num(r[1]),stax:(r[2]||'').trim(),sship:num(r[3]),
+          cost:num(r[4]),ctax:(r[5]||'').trim(),cship:num(r[6]),wh:(r[7]||'').trim()};
   });
   return m;
 }
@@ -1762,28 +1764,38 @@ $c('clPrev').onclick=async function(){
       const v=rows[r]||[], cell=(v[9]||'').trim();
       if(!cell&&!(v[5]||'').trim())continue;
       if(!cell){ empty.push(r+1); continue; }
-      if(num(v[1])!==0||num(v[2])!==0){ already.push(r+1); continue; }   // 이미 채워진 행은 손대지 않는다
+      // 원가(B·C)와 공급가(D·E) 넷 중 하나라도 값이 있으면 손대지 않는다
+      if(num(v[1])!==0||num(v[2])!==0||num(v[3])!==0||num(v[4])!==0){ already.push(r+1); continue; }
       const items=parseCell(cell);
-      let free=0,tax=0,anyTax=false,ships={},bad=[];
+      let free=0,tax=0,anyTax=false,ships={},bad=[];          // 원가
+      let sfree=0,stax=0,sAnyTax=false,sships={};             // 공급가(매출)
       for(const it of items){
         const c=COSTMAP[pk(it.name)];
         if(!c){ bad.push(it.name); continue; }
         const amt=c.cost*it.qty;
         if(isTax(c)){tax+=amt;anyTax=true;} else free+=amt;
         const key=c.wh||'_'; if(!ships[key]||ships[key]<c.cship)ships[key]=c.cship;
+        // 공급가는 자기 과세구분·자기 택배비를 따른다 (원가와 다를 수 있어 따로 센다)
+        const samt=c.sup*it.qty, sIsTax=/과세/.test(c.stax)&&!/면세/.test(c.stax);
+        if(sIsTax){stax+=samt;sAnyTax=true;} else sfree+=samt;
+        if(!sships[key]||sships[key]<c.sship)sships[key]=c.sship;
       }
       if(bad.length){ unknown.push({row:r+1,cell:cell,bad:bad}); continue; }
       const ship=Object.keys(ships).reduce((s,k)=>s+ships[k],0);
       if(anyTax)tax+=ship; else free+=ship;
-      fill.push({row:r+1,cell:cell,free:free,tax:tax});
+      const sship=Object.keys(sships).reduce((s,k)=>s+sships[k],0);
+      if(sAnyTax)stax+=sship; else sfree+=sship;
+      fill.push({row:r+1,cell:cell,free:free,tax:tax,sfree:sfree,stax:stax});
     }
     PLAN={tab:tab,fill:fill};
     const L=[];
     L.push('📋 <b>'+esc(tab)+'</b> — 채울 행 <b style="color:#0b5f46">'+fill.length+'건</b>'
       +' · 이미 있음 '+already.length+'건'+(unknown.length?(' · <b style="color:#c0392b">이름 못 찾음 '+unknown.length+'건</b>'):''));
     if(fill.length){
-      const sf=fill.reduce((s,x)=>s+x.free,0), stx=fill.reduce((s,x)=>s+x.tax,0);
-      L.push('합계 — 면세 <b>'+won(sf)+'</b>원 · 과세 <b>'+won(stx)+'</b>원');
+      const c=fill.reduce((s,x)=>s+x.free+x.tax,0), sv=fill.reduce((s,x)=>s+x.sfree+x.stax,0);
+      const mg=sv-c;
+      L.push('매출 <b>'+won(sv)+'</b>원 · 원가 <b>'+won(c)+'</b>원 · 마진 <b style="color:#0b5f46">'+won(mg)+'</b>원'
+        +(sv>0?(' ('+(mg/sv*100).toFixed(1)+'%)'):''));
     }
     log(L.join('<br>'));
     let html='';
@@ -1797,11 +1809,14 @@ $c('clPrev').onclick=async function(){
       html+='<div style="margin-top:8px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:9px">'
         +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
         +'<tr style="background:var(--chip)"><th style="padding:6px 8px;text-align:left">행</th><th style="padding:6px 8px;text-align:left">상품</th>'
-        +'<th style="padding:6px 8px;text-align:right">원가(면세)</th><th style="padding:6px 8px;text-align:right">원가(과세)</th></tr>'
+        +'<th style="padding:6px 8px;text-align:right">원가<br><span style="font-weight:400">면세/과세</span></th>'
+        +'<th style="padding:6px 8px;text-align:right">공급가<br><span style="font-weight:400">면세/과세</span></th>'
+        +'<th style="padding:6px 8px;text-align:right">마진</th></tr>'
         +fill.slice(0,300).map(x=>'<tr style="border-top:1px solid var(--line)"><td style="padding:5px 8px">'+x.row+'</td>'
           +'<td style="padding:5px 8px">'+esc(x.cell)+'</td>'
-          +'<td style="padding:5px 8px;text-align:right">'+won(x.free)+'</td>'
-          +'<td style="padding:5px 8px;text-align:right">'+won(x.tax)+'</td></tr>').join('')
+          +'<td style="padding:5px 8px;text-align:right;color:#b45309">'+won(x.free)+' / '+won(x.tax)+'</td>'
+          +'<td style="padding:5px 8px;text-align:right">'+won(x.sfree)+' / '+won(x.stax)+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:#0b5f46;font-weight:700">'+won((x.sfree+x.stax)-(x.free+x.tax))+'</td></tr>').join('')
         +'</table></div>';
       $c('clFill').style.display='';
     }
@@ -1813,14 +1828,15 @@ $c('clPrev').onclick=async function(){
 $c('clFill').onclick=async function(){
   if(!PLAN||!PLAN.fill.length)return;
   const b=this, log=h=>{$c('clLog').innerHTML=h;};
-  if(!confirm(PLAN.tab+' 탭 '+PLAN.fill.length+'건의 원가를 채웁니다.\n\n이미 값이 있는 행은 건드리지 않습니다.\n진행할까요?'))return;
+  if(!confirm(PLAN.tab+' 탭 '+PLAN.fill.length+'건의 매출·원가를 채웁니다.\n\n이미 값이 있는 행은 건드리지 않습니다.\n진행할까요?'))return;
   b.disabled=true; b.textContent='채우는 중…';
   try{
-    const data=PLAN.fill.map(x=>({range:"'"+PLAN.tab+"'!B"+x.row+":C"+x.row, values:[[x.free,x.tax]]}));
+    // B=원가(면세) C=원가(과세) D=공급가/면세 E=공급가/과세 — 네 칸을 한 번에
+    const data=PLAN.fill.map(x=>({range:"'"+PLAN.tab+"'!B"+x.row+":E"+x.row, values:[[x.free,x.tax,x.sfree,x.stax]]}));
     const r=await S.api(MATID,'/values:batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({valueInputOption:'RAW',data:data})});
     if(r&&r.error)throw new Error(r.error.message||'쓰지 못했습니다');
-    log('✅ <b>'+esc(PLAN.tab)+'</b> — 원가 <b>'+PLAN.fill.length+'건</b> 채웠습니다.<br>'
+    log('✅ <b>'+esc(PLAN.tab)+'</b> — 매출·원가 <b>'+PLAN.fill.length+'건</b> 채웠습니다.<br>'
       +'<span style="color:var(--muted)">이제 비서에서 [📊 매출 동기화]를 돌리면 매출·마진이 반영됩니다.</span>');
     $c('clList').innerHTML=''; $c('clFill').style.display='none'; PLAN=null;
   }catch(e){ log('<b style="color:#c0392b">⚠️ '+esc(e.message||e)+'</b>'); }
