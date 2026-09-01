@@ -404,6 +404,15 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .ordcd .pz{font-size:11.5px;color:var(--accent-d);font-weight:800;margin-top:2px}
 .ordcd .wh{font-size:10.5px;color:var(--muted)}
 .ordask{font-size:11.5px;color:var(--muted);padding:0 8px 9px;line-height:1.6}
+/* 🔎 직접 찾기 — 후보가 빗나갔을 때의 마지막 출구라 눈에 띄어야 한다 */
+.ordfind{padding:0 8px 10px}
+.ordfindin{width:100%;max-width:420px;border:1.5px solid var(--accent);border-radius:9px;padding:8px 11px;
+  font-size:12.5px;background:var(--card);color:var(--ink);font-family:inherit;outline:none}
+.ordfindin::placeholder{color:var(--muted);font-weight:600}
+.ordfindin:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.ordfindn{font-size:11px;font-weight:800;color:var(--accent-d);margin:7px 0 0}
+.ordfind .ordcand{padding:4px 0 0}
+.ordfind .ordask{padding:7px 0 0}
 .ordout{width:100%;min-height:90px;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--bg);color:var(--ink);white-space:pre;overflow-x:auto}
 .ordnote{font-size:12px;color:var(--gold);font-weight:700;line-height:1.7}
 .ordsum{font-size:12.5px;color:var(--muted);margin:8px 0 4px}
@@ -704,6 +713,55 @@ function view(){
     + '</div>';
 }
 
+/* 후보 한 칸 — 이름·단가·창고·사진. 자동 후보와 직접 찾기가 **같은 버튼**을 쓴다.
+   생김새가 다르면 "위에 뜬 건 추천이고 아래는 뭐지" 하고 한 번 더 망설인다. */
+function candBtn(p, i){
+  const im = imgOf(p);
+  return '<button class="ordcd" data-pick="' + esc(p.name) + '" data-i="' + i + '">'
+    + (im ? '<img src="' + esc(im) + '" alt="">' : '<img src="" alt="" style="visibility:hidden">')
+    + '<span><span class="nm">' + esc(p.name) + '</span>'
+    + '<span class="pz">' + esc(priceText(p)) + '</span>'
+    + '<span class="wh">📦 ' + esc(whOf(p)) + (p.cut ? ' · ' + esc(p.cut) : '') + '</span></span></button>';
+}
+
+/* 🔎 직접 찾기 (사장님 2026-09-01)
+   "아예 예상치도 못한 상품을 판 걸 수도 있지 않냐 — 여기도 없으면 검색창을 하나 만들어라."
+   맞다. 위의 후보는 **글자가 겹칠 때만** 뜬다. 쿠팡 '마)이성500' 처럼 업체 코드로 들어오면
+   겹치는 글자가 없어 후보가 통째로 빗나간다(실제로 도래창·돈뽈항정이 떴다).
+   그때 이 칸이 없으면 업체는 발주를 하다 말고 카탈로그로 나갔다가 돌아와야 한다.
+   🔴 여기서도 자동 선택은 없다(§1). 찾아서 **직접 누른** 것만 상품명이 된다.
+   🚫 예외 상품은 업체에게 안 보여준다 — 눌러도 못 나가는 걸 띄우는 건 함정이다. */
+const FIND = {};                     // 행 index → 직접 찾기에 친 글자
+function clearFind(){ Object.keys(FIND).forEach(k => { delete FIND[k]; }); }
+function findHits(kw){
+  const k = pkey(kw);
+  if(k.length < 2) return [];
+  const master = amMaster();
+  const out = [];
+  (typeof ALL !== 'undefined' ? ALL : []).forEach(p => {
+    if(pkey(p.name).indexOf(k) < 0) return;
+    if(!master && typeof isExc === 'function' && isExc(p.name)) return;
+    out.push(p);
+  });
+  // 짧은 이름이 먼저 — 친 글자에 가까운 쪽이다 ('오징어' → '오징어 1kg' 이 '통통 생물 오징어 1kg' 보다 앞)
+  return out.sort((a, b) => a.name.length - b.name.length).slice(0, 12);
+}
+function findResHtml(i){
+  const kw = S(FIND[i]);
+  if(pkey(kw).length < 2) return '';
+  const hits = findHits(kw);
+  if(!hits.length) return '<div class="ordask">「' + esc(kw) + '」 로 찾은 상품이 없습니다 — 글자를 줄여서 다시 쳐보세요(예: 오징어). 그래도 없으면 ' + TEL_HELP + ' 으로 문의해 주세요.</div>';
+  return '<div class="ordfindn">' + hits.length + '건 찾았습니다 — 눌러서 넣으세요</div>'
+    + '<div class="ordcand">' + hits.map(p => candBtn(p, i)).join('') + '</div>';
+}
+function findBox(i){
+  return '<div class="ordfind">'
+    + '<input class="ordfindin" data-fs="' + i + '" value="' + esc(S(FIND[i])) + '"'
+    + ' placeholder="🔎 여기에도 없나요? 상품명 일부를 쳐서 직접 찾으세요 (예: 오징어)">'
+    + '<div class="ordfindres" data-fsres="' + i + '">' + findResHtml(i) + '</div>'
+    + '</div>';
+}
+
 function rowHtml(r, i){
   const c = checkRow(r);
   const filled = FIELDS.some(f => S(r[f]));
@@ -724,17 +782,11 @@ function rowHtml(r, i){
         h += '<div class="ordask">혹시 이 상품 말씀이신가요? '
           + (amNoPrice() ? '<b>상품명·창고를 꼭 확인</b>하시고 골라주세요.' : '<b>단가를 꼭 확인</b>하시고 골라주세요.')
           + '</div><div class="ordcand">'
-          + c.cands.map(p => {
-              const im = imgOf(p);
-              return '<button class="ordcd" data-pick="' + esc(p.name) + '" data-i="' + i + '">'
-                + (im ? '<img src="' + esc(im) + '" alt="">' : '<img src="" alt="" style="visibility:hidden">')
-                + '<span><span class="nm">' + esc(p.name) + '</span>'
-                + '<span class="pz">' + esc(priceText(p)) + '</span>'
-                + '<span class="wh">📦 ' + esc(whOf(p)) + (p.cut ? ' · ' + esc(p.cut) : '') + '</span></span></button>';
-            }).join('') + '</div>';
+          + c.cands.map(p => candBtn(p, i)).join('') + '</div>';
       }else{
-        h += '<div class="ordask">비슷한 상품을 찾지 못했습니다. 카탈로그에서 상품을 찾아 <b>[+ 발주담기]</b>를 눌러주시거나, ' + TEL_HELP + ' 으로 문의해 주세요.</div>';
+        h += '<div class="ordask">비슷한 상품을 찾지 못했습니다 — 아래에서 직접 찾아보세요.</div>';
       }
+      h += findBox(i);
     }
     h += '</td></tr>';
   }
@@ -2130,7 +2182,7 @@ function bind(){
   if(amMaster()) bindFor();
   const on = (id, fn) => { const el = $$(id); if(el) el.onclick = fn; };
   on('ord_add', () => { ROWS.push(blank()); paint(); });
-  on('ord_clr', () => { if(confirm('입력한 발주 내용을 전부 지울까요?')){ ROWS = [blank(), blank(), blank()]; OPEN = -1; paint(); } });
+  on('ord_clr', () => { if(confirm('입력한 발주 내용을 전부 지울까요?')){ ROWS = [blank(), blank(), blank()]; OPEN = -1; clearFind(); paint(); } });
   on('ord_tpl', template);
   // 📂 파일 넣기 (엑셀·CSV). 같은 파일을 다시 고를 수 있게 value를 비운다.
   on('ord_pick', () => { const f = $$('ord_file'); if(f){ f.value = ''; f.click(); } });
@@ -2252,6 +2304,17 @@ function bind(){
 
 // 표 입력 (위임) — 다시 그리면 포커스가 날아가므로 입력 중엔 값만 담고, 검증은 잠깐 쉬었다 한다
 let tmr = null;
+/* 🔎 직접 찾기 — 표를 다시 그리지 않고 **결과 칸만** 갈아끼운다.
+   paint() 를 부르면 글자 칠 때마다 입력칸이 새로 그려져 커서가 튄다(업체 고르기 칸에서 겪은 것). */
+document.addEventListener('input', e => {
+  const el = e.target;
+  if(!(el && el.matches && el.matches('.ordfindin[data-fs]'))) return;
+  const i = +el.getAttribute('data-fs');
+  FIND[i] = el.value;
+  const box = document.querySelector('.ordfindres[data-fsres="' + i + '"]');
+  if(box) box.innerHTML = findResHtml(i);
+});
+
 document.addEventListener('input', e => {
   const el = e.target;
   if(!(el && el.matches && el.matches('.ordtbl input[data-f]'))) return;
@@ -2270,12 +2333,15 @@ document.addEventListener('input', e => {
 });
 
 document.addEventListener('click', e => {
-  const del = e.target.closest && e.target.closest('[data-del]');
-  if(del){ ROWS.splice(+del.getAttribute('data-del'), 1); if(!ROWS.length) ROWS = [blank()]; OPEN = -1; paint(); return; }
+  /* 🔴 반드시 우리 줄삭제 버튼(.orddel)만 잡는다 — data-del 만 보면 안 된다 (2026-09-01).
+     카탈로그의 [🗑 추천에서 내리기]도 data-del="rec:5" 를 쓴다. 그걸 여기서 집으면
+     +'rec:5' 가 NaN 이 되어 splice(NaN,1) → **발주 첫 줄이 조용히 사라진다.** */
+  const del = e.target.closest && e.target.closest('button.orddel[data-del]');
+  if(del){ ROWS.splice(+del.getAttribute('data-del'), 1); if(!ROWS.length) ROWS = [blank()]; OPEN = -1; clearFind(); paint(); return; }
   const pick = e.target.closest && e.target.closest('[data-pick]');
   if(pick){
     const i = +pick.getAttribute('data-i');
-    if(ROWS[i]){ ROWS[i].name = pick.getAttribute('data-pick'); OPEN = -1; paint(); toast('상품을 바꿨습니다'); }
+    if(ROWS[i]){ ROWS[i].name = pick.getAttribute('data-pick'); OPEN = -1; delete FIND[i]; saveDraft(); paint(); toast('상품을 바꿨습니다'); }
     return;
   }
   /* 📦 합포장 안 됨으로 지정 — 누르는 즉시 미리보기가 나뉜다 (홍팀장 2026-08-28) */
@@ -2435,5 +2501,6 @@ window.addEventListener('load', () => { if(!ROWS.length) ROWS = loadDraft(); bad
 // _build·_check는 검증용 출구다(브라우저 없이 변환 결과를 확인할 때 쓴다). 화면 동작과 무관.
 window.ORDER = {view, bind, add, orders: ordersView, ordersBind, rows: () => ROWS, _build: buildOut, _check: checkRow,
                 _fromConverted: rowsFromConverted, _setRows: r => { ROWS = r; },
-                _cells: rowsFromCells, _foreign: foreign, _header: headerItems};
+                _cells: rowsFromCells, _foreign: foreign, _header: headerItems,
+                _find: findHits, _row: rowHtml, _setFind: (i, kw) => { FIND[i] = kw; }};
 })();
