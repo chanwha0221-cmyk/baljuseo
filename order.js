@@ -1148,6 +1148,20 @@ const sameKeyOf = it => 'same|' + S(it.r.no) + '|' + pkeyO(it.g.name);
    브라우저에 적지 않는 이유는 §1175 와 같다: 기기마다 따로 놀면 확인의 뜻이 사라진다.
    ⚠️ 여기 담기는 건 "수량을 나눠 넣은 정상 발주"다. 잘못 들어온 건은 [취소]하면 알아서 빠진다. */
 let DUPOK = new Set();
+/* 🗑 아주 지운 것 — 홍팀장 2026-09-02 "두 번 들어와서 삭제했고 확인해서 처리까지 했는데,
+   되돌리기만 있으면 저걸 계속 안고 가냐. 삭제도 만들어 줘야 할 거 아니야."
+   [확인함]은 '봤다'라서 [다시 보기]를 누르면 계속 나온다. 끝난 건은 화면에서 아주 빠져야 한다.
+   🔴 서버는 문자열 리스트 하나(app_config DUP_OK)라 상태 칸이 없다 → **키 앞에 `!` 를 붙여** 구분한다.
+      실제 키는 `pkey|전화` 또는 `same|발주번호|상품` 이라 `!` 로 시작할 일이 없다.
+      지운 기록도 서버에는 그대로 남는다(화면에 되살리기만 없다) — 잘못 지워도 복구할 수 있다. */
+let DUPDEL = new Set();
+function takeDupOk(list){
+  DUPOK = new Set(); DUPDEL = new Set();
+  (list || []).forEach(k => {
+    const s = String(k || '');
+    if(s.charAt(0) === '!') DUPDEL.add(s.slice(1)); else if(s) DUPOK.add(s);
+  });
+}
 let DUPSHOWALL = false;          // '숨긴 것 다시 보기'를 눌렀나
 function dupGroups(list){
   const m = new Map();
@@ -1166,24 +1180,28 @@ function dupGroups(list){
   out.sort((a, b) => S(b[0].at).localeCompare(S(a[0].at)));
   return out;
 }
-// 배너 한 줄 — 왼쪽은 눌러서 찾기, 오른쪽은 [확인함]. 두 종류(발주번호 중복·한 줄 중복)가 같은 모양을 쓴다.
+/* 배너 한 줄 — 왼쪽은 눌러서 찾기, 오른쪽은 [확인함]·[🗑 삭제]. 두 종류(발주번호 중복·한 줄 중복)가 같은 모양을 쓴다.
+   [✓ 확인함] = 봤다(다시 보기로 꺼내 볼 수 있음) / [🗑 삭제] = 다 처리했다(화면에서 아주 빠짐). */
 function dupRow(inner, q, k){
   const off = DUPOK.has(k);
   return '<div style="margin-top:8px;padding:8px 10px;border:1px solid #f0d4d4;border-radius:8px;'
     + 'background:#fff;display:flex;gap:8px;align-items:center">'
     + '<div class="dupit" data-dupq="' + esc(q) + '" style="flex:1;min-width:0;cursor:pointer">' + inner + '</div>'
     + '<button class="ordb2" data-dupok="' + esc(k) + '" data-dupon="' + (off ? '0' : '1') + '"'
-    + ' style="white-space:nowrap">' + (off ? '되돌리기' : '✓ 확인함') + '</button></div>';
+    + ' style="white-space:nowrap">' + (off ? '되돌리기' : '✓ 확인함') + '</button>'
+    + '<button class="ordb2 warn" data-dupdel="' + esc(k) + '" title="다 처리한 건 — 목록에서 아주 지웁니다"'
+    + ' style="white-space:nowrap">🗑 삭제</button></div>';
 }
 function dupBanner(master){
   const cname = r => (master && S(r.cname)) ? ' <span style="color:var(--muted)">(' + esc(S(r.cname)) + ')</span>' : '';
 
   // ① 발주번호가 다른데 내용이 같은 것
-  const all = dupGroups(LIST);
+  // 🗑 삭제한 건은 [다시 보기]에도 안 나온다 — 여기서 먼저 걷어낸다.
+  const all = dupGroups(LIST).filter(rows => !DUPDEL.has(dupKeyOf(rows[0])));
   const hidA = all.filter(rows => DUPOK.has(dupKeyOf(rows[0])));
   const gs = DUPSHOWALL ? all : all.filter(rows => !DUPOK.has(dupKeyOf(rows[0])));
   // ② 한 줄 안에 같은 상품이 두 번
-  const sall = sameProdGroups(LIST);
+  const sall = sameProdGroups(LIST).filter(it => !DUPDEL.has(sameKeyOf(it)));
   const hidB = sall.filter(it => DUPOK.has(sameKeyOf(it)));
   const ss = DUPSHOWALL ? sall : sall.filter(it => !DUPOK.has(sameKeyOf(it)));
 
@@ -1203,7 +1221,8 @@ function dupBanner(master){
     h += '<h3 style="color:#c0392b">🔁 같은 발주가 두 번 들어온 것으로 보입니다 — ' + gs.length + '건</h3>'
       + '<div class="hint">발주번호가 다른데 <b>업체·상품·받는분·주소·연락처가 모두 같습니다.</b> '
       + '눌러서 확인하시고, 잘못 들어온 쪽을 <b>취소</b>해 주세요. '
-      + '수량을 나눠 넣으신 것이면 <b>[확인함]</b>을 누르시면 목록에서 사라집니다.</div>'
+      + '수량을 나눠 넣으신 것이면 <b>[확인함]</b>을 누르시면 목록에서 사라집니다. '
+      + '한쪽을 취소하는 등 <b>다 처리한 건은 [🗑 삭제]</b> — 아주 빠져서 다시 안 뜹니다.</div>'
       + show.map(rows => {
           const r = rows[0], nos = Array.from(new Set(rows.map(x => S(x.no))));
           return dupRow('<b>' + esc(S(r.prod)) + '</b> · ' + esc(S(r.rcv)) + cname(r)
@@ -1216,7 +1235,8 @@ function dupBanner(master){
     const show = ss.slice(0, 8);
     h += '<h3 style="color:#c0392b' + (gs.length ? ';margin-top:14px' : '') + '">🔢 한 발주 안에 같은 상품이 두 번 — ' + ss.length + '건</h3>'
       + '<div class="hint">업체에 <b>수량이 맞는지 물어보세요.</b> '
-      + '맞으면 <b>[확인함]</b>, 잘못 담긴 것이면 업체가 <b>발주 내역에서 그 부분을 지우면</b> 됩니다.</div>'
+      + '맞으면 <b>[확인함]</b>, 잘못 담긴 것이면 업체가 <b>발주 내역에서 그 부분을 지우면</b> 됩니다. '
+      + '다 처리한 건은 <b>[🗑 삭제]</b>로 아주 빼세요.</div>'
       + show.map(it => {
           const r = it.r, g = it.g;
           return dupRow('<b>' + esc(g.name) + '</b> — ' + g.n + '번 = <b>' + g.qty + '개</b> · ' + esc(S(r.rcv)) + cname(r)
@@ -1248,7 +1268,23 @@ function bindPager(){
       btn.disabled = true; const old = btn.textContent; btn.textContent = '…';
       try{
         const j = await api('dupok', { token: ME.token, key: k, on });
-        DUPOK = new Set(j.dupok || []);
+        takeDupOk(j.dupok);
+        ordersPaint();
+      }catch(err){ alert(err.message); btn.disabled = false; btn.textContent = old; }
+    };
+  });
+  /* 🗑 [삭제] — 다 처리한 중복 건을 목록에서 아주 뺀다 (홍팀장 2026-09-02).
+     서버에는 `!키` 로 남는다. 확인함(`키`)이 이미 있으면 그것도 지워 한 건이 두 줄로 남지 않게 한다. */
+  document.querySelectorAll('[data-dupdel]').forEach(btn => {
+    btn.onclick = async e => {
+      e.stopPropagation();
+      const k = btn.getAttribute('data-dupdel');
+      if(!confirm('이 건은 다 처리하신 건가요?\n\n목록에서 아주 지웁니다. [다시 보기]를 눌러도 나오지 않습니다.')) return;
+      btn.disabled = true; const old = btn.textContent; btn.textContent = '…';
+      try{
+        let j = await api('dupok', { token: ME.token, key: '!' + k, on: true });
+        if(DUPOK.has(k)) j = await api('dupok', { token: ME.token, key: k, on: false });
+        takeDupOk(j.dupok);
         ordersPaint();
       }catch(err){ alert(err.message); btn.disabled = false; btn.textContent = old; }
     };
@@ -1468,7 +1504,7 @@ const lower = s => S(s).toLowerCase();
 // '마스터 유통(찬화)' → '찬화'. 카드에 이름 두 개가 나란히 붙어서 짧아야 읽힌다.
 function nick(name){ const m = S(name).match(/\(([^)]+)\)/); return m ? m[1] : S(name); }
 function takeAcks(j){
-  if(j && Array.isArray(j.dupok)) DUPOK = new Set(j.dupok);   // 🔁 확인 끝난 중복 쌍 (서버가 들고 있다)
+  if(j && Array.isArray(j.dupok)) takeDupOk(j.dupok);         // 🔁 확인 끝난 / 🗑 지운 중복 쌍 (서버가 들고 있다)
   ACKON = !!(j && j.masters && j.masters.length);
   if(!ACKON) return;
   MASTERS = j.masters; ACKS = j.acks || {}; MEID = lower(j.meId || (ME && ME.id));
