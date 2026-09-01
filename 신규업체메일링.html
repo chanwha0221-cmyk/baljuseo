@@ -339,15 +339,27 @@ async function sheetPut(tab,cell,values){
   const t=await getToken();
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab)}!${cell}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values})});
 }
+/* 🛡 2026-09-01 전수점검 — clear 를 먼저 하고 빈 배열이면 아무것도 안 쓰던 구조라,
+   목록이 안 실린 상태에서 한 번만 불리면 탭이 통째로 날아갔다(통장내역조회 별칭 전멸과 같은 병).
+   쓸 내용이 없으면 시트를 건드리지 않는다. */
 async function dataReplace(values){
+  if(!values || !values.length){ console.warn('dataReplace: 0건 — 시트를 건드리지 않습니다'); return; }
   const t=await getToken();
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB)}!A2:I100000:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
-  if(values.length) await sheetPut(DATA_TAB,'A2',values);
+  const _cr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB)}!A2:I100000:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+  if(!_cr.ok) throw new Error('목록 비우기 실패 HTTP '+_cr.status);
+  await sheetPut(DATA_TAB,'A2',values);
 }
 // 설정: 메일설정 탭 A:B key/value
 let SET={};
 async function loadSettings(){ const rows=await sheetGet(SET_TAB,'A1:B100'); SET={}; rows.forEach(r=>{if(r[0])SET[r[0]]=r[1]||'';}); }
-async function setSetting(k,v){ SET[k]=v; const rows=Object.entries(SET).map(([a,b])=>[a,b]); await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SET_TAB)}!A1:B100:clear`,{method:'POST',headers:{Authorization:`Bearer ${await getToken()}`}}); await sheetPut(SET_TAB,'A1',rows); }
+async function setSetting(k,v){
+  SET[k]=v;
+  const rows=Object.entries(SET).map(([a,b])=>[a,b]);
+  if(!rows.length){ console.warn('setSetting: 설정이 0건 — 시트를 건드리지 않습니다'); return; }   // 🛡 빈 설정으로 덮어쓰기 금지
+  const _cr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SET_TAB)}!A1:B100:clear`,{method:'POST',headers:{Authorization:`Bearer ${await getToken()}`}});
+  if(!_cr.ok) throw new Error('설정 비우기 실패 HTTP '+_cr.status);
+  await sheetPut(SET_TAB,'A1',rows);
+}
 
 // 드라이브 (명함 고정 저장용)
 async function driveUpload(blob,name){

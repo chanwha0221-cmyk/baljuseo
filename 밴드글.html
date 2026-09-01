@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밴드글 메이커 v4.9</title>
+<title>밴드글 메이커 v4.10</title>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0ede8;--border:#e0dbd4;--border2:#ccc8c0;--text:#1a1816;--text2:#6b6760;--text3:#a8a49e;--accent:#2d6a4f;--accent-light:#e8f4ee;--band:#00c73c;--warn:#b45309}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ textarea:focus{border-color:var(--accent)}
 <body>
 <header>
   <span class="logo">밴드글 <span>메이커</span></span>
-  <span class="ver">v4.9 🤖</span>
+  <span class="ver">v4.10 🤖</span>
   <span id="status">시트 연결 중...</span>
 </header>
 <div class="main">
@@ -396,8 +396,13 @@ async function delBand(id){
   DATA=DATA.filter(x=>String(x.id)!==String(id));
   try{
     const t=await getToken();
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A2:F100000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
-    if(DATA.length) await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:DATA.map(x=>[x.id,x.date,x.title,x.body,String(x.len),x.at])})});
+    /* 🛡 2026-09-01 — clear 먼저 하고 DATA 가 비면 아무것도 안 쓰던 구조라, 목록이 안 실린 상태에서
+       삭제를 한 번 누르면 글 전체가 날아갔다. 마지막 한 건을 지운 경우가 아니면 항상 내용이 있다. */
+    if(!DATA.length){ toast('⚠️ 목록이 비어 있어 시트를 건드리지 않았습니다 — 새로고침 후 다시 시도하세요'); return; }
+    const _cr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A2:F100000')}:clear`,{method:'POST',headers:{Authorization:`Bearer ${t}`}});
+    if(!_cr.ok) throw new Error('비우기 실패 HTTP '+_cr.status);
+    const _pr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(DATA_TAB+'!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:DATA.map(x=>[x.id,x.date,x.title,x.body,String(x.len),x.at])})});
+    if(!_pr.ok) throw new Error('저장 실패 HTTP '+_pr.status);
     renderList(); toast('삭제됨');
   }catch(e){ toast('⚠️ 삭제 실패: '+e.message); loadAll(); }
 }
