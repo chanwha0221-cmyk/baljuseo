@@ -314,10 +314,6 @@ function checkRow(r){
   const q = parseInt(D(r.qty), 10);
   if(!S(r.qty)) errs.push('수량을 넣어주세요.');
   else if(!(q > 0)) errs.push('수량은 1 이상 숫자로 넣어주세요.');
-  /* 📦 원문에 수량이 두 군데 다르게 적혀 있던 줄 (홍팀장 2026-09-02: "물어보는 쪽으로 가야 할 것 같아").
-     수량 칸을 사람이 직접 고치면 풀린다 — 어느 쪽이 맞는지는 업체만 안다. */
-  else if(S(r.qask))
-    errs.push('📦 원문에 수량이 두 군데 다르게 적혀 있습니다 — ' + S(r.qask) + '. 맞는 수량으로 고쳐 주세요.');
 
   if(!S(r.rcv)) errs.push('받는분 성함을 넣어주세요.');
 
@@ -1918,29 +1914,24 @@ function headerItems(raw){
        🔴 수량 칸에 2 이상이 같이 적혀 있으면 곱한 값이 맞는지 **묻는다** — 조용히 두 배로 내보내지 않는다. */
     const base = parseInt(S(g('qty')).replace(/[^\d]/g, ''), 10) || 0;
     const mult = multOf(fin);
-    /* 개수는 옵션 쪽이 정본이다 — 「1kg*2」는 1kg 두 개고, 그때 수량 칸은 늘 1(주문 한 건)이다.
-       그래서 **수량 칸이 1이면 곱하지도 묻지도 않는다.** 그게 정상 형태다.
-       🔴 수량 칸에 2 이상이 적혀 있을 때만 본다 (홍팀장: "수량쪽에 2나 3이 있으면 물어보는쪽으로"). */
-    let q = String(mult || base || 1), qask = '';
-    if(base > 1){
-      if(mult && mult !== base){
-        // 「(초수) x 1」인데 수량 칸은 2 — 어느 쪽이 맞는지는 업체만 안다. 골라서 내보내지 않는다.
-        qask = '옵션엔 ' + mult + '개, 수량 칸엔 ' + base + '개';
-        warns.push(nm + ' — ' + qask + '로 적혀 있어 그 줄을 잠갔습니다.');
-      }else{
-        q = String(base);
-        warns.push(nm + ' — 수량 ' + base + '개로 들어왔습니다. 맞는지 확인해 주세요.');
-      }
-    }
-    else if(mult > 1) warns.push(nm + ' — 옵션이 ' + mult + '개 묶음이라 수량을 ' + q + ' 로 넣었습니다.');
+    /* 옵션 배수 = 한 건에 몇 개, 수량 칸 = 몇 건. **곱하면 총 개수다** (홍팀장 2026-09-02).
+         「1kg*2」 × 수량 1 = 2   ·   「1kg」 × 수량 2 = 2   ·   「(초수) x 1」 × 수량 2 = 2
+       한쪽만 보면 절반이 되거나 두 배가 된다. 어느 쪽도 조용히 틀리면 그대로 창고로 간다.
+       원문 그대로가 아닌 수량은 **한 줄씩 화면에 말해준다** — 막지는 않되 보고 넘어가게. */
+    const m = mult || 1, b = base || 1;
+    const q = String(m * b);
+    if(mult > 1 && base > 1)
+      warns.push(nm + ' — 옵션 ' + mult + '개 × 수량 칸 ' + base + ' = ' + q + '개로 넣었습니다. 맞는지 확인해 주세요.');
+    else if(mult > 1)
+      warns.push(nm + ' — 옵션이 ' + mult + '개 묶음이라 수량을 ' + q + '개로 넣었습니다.');
+    else if(base > 1)
+      warns.push(nm + ' — 수량 ' + base + '개로 들어왔습니다. 맞는지 확인해 주세요.');
     /* 📮 우편번호가 따로 온 칸이면 주소 앞에 (우편번호) 로 붙인다 — 업체가 손으로 하던 그대로.
        주소 문자열에 이미 들어 있으면 두 번 붙이지 않는다. */
     let ad = g('addr');
     const zp = S(g('zip')).replace(/[^\d]/g, '');
     if(zp && ad && ad.indexOf(zp) < 0) ad = '(' + zp + ')' + ad;
-    const row = { biz:'', name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') };
-    if(qask) row.qask = qask;      // 수량 칸을 직접 고칠 때까지 이 줄은 막힌다 (checkRow)
-    out.push(row);
+    out.push({ biz:'', name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') });
   }
   out.skipped = skipped;
   out.warns = warns;
@@ -2546,8 +2537,6 @@ document.addEventListener('input', e => {
   const i = +el.getAttribute('data-i'), f = el.getAttribute('data-f');
   if(!ROWS[i]) return;
   ROWS[i][f] = el.value;
-  // 📦 수량을 사람이 직접 고쳤으면 「두 군데 다르게 적혀 있음」 잠금은 풀린다
-  if(f === 'qty') delete ROWS[i].qask;
   clearTimeout(tmr);
   tmr = setTimeout(() => {
     const pos = el.selectionStart, id = i + '|' + f;
