@@ -444,15 +444,49 @@ function kstDateKey(){
   const g=t=>parts.find(p=>p.type===t).value;
   return g('year')+g('month')+g('day');
 }
+/* 🙈 우리 방문은 조회수가 아니다 (홍팀장 2026-09-02)
+   "아무도 안 뿌렸는데 왜 4가 찍혀 있냐" — 만들고 확인하느라 들락거린 게 그대로 쌓였다.
+   이 카운터는 **뱃지 이미지를 불러오는 순간이 곧 1회 집계**라서, 빼는 방법은 하나뿐이다:
+   우리 브라우저에서는 **이미지를 아예 안 부른다.**
+   🔴 우리 브라우저 표시는 ?stat=1 로 한 번 열면 그때 박힌다 — 그 뒤로 그 기기는 영원히 안 센다.
+      팀장님 폰·PC에서 각각 한 번씩 ?stat=1 로 열어두면 끝난다.
+   ⚠️ 숫자를 보러 ?stat=1 로 들어올 때는 뱃지를 띄워야 하니 그때만 1이 오른다.
+      숨길 수 없는 건 숨기지 말고 몇 번인지 세어서 화면에 같이 적는다(아래 '내 확인 N회 포함'). */
+const NOCOUNT_KEY='mv_nocount', SELFVIEW_KEY='mv_selfviews';
+function isOurs(){ try{ return localStorage.getItem(NOCOUNT_KEY)==='1'; }catch(e){ return false; } }
+function markOurs(){ try{ localStorage.setItem(NOCOUNT_KEY,'1'); }catch(e){} }
+function selfViews(n){
+  try{
+    const k=SELFVIEW_KEY+'-'+kstDateKey();
+    const v=(parseInt(localStorage.getItem(k),10)||0)+(n||0);
+    if(n)localStorage.setItem(k,String(v));
+    return v;
+  }catch(e){ return 0; }
+}
 function bumpViewCounter(){
+  const stat=/[?&]stat=1/.test(location.search);
+  if(stat)markOurs();
+  // 🔴 우리 사람이 그냥 열어본 건 집계하지 않는다 — 여기서 안 부르면 숫자가 안 오른다
+  if(isOurs()&&!stat)return;
   const total=$('roViewsImg'), today=$('roViewsTodayImg');
   if(total){
     total.onerror=()=>{ $('roViewsWrap').style.display='none'; };
-    total.src='https://visitor-badge.laobi.icu/badge?page_id=master-allproduct-index&color=b5720a';
+    total.src='https://visitor-badge.laobi.icu/badge?page_id=master-allproduct-idx-r2&color=b5720a';
   }
   if(today){
     today.onerror=()=>{ $('roViewsTodayWrap').style.display='none'; };
-    today.src='https://visitor-badge.laobi.icu/badge?page_id=master-allproduct-index-daily-'+kstDateKey()+'&color=1f8f63';
+    today.src='https://visitor-badge.laobi.icu/badge?page_id=master-allproduct-idx-r2-daily-'+kstDateKey()+'&color=1f8f63';
+  }
+  if(stat){
+    const n=selfViews(1);
+    const w=$('roViewsTodayWrap');
+    if(w&&!$('selfViewNote')){
+      const s=document.createElement('span');
+      s.id='selfViewNote'; s.className='k'; s.style.cssText='font-size:10.5px;opacity:.7';
+      w.appendChild(s);
+    }
+    const s=$('selfViewNote');
+    if(s)s.textContent='내 확인 '+n+'회 포함';
   }
 }
 /* ─────────────────────────────────────────────────────────────
