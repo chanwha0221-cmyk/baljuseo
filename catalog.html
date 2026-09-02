@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.21</title>
+<title>마스터 유통 카탈로그 v23.22</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -119,6 +119,14 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   font-size:13px;font-weight:800;line-height:1.25;white-space:nowrap;border:0;cursor:pointer}
 .acct .invbtn small{font-size:10px;font-weight:600;opacity:.88;letter-spacing:-.2px}
 .acct .invbtn:hover{filter:brightness(1.1)}
+/* 📢 카톡 알림방 — 운송장 버튼 왼쪽, 계좌와 사이 빈 자리에 (홍팀장 2026-09-02).
+   오른쪽 정렬을 이 버튼이 맡고, 뒤따르는 운송장 버튼은 auto 를 풀어 둘이 나란히 붙게 한다. */
+.acct .kkbtn{margin-left:auto;display:flex;flex-direction:column;align-items:center;gap:1px;
+  background:#FEE500;color:#3C1E1E;border-radius:10px;padding:6px 14px;text-decoration:none;
+  font-size:13px;font-weight:800;line-height:1.25;white-space:nowrap;border:0;cursor:pointer}
+.acct .kkbtn small{font-size:10px;font-weight:600;opacity:.78;letter-spacing:-.2px}
+.acct .kkbtn:hover{filter:brightness(1.06)}
+.acct .kkbtn ~ .invbtn{margin-left:0}
 /* ── 로그인 (2026-08-12) ── */
 .gate{position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
 .gbox{width:100%;max-width:370px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:26px 22px 22px}
@@ -328,6 +336,8 @@ body.pending .noteTg,body.pending .note,body.pending #sub,body.pending .acct{dis
   .acct .nm{font-size:12px}
   .acct .invbtn{margin-left:0;width:100%;padding:8px 10px;font-size:12.5px}
   .acct .invbtn small{font-size:9.5px}
+  .acct .kkbtn{margin-left:0;width:100%;padding:8px 10px;font-size:12.5px}
+  .acct .kkbtn small{font-size:9.5px}
   .controls{margin-top:8px;padding:8px 0 6px}
   .search{padding:10px 12px;font-size:16px}
   .lbl{margin:7px 0 4px;font-size:10px}
@@ -623,6 +633,10 @@ h1{letter-spacing:-.6px}
   <span class="no">기업은행 514-049965-04-014</span>
   <span class="nm">주식회사 마스터</span>
   <button class="cpbtn" data-cp="514-049965-04-014" data-cpmsg="계좌번호 복사됨">📋 복사</button>
+  <a class="kkbtn" href="https://open.kakao.com/o/gc0N4wLi" target="_blank" rel="noopener">
+    📢 공지 · 소식글 카톡 알림방
+    <small>참여 비밀번호 0221</small>
+  </a>
   <a class="invbtn" href="https://masterc.co.kr/OutInvoice/5/?mid=OutInvoice&amp;document_srl=5" target="_blank" rel="noopener">
     🚚 운송장 및 정산내역 확인
     <small>당일 발송건은 오후 6시 이후 조회 가능합니다</small>
