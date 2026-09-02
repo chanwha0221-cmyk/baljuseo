@@ -185,6 +185,14 @@
   function ensureSession(message) {
     var t = loadToken();
     if (t) return Promise.resolve(t);
+    /* 🔒 거래처 화면에서는 팀 비밀번호를 **묻지 않는다** (2026-09-02).
+       카탈로그에서 업체가 발주 줄을 지우려다 이 창을 봤다. 우리 내부 비밀번호이므로
+       업체 눈에 띄는 것 자체가 사고다. 페이지가 `window.SHEETS_PROXY_NO_ASK = true` 를
+       켜두면(로그인한 사람이 마스터가 아닐 때) 묻는 대신 그냥 실패한다.
+       ⚠️ 읽기는 public 경로로 나가므로 이 게이트에 걸리지 않는다 — 막히는 건 관리자 쓰기뿐이다. */
+    if (window.SHEETS_PROXY_NO_ASK) {
+      return Promise.reject(new Error('이 화면에서는 할 수 없는 동작입니다.'));
+    }
     if (!pendingAuth) {
       pendingAuth = askPasscode(message).then(function (tok) {
         pendingAuth = null;

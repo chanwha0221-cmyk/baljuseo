@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.19</title>
+<title>마스터 유통 카탈로그 v23.20</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1794,8 +1794,17 @@ async function adminHideRow(tab,row){
 }
 document.addEventListener('click',async function(e){
   const b=e.target.closest('[data-del]'); if(!b)return;
+  /* 🔴 `data-del` 은 **발주 화면(order.js)의 줄 삭제 ✕ 버튼도 쓴다** — 거기 값은 `0`·`1` 같은 줄 번호다.
+     그걸 여기서 집는 바람에, 발주 줄을 지우려고 ✕ 를 누르면 이 공지 삭제 코드가 돌아
+     **「팀 비밀번호」 창이 떴다** (2026-09-02 bacahae 업체 · 홍팀장 테스트 중 재현).
+     업체가 알 리도 없고 알아서도 안 되는 내부 비밀번호다.
+     → 우리 버튼 모양(`kind:행번호`)이 아니면 **손대지 않고 그대로 흘려보낸다.**
+     ⚠️ 지우기 버튼은 마스터에게만 그려지지만(delBtn), 핸들러는 문서 전체를 듣고 있어 그것만으론 못 막았다. */
+  const raw=b.getAttribute('data-del')||'';
+  const bits=raw.split(':'), kind=bits[0], row=+bits[1];
+  if(bits.length!==2||!DELTAB[kind]||!(row>1))return;              // 발주 줄 ✕ 같은 남의 버튼은 여기서 빠진다
+  if(!(typeof ME!=='undefined'&&ME&&ME.master))return;
   e.preventDefault(); e.stopPropagation();          // summary 안이라 안 막으면 아코디언이 같이 열린다
-  const bits=b.getAttribute('data-del').split(':'), kind=bits[0], row=+bits[1];
   const what=DELWHAT[kind]||'글', tab=DELTAB[kind]||'공지사항';
   const label=b.textContent;
   if(!confirm('이 '+what+'을 화면에서 내릴까요?\n\n'+(b.getAttribute('data-dt')||'')+'\n\n시트에는 남아 있어 되살릴 수 있습니다.'))return;
@@ -2427,6 +2436,9 @@ function renderUser(){
      업체는 탭을 켜둔 채 며칠 쓴다 — 알림 바는 떠도 **누가 안 눌렀는지 우리가 알 수가 없었다.**
      ⚠️ 실패해도 조용히 넘어간다. 버전 보고 때문에 카탈로그가 막히면 안 된다. */
   try{ api('seen',{token:ME.token,ver:APP_VER}).catch(()=>{}); }catch(e){}
+  /* 🔒 업체 화면에서는 팀 비밀번호 창이 **뜰 수 없게** 못을 박는다 (2026-09-02).
+     지우기 버튼을 마스터에게만 그리는 것만으론 못 막았다 — 남의 버튼을 잘못 집어도 창이 떴다. */
+  window.SHEETS_PROXY_NO_ASK=!ME.master;
   if(ME.master) showClientVers();
 }
 /* 🔄 업체들이 지금 보고 있는 버전 — 마스터 화면에서 우리 버전 옆에 붙는다 (홍팀장 2026-09-02).
