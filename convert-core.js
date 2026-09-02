@@ -1408,6 +1408,22 @@ function parseBaeminLarge(raw){
 }
 const CLIENT_ALIAS={'(주)에보아르코리아':'에보아르코리아','자은np':'자은엔앤피','자은NP':'자은엔앤피','자은Np':'자은엔앤피','자은nP':'자은엔앤피'};
 function applyClientAlias(s){ let r=s; for(const k in CLIENT_ALIAS){ r=r.split(k).join(CLIENT_ALIAS[k]); } return r; }
+/* 🏠 주소 칸의 '/' → 한 칸 띄어쓰기 (홍팀장 2026-09-02)
+   "경기 파주시 청암로 161 305/1303" 처럼 동·호수를 슬래시로 붙여 적어 오는 업체가 있다.
+   하이픈은 리모컨이 이미 튕겨내지만 슬래시는 그대로 나가 발주사 프로그램에서 오류가 난다.
+   🔴 주소 칸만 건드린다 — 상품명 칸의 ' / ' 는 합포장 구분자라 손대면 발주가 갈라진다.
+   칸 자리: 9칸 [업체,출고지주소,…,고객주소,…] = 1·6 / 10칸(insert·직접발주·혜인·킹콩) = 2·7 */
+function addrSlash(s){
+  return String(s == null ? '' : s).split('\n').map(function(line){
+    if(!line) return line;
+    const c = line.split('\t');
+    const idx = c.length === 10 ? [2, 7] : (c.length === 9 ? [1, 6] : []);
+    idx.forEach(function(i){
+      if(c[i] && c[i].indexOf('/') >= 0) c[i] = c[i].replace(/\s*\/\s*/g, ' ').replace(/ {2,}/g, ' ').trim();
+    });
+    return c.join('\t');
+  }).join('\n');
+}
 // 🐙 킹콩농수산 세로형 발주 (2026-07-22 신설): 업체가 상품을 세로로 나열(첫 발주라 합포장 '/' 안 넣고 옴).
 //   구조: [킹콩농수산][주문처주소][주문처전화] → 이후 [상품들…][받는사람][받는사람주소][전화] 반복(여러 건 몰아 가능).
 //   같은 받는사람에 상품 여러 줄이면 '/'로 합포장. E=킹콩에프앤비 자동 삽입.
@@ -1515,7 +1531,7 @@ function runSingle(){
   if(isKingkongVertical(input)){
     const out=parseKingkongVertical(input);
     if(out.length===0){sl('킹콩농수산 발주 파싱 실패 — [상품…][받는사람][주소][전화] 순서 확인','warn');return;}
-    document.getElementById('out').value=applyClientAlias(out.join('\n'));
+    document.getElementById('out').value=addrSlash(applyClientAlias(out.join('\n')));
     document.getElementById('s-in').textContent=out.length;
     document.getElementById('s-out').textContent=out.length;
     document.getElementById('in-count').textContent=out.length+' 건';
@@ -1536,7 +1552,7 @@ function runSingle(){
       // E=직접발주, F=수취인 이름, G=빈칸, H=수취인 전화, I=빈칸(창고명), J=합포장 상품, K=이름, L=주소, M=전화, N=빈칸
       out.push(['직접발주',ord.name||'','',ord.phone||'','',combinedName,ord.name,ord.addr,ord.phone,''].join('\t'));
     }
-    document.getElementById('out').value=applyClientAlias(out.join('\n'));
+    document.getElementById('out').value=addrSlash(applyClientAlias(out.join('\n')));
     document.getElementById('s-in').textContent=orders.length;
     document.getElementById('s-out').textContent=out.length;
     document.getElementById('in-count').textContent=orders.length+' 건';
@@ -1548,7 +1564,7 @@ function runSingle(){
   if(isBaeminLargeFormat(input)){
     const out=parseBaeminLarge(input);
     if(out.length===0){sl('배민대용량 파싱 실패 — 헤더(주문번호/받는분/지번 주소) 확인','warn');return;}
-    document.getElementById('out').value=applyClientAlias(out.join('\n'));
+    document.getElementById('out').value=addrSlash(applyClientAlias(out.join('\n')));
     document.getElementById('s-in').textContent=out.length;
     document.getElementById('s-out').textContent=out.length;
     document.getElementById('in-count').textContent=out.length+' 건';
@@ -1624,7 +1640,7 @@ function runSingle(){
     else{let rem=finalQty;while(rem>0){const cur=Math.min(rem,maxB);out.push(br(client,cfg,name+' x '+cur+sfx,nameRaw,ord,iv));rem-=cur;}}
     okOrders++;
   }
-  document.getElementById('out').value=applyVertWarehouse(applyClientAlias(out.join('\n')));
+  document.getElementById('out').value=addrSlash(applyVertWarehouse(applyClientAlias(out.join('\n'))));
   document.getElementById('s-out').textContent=out.length;
   document.getElementById('out-count').textContent=out.length+' 행';
   autoResize(document.getElementById('inp'));autoResize(document.getElementById('out'));
