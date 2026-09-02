@@ -135,6 +135,10 @@ function vrule(head){
   const mine = VRULES.filter(r => pkey(S(r.account_id)) === id && r.rule);
   if(!mine.length) return null;
   if(mine.length === 1 || !head) return mine[0].rule;
+  // 머리글이 그대로 일치하는 규칙이 있으면 그게 답이다 (같은 업체가 양식을 여러 개 쓰는 경우)
+  const fp = head.filter(Boolean).map(x => pkey(x)).join('|');
+  const exact = mine.find(r => S(r.fingerprint) && S(r.fingerprint) === fp);
+  if(exact) return exact.rule;
   const score = r => {
     const hs = (r.rule && r.rule.headers) || {};
     let n = 0;
@@ -153,6 +157,21 @@ function vrule(head){
 const OPT_MULT = /[*×xX]\s*(\d{1,3})\s*$/;
 const multOf = s => { const m = S(s).match(OPT_MULT); const n = m ? parseInt(m[1], 10) : 0; return n > 0 ? n : 0; };
 const ageFromOpt = s => { const m = S(s).match(/(초고수|초수|중수|고수)/); return m ? m[1] : ''; };
+/* 📦 옵션이 **어느 칸에 있는지 규칙에 없어도** 찾아낸다 (홍팀장 2026-09-02).
+   "이미 홍어 500g에 (중수)라고 되어 있는데 이건 강제 선택하라고 할 게 아니라 중수를 택해야지.
+    발주서로 넣었는데 선택하라 하면 다시 발주서를 열어서 중수를 써야 한다는 건데 그건 비효율이잖아."
+   업체 파일은 대개 「흑산도 전통 홍어 500g(중수) x 1」처럼 상품명·옵션·개수를 한 칸에 적어 온다.
+   → 그 줄에서 **상품명을 통째로 품고 있는 다른 칸**을 옵션 칸으로 본다.
+   ⚠️ 상품명을 품은 칸만 본다. 주소나 배송메모에 우연히 들어간 글자를 옵션으로 읽지 않기 위해서다. */
+function optCell(cells, nm0){
+  const key = pkey(nm0);
+  if(key.length < 3) return '';
+  for(let i = 0; i < cells.length; i++){
+    const v = S(cells[i]), k = pkey(v);
+    if(k && k !== key && k.indexOf(key) >= 0) return v;
+  }
+  return '';
+}
 
 // ── 상품 찾기 (완전일치만) ───────────────────────────────────────
 let PIDX = null, WHS = null;
@@ -295,6 +314,10 @@ function checkRow(r){
   const q = parseInt(D(r.qty), 10);
   if(!S(r.qty)) errs.push('수량을 넣어주세요.');
   else if(!(q > 0)) errs.push('수량은 1 이상 숫자로 넣어주세요.');
+  /* 📦 원문에 수량이 두 군데 다르게 적혀 있던 줄 (홍팀장 2026-09-02: "물어보는 쪽으로 가야 할 것 같아").
+     수량 칸을 사람이 직접 고치면 풀린다 — 어느 쪽이 맞는지는 업체만 안다. */
+  else if(S(r.qask))
+    errs.push('📦 원문에 수량이 두 군데 다르게 적혀 있습니다 — ' + S(r.qask) + '. 맞는 수량으로 고쳐 주세요.');
 
   if(!S(r.rcv)) errs.push('받는분 성함을 넣어주세요.');
 
@@ -1833,7 +1856,7 @@ const HDR_MAP = {
   msg : ['배송위치', '배송메시지', '배송메세지', '배송요청사항', '배송메모', '요청사항', '배송시요청사항'],
   // 아래 둘은 우리 7칸에 그대로 들어가지 않고, 상품명·주소를 **거들기만** 한다
   opt : ['등록옵션명'],
-  zip : ['우편번호']
+  zip : ['수취인우편번호', '우편번호']       // '수취인우편번호(2)' — 앞글자가 달라 '우편번호'로는 안 걸렸다
 };
 // 옵션 미선택 기본값 — 진짜 규격이 아니라 상품명 뒤에 붙이면 안 된다 (변환기와 같은 규칙)
 const DEFAULT_OPT = /^(기본|기본옵션|기본형|기본구성|단일상품|단일|본품|선택안함|선택|없음|-)$/;
@@ -1873,7 +1896,9 @@ function headerItems(raw){
     const g = f => (at[f] >= 0 ? dash(c[at[f]]) : '');
     const nm0 = g('name');
     if(!nm0) continue;
-    const op = g('opt'), fin = g('final');
+    // 옵션 칸이 규칙에 없으면 상품명을 품은 칸을 찾아 쓴다 (규칙 없는 업체도 이걸로 읽힌다)
+    const op = g('opt');
+    const fin = g('final') || optCell(c, nm0);
     /* 🛒 옵션명은 규격이다 — 쿠팡 '마)이성500' + '1박스 500g'. 상품명만 뽑으면 몇 g 인지 사라진다.
        어차피 카탈로그 이름과 완전일치가 아니라 빨갛게 뜨고 업체가 고르는데, 그때 규격이 보여야 고를 수 있다.
        ⚠️ '기본'류 옵션은 안 붙인다(진짜 규격이 아니다). 이미 상품명에 들어 있는 말도 안 붙인다.
@@ -1893,19 +1918,29 @@ function headerItems(raw){
        🔴 수량 칸에 2 이상이 같이 적혀 있으면 곱한 값이 맞는지 **묻는다** — 조용히 두 배로 내보내지 않는다. */
     const base = parseInt(S(g('qty')).replace(/[^\d]/g, ''), 10) || 0;
     const mult = multOf(fin);
-    let q = String((base || 1) * (mult || 1));
-    if(mult > 1 && base > 1)
-      warns.push(nm + ' — 수량 칸 ' + base + ' × 옵션 ' + mult + ' = ' + q + ' 로 넣었습니다. 맞는지 확인해 주세요.');
-    else if(mult > 1)
-      warns.push(nm + ' — 옵션이 ' + mult + '개 묶음이라 수량을 ' + q + ' 로 넣었습니다.');
-    else if(base > 1)
-      warns.push(nm + ' — 수량 ' + base + '개로 들어왔습니다. 맞는지 확인해 주세요.');
+    /* 개수는 옵션 쪽이 정본이다 — 「1kg*2」는 1kg 두 개고, 그때 수량 칸은 늘 1(주문 한 건)이다.
+       그래서 **수량 칸이 1이면 곱하지도 묻지도 않는다.** 그게 정상 형태다.
+       🔴 수량 칸에 2 이상이 적혀 있을 때만 본다 (홍팀장: "수량쪽에 2나 3이 있으면 물어보는쪽으로"). */
+    let q = String(mult || base || 1), qask = '';
+    if(base > 1){
+      if(mult && mult !== base){
+        // 「(초수) x 1」인데 수량 칸은 2 — 어느 쪽이 맞는지는 업체만 안다. 골라서 내보내지 않는다.
+        qask = '옵션엔 ' + mult + '개, 수량 칸엔 ' + base + '개';
+        warns.push(nm + ' — ' + qask + '로 적혀 있어 그 줄을 잠갔습니다.');
+      }else{
+        q = String(base);
+        warns.push(nm + ' — 수량 ' + base + '개로 들어왔습니다. 맞는지 확인해 주세요.');
+      }
+    }
+    else if(mult > 1) warns.push(nm + ' — 옵션이 ' + mult + '개 묶음이라 수량을 ' + q + ' 로 넣었습니다.');
     /* 📮 우편번호가 따로 온 칸이면 주소 앞에 (우편번호) 로 붙인다 — 업체가 손으로 하던 그대로.
        주소 문자열에 이미 들어 있으면 두 번 붙이지 않는다. */
     let ad = g('addr');
     const zp = S(g('zip')).replace(/[^\d]/g, '');
     if(zp && ad && ad.indexOf(zp) < 0) ad = '(' + zp + ')' + ad;
-    out.push({ biz:'', name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') });
+    const row = { biz:'', name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') };
+    if(qask) row.qask = qask;      // 수량 칸을 직접 고칠 때까지 이 줄은 막힌다 (checkRow)
+    out.push(row);
   }
   out.skipped = skipped;
   out.warns = warns;
@@ -2511,6 +2546,8 @@ document.addEventListener('input', e => {
   const i = +el.getAttribute('data-i'), f = el.getAttribute('data-f');
   if(!ROWS[i]) return;
   ROWS[i][f] = el.value;
+  // 📦 수량을 사람이 직접 고쳤으면 「두 군데 다르게 적혀 있음」 잠금은 풀린다
+  if(f === 'qty') delete ROWS[i].qask;
   clearTimeout(tmr);
   tmr = setTimeout(() => {
     const pos = el.selectionStart, id = i + '|' + f;
