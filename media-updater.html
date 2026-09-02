@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.29</title>
+<title>마스터 유통 상품 도구 v1.30</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -260,7 +260,6 @@ a{color:var(--accent)}
     <select id="clDay" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--card);color:var(--ink);min-width:150px"></select>
     <button class="cp" id="clPrev" style="margin-top:0">🔍 ② 계산해 보기</button>
     <button class="cp" id="clFill" style="margin-top:0;display:none">✅ ③ 매출·원가 채우기</button>
-    <a class="cp" id="clLink" href="#" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none;display:none">📊 발주 시트 열기</a>
   </div>
   <!-- 💰 원가 시트 바로가기 (홍팀장 2026-09-02)
        "나중에 다른 거 만들 때 '원가는 여기서 확인해' 라고 할 수 있잖아 — 그때 주소 따기용."
@@ -1782,7 +1781,6 @@ async function initClose(){
     // 오늘 날짜 탭이 있으면 그걸 기본으로
     const d=new Date(),mmdd=String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
     const hit=tabs.find(t=>t.trim().indexOf(mmdd)===0); if(hit)sel.value=hit;
-    const link=$c('clLink'); if(link){link.href='https://docs.google.com/spreadsheets/d/'+MATID+'/edit';link.style.display='';}
     if(st)st.textContent=(m.properties||{}).title+' · 일별 탭 '+tabs.length+'개';
   }catch(e){ if(st)st.innerHTML='<b style="color:#c0392b">⚠️ '+esc(e.message)+'</b>'; }
 }
