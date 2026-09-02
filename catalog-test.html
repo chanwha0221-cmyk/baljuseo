@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.13</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.14</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1587,6 +1587,8 @@ async function startCatalog(){
   const excDone=loadExc().then(()=>{ if(GROUPS.length){buildAll();buildWhChips();render();} }).catch(()=>{});
   // 📦 합포장 안 되는 상품 목록 — 발주 화면(order.js)이 쓴다. 여기서 같이 받아둔다.
   if(window.loadNoHap)window.loadNoHap();
+  // 📑 업체별 발주서 읽는 법 — 파일 넣기 전에 와 있어야 그 규칙으로 읽는다 (2026-09-02)
+  if(window.loadVRules)window.loadVRules();
   let usedCache=false;
   try{
     const c=JSON.parse(localStorage.getItem(CK)||'null');

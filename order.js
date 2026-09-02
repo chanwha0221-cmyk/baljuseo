@@ -111,6 +111,49 @@ async function loadNoHap(){
 }
 window.loadNoHap = loadNoHap;
 
+/* 📑 업체별 발주서 읽는 법 — 서버(vendor_rules)에 남는다 (홍팀장 2026-09-02).
+   "지금까지는 다 휘발 됐었는데 이거 supabase에 저장해서 아크미는 이 규칙을 계속 쓸 수 있게."
+   업체마다 칸 이름과 수량 표기가 다르다. 그 차이를 코드가 아니라 데이터로 들고 있는다.
+   ⚠️ 여기 담기는 것은 **그 업체 발주서를 읽는 법**뿐이다. 홍어 삭힘정도·옵션 배수 같은
+      상품 규칙은 어느 업체가 넣든 같으므로 아래 「전체 규칙」에 둔다. */
+let VRULES = [];
+async function loadVRules(){
+  try{
+    if(!(typeof ME !== 'undefined' && ME && ME.token)) return;
+    const j = await api('vrules', {token: ME.token});
+    VRULES = (j.rows || []).filter(r => r.enabled !== false);
+  }catch(e){ /* 못 받으면 규칙 없이 예전대로 읽는다 */ }
+}
+window.loadVRules = loadVRules;
+/* 지금 이 발주가 누구 것인지로 규칙을 고른다 — 마스터면 고른 업체, 업체면 자기 계정.
+   한 업체가 양식을 여러 개 쓰면 머리글이 더 많이 맞는 규칙을 쓴다. */
+function vrule(head){
+  const who = (typeof amMaster === 'function' && amMaster())
+    ? (FOR || {}) : ((typeof ME !== 'undefined' && ME) ? ME : {});
+  const id = pkey(S(who.id || ''));
+  if(!id) return null;
+  const mine = VRULES.filter(r => pkey(S(r.account_id)) === id && r.rule);
+  if(!mine.length) return null;
+  if(mine.length === 1 || !head) return mine[0].rule;
+  const score = r => {
+    const hs = (r.rule && r.rule.headers) || {};
+    let n = 0;
+    Object.keys(hs).forEach(f => { (hs[f] || []).forEach(k => { if(head.indexOf(k) >= 0) n++; }); });
+    return n;
+  };
+  return mine.slice().sort((a, b) => score(b) - score(a))[0].rule;
+}
+
+/* ── 전체 규칙 (업체와 무관하게 항상 같다) ──────────────────────────────
+   🐟 홍어 삭힘정도 · 📦 옵션에 붙은 배수. 홍팀장 2026-09-02:
+      "민장 규칙 / 홍어 규칙은 어떤 업체께 아니고 전체로 저장해라."
+   · 배수: 「특왕 민물장어 1kg*2」 = 1kg 두 개. 옵션 설명도 "손질 전 2kg"으로 그렇게 말한다.
+     이걸 안 읽으면 수량이 절반으로 들어간다.
+   · 삭힘정도: 「…500g(중수) x 1」·「선택=중수 (식당에서 드시는…)」 어느 쪽에 적혀 있든 뽑아낸다. */
+const OPT_MULT = /[*×xX]\s*(\d{1,3})\s*$/;
+const multOf = s => { const m = S(s).match(OPT_MULT); const n = m ? parseInt(m[1], 10) : 0; return n > 0 ? n : 0; };
+const ageFromOpt = s => { const m = S(s).match(/(초고수|초수|중수|고수)/); return m ? m[1] : ''; };
+
 // ── 상품 찾기 (완전일치만) ───────────────────────────────────────
 let PIDX = null, WHS = null;
 function prodIndex(){
@@ -1806,30 +1849,57 @@ function headerItems(raw){
     if(has(HDR_MAP.name) && has(HDR_MAP.qty) && has(HDR_MAP.rcv)){ hr = i; head = c; break; }
   }
   if(hr < 0) return [];
+  /* 📑 이 업체 규칙이 있으면 그 칸 이름을 **먼저** 본다 (없으면 예전대로).
+     규칙이 이기게 하는 이유: 아크미 파일엔 '상품명(수집)'과 '상품명'이 둘 다 있고,
+     읽어야 하는 건 우리 카탈로그 이름이 적힌 '상품명' 쪽이다. */
+  const RULE = (typeof vrule === 'function' ? vrule(head) : null) || {};
+  const RH = RULE.headers || {};
+  const MAP = {};
+  Object.keys(HDR_MAP).forEach(f => { MAP[f] = (RH[f] || []).concat(HDR_MAP[f]); });
+  Object.keys(RH).forEach(f => { if(!MAP[f]) MAP[f] = RH[f]; });   // final 처럼 규칙에만 있는 칸
   // 머리글 → 칸번호. 정확히 같은 이름이 먼저, 없으면 앞글자가 같은 것(배송위치/(출입정보)… 같은 긴 이름)
   const pick = keys => {
     for(const k of keys){ const i = head.indexOf(k); if(i >= 0) return i; }
     for(const k of keys){ const i = head.findIndex(x => x.indexOf(k) === 0); if(i >= 0) return i; }
     return -1;
   };
-  const at = {}; Object.keys(HDR_MAP).forEach(f => { at[f] = pick(HDR_MAP[f]); });
+  const at = {}; Object.keys(MAP).forEach(f => { at[f] = pick(MAP[f]); });
   if(at.name < 0 || at.qty < 0) return [];
   const stIdx = head.findIndex(x => x.indexOf('배송상태') === 0 || x === '주문상태' || x === '상태');
   const dash = v => { const s = S(v); return (s === '-' || s === '_') ? '' : s; };   // 식봄은 빈칸을 '-' 로 준다
-  const out = [], skipped = [];
+  const out = [], skipped = [], warns = [];
   for(let i = hr + 1; i < lines.length; i++){
     const c = cut(lines[i]);
     const g = f => (at[f] >= 0 ? dash(c[at[f]]) : '');
     const nm0 = g('name');
     if(!nm0) continue;
+    const op = g('opt'), fin = g('final');
     /* 🛒 옵션명은 규격이다 — 쿠팡 '마)이성500' + '1박스 500g'. 상품명만 뽑으면 몇 g 인지 사라진다.
        어차피 카탈로그 이름과 완전일치가 아니라 빨갛게 뜨고 업체가 고르는데, 그때 규격이 보여야 고를 수 있다.
-       ⚠️ '기본'류 옵션은 안 붙인다(진짜 규격이 아니다). 이미 상품명에 들어 있는 말도 안 붙인다. */
-    const op = g('opt');
-    const nm = (op && !DEFAULT_OPT.test(op) && nm0.indexOf(op) < 0) ? (nm0 + ' ' + op) : nm0;
+       ⚠️ '기본'류 옵션은 안 붙인다(진짜 규격이 아니다). 이미 상품명에 들어 있는 말도 안 붙인다.
+       ⚠️ 규칙이 optMode:'parse' 면 옵션은 **해석만** 하고 상품명에 붙이지 않는다 —
+          아크미처럼 상품명 칸에 이미 우리 이름이 적혀 있고, 옵션 칸은 긴 설명문인 경우다. */
+    let nm = (RULE.optMode !== 'parse' && op && !DEFAULT_OPT.test(op) && nm0.indexOf(op) < 0)
+      ? (nm0 + ' ' + op) : nm0;
+    // 🐟 홍어면 어느 칸에 적혀 있든 삭힘정도를 찾아 이름 뒤에 붙인다 (전체 규칙)
+    if(needAge(nm) && !ageOf(nm)){
+      const age = ageFromOpt(fin) || ageFromOpt(op);
+      if(age) nm = withAge(nm, age);
+    }
     const st = stIdx >= 0 ? S(c[stIdx]) : '';
     if(/취소|반품|교환/.test(st)){ skipped.push(nm + (st ? '(' + st + ')' : '')); continue; }
-    const q = S(g('qty')).replace(/[^\d]/g, '');
+    /* 📦 수량 — 옵션에 붙은 배수가 진짜 개수다 (전체 규칙).
+       「특왕 민물장어 1kg*2」는 수량 칸이 1이어도 1kg 두 개다. 배수를 안 읽으면 절반만 발주된다.
+       🔴 수량 칸에 2 이상이 같이 적혀 있으면 곱한 값이 맞는지 **묻는다** — 조용히 두 배로 내보내지 않는다. */
+    const base = parseInt(S(g('qty')).replace(/[^\d]/g, ''), 10) || 0;
+    const mult = multOf(fin);
+    let q = String((base || 1) * (mult || 1));
+    if(mult > 1 && base > 1)
+      warns.push(nm + ' — 수량 칸 ' + base + ' × 옵션 ' + mult + ' = ' + q + ' 로 넣었습니다. 맞는지 확인해 주세요.');
+    else if(mult > 1)
+      warns.push(nm + ' — 옵션이 ' + mult + '개 묶음이라 수량을 ' + q + ' 로 넣었습니다.');
+    else if(base > 1)
+      warns.push(nm + ' — 수량 ' + base + '개로 들어왔습니다. 맞는지 확인해 주세요.');
     /* 📮 우편번호가 따로 온 칸이면 주소 앞에 (우편번호) 로 붙인다 — 업체가 손으로 하던 그대로.
        주소 문자열에 이미 들어 있으면 두 번 붙이지 않는다. */
     let ad = g('addr');
@@ -1838,8 +1908,9 @@ function headerItems(raw){
     out.push({ biz:'', name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') });
   }
   out.skipped = skipped;
+  out.warns = warns;
   // 원문에 없던 손질을 했으면 화면에 그대로 말해준다 — 주소가 왜 달라졌는지 묻지 않게
-  out.used = { opt: at.opt >= 0, zip: at.zip >= 0 };
+  out.used = { opt: at.opt >= 0, zip: at.zip >= 0, rule: !!RULE.headers, final: at.final >= 0 };
   return out;
 }
 
@@ -1940,11 +2011,17 @@ function runConvert(append){
       + ' <span class="hint">(상품명·수량·받는분 성함·주소·연락처·배송메시지)</span>'
       + (S(who.name) ? '<br>정산업체명은 ' + whoLine(who.name) + ' 로 나갑니다 — 파일 안의 판매처가 아닙니다.' : '<br>위에서 <b>어느 업체 발주인지</b> 골라주세요.')
       + (byHead.length ? '<br><b style="color:var(--up)">🚫 취소·반품·교환 ' + byHead.length + '줄은 뺐습니다</b> — ' + esc(byHead.slice(0, 5).join(', ')) + (byHead.length > 5 ? ' 외' : '') : '')
+      + (hdUsed && hdUsed.rule ? '<br><span class="hint">📑 이 업체 발주서 규칙으로 읽었습니다.</span>' : '')
       + ((hdUsed && (hdUsed.opt || hdUsed.zip))
           ? '<br><span class="hint">' + [hdUsed.opt ? '옵션명을 상품명 뒤에 붙였습니다(규격이 옵션 칸에 있어서)' : '',
                                           hdUsed.zip ? '우편번호를 주소 앞에 (00000) 으로 붙였습니다' : ''].filter(Boolean).join(' · ') + '</span>'
           : '')
       + '</div>');
+    /* 📦 수량을 원문 그대로 안 넣은 줄은 **한 줄씩** 말해준다 (홍팀장 2026-09-02).
+       "수량쪽에 2나 3이 있으면 물어보는쪽으로 가야 할 것 같아" — 조용히 곱해서 내보내지 않는다. */
+    const hw = (hd && hd.warns) || [];
+    if(hw.length) notes.push('<div class="ordwarn">📦 <b>수량 확인</b><br>'
+      + hw.map(w => '· ' + esc(w)).join('<br>') + '</div>');
   }
   if(simple){
     const who = orderer();
