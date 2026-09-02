@@ -48,12 +48,30 @@
 
   // ── 프록시 호출 ─────────────────────────────────────────────────────
   // text/plain 으로 보내야 CORS preflight 가 안 뜬다 (Apps Script 는 OPTIONS 를 못 받는다)
-  function post(payload) {
+  /* ⏱ 응답이 안 오면 **영영 기다리지 않는다** (2026-09-02 사고).
+     이날 프록시 웹앱이 익명 접근 404가 되면서 카탈로그의 요청 10건이 통째로 pending 으로 매달렸다.
+     실패한 게 아니라 **끝나지 않는 대기**라 에러도 안 뜨고 「상품을 불러오는 중」만 계속 돌았다 —
+     업체도 우리도 뭐가 잘못됐는지 알 수가 없었고, 업체가 전화를 하고서야 알았다.
+     → 시간이 넘으면 끊고 실패로 돌린다. 그래야 화면이 「불러오지 못했습니다 + 다시 시도」를 띄운다.
+     ⚠️ 쓰기는 넉넉히 준다 — 서버엔 저장됐는데 실패로 보이는 것이 안 되는 것보다 나쁘다. */
+  var READ_MS = 15000, WRITE_MS = 45000;
+  function post(payload, ms) {
+    var ac = (typeof AbortController === 'function') ? new AbortController() : null;
+    var timer = ac ? setTimeout(function () { ac.abort(); }, ms || READ_MS) : 0;
     return fetch(PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    }).then(function (r) { return r.text(); }).then(function (t) {
+      body: JSON.stringify(payload),
+      signal: ac ? ac.signal : undefined
+    }).then(function (r) { clearTimeout(timer); return r.text(); }, function (e) {
+      clearTimeout(timer);
+      return '__PROXY_DOWN__' + ((ac && ac.signal && ac.signal.aborted)
+        ? '시트 서버가 시간 안에 응답하지 않았습니다. 잠시 후 다시 시도해 주세요.'
+        : '시트 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }).then(function (t) {
+      if (typeof t === 'string' && t.indexOf('__PROXY_DOWN__') === 0) {
+        return { error: { code: 504, message: t.slice(14) } };
+      }
       /* 🔴 2026-08-27 사고 — Apps Script 는 몰리면 POST 를 doGet 으로 답한다.
          그러면 {ok:true, service:'sheets-proxy', note:'…'} 가 돌아오는데,
          예전 코드는 그걸 정상 응답으로 보고 new Response(undefined) 를 만들었다.
@@ -74,8 +92,9 @@
   //    (카탈로그의 API_READONLY 와 같은 규칙이다. 중복이 응답 실패보다 나쁘다.)
   function postWithRetry(payload, retriable) {
     var tries = retriable ? 3 : 1;
+    var ms = retriable ? READ_MS : WRITE_MS;
     function attempt(n) {
-      return post(payload).then(function (res) {
+      return post(payload, ms).then(function (res) {
         if (res && res.__transient && n < tries) {
           return new Promise(function (r) { setTimeout(r, 400 * n); }).then(function () { return attempt(n + 1); });
         }
