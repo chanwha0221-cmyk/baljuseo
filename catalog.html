@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.12</title>
+<title>마스터 유통 카탈로그 v23.13</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -269,7 +269,8 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 @media(hover:hover){.newsonebtn:hover{background:var(--soft)}}
 @media(max-width:640px){
   .menu{gap:5px;margin-top:8px}
-  .mbtn{min-width:0;padding:9px 4px;font-size:11.5px;border-radius:9px}
+  /* ⚠️ .mbtn 모바일 규칙을 여기 두지 말 것 — 아래 「메뉴 3칸」 블록이 뒤에 나와 통째로 덮어쓴다.
+     실제 규칙은 그 블록 다음의 @media(max-width:640px) 에 있다 (2026-09-02). */
   .subt{font-size:15px}
 }
 .userbar{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
@@ -456,6 +457,19 @@ h1{letter-spacing:-.6px}
   box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 30%,transparent)}
 @media(hover:hover){.mbtn:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);
   border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}}
+/* 📱 모바일 메뉴 (홍팀장 2026-09-02: "가로로 하고 버튼 크기를 좀 줄이라, 2줄로 가도 되니까는")
+   버튼 7개를 한 줄에 밀어넣으니 칸이 좁아 글자가 세로로 쌓였다 — 「공 지 사 항」.
+   → 한 줄 4개씩 2줄로 내리고 글자는 가로 한 줄로 고정한다.
+   🔴 이 블록은 위 「메뉴 3칸」 규칙보다 **뒤에** 있어야 한다. 앞에 두면 padding·radius 가 덮인다. */
+@media(max-width:640px){
+  .mbtn{position:relative;flex:1 1 calc(25% - 4px);min-width:76px;padding:8px 3px;
+    font-size:10px;letter-spacing:-.2px;border-radius:9px;white-space:nowrap}
+  /* 「눌러서 확인」은 버튼이라는 것만으로 이미 아는 말이다 — 좁은 화면에선 자리만 먹는다 */
+  .mbtn .tapb{display:none}
+  /* 배지는 글자 옆이 아니라 모서리로 — 글자 폭을 뺏지 않게 */
+  .mbtn .nbadge{position:absolute;top:3px;right:3px;margin:0;min-width:13px;height:13px;
+    line-height:13px;padding:0 3px;font-size:8.5px;box-shadow:none;animation:none}
+}
 
 /* ── 검색 · 필터 ── */
 .controls{backdrop-filter:blur(14px) saturate(1.3)}

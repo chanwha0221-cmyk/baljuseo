@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.12</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.13</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -42,7 +42,7 @@ header{padding:18px 0 4px}
 h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
 .sub{font-size:11.5px;color:var(--muted);margin-top:2px}
 .ver{display:inline-block;margin-left:7px;font-size:11px;font-weight:700;color:var(--muted);background:var(--soft);padding:2px 7px;border-radius:20px;vertical-align:middle;letter-spacing:0}
-.note{margin-top:11px;background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:9px 12px;font-size:11.5px;color:var(--accent-d);line-height:1.5}
+.note{margin-top:11px;background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:11px 14px;font-size:13.5px;color:var(--accent-d);line-height:1.65}
 /* ⚠️ 예전엔 position:sticky 였다 (2026-08-25 사장님: "위에 고정된 것도 이상하게 고정되고 화면이 답답해").
    검색칸·창고·카테고리까지 통째로 붙어 있는 블록이라 화면 절반을 물고 늘어졌다.
    이제 그냥 같이 흐르게 두고, 대신 상품 목록(#view)에 자기 스크롤을 달았다 — 아래 .controls 밑 규칙 참고. */
@@ -269,7 +269,8 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 @media(hover:hover){.newsonebtn:hover{background:var(--soft)}}
 @media(max-width:640px){
   .menu{gap:5px;margin-top:8px}
-  .mbtn{min-width:0;padding:9px 4px;font-size:11.5px;border-radius:9px}
+  /* ⚠️ .mbtn 모바일 규칙을 여기 두지 말 것 — 아래 「메뉴 3칸」 블록이 뒤에 나와 통째로 덮어쓴다.
+     실제 규칙은 그 블록 다음의 @media(max-width:640px) 에 있다 (2026-09-02). */
   .subt{font-size:15px}
 }
 .userbar{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
@@ -463,6 +464,19 @@ h1{letter-spacing:-.6px}
   box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 30%,transparent)}
 @media(hover:hover){.mbtn:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);
   border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}}
+/* 📱 모바일 메뉴 (홍팀장 2026-09-02: "가로로 하고 버튼 크기를 좀 줄이라, 2줄로 가도 되니까는")
+   버튼 7개를 한 줄에 밀어넣으니 칸이 좁아 글자가 세로로 쌓였다 — 「공 지 사 항」.
+   → 한 줄 4개씩 2줄로 내리고 글자는 가로 한 줄로 고정한다.
+   🔴 이 블록은 위 「메뉴 3칸」 규칙보다 **뒤에** 있어야 한다. 앞에 두면 padding·radius 가 덮인다. */
+@media(max-width:640px){
+  .mbtn{position:relative;flex:1 1 calc(25% - 4px);min-width:76px;padding:8px 3px;
+    font-size:10px;letter-spacing:-.2px;border-radius:9px;white-space:nowrap}
+  /* 「눌러서 확인」은 버튼이라는 것만으로 이미 아는 말이다 — 좁은 화면에선 자리만 먹는다 */
+  .mbtn .tapb{display:none}
+  /* 배지는 글자 옆이 아니라 모서리로 — 글자 폭을 뺏지 않게 */
+  .mbtn .nbadge{position:absolute;top:3px;right:3px;margin:0;min-width:13px;height:13px;
+    line-height:13px;padding:0 3px;font-size:8.5px;box-shadow:none;animation:none}
+}
 
 /* ── 검색 · 필터 ── */
 .controls{backdrop-filter:blur(14px) saturate(1.3)}
@@ -610,7 +624,7 @@ h1{letter-spacing:-.6px}
 <div id="pwnudge"></div>
 <div id="infonudge"></div>
 <button class="noteTg" id="noteTg">🚚 합포장 · 문의 안내</button>
-<div class="note" id="note">🚚 <b>합포장(합배송)은 같은 창고 상품끼리만 됩니다.</b> 서로 다른 창고 상품은 각각 배송비가 붙어요. 창고를 골라 보세요.<br>💬 상품 문의 · 수량 문의 : <b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원비 팀장</b></div>
+<div class="note" id="note">🚚 <b>합포장(합배송)은 같은 창고 상품끼리만 됩니다.</b> 서로 다른 창고 상품은 각각 배송비가 붙어요. 창고를 골라 보세요.<br>📦 <b>합포장 수량이 없는 상품</b>은 업데이트가 안 된 상품이니, 대량 발주 시 합포장 수량 문의 주세요.<br>💬 상품 문의 · 수량 문의 : <b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원비 팀장</b></div>
 <div class="acct">
   <span class="lb">💳 입금 계좌</span>
   <span class="no">기업은행 514-049965-04-014</span>
@@ -2251,7 +2265,7 @@ const API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
         서버에도 같은 발주를 막는 장치가 있지만, 여기서 안 보내는 것이 먼저다. */
 const API_READONLY={list:1,clients:1,me:1,getcfg:1};
 async function api(action,payload){
-  if(!API)throw new Error('서버 주소가 설정되지 않았습니다.');
+  if(!API)throw new Error('발주 서버 주소가 아직 설정되지 않았습니다.');
   const body=JSON.stringify(Object.assign({action},payload||{}));
   const tries=API_READONLY[action]?2:1;
   let lastErr=null;
