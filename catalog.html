@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.18</title>
+<title>마스터 유통 카탈로그 v23.19</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -2423,6 +2423,33 @@ function renderUser(){
     try{localStorage.removeItem(CK);}catch(e){}
     location.replace(location.pathname+'?r='+Date.now()+location.hash);
   };
+  /* 🔄 내 화면 버전을 서버에 한 줄 남긴다 (홍팀장 2026-09-02).
+     업체는 탭을 켜둔 채 며칠 쓴다 — 알림 바는 떠도 **누가 안 눌렀는지 우리가 알 수가 없었다.**
+     ⚠️ 실패해도 조용히 넘어간다. 버전 보고 때문에 카탈로그가 막히면 안 된다. */
+  try{ api('seen',{token:ME.token,ver:APP_VER}).catch(()=>{}); }catch(e){}
+  if(ME.master) showClientVers();
+}
+/* 🔄 업체들이 지금 보고 있는 버전 — 마스터 화면에서 우리 버전 옆에 붙는다 (홍팀장 2026-09-02).
+   낡은 화면을 쓰는 업체를 콕 집어 새로고침을 시킬 수 있어야 발주 사고를 미리 막는다. */
+async function showClientVers(){
+  try{
+    const j=await api('seenlist',{token:ME.token});
+    const rows=(j&&j.rows)||[];
+    if(!rows.length)return;
+    const old=rows.filter(r=>String(r.ver||'')!==APP_VER);
+    const el=$('ver'); if(!el)return;
+    el.textContent=APP_VER+' · 업체 '+(rows.length-old.length)+'/'+rows.length+' 최신'
+      +(old.length?(' · 낡음 '+old.length):'');
+    el.style.cursor='pointer';
+    el.title=old.length?('낡은 화면을 쓰는 업체 '+old.length+'곳 — 눌러서 보기'):'접속한 업체가 모두 최신입니다';
+    el.onclick=()=>{
+      const line=r=>'· '+(r.name||r.id)+'   '+(r.ver||'?')+'   '+String(r.at||'').replace('T',' ').slice(0,16);
+      alert(old.length
+        ? ('낡은 화면을 쓰는 업체 '+old.length+'곳 (지금 '+APP_VER+')\n\n'+old.map(line).join('\n')
+           +'\n\n※ 그 업체가 [🔄 새로고침]을 누르면 최신이 됩니다.')
+        : ('접속한 업체 '+rows.length+'곳 모두 최신입니다 ('+APP_VER+')\n\n'+rows.map(line).join('\n')));
+    };
+  }catch(e){}
 }
 /* 📇 주문처 연락처 없는 업체에게 들어오자마자 요청 (사장님 2026-08-25 — "이게 1번이다").
    ⚠️ 카탈로그를 막지는 않는다. 상품은 보게 두고, 발주로 갈 때 반드시 걸리게만 한다
