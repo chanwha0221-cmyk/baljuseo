@@ -509,7 +509,8 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .ordrecon .recon-note,.ordrecon .recon-warn{margin-top:5px;font-size:11.5px}
 .ordrecon .recon-warn{color:#c62828;font-weight:700}
 .ordcand{padding:4px 8px 10px;display:flex;gap:7px;flex-wrap:wrap}
-.ordcd{display:flex;gap:8px;align-items:center;border:1.5px solid var(--line);border-radius:10px;padding:6px 10px 6px 6px;background:var(--card);cursor:pointer;font-family:inherit;text-align:left;max-width:290px}
+/* 🌙 color 를 안 주면 버튼은 브라우저 기본 검정 글씨 → 다크모드 폰에서 상품명이 안 보였다 (홍팀장 2026-09-02) */
+.ordcd{display:flex;gap:8px;align-items:center;border:1.5px solid var(--line);border-radius:10px;padding:6px 10px 6px 6px;background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;text-align:left;max-width:290px}
 .ordcd:hover{border-color:var(--accent)}
 .ordcd img{width:40px;height:40px;border-radius:7px;object-fit:cover;background:var(--chip);flex:none}
 .ordcd .nm{font-size:12.5px;font-weight:700;line-height:1.3;letter-spacing:-.3px}
