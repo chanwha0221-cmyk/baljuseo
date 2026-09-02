@@ -129,15 +129,29 @@ function stripWh(raw){
   }
   return null;
 }
+/* 🐟 홍어 삭힘정도 (홍팀장 2026-09-02 — "삭힘정도 없으면 출고 안 됨").
+   삭힘정도는 **상품이 아니라 옵션**이다. 상품은 카탈로그 이름으로 완전일치 매칭하고(§상품명 완전일치),
+   고른 단계는 이름 뒤 괄호로 붙여 당일 시트까지 그대로 내보낸다 — 변환기(convert-core.js)가
+   홍어 삭힘 괄호를 보존하는 것과 같은 규칙. 여기선 한 발 더 나가 **고르지 않으면 발주를 막는다.**
+   ⚠️ 괄호를 무시하는 매칭은 이 네 단계에만 연다. 그 밖의 괄호는 여전히 다른 상품이다. */
+const AGE_LEVELS = ['초수','중수','고수','초고수'];
+const AGE_RE = /\s*[\(（]\s*(초고수|초수|중수|고수)\s*[\)）]\s*$/;
+const needAge  = nm => /홍어/.test(S(nm)) && !/홍어애|무침|삼합/.test(S(nm));
+const ageOf    = nm => { const m = S(nm).match(AGE_RE); return m ? m[1] : ''; };
+const stripAge = nm => S(nm).replace(AGE_RE, '').trim();
+const withAge  = (nm, age) => age ? (stripAge(nm) + ' (' + age + ')') : stripAge(nm);
+
 function findProd(raw){
   const idx = prodIndex();
   const t = S(raw);
   if(!t) return {p:null, cands:[]};
   let p = idx.get(pkey(t));
   if(p) return {p, cands:[]};
-  const s = stripWh(t);
+  const a = stripAge(t);                                    // 🐟 뒤에 붙은 삭힘정도는 떼고 상품을 찾는다
+  if(a !== t){ p = idx.get(pkey(a)); if(p) return {p, cands:[]}; }
+  const s = stripWh(a);
   if(s){ p = idx.get(pkey(s)); if(p) return {p, cands:[]}; }
-  return {p:null, cands:candidates(t)};
+  return {p:null, cands:candidates(a)};
 }
 /* 🚫 오늘 못 파는 물건인가 — 후보·검색 어디에도 띄우지 않는다 (홍팀장 2026-09-01).
    예전엔 후보에 그대로 떠서, 눌러도 「예외로 빼놓은 상품입니다」 만 나왔다. 누를 수 있게 보여주고
@@ -208,6 +222,10 @@ function checkRow(r){
      "업체 화면엔 안 보이는데 우리가 넣어버리는" 일이 생긴다. */
   else if(typeof isExc === 'function' && isExc(p.name))
     errs.push('🚫 예외로 빼놓은 상품입니다 — 오늘 판매하지 않습니다. 판매하려면 카탈로그에서 [↩ 판매 재개]를 먼저 누르세요.');
+  /* 🐟 홍어는 삭힘정도가 없으면 창고가 출고를 못 한다 (홍팀장 2026-09-02).
+     경고로 두면 그냥 지나쳐 발주가 나가버린다 — 막는다. */
+  else if(needAge(p.name) && !ageOf(r.name))
+    errs.push('🐟 삭힘정도를 골라주세요 — 삭힘정도가 없으면 출고되지 않습니다.');
 
   const q = parseInt(D(r.qty), 10);
   if(!S(r.qty)) errs.push('수량을 넣어주세요.');
@@ -265,7 +283,9 @@ function buildOut(){
     const key = [S(r.biz), S(r.rcv), addrKey(r.addr), D(r.tel), wh].join('');
     if(!groups.has(key)) groups.set(key, {biz:S(r.biz), rcv:S(r.rcv), addr:S(r.addr), tel:S(r.tel), msg:'', wh, items:[]});
     const g = groups.get(key);
-    g.items.push({name:c.p.name, qty:c.qty, lim:hapLimit(c.p.name)});
+    /* 🐟 발주서에 나가는 이름 = 카탈로그 정식 이름 + 고른 삭힘정도.
+       합포장 한도·합포장 불가 판정은 괄호 없는 정식 이름(base)으로 봐야 한다 — 괄호가 붙으면 못 찾는다. */
+    g.items.push({name:withAge(c.p.name, ageOf(r.name)), base:c.p.name, qty:c.qty, lim:hapLimit(c.p.name)});
     if(S(r.msg) && !g.msg) g.msg = S(r.msg);
     else if(S(r.msg) && g.msg && g.msg !== S(r.msg)) notes.push((i+1) + '번 행: 같은 배송지에 배송메시지가 둘이라 첫 번째 것만 넣었습니다.');
   });
@@ -292,14 +312,14 @@ function buildOut(){
     g.items.forEach(it => {
       const hit = items.find(m => pkey(m.name) === pkey(it.name));
       if(hit){ hit.qty += it.qty; hit.parts.push(it.qty); }
-      else items.push({name:it.name, qty:it.qty, lim:it.lim, parts:[it.qty]});
+      else items.push({name:it.name, base:it.base, qty:it.qty, lim:it.lim, parts:[it.qty]});
     });
     /* 합쳤다는 말은 **보는 사람에 따라 다르다** (홍팀장 2026-08-28).
        대신 발주면 답을 아는 사람은 업체다 → "업체에 확인해 주세요".
        업체가 직접 넣는 중이면 답을 아는 사람이 지금 화면 앞에 있다 → 보내기 직전에 그 자리에서 묻는다. */
     items.forEach(it => {
       if(it.parts.length > 1){
-        merged.push({name:it.name, parts:it.parts.slice(), qty:it.qty, rcv:S(g.rcv)});
+        merged.push({name:it.name, base:it.base, parts:it.parts.slice(), qty:it.qty, rcv:S(g.rcv)});
         warn.push('🔢 ' + it.name + ' — 같은 상품이 ' + it.parts.length + '줄(' + it.parts.join('+') + ')이라 '
           + 'x ' + it.qty + ' 로 합쳤습니다. ' + it.qty + '개가 맞는지 '
           + (amMaster() ? '업체에 확인해 주세요.' : '확인해 주세요.'));
@@ -318,7 +338,7 @@ function buildOut(){
        한 상자에 같이 못 담는 물건이라 발주서에서부터 나눠야 창고가 그대로 보낸다.
        한 번 지정해두면 다음 발주부터 사람 손이 안 든다. */
     const solo = [], rest = [];
-    items.forEach(it => (isNoHap(it.name) ? solo : rest).push(it));
+    items.forEach(it => (isNoHap(it.base || it.name) ? solo : rest).push(it));
     if(rest.length) put(rest.map(it => it.name + ' x ' + it.qty).join(' / '));
     solo.forEach(it => {
       for(let n = 0; n < it.qty; n++) put(it.name + ' x 1');
@@ -789,10 +809,21 @@ function rowHtml(r, i){
         + (f === 'qty' ? ' inputmode="numeric"' : '')
         + (f === 'tel' ? ' inputmode="tel"' : '') + '></td>').join('')
     + '<td><button class="orddel" data-del="' + i + '" title="이 줄 삭제">✕</button></td></tr>';
-  if(filled && (c.errs.length || c.warns.length || (OPEN === i && c.cands.length))){
+  const askAge = c.p && needAge(c.p.name);        // 🐟 홍어 줄은 고른 뒤에도 단계를 바꿀 수 있게 계속 펼쳐 둔다
+  if(filled && (c.errs.length || c.warns.length || askAge || (OPEN === i && c.cands.length))){
     h += '<tr class="' + (bad ? 'bad' : '') + '"><td></td><td colspan="7" style="padding-top:0">';
     if(c.errs.length) h += '<div class="orderr">⚠️ ' + c.errs.map(esc).join('<br>⚠️ ') + '</div>';
     if(c.warns.length) h += '<div class="ordwarn">' + c.warns.map(esc).join('<br>') + '</div>';
+    /* 🐟 삭힘정도 고르기 — 고른 단계는 상품명 뒤에 (중수) 로 붙어 당일 시트까지 그대로 나간다.
+       업체가 이미 「홍어 500g (중수)」로 적어 왔으면 그 단계가 눌린 채로 뜬다. */
+    if(askAge){
+      const cur = ageOf(r.name);
+      h += '<div class="ordask">🐟 <b>삭힘정도</b>를 골라주세요' + (cur ? '' : ' — 없으면 출고되지 않습니다.') + '</div>'
+        + '<div class="ordcand">'
+        + AGE_LEVELS.map(a => '<button class="ordb2' + (a === cur ? ' pri' : '') + '" data-age="' + a
+            + '" data-i="' + i + '" style="margin:3px 5px 0 0">' + a + '</button>').join('')
+        + '</div>';
+    }
     if(!c.p && S(r.name)){
       /* 📋 같은 이름이 여러 줄 (홍팀장 2026-09-01)
          "새우를 새유로 올렸으면 이 사람 발주는 다 새유로 되어 있을 거 아니야."
@@ -856,9 +887,10 @@ function paintOut(ok, bad){
      이 버튼은 그 상품을 **합포장 안 되는 상품으로 지정**한다 — 지금 미리보기가 바로 나뉘고,
      다음 발주부터도 자동으로 나뉜다. 마스터만 보인다. */
   if(amMaster() && o.merged.length){
-    const todo = o.merged.filter(m => !isNoHap(m.name));
+    // 🐟 합포장 지정은 삭힘정도를 뗀 정식 이름으로 한다 — (중수)까지 박아두면 (고수)는 안 걸린다
+    const todo = o.merged.filter(m => !isNoHap(m.base || m.name));
     if(todo.length) h += '<div class="ordnote" style="margin-top:8px">'
-      + todo.map(m => '<button class="ordb2" data-nohap="' + esc(m.name) + '" style="margin:3px 5px 0 0">'
+      + todo.map(m => '<button class="ordb2" data-nohap="' + esc(m.base || m.name) + '" style="margin:3px 5px 0 0">'
           + '📦 ' + esc(m.name) + ' — 합포장 안 됨으로 지정하고 ' + m.qty + '줄로 나누기</button>').join('')
       + '<div class="hint" style="margin-top:4px">한 번 지정하면 다음 발주부터 자동으로 나뉩니다.</div></div>';
   }
@@ -2397,6 +2429,16 @@ document.addEventListener('click', e => {
      +'rec:5' 가 NaN 이 되어 splice(NaN,1) → **발주 첫 줄이 조용히 사라진다.** */
   const del = e.target.closest && e.target.closest('button.orddel[data-del]');
   if(del){ ROWS.splice(+del.getAttribute('data-del'), 1); if(!ROWS.length) ROWS = [blank()]; OPEN = -1; clearFind(); paint(); return; }
+  /* 🐟 삭힘정도 고르기 — 상품명은 그대로 두고 뒤 괄호만 갈아 끼운다 (홍팀장 2026-09-02) */
+  const ag = e.target.closest && e.target.closest('[data-age]');
+  if(ag){
+    const i = +ag.getAttribute('data-i');
+    if(ROWS[i]){
+      ROWS[i].name = withAge(S(ROWS[i].name), ag.getAttribute('data-age'));
+      saveDraft(); paint();
+    }
+    return;
+  }
   const pick = e.target.closest && e.target.closest('[data-pick]');
   if(pick){
     const i = +pick.getAttribute('data-i');
@@ -2406,7 +2448,11 @@ document.addEventListener('click', e => {
       const was = S(ROWS[i].name), k = pkey(was), nm = pick.getAttribute('data-pick');
       const hit = [];
       ROWS.forEach((r, j) => { if(pkey(S(r.name)) === k) hit.push(j); });
-      hit.forEach(j => { ROWS[j].name = nm; delete FIND[j]; });
+      // 🐟 업체가 적어 온 삭힘정도는 상품을 바꿔도 살린다 — 여기서 날아가던 것이었다 (홍팀장 2026-09-02)
+      hit.forEach(j => {
+        ROWS[j].name = withAge(nm, needAge(nm) ? ageOf(S(ROWS[j].name)) : '');
+        delete FIND[j];
+      });
       OPEN = -1; saveDraft(); paint();
       toast(hit.length > 1 ? (hit.length + '줄을 「' + nm + '」 으로 바꿨습니다') : '상품을 바꿨습니다');
     }
