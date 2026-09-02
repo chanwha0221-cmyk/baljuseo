@@ -1,75 +1,11 @@
 {
- "updatedAt": "2026-09-02 15:03",
+ "updatedAt": "2026-09-02 15:13",
  "supplier": "마스터 유통",
  "products": [
   {
    "warehouse": "당일생물",
-   "sourceWarehouse": "충무",
-   "category": "수산",
-   "name": "통통 생물 오징어 1kg",
-   "spec": [],
-   "supplyPrice": 11000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "씨제이대한통운/롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "",
-   "note": "3~5미 > 2~5미"
-  },
-  {
-   "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 활 숫게 1kg",
-   "spec": [],
-   "supplyPrice": 8000,
-   "previousPrice": 9000,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 활 대숫게 1kg",
-   "spec": [],
-   "supplyPrice": 10000,
-   "previousPrice": 11000,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "디디",
-   "category": "수산",
-   "name": "프리미엄 러시아 초박달대게 3kg 2미",
-   "spec": [],
-   "supplyPrice": 88000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 갓성비 암게 1kg",
    "spec": [],
    "supplyPrice": 7500,
@@ -85,7 +21,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "싱생",
-   "category": "수산",
+   "category": "",
    "name": "수생 흰다리새우 500g",
    "spec": [],
    "supplyPrice": 8000,
@@ -101,7 +37,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "활 광어 필렛 500g",
    "spec": [],
    "supplyPrice": 14000,
@@ -116,8 +52,24 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "디디",
+   "category": "",
+   "name": "프리미엄 러시아 초박달대게 3kg 2미",
+   "spec": [],
+   "supplyPrice": 88000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 오육미전복 1kg",
    "spec": [
     "※ 구성 : 참전복",
@@ -140,7 +92,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 앵치멍게 3kg",
    "spec": [],
    "supplyPrice": 4500,
@@ -156,7 +108,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 활 전어 500g",
    "spec": [],
    "supplyPrice": 4000,
@@ -172,7 +124,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "활 동죽 3kg",
    "spec": [],
    "supplyPrice": 13000,
@@ -188,7 +140,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "열수",
-   "category": "수산",
+   "category": "",
    "name": "A급 정품 홍게 4kg",
    "spec": [],
    "supplyPrice": 24000,
@@ -204,7 +156,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "열수",
-   "category": "수산",
+   "category": "",
    "name": "푸짐한 가성비 홍게 8kg",
    "spec": [],
    "supplyPrice": 19000,
@@ -220,7 +172,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "생물 싱싱오징어 1kg",
    "spec": [],
    "supplyPrice": 11000,
@@ -236,7 +188,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 꼬마 참소라 1kg",
    "spec": [],
    "supplyPrice": 7500,
@@ -252,7 +204,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 1미대문어 1kg",
    "spec": [
     "※ 구성 : 활 돌문어 1kg",
@@ -275,7 +227,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 특대문어 1.5kg",
    "spec": [
     "※ 구성 : 활 돌문어 1마리",
@@ -298,7 +250,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "대홍",
-   "category": "수산",
+   "category": "",
    "name": "산더미 가성비 홍게 8kg",
    "spec": [],
    "supplyPrice": 21000,
@@ -314,7 +266,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "손질 생물 갈치 2kg",
    "spec": [
     "※ 구성 : 손질 생물 갈치 (손질 전 2kg 내외, 손질 후 1.2kg내외)",
@@ -337,7 +289,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 자연산 참돔회 300g",
    "spec": [],
    "supplyPrice": 16000,
@@ -353,7 +305,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 더 큰 활새우 500g",
    "spec": [],
    "supplyPrice": 14000,
@@ -369,7 +321,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 활 전어 500g",
    "spec": [
     "※ 구성 : 전어 500g",
@@ -392,7 +344,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 활 갯가재 500g",
    "spec": [],
    "supplyPrice": 9500,
@@ -407,8 +359,24 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "충무",
+   "category": "",
+   "name": "통통 생물 오징어 1kg",
+   "spec": [],
+   "supplyPrice": 11000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "씨제이대한통운/롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "",
+   "note": "3~5미 > 2~5미"
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "하모 샤브샤브 300g",
    "spec": [],
    "supplyPrice": 15000,
@@ -424,7 +392,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 하모회 1팩",
    "spec": [],
    "supplyPrice": 12000,
@@ -439,8 +407,40 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "인천",
+   "category": "",
+   "name": "연안 활 숫게 1kg",
+   "spec": [],
+   "supplyPrice": 8000,
+   "previousPrice": 9000,
+   "tax": "면세",
+   "courier": "우체국택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "인천",
+   "category": "",
+   "name": "연안 활 대숫게 1kg",
+   "spec": [],
+   "supplyPrice": 10000,
+   "previousPrice": 11000,
+   "tax": "면세",
+   "courier": "우체국택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 보라성게알 100g",
    "spec": [
     "※ 구성 : 통영 보라성게알 100g",
@@ -462,7 +462,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "여수",
-   "category": "수산",
+   "category": "",
    "name": "국내산 랜덤 돌문어 1kg",
    "spec": [
     "※ 구성 : 돌문어 1kg",
@@ -486,7 +486,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 돌문어 1kg",
    "spec": [
     "※ 구성 : 돌문어",
@@ -509,7 +509,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "마가단 박달대게 한마리",
    "spec": [
     "※ 구성 : 대게 한마리",
@@ -533,7 +533,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 숙성 참민어회 300g",
    "spec": [],
    "supplyPrice": 11000,
@@ -549,7 +549,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 2미중문어 1kg",
    "spec": [
     "※ 구성 : 활 돌문어 1kg",
@@ -572,7 +572,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 도시락문어 1kg",
    "spec": [
     "※ 구성 : 활 돌문어",
@@ -595,7 +595,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "벌교",
-   "category": "수산",
+   "category": "",
    "name": "벌교 새꼬막 3kg",
    "spec": [
     "※ 구성 : 새꼬막 소짜",
@@ -618,7 +618,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "동해 활 골뱅이 1kg",
    "spec": [
     "※ 구성 : 생물 골뱅이",
@@ -640,7 +640,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 민물장어 1kg",
    "spec": [],
    "supplyPrice": 19000,
@@ -656,7 +656,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "원수",
-   "category": "수산",
+   "category": "",
    "name": "동해 살고동 소짜 1kg",
    "spec": [
     "※ 구성 : 활 살고동",
@@ -679,7 +679,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "캐비",
-   "category": "수산",
+   "category": "",
    "name": "캐비어 칼루가 10g",
    "spec": [
     "※ 구성 : 캐비어 칼루가 10g",
@@ -701,7 +701,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "알가",
-   "category": "수산",
+   "category": "",
    "name": "생물 갑오징어 1kg",
    "spec": [
     "※ 구성 : 갑오징어",
@@ -724,7 +724,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "디디",
-   "category": "수산",
+   "category": "",
    "name": "북해도 대게 3.5kg",
    "spec": [
     "※ 구성 : 북해도 대게 3.5kg",
@@ -747,7 +747,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "여수2",
-   "category": "수산",
+   "category": "",
    "name": "큼직 바지락 1kg",
    "spec": [
     "※ 구성 : 바지락",
@@ -770,7 +770,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "부산",
-   "category": "수산",
+   "category": "",
    "name": "생물 꼼장어 1kg",
    "spec": [
     "※ 구성 : 꼼장어1kg / 소스1팩",
@@ -791,7 +791,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "인지",
-   "category": "수산",
+   "category": "",
    "name": "참치 오마카세 한판",
    "spec": [
     "※ 중량/사이즈 : 참다랑어 3-4번"
@@ -809,7 +809,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "급냉 대짜 토막갈치 2미",
    "spec": [],
    "supplyPrice": 5000,
@@ -825,7 +825,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "해녀 거북손 500g",
    "spec": [],
    "supplyPrice": 7000,
@@ -841,7 +841,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "찐 정품 국내산 피데기 초특대 5미",
    "spec": [],
    "supplyPrice": 28000,
@@ -857,7 +857,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "가공식품",
+   "category": "",
    "name": "군산 노포 부대찌개 600g",
    "spec": [],
    "supplyPrice": 3700,
@@ -873,7 +873,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "가공식품",
+   "category": "",
    "name": "군산 노포 장터국밥 600g",
    "spec": [],
    "supplyPrice": 3100,
@@ -889,7 +889,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "가공식품",
+   "category": "",
    "name": "군산 노포 뼈다귀해장국 600g",
    "spec": [],
    "supplyPrice": 3400,
@@ -905,7 +905,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "가공식품",
+   "category": "",
    "name": "군산 노포 알곤이짬뽕탕 600g",
    "spec": [],
    "supplyPrice": 4500,
@@ -921,7 +921,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "가공식품",
+   "category": "",
    "name": "군산 노포 뚝배기불고기 400g",
    "spec": [],
    "supplyPrice": 3700,
@@ -937,7 +937,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "반건조 민어 5미",
    "spec": [],
    "supplyPrice": 14000,
@@ -953,7 +953,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "국내 자연 반건조 하모 1미",
    "spec": [],
    "supplyPrice": 4000,
@@ -969,7 +969,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "찐 정품 국내산 피데기 중 5미",
    "spec": [],
    "supplyPrice": 14500,
@@ -985,7 +985,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "찐 정품 국내산 피데기 대 5미",
    "spec": [],
    "supplyPrice": 16000,
@@ -1001,7 +1001,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "찐 정품 국내산 피데기 특대 5미",
    "spec": [],
    "supplyPrice": 24000,
@@ -1017,7 +1017,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "가공식품",
+   "category": "",
    "name": "군산 노포 짬뽕탕 600g",
    "spec": [],
    "supplyPrice": 3500,
@@ -1033,7 +1033,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "가공식품",
+   "category": "",
    "name": "군산 노포 스지도가니탕 500g",
    "spec": [],
    "supplyPrice": 2900,
@@ -1049,7 +1049,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "축산",
+   "category": "",
    "name": "국내산 대패 삼겹살 500g",
    "spec": [
     "※ 구성 : 국내산 대패 삼겹살 1팩",
@@ -1071,7 +1071,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "영광굴비 20미 선물세트",
    "spec": [
     "※ 구성 : 굴비 1.2kg급 1두릅",
@@ -1093,7 +1093,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "대왕 황금 알가자미 1미 400g급",
    "spec": [
     "※ 구성 : 참가자미 1미",
@@ -1115,7 +1115,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "대왕 황금 알가자미 1미 500g급",
    "spec": [],
    "supplyPrice": 8000,
@@ -1131,7 +1131,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "깐 다슬기 300g",
    "spec": [
     "※ 구성 : 깐 다슬기 300g",
@@ -1154,7 +1154,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "축산",
+   "category": "",
    "name": "깔끔 국내산 등갈비 1kg",
    "spec": [
     "※ 구성 : 국내산 등갈비",
@@ -1177,7 +1177,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "축산",
+   "category": "",
    "name": "초벌 돼지막창 300g",
    "spec": [
     "※ 구성 : 초벌 돼지막창 300g, 막창소스 70g",
@@ -1197,7 +1197,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "축산",
+   "category": "",
    "name": "꽉꽉 소곱창 400g",
    "spec": [
     "※ 구성 : 소곱창 1팩 / 소스 1개",
@@ -1217,7 +1217,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "축산",
+   "category": "",
    "name": "담양 한돈 떡갈비 400g",
    "spec": [
     "※ 구성 : 한돈 떡갈비 400g",
@@ -1239,7 +1239,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "축산",
+   "category": "",
    "name": "국내산 통생삼겹 500g",
    "spec": [
     "※ 구성 : 삼겹살 500g",
@@ -1261,7 +1261,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "가공식품",
+   "category": "",
    "name": "전통 울릉도 호박엿 600g",
    "spec": [
     "※ 구성 : 호박엿 1봉지",
@@ -1283,7 +1283,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "초대왕 반건조 갑오징어 400g급",
    "spec": [
     "※ 구성 : 반건조 갑오징어 1마리",
@@ -1305,7 +1305,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "초대왕 반건조 갑오징어 500g급",
    "spec": [
     "※ 구성 : 반건조 갑오징어 1마리",
@@ -1327,7 +1327,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "초대왕 반건조 갑오징어 600g급",
    "spec": [
     "※ 구성 : 반건조 갑오징어 1마리",
@@ -1349,7 +1349,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "코다리 1마리",
    "spec": [
     "※ 구성 : 코다리 1마리",
@@ -1371,7 +1371,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "명품 민어조기 2미",
    "spec": [
     "※ 구성 : 명품 민어조기 2미",
@@ -1394,7 +1394,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "반건조 능성바리 2미",
    "spec": [
     "※ 구성 : 능성어 2미",
@@ -1417,7 +1417,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "무염 특대 황금 알가자미 3미",
    "spec": [
     "※ 구성 : 참가자미 3미",
@@ -1439,7 +1439,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "초특대 반건조민어 1미",
    "spec": [
     "※ 구성 : 초특대 반건조민어 1미",
@@ -1462,7 +1462,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "초대왕 보양 반건조 민어 1미",
    "spec": [
     "※ 구성 : 초특대 반건조민어 1미",
@@ -1483,7 +1483,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "김치·반찬",
+   "category": "",
    "name": "국내산 꽃돌이 게장 2.8kg",
    "spec": [
     "※ 구성 : 게장 1통",
@@ -1504,7 +1504,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "반건조 대 참가자미 3미",
    "spec": [
     "※ 구성 : 참가자미 3미",
@@ -1526,7 +1526,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "김치·반찬",
+   "category": "",
    "name": "고향 창난젓 200g",
    "spec": [
     "※ 구성 : 창난젓 200g 1통",
@@ -1546,7 +1546,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "찐 초대왕박대 2미",
    "spec": [
     "※ 구성 : 찐 초대왕박대 2미 1팩",
@@ -1570,7 +1570,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "찐 특초대왕박대 1미",
    "spec": [
     "※ 구성 : 찐 특초대왕박대 1미 1팩",
@@ -1594,7 +1594,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "찐 대박대 5미",
    "spec": [
     "※ 구성 : 찐 대박대 5미 1팩",
@@ -1618,7 +1618,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "찐 대왕박대 5미",
    "spec": [
     "※ 구성 : 찐 대왕박대 5미 1팩",
@@ -1642,7 +1642,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "김치·반찬",
+   "category": "",
    "name": "고향 오징어젓 200g",
    "spec": [
     "※ 구성 : 오징어젓 200g 1통",
@@ -1662,7 +1662,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "프리미엄 5지 왕갈치 1팩",
    "spec": [
     "※ 구성 : 손질 토막 갈치 1팩",
@@ -1685,7 +1685,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "김치·반찬",
+   "category": "",
    "name": "국내산 암꽃게장 2.5kg",
    "spec": [
     "※ 구성 : 꽃게 5미 내외 1kg, 간장 1.5kg",
@@ -1705,7 +1705,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "김치·반찬",
+   "category": "",
    "name": "달큰 간장 돌게장 2.5kg",
    "spec": [
     "※ 구성 : 돌게 1kg(15미 내외), 간장 1.5kg",
@@ -1725,7 +1725,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "김치·반찬",
+   "category": "",
    "name": "고향 낙지젓 200g",
    "spec": [
     "※ 구성 : 낙지젓 200g 1통",
@@ -1746,7 +1746,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "김치·반찬",
+   "category": "",
    "name": "고향 명란젓 200g",
    "spec": [
     "※ 구성 : 명란젓 200g 1통",
@@ -1766,7 +1766,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "국내산 손질 오징어 3미",
    "spec": [
     "※ 구성 : 국내산 손질 오징어 3미",
@@ -1788,7 +1788,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "맛있게 구운 양태채 300g",
    "spec": [
     "※ 구성 : 맛있게 구운 양태채 1팩",
@@ -1811,7 +1811,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "참쥐포 10장+1장",
    "spec": [
     "※ 구성 : 참쥐포 10장+1장",
@@ -1833,7 +1833,7 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
+   "category": "",
    "name": "급냉 호래기 500g",
    "spec": [
     "※ 구성 : 호래기",
@@ -1856,7 +1856,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "김치·반찬",
+   "category": "",
    "name": "황금 암꽃게장 2kg",
    "spec": [],
    "supplyPrice": 7400,
@@ -1872,7 +1872,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "가공식품",
+   "category": "",
    "name": "원조 부산 어묵 2.5kg",
    "spec": [],
    "supplyPrice": 8000,
@@ -1888,7 +1888,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "초벌 고창 풍천 장어 1kg",
    "spec": [],
    "supplyPrice": 22000,
@@ -1904,7 +1904,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "가공식품",
+   "category": "",
    "name": "만능 해각포 50g",
    "spec": [],
    "supplyPrice": 9000,
@@ -1920,7 +1920,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "축산",
+   "category": "",
    "name": "프리미엄 LA꽃갈비 2kg",
    "spec": [],
    "supplyPrice": 44000,
@@ -1936,7 +1936,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 2.5kg급",
    "spec": [],
    "supplyPrice": 108400,
@@ -1952,7 +1952,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 3.5kg급",
    "spec": [],
    "supplyPrice": 139200,
@@ -1968,7 +1968,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 4.5kg급",
    "spec": [],
    "supplyPrice": 169900,
@@ -1984,7 +1984,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 5kg급",
    "spec": [],
    "supplyPrice": 200700,
@@ -2000,7 +2000,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 5.5kg급",
    "spec": [],
    "supplyPrice": 231500,
@@ -2016,7 +2016,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 6.5kg급",
    "spec": [],
    "supplyPrice": 262200,
@@ -2032,7 +2032,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 7.5kg급",
    "spec": [],
    "supplyPrice": 293000,
@@ -2048,7 +2048,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 8kg급",
    "spec": [],
    "supplyPrice": 323800,
@@ -2064,7 +2064,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 9kg급",
    "spec": [],
    "supplyPrice": 354500,
@@ -2080,7 +2080,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 9.5kg급",
    "spec": [],
    "supplyPrice": 385300,
@@ -2096,7 +2096,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 10.5kg급",
    "spec": [],
    "supplyPrice": 416100,
@@ -2112,7 +2112,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙 참문어 11kg급",
    "spec": [],
    "supplyPrice": 446800,
@@ -2128,7 +2128,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "가공식품",
+   "category": "",
    "name": "맛도리 알폭탄 알탕 한팩",
    "spec": [],
    "supplyPrice": 8500,
@@ -2144,7 +2144,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "축산",
+   "category": "",
    "name": "투쁠 국거리 300g",
    "spec": [
     "※ 구성 : 투쁠 국거리 300g",
@@ -2166,7 +2166,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "축산",
+   "category": "",
    "name": "초특가 국내산 등갈비 1kg",
    "spec": [
     "※ 구성 : 국내산 등갈비",
@@ -2189,7 +2189,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "횟감 단새우 500g",
    "spec": [
     "※ 구성 : 횟감 단새우 1팩",
@@ -2211,7 +2211,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "횟감 단새우 1kg",
    "spec": [
     "※ 구성 : 횟감 단새우 1kg",
@@ -2233,7 +2233,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "대왕 선동 활 쭈꾸미 1kg",
    "spec": [
     "※ 구성 : 주꾸미 1팩",
@@ -2255,7 +2255,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "급냉 탱탱 알주꾸미 1kg",
    "spec": [
     "※ 구성 : 급랭 탱탱 알주꾸미 1kg",
@@ -2277,7 +2277,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "가공식품",
+   "category": "",
    "name": "부산 원조 상천 사각어묵 2kg",
    "spec": [
     "※ 구성 : 사각 어묵 1kg 2봉",
@@ -2297,7 +2297,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "축산",
+   "category": "",
    "name": "점보 닭다리 1kg",
    "spec": [
     "※ 구성 : 점보 닭다리 1팩",
@@ -2319,7 +2319,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "축산",
+   "category": "",
    "name": "순살 닭다리살 2kg",
    "spec": [
     "※ 구성 : 닭다리 정육",
@@ -2341,7 +2341,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "축산",
+   "category": "",
    "name": "호주산 LA갈비 1kg",
    "spec": [
     "※ 구성 : LA갈비 1팩",
@@ -2363,7 +2363,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "가공식품",
+   "category": "",
    "name": "간편 순살 닭꼬치 10개",
    "spec": [
     "※ 구성 : 순살 닭꼬치 10꼬치 (5꼬치 x 2팩)",
@@ -2386,7 +2386,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "가공식품",
+   "category": "",
    "name": "김대헌 장수 염소탕 1팩",
    "spec": [
     "※ 구성 : 염소탕 1팩",
@@ -2406,7 +2406,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "가공식품",
+   "category": "",
    "name": "맛도리 쭈삼새 한팩",
    "spec": [
     "※ 구성 : 쭈꾸미 1팩, 삼겹살 1팩, 탈각새우 1팩, 소스 1팩",
@@ -2427,7 +2427,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "축산",
+   "category": "",
    "name": "특가 한돈 등뼈 3kg",
    "spec": [
     "※ 구성 : 한돈등뼈 3kg",
@@ -2450,7 +2450,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "봄 제철 쭈꾸미 2kg",
    "spec": [
     "※ 구성 : 봄 제철 쭈꾸미 2kg",
@@ -2472,7 +2472,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "국내산 통찜 오징어 1kg",
    "spec": [
     "※ 구성 : 오징어 1kg",
@@ -2494,7 +2494,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙골뱅이 500g",
    "spec": [
     "※ 구성 : 자숙 골뱅이 1팩",
@@ -2516,7 +2516,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "김치·반찬",
+   "category": "",
    "name": "황금 깐새우장 400g",
    "spec": [],
    "supplyPrice": 6500,
@@ -2532,7 +2532,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "가공식품",
+   "category": "",
    "name": "골뱅이 어묵탕 1세트",
    "spec": [
     "※ 구성 : 꼬지 어묵 1세트, 흑골뱅이 200g, 어묵스프 1개입",
@@ -2553,7 +2553,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "독도 참고등어 1kg",
    "spec": [
     "※ 구성 : 참고등어 1kg",
@@ -2575,7 +2575,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "햇 반건조한치 5미",
    "spec": [
     "※ 구성 : 햇 반건조 한치 5미",
@@ -2597,7 +2597,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자연산 반건조 바다송어 소 2미",
    "spec": [
     "※ 구성 : 바다송어 2미(내장 제거 반건조)",
@@ -2619,7 +2619,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자연산 반건조 바다송어 중 1미",
    "spec": [
     "※ 구성 : 바다송어 1미(내장 제거 반건조)",
@@ -2641,7 +2641,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "양미리 1kg",
    "spec": [
     "※ 구성 : 양미리 1kg",
@@ -2663,7 +2663,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "축산",
+   "category": "",
    "name": "국내산 돈두 슬라이스 1kg",
    "spec": [
     "※ 구성 : 수육 1팩",
@@ -2685,7 +2685,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "한입 오징어 500g",
    "spec": [
     "※ 구성 : 한입 오징 1팩",
@@ -2707,7 +2707,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "축산",
+   "category": "",
    "name": "국내산 한돈 등뼈 1kg",
    "spec": [
     "※ 구성 : 한돈등뼈 1kg",
@@ -2729,7 +2729,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "알도루묵 1팩",
    "spec": [
     "※ 구성 : 급냉 알도루묵 1팩",
@@ -2751,7 +2751,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "국내산 참문어 슬라이스 200g",
    "spec": [],
    "supplyPrice": 16000,
@@ -2767,7 +2767,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "갓성비 반건조 참가자미 5미",
    "spec": [
     "※ 구성 : 갓성비 반건조 참가자미 5미",
@@ -2789,7 +2789,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "자숙문어 900g급",
    "spec": [
     "※ 구성 : 자숙문어 1미",
@@ -2812,7 +2812,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "한입 오징어 1kg",
    "spec": [
     "※ 구성 : 한입 오징어 1팩",
@@ -2834,7 +2834,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "랍스터 테일 1미",
    "spec": [
     "※ 구성 : 랍스터 테일 1미",
@@ -2856,7 +2856,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
+   "category": "",
    "name": "손질 명태포 700g",
    "spec": [
     "※ 구성 : 명태포 1팩",
@@ -2878,7 +2878,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 갓성비 암게 1kg",
    "spec": [],
    "supplyPrice": 7000,
@@ -2894,7 +2894,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 칠팔미전복 1kg",
    "spec": [
     "※ 구성 : 참전복 1kg",
@@ -2916,7 +2916,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 구십미전복 1kg",
    "spec": [
     "※ 구성 : 참전복 1kg",
@@ -2938,7 +2938,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 생연어 1kg",
    "spec": [
     "※ 구성 : 생연어 전체부위",
@@ -2960,7 +2960,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 생연어 500g",
    "spec": [
     "※ 구성 : 생연어 전체부위",
@@ -2982,7 +2982,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 생연어 300g",
    "spec": [
     "※ 구성 : 생연어 전체부위",
@@ -3004,7 +3004,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 모시 1kg",
    "spec": [
     "※ 구성 : 활 모시",
@@ -3026,7 +3026,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 간재미 1kg",
    "spec": [],
    "supplyPrice": 7500,
@@ -3042,7 +3042,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "해신탕 1세트",
    "spec": [],
    "supplyPrice": 23000,
@@ -3058,7 +3058,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 백상합 1kg",
    "spec": [
     "※ 구성 : 백상합",
@@ -3080,7 +3080,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 갯가재 500g",
    "spec": [
     "※ 구성 : 갯가재 1팩",
@@ -3103,7 +3103,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 메로목살 200g",
    "spec": [
     "※ 구성 : 메로 목살 200g",
@@ -3126,7 +3126,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 메로 스테이크 200g",
    "spec": [
     "※ 구성 : 메로 몸통살 200g",
@@ -3149,7 +3149,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "가공식품",
+   "category": "",
    "name": "케이퍼소스 1팩",
    "spec": [
     "※ 구성 : 케이퍼, 홀스레디쉬 소스",
@@ -3169,7 +3169,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 멍게 1kg",
    "spec": [
     "※ 구성 : 활 멍게",
@@ -3191,7 +3191,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 활 랍스타 500g",
    "spec": [
     "※ 구성 : 활 랍스타",
@@ -3213,7 +3213,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 돌게 1kg",
    "spec": [
     "※ 구성 : 돌게 1kg",
@@ -3236,7 +3236,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 황석어 500g",
    "spec": [
     "※ 구성 : 냉동 황석어 500g",
@@ -3258,7 +3258,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 봄 소암게 1kg",
    "spec": [
     "※ 구성 : 냉동 암꽃게 1kg",
@@ -3281,7 +3281,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 대암게 1kg",
    "spec": [
     "※ 구성 : 급냉 암꽃게 1kg",
@@ -3304,7 +3304,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 소숫게 1kg",
    "spec": [
     "※ 구성 : 냉동 숫꽃게 1kg",
@@ -3327,7 +3327,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 대숫게 1kg",
    "spec": [
     "※ 구성 : 꽃게 100%",
@@ -3350,7 +3350,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 연어 스테이크 200g",
    "spec": [
     "※ 구성 : 냉동 생연어 200g",
@@ -3373,7 +3373,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 밴댕이 1kg",
    "spec": [
     "※ 구성 : 밴댕이 1kg",
@@ -3395,7 +3395,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 손질 꽃게 1kg",
    "spec": [
     "※ 구성 : 손질 꽃게 1kg",
@@ -3418,7 +3418,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 범게 1kg",
    "spec": [
     "※ 구성 : 범게 1kg",
@@ -3440,7 +3440,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 연어배꼽살 1팩",
    "spec": [
     "※ 구성 : 냉동 연어배꼽살",
@@ -3463,7 +3463,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 연어머리 1팩",
    "spec": [
     "※ 구성 : 연어 머리",
@@ -3485,7 +3485,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 강도다리세꼬시 200g",
    "spec": [
     "※ 구성 : 강도다리, 삼둥이 초장",
@@ -3505,7 +3505,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 대광어회 200g",
    "spec": [
     "※ 구성 : 광어, 다시마, 청주",
@@ -3526,7 +3526,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 풀도다리 1kg",
    "spec": [
     "※ 구성 : 냉동 도다리 1kg",
@@ -3549,7 +3549,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 동백하 1kg",
    "spec": [],
    "supplyPrice": 11000,
@@ -3565,7 +3565,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 홍합 5kg",
    "spec": [
     "※ 구성 : 활 홍합",
@@ -3587,7 +3587,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 반건조 알가자미 1팩",
    "spec": [
     "※ 구성 : 반건조 알가자미",
@@ -3609,7 +3609,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 호래기 500g",
    "spec": [],
    "supplyPrice": 8000,
@@ -3625,7 +3625,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 바지락 1kg",
    "spec": [
     "※ 구성 : 활 바지락",
@@ -3647,7 +3647,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 개불 10미",
    "spec": [
     "※ 구성 : 활 개불",
@@ -3669,7 +3669,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 대장전복 1kg",
    "spec": [
     "※ 구성 : 활 참전복",
@@ -3691,7 +3691,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 배말 500g",
    "spec": [
     "※ 구성 : 배말",
@@ -3713,7 +3713,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 토막갈치 2미",
    "spec": [
     "※ 구성 : 생물 갈치 2미",
@@ -3736,7 +3736,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 참고등어 2미",
    "spec": [
     "※ 구성 : 참고등어 2미",
@@ -3759,7 +3759,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 대청홍어 200g",
    "spec": [
     "※ 구성 : 홍어회",
@@ -3781,7 +3781,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "가공식품",
+   "category": "",
    "name": "와사비간장소스 1팩",
    "spec": [
     "※ 구성 : 생 와사비, 사시미 간장소스",
@@ -3801,7 +3801,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "가공식품",
+   "category": "",
    "name": "녹미원 생와사비 1팩",
    "spec": [
     "※ 구성 : 생와사비",
@@ -3822,7 +3822,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 조개찜 1세트",
    "spec": [
     "※ 구성 : 키조개, 대왕가리비, 대합, 참소라, 백상합, 홍합, 칼국수 생면, 구이용 호일 2매",
@@ -3843,7 +3843,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 대합 1kg",
    "spec": [
     "※ 구성 : 활 대합",
@@ -3865,7 +3865,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 소키조개 1미",
    "spec": [
     "※ 구성 : 활 키조개",
@@ -3887,7 +3887,7 @@
   {
    "warehouse": "인천",
    "sourceWarehouse": "인천",
-   "category": "수산",
+   "category": "",
    "name": "연안 중키조개 1미",
    "spec": [
     "※ 구성 : 활 키조개",
@@ -3909,7 +3909,7 @@
   {
    "warehouse": "충무",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 바다장어 1kg",
    "spec": [
     "※ 구성 : 바다장어 1팩, 매콤소스 양념 1팩, 간장양념 1팩",
@@ -3931,7 +3931,7 @@
   {
    "warehouse": "충무",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 국산 반건조 알가자미 1팩",
    "spec": [],
    "supplyPrice": 9000,
@@ -3947,7 +3947,7 @@
   {
    "warehouse": "충무",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 국산 토막갈치 1kg",
    "spec": [
     "※ 구성 : 토막갈치",
@@ -3967,7 +3967,7 @@
   {
    "warehouse": "충무",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 다듬이 홍합 2kg",
    "spec": [
     "※ 구성 : 다듬이 홍합",
@@ -3989,7 +3989,7 @@
   {
    "warehouse": "충무",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 피조개 3kg",
    "spec": [
     "※ 구성 : 피조개(피꼬막) 3kg",
@@ -4011,7 +4011,7 @@
   {
    "warehouse": "충무",
    "sourceWarehouse": "충무",
-   "category": "수산",
+   "category": "",
    "name": "통통 매생이 400g",
    "spec": [
     "※ 구성 : 매생이 1팩",
@@ -4033,7 +4033,7 @@
   {
    "warehouse": "충무",
    "sourceWarehouse": "충무",
-   "category": "가공식품",
+   "category": "",
    "name": "실장님 초장",
    "spec": [
     "※ 구성 : 실장님 초장 1팩",
@@ -4053,7 +4053,7 @@
   {
    "warehouse": "찐한국",
    "sourceWarehouse": "찐한국",
-   "category": "생활용품",
+   "category": "",
    "name": "찐한국 고무장갑 퍼플",
    "spec": [
     "※ 품명 : 찐한국 고무장갑 퍼플",
@@ -4077,7 +4077,7 @@
   {
    "warehouse": "찐한국",
    "sourceWarehouse": "찐한국",
-   "category": "생활용품",
+   "category": "",
    "name": "찐한국 고무장갑 그레이",
    "spec": [
     "※ 품명 : 찐한국 고무장갑 그레이",
@@ -4100,7 +4100,7 @@
   {
    "warehouse": "찐한국",
    "sourceWarehouse": "찐한국",
-   "category": "생활용품",
+   "category": "",
    "name": "찐한국 주방세제 500ml",
    "spec": [
     "※ 품명 : 찐한국 주방세제 본품 1개",
@@ -4122,7 +4122,7 @@
   {
    "warehouse": "찐한국",
    "sourceWarehouse": "찐한국",
-   "category": "생활용품",
+   "category": "",
    "name": "찐한국 손결 핸드워시 300ml",
    "spec": [
     "※ 품명 : 찐한국 손결 핸드워시",
@@ -4145,7 +4145,7 @@
   {
    "warehouse": "찐한국",
    "sourceWarehouse": "찐한국",
-   "category": "생활용품",
+   "category": "",
    "name": "찐한국 그냥치약 100g",
    "spec": [
     "※ 품명 : 찐한국 그냥치약",
@@ -4168,7 +4168,7 @@
   {
    "warehouse": "찐한국",
    "sourceWarehouse": "찐한국",
-   "category": "생활용품",
+   "category": "",
    "name": "찐한국 숨결고체가글 24정",
    "spec": [
     "※ 품명 : 찐한국 숨결고체가글 그린티민트향",
@@ -4191,7 +4191,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 소왕구이 10대",
    "spec": [],
    "supplyPrice": 19000,
@@ -4207,7 +4207,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 낙지호롱 900g",
    "spec": [],
    "supplyPrice": 13400,
@@ -4223,7 +4223,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "일품 LA꽃갈비 2kg",
    "spec": [],
    "supplyPrice": 42000,
@@ -4239,7 +4239,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 국내산 등갈비 1kg",
    "spec": [],
    "supplyPrice": 9300,
@@ -4255,7 +4255,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 삐카돈까스 1kg",
    "spec": [],
    "supplyPrice": 3200,
@@ -4271,7 +4271,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 회오리감자 1팩",
    "spec": [],
    "supplyPrice": 7000,
@@ -4287,7 +4287,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 소떡소떡 1.3kg",
    "spec": [],
    "supplyPrice": 7000,
@@ -4303,7 +4303,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "폭탄 맛감자 2kg",
    "spec": [],
    "supplyPrice": 8000,
@@ -4319,7 +4319,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "폭탄 스틱 감자튀김 2kg",
    "spec": [],
    "supplyPrice": 6000,
@@ -4335,7 +4335,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 새떡새떡 800g",
    "spec": [],
    "supplyPrice": 15000,
@@ -4351,7 +4351,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "꼬소 새우치즈볼 600g",
    "spec": [],
    "supplyPrice": 10000,
@@ -4367,7 +4367,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "초특가 소곱창 160g",
    "spec": [],
    "supplyPrice": 3900,
@@ -4383,7 +4383,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "도가니곰탕 600g",
    "spec": [],
    "supplyPrice": 3600,
@@ -4399,7 +4399,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "양갈비 통 숄더렉 850g급",
    "spec": [],
    "supplyPrice": 30000,
@@ -4415,7 +4415,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 양 티본 스테이크 500g",
    "spec": [],
    "supplyPrice": 10000,
@@ -4431,7 +4431,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "양념 돼지왕구이 200g",
    "spec": [],
    "supplyPrice": 2700,
@@ -4447,7 +4447,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "쫀득 돈볼살 200g",
    "spec": [],
    "supplyPrice": 3000,
@@ -4463,7 +4463,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 소곱창 400g",
    "spec": [],
    "supplyPrice": 10200,
@@ -4479,7 +4479,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 병천순대 500g",
    "spec": [],
    "supplyPrice": 4100,
@@ -4495,7 +4495,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "울릉도 호박엿 600g",
    "spec": [],
    "supplyPrice": 9000,
@@ -4511,7 +4511,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 미니족발 300g",
    "spec": [],
    "supplyPrice": 3500,
@@ -4527,7 +4527,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "일품 한돈 제육 180g",
    "spec": [],
    "supplyPrice": 2900,
@@ -4543,7 +4543,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "한돈 수제 돼지갈비 1kg",
    "spec": [],
    "supplyPrice": 11900,
@@ -4559,7 +4559,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 새우까스 20장",
    "spec": [],
    "supplyPrice": 7000,
@@ -4575,7 +4575,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 뼈해장국 900g",
    "spec": [],
    "supplyPrice": 4100,
@@ -4591,7 +4591,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 명품 오리주물럭 500g",
    "spec": [],
    "supplyPrice": 6000,
@@ -4607,7 +4607,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 닭목살 1kg",
    "spec": [],
    "supplyPrice": 6500,
@@ -4623,7 +4623,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "국내산 닭안창살 1kg",
    "spec": [],
    "supplyPrice": 6300,
@@ -4639,7 +4639,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 담양 한돈 떡갈비 400g",
    "spec": [],
    "supplyPrice": 5500,
@@ -4655,7 +4655,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "수산",
+   "category": "",
    "name": "맛상 깐 다슬기 300g",
    "spec": [],
    "supplyPrice": 8500,
@@ -4671,7 +4671,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 찰순대 500g",
    "spec": [],
    "supplyPrice": 2900,
@@ -4687,7 +4687,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 토종순대 500g",
    "spec": [],
    "supplyPrice": 4100,
@@ -4703,7 +4703,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 두부순대 500g",
    "spec": [],
    "supplyPrice": 4100,
@@ -4719,7 +4719,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 통뼈 국물닭발 매운맛 900g",
    "spec": [],
    "supplyPrice": 8000,
@@ -4735,7 +4735,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 쯔란 1팩",
    "spec": [],
    "supplyPrice": 1800,
@@ -4751,7 +4751,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 닭연골 1kg",
    "spec": [],
    "supplyPrice": 5000,
@@ -4767,7 +4767,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 메추리 10마리",
    "spec": [],
    "supplyPrice": 14000,
@@ -4783,7 +4783,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 섬진강 재첩국 500g",
    "spec": [],
    "supplyPrice": 5000,
@@ -4799,7 +4799,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 생무뼈닭발 1kg",
    "spec": [],
    "supplyPrice": 16000,
@@ -4815,7 +4815,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 초벌 돼지막창 300g",
    "spec": [],
    "supplyPrice": 7000,
@@ -4831,7 +4831,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "가공식품",
+   "category": "",
    "name": "맛상 문방구 강정소스 1팩",
    "spec": [],
    "supplyPrice": 1500,
@@ -4847,7 +4847,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
+   "category": "",
    "name": "맛상 닭껍질 1kg",
    "spec": [],
    "supplyPrice": 2800,
@@ -4863,7 +4863,7 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "수산",
+   "category": "",
    "name": "맛상 코다리 1마리",
    "spec": [],
    "supplyPrice": 2700,
@@ -4879,7 +4879,7 @@
   {
    "warehouse": "생고",
    "sourceWarehouse": "생고",
-   "category": "축산",
+   "category": "",
    "name": "상다리 부러지는 한우모듬",
    "spec": [],
    "supplyPrice": 57000,
@@ -4895,7 +4895,7 @@
   {
    "warehouse": "생고",
    "sourceWarehouse": "생고",
-   "category": "축산",
+   "category": "",
    "name": "초특가 투뿔세트",
    "spec": [],
    "supplyPrice": 30000,
@@ -4911,7 +4911,7 @@
   {
    "warehouse": "생고",
    "sourceWarehouse": "생고",
-   "category": "축산",
+   "category": "",
    "name": "투뿔 한우 다짐육 300g",
    "spec": [],
    "supplyPrice": 7600,
@@ -4927,7 +4927,7 @@
   {
    "warehouse": "생고",
    "sourceWarehouse": "생고",
-   "category": "축산",
+   "category": "",
    "name": "끝판왕 투뿔 꽃등심 200g",
    "spec": [],
    "supplyPrice": 18000,
@@ -4943,7 +4943,7 @@
   {
    "warehouse": "생고",
    "sourceWarehouse": "생고",
-   "category": "축산",
+   "category": "",
    "name": "깔끔손질 투뿔국거리 500g",
    "spec": [],
    "supplyPrice": 14000,
@@ -4959,7 +4959,7 @@
   {
    "warehouse": "생고",
    "sourceWarehouse": "생고",
-   "category": "축산",
+   "category": "",
    "name": "깔끔손질 투뿔국거리 300g",
    "spec": [],
    "supplyPrice": 8300,
@@ -4975,7 +4975,7 @@
   {
    "warehouse": "생고",
    "sourceWarehouse": "생고",
-   "category": "축산",
+   "category": "",
    "name": "한우 육회 180g",
    "spec": [],
    "supplyPrice": 10000,
@@ -4991,7 +4991,7 @@
   {
    "warehouse": "생고",
    "sourceWarehouse": "생고",
-   "category": "축산",
+   "category": "",
    "name": "당일도축 육회 180g",
    "spec": [],
    "supplyPrice": 10000,
@@ -5007,7 +5007,7 @@
   {
    "warehouse": "생고",
    "sourceWarehouse": "생고",
-   "category": "축산",
+   "category": "",
    "name": "한우 육사시미 180g",
    "spec": [],
    "supplyPrice": 13000,
@@ -5023,7 +5023,7 @@
   {
    "warehouse": "생고",
    "sourceWarehouse": "생고",
-   "category": "축산",
+   "category": "",
    "name": "당일도축 뭉티기 180g",
    "spec": [],
    "supplyPrice": 13000,
@@ -5039,7 +5039,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "축산",
+   "category": "",
    "name": "고추장 오리주물럭 300g",
    "spec": [
     "※ 구성 : 고추장 오리주물럭 1팩",
@@ -5059,7 +5059,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "가공식품",
+   "category": "",
    "name": "이태원 햄폭탄 부대찌개 1팩",
    "spec": [],
    "supplyPrice": 9000,
@@ -5075,7 +5075,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "축산",
+   "category": "",
    "name": "쫄깃 닭목살 1kg",
    "spec": [],
    "supplyPrice": 7500,
@@ -5091,7 +5091,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "축산",
+   "category": "",
    "name": "산더미 순살 닭다리살 2kg",
    "spec": [],
    "supplyPrice": 12500,
@@ -5107,7 +5107,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "축산",
+   "category": "",
    "name": "솔잎 순살돼지왕구이 1+1",
    "spec": [
     "※ 구성 : 솔잎 돼지왕구이 2팩",
@@ -5127,7 +5127,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "가공식품",
+   "category": "",
    "name": "따끈따끈 소곱창전골 1kg",
    "spec": [
     "※ 구성 : 소곱창전골",
@@ -5147,7 +5147,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "축산",
+   "category": "",
    "name": "간장 오리주물럭 300g",
    "spec": [
     "※ 구성 : 간장 오리주물럭 1팩",
@@ -5168,7 +5168,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "축산",
+   "category": "",
    "name": "생생 오리로스 300g",
    "spec": [
     "※ 구성 : 오리로스 1팩",
@@ -5190,7 +5190,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "축산",
+   "category": "",
    "name": "돈찜갈비 1kg",
    "spec": [
     "※ 구성 : 돈찜갈비 1팩",
@@ -5212,7 +5212,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "가공식품",
+   "category": "",
    "name": "옛날 쑥개떡 12개입",
    "spec": [
     "※ 구성 : 쑥개떡 12개입",
@@ -5234,7 +5234,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "가공식품",
+   "category": "",
    "name": "와사비 솔트",
    "spec": [
     "※ 구성 : 허브솔트 3개 / 생와사비 2개",
@@ -5254,7 +5254,7 @@
   {
    "warehouse": "김포",
    "sourceWarehouse": "김포",
-   "category": "가공식품",
+   "category": "",
    "name": "쯔란 30g",
    "spec": [
     "※ 구성 : 쯔란 1팩",
@@ -5274,7 +5274,7 @@
   {
    "warehouse": "부산",
    "sourceWarehouse": "부산",
-   "category": "가공식품",
+   "category": "",
    "name": "봉어묵 2kg",
    "spec": [
     "※ 구성 : 부산 어묵 2kg 1봉",
@@ -5294,7 +5294,7 @@
   {
    "warehouse": "부산",
    "sourceWarehouse": "부산",
-   "category": "수산",
+   "category": "",
    "name": "국내산 자반 고등어 가정용 10미",
    "spec": [
     "※ 구성 : 자반 고등어 10미(참고등어, 점고등어 혼합)",
@@ -5314,7 +5314,7 @@
   {
    "warehouse": "부산",
    "sourceWarehouse": "부산",
-   "category": "수산",
+   "category": "",
    "name": "자반고등어 10미 대",
    "spec": [
     "※ 구성 : 자반 고등어 10미(참고등어, 점고등어 혼합)",
@@ -5334,7 +5334,7 @@
   {
    "warehouse": "부산",
    "sourceWarehouse": "부산",
-   "category": "가공식품",
+   "category": "",
    "name": "사각어묵 2kg",
    "spec": [
     "※ 구성 : 사각 어묵 1kg 2봉",
@@ -5354,7 +5354,7 @@
   {
    "warehouse": "부산",
    "sourceWarehouse": "부산",
-   "category": "축산",
+   "category": "",
    "name": "국내산 오리 주물럭 400g",
    "spec": [
     "※ 구성 : 국내산 오리 주물럭 400g",
@@ -5374,7 +5374,7 @@
   {
    "warehouse": "부산",
    "sourceWarehouse": "부산",
-   "category": "수산",
+   "category": "",
    "name": "급냉 활 낙지 6미",
    "spec": [
     "※ 구성 : 급냉 활 낙지 6미",
@@ -5396,7 +5396,7 @@
   {
    "warehouse": "부산",
    "sourceWarehouse": "부산",
-   "category": "축산",
+   "category": "",
    "name": "화끈 숯불 양념 닭갈비 400g",
    "spec": [
     "※ 구성 : 화끈 숯불 양념 닭갈비 1팩",
@@ -5416,7 +5416,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "수산",
+   "category": "",
    "name": "1등급 한상모듬 1kg",
    "spec": [],
    "supplyPrice": 48000,
@@ -5432,7 +5432,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "듀록 삼겹살 500g",
    "spec": [
     "※ 구성 : 삼겹살 500g",
@@ -5455,7 +5455,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "듀록 꽃삼겹 500g",
    "spec": [
     "※ 구성 : 꽃삼겹 500g",
@@ -5477,7 +5477,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "가격파괴 장조림사태 1kg",
    "spec": [
     "※ 구성 : 한우 1+ 사태 1팩",
@@ -5499,7 +5499,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 꽃등심 200g",
    "spec": [
     "※ 구성 : 꽃등심 1팩 / 허브솔트 1개",
@@ -5521,7 +5521,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 치마살 200g",
    "spec": [
     "※ 구성 : 치마살 1팩, 허브솔트 1개",
@@ -5543,7 +5543,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 꽃갈비살 200g",
    "spec": [
     "※ 구성 : 꽃갈비살 1팩, 허브솔트 1개",
@@ -5565,7 +5565,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 살치살 200g",
    "spec": [
     "※ 구성 : 살치살 1팩, 허브솔트 1개",
@@ -5587,7 +5587,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 채끝살 200g",
    "spec": [
     "※ 구성 : 채끝살 1팩 , 허브솔트 1개",
@@ -5609,7 +5609,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 부채살 200g",
    "spec": [
     "※ 구성 : 부채살 1팩, 허브솔트 1개",
@@ -5631,7 +5631,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 부채살 300g",
    "spec": [
     "※ 구성 : 부채살 1팩 / 허브솔트 1개",
@@ -5653,7 +5653,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 꽃등심 300g",
    "spec": [
     "※ 구성 : 꽃등심 1팩 / 허브솔트 1개",
@@ -5675,7 +5675,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 채끝살 300g",
    "spec": [
     "※ 구성 : 채끝살 1팩 / 허브솔트 1개",
@@ -5697,7 +5697,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 치마살 300g",
    "spec": [
     "※ 구성 : 치마살 1팩 / 허브솔트 1개",
@@ -5719,7 +5719,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 황제꽃갈비살 300g",
    "spec": [
     "※ 구성 : 황제꽃갈비살 1팩 / 허브솔트 1개",
@@ -5741,7 +5741,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 등심스테이크 300g",
    "spec": [
     "※ 구성 : 1등급 육우 등심 1팩 (소스 제공 x)",
@@ -5763,7 +5763,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 눈꽃살치살 300g",
    "spec": [
     "※ 구성 : 살치살 1팩 / 허브솔트 1개",
@@ -5785,7 +5785,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 채끝스테이크 300g",
    "spec": [
     "※ 구성 : 1등급 육우 채끝스테이크 1팩",
@@ -5807,7 +5807,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "1등급 부채스테이크 300g",
    "spec": [
     "※ 구성 : 1등급 육우 부채살 1팩",
@@ -5829,7 +5829,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "채끝새우살 400g",
    "spec": [
     "※ 구성 : 새우살 + 채끝살 1팩, 허브솔트 1개",
@@ -5851,7 +5851,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "립아이스테이크 600g",
    "spec": [],
    "supplyPrice": 29000,
@@ -5867,7 +5867,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "수산",
+   "category": "",
    "name": "프리미엄 꽃갈치세트",
    "spec": [
     "※ 구성 : 1등급 보리소 꽃등심 / 1등급 보리소 갈비살 / 1등급 보리소 치마살 서비스 국거리 스지 / 허브솔트 1개",
@@ -5888,7 +5888,7 @@
   {
    "warehouse": "북구",
    "sourceWarehouse": "북구",
-   "category": "축산",
+   "category": "",
    "name": "소고기 특수부위모듬 600g",
    "spec": [
     "※ 중량/ 사이즈 : 600g(토시, 제비추리, 업진살, 안창살, 치마살 , 갈비살 중 4부위 150g / 3부위 200g)",
@@ -5907,7 +5907,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "미국산 양념 LA갈비 500g",
    "spec": [
     "※ 구성 : 양념 LA갈비",
@@ -5929,7 +5929,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "미국산 우대갈비 400g",
    "spec": [
     "※ 구성 : 우대갈비 400g",
@@ -5951,7 +5951,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "호주산 양갈비 500g",
    "spec": [
     "※ 구성 : 양갈비",
@@ -5973,7 +5973,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "양념 안심살 구이 300g",
    "spec": [
     "※ 구성 : 양념 안심살 구이",
@@ -5993,7 +5993,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "녹차돼지왕구이 400g",
    "spec": [
     "※ 구성 : 녹차돼지왕구이",
@@ -6013,7 +6013,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "제주흑돼지 왕구이 1.2kg",
    "spec": [
     "※ 구성 : 제주흑돼지 왕구이",
@@ -6033,7 +6033,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "미국산 마늘폭탄 갈비살 400g",
    "spec": [
     "※ 구성 : 마늘폭탄 갈비살",
@@ -6055,7 +6055,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "제주흑돼지 고추장불고기 400g",
    "spec": [
     "※ 구성 : 제주흑돼지 고추장불고기",
@@ -6075,7 +6075,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "제주 흑돼지 고추장 왕구이 1.2kg",
    "spec": [
     "※ 구성 : 제주 흑돼지 고추장 왕구이",
@@ -6095,7 +6095,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "양념 안창살 400g",
    "spec": [
     "※ 구성 : 양념 안창살",
@@ -6115,7 +6115,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "뉴질랜드 양념 토시살 400g",
    "spec": [
     "※ 구성 : 양념 토시살",
@@ -6135,7 +6135,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "가공식품",
+   "category": "",
    "name": "쫀득 순살족발 200g",
    "spec": [
     "※ 구성 : 순살족발 200g",
@@ -6156,7 +6156,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "국내산 대패삼겹살 300g",
    "spec": [
     "※ 구성 : 대패삼겹살",
@@ -6178,7 +6178,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "뉴질랜드 토시살 300g",
    "spec": [
     "※ 구성 : 토시살",
@@ -6200,7 +6200,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "뉴질랜드 안창살 300g",
    "spec": [
     "※ 구성 : 안창살",
@@ -6222,7 +6222,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "미국산 부채살 200g",
    "spec": [
     "※ 구성 : 부채살",
@@ -6244,7 +6244,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "미국산 우삼겹 200g",
    "spec": [
     "※ 구성 : 우삼겹",
@@ -6266,7 +6266,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "미국산 업진살 200g",
    "spec": [
     "※ 구성 : 업진살",
@@ -6288,7 +6288,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "미국산 안심살구이 200g",
    "spec": [
     "※ 구성 : 안심살구이",
@@ -6310,7 +6310,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "미국산 소갈비살 200g",
    "spec": [
     "※ 구성 : 갈비살 1팩",
@@ -6332,7 +6332,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "제주흑돼지 대패구이 500g",
    "spec": [
     "※ 구성 : 제주흑돼지 대패구이",
@@ -6354,7 +6354,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "미국산 척아이롤등심 200g",
    "spec": [
     "※ 구성 : 척아이롤등심",
@@ -6376,7 +6376,7 @@
   {
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
-   "category": "축산",
+   "category": "",
    "name": "깔끔 투쁠 국거리 1kg",
    "spec": [
     "※ 구성 : 투쁠 국거리 1kg",
@@ -6398,7 +6398,7 @@
   {
    "warehouse": "떡",
    "sourceWarehouse": "떡창고",
-   "category": "가공식품",
+   "category": "",
    "name": "옛날 바람떡 1kg",
    "spec": [
     "※ 구성 : 반달 바람떡",
@@ -6419,7 +6419,7 @@
   {
    "warehouse": "떡",
    "sourceWarehouse": "떡창고",
-   "category": "가공식품",
+   "category": "",
    "name": "진한 호박고지 찰시루떡 7개",
    "spec": [
     "※ 구성 : 호박고지 찰시루떡",
@@ -6439,7 +6439,7 @@
   {
    "warehouse": "떡",
    "sourceWarehouse": "떡창고",
-   "category": "가공식품",
+   "category": "",
    "name": "카스테라 단호박 인절미 7개",
    "spec": [
     "※ 구성 : 카스테라 단호박 인절미",
@@ -6459,7 +6459,7 @@
   {
    "warehouse": "떡",
    "sourceWarehouse": "떡창고",
-   "category": "가공식품",
+   "category": "",
    "name": "상주 오디 인절미 12개",
    "spec": [
     "※ 구성 : 인절미 1박스",
@@ -6479,7 +6479,7 @@
   {
    "warehouse": "떡",
    "sourceWarehouse": "떡창고",
-   "category": "가공식품",
+   "category": "",
    "name": "할매 흑임자 인절미 40개",
    "spec": [
     "※ 구성 : 흑임자 인절 1박스",
@@ -6499,7 +6499,7 @@
   {
    "warehouse": "떡",
    "sourceWarehouse": "떡창고",
-   "category": "가공식품",
+   "category": "",
    "name": "찹쌀콩쑥 행복세트 12개",
    "spec": [
     "※ 구성 : 왕찹쌀떡 + 콩쑥개떡 1박스",
@@ -6519,7 +6519,7 @@
   {
    "warehouse": "떡",
    "sourceWarehouse": "떡창고",
-   "category": "가공식품",
+   "category": "",
    "name": "강화 사자발 약쑥 떡 12개",
    "spec": [
     "※ 구성 : 강화 사자발 약쑥 떡 12개",
@@ -6539,7 +6539,7 @@
   {
    "warehouse": "떡",
    "sourceWarehouse": "떡창고",
-   "category": "가공식품",
+   "category": "",
    "name": "미니미니 팥 찹쌀떡 56개",
    "spec": [
     "※ 구성 : 찹쌀떡 1박스",
@@ -6559,7 +6559,7 @@
   {
    "warehouse": "떡",
    "sourceWarehouse": "떡창고",
-   "category": "가공식품",
+   "category": "",
    "name": "프리미엄 콩 쑥개떡 20개",
    "spec": [
     "※ 구성 : 쑥개떡 1박스",
@@ -6579,7 +6579,7 @@
   {
    "warehouse": "떡",
    "sourceWarehouse": "떡창고",
-   "category": "가공식품",
+   "category": "",
    "name": "프리미엄 왕 찹쌀떡 20개",
    "spec": [
     "※ 구성 : 찹쌀떡 1박스",
@@ -6599,7 +6599,7 @@
   {
    "warehouse": "떡",
    "sourceWarehouse": "떡창고",
-   "category": "가공식품",
+   "category": "",
    "name": "오리지널 콩 인절미 48개",
    "spec": [
     "※ 구성 : 인절미 1박스",
@@ -6619,7 +6619,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "한돈 냉장 삼겹살500g",
    "spec": [
     "※ 구성 : 삼겹살 1팩",
@@ -6641,7 +6641,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "도란도란 세트 1kg",
    "spec": [
     "※ 구성 : 토시살 1팩, 갈비살 1팩, 우삼겹 1팩, 부채살 1팩",
@@ -6663,7 +6663,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "육향가득 소고기 세트 1kg",
    "spec": [
     "※ 구성 : 살치 1팩, 갈비 1팩, 부채 1팩, 우삼겹 1팩",
@@ -6685,7 +6685,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "원뿔 한우 꽃등심 200g",
    "spec": [
     "※ 구성 : 한우 원쁠 등심 200g 1팩, 허브솔트 1개",
@@ -6707,7 +6707,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "수원식 구름갈비 600g",
    "spec": [
     "※ 구성 : 생갈비 1팩",
@@ -6729,7 +6729,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "야들야들 우삼겹 200g",
    "spec": [
     "※ 구성 : 우삼겹 1팩",
@@ -6751,7 +6751,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "국내산 돈차돌 500g",
    "spec": [
     "※ 구성 : 돈차돌 1팩",
@@ -6773,7 +6773,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "초이스 살치살 200g",
    "spec": [
     "※ 구성 : 살치살 1팩",
@@ -6795,7 +6795,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "쫄깃 부채살 200g",
    "spec": [
     "※ 구성 : 부채살 1팩",
@@ -6817,7 +6817,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "깔끔 등심 200g",
    "spec": [
     "※ 구성 : 등심 1팩",
@@ -6839,7 +6839,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "특상 소고기모듬 600g",
    "spec": [
     "※ 구성 : 토시살 1팩, 갈비살 1팩, 우삼겹 1팩",
@@ -6861,7 +6861,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "탑초이스 LA꽃갈비 1kg",
    "spec": [
     "※ 구성 : 탑초이스급 LA꽃갈비 1kg",
@@ -6884,7 +6884,7 @@
   {
    "warehouse": "창원",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "초이스 양념 갈비살 1kg",
    "spec": [
     "※ 구성 : 양념 갈비살 1팩",
@@ -6904,7 +6904,7 @@
   {
    "warehouse": "키트",
    "sourceWarehouse": "키트",
-   "category": "수산",
+   "category": "",
    "name": "통찜한치 1팩",
    "spec": [
     "※ 구성 : 한치 1팩",
@@ -6926,7 +6926,7 @@
   {
    "warehouse": "키트",
    "sourceWarehouse": "키트",
-   "category": "수산",
+   "category": "",
    "name": "반건조오징어 5미 550g급",
    "spec": [
     "※ 구성 : 반건조오징어 5미",
@@ -6948,7 +6948,7 @@
   {
    "warehouse": "키트",
    "sourceWarehouse": "키트",
-   "category": "수산",
+   "category": "",
    "name": "반건조오징어 5미 350g급",
    "spec": [
     "※ 구성 : 반건조오징어 5미",
@@ -6970,7 +6970,7 @@
   {
    "warehouse": "키트",
    "sourceWarehouse": "키트",
-   "category": "수산",
+   "category": "",
    "name": "통손질 오징어 2미 260g",
    "spec": [
     "※ 구성 : 손질 오징어 2미",
@@ -6993,7 +6993,7 @@
   {
    "warehouse": "키트",
    "sourceWarehouse": "키트",
-   "category": "수산",
+   "category": "",
    "name": "통손질 오징어 2미 320g",
    "spec": [
     "※ 구성 : 손질 오징어 2미",
@@ -7016,7 +7016,7 @@
   {
    "warehouse": "키트",
    "sourceWarehouse": "키트",
-   "category": "수산",
+   "category": "",
    "name": "통찜용 오징어 500g",
    "spec": [
     "※ 구성 : 총알 오징어 1팩",
@@ -7039,7 +7039,7 @@
   {
    "warehouse": "키트",
    "sourceWarehouse": "키트",
-   "category": "수산",
+   "category": "",
    "name": "자숙 범고동 500g",
    "spec": [
     "※ 구성 : 자숙 범고동 1팩 + 초장 2팩",
@@ -7059,7 +7059,7 @@
   {
    "warehouse": "키트",
    "sourceWarehouse": "키트",
-   "category": "수산",
+   "category": "",
    "name": "손질 오징어 링채 200g",
    "spec": [
     "※ 구성 : 오징어 링채(다리 포함)",
@@ -7081,7 +7081,7 @@
   {
    "warehouse": "키트",
    "sourceWarehouse": "키트",
-   "category": "수산",
+   "category": "",
    "name": "손질 통갑오징어 2미 450g",
    "spec": [
     "※ 구성 : 통갑오징어 2미",
@@ -7103,30 +7103,8 @@
   },
   {
    "warehouse": "단독(유)",
-   "sourceWarehouse": "이성",
-   "category": "수산",
-   "name": "활 새우 500g",
-   "spec": [
-    "※ 구성 : 활새우 500g",
-    "※ 중량/사이즈 : 500g 17-19미 내외",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 활새우 100%",
-    "※ 포장방식 : 비닐실링 * 생물 특성상 자연감량 10% 있을 수 있습니다."
-   ],
-   "supplyPrice": 9500,
-   "previousPrice": 11000,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/557/284/025/bf84dec2dde0f2de3f1a160c295c7d2b.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "단독(유)",
    "sourceWarehouse": "속초",
-   "category": "수산",
+   "category": "",
    "name": "쏙쏙 홍게다리 1kg",
    "spec": [],
    "supplyPrice": 7000,
@@ -7142,7 +7120,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "이성",
-   "category": "수산",
+   "category": "",
    "name": "활 홍가리비 1kg",
    "spec": [
     "※ 구성 : 홍가리비 1kg",
@@ -7165,7 +7143,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "민장",
-   "category": "수산",
+   "category": "",
    "name": "민물장어 1kg",
    "spec": [
     "※ 구성 : 민물장어 1kg, 소스 2종, 생강 30g",
@@ -7185,7 +7163,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "민장",
-   "category": "수산",
+   "category": "",
    "name": "갓성비 민물장어 1kg",
    "spec": [
     "※ 구성 : 민물장어 1kg, 소스 2종, 생강 30g",
@@ -7205,7 +7183,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "민장",
-   "category": "수산",
+   "category": "",
    "name": "통실 민물장어 1kg",
    "spec": [
     "※ 구성 : 민물장어 1kg, 소스 2종, 생강 30g",
@@ -7225,7 +7203,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "민장",
-   "category": "수산",
+   "category": "",
    "name": "특왕 민물장어 1kg",
    "spec": [
     "※ 구성 : 민물장어, 소스 2종, 생강 30g",
@@ -7245,7 +7223,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "민장",
-   "category": "수산",
+   "category": "",
    "name": "프리미엄 민물장어 2kg",
    "spec": [
     "※ 구성 : 프리미엄 민물장어, 소스 2종, 생강",
@@ -7265,7 +7243,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "여수",
-   "category": "수산",
+   "category": "",
    "name": "국내산 순살갈치 250g",
    "spec": [],
    "supplyPrice": 4100,
@@ -7280,8 +7258,30 @@
   },
   {
    "warehouse": "단독(유)",
+   "sourceWarehouse": "이성",
+   "category": "",
+   "name": "활 새우 500g",
+   "spec": [
+    "※ 구성 : 활새우 500g",
+    "※ 중량/사이즈 : 500g 17-19미 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 활새우 100%",
+    "※ 포장방식 : 비닐실링 * 생물 특성상 자연감량 10% 있을 수 있습니다."
+   ],
+   "supplyPrice": 9500,
+   "previousPrice": 11000,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/557/284/025/bf84dec2dde0f2de3f1a160c295c7d2b.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(유)",
    "sourceWarehouse": "알가",
-   "category": "수산",
+   "category": "",
    "name": "급냉 갑오징어 1kg",
    "spec": [],
    "supplyPrice": 12000,
@@ -7297,7 +7297,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "푸카",
-   "category": "가공식품",
+   "category": "",
    "name": "찐 불향 쭈꾸미볶음 순한맛 300g",
    "spec": [
     "※ 구성 : 쭈꾸미볶음 300g 1팩 순한맛",
@@ -7318,7 +7318,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "푸카",
-   "category": "가공식품",
+   "category": "",
    "name": "찐 불향 쭈꾸미볶음 매운맛 300g",
    "spec": [],
    "supplyPrice": 7000,
@@ -7334,7 +7334,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "푸카",
-   "category": "가공식품",
+   "category": "",
    "name": "찐 불향 오징어제육볶음 300g",
    "spec": [],
    "supplyPrice": 4900,
@@ -7350,7 +7350,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "푸카",
-   "category": "가공식품",
+   "category": "",
    "name": "찐 불향 고추장불고기 300g",
    "spec": [],
    "supplyPrice": 4000,
@@ -7366,7 +7366,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "푸카",
-   "category": "가공식품",
+   "category": "",
    "name": "찐 불향 오돌뼈볶음 300g",
    "spec": [
     "※ 구성 : 오돌뼈볶음 300g 1팩",
@@ -7387,7 +7387,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "계란",
-   "category": "축산",
+   "category": "",
    "name": "구운계란 한판",
    "spec": [
     "※ 구성 : 구운계란 한판",
@@ -7409,7 +7409,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "여수",
-   "category": "수산",
+   "category": "",
    "name": "국내산 반건조 민어 4미",
    "spec": [
     "※ 구성 : 반건조민어 4미",
@@ -7431,7 +7431,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "이성",
-   "category": "수산",
+   "category": "",
    "name": "비만 바다장어 1kg",
    "spec": [
     "※ 구성 : 바다장어 1kg, 순한맛양념 1팩, 매운맛양념 1팩, 뼈&amp;머리",
@@ -7452,7 +7452,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "버피",
-   "category": "수산",
+   "category": "",
    "name": "총알한치 500g",
    "spec": [
     "※ 구성 : 한치 500g",
@@ -7474,7 +7474,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "버피",
-   "category": "수산",
+   "category": "",
    "name": "버터 피데기 900g급",
    "spec": [],
    "supplyPrice": 19500,
@@ -7490,7 +7490,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "제프",
-   "category": "김치·반찬",
+   "category": "",
    "name": "연평도 순살게장 200g",
    "spec": [
     "※ 구성 : 간장게장 1통",
@@ -7510,7 +7510,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "제프",
-   "category": "김치·반찬",
+   "category": "",
    "name": "연평도 순살 양념게장 200g",
    "spec": [
     "※ 구성 : 양념게장 1통",
@@ -7530,7 +7530,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "제프",
-   "category": "김치·반찬",
+   "category": "",
    "name": "탱글 소라장 350g",
    "spec": [
     "※ 구성 : 소라장 1통",
@@ -7551,7 +7551,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "팡유",
-   "category": "축산",
+   "category": "",
    "name": "깔끔 투쁠 국거리 1kg",
    "spec": [
     "※ 구성 : 투쁠 국거리 1kg",
@@ -7573,7 +7573,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "이성",
-   "category": "수산",
+   "category": "",
    "name": "왕 바지락 1kg",
    "spec": [],
    "supplyPrice": 4000,
@@ -7589,7 +7589,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "뿌리",
-   "category": "가공식품",
+   "category": "",
    "name": "갈아먹는 생와사비 뿌리 1팩",
    "spec": [],
    "supplyPrice": 7500,
@@ -7605,7 +7605,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "뿌리",
-   "category": "가공식품",
+   "category": "",
    "name": "갈아먹는 생와사비 강판세트",
    "spec": [],
    "supplyPrice": 11000,
@@ -7621,7 +7621,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "대비",
-   "category": "축산",
+   "category": "",
    "name": "제주 흑돼지 오겹살 500g",
    "spec": [
     "※ 구성 : 흑돼지 오삼겹 1팩",
@@ -7643,7 +7643,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "한돈 냉장 삼겹살500g",
    "spec": [
     "※ 구성 : 삼겹살 1팩",
@@ -7665,7 +7665,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "주오",
-   "category": "축산",
+   "category": "",
    "name": "생오리 슬라이스 500g",
    "spec": [
     "※ 구성 : 오리 슬라이스 1팩",
@@ -7687,7 +7687,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "성수",
-   "category": "수산",
+   "category": "",
    "name": "동해안 피문어 1kg",
    "spec": [
     "※ 구성 : 자숙 피문어 1kg",
@@ -7710,7 +7710,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "김치",
-   "category": "김치·반찬",
+   "category": "",
    "name": "열무김치 2kg",
    "spec": [
     "※ 구성 : 열무 김치 2kg",
@@ -7730,7 +7730,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "이성",
-   "category": "수산",
+   "category": "",
    "name": "깐 바지락 500g",
    "spec": [
     "※ 구성 : 깐 바지락 1팩",
@@ -7753,7 +7753,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "고령",
-   "category": "축산",
+   "category": "",
    "name": "한우곱창모듬 1kg",
    "spec": [
     "※ 구성 : 한우곱창모듬(한우곱창, 한우대창, 염통) / 소스 1개 / 소금 1개",
@@ -7775,7 +7775,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "알가",
-   "category": "수산",
+   "category": "",
    "name": "국내산 급냉 오징어 1팩",
    "spec": [
     "※ 구성 : 선동 오징어 1팩",
@@ -7797,7 +7797,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "원수",
-   "category": "수산",
+   "category": "",
    "name": "정품 반건조 오징어 350g급",
    "spec": [
     "※ 구성 : 정품 반건조 오징어 350g급",
@@ -7819,7 +7819,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "원수",
-   "category": "수산",
+   "category": "",
    "name": "정품 반건조 오징어 450g급",
    "spec": [
     "※ 구성 : 정품 반건조 오징어 450g급",
@@ -7841,7 +7841,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "원수",
-   "category": "수산",
+   "category": "",
    "name": "정품 반건조 오징어 550g급",
    "spec": [
     "※ 구성 : 정품 반건조 오징어 550g급",
@@ -7863,7 +7863,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "원수",
-   "category": "수산",
+   "category": "",
    "name": "정품 반건조 오징어 650g급",
    "spec": [
     "※ 구성 : 정품 반건조 오징어 650g급",
@@ -7885,7 +7885,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "원수",
-   "category": "수산",
+   "category": "",
    "name": "정품 반건조 오징어 1kg급",
    "spec": [
     "※ 구성 : 정품 반건조 오징어 1kg급",
@@ -7907,7 +7907,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "원수",
-   "category": "수산",
+   "category": "",
    "name": "정품 반건조 오징어 1.2kg급",
    "spec": [
     "※ 구성 : 정품 반건조 오징어 1.2kg급",
@@ -7929,7 +7929,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "우리",
-   "category": "가공식품",
+   "category": "",
    "name": "한우 소머리스지 전골 1.7kg",
    "spec": [
     "※ 구성 : 소머리, 소스지, 곰탕",
@@ -7951,7 +7951,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "대구",
-   "category": "축산",
+   "category": "",
    "name": "뒷고기모듬 500g",
    "spec": [
     "※ 구성 : 뒷고기모듬 1팩",
@@ -7973,7 +7973,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "고령",
-   "category": "축산",
+   "category": "",
    "name": "한우 곱창 200g",
    "spec": [
     "※ 구성 : 한우 곱창 1팩 + 참소스 1개",
@@ -7993,7 +7993,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "고령",
-   "category": "축산",
+   "category": "",
    "name": "한우 대창 200g",
    "spec": [
     "※ 구성 : 대창 1팩 + 참소스 1개",
@@ -8013,7 +8013,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "고령",
-   "category": "축산",
+   "category": "",
    "name": "한우 염통 200g",
    "spec": [
     "※ 구성 : 염통 1팩 + 참소스 1개",
@@ -8033,7 +8033,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "고령",
-   "category": "가공식품",
+   "category": "",
    "name": "대도리탕 밀키트 1kg",
    "spec": [
     "※ 구성 : 닭정육, 한우대창, 감자, 당근, 양파, 대파, 양념장",
@@ -8054,7 +8054,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "고령",
-   "category": "축산",
+   "category": "",
    "name": "한우캠핑세트 1.6kg",
    "spec": [
     "※ 구성 : 한우곱창, 한우대창, 염통, 핑크솔트 1팩, 맛소스 1팩, 대도리탕",
@@ -8074,7 +8074,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "김치",
-   "category": "김치·반찬",
+   "category": "",
    "name": "알타리 총각김치 5kg",
    "spec": [],
    "supplyPrice": 23000,
@@ -8090,7 +8090,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "김치",
-   "category": "김치·반찬",
+   "category": "",
    "name": "알타리 총각김치 10kg",
    "spec": [
     "※ 구성 : 알타리 총각김치",
@@ -8110,7 +8110,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "김치",
-   "category": "김치·반찬",
+   "category": "",
    "name": "알타리 총각김치 2kg",
    "spec": [
     "※ 구성 : 알타리 총각김치",
@@ -8130,7 +8130,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "녹돈",
-   "category": "축산",
+   "category": "",
    "name": "녹돈 후지슬라이스 500g",
    "spec": [
     "※ 구성 : 녹돈 후지슬라이스 1팩",
@@ -8152,7 +8152,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "녹돈",
-   "category": "축산",
+   "category": "",
    "name": "녹돈 전지슬라이스 500g",
    "spec": [
     "※ 구성 : 녹돈 전지 슬라이스 1팩",
@@ -8174,7 +8174,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "녹돈",
-   "category": "축산",
+   "category": "",
    "name": "녹돈 찌개용 뒷다리살 500g",
    "spec": [
     "※ 구성 : 녹돈 찌개용 뒷다리살 1팩",
@@ -8196,7 +8196,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "녹돈",
-   "category": "축산",
+   "category": "",
    "name": "녹돈 삼겹살500g",
    "spec": [
     "※ 구성 : 녹돈 삼겹살 1팩",
@@ -8218,7 +8218,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "녹돈",
-   "category": "축산",
+   "category": "",
    "name": "녹돈 육즙 목살 500g",
    "spec": [
     "※ 구성 : 녹돈 육즙 목살 1팩",
@@ -8240,7 +8240,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "녹돈",
-   "category": "축산",
+   "category": "",
    "name": "녹돈 담백 가브리살 500g",
    "spec": [
     "※ 구성 : 녹돈 담백 가브리살 1팩",
@@ -8262,7 +8262,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "녹돈",
-   "category": "축산",
+   "category": "",
    "name": "녹돈 삼겹수육 500g",
    "spec": [
     "※ 구성 : 녹돈 삼겹수육 1팩",
@@ -8284,7 +8284,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "대구",
-   "category": "축산",
+   "category": "",
    "name": "오독오독 오소리 300g",
    "spec": [
     "※ 구성 : 오소리 300g",
@@ -8306,7 +8306,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "대구",
-   "category": "축산",
+   "category": "",
    "name": "돈뽈항정 500g",
    "spec": [
     "※ 구성 : 돈뽈항정 500g",
@@ -8328,7 +8328,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "대구",
-   "category": "축산",
+   "category": "",
    "name": "도래창 500g",
    "spec": [
     "※ 구성 : 도래창 500g",
@@ -8350,7 +8350,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "대비",
-   "category": "축산",
+   "category": "",
    "name": "제주 흑돼지 항정살 300g",
    "spec": [
     "※ 구성 : 제주 흑돼지 항정살 1팩",
@@ -8372,7 +8372,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "대비",
-   "category": "축산",
+   "category": "",
    "name": "제주 흑돼지 갈매기살 300g",
    "spec": [
     "※ 구성 : 제주 흑돼지 갈매기살 1팩",
@@ -8394,7 +8394,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "디디",
-   "category": "김치·반찬",
+   "category": "",
    "name": "한방 암꽃게장 2kg",
    "spec": [
     "※ 구성 : 암꽃게장 2kg",
@@ -8414,7 +8414,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "디디유",
-   "category": "김치·반찬",
+   "category": "",
    "name": "갓성비 저염 명란젓 400g",
    "spec": [
     "※ 구성 : 백명란젓 1통",
@@ -8434,7 +8434,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "디디유",
-   "category": "김치·반찬",
+   "category": "",
    "name": "양념 새꼬막무침 400g",
    "spec": [
     "※ 구성 : 새꼬막 무침 400g 1통",
@@ -8454,7 +8454,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "디즈",
-   "category": "김치·반찬",
+   "category": "",
    "name": "저염 명란 젓갈 400g",
    "spec": [
     "※ 구성 : 저염명란 1통",
@@ -8474,7 +8474,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "딱새",
-   "category": "수산",
+   "category": "",
    "name": "흰다리새우회 175g",
    "spec": [
     "※ 구성 : 흰다리새우 회",
@@ -8497,7 +8497,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "리고",
-   "category": "축산",
+   "category": "",
    "name": "대창 닭갈비 750g",
    "spec": [
     "※ 구성 : 대창닭갈비 1팩",
@@ -8518,7 +8518,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "반찬",
-   "category": "김치·반찬",
+   "category": "",
    "name": "밥도둑 오이지 500g",
    "spec": [
     "※ 구성 : 오이지 500g",
@@ -8539,7 +8539,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "반찬",
-   "category": "김치·반찬",
+   "category": "",
    "name": "아삭 오이소박이 1kg",
    "spec": [
     "※ 구성 : 오이소박이 1kg",
@@ -8561,7 +8561,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "밥상",
-   "category": "가공식품",
+   "category": "",
    "name": "한돈 등심돈까스 130g",
    "spec": [
     "※ 구성 : 등심돈까스 130g",
@@ -8581,7 +8581,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "밥상",
-   "category": "가공식품",
+   "category": "",
    "name": "한돈 치즈돈까스 130g",
    "spec": [
     "※ 구성 : 치즈돈까스 130g",
@@ -8601,7 +8601,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "밥상",
-   "category": "축산",
+   "category": "",
    "name": "서산6쪽마늘 떡갈비 1팩",
    "spec": [
     "※ 구성 : 6쪽 마늘 떡갈비 100g",
@@ -8621,7 +8621,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "삼푸",
-   "category": "가공식품",
+   "category": "",
    "name": "멸치수제비 6인분",
    "spec": [
     "※ 구성 : 생 수제비 1팩, 멸치 스프 6개",
@@ -8642,7 +8642,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "삼푸",
-   "category": "가공식품",
+   "category": "",
    "name": "짜장면 5인분",
    "spec": [
     "※ 구성 : 생면 5개, 짜장소스 5개",
@@ -8663,7 +8663,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "삼푸",
-   "category": "가공식품",
+   "category": "",
    "name": "멸치칼국수 6인분",
    "spec": [
     "※ 구성 : 생 칼국수 1팩, 멸치 스프 6개",
@@ -8684,7 +8684,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "삼푸",
-   "category": "가공식품",
+   "category": "",
    "name": "장칼국수 6인분",
    "spec": [
     "※ 구성 : 생 칼국수 1팩, 장칼국수 소스 6개",
@@ -8705,7 +8705,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "삼푸",
-   "category": "가공식품",
+   "category": "",
    "name": "장수제비 6인분",
    "spec": [
     "※ 구성 : 생 수제비 1팩, 장칼국수 소스 6개",
@@ -8726,7 +8726,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "아드",
-   "category": "가공식품",
+   "category": "",
    "name": "기력회복 추어탕 500g",
    "spec": [
     "※ 구성 : 추어탕 1팩",
@@ -8746,7 +8746,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "여수",
-   "category": "김치·반찬",
+   "category": "",
    "name": "새꼬막 무침 300g 2통",
    "spec": [
     "※ 구성 : 새꼬막 무침 300g 2통",
@@ -8766,7 +8766,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "영광유",
-   "category": "수산",
+   "category": "",
    "name": "조기굴비 1kg",
    "spec": [
     "※ 구성 : 굴비 1kg",
@@ -8788,7 +8788,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "오농",
-   "category": "축산",
+   "category": "",
    "name": "지리산 흑돼지 뒷고기 200g",
    "spec": [],
    "supplyPrice": 2800,
@@ -8804,7 +8804,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "오농",
-   "category": "축산",
+   "category": "",
    "name": "지리산 흑돼지 우대갈비 600g",
    "spec": [
     "※ 구성 : 흑돼지 통갈비 1팩",
@@ -8826,7 +8826,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "오농",
-   "category": "축산",
+   "category": "",
    "name": "지리산 흑돼지 목살 200g",
    "spec": [
     "※ 구성 : 흑돼지 목살 1팩",
@@ -8848,7 +8848,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "오농",
-   "category": "가공식품",
+   "category": "",
    "name": "볶음용 흑돼지 전지 200g",
    "spec": [
     "※ 구성 : 흑돼지 전지 1팩",
@@ -8870,7 +8870,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "오농",
-   "category": "축산",
+   "category": "",
    "name": "흑돼지 뒷고기 모듬 500g",
    "spec": [
     "※ 구성 : 흑돼지 뒷고기 모듬",
@@ -8892,7 +8892,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "우리",
-   "category": "가공식품",
+   "category": "",
    "name": "한우 곱내장 전골 1.2kg",
    "spec": [
     "※ 구성 : 소곱내장모듬, 곰탕, 전골양념소스",
@@ -8912,7 +8912,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "우푸",
-   "category": "수산",
+   "category": "",
    "name": "참치 세미도로 필렛 500g",
    "spec": [],
    "supplyPrice": 45000,
@@ -8928,7 +8928,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "우푸",
-   "category": "수산",
+   "category": "",
    "name": "참다랑어 뱃살 100g",
    "spec": [],
    "supplyPrice": 10300,
@@ -8944,7 +8944,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "제수",
-   "category": "수산",
+   "category": "",
    "name": "토막 은갈치 특대 450g급",
    "spec": [
     "※ 구성 : 제주 은갈치 대짜 1마리 (손질 후 약 450g 내외)",
@@ -8967,7 +8967,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "제수",
-   "category": "수산",
+   "category": "",
    "name": "토막 은갈치 대짜 350g급",
    "spec": [
     "※ 구성 : 제주 은갈치 대짜 1마리 (손질 후 약 350g 내외)",
@@ -8990,7 +8990,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "제수",
-   "category": "수산",
+   "category": "",
    "name": "반건조 참가자미 4미",
    "spec": [
     "※ 구성 : 반건조 참가자미",
@@ -9013,7 +9013,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "족발",
-   "category": "가공식품",
+   "category": "",
    "name": "앞다리 순살족발 450g급",
    "spec": [
     "※ 구성 : 순살족발 1팩 + 새우맛소스 1개",
@@ -9033,7 +9033,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "족발",
-   "category": "가공식품",
+   "category": "",
    "name": "앞다리 통족발 750g급",
    "spec": [
     "※ 구성 : 통족발 1팩 + 새우맛소스 1개",
@@ -9053,7 +9053,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "족발",
-   "category": "가공식품",
+   "category": "",
    "name": "윤기좔좔 통삼겹보쌈 430g급",
    "spec": [
     "※ 구성 : 통삼겹보쌈 1팩 / 새우맛소스 1개 / 참소스 1개",
@@ -9074,7 +9074,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "족발",
-   "category": "가공식품",
+   "category": "",
    "name": "겉바속촉 슈바인학센 900g급",
    "spec": [
     "※ 구성 : 슈바인학센 1팩, 스위트칠리소스(캡슐) 1개, 허니머스타드소스(캡슐) 1개",
@@ -9095,7 +9095,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "쫄깃",
-   "category": "수산",
+   "category": "",
    "name": "통통 숏다리 오징어 200g",
    "spec": [
     "※ 구성 : 숏다리",
@@ -9117,7 +9117,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "쫄깃",
-   "category": "수산",
+   "category": "",
    "name": "통통 백진미 500g",
    "spec": [
     "※ 구성 : 백진미",
@@ -9139,7 +9139,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "쫄깃",
-   "category": "수산",
+   "category": "",
    "name": "통통 쫄쫄이 오징어 300g",
    "spec": [
     "※ 구성 : 쫄쫄이 오징어",
@@ -9161,7 +9161,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "쫄깃",
-   "category": "수산",
+   "category": "",
    "name": "통통 쫄쫄이 오징어 400g",
    "spec": [
     "※ 구성 : 쫄쫄이 오징어",
@@ -9183,7 +9183,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "쫄깃",
-   "category": "수산",
+   "category": "",
    "name": "통통 쫄쫄이 오징어 500g",
    "spec": [
     "※ 구성 : 쫄쫄이 오징어",
@@ -9205,7 +9205,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "쫄깃",
-   "category": "수산",
+   "category": "",
    "name": "통통 쫄쫄이 오징어 600g",
    "spec": [
     "※ 구성 : 쫄쫄이 오징어",
@@ -9227,7 +9227,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "쫄깃",
-   "category": "수산",
+   "category": "",
    "name": "통통 쫄쫄이 오징어 650g",
    "spec": [
     "※ 구성 : 쫄쫄이 오징어",
@@ -9249,7 +9249,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "도란도란 세트 1kg",
    "spec": [
     "※ 구성 : 토시살 1팩, 갈비살 1팩, 우삼겹 1팩, 부채살 1팩",
@@ -9271,7 +9271,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "육향가득 소고기 세트 1kg",
    "spec": [
     "※ 구성 : 살치 1팩, 갈비 1팩, 부채 1팩, 우삼겹 1팩",
@@ -9293,7 +9293,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "원뿔 한우 꽃등심 200g",
    "spec": [
     "※ 구성 : 한우 원쁠 등심 200g 1팩, 허브솔트 1개",
@@ -9315,7 +9315,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "수원식 구름갈비 600g",
    "spec": [
     "※ 구성 : 생갈비 1팩",
@@ -9337,7 +9337,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "야들야들 우삼겹 200g",
    "spec": [
     "※ 구성 : 우삼겹 1팩",
@@ -9359,7 +9359,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "국내산 돈차돌 500g",
    "spec": [
     "※ 구성 : 돈차돌 1팩",
@@ -9381,7 +9381,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "초이스 살치살 200g",
    "spec": [
     "※ 구성 : 살치살 1팩",
@@ -9403,7 +9403,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "쫄깃 부채살 200g",
    "spec": [
     "※ 구성 : 부채살 1팩",
@@ -9425,7 +9425,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "깔끔 등심 200g",
    "spec": [
     "※ 구성 : 등심 1팩",
@@ -9447,7 +9447,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "특상 소고기모듬 600g",
    "spec": [
     "※ 구성 : 토시살 1팩, 갈비살 1팩, 우삼겹 1팩",
@@ -9469,7 +9469,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "탑초이스 LA꽃갈비 1kg",
    "spec": [
     "※ 구성 : 탑초이스급 LA꽃갈비 1kg",
@@ -9492,7 +9492,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "초이스 양념 갈비살 1kg",
    "spec": [
     "※ 구성 : 양념 갈비살 1팩",
@@ -9512,7 +9512,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "푸모",
-   "category": "축산",
+   "category": "",
    "name": "꽉찬 소곱창 160g",
    "spec": [
     "※ 구성 : 소곱창 1팩 + 참소스 1팩",
@@ -9532,7 +9532,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "푸모",
-   "category": "가공식품",
+   "category": "",
    "name": "한우 곱내장 전골 1.2kg",
    "spec": [
     "※ 구성 : 소곱내장모듬, 곰탕, 전골양념소스",
@@ -9552,7 +9552,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "한돈",
-   "category": "축산",
+   "category": "",
    "name": "한돈 찜갈비 1kg",
    "spec": [
     "※ 구성 : 한돈 찜갈비 1팩",
@@ -9573,24 +9573,8 @@
   },
   {
    "warehouse": "단독(무)",
-   "sourceWarehouse": "쫄깃",
-   "category": "수산",
-   "name": "통통 자연산 바위굴 3kg",
-   "spec": [],
-   "supplyPrice": 18000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "씨제이대한통운/롯데택배",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "",
-   "note": "-스펙변경 : 1kg 2~4미 > 3kg 2~5미"
-  },
-  {
-   "warehouse": "단독(무)",
    "sourceWarehouse": "래음",
-   "category": "농산물",
+   "category": "",
    "name": "케일 1kg",
    "spec": [
     "※ 구성 : 케일 1박스",
@@ -9614,7 +9598,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "래음",
-   "category": "농산물",
+   "category": "",
    "name": "케일 2kg",
    "spec": [
     "※ 구성 : 케일 1박스",
@@ -9637,8 +9621,24 @@
   },
   {
    "warehouse": "단독(무)",
+   "sourceWarehouse": "쫄깃",
+   "category": "",
+   "name": "통통 자연산 바위굴 3kg",
+   "spec": [],
+   "supplyPrice": 18000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "씨제이대한통운/롯데택배",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "",
+   "note": "-스펙변경 : 1kg 2~4미 > 3kg 2~5미"
+  },
+  {
+   "warehouse": "단독(무)",
    "sourceWarehouse": "과일",
-   "category": "과일",
+   "category": "",
    "name": "딱딱이 복숭아 2kg 로얄과",
    "spec": [
     "※ 구성 : 딱딱이 복숭아",
@@ -9660,7 +9660,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "과일",
-   "category": "과일",
+   "category": "",
    "name": "딱딱이 복숭아 4kg 로얄과",
    "spec": [],
    "supplyPrice": 24500,
@@ -9676,7 +9676,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "표도",
-   "category": "농산물",
+   "category": "",
    "name": "못난이 생표고버섯 1kg",
    "spec": [
     "※ 구성 : 표고 버섯 1박스",
@@ -9698,7 +9698,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "표도",
-   "category": "농산물",
+   "category": "",
    "name": "못난이 생표고버섯 2kg",
    "spec": [
     "※ 구성 : 표고 버섯 1박스",
@@ -9720,7 +9720,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "표도",
-   "category": "농산물",
+   "category": "",
    "name": "못난이 생표고버섯 3kg",
    "spec": [
     "※ 구성 : 표고 버섯 1박스",
@@ -9742,7 +9742,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "완전",
-   "category": "수산",
+   "category": "",
    "name": "특대 9-10미 전복 1kg",
    "spec": [
     "※ 구성 : 참전복 1kg",
@@ -9765,7 +9765,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "완전",
-   "category": "수산",
+   "category": "",
    "name": "특대 9-10미 전복 2kg",
    "spec": [
     "※ 구성 : 참전복 2kg",
@@ -9788,7 +9788,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "여수",
-   "category": "수산",
+   "category": "",
    "name": "국내산 순살갈치 1kg",
    "spec": [],
    "supplyPrice": 19400,
@@ -9804,7 +9804,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "난각",
-   "category": "축산",
+   "category": "",
    "name": "동물복지 난각 2번 유정란 20구",
    "spec": [
     "※ 구성 : 난각 2번 유정란 20구",
@@ -9826,7 +9826,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "난각",
-   "category": "축산",
+   "category": "",
    "name": "동물복지 난각 2번 유정란 40구",
    "spec": [
     "※ 구성 : 난각 2번 유정란 40구",
@@ -9848,7 +9848,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "난각",
-   "category": "축산",
+   "category": "",
    "name": "동물복지 난각 2번 유정란 60구",
    "spec": [
     "※ 구성 : 난각 2번 유정란 60구",
@@ -9870,7 +9870,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "난각",
-   "category": "축산",
+   "category": "",
    "name": "1+등급 특란 20구",
    "spec": [
     "※ 구성 : 1+ 특란 20구",
@@ -9892,7 +9892,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "난각",
-   "category": "축산",
+   "category": "",
    "name": "1+등급 특란 40구",
    "spec": [
     "※ 구성 : 1+ 특란 40구",
@@ -9914,7 +9914,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "난각",
-   "category": "축산",
+   "category": "",
    "name": "1+등급 특란 60구",
    "spec": [
     "※ 구성 : 1+ 특란 60구",
@@ -9936,7 +9936,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "여수",
-   "category": "수산",
+   "category": "",
    "name": "파백명란 500g+500g",
    "spec": [],
    "supplyPrice": 23000,
@@ -9952,7 +9952,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "홍어",
-   "category": "수산",
+   "category": "",
    "name": "흑산도 전통 홍어 500g",
    "spec": [
     "※ 삭힘정도에 따라 다른발주명 - 흑산도 전통 홍어 500g(초수) x n",
@@ -9972,7 +9972,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "군컬",
-   "category": "수산",
+   "category": "",
    "name": "명품 고주바 멸치 1박스",
    "spec": [],
    "supplyPrice": 13500,
@@ -9988,7 +9988,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "군컬",
-   "category": "수산",
+   "category": "",
    "name": "프리미엄 햇고바멸치 1박스",
    "spec": [],
    "supplyPrice": 13500,
@@ -10004,7 +10004,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "군컬",
-   "category": "수산",
+   "category": "",
    "name": "건중하새우포 1박스",
    "spec": [],
    "supplyPrice": 13000,
@@ -10020,7 +10020,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "디디",
-   "category": "축산",
+   "category": "",
    "name": "든든 우족사골세트 6kg급",
    "spec": [
     "※ 구성 : 한우 우족 / 사골 / 잡뼈",
@@ -10042,7 +10042,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "디디",
-   "category": "축산",
+   "category": "",
    "name": "든든 우족사골세트 12kg급",
    "spec": [
     "※ 구성 : 한우 우족 / 사골 / 잡뼈",
@@ -10064,7 +10064,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "디디",
-   "category": "축산",
+   "category": "",
    "name": "든든 우족사골세트 18kg급",
    "spec": [
     "※ 구성 : 한우 우족 / 사골 / 잡뼈",
@@ -10086,7 +10086,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "래음",
-   "category": "농산물",
+   "category": "",
    "name": "잎 제거 고구마순 1kg",
    "spec": [],
    "supplyPrice": 8500,
@@ -10102,7 +10102,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "래음",
-   "category": "농산물",
+   "category": "",
    "name": "잎 제거 고구마순 2kg",
    "spec": [],
    "supplyPrice": 13000,
@@ -10118,7 +10118,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "래음",
-   "category": "농산물",
+   "category": "",
    "name": "잎 제거 고구마순 3kg",
    "spec": [],
    "supplyPrice": 17000,
@@ -10134,7 +10134,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "참송",
-   "category": "농산물",
+   "category": "",
    "name": "가정용 참송이버섯 500g",
    "spec": [],
    "supplyPrice": 12500,
@@ -10150,7 +10150,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "고순",
-   "category": "수산",
+   "category": "",
    "name": "손질 반건조 열기 1kg",
    "spec": [],
    "supplyPrice": 20500,
@@ -10166,7 +10166,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "생고",
-   "category": "축산",
+   "category": "",
    "name": "투뿔 도가니 사골세트 5.8kg",
    "spec": [],
    "supplyPrice": 35000,
@@ -10182,7 +10182,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "인지",
-   "category": "수산",
+   "category": "",
    "name": "참치 오마카세 한판",
    "spec": [
     "※ 중량/사이즈 : 참다랑어 3-4번"
@@ -10200,7 +10200,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "제이",
-   "category": "수산",
+   "category": "",
    "name": "제주 순살갈치 5마리",
    "spec": [
     "※ 구성 : 제주 순살갈치 5마리",
@@ -10222,7 +10222,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "제이",
-   "category": "수산",
+   "category": "",
    "name": "제주 순살갈치 10마리",
    "spec": [
     "※ 구성 : 제주 순살갈치 10마리",
@@ -10244,7 +10244,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "군컬",
-   "category": "수산",
+   "category": "",
    "name": "여름보양 반건조 세트",
    "spec": [
     "※ 구성 : 민어 1미, 하모2미, 박대 5미",
@@ -10264,7 +10264,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "주첸",
-   "category": "수산",
+   "category": "",
    "name": "손질 절단꽃게 1.6kg",
    "spec": [
     "※ 구성 : 손질 절단꽃게 1.6kg",
@@ -10287,7 +10287,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "주첸",
-   "category": "수산",
+   "category": "",
    "name": "손질 절단꽃게 800g",
    "spec": [
     "※ 구성 : 손질 절단꽃게 800g",
@@ -10310,7 +10310,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "영합",
-   "category": "농산물",
+   "category": "",
    "name": "유기농 수미감자 10kg",
    "spec": [
     "※ 구성 : 유기농 수미감자",
@@ -10333,7 +10333,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "영합",
-   "category": "농산물",
+   "category": "",
    "name": "유기농 수미감자 5kg",
    "spec": [
     "※ 구성 : 유기농 수미감자",
@@ -10356,7 +10356,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "영합",
-   "category": "농산물",
+   "category": "",
    "name": "유기농 수미감자 3kg",
    "spec": [
     "※ 구성 : 유기농 수미감자",
@@ -10379,7 +10379,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "영합",
-   "category": "농산물",
+   "category": "",
    "name": "유기농 수미감자 2kg",
    "spec": [
     "※ 구성 : 유기농 수미감자",
@@ -10402,7 +10402,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "영합",
-   "category": "농산물",
+   "category": "",
    "name": "유기농 수미감자 1kg",
    "spec": [
     "※ 구성 : 유기농 수미감자",
@@ -10425,7 +10425,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "두근두근 세트 1.2kg",
    "spec": [
     "※ 구성 : 살치 1팩, 갈비 1팩, 부채 1팩, 등심 1팩, 우삼겹 1팩",
@@ -10446,7 +10446,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "푸짐 홈파티 세트",
    "spec": [
     "※ 구성 : 황제갈비살, 부채살, 토시살, 등심, 우삼겹, 스테이크소스, 허브솔트",
@@ -10466,7 +10466,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "마진",
-   "category": "수산",
+   "category": "",
    "name": "국내산 특왕 반건조 민어 5마리",
    "spec": [
     "※ 구성 : 특왕 반건조민어 5마리",
@@ -10488,7 +10488,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "인지",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 소암게 4kg",
    "spec": [
     "※ 구성 : 냉동 암꽃게 4kg",
@@ -10511,7 +10511,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "인지",
-   "category": "수산",
+   "category": "",
    "name": "연안 급냉 소숫게 4kg",
    "spec": [
     "※ 구성 : 냉동 숫꽃게 4kg",
@@ -10534,7 +10534,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "창원",
-   "category": "축산",
+   "category": "",
    "name": "1등급 한우 사골세트",
    "spec": [
     "※ 구성 : 사골 + 잡뼈 + 사태",
@@ -10556,7 +10556,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "과일",
-   "category": "과일",
+   "category": "",
    "name": "천도복숭아 특대 3kg",
    "spec": [
     "※ 구성 : 천도복숭아 3kg",
@@ -10578,7 +10578,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "과일",
-   "category": "과일",
+   "category": "",
    "name": "천도복숭아 특대 2kg",
    "spec": [
     "※ 구성 : 천도복숭아 2kg",
@@ -10600,7 +10600,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "과일",
-   "category": "과일",
+   "category": "",
    "name": "천도복숭아 대과 3kg",
    "spec": [
     "※ 구성 : 천도복숭아 3kg",
@@ -10622,7 +10622,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "과일",
-   "category": "과일",
+   "category": "",
    "name": "천도복숭아 대과 2kg",
    "spec": [
     "※ 구성 : 천도복숭아 2kg",
@@ -10644,7 +10644,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "과일",
-   "category": "과일",
+   "category": "",
    "name": "천도복숭아 대과 1kg",
    "spec": [
     "※ 구성 : 천도복숭아 1kg",
@@ -10666,7 +10666,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "김치",
-   "category": "김치·반찬",
+   "category": "",
    "name": "국내산 동치미 5kg",
    "spec": [
     "※ 구성 : 동치미 1팩",
@@ -10687,7 +10687,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "농작",
-   "category": "농산물",
+   "category": "",
    "name": "삶아가는 홍찰옥수수 10개",
    "spec": [
     "※ 구성 : 홍찰옥수수 1박스",
@@ -10710,7 +10710,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "된장",
-   "category": "가공식품",
+   "category": "",
    "name": "추억의 시래기 된장볼 4팩",
    "spec": [
     "※ 구성 : 시래기 된장볼 4팩",
@@ -10731,7 +10731,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "마진",
-   "category": "과일",
+   "category": "",
    "name": "개별 설탕 바나나 6kg",
    "spec": [],
    "supplyPrice": 14000,
@@ -10747,7 +10747,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "마진",
-   "category": "과일",
+   "category": "",
    "name": "개별 설탕 바나나 3kg",
    "spec": [],
    "supplyPrice": 9000,
@@ -10763,7 +10763,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "마진",
-   "category": "수산",
+   "category": "",
    "name": "특왕 보리굴비 5마리",
    "spec": [
     "※ 구성 : 특왕 보리굴비 5마리 1.2kg급",
@@ -10785,7 +10785,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "맛김",
-   "category": "김치·반찬",
+   "category": "",
    "name": "대쪽 이원욱 포기김치 5kg",
    "spec": [
     "※ 구성 : 포기김치",
@@ -10806,7 +10806,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "맛김",
-   "category": "김치·반찬",
+   "category": "",
    "name": "대쪽 이원욱 포기김치 10kg",
    "spec": [
     "※ 구성 : 포기김치",
@@ -10827,7 +10827,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "수갈",
-   "category": "수산",
+   "category": "",
    "name": "제주 은갈치 40미",
    "spec": [
     "※ 구성 : 제주 은갈치",
@@ -10849,7 +10849,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "수갈",
-   "category": "수산",
+   "category": "",
    "name": "제주 은갈치 20미",
    "spec": [
     "※ 구성 : 제주 은갈치",
@@ -10871,7 +10871,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "식음",
-   "category": "가공식품",
+   "category": "",
    "name": "평양냉면 10인분",
    "spec": [
     "※ 구성 : 메밀면 5팩 + 동치미 육수 10팩",
@@ -10891,7 +10891,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "식음",
-   "category": "가공식품",
+   "category": "",
    "name": "칡냉면 10인분",
    "spec": [
     "※ 구성 : 칡면 5팩 + 냉면 육수 10팩",
@@ -10911,7 +10911,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "여수",
-   "category": "김치·반찬",
+   "category": "",
    "name": "삼점 암꽃게장 1통",
    "spec": [
     "※ 구성 : 삼점 암꽃게장 2kg 1통",
@@ -10932,7 +10932,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "여수",
-   "category": "김치·반찬",
+   "category": "",
    "name": "삼점 암꽃게장 1+1",
    "spec": [
     "※ 구성 : 삼점 암꽃게장 2통",
@@ -10953,7 +10953,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "여수",
-   "category": "김치·반찬",
+   "category": "",
    "name": "동치미 5kg",
    "spec": [
     "※ 구성 : 동치미",
@@ -10974,7 +10974,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "우사",
-   "category": "축산",
+   "category": "",
    "name": "한우 우족사골세트 12kg급",
    "spec": [
     "※ 구성 : 한우 우족 / 사골 / 잡뼈",
@@ -10996,7 +10996,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "우사",
-   "category": "축산",
+   "category": "",
    "name": "한우 우족사골세트 6kg급",
    "spec": [
     "※ 구성 : 한우 우족 / 사골 / 잡뼈",
@@ -11018,7 +11018,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "자원",
-   "category": "수산",
+   "category": "",
    "name": "랜덤지리멸치밥새우 1박스",
    "spec": [
     "※ 구성 : 지리멸치밥새우 1박스",
@@ -11040,7 +11040,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "전라",
-   "category": "김치·반찬",
+   "category": "",
    "name": "전라도식 총각김치 10kg",
    "spec": [],
    "supplyPrice": 39000,
@@ -11056,7 +11056,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "전라",
-   "category": "김치·반찬",
+   "category": "",
    "name": "전라도식 총각김치 5kg",
    "spec": [
     "※ 구성 : 알타리 총각김치",
@@ -11076,7 +11076,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "쫄깃",
-   "category": "수산",
+   "category": "",
    "name": "통통 다듬이 홍합 4kg",
    "spec": [
     "※ 구성 : 다듬이 홍합",
@@ -11098,7 +11098,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "키움",
-   "category": "농산물",
+   "category": "",
    "name": "무농약 흑타리버섯 2kg",
    "spec": [
     "※ 구성 : 흑타리버섯 1박스",
@@ -11121,7 +11121,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "완전",
-   "category": "수산",
+   "category": "",
    "name": "특대 9-10미 전복 선물세트",
    "spec": [
     "※ 구성 : 참전복 1kg / 손질용 칼 1개",
@@ -11144,7 +11144,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "완전",
-   "category": "수산",
+   "category": "",
    "name": "특대 9-10미 전복 선물세트 2kg",
    "spec": [
     "※ 구성 : 참전복 2kg / 손질용 칼 1개",
@@ -11167,7 +11167,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "디디",
-   "category": "축산",
+   "category": "",
    "name": "프리미엄 LA꽃갈비 2kg 선물세트",
    "spec": [],
    "supplyPrice": 51000,
@@ -11183,7 +11183,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "한우",
-   "category": "축산",
+   "category": "",
    "name": "한우 투쁠 가족 선물세트",
    "spec": [
     "※ 구성 : 불고기, 양지국거리",
@@ -11205,7 +11205,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "한우",
-   "category": "축산",
+   "category": "",
    "name": "한우 투뿔 알찬 가족 선물세트",
    "spec": [],
    "supplyPrice": 79000,
@@ -11221,7 +11221,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "한우",
-   "category": "축산",
+   "category": "",
    "name": "한우 꽃등심 선물세트",
    "spec": [
     "※ 구성 : 한우 꽃등심 1kg",
@@ -11243,7 +11243,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "한우",
-   "category": "축산",
+   "category": "",
    "name": "한우 투쁠 꽃등심 선물세트",
    "spec": [
     "※ 구성 : 투쁠 꽃등심 1kg",
@@ -11265,7 +11265,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "한우",
-   "category": "축산",
+   "category": "",
    "name": "한우 투쁠 명작 선물세트",
    "spec": [
     "※ 구성 : 등심 600g / 채끝살 200g / 특수부위 200g (치마, 제비추리, 부채, 살치 랜덤)",
@@ -11287,7 +11287,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "한우",
-   "category": "축산",
+   "category": "",
    "name": "한우 투쁠 명품 선물세트",
    "spec": [
     "※ 구성 : 등심 600g / 갈비살 200g / 특수부위 200g (치마, 제비추리, 부채, 살치 랜덤)",
@@ -11309,7 +11309,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "떡",
-   "category": "가공식품",
+   "category": "",
    "name": "전통 떡 선물세트",
    "spec": [
     "※ 구성 : 찹쌀떡 1박스, 콩고물 인절미 1박스, 흑임자 인절미 1박스",
@@ -11330,7 +11330,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "떡",
-   "category": "가공식품",
+   "category": "",
    "name": "정성담은 인절미 3종 선물세트",
    "spec": [
     "※ 구성 : 오디 인절미 1박스, 콩고물 인절미 1박스, 흑임자 인절미 1박스",
@@ -11351,7 +11351,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "떡",
-   "category": "가공식품",
+   "category": "",
    "name": "프리미엄 떡 선물세트",
    "spec": [
     "※ 구성 : 찹쌀떡 1박스, 인절미 1박스, 쑥개떡 1박스",
@@ -11372,7 +11372,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "영광",
-   "category": "수산",
+   "category": "",
    "name": "VIP 굴비 선물세트",
    "spec": [
     "※ 구성 : VIP 굴비 선물세트",
@@ -11394,7 +11394,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "영광",
-   "category": "수산",
+   "category": "",
    "name": "프리미엄 영광굴비 선물세트",
    "spec": [
     "※ 구성 : 프리미엄 영광굴비 선물세트",
@@ -11416,7 +11416,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "민장",
-   "category": "수산",
+   "category": "",
    "name": "특왕 민물장어 선물세트",
    "spec": [
     "※ 구성 : 민물장어, 소스 2종, 생강 30g",
@@ -11436,7 +11436,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "민장",
-   "category": "수산",
+   "category": "",
    "name": "프리미엄 민물장어 선물세트",
    "spec": [
     "※ 구성 : 프리미엄 민물장어, 소스 2종, 생강",
@@ -11457,7 +11457,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "한돈",
-   "category": "축산",
+   "category": "",
    "name": "초이스 LA꽃갈비 2kg 선물세트",
    "spec": [
     "※ 구성 : 탑초이스급 LA꽃갈비 1팩",
