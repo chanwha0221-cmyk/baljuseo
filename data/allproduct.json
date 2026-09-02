@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-02 15:38",
+ "updatedAt": "2026-09-02 15:50",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -93,6 +93,52 @@
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/056/393/025/4d21e543c8d0ec2adca64775b17423cc.jpg",
    "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "인천",
+   "category": "수산",
+   "name": "연안 갓성비 암게 1kg",
+   "spec": [
+    "※ 구성 : 활 암꽃게 1kg",
+    "※ 중량/ 사이즈 : 1kg/3~6미",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 활 암꽃게 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 특이사항 : 대사작용으로 인한 감량 10%내외 있을 수 있음"
+   ],
+   "supplyPrice": 7500,
+   "previousPrice": 8000,
+   "tax": "면세",
+   "courier": "우체국택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/639/666/022/b7b987b26138fd31c14f161d7886e322.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "싱생",
+   "category": "수산",
+   "name": "수생 흰다리새우 500g",
+   "spec": [
+    "※ 구성 : 흰다리새우 1팩",
+    "※ 중량/ 사이즈 : 500g 내외 / 22미 내외(실중량 400g 이상)",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 흰다리새우 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 특이사항 : 생물 자연감량 20% 발생할 수 있습니다."
+   ],
+   "supplyPrice": 8000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 4000,
+   "orderCutoff": "오후마감 : 14시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/378/395/025/0750f27e88c76adcbcc5a8b6b8599b36.jpg",
+   "note": "-창고명 변경 : 싱싱 > 싱생"
   },
   {
    "warehouse": "당일생물",
@@ -501,52 +547,6 @@
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/137/308/025/b2d94c316ed3462b587643152640a35e.jpg",
    "note": "오픈마켓 판매 불가"
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 갓성비 암게 1kg",
-   "spec": [
-    "※ 구성 : 활 암꽃게 1kg",
-    "※ 중량/ 사이즈 : 1kg/3~6미",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 활 암꽃게 100%",
-    "※ 포장방식 : 비닐포장",
-    "※ 특이사항 : 대사작용으로 인한 감량 10%내외 있을 수 있음"
-   ],
-   "supplyPrice": 7500,
-   "previousPrice": 8000,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/639/666/022/b7b987b26138fd31c14f161d7886e322.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "싱생",
-   "category": "수산",
-   "name": "수생 흰다리새우 500g",
-   "spec": [
-    "※ 구성 : 흰다리새우 1팩",
-    "※ 중량/ 사이즈 : 500g 내외 / 22미 내외(실중량 400g 이상)",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 흰다리새우 100%",
-    "※ 포장방식 : 비닐포장",
-    "※ 특이사항 : 생물 자연감량 20% 발생할 수 있습니다."
-   ],
-   "supplyPrice": 8000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/378/395/025/0750f27e88c76adcbcc5a8b6b8599b36.jpg",
-   "note": "-창고명 변경 : 싱싱 > 싱생"
   },
   {
    "warehouse": "당일생물",
@@ -3297,6 +3297,29 @@
    "warehouse": "인천",
    "sourceWarehouse": "인천",
    "category": "수산",
+   "name": "연안 급냉 갓성비 암게 1kg",
+   "spec": [
+    "※ 구성 : 냉동 암꽃게 1kg",
+    "※ 중량/ 사이즈 : 1kg/3~6미",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 냉동 암꽃게 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 특이사항 : 수율 60~70%"
+   ],
+   "supplyPrice": 7000,
+   "previousPrice": 7500,
+   "tax": "면세",
+   "courier": "우체국택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/208/182/023/b3086e19315590d3211dcf0728264338.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "인천",
+   "sourceWarehouse": "인천",
+   "category": "수산",
    "name": "연안 연어 스테이크 200g",
    "spec": [
     "※ 구성 : 냉동 생연어 200g",
@@ -3935,29 +3958,6 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/949/689/006/b2d4172ae8ce70bf72fd8247d4e112f1.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "인천",
-   "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 급냉 갓성비 암게 1kg",
-   "spec": [
-    "※ 구성 : 냉동 암꽃게 1kg",
-    "※ 중량/ 사이즈 : 1kg/3~6미",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 냉동 암꽃게 100%",
-    "※ 포장방식 : 비닐포장",
-    "※ 특이사항 : 수율 60~70%"
-   ],
-   "supplyPrice": 7000,
-   "previousPrice": 7500,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/208/182/023/b3086e19315590d3211dcf0728264338.jpg",
    "note": ""
   },
   {
@@ -4662,6 +4662,52 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
+   "category": "축산",
+   "name": "맛상 소왕구이 10대",
+   "spec": [
+    "※ 구성 : 맛상 소왕구이",
+    "※ 중량/ 사이즈 : 1kg / 10대",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 소정육(호주산)49%, 소갈비뼈(미국산)11%, 몽고간장(탈지대두(인도, 미국, 중국), 천일염(호주), 소맥카라멜색소(천연첨가물))5.4%, 설탕, 물엿, 옥수수전분(러시아), 소주, 미향, 후추(천연향신료(베트남)), 땅콩, L-글루탐산나트륨(향미증진제), 참깨(인도산), 참기름(인도산), 푸드바인드(난백(프랑스, 중국), 감자전분(독일, 덴마크)), 파인애플, 마늘, 양파, 배",
+    "※ 포장방식 : 트레이포장",
+    "※ 기타 : -18˚C 이하 냉동보관"
+   ],
+   "supplyPrice": 19000,
+   "previousPrice": 0,
+   "tax": "과세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/098/815/022/32eb6db3c3fc5a4a19491a710eea6149.jpg",
+   "note": "-경기창고"
+  },
+  {
+   "warehouse": "경기",
+   "sourceWarehouse": "경기",
+   "category": "가공식품",
+   "name": "맛상 낙지호롱 900g",
+   "spec": [
+    "※ 구성 : 낙지호롱",
+    "※ 중량/사이즈 : 900g(21~30EA)",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 낙지 100%",
+    "※ 포장방식 : 비닐실링",
+    "※ 기타 : -18˚C 이하 냉동보관"
+   ],
+   "supplyPrice": 13400,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/067/389/008/340d1ad712165a8defe3d2eee33b35c0.jpg",
+   "note": "-경기창고"
+  },
+  {
+   "warehouse": "경기",
+   "sourceWarehouse": "경기",
    "category": "가공식품",
    "name": "도가니곰탕 600g",
    "spec": [
@@ -5047,29 +5093,6 @@
    "warehouse": "경기",
    "sourceWarehouse": "경기",
    "category": "축산",
-   "name": "맛상 소왕구이 10대",
-   "spec": [
-    "※ 구성 : 맛상 소왕구이",
-    "※ 중량/ 사이즈 : 1kg / 10대",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 소정육(호주산)49%, 소갈비뼈(미국산)11%, 몽고간장(탈지대두(인도, 미국, 중국), 천일염(호주), 소맥카라멜색소(천연첨가물))5.4%, 설탕, 물엿, 옥수수전분(러시아), 소주, 미향, 후추(천연향신료(베트남)), 땅콩, L-글루탐산나트륨(향미증진제), 참깨(인도산), 참기름(인도산), 푸드바인드(난백(프랑스, 중국), 감자전분(독일, 덴마크)), 파인애플, 마늘, 양파, 배",
-    "※ 포장방식 : 트레이포장",
-    "※ 기타 : -18˚C 이하 냉동보관"
-   ],
-   "supplyPrice": 19000,
-   "previousPrice": 0,
-   "tax": "과세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/098/815/022/32eb6db3c3fc5a4a19491a710eea6149.jpg",
-   "note": "-경기창고"
-  },
-  {
-   "warehouse": "경기",
-   "sourceWarehouse": "경기",
-   "category": "축산",
    "name": "맛상 양 티본 스테이크 500g",
    "spec": [
     "※ 구성 : 양티본 스테이크 500g 1팩 / 4~6덩이 내외 / 두께 1.5cm~2cm 내외",
@@ -5269,29 +5292,6 @@
    "shelfLife": "28-05-22",
    "image": "https://masterc.co.kr/files/attach/images/8333658/972/159/012/200d46cb738de793a530bea83b4d0450.jpg",
    "note": "하남 > 경기"
-  },
-  {
-   "warehouse": "경기",
-   "sourceWarehouse": "경기",
-   "category": "가공식품",
-   "name": "맛상 낙지호롱 900g",
-   "spec": [
-    "※ 구성 : 낙지호롱",
-    "※ 중량/사이즈 : 900g(21~30EA)",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 낙지 100%",
-    "※ 포장방식 : 비닐실링",
-    "※ 기타 : -18˚C 이하 냉동보관"
-   ],
-   "supplyPrice": 13400,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/067/389/008/340d1ad712165a8defe3d2eee33b35c0.jpg",
-   "note": "-경기창고"
   },
   {
    "warehouse": "경기",
@@ -10702,6 +10702,54 @@
   },
   {
    "warehouse": "단독(무)",
+   "sourceWarehouse": "래음",
+   "category": "농산물",
+   "name": "케일 1kg",
+   "spec": [
+    "※ 구성 : 케일 1박스",
+    "※ 중량/사이즈 : 1kg / 중량 우선",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 케일 100%",
+    "※ 포장방식 : 아이스박스 + 비닐",
+    "※ 특이사항 :",
+    "※ 여름철 폭염으로 인해 작업 시간이 늦어져 익일 출고될 수 있습니다."
+   ],
+   "supplyPrice": 13500,
+   "previousPrice": 11000,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 0,
+   "orderCutoff": "오전마감 : 10시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/633/557/024/3f2743bb3e52f559d7a2ad7d773e3e24.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(무)",
+   "sourceWarehouse": "래음",
+   "category": "농산물",
+   "name": "케일 2kg",
+   "spec": [
+    "※ 구성 : 케일 1박스",
+    "※ 중량/사이즈 : 2kg / 중량 우선",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 케일 100%",
+    "※ 포장방식 : 아이스박스 + 비닐",
+    "※ 특이사항 :",
+    "※ 여름철 폭염으로 인해 작업 시간이 늦어져 익일 출고될 수 있습니다."
+   ],
+   "supplyPrice": 21500,
+   "previousPrice": 16500,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 0,
+   "orderCutoff": "오전마감 : 10시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/630/579/024/ac5911fdf660e5f9868be1beadf6da90.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(무)",
    "sourceWarehouse": "여수",
    "category": "김치·반찬",
    "name": "동치미 5kg",
@@ -11193,54 +11241,6 @@
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/025/244/025/d866b3154c1f5c37985e308629acd199.jpg",
    "note": "상황에 따라 익일 출고가 어려울 수 있으며, 배송 일정이 다소 지연될 수 있습니다.\r\n지연배송건 처리 어려운점 참고 부탁드립니다."
-  },
-  {
-   "warehouse": "단독(무)",
-   "sourceWarehouse": "래음",
-   "category": "농산물",
-   "name": "케일 1kg",
-   "spec": [
-    "※ 구성 : 케일 1박스",
-    "※ 중량/사이즈 : 1kg / 중량 우선",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 케일 100%",
-    "※ 포장방식 : 아이스박스 + 비닐",
-    "※ 특이사항 :",
-    "※ 여름철 폭염으로 인해 작업 시간이 늦어져 익일 출고될 수 있습니다."
-   ],
-   "supplyPrice": 13500,
-   "previousPrice": 11000,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 0,
-   "orderCutoff": "오전마감 : 10시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/633/557/024/3f2743bb3e52f559d7a2ad7d773e3e24.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "단독(무)",
-   "sourceWarehouse": "래음",
-   "category": "농산물",
-   "name": "케일 2kg",
-   "spec": [
-    "※ 구성 : 케일 1박스",
-    "※ 중량/사이즈 : 2kg / 중량 우선",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 케일 100%",
-    "※ 포장방식 : 아이스박스 + 비닐",
-    "※ 특이사항 :",
-    "※ 여름철 폭염으로 인해 작업 시간이 늦어져 익일 출고될 수 있습니다."
-   ],
-   "supplyPrice": 21500,
-   "previousPrice": 16500,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 0,
-   "orderCutoff": "오전마감 : 10시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/630/579/024/ac5911fdf660e5f9868be1beadf6da90.jpg",
-   "note": ""
   },
   {
    "warehouse": "단독(무)",
