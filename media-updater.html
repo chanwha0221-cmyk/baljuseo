@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.28</title>
+<title>마스터 유통 상품 도구 v1.29</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1788,19 +1788,43 @@ async function initClose(){
 }
 // 계산해 보기 — 쓰지 않고 결과만 보여준다. 눈으로 확인한 뒤에 채운다.
 /* 📋 원가 시트 주소 복사 — 다른 도구/메시지에 "원가는 여기서 확인하세요" 하고 붙일 주소.
-   토스트가 없는 화면이라 버튼 글자를 잠깐 바꿔서 됐다는 걸 알린다. */
+   토스트가 없는 화면이라 버튼 글자를 잠깐 바꿔서 됐다는 걸 알린다.
+   🔴 복사는 실패하는 길이 여럿이다(권한 거부·비보안 컨텍스트·구형 브라우저). 그래서 3단으로 막는다:
+      ① navigator.clipboard → ② textarea + execCommand → ③ prompt 로 주소를 띄워 직접 긁게
+      **주소를 못 얻고 끝나는 경우는 없어야 한다.** 주소 따려고 누른 버튼이니까. */
 (function(){
   const b=$c('clCostCopy'); if(!b)return;
+  function legacyCopy(t){
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=t;
+      ta.setAttribute('readonly','');
+      ta.style.cssText='position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+      document.body.appendChild(ta);
+      ta.select(); ta.setSelectionRange(0,t.length);
+      const ok=document.execCommand('copy');
+      ta.remove();
+      return ok;
+    }catch(e){ return false; }
+  }
   b.onclick=function(){
     const url=COSTURL||('https://docs.google.com/spreadsheets/d/'+DOGU+'/edit');
     const done=function(msg){
-      const old=b.textContent; b.textContent=msg;
-      setTimeout(function(){ b.textContent=old; },1600);
+      const old='📋 원가 시트 주소 복사';
+      b.textContent=msg;
+      setTimeout(function(){ b.textContent=old; },1800);
+    };
+    const fallback=function(){
+      if(legacyCopy(url)){ done('✅ 복사했습니다'); return; }
+      // 마지막 수단 — 적어도 눈앞에 띄워서 Ctrl+C 는 되게 한다
+      try{ window.prompt('아래 주소를 복사하세요 (Ctrl+C)', url); }catch(e){}
+      done('📋 주소를 띄웠습니다');
     };
     try{
-      navigator.clipboard.writeText(url).then(function(){ done('✅ 복사했습니다'); },
-                                             function(){ done('⚠️ 복사 실패 — 옆 버튼으로 열어서 주소창을 쓰세요'); });
-    }catch(e){ done('⚠️ 복사 실패 — 옆 버튼으로 열어서 주소창을 쓰세요'); }
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(url).then(function(){ done('✅ 복사했습니다'); }, fallback);
+      }else fallback();
+    }catch(e){ fallback(); }
   };
 })();
 
