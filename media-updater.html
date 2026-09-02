@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.25</title>
+<title>마스터 유통 상품 도구 v1.26</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -36,6 +36,12 @@ a{color:var(--accent)}
 .ci select{border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:12px;background:var(--card);color:var(--ink);max-width:130px}
 .ci.unset select{border-color:#d6a34a;background:color-mix(in srgb,#d6a34a 8%,var(--card))}
 .ci input[type=checkbox]{flex:none;width:15px;height:15px;accent-color:var(--accent)}
+/* 📢 공지 제목도 고칠 수 있어야 한다 (홍팀장 2026-09-02) — 오타 하나 때문에 지웠다 다시 쓰지 않게.
+   평소엔 테두리 없이 제목처럼 보이고, 올리거나 누르면 입력칸으로 드러난다. */
+.nctit{flex:1;min-width:150px;font-size:13px;font-weight:700;font-family:inherit;color:var(--ink);
+  border:1px solid transparent;border-radius:7px;padding:4px 7px;background:transparent}
+.nctit:hover{border-color:var(--line)}
+.nctit:focus{border-color:var(--accent);background:var(--card);outline:none}
 .ct-bulk,.ct-mg{display:flex;gap:8px;align-items:center;margin:0 0 8px;flex-wrap:wrap}
 .ct-mg{margin:10px 0 0}
 .ct-bulk label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap}
@@ -1320,7 +1326,8 @@ function notDraw(){
   if(!NOT.length){$p('ncRows').innerHTML='<div class="ci" style="color:var(--muted)">등록된 공지가 없습니다.</div>';return;}
   $p('ncRows').innerHTML=NOT.map((n,i)=>
     '<div class="ci" style="flex-wrap:wrap;row-gap:6px;align-items:flex-start">'
-    +'<b style="flex:1;min-width:150px;font-size:13px">'+(n.imp?'<span style="color:#c0392b">[중요] </span>':'')+esc(n.title)+'</b>'
+    +(n.imp?'<span style="color:#c0392b;font-size:13px;font-weight:700;flex:none">[중요]</span>':'')
+    +'<input class="nctit" data-nc="title" data-i="'+i+'" value="'+esc(n.title)+'" placeholder="공지 제목">'
     +'<span style="font-size:11px;color:var(--muted)">'+esc(n.at)+'</span>'
     +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-nc="imp" data-i="'+i+'"'+(n.imp?' checked':'')+'>중요</label>'
     +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-nc="show" data-i="'+i+'"'+(n.show?' checked':'')+'>노출</label>'
@@ -1334,8 +1341,9 @@ $p('ncRows').addEventListener('click',function(ev){
   if(confirm('"'+NOT[i].title+'" 공지를 지울까요?')){NOT.splice(i,1);notDraw();}
 });
 $p('ncRows').addEventListener('input',function(ev){
-  const b=ev.target.closest('[data-nc="body"]'); if(!b)return;
-  NOT[+b.getAttribute('data-i')].body=b.value;
+  const b=ev.target.closest('[data-nc="body"],[data-nc="title"]'); if(!b)return;
+  const i=+b.getAttribute('data-i');
+  if(b.getAttribute('data-nc')==='title')NOT[i].title=b.value; else NOT[i].body=b.value;
 });
 $p('ncRows').addEventListener('change',function(ev){
   const b=ev.target.closest('[data-nc]'); if(!b)return;
@@ -1351,6 +1359,9 @@ $p('ncAdd').onclick=function(){
   notDraw();$p('ncLog').textContent='등록했습니다 — 저장을 눌러야 반영됩니다.';
 };
 $p('ncSave').onclick=async function(){
+  // 제목이 빈 공지는 저장해도 다시 못 읽어온다(불러올 때 제목 없는 행은 버린다) — 저장을 막아 유실을 막는다
+  const empty=NOT.findIndex(n=>!t(n.title));
+  if(empty>=0){ $p('ncLog').textContent='⚠️ '+(empty+1)+'번째 공지의 제목이 비어 있습니다. 제목을 채워주세요.'; return; }
   const b=this;b.disabled=true;b.textContent='저장 중…';$p('ncLog').textContent='';
   try{
     await writeTab('공지사항',{end:'E',length:5},NOT.map(n=>[n.title,n.body,n.show?'Y':'N',n.imp?'Y':'N',n.at||day()]),NOTN);
