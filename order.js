@@ -141,16 +141,35 @@ const ageOf    = nm => { const m = S(nm).match(AGE_RE); return m ? m[1] : ''; };
 const stripAge = nm => S(nm).replace(AGE_RE, '').trim();
 const withAge  = (nm, age) => age ? (stripAge(nm) + ' (' + age + ')') : stripAge(nm);
 
+/* 🐟 카탈로그에서 내렸지만 발주는 받아주는 상품 (홍팀장 2026-09-02).
+   '몸뱃살'은 뱃살 위주로 나가되 100% 뱃살이 아니다 — 그렇게 커팅이 안 된다고 한다.
+   "뱃살 시켰는데 등살·꼬리살 왜 오냐"는 항의가 반복돼 **옵션을 아예 내렸는데**,
+   그걸 감안하고라도 넣겠다는 업체가 아직 있다.
+   → 이 이름으로 들어오면 발주를 받아주되, 무엇을 감안하는 것인지 화면에 한 줄 띄운다.
+   ⚠️ 후보·검색 목록에는 **띄우지 않는다.** 골라 담으라고 내미는 물건이 아니라,
+      아는 업체가 이름을 정확히 적어 넣을 때만 통과하는 물건이다. */
+const OFFCAT = [
+  {name:'연안 몸뱃살연어 1kg',  wh:'인천'},
+  {name:'연안 몸뱃살연어 500g', wh:'인천'},
+];
+const OFFCAT_NOTE = '뱃살 위주로 나가지만 100% 뱃살은 아닙니다 — 등살·꼬리살이 섞일 수 있습니다. 그대로 받으시는 조건으로 발주를 받습니다.';
+function offcat(raw){
+  const k = pkey(S(raw));
+  const m = OFFCAT.find(o => pkey(o.name) === k);
+  return m ? {name:m.name, group:m.wh, offcat:true} : null;
+}
+
 function findProd(raw){
   const idx = prodIndex();
   const t = S(raw);
   if(!t) return {p:null, cands:[]};
-  let p = idx.get(pkey(t));
+  const hit = k => idx.get(pkey(k)) || offcat(k);
+  let p = hit(t);
   if(p) return {p, cands:[]};
   const a = stripAge(t);                                    // 🐟 뒤에 붙은 삭힘정도는 떼고 상품을 찾는다
-  if(a !== t){ p = idx.get(pkey(a)); if(p) return {p, cands:[]}; }
+  if(a !== t){ p = hit(a); if(p) return {p, cands:[]}; }
   const s = stripWh(a);
-  if(s){ p = idx.get(pkey(s)); if(p) return {p, cands:[]}; }
+  if(s){ p = hit(s); if(p) return {p, cands:[]}; }
   return {p:null, cands:candidates(a)};
 }
 /* 🚫 오늘 못 파는 물건인가 — 후보·검색 어디에도 띄우지 않는다 (홍팀장 2026-09-01).
@@ -226,6 +245,9 @@ function checkRow(r){
      경고로 두면 그냥 지나쳐 발주가 나가버린다 — 막는다. */
   else if(needAge(p.name) && !ageOf(r.name))
     errs.push('🐟 삭힘정도를 골라주세요 — 삭힘정도가 없으면 출고되지 않습니다.');
+
+  // 🐟 카탈로그에서 내린 상품을 받아주는 경우 — 무엇을 감안하는 것인지 그 자리에서 알린다
+  if(p && p.offcat) warns.push('ℹ️ ' + OFFCAT_NOTE);
 
   const q = parseInt(D(r.qty), 10);
   if(!S(r.qty)) errs.push('수량을 넣어주세요.');
