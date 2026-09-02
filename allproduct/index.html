@@ -471,11 +471,11 @@ function bumpViewCounter(){
   const total=$('roViewsImg'), today=$('roViewsTodayImg');
   if(total){
     total.onerror=()=>{ $('roViewsWrap').style.display='none'; };
-    total.src='https://visitor-badge.laobi.icu/badge?page_id=master-allproduct-live&color=b5720a';
+    total.src='https://visitor-badge.laobi.icu/badge?page_id=mv-cat-0902&color=b5720a';
   }
   if(today){
     today.onerror=()=>{ $('roViewsTodayWrap').style.display='none'; };
-    today.src='https://visitor-badge.laobi.icu/badge?page_id=master-allproduct-live-daily-'+kstDateKey()+'&color=1f8f63';
+    today.src='https://visitor-badge.laobi.icu/badge?page_id=mv-cat-0902-daily-'+kstDateKey()+'&color=1f8f63';
   }
   if(stat){
     const n=selfViews(1);
