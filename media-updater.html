@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.27</title>
+<title>마스터 유통 상품 도구 v1.28</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1764,7 +1764,14 @@ async function matId(){
 async function initClose(){
   const st=$c('clStat'); if(st)st.textContent='불러오는 중…';
   try{
-    showStamp(await costStamp());
+    const stamp=await costStamp();
+    showStamp(stamp);
+    /* 🔴 원가 시트 주소는 마찬 월 시트와 상관없다 — 월 시트 ID가 없어 아래에서 멈추더라도
+       여기까지는 항상 채운다. 주소만 따러 온 날에 빈 버튼이 있으면 안 된다. */
+    COSTURL=await costSheetUrl();
+    const cl=$c('clCostLink'); if(cl)cl.href=COSTURL;
+    const ca=$c('clCostAt');
+    if(ca)ca.textContent=stamp?('원가표 반영 '+stamp):'원가표 반영 기록 없음';
     MATID=await matId();
     if(!MATID){ if(st)st.innerHTML='<b style="color:#c0392b">마찬 월 시트 ID가 없습니다 — 비서에서 먼저 저장해 주세요</b>'; return; }
     const m=await S.api(MATID,'?fields=properties.title,sheets.properties.title');
@@ -1780,6 +1787,23 @@ async function initClose(){
   }catch(e){ if(st)st.innerHTML='<b style="color:#c0392b">⚠️ '+esc(e.message)+'</b>'; }
 }
 // 계산해 보기 — 쓰지 않고 결과만 보여준다. 눈으로 확인한 뒤에 채운다.
+/* 📋 원가 시트 주소 복사 — 다른 도구/메시지에 "원가는 여기서 확인하세요" 하고 붙일 주소.
+   토스트가 없는 화면이라 버튼 글자를 잠깐 바꿔서 됐다는 걸 알린다. */
+(function(){
+  const b=$c('clCostCopy'); if(!b)return;
+  b.onclick=function(){
+    const url=COSTURL||('https://docs.google.com/spreadsheets/d/'+DOGU+'/edit');
+    const done=function(msg){
+      const old=b.textContent; b.textContent=msg;
+      setTimeout(function(){ b.textContent=old; },1600);
+    };
+    try{
+      navigator.clipboard.writeText(url).then(function(){ done('✅ 복사했습니다'); },
+                                             function(){ done('⚠️ 복사 실패 — 옆 버튼으로 열어서 주소창을 쓰세요'); });
+    }catch(e){ done('⚠️ 복사 실패 — 옆 버튼으로 열어서 주소창을 쓰세요'); }
+  };
+})();
+
 $c('clPrev').onclick=async function(){
   const b=this, tab=$c('clDay').value, log=h=>{$c('clLog').innerHTML=h;};
   if(!MATID||!tab)return alert('먼저 날짜 탭을 골라주세요.');
