@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.6</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.7</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -844,25 +844,35 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
     var pn=$('dm-prodname'); if(pn){ pn.value=one.n; try{DM.setProd();}catch(e){} }
     var b=$('dm-brand'); if(b&&!b.value&&BRAND) b.value=BRAND;
     /* 🚧 "작업이 되는 중" 화면 (홍팀장 2026-09-03).
-       상품 글 창은 **카탈로그가 버튼 누를 때 같이 열어놨다** — 여기서 또 누르게 하지 않는다.
-       남은 건 소스를 복사해 오는 것뿐이라 그 한 가지만 크게 띄우고, 주소도 박아 보여준다. */
+       ⚠️ 상품 글 창은 여기서 연다 — 카탈로그에서 한 번에 두 창을 열려고 했더니 크롬이 막았다.
+          업체들은 게시판에 이미 가입·로그인돼 있으므로, 열리기만 하면 사진이 그대로 보인다
+          (로그인 상태로 실측: 사진 21장·203KB). 열자마자 자동으로 한 번 시도하고,
+          팝업이 막히면 버튼이 그대로 남아 사람이 누르면 된다. */
     $('dm-pickmsg').innerHTML='<div style="font-size:14px;font-weight:800;color:#1a1816;margin-bottom:4px">'
       +'🚧 「'+String(one.n).replace(/</g,'&lt;')+'」 상세페이지 만드는 중</div>'
       +'<div style="font-size:11.5px;color:#888;margin-bottom:8px;word-break:break-all">📄 상품 글 <b>'
-      +String(one.u||'(링크 없음)').replace(/</g,'&lt;')+'</b>'
-      +(one.u?' <button class="dm-relink" style="border:1px solid #ccc;background:#fff;border-radius:5px;font-size:10.5px;padding:1px 6px;cursor:pointer;font-family:inherit">다시 열기</button>':'')
-      +'</div>'
+      +String(one.u||'(링크 없음)').replace(/</g,'&lt;')+'</b></div>'
       +'<div id="dm-steps" style="line-height:2;color:#333">'
-      +'<div>✅ <b>①</b> 상품 글 창을 열어뒀습니다</div>'
-      +'<div id="dm-s2">👉 <b>②</b> 그 창에서 <b>로그인</b> → <b>Ctrl+U</b> → <b>Ctrl+A</b> · <b>Ctrl+C</b></div>'
+      +'<div id="dm-s1">'+(one.u?'<button class="dm-relink" style="width:100%;padding:10px;border:0;border-radius:8px;'
+        +'background:#0d6efd;color:#fff;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit">'
+        +'📄 ① 상품 글 열기</button>':'')+'</div>'
+      +'<div id="dm-s2">👉 <b>②</b> 열린 창에서 <b>Ctrl+U</b> → <b>Ctrl+A</b> · <b>Ctrl+C</b>'
+        +' <span style="color:#999">(게시판 로그인이 안 돼 있으면 먼저 로그인)</span></div>'
       +'<div id="dm-s3">👉 <b>③</b> 아래 <b>①</b> 칸에 <b>Ctrl+V</b> — 붙여넣으면 <b>바로 만들어집니다</b></div>'
       +'</div>'
       +'<div style="margin-top:6px;color:#999">상품명·브랜드는 미리 채워뒀습니다.</div>';
-    var rl=document.querySelector('.dm-relink');
-    if(rl) rl.onclick=function(){
+    var openIt=function(auto){
       var w=window.open(one.u,'_blank','noopener');
-      if(!w) alert('브라우저가 새 창을 막았습니다. 주소창 오른쪽의 팝업 차단을 허용해 주세요.\n\n'+one.u);
+      var s1=$('dm-s1');
+      // noopener 를 쓰면 열려도 null 이 돌아온다 — 열렸는지 여부로 문구를 바꾸지 않는다
+      if(s1&&!auto) s1.innerHTML='✅ <b>①</b> 상품 글 창을 열었습니다 '
+        +'<button class="dm-relink" style="border:1px solid #ccc;background:#fff;border-radius:5px;font-size:10.5px;padding:1px 6px;cursor:pointer;font-family:inherit">다시 열기</button>';
+      var r2=document.querySelector('.dm-relink'); if(r2) r2.onclick=function(){ openIt(false); };
     };
+    var rl=document.querySelector('.dm-relink');
+    if(rl) rl.onclick=function(){ openIt(false); };
+    // 열자마자 자동으로 한 번 — 막히면 위 버튼이 그대로 남는다
+    if(one.u) setTimeout(function(){ try{ openIt(true); }catch(e){} }, 250);
     if(!one.u) $('dm-steps').innerHTML='<div style="color:#c0392b">이 상품은 상세 링크가 없습니다 — 상품 글 소스를 아래 ① 칸에 직접 붙여넣어 주세요.</div>';
     /* ⚡ 붙여넣는 즉시 만든다 — [⚡ 상세페이지 생성] 을 또 누르게 하지 않는다.
        ⚠️ paste 이벤트는 **값이 들어가기 전에** 뜬다 → 다음 틱에 읽는다.
