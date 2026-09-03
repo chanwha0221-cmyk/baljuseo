@@ -125,7 +125,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v3.6</span>
+  <span class="ver">v3.7</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
@@ -262,7 +262,7 @@
 <script>
 //=================== 설정 ===================
 const TEAMS = ["토끼","거북","기린","여우","하마","고양","늑대"];
-const K_ENTRIES='sqm_entries_v1', K_HOLD='sqm_holding_v1', K_LOG='sqm_deletelog_v1', K_SEQ='sqm_seq_v1';
+const K_ENTRIES='sqm_entries_v1', K_HOLD='sqm_holding_v1', K_SEQ='sqm_seq_v1';
 const K_DIRTY='sqm_dirty_v1';   // 시트 저장 완료 전이면 '1' (새로고침 롤백 방지용)
 
 // ── 구글 시트(수량 리더 시트) 직접 연동 — secretary/식봄ERP와 동일 서비스계정 ──
@@ -275,7 +275,7 @@ const SH_INPUT='입력 시트', SH_STATUS='현황판', SH_LOG='삭제 로그', S
 let entries = [];      // {seq, time, team, wh, it, qty}
 let holdingMap = {};   // "wh||it" -> 수량보유팀 텍스트
 let deadlineMap = {};  // "it"(상품명) -> 마감시간 문자열 (창고명 무시, 상품명만 매칭)
-let deleteLog = [];    // {at, time, team, wh, it, qty}
+// 삭제 로그는 앱이 들고 있지 않는다 — 시트에 덧붙이고(sheetAppend), 볼 때만 읽는다(showLog)
 let nextSeq = 1;
 let sheetOnline = false;
 
@@ -293,6 +293,20 @@ async function sheetGet(name,range){
   const d=await r.json();
   if(d.error) throw new Error(d.error.message);
   return d.values||[];
+}
+/* 🔴 2026-09-03 — 삭제 로그는 **덧붙이기만** 한다.
+   예전엔 저장할 때마다 로그 전체(1000줄 넘음)를 다시 PUT 하고, 읽을 때도 전부 받아왔다.
+   그래서 ①읽기 응답이 120KB 로 부풀어 프록시 캐시(한 칸 90KB)에 못 들어가고
+   ②저장할 때마다 안 바뀐 1000줄을 도로 써서, 팀원 수만큼 곱해진 부하가 프록시를 막았다.
+   → append 는 서버가 마지막 줄을 찾아 붙여주므로 동시에 여러 명이 눌러도 서로 안 덮어쓴다. */
+async function sheetAppend(name, values){
+  const token=await getAccessToken();
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(name+'!A:F')}:append`
+          + `?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS&prettyPrint=false`;
+  const r=await fetch(url,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({values})});
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message);
+  return d;
 }
 async function sheetBatchClear(ranges){
   const token=await getAccessToken();
@@ -341,13 +355,12 @@ function _borderReqs(sheetId, totalRows, totalCols){
   return reqs;
 }
 // 값 저장 직후 호출. 실패해도 데이터 저장에는 영향 없음(조용히 무시).
-async function applySheetBorders(inputRows, statusRows, logRows){
+async function applySheetBorders(inputRows, statusRows){
   try{
     const ids=await getSheetIds();
     let reqs=[];
     if(ids[SH_INPUT]!=null)  reqs=reqs.concat(_borderReqs(ids[SH_INPUT],  1+inputRows,  5));
     if(ids[SH_STATUS]!=null) reqs=reqs.concat(_borderReqs(ids[SH_STATUS], 1+statusRows, 14));
-    if(ids[SH_LOG]!=null)    reqs=reqs.concat(_borderReqs(ids[SH_LOG],    1+logRows,    6));
     if(!reqs.length) return;
     const token=await getAccessToken();
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({requests:reqs})});
@@ -365,13 +378,11 @@ function setSync(state){
 function save(){
   localStorage.setItem(K_ENTRIES, JSON.stringify(entries));
   localStorage.setItem(K_HOLD, JSON.stringify(holdingMap));
-  localStorage.setItem(K_LOG, JSON.stringify(deleteLog));
   localStorage.setItem(K_SEQ, String(nextSeq));
 }
 function loadCache(){
   try{ entries = JSON.parse(localStorage.getItem(K_ENTRIES)||'[]'); }catch(e){ entries=[]; }
   try{ holdingMap = JSON.parse(localStorage.getItem(K_HOLD)||'{}'); }catch(e){ holdingMap={}; }
-  try{ deleteLog = JSON.parse(localStorage.getItem(K_LOG)||'[]'); }catch(e){ deleteLog=[]; }
   nextSeq = parseInt(localStorage.getItem(K_SEQ)||'1') || 1;
 }
 
@@ -425,17 +436,17 @@ function loadFromSheet(silent){
 async function _loadFromSheet(silent){
   if(!silent) setSync('loading');
   try{
-    let inp,stat,log,dlRows=null;
+    let inp,stat,dlRows=null;
     try{
       /* 한 번에: 입력 · 현황판 · 삭제로그 · 마감시간(B,J만)
          🔴 마감시간을 A2:J 로 받으면 응답이 **380KB** 가 된다. 그러면 프록시 캐시(한 칸 100KB)에
             안 들어가서 매번 구글까지 갔다 오고, 새로고침 한 번에 8.7초가 걸렸다.
             실제로 쓰는 건 상품명(B)과 마감시간(J) 둘뿐이라 그 두 열만 받는다. */
-      const got=await sheetBatchGet([SH_INPUT+'!A2:E', SH_STATUS+'!A2:C', SH_LOG+'!A2:F',
+      const got=await sheetBatchGet([SH_INPUT+'!A2:E', SH_STATUS+'!A2:C',
                                      SH_DEADLINE+'!B2:B', SH_DEADLINE+'!J2:J']);
-      inp=got[0]||[]; stat=got[1]||[]; log=got[2]||[];
+      inp=got[0]||[]; stat=got[1]||[];
       // 두 열을 다시 짝지어 준다 — 아래 코드가 r[1]=상품, r[9]=마감시간 을 기대한다
-      const _nm=got[3]||[], _tm=got[4]||[];
+      const _nm=got[2]||[], _tm=got[3]||[];
       dlRows=_nm.map((r,i)=>{ const a=[]; a[1]=(r&&r[0])||''; a[9]=((_tm[i]||[])[0])||''; return a; });
     }catch(e){
       /* 탭 하나가 없으면 batchGet 은 통째로 실패한다 → 예전 방식으로 물러난다.
@@ -445,8 +456,8 @@ async function _loadFromSheet(silent){
       const msg=String((e&&e.message)||e);
       if(/응답하지 않|연결하지 못|잠시 응답/.test(msg)) throw e;   // 프록시 지연·다운 → 그대로 실패
       console.warn('batchGet 실패 — 개별 읽기로 물러남', e);
-      [inp,stat,log]=await Promise.all([
-        sheetGet(SH_INPUT,'A2:E'), sheetGet(SH_STATUS,'A2:C'), sheetGet(SH_LOG,'A2:F')
+      [inp,stat]=await Promise.all([
+        sheetGet(SH_INPUT,'A2:E'), sheetGet(SH_STATUS,'A2:C')
       ]);
     }
     // 🛡️ [2] '0줄'을 곧이곧대로 믿지 않는다 (2026-08-12 사고).
@@ -472,7 +483,6 @@ async function _loadFromSheet(silent){
       const dl = dlRows !== null ? dlRows : await sheetGet(SH_DEADLINE,'A2:J');
       dl.forEach(r=>{ if(!r)return; const it=String(r[1]||'').trim(), t=String(r[9]||'').trim(); if(it&&t) deadlineMap[it]=t; });
     }catch(e){ console.warn('마감시간 시트 없음 — 무시',e); }
-    deleteLog = log.filter(r=>r&&r[2]).map(r=>({at:String(r[0]||''),time:String(r[1]||''),team:String(r[2]||''),wh:String(r[3]||''),it:String(r[4]||''),qty:Number(r[5])||0}));
     _sheetInputRows = entries.length;   // 급감 가드 기준값 (시트에 실제로 있던 줄 수)
     sheetOnline=true; save(); setSync('ok'); return true;
   }catch(e){ sheetOnline=false; setSync('error'); console.error('시트 로드 실패:',e); return false; }
@@ -514,8 +524,6 @@ async function writeToSheet(){
       const k = String(row[0]).replace(/\s+/g,' ').trim() + '||' + String(row[1]).replace(/\s+/g,' ').trim();
       if(_seenKey.has(k)) return false; _seenKey.add(k); return true;
     });
-    const logRows = deleteLog.map(l=>[l.at,l.time,l.team,l.wh,l.it,l.qty]);
-
     // 🛡️ [3] 급감 가드 — 시트에 있던 줄이 절반 아래로 확 줄어드는 저장은 일단 멈추고 물어본다.
     //   (삭제 확인 모달을 거치지 않은 경로에서 남의 수량이 통째로 날아가는 최후 방어선)
     if(!_bypassShrinkGuard && _sheetInputRows!=null && _sheetInputRows>=8 && inputRows.length < _sheetInputRows*0.5){
@@ -542,17 +550,15 @@ async function writeToSheet(){
     const data=[];
     if(inputRows.length) data.push({range:`${SH_INPUT}!A2`,values:inputRows});
     if(statusRows.length) data.push({range:`${SH_STATUS}!A2`,values:statusRows});
-    if(logRows.length) data.push({range:`${SH_LOG}!A2`,values:logRows});
     if(data.length) await sheetValuesUpdate(data);
     await sheetBatchClear([
       `${SH_INPUT}!A${inputRows.length+2}:E10000`,
-      `${SH_STATUS}!A${statusRows.length+2}:N10000`,
-      `${SH_LOG}!A${logRows.length+2}:F10000`
+      `${SH_STATUS}!A${statusRows.length+2}:N10000`
     ]);
     _sheetInputRows = inputRows.length;   // 방금 내가 쓴 줄 수가 새 기준
     setSync('ok');
     localStorage.setItem(K_DIRTY,'0');   // 시트 저장 성공 → 깨끗 (이제 새로고침해도 안전)
-    applySheetBorders(inputRows.length, statusRows.length, logRows.length); // 새 행에도 칸 테두리 자동 (비동기·실패 무방)
+    applySheetBorders(inputRows.length, statusRows.length); // 새 행에도 칸 테두리 자동 (비동기·실패 무방)
   }catch(e){ setSync('error'); console.error('시트 저장 실패:',e); toast('⚠️ 시트 저장 실패: '+e.message,'warn'); }
 }
 
@@ -942,7 +948,7 @@ async function handleSubmit(){
     //    내 화면이 오래됐어도, 앞사람이 먼저 넣은 항목 위에 내 입력을 얹어 올바른 순위로 들어감.
     btn.textContent = '최신 확인 중…';
     try{ await _chain; }catch(e){}        // 진행 중인 내 저장 먼저 마무리
-    const fresh = await loadFromSheet();   // 시트 최신본으로 entries/holdingMap/deleteLog 갱신
+    const fresh = await loadFromSheet();   // 시트 최신본으로 entries/holdingMap 갱신
     if(!fresh){
       // 최신본을 못 읽으면, 내 오래된 화면으로 시트를 덮어써 남의 데이터를 지울 위험 → 중단
       toast('⚠️ 최신 시트를 불러오지 못했어요. 잠시 후 다시 눌러주세요 (덮어쓰기 방지)','warn');
@@ -1025,30 +1031,46 @@ async function clearAll(){
   // 최신본(모든 팀장 입력 포함)을 백업 로그로 남기고 초기화
   _bypassShrinkGuard = true;   // 의도된 대량 삭제 — 급감 가드 통과
   let ok = false;
+  let backup = [];
   try{
     ok = await commitSafe(()=>{
       const at = new Date().toLocaleString('ko-KR');
-      entries.forEach(e=>{ deleteLog.push({at, time:e.time, team:e.team, wh:e.wh, it:e.it, qty:e.qty}); });
+      backup = entries.map(e=>[at, e.time, e.team, e.wh, e.it, e.qty]);
       entries = [];
     });
   } finally { _bypassShrinkGuard = false; }
-  if(ok) toast('전체 초기화 완료 (로그 백업됨)');
+  if(!ok) return;
+  // 로그는 초기화가 실제로 저장된 뒤에 덧붙인다 — 저장이 막히면 로그도 안 남아야 짝이 맞는다
+  if(backup.length){
+    try{ await sheetAppend(SH_LOG, backup); }
+    catch(e){ console.error('삭제 로그 기록 실패:',e); toast('⚠️ 초기화는 됐지만 삭제 로그 기록에 실패했습니다','warn'); }
+  }
+  toast('전체 초기화 완료 (로그 백업됨)');
 }
 
 //=================== 삭제 로그 보기 ===================
-function showLog(){
+/* 🔴 2026-09-03 — 로그는 **열어볼 때만** 읽는다.
+   예전엔 15초 배경 동기화마다 로그 1000줄을 같이 받아왔다. 정작 화면엔 이 모달을 열 때만 쓰는데,
+   그 무게가 매 동기화에 얹혀서 프록시를 막고 있었다. */
+async function showLog(){
   const body = document.getElementById('logBody');
-  if(deleteLog.length===0){
-    body.innerHTML = `<div class="empty">삭제 로그가 없습니다.</div>`;
-  } else {
-    const rows = [...deleteLog].reverse().map(l=>
-      `<tr><td>${esc(l.at)}</td><td>${esc(l.team)}</td><td>[${esc(l.wh)}] ${esc(l.it)}</td><td style="text-align:right">${l.qty}</td></tr>`
-    ).join('');
-    body.innerHTML = `<table class="log-table" style="width:100%">
-      <thead><tr><th>삭제 일시</th><th>팀명</th><th>품목</th><th>수량</th></tr></thead>
-      <tbody>${rows}</tbody></table>`;
-  }
+  body.innerHTML = `<div class="empty">불러오는 중…</div>`;
   document.getElementById('logOverlay').classList.add('show');
+  let log;
+  try{ log = await sheetGet(SH_LOG,'A2:F'); }
+  catch(e){
+    console.error('삭제 로그 읽기 실패:',e);
+    body.innerHTML = `<div class="empty">삭제 로그를 불러오지 못했습니다. 잠시 후 다시 눌러주세요.</div>`;
+    return;
+  }
+  const list = log.filter(r=>r&&r[2]).map(r=>({at:String(r[0]||''),team:String(r[2]||''),wh:String(r[3]||''),it:String(r[4]||''),qty:Number(r[5])||0}));
+  if(!list.length){ body.innerHTML = `<div class="empty">삭제 로그가 없습니다.</div>`; return; }
+  const rows = list.reverse().map(l=>
+    `<tr><td>${esc(l.at)}</td><td>${esc(l.team)}</td><td>[${esc(l.wh)}] ${esc(l.it)}</td><td style="text-align:right">${l.qty}</td></tr>`
+  ).join('');
+  body.innerHTML = `<table class="log-table" style="width:100%">
+    <thead><tr><th>삭제 일시</th><th>팀명</th><th>품목</th><th>수량</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
 }
 
 //=================== 시작 ===================
