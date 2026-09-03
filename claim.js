@@ -277,7 +277,11 @@ function listHtml(master){
       +   '<b>'+E(S(c.prod))+'</b> · '+E(S(c.rcv))
       +   '<button class="cpbtn" data-cp="'+E(S(c.rcv))+'" data-cpmsg="고객 이름 복사됨" title="리모컨 주문내역 검색에 붙여넣으세요">📋</button>'
       +   ' · '+E(S(c.date))
-      +   ' · '+E(S(c.how))+(S(c.amt)?' '+E(S(c.amt))+'원':'')
+      /* 📋 환불 금액도 옮겨 적는 값이다 (홍팀장 2026-09-03) — 숫자만 복사한다.
+         '원'까지 복사되면 붙여넣고 지워야 해서 오히려 손이 더 간다. 쉼표도 뗀다. */
+      +   ' · '+E(S(c.how))+(S(c.amt)
+            ? ' '+E(S(c.amt))+'원<button class="cpbtn" data-cp="'+E(S(c.amt).replace(/[^\d]/g,''))+'" data-cpmsg="환불 금액 복사됨" title="환불 금액을 숫자만 복사합니다">📋</button>'
+            : '')
       + '</div>'
       // 📋 클레임 사유도 그대로 옮겨 적을 일이 많다 — 복사 버튼을 붙인다
       + '<div style="margin-top:5px;font-size:12.5px;white-space:pre-wrap;color:var(--ink)">'+E(S(c.body))
