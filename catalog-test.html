@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.33</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.34</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1676,6 +1676,9 @@ async function startCatalog(){
   if(window.loadNoHap)window.loadNoHap();
   // 📑 업체별 발주서 읽는 법 — 파일 넣기 전에 와 있어야 그 규칙으로 읽는다 (2026-09-02)
   if(window.loadVRules)window.loadVRules();
+  /* 🔔 클레임 배지 — 클레임 화면에 들어가지 않아도 숫자가 떠야 한다 (홍팀장 2026-09-03).
+     "클레임 들어왔는지 알아야 반응을 하지" — 예전엔 배지 자리만 있고 채우는 코드가 없었다. */
+  if(window.CLAIM&&CLAIM.badge)CLAIM.badge();
   let usedCache=false;
   try{
     const c=JSON.parse(localStorage.getItem(CK)||'null');

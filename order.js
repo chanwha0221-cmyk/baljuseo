@@ -1902,6 +1902,14 @@ async function pollOrders(){
 setTimeout(pollOrders, 2500);                       // 들어오자마자 한 번
 setInterval(pollOrders, 60000);                     // 이후 1분마다
 document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(pollOrders, 400); });
+/* 🔔 클레임 배지도 같은 주기로 (홍팀장 2026-09-03) — 발주만 알고 클레임을 모르면 반응이 늦는다.
+   발주 폴링보다 **훨씬 뜸하게** 돈다(5분). 클레임은 하루에 몇 건이라 1분마다 두드릴 이유가 없다. */
+function pollClaims(){
+  if(document.hidden) return;
+  try{ if(window.CLAIM && CLAIM.badge) CLAIM.badge(); }catch(e){}
+}
+setTimeout(pollClaims, 4000);
+setInterval(pollClaims, 300000);
 
 // ── 엑셀 양식 · 붙여넣기 ─────────────────────────────────────────
 function template(){

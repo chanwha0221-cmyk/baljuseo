@@ -271,13 +271,21 @@ function listHtml(master){
       +   (master ? '<span style="font-size:12px;color:var(--muted)">'+E(S(c.cname))+'</span>' : '')
       +   '<span style="margin-left:auto;font-size:12px;color:var(--muted)">'+E(S(c.at).slice(0,16).replace('T',' '))+'</span>'
       + '</div>'
+      /* 📋 고객 이름 복사 — 리모컨에 이름을 넣으면 주문내역이 나온다 (홍팀장 2026-09-03).
+         손으로 옮겨 적다 한 글자 틀리면 주문을 못 찾는다. 검색에 쓰는 값 옆엔 복사 버튼을 단다. */
       + '<div style="margin-top:6px;font-size:13px">'
-      +   '<b>'+E(S(c.prod))+'</b> · '+E(S(c.rcv))+' · '+E(S(c.date))
+      +   '<b>'+E(S(c.prod))+'</b> · '+E(S(c.rcv))
+      +   '<button class="cpbtn" data-cp="'+E(S(c.rcv))+'" data-cpmsg="고객 이름 복사됨" title="리모컨 주문내역 검색에 붙여넣으세요">📋</button>'
+      +   ' · '+E(S(c.date))
       +   ' · '+E(S(c.how))+(S(c.amt)?' '+E(S(c.amt))+'원':'')
       + '</div>'
-      + '<div style="margin-top:5px;font-size:12.5px;white-space:pre-wrap;color:var(--ink)">'+E(S(c.body))+'</div>'
+      // 📋 클레임 사유도 그대로 옮겨 적을 일이 많다 — 복사 버튼을 붙인다
+      + '<div style="margin-top:5px;font-size:12.5px;white-space:pre-wrap;color:var(--ink)">'+E(S(c.body))
+      +   '<button class="cpbtn" data-cp="'+E(S(c.body))+'" data-cpmsg="클레임 사유 복사됨" title="클레임 사유를 복사합니다">📋</button>'
+      + '</div>'
       + '<div style="margin-top:6px;font-size:12px;color:var(--muted)">📷 사진 '+n+'장'
-      +   (n ? ' — <a href="#" data-see="'+E(S(c.id))+'" style="color:var(--accent)">펼쳐보기</a>' : '') + '</div>'
+      +   (n ? ' — <a href="#" data-see="'+E(S(c.id))+'" style="color:var(--accent)">펼쳐보기</a>'
+              + ' · <a href="#" data-dl="'+E(S(c.id))+'" data-dlnm="'+E(S(c.rcv)+'_'+S(c.prod))+'" style="color:var(--accent)">⬇ 사진 전부 저장</a>' : '') + '</div>'
       + '<div id="climg_'+E(S(c.id))+'" style="display:none;margin-top:8px"></div>'
       + (master && !ok ? '<div style="margin-top:9px"><button class="ordb2 pri" type="button" data-ack="'+E(S(c.id))+'">✅ 확인</button></div>' : '')
       + (ok ? '<div class="hint" style="margin-top:7px">'+E(S(c.ack_by)||'마스터')+' 확인 · '+E(S(c.ack_at).slice(0,16).replace('T',' '))+'</div>' : '')
@@ -285,7 +293,30 @@ function listHtml(master){
   }).join('');
 }
 
+/* 🔔 클레임 배지 (홍팀장 2026-09-03 — "클레임 들어왔는지 알아야 반응을 하지").
+   메뉴의 [📮 클레임] 에 숫자를 띄운다. 예전엔 배지 자리만 있고 채우는 코드가 없어서,
+   업체가 클레임을 올려도 **누가 들어가 보기 전엔 아무도 몰랐다.**
+     · 마스터  = 아직 [✅ 확인] 안 누른 건수 (우리가 손대야 할 일)
+     · 업체    = 내가 올린 것 중 아직 확인 안 된 건수 (기다리는 중인 일)
+   ⚠️ 목록 화면을 열지 않아도 돌아야 한다 — 카탈로그가 켜질 때·발주 알림 주기마다 부른다. */
+async function badgeCount(){
+  if(!(typeof ME !== 'undefined' && ME && ME.token)) return 0;
+  var j = await api('claimlist', { token: ME.token });
+  var rows = (j && j.rows) ? j.rows : [];
+  return rows.filter(function(c){ return !T(c.ack_at); }).length;
+}
+async function paintBadge(){
+  var el = document.getElementById('clBadge');
+  if(!el) return;
+  try{
+    var n = await badgeCount();
+    el.textContent = n > 99 ? '99+' : String(n);
+    el.style.display = n ? '' : 'none';
+  }catch(e){ /* 못 받으면 배지를 건드리지 않는다 — 0으로 지우면 "없는 줄" 알게 된다 */ }
+}
+
 var CLAIM = {
+  badge: paintBadge,
   view: function(){
     var master = (typeof ME !== 'undefined' && ME && S(ME.role).indexOf('마스터') >= 0);
     PICK = {}; CUR = null;
@@ -336,6 +367,7 @@ var CLAIM = {
       return;
     }
     box.innerHTML = listHtml(master);
+    paintBadge();                     // 목록을 다시 그렸으면 배지도 같이 맞춘다(확인 누른 직후 등)
     box.querySelectorAll('[data-see]').forEach(function(a){
       a.onclick = async function(ev){
         ev.preventDefault();
@@ -355,6 +387,37 @@ var CLAIM = {
             + E(slotName(k)) + '</div><img src="' + S(f.b64) + '" style="max-width:100%;border-radius:8px;border:1px solid var(--line)"></div>';
         });
         wrap.innerHTML = h || '<div class="hint">사진이 없습니다.</div>';
+      };
+    });
+    /* ⬇ 사진 전부 저장 (홍팀장 2026-09-03) — 한 장씩 우클릭·이미지 저장을 반복하던 자리.
+       파일명에 **고객 이름·상품명**을 박는다. 여러 건을 받으면 어느 클레임 사진인지 안 보인다.
+       ⚠️ 브라우저가 "여러 파일 다운로드"를 물으면 허용해야 한다 — 그 안내를 미리 띄운다. */
+    box.querySelectorAll('[data-dl]').forEach(function(a){
+      a.onclick = async function(ev){
+        ev.preventDefault();
+        var id = a.getAttribute('data-dl'), base = S(a.getAttribute('data-dlnm')).replace(/[\\/:*?"<>|]/g, ' ').trim();
+        var old = a.textContent; a.textContent = '⏳ 사진을 모으는 중…';
+        try{
+          var j = await api('claimimgs', { token: ME.token, id: id });
+          if(!j || !j.ok) throw new Error((j && j.error) || '사진을 불러오지 못했습니다');
+          var im = j.imgs || {}, list = [];
+          for(var k in im) (im[k] || []).forEach(function(f){ list.push({ slot: slotName(k), b64: S(f.b64) }); });
+          if(!list.length){ alert('저장할 사진이 없습니다.'); return; }
+          for(var i = 0; i < list.length; i++){
+            var r = await fetch(list[i].b64);
+            var blob = await r.blob();
+            var ext = (blob.type.indexOf('png') >= 0) ? 'png' : 'jpg';
+            var url = URL.createObjectURL(blob);
+            var el = document.createElement('a');
+            el.href = url;
+            el.download = base + '_' + (i + 1) + '_' + list[i].slot + '.' + ext;
+            document.body.appendChild(el); el.click(); el.remove();
+            setTimeout((function(u){ return function(){ URL.revokeObjectURL(u); }; })(url), 4000);
+            await new Promise(function(res){ setTimeout(res, 250); });   // 연달아 쏘면 브라우저가 뒤를 버린다
+          }
+          if(typeof toast === 'function') toast('📷 사진 ' + list.length + '장을 저장했습니다');
+        }catch(e){ alert(e.message || '사진을 저장하지 못했습니다'); }
+        finally{ a.textContent = old; }
       };
     });
     box.querySelectorAll('[data-ack]').forEach(function(b){
