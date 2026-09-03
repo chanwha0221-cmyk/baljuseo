@@ -2256,12 +2256,26 @@ async function fileToRaw(file){
                .filter(l => l.replace(/\t/g, '').trim())      // 통째로 빈 줄은 버린다
                .join('\n');
   }
-  return new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = () => res(String(fr.result || '').replace(/^﻿/, ''));
-    fr.onerror = () => rej(new Error('파일을 읽지 못했습니다.'));
-    fr.readAsText(file, 'utf-8');
-  });
+  /* 📄 CSV·TXT (홍팀장 2026-09-03 — 「27건 중 5건만 변환, 22건 누락」).
+     여기서 두 가지를 놓치고 있었다. 둘 다 파일을 **읽는 단계**의 문제라, 뒤쪽 로직을 아무리 고쳐도
+     닿지 않는다(머리글이 안 잡히니 변환기로 넘어가 그럴듯한 쓰레기 5줄을 뱉었다).
+       ① 인코딩 — 한글 엑셀이 저장한 CSV 는 UTF-8 이 아니라 CP949 다. utf-8 로 읽으면 통째로 깨져
+          '상품명'·'수량'·'받는분' 머리글이 하나도 안 걸린다.
+       ② 구분자 — 아래 로직은 전부 **탭 기준**인데 쉼표 CSV 를 그대로 넘겼다. 게다가 주소에는
+          쉼표가 들어 있어(「(명륜동, 동래 센트럴파크…)」) 단순히 쉼표로 자르면 칸이 밀린다.
+          그래서 따옴표를 아는 splitCsv 로 자른 뒤 탭으로 다시 잇는다. */
+  const buf = await file.arrayBuffer();
+  let raw = new TextDecoder('utf-8').decode(buf);
+  if(raw.indexOf('�') >= 0){                       // 깨진 글자가 있으면 CP949 로 다시 읽는다
+    try{ raw = new TextDecoder('euc-kr').decode(buf); }catch(e){}
+  }
+  raw = raw.replace(/^﻿/, '');
+  const first = String(raw.split(/\r?\n/)[0] || '');
+  // 첫 줄에 탭이 하나도 없고 쉼표가 둘 이상이면 쉼표 CSV 다 — 탭 파일에 섞인 쉼표를 오해하지 않는다
+  if(first.indexOf('\t') < 0 && (first.split(',').length - 1) >= 2){
+    return raw.split(/\r?\n/).map(l => splitCsv(l).join('\t')).join('\n');
+  }
+  return raw;
 }
 function splitCsv(line){
   const out = []; let cur = '', q = false;
@@ -2782,6 +2796,6 @@ window.addEventListener('load', () => { if(!ROWS.length) ROWS = loadDraft(); bad
 // _build·_check는 검증용 출구다(브라우저 없이 변환 결과를 확인할 때 쓴다). 화면 동작과 무관.
 window.ORDER = {view, bind, add, orders: ordersView, ordersBind, rows: () => ROWS, _build: buildOut, _check: checkRow,
                 _fromConverted: rowsFromConverted, _setRows: r => { ROWS = r; },
-                _cells: rowsFromCells, _foreign: foreign, _header: headerItems,
+                _cells: rowsFromCells, _foreign: foreign, _header: headerItems, _fileRaw: fileToRaw,
                 _find: findHits, _row: rowHtml, _setFind: (i, kw) => { FIND[i] = kw; }};
 })();
