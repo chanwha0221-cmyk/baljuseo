@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.3</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.4</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -842,9 +842,12 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
   var inp=$('dm-pick');
   inp.addEventListener('change',function(){ if(inp.value) pull(inp.value); });
   inp.addEventListener('keydown',function(e){ if(e.key==='Enter'&&inp.value) pull(inp.value); });
-  // 카탈로그가 상품 하나를 콕 집어 보냈으면 바로 불러온다
-  try{ var j=JSON.parse(localStorage.getItem(HK)||'{}');
-    if(j.pick){ inp.value=j.pick; pull(j.pick); }
+  /* 카탈로그가 상품 하나를 콕 집어 보냈으면 칸에 넣어만 둔다.
+     ⚠️ 여기서 바로 pull() 하지 않는다 — 창 여는 동작은 **사람이 누른 직후**가 아니면
+        브라우저가 팝업으로 보고 막는다. 막히면 아무 일도 안 난 것처럼 보인다. */
+  try{ var j0=JSON.parse(localStorage.getItem(HK)||'{}');
+    if(j0.pick){ inp.value=j0.pick;
+      $('dm-pickmsg').textContent='「'+j0.pick+'」 이(가) 골라져 있습니다 — Enter 를 누르면 상품 글이 열립니다.'; }
   }catch(e){}
 })();
 </script>
