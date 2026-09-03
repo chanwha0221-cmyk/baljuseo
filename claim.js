@@ -305,14 +305,24 @@ async function badgeCount(){
   var rows = (j && j.rows) ? j.rows : [];
   return rows.filter(function(c){ return !T(c.ack_at); }).length;
 }
-async function paintBadge(){
+/* ⚠️ 카탈로그가 켜지는 순서 때문에 **첫 호출이 빈손으로 끝날 수 있다** (2026-09-03 실측):
+   상품을 불러오기 시작하는 자리에서 부르는데, 그때 로그인 토큰이 아직 안 자리잡은 경우가 있다.
+   조용히 실패하면 미확인 클레임이 있어도 배지가 영영 안 뜬다 → 못 받았으면 몇 초 뒤 다시 해본다. */
+async function paintBadge(retry){
   var el = document.getElementById('clBadge');
   if(!el) return;
+  if(!(typeof ME !== 'undefined' && ME && ME.token)){
+    if(retry !== false) setTimeout(function(){ paintBadge(false); }, 4000);
+    return;
+  }
   try{
     var n = await badgeCount();
     el.textContent = n > 99 ? '99+' : String(n);
     el.style.display = n ? '' : 'none';
-  }catch(e){ /* 못 받으면 배지를 건드리지 않는다 — 0으로 지우면 "없는 줄" 알게 된다 */ }
+  }catch(e){
+    // 못 받으면 배지를 건드리지 않는다 — 0으로 지우면 "없는 줄" 알게 된다
+    if(retry !== false) setTimeout(function(){ paintBadge(false); }, 5000);
+  }
 }
 
 var CLAIM = {
