@@ -228,12 +228,16 @@ const withAge  = (nm, age) => age ? (stripAge(nm) + ' (' + age + ')') : stripAge
 const OFFCAT = [
   {name:'연안 몸뱃살연어 1kg',  wh:'인천'},
   {name:'연안 몸뱃살연어 500g', wh:'인천'},
+  /* 🐟 납품용 대구 (홍팀장 2026-09-03) — 동글지구가 넣는 냉동 15kg 벌크.
+     정식 상품이 아니라 카탈로그에 올릴 물건이 아닌데, 정식이 아니라는 이유로 발주가 막혀 있었다. */
+  {name:'납품용 대구 15kg', wh:'동해',
+   note:'카탈로그에 없는 납품용 규격입니다 — 냉동 15kg 벌크 단위로 나갑니다.'},
 ];
 const OFFCAT_NOTE = '뱃살 위주로 나가지만 100% 뱃살은 아닙니다 — 등살·꼬리살이 섞일 수 있습니다. 그대로 받으시는 조건으로 발주를 받습니다.';
 function offcat(raw){
   const k = pkey(S(raw));
   const m = OFFCAT.find(o => pkey(o.name) === k);
-  return m ? {name:m.name, group:m.wh, offcat:true} : null;
+  return m ? {name:m.name, group:m.wh, offcat:true, note:m.note || ''} : null;
 }
 
 function findProd(raw){
@@ -324,7 +328,7 @@ function checkRow(r){
     errs.push('🐟 삭힘정도를 골라주세요 — 삭힘정도가 없으면 출고되지 않습니다.');
 
   // 🐟 카탈로그에서 내린 상품을 받아주는 경우 — 무엇을 감안하는 것인지 그 자리에서 알린다
-  if(p && p.offcat) warns.push('ℹ️ ' + OFFCAT_NOTE);
+  if(p && p.offcat) warns.push('ℹ️ ' + (p.note || OFFCAT_NOTE));
 
   const q = parseInt(D(r.qty), 10);
   if(!S(r.qty)) errs.push('수량을 넣어주세요.');
