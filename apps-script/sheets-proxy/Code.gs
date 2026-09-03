@@ -137,6 +137,35 @@ function doPost(e) {
     }
   }
 
+  /* 🖼 상품 상세 페이지 원본 가져오기 (홍팀장 2026-09-03 — 카탈로그 [상세페이지 만들기]).
+     상세메이커는 상품 게시글의 HTML 을 읽어 사진·설명을 뽑는다. 그런데 브라우저가
+     카탈로그(github.io)에서 masterc.kr 을 직접 부르면 CORS 로 막힌다(실측: Failed to fetch).
+     그래서 업체가 손으로 Ctrl+U → 전체복사 하던 것을, 여기서 대신 가져와 넘긴다.
+     ⚠️ 아무 주소나 대신 열어주면 남의 서버를 우리 이름으로 두드리는 통로가 된다 —
+        **우리 상품 게시판 도메인만** 허용한다.
+     ⚠️ 카탈로그는 거래처 여러 곳이 동시에 본다. 같은 상품을 여러 번 부르지 않게 10분 담아둔다. */
+  if (req.action === 'fetchPage') {
+    var u = String(req.url || '');
+    if (!/^https:\/\/(www\.)?masterc\.(kr|co\.kr)\//.test(u)) {
+      return out_({ error: { code: 403, message: '허용되지 않은 주소입니다' } });
+    }
+    var ck = 'pg_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, u));
+    var cache = CacheService.getScriptCache();
+    var hit = cache.get(ck);
+    if (hit) return out_({ ok: true, url: u, html: hit, cached: true });
+    try {
+      var res = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true });
+      var code = res.getResponseCode();
+      if (code !== 200) return out_({ error: { code: code, message: '상품 페이지를 가져오지 못했습니다 (' + code + ')' } });
+      var html = res.getContentText();
+      // 캐시 한 칸은 100KB 까지다 — 더 큰 글은 담지 않고 그때그때 가져온다
+      if (html.length < 95000) { try { cache.put(ck, html, 600); } catch (e2) {} }
+      return out_({ ok: true, url: u, html: html });
+    } catch (err) {
+      return out_({ error: { code: 500, message: '상품 페이지를 가져오지 못했습니다: ' + err.message } });
+    }
+  }
+
   return out_({ error: { code: 400, message: '알 수 없는 action: ' + req.action } });
 }
 
