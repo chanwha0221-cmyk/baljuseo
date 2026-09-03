@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.28</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.29</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1067,27 +1067,62 @@ const noPrice=()=>!!(ME&&ME.noprice);
 const XLSX_OK=['yalzzalmis1'];   // 에스에이치리테일
 const canXlsx=()=>!!(ME&&!ME.noprice&&(ME.master||XLSX_OK.indexOf(String(ME.id||'').toLowerCase())>=0));
 /* 엑셀이 한글을 안 깨뜨리려면 맨 앞에 BOM 이 있어야 한다(﻿). 쉼표·따옴표가 든 상품명은 감싼다. */
-function priceCsv(){
-  const esc1=v=>{const s=String(v==null?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+function priceRows(){
   const rows=[['상품명','공급가','과세구분']];
   (ALL||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko')).forEach(p=>{
     if(p.exc)return;                                   // 오늘 안 파는 물건은 넣지 않는다
     const cur=(p.price&&p.price.cur!=null)?p.price.cur:'';
     const tx=(p.tax&&p.tax.indexOf('과세')>=0&&p.tax.indexOf('면')<0)?'과세':(p.tax?'면세':'');
-    rows.push([p.name,cur,tx]);
+    rows.push([p.name,cur===''?'':Number(cur),tx]);    // 공급가는 **숫자 셀** — 엑셀에서 바로 합계가 된다
   });
-  return '﻿'+rows.map(r=>r.map(esc1).join(',')).join('\r\n');
+  return rows;
 }
-function downloadPriceCsv(){
-  if(!canXlsx())return;
-  const n=(ALL||[]).filter(p=>!p.exc).length;
-  if(!n){toast('상품을 아직 다 불러오지 못했습니다 — 잠시 뒤 다시 눌러주세요');return;}
+function priceCsv(){                                   // CDN 이 막혔을 때만 쓰는 예비 형식
+  const esc1=v=>{const s=String(v==null?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  return '﻿'+priceRows().map(r=>r.map(esc1).join(',')).join('\r\n');
+}
+function priceFileName(ext){
   const d=new Date(),p2=x=>String(x).padStart(2,'0');
-  const fn='마스터유통_상품단가_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'.csv';
-  const url=URL.createObjectURL(new Blob([priceCsv()],{type:'text/csv;charset=utf-8'}));
+  return '마스터유통_상품단가_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'.'+ext;
+}
+function saveBlob(blob,fn){
+  const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download=fn;document.body.appendChild(a);a.click();
   a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
-  toast('상품 '+n+'개 단가표를 내려받았습니다');
+}
+/* 📊 진짜 엑셀 파일(.xlsx)로 내보낸다 (홍팀장 2026-09-03 — "csv는 건들면 깨지네").
+   CSV 는 열어서 손대고 저장하면 한글이 깨지고 앞자리 0·긴 숫자가 뭉개진다. 업체가 받아서
+   자기 시스템에 올리려고 편집할 파일이니 엑셀 원본 형식으로 준다.
+   라이브러리는 **버튼을 누른 그 순간에만** 받아온다 — 평소 카탈로그 로딩엔 부담이 0이다.
+   ⚠️ 사내망 등으로 CDN 이 막히면 예전 CSV 로 떨어뜨린다. 파일을 아예 못 받는 것보단 낫다. */
+const XLSX_CDN='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+function loadXlsxLib(){
+  if(window.XLSX)return Promise.resolve();
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script');s.src=XLSX_CDN;
+    s.onload=()=>window.XLSX?res():rej(new Error('lib'));
+    s.onerror=()=>rej(new Error('lib'));
+    document.head.appendChild(s);
+  });
+}
+async function downloadPriceXlsx(){
+  if(!canXlsx())return;
+  const rows=priceRows(),n=rows.length-1;
+  if(!n){toast('상품을 아직 다 불러오지 못했습니다 — 잠시 뒤 다시 눌러주세요');return;}
+  const b=$('ub_xls'),old=b?b.textContent:'';
+  if(b){b.disabled=true;b.textContent='만드는 중…';}
+  try{
+    await loadXlsxLib();
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:40},{wch:12},{wch:10}];          // 상품명 칸이 좁으면 열자마자 잘려 보인다
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'상품단가');
+    XLSX.writeFile(wb,priceFileName('xlsx'));
+    toast('상품 '+n+'개 단가표를 엑셀로 내려받았습니다');
+  }catch(e){
+    saveBlob(new Blob([priceCsv()],{type:'text/csv;charset=utf-8'}),priceFileName('csv'));
+    toast('엑셀 파일을 못 만들어 CSV 로 내려받았습니다 — 인터넷 상태를 확인해 주세요');
+  }finally{ if(b){b.disabled=false;b.textContent=old;} }
 }
 const EXCWH='🚫 예외';
 function buildAll(){
@@ -2479,7 +2514,7 @@ function renderUser(){
   $('ub_pw').onclick=showPwForm;
   $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
   { const e=$('ub_exp'); if(e)e.onclick=updateProposal; }   // 🔄 제안서 업데이트 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
-  { const e=$('ub_xls'); if(e)e.onclick=downloadPriceCsv; } // 📥 상품·단가 엑셀 — 허용된 업체에게만 있는 버튼
+  { const e=$('ub_xls'); if(e)e.onclick=downloadPriceXlsx; } // 📥 상품·단가 엑셀 — 허용된 업체에게만 있는 버튼
   // 거래처가 보고 있는 게 최신인지 확신할 수 있게 — 저장본을 버리고 시트에서 새로 받는다 (사장님 2026-08-18)
   $('ub_reload').onclick=()=>{
     try{localStorage.removeItem(CK);}catch(e){}
