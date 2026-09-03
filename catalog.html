@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.26</title>
+<title>마스터 유통 카탈로그 v23.27</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1053,6 +1053,35 @@ const amMasterC=()=>!!(ME&&ME.master);
       브라우저가 직접 읽는 구조라 개발자도구를 열면 공급가가 보인다. 진짜로 막으려면
       시트 읽기를 서버 경유로 바꿔 공급가 칸을 서버에서 떼야 한다(홍팀장께 보고함). */
 const noPrice=()=>!!(ME&&ME.noprice);
+/* 📥 상품·단가 파일 내려받기 — 달라고 한 업체에게만 연다 (홍팀장 2026-09-03, 에스에이치리테일).
+   업체가 자기 쪽 시스템에 우리 상품을 올리려면 상품명·공급가가 통째로 필요하다.
+   다른 업체도 요청하면 아래 목록에 로그인 아이디를 한 줄 더하면 된다.
+   ⚠️ 단가숨김 업체에겐 절대 열지 않는다 — 화면에서 가린 금액을 파일로 내주면 가린 의미가 없다. */
+const XLSX_OK=['yalzzalmis1'];   // 에스에이치리테일
+const canXlsx=()=>!!(ME&&!ME.noprice&&(ME.master||XLSX_OK.indexOf(String(ME.id||'').toLowerCase())>=0));
+/* 엑셀이 한글을 안 깨뜨리려면 맨 앞에 BOM 이 있어야 한다(﻿). 쉼표·따옴표가 든 상품명은 감싼다. */
+function priceCsv(){
+  const esc1=v=>{const s=String(v==null?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const rows=[['상품명','공급가','과세구분']];
+  (ALL||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko')).forEach(p=>{
+    if(p.exc)return;                                   // 오늘 안 파는 물건은 넣지 않는다
+    const cur=(p.price&&p.price.cur!=null)?p.price.cur:'';
+    const tx=(p.tax&&p.tax.indexOf('과세')>=0&&p.tax.indexOf('면')<0)?'과세':(p.tax?'면세':'');
+    rows.push([p.name,cur,tx]);
+  });
+  return '﻿'+rows.map(r=>r.map(esc1).join(',')).join('\r\n');
+}
+function downloadPriceCsv(){
+  if(!canXlsx())return;
+  const n=(ALL||[]).filter(p=>!p.exc).length;
+  if(!n){toast('상품을 아직 다 불러오지 못했습니다 — 잠시 뒤 다시 눌러주세요');return;}
+  const d=new Date(),p2=x=>String(x).padStart(2,'0');
+  const fn='마스터유통_상품단가_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'.csv';
+  const url=URL.createObjectURL(new Blob([priceCsv()],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download=fn;document.body.appendChild(a);a.click();
+  a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+  toast('상품 '+n+'개 단가표를 내려받았습니다');
+}
 const EXCWH='🚫 예외';
 function buildAll(){
   ALL=[];
@@ -2435,12 +2464,15 @@ function renderUser(){
     +(ME.master?'<a class="ubtn" href="계정관리.html" target="_blank" rel="noopener" title="업체 권한(업체·단가숨김·임시·차단) 승인·수정">👤 계정관리</a>':'')
     /* 📤 제안서 데이터 — 마스터에게만. 원비씨 제안서 사이트에 넣을 products.json 을 내려받는다. */
     +(ME.master?'<button class="ubtn" id="ub_exp" title="원비 팀장 제안서 사이트(allproduct)가 읽는 데이터를 지금 카탈로그와 같은 시점으로 올립니다. 1~2분 뒤 그쪽 사이트를 새로고침하면 반영됩니다">🔄 제안서 업데이트</button>':'')
+    /* 📥 상품·단가 파일 — 달라고 한 업체와 마스터에게만 (XLSX_OK 참조) */
+    +(canXlsx()?'<button class="ubtn" id="ub_xls" title="지금 화면의 상품명과 공급가 전체를 엑셀로 여는 파일(CSV)로 내려받습니다">📥 상품·단가 엑셀</button>':'')
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
     +'<button class="ubtn" id="ub_out">로그아웃</button>'
     +'<button class="ubtn rl" id="ub_reload" title="저장된 내용을 버리고 시트에서 다시 받아옵니다">🔄 새로고침</button>';
   $('ub_pw').onclick=showPwForm;
   $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
   { const e=$('ub_exp'); if(e)e.onclick=updateProposal; }   // 🔄 제안서 업데이트 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
+  { const e=$('ub_xls'); if(e)e.onclick=downloadPriceCsv; } // 📥 상품·단가 엑셀 — 허용된 업체에게만 있는 버튼
   // 거래처가 보고 있는 게 최신인지 확신할 수 있게 — 저장본을 버리고 시트에서 새로 받는다 (사장님 2026-08-18)
   $('ub_reload').onclick=()=>{
     try{localStorage.removeItem(CK);}catch(e){}
