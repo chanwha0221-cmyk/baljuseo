@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.1</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.2</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -821,6 +821,19 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
         body:JSON.stringify({action:'fetchPage',url:it.u})});
       var j=await r.json();
       if(!j||!j.html) throw new Error((j&&j.error&&j.error.message)||'상품 페이지를 가져오지 못했습니다');
+      /* 🔴 로그인 벽 (2026-09-03 실측) — 상품 게시글은 **로그인해야 본문·사진이 보인다.**
+         서버가 대신 가져오면 로그인 세션이 없어 사진이 한 장도 없는 껍데기(img 0개)가 온다.
+         그걸 그대로 generate() 에 넣으면 「인식 실패」 alert 가 떠서 **화면이 멈춘 것처럼 보인다.**
+         그러니 넣기 전에 세어보고, 안 되는 이유와 할 일을 글로 알려준다. */
+      var imgN=(j.html.match(/<img/gi)||[]).length;
+      if(imgN<2){
+        $('dm-pickmsg').innerHTML='⚠️ 「'+it.n+'」 상품 글은 <b>로그인해야 사진이 보이는 글</b>이라 자동으로 못 가져왔습니다.<br>'
+          +'<a href="'+it.u+'" target="_blank" rel="noopener" style="color:#0d6efd;font-weight:700">👉 상품 글 열기</a>'
+          +' → 로그인 → <b>Ctrl+U</b> → <b>Ctrl+A · Ctrl+C</b> → 아래 ① 칸에 붙여넣고 [⚡ 상세페이지 생성] 을 눌러주세요.';
+        var pn0=$('dm-prodname'); if(pn0&&!pn0.value){ pn0.value=it.n; DM.setProd(); }
+        var b0=$('dm-brand'); if(b0&&!b0.value&&BRAND) b0.value=BRAND;
+        return;
+      }
       $('dm-src').value=j.html;
       var b=$('dm-brand'); if(b&&!b.value&&BRAND) b.value=BRAND;
       DM.generate();                                  // 사진·상품명·상세가 여기서 채워진다
