@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.9</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.10</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -307,9 +307,11 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
     </div>
     <div style="flex:1;min-width:0">
       <div class="dm-bar">
-        <div class="dm-modes">
+        <!-- 🧹 [📋 기본]·[❓ 사용법] 버튼은 뺐다 (홍팀장 2026-09-03 — "형태가 여러개 있는게 아니니까").
+             모드가 하나뿐이라 고를 게 없고, 카탈로그에서 들어오면 할 일이 왼쪽에 순서로 떠서
+             사용법을 따로 열 일도 없다. 모드 자체는 그대로 'master' 로 돌아간다(맨 아래 setMode). -->
+        <div class="dm-modes" style="display:none">
           <button class="dm-mb on" data-m="master" onclick="DM.setMode('master')">📋 기본</button>
-          <button class="dm-mb" style="border-color:#2BB3A3;color:#2BB3A3" onclick="HELPX.open()">❓ 사용법</button>
         </div>
         <span class="dm-sp"></span>
         <label style="font-size:12px;color:#444;display:flex;align-items:center;gap:4px;margin-right:6px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="dm-notice-on" onchange="DM.toggleNotice()"> 제품 상세 정보</label>
