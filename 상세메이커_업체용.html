@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.2</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.3</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -811,38 +811,27 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
       ITEMS=j.items; BRAND=j.brand||''; return true;
     }catch(e){ return false; }
   }
-  async function pull(name){
+  /* 🔴 자동으로 가져오는 길은 막혀 있다 (2026-09-03 실측, 홍팀장 판단으로 확정).
+       ① 브라우저가 masterc 를 직접 부르면 CORS 로 막힌다.
+       ② 서버가 대신 가져오면 **로그인 세션이 없어** 사진 0장짜리 껍데기가 온다.
+          업체가 로그인해도 마찬가지다 — 로그인한 건 업체 브라우저지 우리 서버가 아니다.
+       ③ 우리가 566개를 미리 긁어두는 방법은 도구 19개가 함께 쓰는 프록시에 부하를 얹는다.
+     → 그래서 **가져오기를 시도하지 않는다.** 대신 사람이 할 일을 최대한 줄인다:
+       상품만 고르면 그 글을 새 창으로 열어주고(링크 찾는 수고 0), 상품명·브랜드는 미리 채워둔다.
+       업체가 하는 건 로그인 → Ctrl+U → Ctrl+A · Ctrl+C → 붙여넣기, 이 네 동작뿐이다. */
+  function pull(name){
     var it=ITEMS.find(function(x){return x.n===name;});
-    if(!it){ $('dm-pickmsg').textContent='목록에 없는 상품입니다 — 아래 칸에 직접 붙여넣어 주세요.'; return; }
-    if(!it.u){ $('dm-pickmsg').textContent='이 상품은 상세 링크가 없습니다 — 아래 칸에 직접 붙여넣어 주세요.'; return; }
-    wait(true,'「'+it.n+'」 상품 정보를 불러오는 중입니다');
-    try{
-      var r=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({action:'fetchPage',url:it.u})});
-      var j=await r.json();
-      if(!j||!j.html) throw new Error((j&&j.error&&j.error.message)||'상품 페이지를 가져오지 못했습니다');
-      /* 🔴 로그인 벽 (2026-09-03 실측) — 상품 게시글은 **로그인해야 본문·사진이 보인다.**
-         서버가 대신 가져오면 로그인 세션이 없어 사진이 한 장도 없는 껍데기(img 0개)가 온다.
-         그걸 그대로 generate() 에 넣으면 「인식 실패」 alert 가 떠서 **화면이 멈춘 것처럼 보인다.**
-         그러니 넣기 전에 세어보고, 안 되는 이유와 할 일을 글로 알려준다. */
-      var imgN=(j.html.match(/<img/gi)||[]).length;
-      if(imgN<2){
-        $('dm-pickmsg').innerHTML='⚠️ 「'+it.n+'」 상품 글은 <b>로그인해야 사진이 보이는 글</b>이라 자동으로 못 가져왔습니다.<br>'
-          +'<a href="'+it.u+'" target="_blank" rel="noopener" style="color:#0d6efd;font-weight:700">👉 상품 글 열기</a>'
-          +' → 로그인 → <b>Ctrl+U</b> → <b>Ctrl+A · Ctrl+C</b> → 아래 ① 칸에 붙여넣고 [⚡ 상세페이지 생성] 을 눌러주세요.';
-        var pn0=$('dm-prodname'); if(pn0&&!pn0.value){ pn0.value=it.n; DM.setProd(); }
-        var b0=$('dm-brand'); if(b0&&!b0.value&&BRAND) b0.value=BRAND;
-        return;
-      }
-      $('dm-src').value=j.html;
-      var b=$('dm-brand'); if(b&&!b.value&&BRAND) b.value=BRAND;
-      DM.generate();                                  // 사진·상품명·상세가 여기서 채워진다
-      var pn=$('dm-prodname'); if(pn&&!pn.value){ pn.value=it.n; DM.setProd(); }
-      $('dm-pickmsg').textContent='✅ 「'+it.n+'」 불러왔습니다 — 사진을 고르고 저장하시면 됩니다.';
-      if(typeof toast==='function') toast('🛒 '+it.n+' 불러왔습니다');
-    }catch(e){
-      $('dm-pickmsg').textContent='⚠️ '+(e.message||'불러오지 못했습니다')+' — 상품 링크를 열고 Ctrl+U → 전체복사해서 아래 칸에 붙여넣어 주세요.';
-    }finally{ wait(false); }
+    if(!it){ $('dm-pickmsg').textContent='목록에 없는 상품입니다 — 아래 ① 칸에 직접 붙여넣어 주세요.'; return; }
+    if(!it.u){ $('dm-pickmsg').textContent='이 상품은 상세 링크가 없습니다 — 아래 ① 칸에 직접 붙여넣어 주세요.'; return; }
+    var pn=$('dm-prodname'); if(pn){ pn.value=it.n; DM.setProd(); }
+    var b=$('dm-brand'); if(b&&!b.value&&BRAND) b.value=BRAND;
+    var w=window.open(it.u,'_blank','noopener');
+    $('dm-pickmsg').innerHTML='📄 「'+it.n+'」 상품 글을 새 창으로 열었습니다.'
+      +(w?'':' (창이 안 열렸으면 <a href="'+it.u+'" target="_blank" rel="noopener" style="color:#0d6efd;font-weight:700">여기</a>를 눌러주세요.)')
+      +'<br><b>①</b> 그 창에서 <b>로그인</b> → <b>②</b> <b>Ctrl+U</b> (페이지 소스) → <b>③</b> <b>Ctrl+A</b> 후 <b>Ctrl+C</b>'
+      +' → <b>④</b> 아래 ① 칸에 붙여넣고 <b>[⚡ 상세페이지 생성]</b>.'
+      +'<br><span style="color:#888">상품명·브랜드는 미리 채워뒀습니다. 사진은 붙여넣으면 자동으로 뜹니다.</span>';
+    if(typeof toast==='function') toast('📄 '+it.n+' 상품 글을 열었습니다');
   }
   if(!load()) return;                                 // 카탈로그를 거치지 않고 그냥 열었으면 예전 그대로
   $('dm-pickbox').style.display='';
