@@ -240,6 +240,13 @@ function offcat(raw){
   return m ? {name:m.name, group:m.wh, offcat:true, note:m.note || ''} : null;
 }
 
+/* ✂️ 상품명 끝에 매달려 온 수량 구분자 (홍팀장 2026-09-03 — 지구식품 「납품용 대구 15kg x」).
+   업체 파일이 「상품명 x  수량」으로 적혀 있으면 칸을 나눌 때 x 가 상품명 쪽에 남는다.
+   글자 하나 때문에 완전일치가 깨져, 방금 발주 되게 열어준 물건도 「카탈로그에 없는 상품명」이 됐다.
+   ⚠️ 떼는 건 **끝에 매달린 구분자뿐**이다 — 앞에 공백이 있고, 뒤엔 아무것도 없거나 숫자만.
+      이름 한가운데의 x(3x4 같은 규격)는 건드리지 않는다. */
+const TAIL_X = /\s+[*×xX]\s*\d{0,3}\s*$/;
+const stripTailX = s => { const t = S(s); return TAIL_X.test(t) ? t.replace(TAIL_X, '').trim() : ''; };
 function findProd(raw){
   const idx = prodIndex();
   const t = S(raw);
@@ -247,8 +254,10 @@ function findProd(raw){
   const hit = k => idx.get(pkey(k)) || offcat(k);
   let p = hit(t);
   if(p) return {p, cands:[]};
-  const a = stripAge(t);                                    // 🐟 뒤에 붙은 삭힘정도는 떼고 상품을 찾는다
-  if(a !== t){ p = hit(a); if(p) return {p, cands:[]}; }
+  const x = stripTailX(t);                                  // ✂️ 「… 15kg x」 꼬리부터 떼고 다시 찾는다
+  if(x){ p = hit(x); if(p) return {p, cands:[]}; }
+  const a = stripAge(x || t);                               // 🐟 뒤에 붙은 삭힘정도는 떼고 상품을 찾는다
+  if(a !== (x || t)){ p = hit(a); if(p) return {p, cands:[]}; }
   const s = stripWh(a);
   if(s){ p = hit(s); if(p) return {p, cands:[]}; }
   return {p:null, cands:candidates(a)};
