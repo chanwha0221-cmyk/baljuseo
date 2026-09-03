@@ -125,7 +125,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v3.4</span>
+  <span class="ver">v3.5</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
@@ -288,7 +288,7 @@ async function getAccessToken(){ return 'via-proxy'; }
 
 async function sheetGet(name,range){
   const token=await getAccessToken();
-  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(name+'!'+range)}`;
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(name+'!'+range)}?prettyPrint=false`;
   const r=await fetch(url,{headers:{'Authorization':'Bearer '+token}});
   const d=await r.json();
   if(d.error) throw new Error(d.error.message);
@@ -383,10 +383,16 @@ function loadCache(){
    요청을 줄 세우기 때문에 Promise.all 로 묶어도 실제로는 동시에 안 간다.
    → 실측 **27초**. 화면이 "불러오는 중"에서 안 넘어갔다.
    범위 4개를 batchGet 하나로 합치면 왕복이 한 번이다. */
+/* 🔴 2026-09-03 — 또 "불러오는 중"에서 안 넘어갔다. 이번 원인은 **응답 크기**다.
+   구글 Sheets API 는 기본이 pretty-print(4칸 들여쓰기 + 줄바꿈)라 같은 내용이 2.3배로 부푼다.
+   삭제 로그가 쌓이면서 batchGet 응답이 277KB 가 됐고, 프록시 왕복이 15초(READ_MS)를 넘겨
+   매번 타임아웃 → 로컬 캐시만 보이고 배지는 계속 "불러오는 중"이었다.
+   → `prettyPrint=false` 하나로 277KB→119KB, 6.8초→2.3초. (실측 2026-09-03)
+   ⚠️ 삭제 로그는 계속 자라므로 언젠가 또 걸린다. 그때는 로그를 나눠 읽거나 오래된 줄을 접어야 한다. */
 async function sheetBatchGet(ranges){
   const token=await getAccessToken();
   const qs=ranges.map(r=>'ranges='+encodeURIComponent(r)).join('&');
-  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchGet?majorDimension=ROWS&${qs}`;
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchGet?majorDimension=ROWS&prettyPrint=false&${qs}`;
   const r=await fetch(url,{headers:{'Authorization':'Bearer '+token}});
   const d=await r.json();
   if(d.error) throw new Error(d.error.message);
