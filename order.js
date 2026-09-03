@@ -1879,6 +1879,11 @@ const HDR_MAP = {
   addr: ['배송지', '배송주소', '받는분 주소', '주소', '수취인주소', '수취인 주소'],
   tel : ['배송지연락처', '수취인연락처', '받는분 연락처', '받는분연락처', '수취인 연락처', '수취인전화번호', '연락처', '휴대폰'],
   msg : ['배송위치', '배송메시지', '배송메세지', '배송요청사항', '배송메모', '요청사항', '배송시요청사항'],
+  /* 🏷 업체명(출고지명) — 사업자는 하나인데 채널이 여러 개인 곳 (홍팀장 2026-09-03).
+     한 파일 안에 「한상***」·「대감***」처럼 채널이 섞여 오고, 그 이름이 **송장에 찍혀야 한다.**
+     예전엔 이 칸을 아예 안 읽어 전부 9칸(자기 이름)으로 나갔다 — 채널 구분이 통째로 사라졌다.
+     ⚠️ 자기 업체명을 적어 보낸 줄은 buildOut 이 걸러 9칸으로 되돌린다(2026-08-24 규칙 그대로). */
+  biz : ['업체명', '출고지', '출고지명', '송장업체명'],
   // 아래 둘은 우리 7칸에 그대로 들어가지 않고, 상품명·주소를 **거들기만** 한다
   opt : ['등록옵션명'],
   zip : ['수취인우편번호', '우편번호']       // '수취인우편번호(2)' — 앞글자가 달라 '우편번호'로는 안 걸렸다
@@ -1888,7 +1893,13 @@ const DEFAULT_OPT = /^(기본|기본옵션|기본형|기본구성|단일상품|�
 function headerItems(raw){
   const lines = S(raw).split(/\r?\n/).filter(l => l.replace(/\t/g, '').trim());
   if(lines.length < 2) return [];
-  const cut = l => l.split('\t').map(x => S(x));
+  /* 📋 CSV 를 열어 붙여넣으면 큰따옴표가 그대로 따라온다 (홍팀장 2026-09-03 — 한상/대감 파일).
+     「"부산광역시 … 1202호"」의 따옴표는 쉼표가 든 칸을 묶는 CSV 문법이지 주소의 일부가 아니다.
+     벗기지 않으면 그 따옴표가 발주서와 송장까지 그대로 따라 나간다. 안쪽의 "" 는 " 하나로 되돌린다. */
+  const unq = v => { const t = S(v);
+    return (t.length > 1 && t.charAt(0) === '"' && t.charAt(t.length - 1) === '"')
+      ? t.slice(1, -1).replace(/""/g, '"').trim() : t; };
+  const cut = l => l.split('\t').map(x => unq(x));
   // 머리글 줄 찾기 — 상품명·수량·받는사람 계열이 한 줄에 다 있어야 한다
   let hr = -1, head = null;
   for(let i = 0; i < Math.min(6, lines.length); i++){
@@ -1960,12 +1971,12 @@ function headerItems(raw){
     let ad = g('addr');
     const zp = S(g('zip')).replace(/[^\d]/g, '');
     if(zp && ad && ad.indexOf(zp) < 0) ad = '(' + zp + ')' + ad;
-    out.push({ biz:'', name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') });
+    out.push({ biz:g('biz'), name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') });
   }
   out.skipped = skipped;
   out.warns = warns;
   // 원문에 없던 손질을 했으면 화면에 그대로 말해준다 — 주소가 왜 달라졌는지 묻지 않게
-  out.used = { opt: at.opt >= 0, zip: at.zip >= 0, rule: !!RULE.headers, final: at.final >= 0 };
+  out.used = { opt: at.opt >= 0, zip: at.zip >= 0, rule: !!RULE.headers, final: at.final >= 0, biz: at.biz >= 0 };
   return out;
 }
 
@@ -2067,9 +2078,11 @@ function runConvert(append){
       + (S(who.name) ? '<br>정산업체명은 ' + whoLine(who.name) + ' 로 나갑니다 — 파일 안의 판매처가 아닙니다.' : '<br>위에서 <b>어느 업체 발주인지</b> 골라주세요.')
       + (byHead.length ? '<br><b style="color:var(--up)">🚫 취소·반품·교환 ' + byHead.length + '줄은 뺐습니다</b> — ' + esc(byHead.slice(0, 5).join(', ')) + (byHead.length > 5 ? ' 외' : '') : '')
       + (hdUsed && hdUsed.rule ? '<br><span class="hint">📑 이 업체 발주서 규칙으로 읽었습니다.</span>' : '')
-      + ((hdUsed && (hdUsed.opt || hdUsed.zip))
+      + ((hdUsed && (hdUsed.opt || hdUsed.zip || hdUsed.biz))
           ? '<br><span class="hint">' + [hdUsed.opt ? '옵션명을 상품명 뒤에 붙였습니다(규격이 옵션 칸에 있어서)' : '',
-                                          hdUsed.zip ? '우편번호를 주소 앞에 (00000) 으로 붙였습니다' : ''].filter(Boolean).join(' · ') + '</span>'
+                                          hdUsed.zip ? '우편번호를 주소 앞에 (00000) 으로 붙였습니다' : '',
+                                          // 🏷 채널이 여러 개인 업체 — 그 이름으로 송장이 나간다는 걸 그 자리에서 알린다
+                                          hdUsed.biz ? '업체명 칸을 읽었습니다 — 그 이름이 송장에 찍히는 10칸 발주로 나갑니다' : ''].filter(Boolean).join(' · ') + '</span>'
           : '')
       + '</div>');
     /* 📦 수량을 원문 그대로 안 넣은 줄은 **한 줄씩** 말해준다 (홍팀장 2026-09-02).
