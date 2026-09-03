@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.0</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.1</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -272,6 +272,16 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
   </div>
   <div id="dm">
     <div class="dm-left">
+      <!-- 🛒 카탈로그에서 바로 불러오기 (홍팀장 2026-09-03)
+           예전엔 상품 링크를 열고 Ctrl+U → 전체복사 → 붙여넣기를 손으로 해야 했다.
+           카탈로그 [🖼 상세페이지 만들기] 로 들어오면 상품 목록이 넘어오므로, 이름만 고르면
+           페이지 원문을 대신 가져와 채운다(브라우저는 CORS 로 못 가져와서 서버가 대신 간다). -->
+      <div id="dm-pickbox" style="display:none;border:1px solid #d8e6dd;background:#f4faf6;border-radius:8px;padding:10px;margin-bottom:10px">
+        <div class="dm-h3" style="margin-top:0">⓪ 카탈로그에서 상품 고르기 <span style="font-weight:400;color:#aaa;font-size:11px">(고르면 아래가 자동으로 채워집니다)</span></div>
+        <input id="dm-pick" list="dm-picklist" placeholder="상품명 일부를 쳐보세요 — 예: 숫게, 갈치" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit">
+        <datalist id="dm-picklist"></datalist>
+        <div style="font-size:11px;color:#888;margin-top:5px" id="dm-pickmsg"></div>
+      </div>
       <div class="dm-h3">① 페이지 소스 붙여넣기</div>
       <textarea id="dm-src" placeholder="유통시트의 상품 링크 열기 → Ctrl+U (페이지 소스) → 전체 복사(Ctrl+A, Ctrl+C)해서 통째로 붙여넣기"></textarea>
       <button class="dm-gen" onclick="DM.generate()">⚡ 상세페이지 생성</button>
@@ -764,5 +774,76 @@ const DM=(function(){
 <script>
 function toast(m,ms){ms=ms||2200;var t=document.getElementById('_tt');if(!t){t=document.createElement('div');t.id='_tt';t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:99999;opacity:0;transition:opacity .2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity='1';clearTimeout(t._h);t._h=setTimeout(function(){t.style.opacity='0';},ms);}
 window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}catch(e){console.warn(e);}});
+
+/* ═══════════════════════════════════════════════════════════════
+   🛒 카탈로그 연동 (홍팀장 2026-09-03)
+     "당연히 상품에서 바로 땡겨가는거니까 상세메이커 창이 열리면 기본 정보는 다 들어가 있는걸로 해줘.
+      혹시 오래 걸리면 잠시 기다려 주세요 라는 메시지 뜨게 해주고."
+   ───────────────────────────────────────────────────────────────
+   카탈로그가 [🖼 상세페이지 만들기] 를 누를 때 상품 목록을 localStorage 에 놓고 이 창을 연다.
+   여기서는 그 목록으로 고르게 하고, 고른 상품의 게시글 원문을 **프록시가 대신 가져와** 채운다.
+   🔴 브라우저가 masterc.kr 을 직접 부르면 CORS 로 막힌다(실측). 그래서 서버(sheets-proxy)를 거친다.
+   ⚠️ 상품 페이지는 사진이 많아 몇 초 걸린다 — 그동안 화면을 덮어 "기다려 주세요"를 띄운다.
+      아무 표시가 없으면 안 눌린 줄 알고 또 누르게 된다. */
+(function(){
+  var HK='dm_catalog_v1';                 // 카탈로그가 놓고 가는 자리
+  var PROXY='https://script.google.com/macros/s/AKfycbx46saILixJ387TxLbfnsBwjdc5K93j-cqUFjHxQU8xPGL7DJ9S-YjUvw7kvHmGPe7mmg/exec';
+  var ITEMS=[], BRAND='';
+  function $(id){return document.getElementById(id);}
+  function wait(on,msg){
+    var w=$('dm-wait');
+    if(!w){
+      w=document.createElement('div'); w.id='dm-wait';
+      w.style.cssText='position:fixed;inset:0;background:rgba(255,255,255,.92);z-index:99998;display:flex;'
+        +'align-items:center;justify-content:center;text-align:center;font-family:inherit';
+      w.innerHTML='<div><div style="font-size:34px;margin-bottom:10px">⏳</div>'
+        +'<div id="dm-waitmsg" style="font-size:16px;font-weight:800;color:#1a1816"></div>'
+        +'<div style="font-size:12.5px;color:#777;margin-top:8px;line-height:1.7">'
+        +'상품 사진이 많으면 <b>10초쯤</b> 걸릴 수 있습니다.<br>창을 닫지 마시고 잠시만 기다려 주세요.</div></div>';
+      document.body.appendChild(w);
+    }
+    $('dm-waitmsg').textContent=msg||'불러오는 중입니다…';
+    w.style.display=on?'flex':'none';
+  }
+  function load(){
+    try{ var j=JSON.parse(localStorage.getItem(HK)||'null');
+      if(!j||!j.items||!j.items.length) return false;
+      ITEMS=j.items; BRAND=j.brand||''; return true;
+    }catch(e){ return false; }
+  }
+  async function pull(name){
+    var it=ITEMS.find(function(x){return x.n===name;});
+    if(!it){ $('dm-pickmsg').textContent='목록에 없는 상품입니다 — 아래 칸에 직접 붙여넣어 주세요.'; return; }
+    if(!it.u){ $('dm-pickmsg').textContent='이 상품은 상세 링크가 없습니다 — 아래 칸에 직접 붙여넣어 주세요.'; return; }
+    wait(true,'「'+it.n+'」 상품 정보를 불러오는 중입니다');
+    try{
+      var r=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action:'fetchPage',url:it.u})});
+      var j=await r.json();
+      if(!j||!j.html) throw new Error((j&&j.error&&j.error.message)||'상품 페이지를 가져오지 못했습니다');
+      $('dm-src').value=j.html;
+      var b=$('dm-brand'); if(b&&!b.value&&BRAND) b.value=BRAND;
+      DM.generate();                                  // 사진·상품명·상세가 여기서 채워진다
+      var pn=$('dm-prodname'); if(pn&&!pn.value){ pn.value=it.n; DM.setProd(); }
+      $('dm-pickmsg').textContent='✅ 「'+it.n+'」 불러왔습니다 — 사진을 고르고 저장하시면 됩니다.';
+      if(typeof toast==='function') toast('🛒 '+it.n+' 불러왔습니다');
+    }catch(e){
+      $('dm-pickmsg').textContent='⚠️ '+(e.message||'불러오지 못했습니다')+' — 상품 링크를 열고 Ctrl+U → 전체복사해서 아래 칸에 붙여넣어 주세요.';
+    }finally{ wait(false); }
+  }
+  if(!load()) return;                                 // 카탈로그를 거치지 않고 그냥 열었으면 예전 그대로
+  $('dm-pickbox').style.display='';
+  $('dm-picklist').innerHTML=ITEMS.map(function(x){
+    return '<option value="'+String(x.n).replace(/"/g,'&quot;')+'"></option>';
+  }).join('');
+  $('dm-pickmsg').textContent='카탈로그 상품 '+ITEMS.length+'개를 불러왔습니다.';
+  var inp=$('dm-pick');
+  inp.addEventListener('change',function(){ if(inp.value) pull(inp.value); });
+  inp.addEventListener('keydown',function(e){ if(e.key==='Enter'&&inp.value) pull(inp.value); });
+  // 카탈로그가 상품 하나를 콕 집어 보냈으면 바로 불러온다
+  try{ var j=JSON.parse(localStorage.getItem(HK)||'{}');
+    if(j.pick){ inp.value=j.pick; pull(j.pick); }
+  }catch(e){}
+})();
 </script>
 </body></html>

@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.31</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.32</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -683,6 +683,12 @@ h1{letter-spacing:-.6px}
   <button class="mbtn" data-go="news">📰 소식글<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="change">📊 상품변동사항<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="order">🧾 발주하기<span class="nbadge" id="ordCount" style="display:none"></span></button>
+  <!-- 🖼 상세페이지 만들기 — 업체가 자기 쇼핑몰에 올릴 상세 이미지를 직접 만든다 (홍팀장 2026-09-03).
+       새 창으로 띄운다: 상품을 보다가 만들러 갔다 돌아오는 흐름이라, 같은 창에서 열면
+       담아둔 발주 화면이 사라진다.
+       ⚠️ 상세메이커는 브라우저 안에서만 도는 도구다 — 서버에 아무것도 쓰지 않으므로
+          여러 업체가 동시에 눌러도 서로 영향이 없다. -->
+  <button class="mbtn" id="mbMaker">🖼 상세페이지 만들기<span class="tapb">새 창으로 열림</span></button>
   <button class="mbtn" data-go="orders" id="mbOrders" style="display:none">📋 발주 내역<span class="nbadge" id="ordsBadge" style="display:none"></span></button>
   <button class="mbtn" data-go="claim" id="mbClaim">📮 클레임<span class="nbadge" id="clBadge" style="display:none"></span></button>
 </div>
@@ -2515,6 +2521,16 @@ function renderUser(){
   $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
   { const e=$('ub_exp'); if(e)e.onclick=updateProposal; }   // 🔄 제안서 업데이트 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
   { const e=$('ub_xls'); if(e)e.onclick=downloadPriceXlsx; } // 📥 상품·단가 엑셀 — 허용된 업체에게만 있는 버튼
+  /* 🖼 상세페이지 만들기 — 지금 카탈로그에 뜬 상품 목록을 넘기고 새 창으로 연다 (홍팀장 2026-09-03).
+     이름·상세링크만 넘긴다(단가는 넘기지 않는다 — 상세페이지에 우리 공급가가 실릴 이유가 없다).
+     넘기는 자리는 localStorage — 새 창은 별개 탭이라 sessionStorage 로는 안 건너간다. */
+  { const mm=$('mbMaker'); if(mm)mm.onclick=()=>{
+      try{
+        const items=(ALL||[]).filter(p=>!p.exc&&p.name).map(p=>({n:p.name,u:p.url||''}));
+        localStorage.setItem('dm_catalog_v1',JSON.stringify({at:Date.now(),brand:(ME&&ME.name)||'',items}));
+      }catch(e){ /* 목록을 못 넘겨도 상세메이커는 열린다 — 예전처럼 손으로 붙여넣으면 된다 */ }
+      window.open('상세메이커_업체용.html','_blank','noopener');
+    }; }
   // 거래처가 보고 있는 게 최신인지 확신할 수 있게 — 저장본을 버리고 시트에서 새로 받는다 (사장님 2026-08-18)
   $('ub_reload').onclick=()=>{
     try{localStorage.removeItem(CK);}catch(e){}
