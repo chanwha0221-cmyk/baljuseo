@@ -125,7 +125,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v3.7</span>
+  <span class="ver">v3.8</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
@@ -275,6 +275,7 @@ const SH_INPUT='입력 시트', SH_STATUS='현황판', SH_LOG='삭제 로그', S
 let entries = [];      // {seq, time, team, wh, it, qty}
 let holdingMap = {};   // "wh||it" -> 수량보유팀 텍스트
 let deadlineMap = {};  // "it"(상품명) -> 마감시간 문자열 (창고명 무시, 상품명만 매칭)
+let _deadlineAt = 0;   // 마감시간표를 마지막으로 받아온 시각 (10분에 한 번만 다시 받는다)
 // 삭제 로그는 앱이 들고 있지 않는다 — 시트에 덧붙이고(sheetAppend), 볼 때만 읽는다(showLog)
 let nextSeq = 1;
 let sheetOnline = false;
@@ -437,17 +438,24 @@ async function _loadFromSheet(silent){
   if(!silent) setSync('loading');
   try{
     let inp,stat,dlRows=null;
+    /* ⏰ 마감시간표는 **하루에 한 번 바뀔까 말까** 하는 자료인데 1447줄이나 된다(응답의 대부분).
+       그걸 15초 배경 동기화마다 같이 받아오느라 프록시가 막혔다(2026-09-03).
+       → 처음 한 번, 그 다음은 10분에 한 번만 같이 받는다. 수량(입력·현황판)은 그대로 15초마다. */
+    const needDeadline = (_deadlineAt===0) || (Date.now()-_deadlineAt > 10*60*1000);
     try{
-      /* 한 번에: 입력 · 현황판 · 삭제로그 · 마감시간(B,J만)
-         🔴 마감시간을 A2:J 로 받으면 응답이 **380KB** 가 된다. 그러면 프록시 캐시(한 칸 100KB)에
+      /* 한 번에: 입력 · 현황판 (+ 필요할 때만 마감시간 B·J)
+         🔴 마감시간을 A2:J 로 받으면 응답이 **380KB** 가 된다. 그러면 프록시 캐시(한 칸 90KB)에
             안 들어가서 매번 구글까지 갔다 오고, 새로고침 한 번에 8.7초가 걸렸다.
             실제로 쓰는 건 상품명(B)과 마감시간(J) 둘뿐이라 그 두 열만 받는다. */
-      const got=await sheetBatchGet([SH_INPUT+'!A2:E', SH_STATUS+'!A2:C',
-                                     SH_DEADLINE+'!B2:B', SH_DEADLINE+'!J2:J']);
+      const ranges=[SH_INPUT+'!A2:E', SH_STATUS+'!A2:C'];
+      if(needDeadline) ranges.push(SH_DEADLINE+'!B2:B', SH_DEADLINE+'!J2:J');
+      const got=await sheetBatchGet(ranges);
       inp=got[0]||[]; stat=got[1]||[];
-      // 두 열을 다시 짝지어 준다 — 아래 코드가 r[1]=상품, r[9]=마감시간 을 기대한다
-      const _nm=got[2]||[], _tm=got[3]||[];
-      dlRows=_nm.map((r,i)=>{ const a=[]; a[1]=(r&&r[0])||''; a[9]=((_tm[i]||[])[0])||''; return a; });
+      if(needDeadline){
+        // 두 열을 다시 짝지어 준다 — 아래 코드가 r[1]=상품, r[9]=마감시간 을 기대한다
+        const _nm=got[2]||[], _tm=got[3]||[];
+        dlRows=_nm.map((r,i)=>{ const a=[]; a[1]=(r&&r[0])||''; a[9]=((_tm[i]||[])[0])||''; return a; });
+      }
     }catch(e){
       /* 탭 하나가 없으면 batchGet 은 통째로 실패한다 → 예전 방식으로 물러난다.
          🔴 2026-09-03 — 단, **서버가 느려서 실패한 것에는 물러나지 않는다.**
@@ -477,12 +485,16 @@ async function _loadFromSheet(silent){
     holdingMap = {};
     stat.forEach(r=>{ if(!r) return; const wh=String(r[0]||'').trim(), it=String(r[1]||'').trim(), c=String(r[2]||'').trim(); if(wh&&it&&c) holdingMap[wh+'||'+it]=c; });
     // 마감시간 시트 (A:창고 / B:상품 / J:발주마감시간) — 상품명만으로 매칭 (창고명 다를 수 있어 무시)
-    deadlineMap = {};
-    try{
-      // 위 batchGet 에서 이미 받아왔으면 그걸 쓴다. 물러난 경우에만 따로 읽는다.
-      const dl = dlRows !== null ? dlRows : await sheetGet(SH_DEADLINE,'A2:J');
-      dl.forEach(r=>{ if(!r)return; const it=String(r[1]||'').trim(), t=String(r[9]||'').trim(); if(it&&t) deadlineMap[it]=t; });
-    }catch(e){ console.warn('마감시간 시트 없음 — 무시',e); }
+    // 이번에 안 받아왔으면(needDeadline=false) 직전에 만든 표를 그대로 쓴다 — 비우지 않는다.
+    if(needDeadline){
+      try{
+        // 위 batchGet 에서 이미 받아왔으면 그걸 쓴다. 물러난 경우에만 따로 읽는다.
+        const dl = dlRows !== null ? dlRows : await sheetGet(SH_DEADLINE,'A2:J');
+        const m = {};
+        dl.forEach(r=>{ if(!r)return; const it=String(r[1]||'').trim(), t=String(r[9]||'').trim(); if(it&&t) m[it]=t; });
+        deadlineMap = m; _deadlineAt = Date.now();
+      }catch(e){ console.warn('마감시간 시트 없음 — 무시',e); }
+    }
     _sheetInputRows = entries.length;   // 급감 가드 기준값 (시트에 실제로 있던 줄 수)
     sheetOnline=true; save(); setSync('ok'); return true;
   }catch(e){ sheetOnline=false; setSync('error'); console.error('시트 로드 실패:',e); return false; }
