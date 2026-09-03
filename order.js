@@ -442,8 +442,14 @@ function buildOut(){
     const myTel = fmtTel(me.phone) || S(me.phone);          // 주문처 연락처도 같은 규칙
     // 자기 업체명을 적은 건 10칸으로 치지 않는다 — 같은 업체 발주가 날마다 갈리는 원인 (2026-08-24)
     const biz = (S(g.biz) && pkey(g.biz) === pkey(me.name)) ? '' : S(g.biz);
+    /* 🏷 출고지에 저장해둔 연락처가 있으면 **그 번호로 나간다** (홍팀장 2026-09-03).
+       한상***으로 찍힌 송장에 용감***의 번호가 나가면 그쪽이 전화를 못 받는다.
+       저장된 게 없으면 예전대로 주문처(계정) 연락처로 나간다 — 발주를 막지는 않는다. */
+    const sh = biz ? shipOf(biz) : null;
+    const oTel = (sh && S(sh.phone)) ? (fmtTel(sh.phone) || S(sh.phone)) : myTel;
+    const oAddr = (sh && S(sh.addr)) ? S(sh.addr) : (me.addr || '');
     const put = prod => {
-      if(biz) ten.push([me.name || '', biz, me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
+      if(biz) ten.push([me.name || '', biz, oAddr, oTel, '', prod, g.rcv, g.addr, tel, g.msg]);
       else    nine.push([me.name || '', me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
     };
     /* 📦 합포장 안 되는 상품은 **한 줄에 하나씩, 1개씩** 떨어진다 (홍팀장 2026-08-28 — 참치 오마카세 한판).
@@ -570,6 +576,11 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .opager .ordb2.pg.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .opager .ordb2:disabled{opacity:.4;cursor:default}
 .odots{color:var(--muted);font-size:12px;padding:0 2px}
+/* 🏷 출고지 연락처 — 한 줄에 [이름][연락처][주소][저장] (홍팀장 2026-09-03) */
+.shiprow{display:grid;grid-template-columns:minmax(96px,auto) 150px 1fr auto;gap:7px;align-items:center;margin-top:7px}
+.shiprow b{font-size:13px;font-weight:800;color:var(--accent-d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shiprow .hint{grid-column:1/-1;margin:0}
+@media(max-width:640px){.shiprow{grid-template-columns:1fr}}
 .ordbox.cfg{border-style:dashed}
 .cfgst{font-size:11.5px;font-weight:700;margin-left:8px;vertical-align:middle}
 .cfgst.ok{color:var(--accent-d)}
@@ -851,6 +862,7 @@ function view(){
     +     HEADS.map((h, i) => '<th' + (i === 2 ? ' style="width:70px"' : (i === 0 ? ' style="color:var(--accent-d);min-width:120px"' : '')) + '>' + h + (i === 0 ? '<span style="display:block;font-weight:700;color:var(--accent-d)">송장에 다른 이름<br>나갈 때만</span>' : '') + '</th>').join('')
     +     '<th style="width:34px"></th></tr></thead><tbody id="ordbody"></tbody></table></div>'
     +   '<div id="ordsum" class="ordsum"></div>'
+    +   '<div id="ordships"></div>'
     + '</div>'
     + '<div class="ordbox" id="ordoutbox"></div>'
     + '<div class="ordbox"><h3>도움이 필요하시면</h3><div class="hint">상품명이 안 맞거나 발주서가 만들어지지 않으면 <b>' + TEL_HELP + '</b> 으로 연락 주세요.</div></div>'
@@ -960,6 +972,88 @@ function rowHtml(r, i){
   return h;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   🏷 출고지 연락처 (홍팀장 2026-09-03)
+     "사업자는 하나인데 채널이 여러개인 애가 있어. 출고지명이 완비 / 월비 이런거야.
+      그럼 완비도 연락처가 있고 월비도 연락처가 있겠지. 업체에서 이런경우 연락처를
+      계속 넣어야 할거 아냐 — 사용하는 출고지명이랑 연락처 저장할 수 있게 해줘."
+   ──────────────────────────────────────────────────────────────────
+   10칸 발주는 「주문처명 | 출고지명 | 주문처주소 | 주문처연락처 | …」로 나간다.
+   예전엔 출고지가 뭐든 **주문처 연락처가 계정 하나 값으로 고정**이라, 한상***으로 나간 송장에도
+   용감***의 연락처가 찍혔다. 출고지마다 받는 전화가 다른데 한 번호로 나가면 그쪽이 전화를 못 받는다.
+
+   저장 자리는 **업체 명부(CLIENTS)** 를 그대로 쓴다 — 담기는 게 「이름 · 연락처 · 주소」로 똑같고,
+   출고지명은 실제로 송장에 찍히는 업체명이라 명부에 있는 게 자연스럽다. 새 표를 만들지 않는 편이
+   ①서버를 안 건드리고 ②마스터가 그 이름으로 대신 발주도 할 수 있어 낫다.
+   ⚠️ 명부는 마스터 화면에만 내려온다 — 그래서 이 카드도 마스터에게만 보인다. */
+function shipOf(name){
+  const k = pkey(S(name));
+  if(!k || !Array.isArray(CLIENTS)) return null;
+  return CLIENTS.find(c => pkey(S(c.name)) === k) || null;
+}
+// 지금 표에 적힌 출고지명들 — 자기(주문처) 이름은 10칸이 아니므로 뺀다
+function shipsInRows(){
+  const me = orderer(), out = [];
+  ROWS.forEach(r => {
+    const b = S(r.biz);
+    if(!b) return;
+    if(S(me.name) && pkey(b) === pkey(me.name)) return;
+    if(!out.some(x => pkey(x) === pkey(b))) out.push(b);
+  });
+  return out;
+}
+function shipCard(){
+  if(!amMaster()) return '';
+  const list = shipsInRows();
+  if(!list.length) return '';
+  const rows = list.map(nm => {
+    const s = shipOf(nm), tel = s ? S(s.phone) : '', ad = s ? S(s.addr) : '';
+    const key = encodeURIComponent(nm);
+    return '<div class="shiprow" data-ship="' + esc(nm) + '">'
+      + '<b>' + esc(nm) + '</b>'
+      + '<input class="ordin" id="sh_t_' + key + '" placeholder="이 출고지 연락처" value="' + esc(tel) + '">'
+      + '<input class="ordin" id="sh_a_' + key + '" placeholder="출고지 주소 (선택)" value="' + esc(ad) + '">'
+      + '<button class="ordb2" data-shipsave="' + esc(nm) + '">💾 저장</button>'
+      + '<span class="hint" id="sh_m_' + key + '">' + (tel ? '저장돼 있습니다 — 이 번호로 나갑니다' : '아직 없습니다 — 넣어두면 다음부터 자동입니다') + '</span>'
+      + '</div>';
+  }).join('');
+  return '<div class="ordbox" style="margin-top:10px"><h3>🏷 출고지 연락처</h3>'
+    + '<div class="hint">사업자는 하나인데 <b>출고지(채널)가 여러 곳</b>인 업체입니다. 출고지마다 연락처를 저장해두면 '
+    + '그 이름으로 나가는 발주에 <b>그 출고지 연락처</b>가 자동으로 들어갑니다. 저장 안 하면 주문처 연락처로 나갑니다.</div>'
+    + rows + '</div>';
+}
+function paintShips(){
+  const box = document.getElementById('ordships');
+  if(!box) return;
+  const focused = document.activeElement && document.activeElement.id;
+  if(focused && /^sh_[ta]_/.test(focused)) return;   // 치는 중이면 다시 그리지 않는다
+  box.innerHTML = shipCard();
+}
+async function saveShip(nm){
+  const key = encodeURIComponent(nm);
+  const t = document.getElementById('sh_t_' + key), a = document.getElementById('sh_a_' + key);
+  const msg = document.getElementById('sh_m_' + key);
+  const ph = t ? S(t.value) : '', ad = a ? S(a.value) : '';
+  if(!ph){ if(msg) msg.textContent = '연락처를 넣어주세요.'; if(t) t.focus(); return; }
+  const tel = fmtTel(ph) || ph;
+  if(msg) msg.textContent = '저장 중…';
+  try{
+    const s = shipOf(nm);
+    // 이미 명부에 있으면 그 줄을 고치고(updclient), 없으면 미가입 업체로 새로 올린다(saveclient)
+    if(s) await api('updclient', {token: ME.token, id: s.id || '', name: nm, phone: tel, addr: ad});
+    else  await api('saveclient', {token: ME.token, name: nm, phone: tel, addr: ad});
+    if(Array.isArray(CLIENTS)){
+      const i = CLIENTS.findIndex(c => pkey(S(c.name)) === pkey(nm));
+      if(i >= 0){ CLIENTS[i].phone = tel; CLIENTS[i].addr = ad; }
+      else CLIENTS.push({id:'', name:nm, phone:tel, addr:ad, owner:'', src:'출고지'});
+    }
+    toast('🏷 ' + nm + ' 연락처를 저장했습니다');
+    paint();                                          // 미리보기가 그 자리에서 새 번호로 바뀐다
+  }catch(e){
+    if(msg) msg.textContent = e.message || '저장하지 못했습니다';
+  }
+}
+
 function paint(){
   const b = document.getElementById('ordbody');
   if(!b) return;
@@ -975,6 +1069,7 @@ function paint(){
       + (bad ? ' · <span class="ordbad">확인 필요 <b>' + bad + '</b>건</span>' : '')
       + (empty ? ' · 빈 줄 ' + empty : '');
   }
+  paintShips();
   paintOut(ok, bad);
   saveDraft();
   badge();
@@ -2637,6 +2732,13 @@ document.addEventListener('click', e => {
       OPEN = -1; saveDraft(); paint();
       toast(hit.length > 1 ? (hit.length + '줄을 「' + nm + '」 으로 바꿨습니다') : '상품을 바꿨습니다');
     }
+    return;
+  }
+  // 🏷 출고지 연락처 저장
+  const shb = e.target.closest && e.target.closest('[data-shipsave]');
+  if(shb){
+    shb.disabled = true;
+    saveShip(shb.getAttribute('data-shipsave')).then(() => { shb.disabled = false; });
     return;
   }
   /* 📦 합포장 안 됨으로 지정 — 누르는 즉시 미리보기가 나뉜다 (홍팀장 2026-08-28) */
