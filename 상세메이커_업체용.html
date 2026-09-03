@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.10</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.11</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -314,7 +314,8 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
           <button class="dm-mb on" data-m="master" onclick="DM.setMode('master')">📋 기본</button>
         </div>
         <span class="dm-sp"></span>
-        <label style="font-size:12px;color:#444;display:flex;align-items:center;gap:4px;margin-right:6px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="dm-notice-on" onchange="DM.toggleNotice()"> 제품 상세 정보</label>
+        <!-- 🎨 검은 바(#161616) 위인데 글씨가 #444 라 안 보였다 (홍팀장 2026-09-03). 밝은 색으로. -->
+        <label style="font-size:12px;color:#e8e8e8;font-weight:700;display:flex;align-items:center;gap:5px;margin-right:6px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="dm-notice-on" onchange="DM.toggleNotice()" style="accent-color:#2BB3A3;width:15px;height:15px;cursor:pointer"> 제품 상세 정보</label>
         <button class="dm-ab" style="background:#555" id="dm-edb" onclick="DM.toggleEdit()">✏️ 수정</button>
         <button class="dm-ab" style="background:#2C7A4B" onclick="DM.copyHtml()">📋 HTML 복사</button>
         <button class="dm-ab" style="background:#C0392B" onclick="DM.saveJpg('single')" title="전체를 JPG 한 장으로 (아주 길면 모바일에서 안 보일 수 있어요)">🖼️ JPG 한 장</button>
