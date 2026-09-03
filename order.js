@@ -620,6 +620,10 @@ table.olist td.ad input.ein{min-width:230px}
 .ordpaste:focus{border-color:var(--accent)}
 .ordb{margin-top:6px;width:100%;border:1.5px solid var(--accent);background:var(--soft);color:var(--accent-d);padding:6px 0;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
 .ordb:hover{background:var(--accent);color:#fff}
+/* 🖼 상세페이지 만들기 — 발주담기 바로 밑. 주인공은 발주담기라 한 톤 낮춰 둔다 (홍팀장 2026-09-03) */
+.mkb{margin-top:5px;width:100%;border:1.5px solid var(--line);background:var(--card);color:var(--muted);
+  padding:5px 0;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
+.mkb:hover{border-color:var(--accent);color:var(--accent-d)}
 /* 🚫 예외 등록 — 마스터에게만 보이는 버튼이라 눈에 덜 띄는 회색으로 (홍팀장 2026-08-28) */
 .excb{margin-top:5px;width:100%;border:1.5px dashed var(--line);background:transparent;color:var(--muted);
   padding:5px 0;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
@@ -2866,6 +2870,24 @@ document.addEventListener('click', e => {
   if(ord){
     e.preventDefault();
     add(ord.getAttribute('data-ord'));
+    return;
+  }
+  /* 🖼 카탈로그 카드의 [상세페이지 만들기] — 그 상품 하나만 들고 상세메이커로 (홍팀장 2026-09-03).
+     상품 이름·상세링크만 넘긴다(단가는 안 넘긴다 — 상세페이지에 우리 공급가가 실릴 이유가 없다).
+     ⚠️ 넘기는 자리는 localStorage 다. 새 창은 별개 탭이라 sessionStorage 로는 안 건너간다. */
+  const mk = e.target.closest && e.target.closest('[data-mk]');
+  if(mk){
+    e.preventDefault();
+    const nm = mk.getAttribute('data-mk'), u = mk.getAttribute('data-mku') || '';
+    try{
+      localStorage.setItem('dm_catalog_v1', JSON.stringify({
+        at: Date.now(),
+        brand: (typeof ME !== 'undefined' && ME && ME.name) ? ME.name : '',
+        pick: nm,
+        items: [{ n: nm, u: u }]
+      }));
+    }catch(err){ /* 못 넘겨도 상세메이커는 열린다 — 예전처럼 손으로 붙여넣으면 된다 */ }
+    window.open('상세메이커_업체용.html', '_blank', 'noopener');
     return;
   }
 });

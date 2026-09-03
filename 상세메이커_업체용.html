@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.4</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.5</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -835,6 +835,32 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
   }
   if(!load()) return;                                 // 카탈로그를 거치지 않고 그냥 열었으면 예전 그대로
   $('dm-pickbox').style.display='';
+  var one=(ITEMS.length===1)?ITEMS[0]:null;
+  /* 🎯 카탈로그 카드에서 상품 하나를 들고 왔으면 **고르는 칸을 아예 없앤다** (홍팀장 2026-09-03).
+     "각 상품별로 넣어두고 그걸 누르면 그 상품껄 가져가면 헷갈리지가 않잖아."
+     여기서 또 고르게 하면 카드에서 누른 의미가 없다 — 상품명을 박아 보여주고 버튼 하나만 남긴다. */
+  if(one){
+    $('dm-pick').style.display='none';
+    var pn=$('dm-prodname'); if(pn){ pn.value=one.n; try{DM.setProd();}catch(e){} }
+    var b=$('dm-brand'); if(b&&!b.value&&BRAND) b.value=BRAND;
+    $('dm-pickmsg').innerHTML='<div style="font-size:14px;font-weight:800;color:#1a1816;margin-bottom:6px">'
+      +'🖼 「'+String(one.n).replace(/</g,'&lt;')+'」 상세페이지를 만듭니다</div>'
+      +'<button id="dm-open" style="width:100%;padding:11px;border:0;border-radius:8px;background:#0d6efd;color:#fff;'
+      +'font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit">📄 ① 상품 글 열기</button>'
+      +'<div style="margin-top:7px;line-height:1.8;color:#555">'
+      +'<b>②</b> 열린 창에서 <b>로그인</b> → <b>③</b> <b>Ctrl+U</b> → <b>④</b> <b>Ctrl+A</b> 후 <b>Ctrl+C</b>'
+      +' → <b>⑤</b> 아래 ① 칸에 붙여넣고 <b>[⚡ 상세페이지 생성]</b>'
+      +'<br><span style="color:#999">상품명·브랜드는 미리 채워뒀습니다.</span></div>';
+    var ob=$('dm-open');
+    if(ob) ob.onclick=function(){
+      var w=window.open(one.u,'_blank','noopener');
+      if(!w) alert('브라우저가 새 창을 막았습니다. 주소창 오른쪽의 팝업 차단을 허용해 주세요.\n\n' + one.u);
+    };
+    if(!one.u){ $('dm-open').style.display='none';
+      $('dm-pickmsg').innerHTML+='<div style="color:#c0392b;margin-top:6px">이 상품은 상세 링크가 없습니다 — 아래 ① 칸에 직접 붙여넣어 주세요.</div>'; }
+    return;
+  }
+  // 목록으로 들어온 경우(예전 경로) — 쳐서 고른다
   $('dm-picklist').innerHTML=ITEMS.map(function(x){
     return '<option value="'+String(x.n).replace(/"/g,'&quot;')+'"></option>';
   }).join('');
@@ -842,13 +868,6 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
   var inp=$('dm-pick');
   inp.addEventListener('change',function(){ if(inp.value) pull(inp.value); });
   inp.addEventListener('keydown',function(e){ if(e.key==='Enter'&&inp.value) pull(inp.value); });
-  /* 카탈로그가 상품 하나를 콕 집어 보냈으면 칸에 넣어만 둔다.
-     ⚠️ 여기서 바로 pull() 하지 않는다 — 창 여는 동작은 **사람이 누른 직후**가 아니면
-        브라우저가 팝업으로 보고 막는다. 막히면 아무 일도 안 난 것처럼 보인다. */
-  try{ var j0=JSON.parse(localStorage.getItem(HK)||'{}');
-    if(j0.pick){ inp.value=j0.pick;
-      $('dm-pickmsg').textContent='「'+j0.pick+'」 이(가) 골라져 있습니다 — Enter 를 누르면 상품 글이 열립니다.'; }
-  }catch(e){}
 })();
 </script>
 </body></html>
