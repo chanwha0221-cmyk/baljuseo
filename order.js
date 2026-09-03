@@ -2888,9 +2888,11 @@ document.addEventListener('click', e => {
     e.preventDefault();
     const nm = mk.getAttribute('data-mk'), u = mk.getAttribute('data-mku') || '';
     try{
+      /* 🏷 브랜드명은 넘기지 않는다 (홍팀장 2026-09-03 — "디폴트를 빈칸으로 둬라").
+         상세페이지에 찍히는 이름은 업체가 자기 쇼핑몰에 쓰는 상호지, 카탈로그 로그인 계정명이 아니다.
+         미리 넣어두면 그걸 못 보고 그대로 저장하는 사고가 난다. 빈칸이면 반드시 자기가 적는다. */
       localStorage.setItem('dm_catalog_v1', JSON.stringify({
         at: Date.now(),
-        brand: (typeof ME !== 'undefined' && ME && ME.name) ? ME.name : '',
         pick: nm,
         items: [{ n: nm, u: u }]
       }));

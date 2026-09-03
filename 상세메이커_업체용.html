@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.8</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.9</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -788,7 +788,7 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
 (function(){
   var HK='dm_catalog_v1';                 // 카탈로그가 놓고 가는 자리
   var PROXY='https://script.google.com/macros/s/AKfycbx46saILixJ387TxLbfnsBwjdc5K93j-cqUFjHxQU8xPGL7DJ9S-YjUvw7kvHmGPe7mmg/exec';
-  var ITEMS=[], BRAND='';
+  var ITEMS=[];
   function $(id){return document.getElementById(id);}
   function wait(on,msg){
     var w=$('dm-wait');
@@ -808,7 +808,7 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
   function load(){
     try{ var j=JSON.parse(localStorage.getItem(HK)||'null');
       if(!j||!j.items||!j.items.length) return false;
-      ITEMS=j.items; BRAND=j.brand||''; return true;
+      ITEMS=j.items; return true;
     }catch(e){ return false; }
   }
   /* 🔴 자동으로 가져오는 길은 막혀 있다 (2026-09-03 실측, 홍팀장 판단으로 확정).
@@ -824,7 +824,7 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
     if(!it){ $('dm-pickmsg').textContent='목록에 없는 상품입니다 — 아래 ① 칸에 직접 붙여넣어 주세요.'; return; }
     if(!it.u){ $('dm-pickmsg').textContent='이 상품은 상세 링크가 없습니다 — 아래 ① 칸에 직접 붙여넣어 주세요.'; return; }
     var pn=$('dm-prodname'); if(pn){ pn.value=it.n; DM.setProd(); }
-    var b=$('dm-brand'); if(b&&!b.value&&BRAND) b.value=BRAND;
+    // 🏷 브랜드명은 비워 둔다 (홍팀장 2026-09-03) — 업체가 자기 상호를 직접 적는 칸이다
     var w=window.open(it.u,'_blank','noopener');
     $('dm-pickmsg').innerHTML='📄 「'+it.n+'」 상품 글을 새 창으로 열었습니다.'
       +(w?'':' (창이 안 열렸으면 <a href="'+it.u+'" target="_blank" rel="noopener" style="color:#0d6efd;font-weight:700">여기</a>를 눌러주세요.)')
@@ -842,7 +842,7 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
   if(one){
     $('dm-pick').style.display='none';
     var pn=$('dm-prodname'); if(pn){ pn.value=one.n; try{DM.setProd();}catch(e){} }
-    var b=$('dm-brand'); if(b&&!b.value&&BRAND) b.value=BRAND;
+    // 🏷 브랜드명은 비워 둔다 (홍팀장 2026-09-03) — 업체가 자기 상호를 직접 적는 칸이다
     /* 🚧 "작업이 되는 중" 화면 (홍팀장 2026-09-03).
        ⚠️ 상품 글 창은 여기서 연다 — 카탈로그에서 한 번에 두 창을 열려고 했더니 크롬이 막았다.
           업체들은 게시판에 이미 가입·로그인돼 있으므로, 열리기만 하면 사진이 그대로 보인다
