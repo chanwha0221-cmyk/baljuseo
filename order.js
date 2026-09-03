@@ -2900,7 +2900,12 @@ document.addEventListener('click', e => {
        (about:blank 로 재봤을 땐 둘 다 열려서 된다고 봤다 — 실제 사이트 주소에서는 막혔다.)
        → 상세메이커만 열고, 상품 글은 그 화면에서 연다. 거기서도 자동으로 한 번 시도하고
          막히면 큰 버튼이 남는다. 한 동작 늘어도 "아무것도 안 열리는 것"보다 낫다. */
-    window.open('상세메이커_업체용.html', '_blank', 'noopener');
+    /* ⚠️ 주소에 **버전을 붙인다** (2026-09-03 실측 사고). catalog.html·order.js 는 버전 쿼리로
+       갱신되는데 상세메이커는 맨 주소라, 한 번 연 사람은 브라우저 캐시의 **옛 화면**을 계속 봤다.
+       고쳐 올려도 그 사람 화면만 예전 그대로였다 — 우리가 제일 자주 밟는 함정이다. */
+    let mkv = '';
+    try{ mkv = (String(document.title).match(/v[\d.]+/) || [''])[0]; }catch(e){}
+    window.open('상세메이커_업체용.html' + (mkv ? '?' + encodeURIComponent(mkv) : ''), '_blank', 'noopener');
     return;
   }
 });
