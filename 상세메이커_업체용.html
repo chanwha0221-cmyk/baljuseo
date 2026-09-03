@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.7</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.8</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -861,14 +861,42 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
       +'<div id="dm-s3">👉 <b>③</b> 아래 <b>①</b> 칸에 <b>Ctrl+V</b> — 붙여넣으면 <b>바로 만들어집니다</b></div>'
       +'</div>'
       +'<div style="margin-top:6px;color:#999">상품명·브랜드는 미리 채워뒀습니다.</div>';
+    /* 🤝 게시판에 dm-bridge.js 가 심겨 있으면 **완전 자동**이 된다 (홍팀장 2026-09-03).
+       주소 끝에 #dmgrab 을 붙여 연다 → 그 페이지가 스스로 소스를 읽어 이 창으로 넘기고 닫힌다.
+       ⚠️ 그러려면 noopener 를 빼야 한다(opener 가 있어야 저쪽이 우리에게 말을 걸 수 있다).
+          대신 아래 message 수신부에서 **보낸 곳이 masterc 인지** 반드시 확인한다.
+       ⚠️ 다리가 아직 안 심겨 있으면 아무 일도 안 일어난다 — 그때는 예전대로 Ctrl+U 로 하면 된다. */
     var openIt=function(auto){
-      var w=window.open(one.u,'_blank','noopener');
+      window.open(one.u + (one.u.indexOf('#')<0?'#dmgrab':''), '_blank');
       var s1=$('dm-s1');
-      // noopener 를 쓰면 열려도 null 이 돌아온다 — 열렸는지 여부로 문구를 바꾸지 않는다
       if(s1&&!auto) s1.innerHTML='✅ <b>①</b> 상품 글 창을 열었습니다 '
         +'<button class="dm-relink" style="border:1px solid #ccc;background:#fff;border-radius:5px;font-size:10.5px;padding:1px 6px;cursor:pointer;font-family:inherit">다시 열기</button>';
       var r2=document.querySelector('.dm-relink'); if(r2) r2.onclick=function(){ openIt(false); };
     };
+    // 📥 상품 글 페이지가 소스를 넘겨주면 그대로 만든다 — 사람 손이 아예 안 든다
+    window.addEventListener('message',function(ev){
+      if(ev.origin!=='https://masterc.kr'&&ev.origin!=='https://masterc.co.kr'
+         &&ev.origin!=='https://www.masterc.kr'&&ev.origin!=='https://www.masterc.co.kr') return;
+      var d=ev.data||{};
+      if(d.type!=='dm-source'||!d.html) return;
+      var s3=$('dm-s3'), s2=$('dm-s2'), s1b=$('dm-s1');
+      if((d.html.match(/<img/gi)||[]).length<2){
+        if(s3) s3.innerHTML='⚠️ 넘어온 소스에 사진이 없습니다 — 게시판에 <b>로그인</b>한 뒤 다시 눌러주세요.';
+        return;
+      }
+      if(s1b) s1b.innerHTML='✅ <b>①</b> 상품 글에서 소스를 받아왔습니다';
+      if(s2) s2.innerHTML='✅ <b>②</b> 자동으로 가져왔습니다';
+      if(s3) s3.innerHTML='⏳ <b>③</b> 만드는 중입니다…';
+      $('dm-src').value=d.html;
+      setTimeout(function(){
+        try{
+          DM.generate();
+          var p3=$('dm-prodname'); if(p3&&!p3.value){ p3.value=one.n; DM.setProd(); }
+          if(s3) s3.innerHTML='✅ <b>③</b> 다 만들었습니다 — 사진을 고르고 저장하세요.';
+          if(typeof toast==='function') toast('⚡ '+one.n+' 상세페이지를 만들었습니다');
+        }catch(e){ if(s3) s3.innerHTML='⚠️ <b>③</b> 만들지 못했습니다 — [⚡ 상세페이지 생성] 을 눌러보세요.'; }
+      },60);
+    });
     var rl=document.querySelector('.dm-relink');
     if(rl) rl.onclick=function(){ openIt(false); };
     // 열자마자 자동으로 한 번 — 막히면 위 버튼이 그대로 남는다
