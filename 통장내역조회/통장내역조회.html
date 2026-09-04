@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v8.8</title>
+<title>통장 내역 조회 v8.9</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v8.8</span>
+  <span class="ver">v8.9</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1009,10 +1009,11 @@ function _showSettleSaved(){
   if(ht) ht.textContent='새 xlsx를 올리면 최신 정산시트로 교체됩니다';
   if(fi){ fi.style.display=''; fi.textContent='✅ '+(MIS_BASIS||'저장된 정산내역')+(SETTLE_HISTORY&&SETTLE_HISTORY.length?' · 누적 '+SETTLE_HISTORY.length+'건':'')+' (파일 없이 매칭 가능)'; }
   const rr=document.getElementById('matchRangeRow'); if(rr) rr.style.display='';
-  const _a=document.getElementById('matchTxFrom'), _b=document.getElementById('matchTxTo');
-  const _ds=(SETTLE_HISTORY||[]).map(h=>h.date).filter(Boolean).sort();
-  if(_a&&!_a.value&&_ds.length)_a.value=_ds[0];
-  if(_b&&!_b.value)_b.value=new Date().toISOString().slice(0,10);
+  /* 🔴 여기가 「업체 확인 필요 102건」의 진짜 출처였다 (홍팀장 2026-09-04).
+     예전엔 누적 정산내역(SETTLE_HISTORY)의 **맨 첫 날**(2026-01-02)을 매칭 시작일로 미리 박았다.
+     페이지를 열자마자 기간이 「1/2 ~ 오늘」이 되니 1·2·5월 입금까지 전부 매칭 대상이었고,
+     업체를 못 알아본 건은 종결 전까지 안 사라지니 확인 목록이 계속 불어났다. */
+  _fillMatchRangeDefault();
   if(MIS_BASIS){ const ms=document.getElementById('s-mis-sub'); if(ms) ms.textContent=MIS_BASIS+' 기준 · 클릭 → 현황'; }
 }
 // 🚨 정산내역 저장 실패 가시화 + 재시도 (2026-08-10 사장님 "왜 롤백돼 있냐" 사고 — 저장 실패가 console.warn으로만 삼켜져
@@ -1642,6 +1643,19 @@ function _readFileAsArrayBuffer(file){
 }
 
 // ① 정산달력 파일명(…_YYYYMMDD_YYYYMMDD.xlsx) → ③ 매칭 기간 자동 입력 (2026-07-10 사장님 지시)
+/* 📅 매칭 기간 기본값 = **지난달 1일 ~ 오늘** (홍팀장 2026-09-04)
+   "5월꺼는 너무 하지 않냐. 7월부터 줬으면 7월달 안에 있는 거면 내가 놓쳤나 할 수라도 있지."
+   정산 상환은 한 달쯤 늦게 들어오므로 두 달 창이면 충분하다. 더 보려면 칸에 직접 넣으면 되고,
+   **사람이 넣은 값은 절대 안 건드린다**(빈 칸일 때만 채운다).
+   ⚠️ 채우는 자리가 두 군데다 — 저장분 표시(페이지 열 때)와 매칭 실행 직전. 둘 다 이 함수를 쓴다.
+      예전엔 앞쪽이 누적 정산내역 첫 날을 박아버려서 뒤쪽을 아무리 고쳐도 소용없었다. */
+function _fillMatchRangeDefault(){
+  const a=document.getElementById('matchTxFrom'), b=document.getElementById('matchTxTo');
+  const n=new Date(), p=x=>String(x).padStart(2,'0');
+  const prev=new Date(n.getFullYear(), n.getMonth()-1, 1);   // 연말을 넘어가도 알아서 맞는다
+  if(a && !a.value) a.value=prev.getFullYear()+'-'+p(prev.getMonth()+1)+'-01';
+  if(b && !b.value) b.value=n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate());
+}
 function matchRangeFromName(n){
   const m=(n||'').match(/(\d{8})[_-](\d{8})/);
   if(!m) return;
@@ -2516,13 +2530,7 @@ async function runSettlementMatch(){
         홍팀장: "5월꺼는 너무 하지 않냐. 7월부터 줬으면 7월달 안에 있는 거면 내가 놓쳤나 할 수라도 있지."
      → 정산 상환은 한 달쯤 늦게 들어오므로 **두 달 창(지난달 1일~오늘)**이 기본값이다.
        더 넓게 보려면 칸에 날짜를 직접 넣으면 된다 — 사람이 넣은 값은 건드리지 않는다(`!value`일 때만 채움). */
-  if(_useHistory){
-    const _a=document.getElementById('matchTxFrom'), _b=document.getElementById('matchTxTo');
-    const _n=new Date(), _p=x=>String(x).padStart(2,'0');
-    const _prev=new Date(_n.getFullYear(), _n.getMonth()-1, 1);   // 지난달 1일 (연말 넘어가도 알아서 맞는다)
-    if(_a && !_a.value) _a.value=_prev.getFullYear()+'-'+_p(_prev.getMonth()+1)+'-01';
-    if(_b && !_b.value) _b.value=_n.getFullYear()+'-'+_p(_n.getMonth()+1)+'-'+_p(_n.getDate());
-  }
+  if(_useHistory) _fillMatchRangeDefault();
   const strict = document.getElementById('matchOptStrict').checked;
   const allowRange = document.getElementById('matchOptRange').checked;
   // 매칭 결과 로그칸은 숨김 유지 (2026-07-16 사장님: 왼쪽 '매칭 금액 없음' 칸이 대체 → 로그 불필요). textarea는 남겨 _logLine 무해하게 기록만.
