@@ -170,6 +170,8 @@
     <h2>🎯 발굴 대상 <span class="badge green" id="pros-left">0</span>
       <span class="muted" style="font-weight:400">— 상호로 검색해 보고, 메일 보낸 곳은 [보냄]을 누르면 아래로 내려갑니다</span></h2>
     <div id="pros-list"></div>
+    <!-- 📄 게시판식 쪽 넘기기 — 한 쪽 50곳 = 하루 발송량. 1쪽이 곧 오늘 몫이다 -->
+    <div id="pros-pager" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:12px"></div>
     <details id="pros-done-wrap" style="margin-top:12px">
       <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--sub)">✉ 보낸 곳 <span id="pros-done-n">0</span>곳 (펼치기)</summary>
       <div id="pros-done" style="margin-top:8px;opacity:.65"></div>
@@ -508,6 +510,8 @@ async function save(){ await dataReplace(DATA); }
    🔴 설정에 남기는 건 ✕(안 보낼 곳)뿐이다. 그건 메일 기록과 상관없는 판단이라서.
       원본 명단 파일은 안 건드린다(잘못 눌러도 되살린다). */
 const PROS_HIDE='pros_hide';
+const PROS_PER=50;      // 한 쪽에 50곳 = 하루 발송량
+let PROS_PAGE=1;
 const pkeyN=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 function prosList(){
   const P=(typeof window.PROSPECTS!=='undefined')?window.PROSPECTS:[];
@@ -605,14 +609,36 @@ function renderPros(){
   const done=all.filter(p=>p.sent);
   $('pros-left').textContent=left.length;
   $('pros-done-n').textContent=done.length;
-  $('pros-list').innerHTML=left.length?left.map(p=>prosRow(p,false)).join('')
-    :'<div class="empty">남은 곳이 없습니다 — 아래 [보낸 곳]에서 되돌릴 수 있어요</div>';
+  /* 📄 한 쪽에 50곳 — 163곳을 한 번에 깔면 스크롤만 하다 끝난다.
+     50은 하루 발송량과 같다(그 이상 보내면 도메인이 스팸으로 찍힌다) → 1쪽이 곧 오늘 몫. */
+  const pages=Math.max(1,Math.ceil(left.length/PROS_PER));
+  if(PROS_PAGE>pages)PROS_PAGE=pages;
+  if(PROS_PAGE<1)PROS_PAGE=1;
+  const from=(PROS_PAGE-1)*PROS_PER;
+  const page=left.slice(from,from+PROS_PER);
+  $('pros-list').innerHTML=page.length?page.map(p=>prosRow(p,false)).join('')
+    :'<div class="empty">남은 곳이 없습니다 — 아래 [보낸 곳]에서 확인하세요</div>';
+  const pg=$('pros-pager');
+  if(pg){
+    pg.innerHTML = pages<=1 ? '' :
+      ('<span class="muted" style="font-size:12px;margin-right:4px">'+(from+1)+'–'+(from+page.length)+' / '+left.length+'곳</span>'
+       + '<button class="btn sm ghost" data-pros="page" data-p="'+(PROS_PAGE-1)+'"'+(PROS_PAGE<=1?' disabled':'')+'>‹</button>'
+       + Array.from({length:pages},(_,i)=>i+1).map(n=>
+           '<button class="btn sm '+(n===PROS_PAGE?'brand':'ghost')+'" data-pros="page" data-p="'+n+'">'+n+'</button>').join('')
+       + '<button class="btn sm ghost" data-pros="page" data-p="'+(PROS_PAGE+1)+'"'+(PROS_PAGE>=pages?' disabled':'')+'>›</button>');
+  }
   $('pros-done').innerHTML=done.length?done.map(p=>prosRow(p,true)).join(''):'<div class="empty">아직 없습니다</div>';
 }
 document.addEventListener('click',async e=>{
   const b=e.target.closest&&e.target.closest('[data-pros]');
   if(!b)return;
   const act=b.getAttribute('data-pros');
+  if(act==='page'){            // 쪽 넘기기는 저장할 게 없다 — 다시 그리기만
+    PROS_PAGE=parseInt(b.getAttribute('data-p'),10)||1;
+    renderPros();
+    $('pros-card').scrollIntoView({block:'start',behavior:'smooth'});
+    return;
+  }
   b.disabled=true;
   try{
     if(act==='sent'){
