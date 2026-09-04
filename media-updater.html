@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.31</title>
+<title>마스터 유통 상품 도구 v1.32</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1386,6 +1386,25 @@ $p('ncAdd').onclick=function(){
   $p('ncT').value='';$p('ncB').value='';$p('ncI').checked=false;
   notDraw();$p('ncLog').textContent='등록했습니다 — 저장을 눌러야 반영됩니다.';
 };
+/* ⚡ 올린 공지를 업체가 바로 보게 한다 (홍팀장 2026-09-04 "지금 공지 하나 올렸는데 너무 느려")
+   카탈로그는 상품·공지를 **스냅샷 서버가 3분간 담아둔 것**으로 받는다(그래야 0.5초에 열린다).
+   그냥 두면 새 공지가 최대 3분 늦게 뜬다 — 풍랑주의보 같은 긴급 공지엔 3분도 길다.
+   → 저장 직후 fresh 로 한 번 불러 **서버가 담아둔 것을 새로 채우게** 한다(7초쯤 걸린다).
+     그 뒤로는 업체들이 평소처럼 캐시로 받아도 새 공지가 들어 있다.
+   토큰은 같은 도메인의 카탈로그 로그인(catalog_auth_v1)에서 빌린다 — 이 도구엔 로그인이 따로 없다.
+   ⚠️ 실패해도 저장은 이미 끝난 뒤다. 조용히 넘어가면 예전처럼 3분 안에 저절로 반영된다. */
+const SNAP_API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
+async function bumpCatalogSnap(){
+  let tk='';
+  try{ const a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null'); tk=(a&&a.token)||''; }catch(e){}
+  if(!tk)return 'notoken';
+  try{
+    const r=await fetch(SNAP_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'catalog',token:tk,fresh:1})});
+    let j=null; try{ j=JSON.parse(await r.text()); }catch(e){}
+    return (j&&j.grid)?'ok':'fail';
+  }catch(e){ return 'fail'; }
+}
 $p('ncSave').onclick=async function(){
   // 제목이 빈 공지는 저장해도 다시 못 읽어온다(불러올 때 제목 없는 행은 버린다) — 저장을 막아 유실을 막는다
   const empty=NOT.findIndex(n=>!t(n.title));
@@ -1394,8 +1413,13 @@ $p('ncSave').onclick=async function(){
   try{
     await writeTab('공지사항',{end:'E',length:5},NOT.map(n=>[n.title,n.body,n.show?'Y':'N',n.imp?'Y':'N',n.at||day()]),NOTN);
     NOTN=NOT.length;
-    $p('ncLog').textContent='✅ 저장했습니다. 카탈로그에 바로 반영됩니다.';
     $p('ncStat').textContent=NOT.length+'건';
+    $p('ncLog').textContent='✅ 저장했습니다 — 카탈로그에 바로 띄우는 중… (몇 초 걸립니다)';
+    const s=await bumpCatalogSnap();
+    $p('ncLog').textContent = s==='ok'
+      ? '✅ 저장 완료 — 카탈로그에 지금 바로 반영됐습니다.'
+      : '✅ 저장 완료 — 카탈로그에는 3분 안에 반영됩니다.'
+        +(s==='notoken'?' (즉시 반영은 카탈로그에 로그인해 둔 브라우저에서만 됩니다)':'');
   }catch(e){ $p('ncLog').textContent='⚠️ '+e.message; }
   finally{ b.disabled=false;b.textContent='💾 저장'; }
 };
