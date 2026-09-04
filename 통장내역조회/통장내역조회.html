@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v8.5</title>
+<title>통장 내역 조회 v8.6</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v8.5</span>
+  <span class="ver">v8.6</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -2646,7 +2646,8 @@ async function runSettlementMatch(){
       }
       if(!matchedCompany){
         _logLine(`✖ 매칭 실패: ${tx.dateKey} ${tx.name}${tx.holder&&tx.holder!==tx.name?` (예금주 ${tx.holder})`:''} ${tx.amount.toLocaleString()}원 (업체 미식별)`);
-        unmatched.push({dateKey:tx.dateKey, name:tx.name, holder:tx.holder||'', amount:tx.amount});
+        // 📅 date(연도까지 있는 실제 날짜)를 같이 들고 간다 — 확인 목록에서 ③ 매칭 기간 밖을 접는 데 쓴다 (2026-09-04)
+        unmatched.push({dateKey:tx.dateKey, name:tx.name, holder:tx.holder||'', amount:tx.amount, date:tx.date||null});
         failCount++;
         continue;
       }
@@ -2931,11 +2932,29 @@ function renderUnmatched(arr){
   // 🧑‍🤝‍🧑 같은 예금주명끼리 묶기 — 한 번 확정하면 그 이름 전체 자동 처리 (2026-07-18 사장님: 하나하나 하지 말자)
   const groups={};
   arr.forEach(x=>{ const k=String(x.name||''); (groups[k]=groups[k]||{name:x.name, items:[]}).items.push(x); });   // items 에 holder 가 실려 있다
-  const glist=Object.values(groups).sort((a,b)=>b.items.length-a.items.length);
+  const glist0=Object.values(groups).sort((a,b)=>b.items.length-a.items.length);
+  /* 📅 ③ 매칭 기간 밖 입금은 접어 둔다 (홍팀장 2026-09-04)
+     "5월꺼는 너무 하지 않냐" — 업체를 못 알아본 입금은 별칭을 넣거나 [📌 이 건만]을 눌러
+     종결시키기 전까지 **영원히** 이 목록에 남는다. 색칠했는지는 여기서 알 길이 없다
+     (업체를 모르니 어느 칸에 칠했는지도 모른다). 그래서 1월 건이 9월까지 따라왔고,
+     정작 봐야 할 이번 달 건이 묵은 것들 사이에 묻혔다.
+     → 기간 안에 든 건이 하나라도 있는 이름만 위에 펼친다. 통째로 기간 밖인 이름은 접는다.
+       ⚠️ 지우지 않는다 — 펼치면 그대로 있고, 거기서 확정해도 똑같이 저장된다.
+       ⚠️ 기간이 비어 있거나 날짜를 모르는 건은 예전처럼 전부 펼친다(감추는 쪽이 위험하다). */
+  const _rf=(document.getElementById('matchTxFrom')||{}).value||'';
+  const _rt=(document.getElementById('matchTxTo')||{}).value||'';
+  const _ymd=d=>{ if(!(d instanceof Date)||isNaN(d)) return ''; const p=n=>String(n).padStart(2,'0');
+                  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); };
+  const _inRange=it=>{ const s=_ymd(it.date); if(!s) return true; return (!_rf||s>=_rf)&&(!_rt||s<=_rt); };
+  const fresh=[], stale=[];
+  glist0.forEach(g=>((!_rf&&!_rt)||g.items.some(_inRange)?fresh:stale).push(g));
+  const glist=[...fresh, ...stale];          // 인덱스(gi)는 이 순서 기준 — 아래 버튼들이 이걸로 찾는다
+  const staleFrom=fresh.length, staleCnt=stale.reduce((s,g)=>s+g.items.length,0);
   window._unmatchedGroups=glist;
-  if(cnt) cnt.textContent=`(${glist.length}명 · ${arr.length}건)`;
+  if(cnt) cnt.textContent=`(${fresh.length}명 · ${arr.length-staleCnt}건`
+    + (stale.length?` · 기간 밖 묵은 건 ${stale.length}명 ${staleCnt}건은 접어뒀어요`:'') + ')';
   if(dl) dl.innerHTML='<option value="취합안함">'+(window._matchCompanies||[]).map(c=>`<option value="${c}">`).join('');
-  list.innerHTML=glist.map((g,gi)=>{
+  const rowHtml=(g,gi)=>{
     const total=g.items.reduce((s,it)=>s+it.amount,0);
     const detail=g.items.map(it=>`${it.dateKey} ${it.amount.toLocaleString()}`).join(' · ');
     return `<div id="umg-${gi}" style="display:flex;gap:6px;align-items:center;padding:7px 9px;border-bottom:1px solid var(--border);flex-wrap:wrap">
@@ -2950,7 +2969,16 @@ function renderUnmatched(arr){
       <button class="btn-copy" style="padding:5px 8px;font-size:11px;color:#888" onclick="skipSettle(${gi})" title="업체 정산 아님(결산·이자 등) → 취합에서 빼고 기억">🚫 취합안함</button>
       <button class="btn-copy" style="padding:5px 8px;font-size:11px;color:#7048e8" onclick="onceOnly(${gi})" title="이번 입금만 그 업체로 처리하고 이름은 기억하지 않습니다 (동명이인이 올 수 있는 개인명에 쓰세요)">📌 이 건만</button>
     </div>`;
-  }).join('');
+  };
+  list.innerHTML = glist.slice(0, staleFrom).map((g,gi)=>rowHtml(g,gi)).join('')
+    + (stale.length
+        ? `<details style="border-top:1px solid var(--border)">
+             <summary style="cursor:pointer;padding:8px 9px;font-size:11px;color:var(--text3);user-select:none">
+               🗂 ${_rf||'처음'} ~ ${_rt||'끝'} 밖의 묵은 미식별 <b>${stale.length}명 · ${staleCnt}건</b> — 지난 기간 건이라 접어뒀어요 (눌러서 펼치기)
+             </summary>
+             ${stale.map((g,i)=>rowHtml(g, staleFrom+i)).join('')}
+           </details>`
+        : '');
   umCountFilled();
 }
 /* 💾 채운 것 전부 저장 (홍팀장 2026-09-01)
