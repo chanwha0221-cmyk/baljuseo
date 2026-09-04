@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.30</title>
+<title>마스터 유통 상품 도구 v1.31</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -42,6 +42,12 @@ a{color:var(--accent)}
   border:1px solid transparent;border-radius:7px;padding:4px 7px;background:transparent}
 .nctit:hover{border-color:var(--line)}
 .nctit:focus{border-color:var(--accent);background:var(--card);outline:none}
+/* ✏️ 수정 버튼 (홍팀장 2026-09-04 "공지 수정 버튼도 만들어 주세요, 제일 기본적인게 없네")
+   칸은 원래도 고칠 수 있었지만 제목이 테두리 없이 글씨로만 보여서 **고칠 수 있는 줄을 몰랐다.**
+   → 누르면 그 줄이 눈에 띄게 켜지고 제목 칸에 커서가 간다. */
+.ci.ncediting{background:color-mix(in srgb,var(--accent) 6%,transparent);border-radius:8px}
+.ci.ncediting .nctit{border-color:var(--accent);background:var(--card)}
+.ci.ncediting textarea{border-color:var(--accent)}
 .ct-bulk,.ct-mg{display:flex;gap:8px;align-items:center;margin:0 0 8px;flex-wrap:wrap}
 .ct-mg{margin:10px 0 0}
 .ct-bulk label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap}
@@ -208,7 +214,7 @@ a{color:var(--accent)}
 </div>
 <div class="card">
   <h2>📢 공지사항 <span id="ncStat" style="font-weight:400;font-size:12px;color:var(--muted)">불러오는 중…</span></h2>
-  <p style="font-size:12.5px;color:var(--muted)">배송 공지·휴무 안내·상품 관련 알림을 여기서 씁니다. <a href="catalog.html#notice" target="_blank" rel="noopener">카탈로그 [📢 공지사항]</a>에 바로 뜹니다.</p>
+  <p style="font-size:12.5px;color:var(--muted)">배송 공지·휴무 안내·상품 관련 알림을 여기서 씁니다. <a href="catalog.html#notice" target="_blank" rel="noopener">카탈로그 [📢 공지사항]</a>에 바로 뜹니다.<br>이미 올라간 공지는 아래 목록의 <b>[✏️ 수정]</b>으로 고친 뒤 <b>[💾 저장]</b>을 누르면 됩니다.</p>
   <input id="ncT" placeholder="공지 제목 (예: 광복절 배송 안내)" autocomplete="off" style="margin-top:8px">
   <textarea id="ncB" rows="4" placeholder="공지 내용 — 줄바꿈 그대로 보입니다" style="width:100%;margin-top:7px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7"></textarea>
   <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;margin-top:7px"><input type="checkbox" id="ncI"> 중요 공지 (맨 위로 · 빨간 줄 표시)</label>
@@ -1340,11 +1346,24 @@ function notDraw(){
     +'<span style="font-size:11px;color:var(--muted)">'+esc(n.at)+'</span>'
     +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-nc="imp" data-i="'+i+'"'+(n.imp?' checked':'')+'>중요</label>'
     +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-nc="show" data-i="'+i+'"'+(n.show?' checked':'')+'>노출</label>'
+    +'<button class="fxg" data-nc="edit" data-i="'+i+'" title="제목·내용을 고칩니다">✏️ 수정</button>'
     +'<button class="fxg del" data-nc="del" data-i="'+i+'">🗑</button>'
     +'<textarea data-nc="body" data-i="'+i+'" rows="3" style="flex:1 1 100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7">'+esc(n.body)+'</textarea>'
     +'</div>').join('');
 }
 $p('ncRows').addEventListener('click',function(ev){
+  /* ✏️ 수정 — 그 줄을 켜고 제목 칸으로 커서를 보낸다. 고친 값은 아래 input 핸들러가 바로 받아 두고,
+     실제 시트 반영은 [💾 저장]에서 한 번에 한다(등록·삭제와 같은 규칙). */
+  const ed=ev.target.closest('[data-nc="edit"]');
+  if(ed){
+    const row=ed.closest('.ci'); if(!row)return;
+    [...$p('ncRows').children].forEach(c=>c.classList.remove('ncediting'));
+    row.classList.add('ncediting');
+    const t=row.querySelector('.nctit');
+    if(t){ t.focus(); t.setSelectionRange(t.value.length,t.value.length); }
+    $p('ncLog').textContent='제목·내용을 고친 뒤 [💾 저장]을 누르세요.';
+    return;
+  }
   const b=ev.target.closest('[data-nc="del"]'); if(!b)return;
   const i=+b.getAttribute('data-i');
   if(confirm('"'+NOT[i].title+'" 공지를 지울까요?')){NOT.splice(i,1);notDraw();}

@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.48</title>
+<title>마스터 유통 카탈로그 v23.49</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -244,6 +244,27 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
   padding:3px 8px;font-size:11.5px;cursor:pointer;white-space:nowrap;font-family:inherit}
 @media(hover:hover){.delb:hover{border-color:var(--up);color:var(--up)}}
 .delb:disabled{opacity:.5;cursor:default}
+/* ✏️ 공지 고치기 창 — 마스터만 (홍팀장 2026-09-04 "공지 수정 버튼도 만들어 주세요, 제일 기본적인게 없네") */
+.edb{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:7px;
+  padding:3px 8px;font-size:11.5px;cursor:pointer;white-space:nowrap;font-family:inherit}
+@media(hover:hover){.edb:hover{border-color:var(--accent);color:var(--accent)}}
+.edb:disabled{opacity:.5;cursor:default}
+.ntcmodal{position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.45);display:flex;align-items:center;
+  justify-content:center;padding:16px}
+.ntcmodal .box{background:var(--card);border:1px solid var(--line);border-radius:14px;width:100%;max-width:560px;
+  max-height:88vh;overflow:auto;padding:16px 17px;box-shadow:0 18px 50px rgba(0,0,0,.3)}
+.ntcmodal h3{margin:0 0 4px;font-size:15px;color:var(--ink)}
+.ntcmodal .hint{font-size:11.5px;color:var(--muted);line-height:1.6;margin:0 0 10px}
+.ntcmodal input.t,.ntcmodal textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;
+  padding:9px 11px;font-size:13.5px;font-family:inherit;background:var(--bg);color:var(--ink);line-height:1.7}
+.ntcmodal textarea{margin-top:8px;resize:vertical}
+.ntcmodal .impl{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink);margin-top:9px}
+.ntcmodal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.ntcmodal .btns button{border:0;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:800;cursor:pointer;
+  font-family:inherit;background:var(--accent);color:#fff}
+.ntcmodal .btns button.x{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.ntcmodal .btns button:disabled{opacity:.55;cursor:default}
+.ntcmodal .msg{font-size:12px;color:var(--up);margin-top:8px;line-height:1.6}
 /* 🔄 새 버전 알림 바 — 화면 맨 아래에 붙는다.
    위에 두면 로그인·공지와 겹쳐서 정작 볼 것을 가린다. 발주 중에도 방해되면 안 된다. */
 .verbar{position:fixed;left:12px;right:12px;bottom:12px;z-index:9000;display:flex;align-items:center;gap:10px;
@@ -1996,6 +2017,82 @@ document.addEventListener('click',async function(e){
     b.disabled=false; b.textContent=label;
   }
 });
+/* ══ ✏️ 공지 고치기 (홍팀장 2026-09-04) ═══════════════════════════════════
+   "공지 수정 버튼도 만들어 주세요...... 제일 기본적인게 없네"
+   지우기(🗑)만 있어서 오타 한 글자를 고치려면 내리고 상품도구에서 새로 써야 했다 —
+   그러면 업체 화면에서 공지가 한 번 사라졌다 새 글로 다시 뜬다.
+   🔒 쓰기 규칙은 지우기와 똑같다 — 버튼은 마스터에게만 그리고, 저장은 SheetsProxy.call(팀 비밀번호)로만.
+   ⚠️ A:D(제목·내용·노출·중요)만 덮어쓴다. **작성일(E)은 손대지 않는다** —
+      고쳤다고 날짜가 오늘로 바뀌면 옛 공지가 목록 맨 위로 올라온다. */
+function edtBtn(n){
+  if(!(ME&&ME.master))return '';
+  return '<button class="edb" data-ntced="'+(n.i+2)+'" title="이 공지를 고칩니다">✏️</button>';
+}
+let NTCED=null;                     // 지금 고치는 중인 시트 행 번호
+function ntcEditClose(){ const m=$('ntcEditM'); if(m)m.remove(); NTCED=null; }
+function ntcEditOpen(row){
+  const n=(NOTI||[]).find(x=>x.i+2===row);
+  if(!n)return alert('공지를 찾지 못했습니다. 새로고침 후 다시 해주세요.');
+  ntcEditClose(); NTCED=row;
+  const d=document.createElement('div');
+  d.className='ntcmodal'; d.id='ntcEditM';
+  d.innerHTML='<div class="box">'
+    +'<h3>✏️ 공지 고치기</h3>'
+    +'<p class="hint">저장하면 업체 화면에 바로 반영됩니다. 작성일('+esc(n.at||'-')+')은 그대로 둡니다.</p>'
+    +'<input class="t" id="ntcEdT" type="text" placeholder="공지 제목" value="'+esc(n.title||'')+'">'
+    +'<textarea id="ntcEdB" rows="9" placeholder="공지 내용 — 줄바꿈 그대로 보입니다">'+esc(n.body||'')+'</textarea>'
+    +'<label class="impl"><input type="checkbox" id="ntcEdI"'+(n.imp?' checked':'')+'> 중요 공지 (맨 위로 · 빨간 줄 표시)</label>'
+    +'<div class="btns"><button class="x" id="ntcEdX">취소</button><button id="ntcEdS">💾 저장</button></div>'
+    +'<div class="msg" id="ntcEdMsg"></div>'
+    +'</div>';
+  document.body.appendChild(d);
+  d.addEventListener('click',e=>{ if(e.target===d)ntcEditClose(); });   // 바깥을 누르면 닫는다
+  $('ntcEdX').onclick=ntcEditClose;
+  $('ntcEdS').onclick=ntcEditSave;
+  const t=$('ntcEdT'); t.focus(); t.setSelectionRange(t.value.length,t.value.length);
+}
+async function ntcEditSave(){
+  const row=NTCED; if(!(row>1))return;
+  const n=(NOTI||[]).find(x=>x.i+2===row); if(!n)return ntcEditClose();
+  const msg=$('ntcEdMsg'), b=$('ntcEdS');
+  const title=$('ntcEdT').value.trim(), body=$('ntcEdB').value, imp=$('ntcEdI').checked;
+  /* 제목이 빈 공지는 저장해도 다시 못 읽어온다(불러올 때 제목 없는 행은 버린다) — 유실을 여기서 막는다 */
+  if(!title){ msg.textContent='⚠️ 제목은 비울 수 없습니다.'; return; }
+  if(!window.SheetsProxy||!SheetsProxy.call){ msg.textContent='⚠️ 이 화면에선 고칠 수 없습니다.'; return; }
+  b.disabled=true; b.textContent='저장 중…'; msg.textContent='';
+  try{
+    await SheetsProxy.call(DOGU_ID+'/values/'+encodeURIComponent("'공지사항'!A"+row+':D'+row)+'?valueInputOption=RAW',
+      'PUT',JSON.stringify({values:[[title,body,'Y',imp?'Y':'N']]}));
+    n.title=title; n.body=body; n.imp=imp;
+    /* 제목이 바뀌면 읽음 표시의 신원(제목+작성일)이 달라져 업체 화면엔 '안 읽은 공지'로 다시 뜬다 —
+       내용이 바뀌었으니 그게 맞다. 다만 방금 고친 나까지 알림을 받을 필요는 없다. */
+    try{ const s=ntcSeenSet(); s.add(ntcKey(n)); localStorage.setItem(ntcSeenKey(),JSON.stringify([...s])); }catch(e){}
+    // 중요 여부가 바뀌면 순서가 달라진다 — 불러올 때와 같은 기준으로 다시 세운다
+    NOTI.sort((a,b2)=>(b2.imp-a.imp)||(b2.at||'').localeCompare(a.at||'')||(b2.i-a.i));
+    ntcCachePatch();
+    if(location.hash.replace(/^#/,'')==='notice')subV.innerHTML=renderNotices(NOTI);
+    renderNoticeBox(); renderNtcBadge();
+    ntcEditClose();
+    toast('고쳤습니다 — 업체 화면에 바로 반영됩니다');
+  }catch(err){
+    msg.textContent='⚠️ 저장하지 못했습니다. '+(err.message||err);
+    b.disabled=false; b.textContent='💾 저장';
+  }
+}
+/* 저장해 둔 화면(localStorage)에도 고친 공지를 넣어둔다 — 안 하면 새로고침 직후 잠깐 옛 글이 뜬다 */
+function ntcCachePatch(){
+  try{
+    const c=JSON.parse(localStorage.getItem(CK)||'null');
+    if(c&&c.noti){ c.noti=NOTI; localStorage.setItem(CK,JSON.stringify(c)); }
+  }catch(e){}
+}
+document.addEventListener('click',function(e){
+  const b=e.target.closest('[data-ntced]'); if(!b)return;
+  if(!(typeof ME!=='undefined'&&ME&&ME.master))return;
+  e.preventDefault(); e.stopPropagation();          // summary 안이라 안 막으면 아코디언이 같이 열린다
+  ntcEditOpen(+b.getAttribute('data-ntced'));
+});
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&$('ntcEditM'))ntcEditClose(); });
 function ntcKey(n){ return (String(n.title||'').trim()+'|'+String(n.at||'').trim()); }
 function ntcSeenKey(){ return 'catalog_ntc_seen_'+((ME&&ME.id)?ME.id:'guest'); }
 function ntcSeenSet(){
@@ -2026,6 +2123,7 @@ function noticeItem(n,isNew){
       +(n.imp?'<span class="impb">중요</span>':'')
       +'<span class="ntt">'+esc(n.title)+'</span>'
       +(n.at?'<span class="nd2">'+esc(n.at)+'</span>':'')
+      +edtBtn(n)
       +delBtn('notice',n)
       +'<span class="ntarrow">▾</span>'
     +'</summary>'
