@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v8.7</title>
+<title>통장 내역 조회 v8.8</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v8.7</span>
+  <span class="ver">v8.8</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -2509,12 +2509,19 @@ async function runSettlementMatch(){
   const _useHistory = !fSet && SETTLE_HISTORY && SETTLE_HISTORY.length;   // 파일 없으면 저장분으로 매칭
   if(!fSet && !_useHistory){ alert('리모콘 정산시트(정산달력)를 [💰 통장내역 조회] 탭에서 한 번은 올려주세요. (그 뒤로는 저장된 정산내역으로 자동 매칭됩니다)'); return; }
   if(!fTx && !allData.length){ alert('통장 거래내역이 없어요 — [💰 통장내역 조회] 탭에서 거래내역을 먼저 올려주세요.'); return; }
-  // 저장분 매칭 시 매칭기간 비어있으면 정산내역 전체 범위~오늘로 자동
+  /* 📅 저장분 매칭 시 매칭기간이 비어 있으면 자동으로 채운다 — **지난달 1일 ~ 오늘** (홍팀장 2026-09-04)
+     🔴 예전엔 `SETTLE_HISTORY`(전 기간 누적 정산내역)의 **맨 첫 날**을 시작일로 박았다.
+        누적이 1월부터니까 기간이 매번 「1월 1일 ~ 오늘」이 됐고, 그래서 1월·2월·5월 입금까지
+        전부 매칭 대상이 되어 「업체 확인 필요」가 102건으로 불었다.
+        홍팀장: "5월꺼는 너무 하지 않냐. 7월부터 줬으면 7월달 안에 있는 거면 내가 놓쳤나 할 수라도 있지."
+     → 정산 상환은 한 달쯤 늦게 들어오므로 **두 달 창(지난달 1일~오늘)**이 기본값이다.
+       더 넓게 보려면 칸에 날짜를 직접 넣으면 된다 — 사람이 넣은 값은 건드리지 않는다(`!value`일 때만 채움). */
   if(_useHistory){
     const _a=document.getElementById('matchTxFrom'), _b=document.getElementById('matchTxTo');
-    const _ds=[...SETTLE_HISTORY].map(h=>h.date).filter(Boolean).sort();
-    if(_a && !_a.value && _ds.length) _a.value=_ds[0];
-    if(_b && !_b.value) _b.value=new Date().toISOString().slice(0,10);
+    const _n=new Date(), _p=x=>String(x).padStart(2,'0');
+    const _prev=new Date(_n.getFullYear(), _n.getMonth()-1, 1);   // 지난달 1일 (연말 넘어가도 알아서 맞는다)
+    if(_a && !_a.value) _a.value=_prev.getFullYear()+'-'+_p(_prev.getMonth()+1)+'-01';
+    if(_b && !_b.value) _b.value=_n.getFullYear()+'-'+_p(_n.getMonth()+1)+'-'+_p(_n.getDate());
   }
   const strict = document.getElementById('matchOptStrict').checked;
   const allowRange = document.getElementById('matchOptRange').checked;
@@ -2531,22 +2538,7 @@ async function runSettlementMatch(){
   try{
     _logLine('• 거래내역 파싱 중...');
     let txs;
-    if(fTx){
-      txs = await _parseTransactions(fTx);
-      /* 📅 파일로 올려도 ③ 매칭 기간을 지킨다 (홍팀장 2026-09-04)
-         🔴 여기가 진짜 구멍이었다. 저장분 경로(_txsFromDataset)는 처음부터 기간으로 잘랐는데
-            **파일 경로만 기간을 통째로 무시**하고 파일 안의 입금을 전부 매칭했다.
-            그래서 5,026건짜리 누적 거래내역을 올리면 1월 입금까지 대상이 되어
-            「업체 확인 필요」가 102건으로 불었다. 확인 목록에서 뒤늦게 접는 걸로는 못 막는다 —
-            애초에 매칭 대상에서 빠져야 한다. */
-      const _f=document.getElementById('matchTxFrom').value, _t=document.getElementById('matchTxTo').value;
-      if(!_f&&!_t){ alert('③ 매칭 기간을 선택해 주세요 — 누적 파일을 통째로 매칭하면 지난 달 입금까지 「업체 확인 필요」에 쌓입니다.'); return; }
-      const _p=n=>String(n).padStart(2,'0');
-      const _dstr=d=>(d instanceof Date && !isNaN(d)) ? (d.getFullYear()+'-'+_p(d.getMonth()+1)+'-'+_p(d.getDate())) : '';
-      const _all=txs.length;
-      txs=txs.filter(t=>{ const s=_dstr(t.date); if(!s) return true; return (!_f||s>=_f)&&(!_t||s<=_t); });
-      _logLine(`  → 파일 ${_all}건 중 ③ 기간(${_f||'처음'} ~ ${_t||'끝'}) 안 ${txs.length}건만 매칭`);
-    }
+    if(fTx){ txs = await _parseTransactions(fTx); }   // 거래내역 업로드칸은 2026-07-16에 없애서 여긴 사실상 안 탄다
     else{
       const _f=document.getElementById('matchTxFrom').value, _t=document.getElementById('matchTxTo').value;
       if(!_f&&!_t){ alert('③ 매칭 기간을 선택해 주세요 — ① 정산달력 파일을 넣으면 파일명에서 자동 입력됩니다. (또는 ② 거래내역 파일 업로드)'); return; }
