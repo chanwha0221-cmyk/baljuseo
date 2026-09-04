@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.45</title>
+<title>마스터 유통 카탈로그 v23.46</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -253,6 +253,16 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .verbar button{border:0;background:var(--accent);color:#fff;border-radius:9px;padding:8px 15px;
   font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
 .verbar button.x{background:transparent;color:var(--muted);padding:8px 6px;font-size:15px}
+/* ⚠️ 최신 단가를 못 받았을 때 띄우는 띠 (2026-09-04 홍팀장).
+   "오늘 단가 나갔습니다" 공지한 날 업체가 **어제 값으로 발주를 넣는 것**이 제일 큰 사고다.
+   저장된 화면은 그대로 보여주되(아무것도 안 보이는 것보다 낫다) 옛 값이라는 사실을 숨기지 않는다.
+   ⚠️ 닫는 단추는 두지 않는다 — 닫히면 없는 것과 같다. */
+.stalebar{position:fixed;top:0;left:0;right:0;z-index:9500;display:flex;align-items:center;gap:10px;
+  flex-wrap:wrap;background:#c0392b;color:#fff;padding:9px 14px;font-size:13px;font-weight:700;line-height:1.5;
+  box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.stalebar span{flex:1;min-width:180px}
+.stalebar button{border:0;background:#fff;color:#c0392b;border-radius:8px;padding:7px 14px;
+  font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
 /* 🗑 추천상품 카드 맨 아래 — 카드 폭을 다 쓰는 버튼.
    ⚠️ 여기서 따로 정의한다. 옆의 [🚫 예외 등록]이 쓰는 .excb 는 order.js 의 css() 안에 있어
       발주 화면을 한 번도 안 열면 안 실려 있다 — 그걸 빌려 쓰면 첫 화면에서 민무늬 버튼이 된다. */
@@ -1669,7 +1679,7 @@ async function startCatalog(){
   /* 🔔 클레임 배지 — 클레임 화면에 들어가지 않아도 숫자가 떠야 한다 (홍팀장 2026-09-03).
      "씨발 클레임 들어왔는지 알아야 반응을 하지" — 예전엔 배지 자리만 있고 채우는 코드가 없었다. */
   if(window.CLAIM&&CLAIM.badge)CLAIM.badge();
-  let usedCache=false;
+  let usedCache=false,cacheAt=0;
   try{
     const c=JSON.parse(localStorage.getItem(CK)||'null');
     // ⚠️ TINT(입고 불안정 표시)는 캐시에서 되살리지 않는다 — 시트에서 색을 지워도
@@ -1677,7 +1687,7 @@ async function startCatalog(){
     // 잘못된 경고를 남기느니 최신이 도착할 때까지 잠깐 안 보이는 게 낫다.
     if(c&&c.groups&&c.groups.length){GROUPS=c.groups;MEDIA=c.media||{};SALES=c.sales||{};LINKS=c.links||{};HAP=c.hap||{};RECMAP=c.recmap||{};TINT={};
       if(c.noti){NOTI=c.noti;renderNoticeBox();}
-      usedCache=true;finishRender(c.at,true);}
+      usedCache=true;cacheAt=c.at;finishRender(c.at,true);}
   }catch(e){}
   try{
     // 상품 사진·스펙 — 시트('상품이미지' 탭)가 최신본. 도구로 업데이트하면 여기 바로 반영된다.
@@ -1741,7 +1751,21 @@ async function startCatalog(){
     autoSyncProposal();
   }catch(e){
     if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
+    /* 🔴 캐시로 화면은 채워졌는데 최신을 못 받은 경우 — **여기가 제일 위험하다.**
+       업체 눈엔 멀쩡한 카탈로그로 보이지만 단가가 어제 값이다. 조용히 넘어가면 안 된다. */
+    else showStaleBar(cacheAt);
   }
+}
+function showStaleBar(atMs){
+  if(document.getElementById('stalebar'))return;
+  const t=atMs?new Date(atMs).toLocaleString('ko-KR',{dateStyle:'short',timeStyle:'short'}):'';
+  const d=document.createElement('div');
+  d.id='stalebar';d.className='stalebar';
+  d.innerHTML='<span>⚠️ <b>최신 단가를 받지 못했습니다</b> — 지금 화면은'+(t?(' '+esc(t)+' 기준의'):'')
+    +' 저장된 내용입니다. 발주 전에 새로고침해 주세요.</span>'
+    +'<button id="staleReload">새로고침</button>';
+  document.body.appendChild(d);
+  d.querySelector('#staleReload').onclick=()=>location.reload();
 }
 
 // ══════════════════════════════════════════════════════════════════
