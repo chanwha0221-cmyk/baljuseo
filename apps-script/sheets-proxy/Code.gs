@@ -117,6 +117,28 @@ function doPost(e) {
     return out_(relay_(req, 60));
   }
 
+  /* 📦 여러 범위를 **한 번의 실행**으로 (2026-09-04).
+     🔴 왜: 카탈로그는 열 때마다 프록시를 12번 부른다(사진·분류·판매·변동·공지·링크2·합포장·추천·소식글
+        + 유통시트 메타·본문). 그 12개가 동시에 날아가면 Apps Script 가 실행 슬롯에 줄을 세우고,
+        거래처 몇 곳이 겹치는 순간 뒤에 선 요청이 15초를 넘겨 끊긴다 →
+        화면엔 "상품을 불러오지 못했습니다"만 뜬다(2026-09-04 실측: 작은 메타 읽기 하나가 16초, 49초).
+     → 한 번의 실행 안에서 fetchAll 로 동시에 받아 한 번에 돌려준다. 실행 12 → 2.
+     ⚠️ 읽기 전용이다. 각 path 는 public 규칙으로 하나씩 다시 검사한다(배치라고 봐주지 않는다). */
+  /* ☀️ 깨워두기 (2026-09-04 홍팀장: "거래처가 편한 쪽으로 무조건").
+     Apps Script 는 한동안 아무도 안 부르면 첫 요청에 20~50초를 쓴다(실측). 그 첫 손님이
+     **거래처**면 카탈로그가 통째로 안 뜬다. 그래서 별도 프로젝트(proxy-warmer)가 몇 분마다
+     이 액션을 두드려 늘 깨어 있게 한다. 하는 일이 없어야 싸다 — 시트를 읽지 않는다. */
+  if (req.action === 'warm') {
+    return out_({ ok: true, warm: true, at: new Date().toISOString() });
+  }
+
+  if (req.action === 'publicBatch') {
+    var paths = req.paths || [];
+    if (!paths.length) return out_({ error: { code: 400, message: 'paths 없음' } });
+    if (paths.length > 24) return out_({ error: { code: 400, message: '한 번에 24개까지만 됩니다' } });
+    return out_({ results: relayBatch_(paths, 60) });
+  }
+
   // 제안서 도구의 상품 이미지 업로드.
   // Drive 멀티파트를 그대로 중계하는 것보다 DriveApp 으로 받는 편이 짧고 안전하다.
   if (req.action === 'uploadImage') {
@@ -317,16 +339,12 @@ function relay_(req, ttlSec) {
 
   if (method === 'get') {
     var ck = cacheKey_(sheetId, path);
-    var hit = null;
-    try { hit = CacheService.getScriptCache().get(ck); } catch (_) {}
+    var hit = cacheGet_(ck);
     if (hit) { try { return JSON.parse(hit); } catch (_) {} }
 
     var res0 = UrlFetchApp.fetch(SHEETS_BASE + path, opts);
     var out0 = { status: res0.getResponseCode(), body: res0.getContentText() };
-    // 성공한 응답만, 그리고 캐시 한 칸(100KB)에 들어갈 때만 담는다
-    if (out0.status === 200 && out0.body.length < 90000) {
-      try { CacheService.getScriptCache().put(ck, JSON.stringify(out0), CACHE_SEC); } catch (_) {}
-    }
+    if (out0.status === 200) cachePut_(ck, JSON.stringify(out0), CACHE_SEC);
     return out0;
   }
 
@@ -335,6 +353,78 @@ function relay_(req, ttlSec) {
   var code = res.getResponseCode();
   if (code >= 200 && code < 300) bumpVer_(sheetId);
   return { status: code, body: res.getContentText() };
+}
+
+/* 📦 배치 읽기 — 한 실행에서 여러 범위를 동시에 받아온다.
+   캐시에 있는 것은 그대로 쓰고, 없는 것만 fetchAll 로 **병렬** 요청한다.
+   결과는 요청한 순서 그대로 [{status, body}, …] 로 돌려준다(한 건이 막혀도 그 자리만 403이다). */
+function relayBatch_(paths, ttlSec) {
+  var out = [], miss = [], reqs = [];
+  for (var i = 0; i < paths.length; i++) {
+    var p = String(paths[i] || '');
+    var v = p ? publicAllowed_({ path: p, method: 'GET' }) : { ok: false, why: 'path 없음' };
+    if (!v.ok) {
+      out[i] = { status: 403, body: JSON.stringify({ error: { code: 403, message: v.why } }) };
+      continue;
+    }
+    var ck = cacheKey_(p.split(/[\/?:]/)[0], p);
+    var hit = cacheGet_(ck);
+    if (hit) { try { out[i] = JSON.parse(hit); continue; } catch (_) {} }
+    miss.push({ i: i, ck: ck });
+    reqs.push({
+      url: SHEETS_BASE + p, method: 'get',
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+  }
+  if (reqs.length) {
+    var rs = UrlFetchApp.fetchAll(reqs);
+    for (var k = 0; k < rs.length; k++) {
+      var o = { status: rs[k].getResponseCode(), body: rs[k].getContentText() };
+      out[miss[k].i] = o;
+      if (o.status === 200) cachePut_(miss[k].ck, JSON.stringify(o), ttlSec || 60);
+    }
+  }
+  return out;
+}
+
+/* 🧩 큰 응답도 캐시한다 (2026-09-04).
+   🔴 예전엔 90KB 를 넘으면 **아예 안 담았다.** 그런데 카탈로그의 본문 읽기(유통시트 20개 탭)가
+      바로 그 큰 응답이다 → 거래처가 열 때마다 매번 통째로 다시 읽었고, 그 무거운 실행이
+      슬롯을 오래 잡아 뒤의 요청까지 끊기게 만들었다.
+   → 캐시 한 칸(100KB) 제한은 **쪼개서** 넘는다. 머리 칸에 조각 수를 적고 조각을 따로 담는다.
+   ⚠️ 조각이 하나라도 사라졌으면(캐시는 언제든 비워질 수 있다) 통째로 없는 셈 친다. */
+var CHUNK_ = 90000, MAXCHUNKS_ = 30;
+function cacheGet_(ck) {
+  try {
+    var c = CacheService.getScriptCache();
+    var head = c.get(ck);
+    if (!head) return null;
+    if (head.indexOf('__CHUNKS__') !== 0) return head;
+    var n = parseInt(head.slice(10), 10) || 0;
+    if (!n) return null;
+    var keys = [];
+    for (var i = 0; i < n; i++) keys.push(ck + '#' + i);
+    var got = c.getAll(keys), s = '';
+    for (var j = 0; j < n; j++) {
+      var part = got[ck + '#' + j];
+      if (part == null) return null;   // 조각이 빠졌으면 못 쓴다
+      s += part;
+    }
+    return s;
+  } catch (_) { return null; }
+}
+function cachePut_(ck, str, ttl) {
+  try {
+    var c = CacheService.getScriptCache();
+    if (str.length < CHUNK_) { c.put(ck, str, ttl); return; }
+    var n = Math.ceil(str.length / CHUNK_);
+    if (n > MAXCHUNKS_) return;        // 2.7MB 넘게는 담지 않는다
+    var m = {};
+    for (var i = 0; i < n; i++) m[ck + '#' + i] = str.substr(i * CHUNK_, CHUNK_);
+    c.putAll(m, ttl);
+    c.put(ck, '__CHUNKS__' + n, ttl);  // 조각을 다 넣은 뒤에 머리를 적는다
+  } catch (_) {}
 }
 
 /* 시트별 '판 번호'. 쓰기가 있으면 올려서 그 시트의 옛 캐시를 통째로 못 쓰게 만든다.
