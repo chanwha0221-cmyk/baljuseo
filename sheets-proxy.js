@@ -54,7 +54,7 @@
      업체도 우리도 뭐가 잘못됐는지 알 수가 없었고, 업체가 전화를 하고서야 알았다.
      → 시간이 넘으면 끊고 실패로 돌린다. 그래야 화면이 「불러오지 못했습니다 + 다시 시도」를 띄운다.
      ⚠️ 쓰기는 넉넉히 준다 — 서버엔 저장됐는데 실패로 보이는 것이 안 되는 것보다 나쁘다. */
-  var READ_MS = 15000, WRITE_MS = 45000;
+  var READ_MS = 15000, WRITE_MS = 45000, BATCH_MS = 25000;
   function post(payload, ms) {
     var ac = (typeof AbortController === 'function') ? new AbortController() : null;
     var timer = ac ? setTimeout(function () { ac.abort(); }, ms || READ_MS) : 0;
@@ -69,8 +69,13 @@
         ? '시트 서버가 시간 안에 응답하지 않았습니다. 잠시 후 다시 시도해 주세요.'
         : '시트 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     }).then(function (t) {
+      /* ⏱ 2026-09-04 — 시간초과도 **다시 걸어본다**(읽기만).
+         Apps Script 는 한동안 아무도 안 부르면 첫 요청이 20~50초씩 걸린다(실측). 그 뒤엔 1초다.
+         예전엔 첫 시도가 끊기면 그대로 실패로 끝나서, 카탈로그가 통째로
+         "상품을 불러오지 못했습니다"가 됐다 — 두 번째만 걸어봤으면 됐을 일이다.
+         🔴 쓰기는 여전히 재시도하지 않는다(postWithRetry 의 tries=1). 중복 저장이 더 나쁘다. */
       if (typeof t === 'string' && t.indexOf('__PROXY_DOWN__') === 0) {
-        return { error: { code: 504, message: t.slice(14) } };
+        return { __transient: t.slice(14), __msg: t.slice(14) };
       }
       /* 🔴 2026-08-27 사고 — Apps Script 는 몰리면 POST 를 doGet 으로 답한다.
          그러면 {ok:true, service:'sheets-proxy', note:'…'} 가 돌아오는데,
@@ -90,11 +95,13 @@
   // 읽기만 자동으로 다시 부른다.
   // 🔴 쓰기(PUT·POST·batchUpdate)는 절대 재시도하지 않는다 — 같은 저장이 두 번 들어간다.
   //    (카탈로그의 API_READONLY 와 같은 규칙이다. 중복이 응답 실패보다 나쁘다.)
-  function postWithRetry(payload, retriable) {
+  function postWithRetry(payload, retriable, ms) {
     var tries = retriable ? 3 : 1;
-    var ms = retriable ? READ_MS : WRITE_MS;
+    var base = ms || (retriable ? READ_MS : WRITE_MS);
+    // 첫 판은 짧게, 다시 걸 때마다 길게. 첫 요청이 느린 것은 대개 '깨우는 중'이라 두 번째가 빠르다.
+    function waitMs(n) { return Math.round(base * (0.7 + 0.35 * (n - 1))); }
     function attempt(n) {
-      return post(payload, ms).then(function (res) {
+      return post(payload, waitMs(n)).then(function (res) {
         if (res && res.__transient && n < tries) {
           return new Promise(function (r) { setTimeout(r, 400 * n); }).then(function () { return attempt(n + 1); });
         }
@@ -109,7 +116,7 @@
     if (res && res.__transient) {
       return new Response(JSON.stringify({ error: {
         code: 503,
-        message: '시트 서버가 잠시 응답하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+        message: res.__msg || '시트 서버가 잠시 응답하지 못했습니다. 잠시 후 다시 시도해 주세요.'
       } }), { status: 503, headers: { 'Content-Type': 'application/json' } });
     }
     if (res && res.error) {
@@ -123,6 +130,44 @@
       } }), { status: 502, headers: { 'Content-Type': 'application/json' } });
     }
     return new Response(res.body, { status: res.status, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  /* ── 📦 공용(무인증) 읽기 묶어 보내기 (2026-09-04) ────────────────────
+     🔴 왜: 카탈로그는 열자마자 읽기 요청을 10개 넘게 **동시에** 쏜다. 그 하나하나가
+        Apps Script 의 별도 실행이라, 거래처 몇 곳이 겹치면 실행이 줄을 서고 뒤엣것이
+        시간초과로 끊긴다 → "상품을 불러오지 못했습니다"(2026-09-04 실측).
+     → 같은 순간(30ms 안)에 나가는 무인증 GET 을 모아 한 번에 보낸다. 실행 12 → 2.
+     ⚠️ 옛 프록시(publicBatch 를 모르는 배포)로도 돌아야 한다 — 모양이 안 맞으면
+        그때부터 한 건씩 보내는 예전 방식으로 되돌아간다(batchOK=false).
+     ⚠️ 한 건뿐이면 묶지 않는다(수량관리처럼 한 번에 하나만 읽는 도구는 예전 그대로다). */
+  var BATCH_MAX = 20, BATCH_WAIT = 30;
+  var batchQ = [], batchTimer = 0, batchOK = true;
+
+  function single(path) {
+    return postWithRetry({ action: 'public', path: path, method: 'GET' }, true);
+  }
+  function queuePublicGet(path) {
+    return new Promise(function (resolve) {
+      batchQ.push({ path: path, done: resolve });
+      if (batchQ.length >= BATCH_MAX) { flushBatch(); return; }
+      if (!batchTimer) batchTimer = setTimeout(flushBatch, BATCH_WAIT);
+    });
+  }
+  function flushBatch() {
+    if (batchTimer) { clearTimeout(batchTimer); batchTimer = 0; }
+    var q = batchQ.splice(0, BATCH_MAX);
+    if (!q.length) return;
+    if (q.length === 1) { q[0].done(single(q[0].path)); return; }
+    var paths = q.map(function (x) { return x.path; });
+    postWithRetry({ action: 'publicBatch', paths: paths }, true, BATCH_MS).then(function (res) {
+      if (res && res.results && res.results.length === q.length) {
+        q.forEach(function (x, i) { x.done(res.results[i]); });
+        return;
+      }
+      // 배치를 모르는 배포이거나 응답이 이상하면 — 예전처럼 한 건씩 (그리고 다음부터는 묶지 않는다)
+      if (res && res.error && /알 수 없는 action/.test(res.error.message || '')) batchOK = false;
+      q.forEach(function (x) { x.done(single(x.path)); });
+    });
   }
 
   // ── 비밀번호 입력창 ─────────────────────────────────────────────────
@@ -220,6 +265,7 @@
     var readOnly = (method === 'GET');
 
     if (window.SHEETS_PROXY_PUBLIC) {
+      if (readOnly && batchOK) return queuePublicGet(path).then(toResponse);
       return postWithRetry({ action: 'public', path: path, method: method, body: body }, readOnly)
         .then(toResponse);
     }
