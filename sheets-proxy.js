@@ -54,7 +54,9 @@
      업체도 우리도 뭐가 잘못됐는지 알 수가 없었고, 업체가 전화를 하고서야 알았다.
      → 시간이 넘으면 끊고 실패로 돌린다. 그래야 화면이 「불러오지 못했습니다 + 다시 시도」를 띄운다.
      ⚠️ 쓰기는 넉넉히 준다 — 서버엔 저장됐는데 실패로 보이는 것이 안 되는 것보다 나쁘다. */
-  var READ_MS = 15000, WRITE_MS = 45000, BATCH_MS = 25000;
+  /* ⏱ 배치는 한 번에 열 범위를 읽어오므로 한 건짜리보다 넉넉히 준다.
+     한동안 아무도 안 부르면 Apps Script 가 깨어나는 데만 10초 넘게 쓴다(2026-09-04 실측 17.7초). */
+  var READ_MS = 15000, WRITE_MS = 45000, BATCH_MS = 35000;
   function post(payload, ms) {
     var ac = (typeof AbortController === 'function') ? new AbortController() : null;
     var timer = ac ? setTimeout(function () { ac.abort(); }, ms || READ_MS) : 0;
