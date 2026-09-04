@@ -499,9 +499,13 @@ async function save(){ await dataReplace(DATA); }
 /* ══ 🎯 발굴 대상 A — '농수산' 취급 175곳 ══════════════════════════════════
    통신판매업 신고 명단(신규발굴_데이터.js)에서 취급이 '농수산'으로 잡힌 곳만 남긴다.
    우리가 파는 물건을 이미 다루는 곳이라 제일 먼저 두드릴 자리다.
-   🔴 상태는 시트('메일설정' 탭)에 적는다 — 집·회사 PC가 갈리면 같은 곳에 두 번 보낸다.
-   🔴 화면에서 지운 곳은 명단에서만 빠진다. 원본 파일은 안 건드린다(잘못 눌러도 되살린다). */
-const PROS_SENT='pros_sent', PROS_HIDE='pros_hide';
+   🔴 [✉ 보냄]은 **메일링 관리 목록(DATA)에 그대로 넣는다.**
+      처음엔 설정에 이름만 따로 적어뒀는데, 그러면 중복 검사에도 안 걸리고 2주 후
+      추가연락 대상에도 안 떠서 도구가 두 쪽으로 갈린다(2026-09-04 홍팀장 지적 → 고침).
+      그래서 '보낸 곳' 판정도 따로 저장하지 않는다 — **DATA 에 그 주소가 있으면 보낸 것이다.**
+   🔴 설정에 남기는 건 ✕(안 보낼 곳)뿐이다. 그건 메일 기록과 상관없는 판단이라서.
+      원본 명단 파일은 안 건드린다(잘못 눌러도 되살린다). */
+const PROS_HIDE='pros_hide';
 const pkeyN=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 function prosList(){
   const P=(typeof window.PROSPECTS!=='undefined')?window.PROSPECTS:[];
@@ -517,14 +521,34 @@ function prosList(){
   return out;
 }
 const prosSet=k=>new Set(String(SET[k]||'').split('|').map(pkeyN).filter(Boolean));
-async function prosMark(key,name,on){
-  const s=prosSet(key);
+// ✕ 안 보낼 곳 표시 — 이건 메일 기록이 아니라 판단이라 설정에 남긴다
+async function prosHide(name,on){
+  const s=prosSet(PROS_HIDE);
   const k=pkeyN(name);
   if(on)s.add(k); else s.delete(k);
-  // 이름 원본을 그대로 넣어야 나중에 시트를 눈으로 봐도 뭔지 안다
   const names=prosList().filter(p=>s.has(pkeyN(p.name))).map(p=>p.name);
-  await setSetting(key,names.join('|'));
+  await setSetting(PROS_HIDE,names.join('|'));
   renderPros();
+}
+/* ✉ 보냄 — 메일링 관리 목록에 실제 행으로 넣는다.
+   이래야 ①위 [이 주소로 보낸 적 있나?]에 걸리고 ②2주 뒤 추가연락 대상에 뜨고 ③회신 추적이 된다.
+   🔴 넣기 전에 같은 주소가 이미 있는지 본다(qFind). 있으면 물어보고, 아니라고 하면 안 넣는다. */
+async function prosSend(p){
+  const dup=qFind(p.mail);
+  if(dup.length){
+    const r=dup[0], d=daysSince(r[4]);
+    if(!confirm('🚨 이미 보낸 곳입니다\n\n'+(r[0]||p.name)+'\n담당: '+(r[8]||'—')
+      +'\n마지막연락: '+(r[4]||'?')+(d==null?'':' ('+d+'일 전)')
+      +'\n\n그래도 한 건 더 기록할까요?')) return false;
+  }
+  const day=todayKST();
+  // HEADER: 업체명·연락방식·연락처·보낸날짜·마지막연락·상태·메모·검색키워드·담당
+  DATA.push([p.name,'이메일',p.mail,day,day,'진행중','','발굴A',PERSON]);
+  setStatus('저장 중…');
+  await save();
+  render(); renderPros();
+  setStatus('저장됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
+  return true;
 }
 function prosRow(p,done){
   const q=encodeURIComponent(p.name);
@@ -537,8 +561,8 @@ function prosRow(p,done){
     + '<a class="btn sm ghost" href="https://search.naver.com/search.naver?query='+q+'" target="_blank" rel="noopener" style="text-decoration:none">N 네이버</a>'
     + '<a class="btn sm ghost" href="https://www.google.com/search?q='+q+'" target="_blank" rel="noopener" style="text-decoration:none">G 구글</a>'
     + (done
-        ? '<button class="btn sm ghost" data-pros="undo" data-n="'+esc(p.name)+'">↩ 되돌리기</button>'
-        : '<button class="btn sm brand" data-pros="sent" data-n="'+esc(p.name)+'">✉ 보냄</button>'
+        ? '<span class="pill green" title="메일링 목록에 기록돼 있습니다">✉ 보냄 '+esc(p.sentAt||'')+'</span>'
+        : '<button class="btn sm brand" data-pros="sent" data-m="'+esc(p.mail)+'">✉ 보냄</button>'
           +'<button class="btn sm ghost" data-pros="hide" data-n="'+esc(p.name)+'">✕</button>')
     + '</div>';
 }
@@ -547,9 +571,14 @@ function renderPros(){
   const all=prosList();
   if(!all.length){ card.style.display='none'; return; }
   card.style.display='';
-  const sent=prosSet(PROS_SENT), hide=prosSet(PROS_HIDE);
-  const left=all.filter(p=>!sent.has(pkeyN(p.name))&&!hide.has(pkeyN(p.name)));
-  const done=all.filter(p=>sent.has(pkeyN(p.name)));
+  const hide=prosSet(PROS_HIDE);
+  /* 보낸 곳 = 메일링 목록(DATA)에 그 주소가 있는 곳. 따로 저장하지 않는다.
+     위 [기록] 버튼으로 손수 적은 것도 여기서 같이 잡힌다 — 그게 맞다, 어차피 보낸 거니까. */
+  const byMail={};
+  DATA.forEach(r=>{ const k=pkeyN(r[2]); if(k)byMail[k]=r; });
+  all.forEach(p=>{ const r=byMail[pkeyN(p.mail)]; p.sentAt=r?(r[4]||r[3]||''):''; p.sent=!!r; });
+  const left=all.filter(p=>!p.sent&&!hide.has(pkeyN(p.name)));
+  const done=all.filter(p=>p.sent);
   $('pros-left').textContent=left.length;
   $('pros-done-n').textContent=done.length;
   $('pros-list').innerHTML=left.length?left.map(p=>prosRow(p,false)).join('')
@@ -559,13 +588,19 @@ function renderPros(){
 document.addEventListener('click',async e=>{
   const b=e.target.closest&&e.target.closest('[data-pros]');
   if(!b)return;
-  const act=b.getAttribute('data-pros'), nm=b.getAttribute('data-n');
+  const act=b.getAttribute('data-pros');
   b.disabled=true;
   try{
-    if(act==='sent') await prosMark(PROS_SENT,nm,true);
-    else if(act==='hide') await prosMark(PROS_HIDE,nm,true);
-    else if(act==='undo'){ await prosMark(PROS_SENT,nm,false); }
-    toast(act==='hide'?(nm+' — 목록에서 뺐습니다'):act==='undo'?(nm+' — 되돌렸습니다'):(nm+' — 보낸 곳으로 옮겼습니다'));
+    if(act==='sent'){
+      const p=prosList().find(x=>pkeyN(x.mail)===pkeyN(b.getAttribute('data-m')));
+      if(!p){ b.disabled=false; return; }
+      if(await prosSend(p)) toast(p.name+' — 메일링 목록에 기록했습니다');
+      else b.disabled=false;                 // 중복이라 취소한 경우 — 버튼 되살린다
+    }else if(act==='hide'){
+      const nm=b.getAttribute('data-n');
+      await prosHide(nm,true);
+      toast(nm+' — 목록에서 뺐습니다');
+    }
   }catch(err){ alert('저장하지 못했습니다\n\n'+(err.message||err)); b.disabled=false; }
 });
 
