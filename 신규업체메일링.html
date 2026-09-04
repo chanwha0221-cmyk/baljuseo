@@ -96,6 +96,19 @@
     <div id="q-result" style="margin-top:12px;padding:14px 16px;border-radius:10px;background:var(--bg2,#f4f6f9);font-size:15px;font-weight:700;line-height:1.6">메일주소를 입력하세요</div>
   </div>
 
+  <!-- 🎯 발굴 대상 A — 신규발굴_데이터.js 에서 '농수산' 취급으로 걸러낸 175곳 (홍팀장 2026-09-04)
+       상호로 네이버·구글을 바로 열어 뭘 파는 곳인지 확인하고, 보낸 곳은 아래로 내린다.
+       진행상태(보냄/삭제)는 '메일설정' 탭에 적는다 — 브라우저에 두면 집·회사 PC가 따로 논다. -->
+  <div class="card" id="pros-card" style="display:none">
+    <h2>🎯 발굴 대상 <span class="badge green" id="pros-left">0</span>
+      <span class="muted" style="font-weight:400">— 상호로 검색해 보고, 메일 보낸 곳은 [보냄]을 누르면 아래로 내려갑니다</span></h2>
+    <div id="pros-list"></div>
+    <details id="pros-done-wrap" style="margin-top:12px">
+      <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--sub)">✉ 보낸 곳 <span id="pros-done-n">0</span>곳 (펼치기)</summary>
+      <div id="pros-done" style="margin-top:8px;opacity:.65"></div>
+    </details>
+  </div>
+
   <details style="margin-bottom:14px"><summary style="cursor:pointer;font-size:13px;color:var(--sub);padding:6px 0">⚙️ 기록 추가 · 목록 · 메일 작성 · 명함 (펼치기)</summary>
   <div class="card">
     <h2 id="compose-title">✉️ 이메일 작성</h2>
@@ -164,18 +177,6 @@
     </div>
   </div>
 
-  <!-- 🎯 발굴 대상 A — 신규발굴_데이터.js 에서 '농수산' 취급으로 걸러낸 175곳 (홍팀장 2026-09-04)
-       상호로 네이버·구글을 바로 열어 뭘 파는 곳인지 확인하고, 보낸 곳은 아래로 내린다.
-       진행상태(보냄/삭제)는 '메일설정' 탭에 적는다 — 브라우저에 두면 집·회사 PC가 따로 논다. -->
-  <div class="card" id="pros-card" style="display:none">
-    <h2>🎯 발굴 대상 <span class="badge green" id="pros-left">0</span>
-      <span class="muted" style="font-weight:400">— 상호로 검색해 보고, 메일 보낸 곳은 [보냄]을 누르면 아래로 내려갑니다</span></h2>
-    <div id="pros-list"></div>
-    <details id="pros-done-wrap" style="margin-top:12px">
-      <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--sub)">✉ 보낸 곳 <span id="pros-done-n">0</span>곳 (펼치기)</summary>
-      <div id="pros-done" style="margin-top:8px;opacity:.65"></div>
-    </details>
-  </div>
 
   <!-- 🔔 추가연락 대상 -->
   <div class="card" id="overdue-card" style="display:none">
