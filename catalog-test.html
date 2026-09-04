@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.50</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.51</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -296,6 +296,9 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .catsel{margin-top:5px;width:100%;border:1.5px solid var(--gold);background:var(--card);color:var(--gold);
   padding:6px 8px;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
 .catsel:disabled{opacity:.5;cursor:default}
+/* 이미 분류된 상품 칸은 조용하게 — 금색은 "아직 안 정했다"는 신호로 남겨둔다 (2026-09-04) */
+.catsel.set{border-color:var(--line);color:var(--muted);font-weight:700}
+@media(hover:hover){.catsel.set:hover{border-color:var(--gold);color:var(--gold)}}
 /* 첫 화면 한 줄 — 카탈로그의 본질은 상품이라 소식글은 제목 한 줄만 놓고 자리를 안 먹는다 */
 .newsone{margin-top:9px}
 .newsonebtn{width:100%;display:flex;align-items:center;gap:8px;background:var(--card);cursor:pointer;
@@ -1222,11 +1225,13 @@ function buildAll(){
 document.addEventListener('change',function(e){
   const sel=e.target.closest('[data-catsel]'); if(!sel)return;
   const nm=sel.getAttribute('data-catsel'), cat=sel.value;
-  if(!cat)return;
+  const now=sel.getAttribute('data-catnow')||'';
+  if(!cat||cat===now)return;                 // 안내줄('') 을 다시 고르거나 같은 값이면 저장할 게 없다
   sel.disabled=true;
   setCat(nm,cat).catch(function(err){
     alert('카테고리를 저장하지 못했습니다.\n\n'+(err.message||err));
-    sel.disabled=false; sel.value='';
+    // 실패했으면 **원래 값으로 돌려놓는다** — 화면만 바뀐 채로 두면 바뀐 줄 알고 넘어간다
+    sel.disabled=false; sel.value=now;
   });
 });
 /* 🏷 카드에서 바로 카테고리 지정 (홍팀장 2026-09-01) — 마스터 전용.
@@ -1516,15 +1521,25 @@ function card(p,extra,top,foot){
        카드를 보다가 바로 고치러 간다. 카탈로그는 사진 시트에 쓰지 않는다 —
        상품도구를 그 상품으로 열어줄 뿐이다(#photo=). 쓰기는 권한을 가진 도구 쪽에서만. */
     +(amMasterC()?'<button class="excb thb" data-thumb="'+esc(p.name)+'" title="카탈로그 사진을 다른 사진으로 바꿉니다">🖼 사진 바꾸기</button>':'')
-    /* 🏷 미분류 상품은 카드에서 바로 분류한다 — 마스터에게만 (홍팀장 2026-09-01)
+    /* 🏷 카드에서 바로 분류한다 — 마스터에게만 (홍팀장 2026-09-01)
        "어차피 마스터에만 뜨는 거니까, 미분류로 뜨면 이 화면에서도 바로 카테고리 잡을 수 있게 하자."
        상품도구까지 갔다 오면 그 상품을 다시 찾아야 한다. 눈에 보일 때 그 자리에서 끝내는 게 맞다.
-       분류가 이미 된 상품엔 안 띄운다 — 실수로 바꾸는 쪽이 손해다. */
-    +((amMasterC()&&(!p.cat||p.cat==='미분류'))
-        ?'<select class="catsel" data-catsel="'+esc(p.name)+'" title="이 상품의 카테고리를 정합니다">'
-          +'<option value="">🏷 카테고리 지정…</option>'
-          +CAT_PRESET.map(c=>'<option>'+esc(c)+'</option>').join('')
-          +'</select>':'')
+       🔴 2026-09-04 — **이미 분류된 상품도 다시 고를 수 있다** (홍팀장: "카테고리 잘못 선택한 상품
+          다시 선택할 수 있게 해줘"). 처음엔 실수로 바뀌는 게 손해라고 미분류에만 띄웠는데,
+          잘못 넣은 걸 고칠 길이 아예 없는 쪽이 더 손해였다 — 상품도구에도 미분류만 뜬다.
+       ⚠️ 지금 값을 골라둔 채로 띄운다. 프리셋에 없는 값(옛 분류)이면 그것도 선택지로 넣는다 —
+          안 그러면 칸을 여는 순간 엉뚱한 값이 골라진 것처럼 보이고, 무심코 저장하면 진짜 바뀐다. */
+    +(amMasterC()
+        ?(function(){
+            const cur=(p.cat&&p.cat!=='미분류')?p.cat:'';
+            const opts=CAT_PRESET.slice();
+            if(cur&&opts.indexOf(cur)<0)opts.push(cur);
+            return '<select class="catsel'+(cur?' set':'')+'" data-catsel="'+esc(p.name)+'" data-catnow="'+esc(cur)
+              +'" title="이 상품의 카테고리를 정합니다. 잘못 넣었으면 다시 고르면 바뀝니다.">'
+              +'<option value="">'+(cur?'🏷 카테고리 바꾸기…':'🏷 카테고리 지정…')+'</option>'
+              +opts.map(c=>'<option'+(c===cur?' selected':'')+'>'+esc(c)+'</option>').join('')
+              +'</select>';
+          })():'')
     +(foot||'')
     +'</div></div>';
 }
