@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.51</title>
+<title>마스터 유통 카탈로그 v23.52</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -274,6 +274,10 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .verbar button{border:0;background:var(--accent);color:#fff;border-radius:9px;padding:8px 15px;
   font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
 .verbar button.x{background:transparent;color:var(--muted);padding:8px 6px;font-size:15px}
+/* 💰 단가 변동 띠 — 업체가 보는 건 이것뿐이다(버전 알림은 마스터만). 금색으로 갈라 놓는다 (2026-09-04) */
+.verbar.price{border-color:var(--gold)}
+.verbar.price button{background:var(--gold)}
+.verbar.price button.x{background:transparent;color:var(--muted)}
 /* ⚠️ 최신 단가를 못 받았을 때 띄우는 띠 (2026-09-04 홍팀장).
    "오늘 단가 나갔습니다" 공지한 날 업체가 **어제 값으로 발주를 넣는 것**이 제일 큰 사고다.
    저장된 화면은 그대로 보여주되(아무것도 안 보이는 것보다 낫다) 옛 값이라는 사실을 숨기지 않는다.
@@ -1787,7 +1791,11 @@ async function startCatalog(){
     // ① 상품 먼저 — 사진·분류가 없어도 목록은 뜬다
     const groups=await gridP;
     GROUPS=groups;
-    hapAlias();   // 창고명이 앞에 붙어 온 합포장 이름은 여기서 한 번 더 붙여본다 (GROUPS가 있어야 창고명을 안다)
+    /* 💰 지금 화면에 뜬 단가를 기준으로 잡아둔다 — 이 다음부터 달라지면 알린다 (2026-09-04).
+       ⚠️ 저장된 화면(캐시)으로 그린 값은 기준이 될 수 없다. 그건 이미 옛 값일 수 있고,
+          그걸 기준으로 삼으면 열자마자 "단가가 바뀌었다"가 뜬다. 새로 받아온 여기서만 잡는다. */
+    PRICE0=priceSnap();
+    hapAlias();  // 창고명이 앞에 붙어 온 합포장 이름은 여기서 한 번 더 붙여본다 (GROUPS가 있어야 창고명을 안다)
     finishRender(Date.now(),false);
     if(location.hash.replace(/^#/,''))renderRoute();
 
@@ -2497,6 +2505,15 @@ function showVerBar(live){
   d.querySelector('#verClose').onclick=()=>d.remove();
 }
 async function checkVer(){
+  /* 🔕 2026-09-04 홍팀장 — "짜잘바리 업데이트는 업체들 몰라도 되니까 들어올 때마다
+     업데이트 있다 이런 건 안 뜨게 해라. 업체한테는 크게 단가 변경된 게 있어요,
+     새로고침 해주세요 정도만."
+     버튼 하나 옮긴 배포에도 띠가 떴다 — 매번 뜨는 알림은 곧 안 보게 되고, 그러면
+     정작 중요한 알림도 같이 묻힌다. 업체가 새로고침해야 하는 진짜 이유는 **단가**다.
+     → 버전 띠는 마스터만 본다. 업체는 아래 checkPrice(단가 변동)만 본다.
+     ⚠️ 업체 화면이 낡는 문제(2026-09-01 쿠팡 파일 사고)는 단가가 바뀔 때마다 새로고침하게
+        되면서 같이 풀린다 — 단가는 며칠에 한 번은 반드시 바뀐다. */
+  if(!amMasterC())return;
   try{
     const r=await fetch('version.txt?t='+Date.now(),{cache:'no-store'});
     if(!r.ok)return;
@@ -2505,9 +2522,61 @@ async function checkVer(){
     if(live!==MYVER)showVerBar(live);
   }catch(e){}
 }
-setTimeout(checkVer,4000);                                   // 첫 화면을 먼저 그리고 나서
-setInterval(checkVer,10*60*1000);                            // 켜둔 탭도 10분마다 한 번
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden)checkVer(); });  // 탭으로 돌아올 때
+
+/* ══ 💰 단가가 바뀌었을 때만 알린다 (홍팀장 2026-09-04) ════════════════════
+   업체는 탭을 켜둔 채로 며칠 쓴다. 그 사이 시트에서 단가가 바뀌면 화면은 **어제 값**이고,
+   그걸 보고 발주를 넣는 게 제일 큰 사고다(위 stalebar 주석과 같은 이야기).
+   → 화면에 떠 있는 값과 지금 서버 값을 대보고, **다른 상품이 있을 때만** 띠를 띄운다.
+   🔴 화면을 저절로 다시 그리지 않는다 — 발주를 적는 중에 값이 움직이면 그게 더 나쁘다.
+      새로고침은 쓰는 사람이 누른다.
+   🔴 1원이라도 다르면 알린다. '큰 변동만' 걸러낼 기준이 없고, 단가는 틀리면 그대로 돈이다.
+   ⚠️ 스냅샷(3분 캐시)으로만 본다 — 못 받으면 조용히 넘어간다. 이것 때문에 시트를 다시
+      읽지는 않는다(그 무게 때문에 스냅샷을 만든 것이다). */
+let PRICE0=null, PRICEBAR=false;
+function priceSnap(){
+  const m=new Map();
+  (GROUPS||[]).forEach(g=>((g.src||g.products)||[]).forEach(p=>{
+    const k=pkey(p.name);
+    if(!m.has(k)&&p.price&&p.price.cur!=null)m.set(k,p.price.cur);
+  }));
+  return m;
+}
+function showPriceBar(names){
+  if(PRICEBAR)return; PRICEBAR=true;
+  const d=document.createElement('div');
+  d.className='verbar price';
+  d.innerHTML='<span>💰 <b>단가가 바뀐 상품이 '+names.length+'건 있습니다</b>'
+    +' — 새로고침해 주세요. <span style="font-weight:400">('+esc(names.slice(0,3).join(', '))
+    +(names.length>3?(' 외 '+(names.length-3)+'건'):'')+')</span></span>'
+    +'<button id="prcReload">새로고침</button>'
+    +'<button id="prcClose" class="x" title="나중에">✕</button>';
+  document.body.appendChild(d);
+  d.querySelector('#prcReload').onclick=()=>location.reload();
+  d.querySelector('#prcClose').onclick=()=>d.remove();
+}
+async function checkPrice(){
+  if(PRICEBAR||!PRICE0||!PRICE0.size)return;
+  try{
+    const snap=await loadSnap();                 // ⚠️ 전역 SNAP 은 건드리지 않는다
+    if(!snap||!snap.grid)return;
+    const fresh=new Map();
+    parseGrid(snap.grid).forEach(g=>(g.products||[]).forEach(p=>{
+      const k=pkey(p.name);
+      if(!fresh.has(k)&&p.price&&p.price.cur!=null)fresh.set(k,p.price.cur);
+    }));
+    if(!fresh.size)return;
+    const hit=[];
+    PRICE0.forEach((was,k)=>{ const v=fresh.get(k); if(v!=null&&v!==was)hit.push(k); });
+    if(!hit.length)return;
+    // 이름은 화면에 있는 그대로 보여준다(pkey 는 붙여쓴 열쇠라 사람이 읽는 이름이 아니다)
+    const nm=new Map(); (ALL||[]).forEach(p=>{ const k=pkey(p.name); if(!nm.has(k))nm.set(k,p.name); });
+    showPriceBar(hit.map(k=>nm.get(k)||k));
+  }catch(e){}
+}
+function tick(){ checkVer(); checkPrice(); }
+setTimeout(tick,4000);                                   // 첫 화면을 먼저 그리고 나서
+setInterval(tick,10*60*1000);                            // 켜둔 탭도 10분마다 한 번
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden)tick(); });  // 탭으로 돌아올 때
 
 // ══════════════════════════════════════════════════════════════════
 // 로그인 (2026-08-12 사장님 지시 — 상용화 1단계)
