@@ -164,15 +164,17 @@
     </div>
   </div>
 
-  <!-- 🔑 시트 권한 요청 회신 -->
-  <div class="card">
-    <h2>🔑 시트 권한 요청 회신 <span class="muted" style="font-size:12px;font-weight:400">(누가 시트 권한 신청했을 때 누군지 확인 회신용)</span></h2>
-    <textarea id="tpl-perm" style="min-height:140px;line-height:1.6"></textarea>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn brand" onclick="copyText('tpl-perm')">📋 복사</button>
-      <button class="btn ghost" onclick="saveTpl('perm')">저장</button>
-      <button class="btn ghost" onclick="resetTpl('perm')">기본값</button>
-    </div>
+  <!-- 🎯 발굴 대상 A — 신규발굴_데이터.js 에서 '농수산' 취급으로 걸러낸 175곳 (홍팀장 2026-09-04)
+       상호로 네이버·구글을 바로 열어 뭘 파는 곳인지 확인하고, 보낸 곳은 아래로 내린다.
+       진행상태(보냄/삭제)는 '메일설정' 탭에 적는다 — 브라우저에 두면 집·회사 PC가 따로 논다. -->
+  <div class="card" id="pros-card" style="display:none">
+    <h2>🎯 발굴 대상 <span class="badge green" id="pros-left">0</span>
+      <span class="muted" style="font-weight:400">— 상호로 검색해 보고, 메일 보낸 곳은 [보냄]을 누르면 아래로 내려갑니다</span></h2>
+    <div id="pros-list"></div>
+    <details id="pros-done-wrap" style="margin-top:12px">
+      <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--sub)">✉ 보낸 곳 <span id="pros-done-n">0</span>곳 (펼치기)</summary>
+      <div id="pros-done" style="margin-top:8px;opacity:.65"></div>
+    </details>
   </div>
 
   <!-- 🔔 추가연락 대상 -->
@@ -227,6 +229,8 @@
 <div class="toast" id="toast"></div>
 
 <script src="sheets-proxy.js"></script>
+<!-- 🎯 발굴 명단 원본 (window.PROSPECTS) — 발굴 대상 목록이 여기서 나온다 -->
+<script src="신규발굴_데이터.js"></script>
 <script>
 // ───────────────────────────────────────────────────────────
 //  인증 / 시트 / 드라이브 / AI  — 마찬 비서(secretary.html) 패턴 재활용
@@ -302,14 +306,6 @@ const DEFAULT_NOTE=`안녕하세요, 대표님.
 전국 산지에서 직접 수매해 상시 300~500종 농·축·수산물을 운영하는 수산물 전문 유통사입니다. 소량 한 건도 택배로 즉시 납품 가능합니다.
 
 필요하실 때 빠르고 정확하게 대응해 드리겠습니다. 관심 있으시면 편하게 답 주세요. 감사합니다.`;
-
-const DEFAULT_PERM=`안녕하세요. 주식회사 마스터 ${ME} 팀장입니다.
-
-저희 시트가 권한이 있어야 확인이 가능한 구조인데, 시트 권한 요청을 주셔서 메일 드립니다.
-
-혹시 업체명 / 담당자 성함이 어떻게 되실까요?
-
-회신 주시면 확인해서 답변 드리겠습니다.`;
 
 const DEFAULT_KAKAO=`안녕하세요 대표님! 주식회사 마스터 ${ME}입니다.
 전국 산지 직수매로 상시 300~500종 농·축·수산물 운영하고, 소량도 택배로 바로 보내드려요.
@@ -470,7 +466,6 @@ async function loadAll(){
     $('tpl').value = fixTemplate(SET.template || DEFAULT_TEMPLATE);
     $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT;
     $('tpl-note').value = fixName(SET.template_note || DEFAULT_NOTE);
-    $('tpl-perm').value = fixName(SET.template_perm || DEFAULT_PERM);
     $('tpl-kakao').value = fixName(SET.template_kakao || DEFAULT_KAKAO);
     renderTplButtons();
     // 명함 — 사람별 저장 (2026-08-11)
@@ -494,10 +489,84 @@ async function loadAll(){
       }catch(e){ console.warn('원비 탭 흡수 실패',e); }
     }
     render();
+    renderPros();   // 🎯 발굴 대상 175곳 — 설정(진행상태)을 읽은 뒤라야 보낸 곳이 갈린다
     setStatus('동기화됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){ setStatus('오류: '+e.message); console.error(e); toast('동기화 실패 — 콘솔 확인'); }
 }
 async function save(){ await dataReplace(DATA); }
+
+/* ══ 🎯 발굴 대상 A — '농수산' 취급 175곳 ══════════════════════════════════
+   통신판매업 신고 명단(신규발굴_데이터.js)에서 취급이 '농수산'으로 잡힌 곳만 남긴다.
+   우리가 파는 물건을 이미 다루는 곳이라 제일 먼저 두드릴 자리다.
+   🔴 상태는 시트('메일설정' 탭)에 적는다 — 집·회사 PC가 갈리면 같은 곳에 두 번 보낸다.
+   🔴 화면에서 지운 곳은 명단에서만 빠진다. 원본 파일은 안 건드린다(잘못 눌러도 되살린다). */
+const PROS_SENT='pros_sent', PROS_HIDE='pros_hide';
+const pkeyN=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+function prosList(){
+  const P=(typeof window.PROSPECTS!=='undefined')?window.PROSPECTS:[];
+  const seen=new Set(), out=[];
+  P.forEach(r=>{
+    if(r[8]!=='농수산')return;
+    const mail=String(r[3]||'').trim();
+    if(!/@/.test(mail))return;
+    const k=mail.toLowerCase();
+    if(seen.has(k))return; seen.add(k);
+    out.push({name:r[0]||'', ceo:r[1]||'', area:r[2]||'', mail, site:r[4]||'', cat:r[5]||''});
+  });
+  return out;
+}
+const prosSet=k=>new Set(String(SET[k]||'').split('|').map(pkeyN).filter(Boolean));
+async function prosMark(key,name,on){
+  const s=prosSet(key);
+  const k=pkeyN(name);
+  if(on)s.add(k); else s.delete(k);
+  // 이름 원본을 그대로 넣어야 나중에 시트를 눈으로 봐도 뭔지 안다
+  const names=prosList().filter(p=>s.has(pkeyN(p.name))).map(p=>p.name);
+  await setSetting(key,names.join('|'));
+  renderPros();
+}
+function prosRow(p,done){
+  const q=encodeURIComponent(p.name);
+  const site=p.site?('<a href="'+esc(/^https?:/.test(p.site)?p.site:'http://'+p.site)+'" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none">'+esc(p.site.slice(0,44))+'</a>'):'<span class="muted">사이트 없음</span>';
+  return '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line)">'
+    + '<b style="min-width:150px;font-size:13px">'+esc(p.name)+'</b>'
+    + '<span class="pill">'+esc(p.area)+'</span>'
+    + '<span style="font-size:12px;color:var(--sub);min-width:150px">'+esc(p.mail)+'</span>'
+    + '<span style="font-size:11.5px;flex:1;min-width:120px">'+site+'</span>'
+    + '<a class="btn sm ghost" href="https://search.naver.com/search.naver?query='+q+'" target="_blank" rel="noopener" style="text-decoration:none">N 네이버</a>'
+    + '<a class="btn sm ghost" href="https://www.google.com/search?q='+q+'" target="_blank" rel="noopener" style="text-decoration:none">G 구글</a>'
+    + (done
+        ? '<button class="btn sm ghost" data-pros="undo" data-n="'+esc(p.name)+'">↩ 되돌리기</button>'
+        : '<button class="btn sm brand" data-pros="sent" data-n="'+esc(p.name)+'">✉ 보냄</button>'
+          +'<button class="btn sm ghost" data-pros="hide" data-n="'+esc(p.name)+'">✕</button>')
+    + '</div>';
+}
+function renderPros(){
+  const card=$('pros-card'); if(!card)return;
+  const all=prosList();
+  if(!all.length){ card.style.display='none'; return; }
+  card.style.display='';
+  const sent=prosSet(PROS_SENT), hide=prosSet(PROS_HIDE);
+  const left=all.filter(p=>!sent.has(pkeyN(p.name))&&!hide.has(pkeyN(p.name)));
+  const done=all.filter(p=>sent.has(pkeyN(p.name)));
+  $('pros-left').textContent=left.length;
+  $('pros-done-n').textContent=done.length;
+  $('pros-list').innerHTML=left.length?left.map(p=>prosRow(p,false)).join('')
+    :'<div class="empty">남은 곳이 없습니다 — 아래 [보낸 곳]에서 되돌릴 수 있어요</div>';
+  $('pros-done').innerHTML=done.length?done.map(p=>prosRow(p,true)).join(''):'<div class="empty">아직 없습니다</div>';
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest&&e.target.closest('[data-pros]');
+  if(!b)return;
+  const act=b.getAttribute('data-pros'), nm=b.getAttribute('data-n');
+  b.disabled=true;
+  try{
+    if(act==='sent') await prosMark(PROS_SENT,nm,true);
+    else if(act==='hide') await prosMark(PROS_HIDE,nm,true);
+    else if(act==='undo'){ await prosMark(PROS_SENT,nm,false); }
+    toast(act==='hide'?(nm+' — 목록에서 뺐습니다'):act==='undo'?(nm+' — 되돌렸습니다'):(nm+' — 보낸 곳으로 옮겼습니다'));
+  }catch(err){ alert('저장하지 못했습니다\n\n'+(err.message||err)); b.disabled=false; }
+});
 
 // ───────────────────────────────────────────────────────────
 // 🔄 발굴 DB 동기화 (2026-06-11) — 원천자료는 구글드라이브 [신규업체메일링\{사람}] 폴더에,
@@ -642,7 +711,7 @@ async function deleteNamedTpl(i,e){
   if(!confirm('「'+t.name+'」 템플릿을 삭제할까요?')) return;
   list.splice(i,1); setStatus('저장 중…'); await setSetting('tpl_list', JSON.stringify(list)); renderTplButtons(); setStatus('삭제됨'); toast('「'+t.name+'」 삭제됨');
 }
-function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:which==='kakao'?DEFAULT_KAKAO:DEFAULT_PERM; $('tpl-'+which).value=def; toast('기본값 — 저장하려면 [저장]'); }
+function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:DEFAULT_KAKAO; $('tpl-'+which).value=def; toast('기본값 — 저장하려면 [저장]'); }
 function copyText(id){ navigator.clipboard.writeText($(id).value).then(()=>toast('복사됨')); }
 
 // ─── 이미지 ───
