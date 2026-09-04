@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.47</title>
+<title>마스터 유통 카탈로그 v23.48</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -797,11 +797,37 @@ function linkOf(cell){
   if(f){const m=f.match(/HYPERLINK\(\s*"([^"]+)"/i);if(m)return m[1];}
   return'';
 }
+/* ══ 📦 스냅샷 (2026-09-04 홍팀장 지시) ═════════════════════════════════════
+   🔴 9/4 오전, **정식 서비스 중에** 카탈로그가 「⏳ 상품을 불러오는 중」에서 멈췄다.
+      상품·사진·분류를 Apps Script 프록시로 읽는데 응답이 클수록 느려졌다
+      (실측 1KB 4.4초 / 39KB 7.4초 / 사진표는 25초에도 안 옴). 프록시 **서버 실행은 0.3~1초**였다 —
+      병목은 우리 코드가 아니라 구글 쪽 대기줄이었고, 거래처가 늘수록 나빠지는 자리였다.
+   → 발주 API(Supabase)가 시트를 대신 읽어 **3분 담아둔 것**을 한 번에 준다. 프록시를 안 거친다.
+   ⚠️ 스냅샷을 못 받으면 **예전 경로(프록시)로 그대로 돈다.** 새 길이 막혀도 옛 길이 살아 있다. */
+let SNAP=null;
+async function loadSnap(){
+  if(!ME||!ME.token)return null;
+  try{
+    const j=await api('catalog',{token:ME.token});
+    return (j&&j.grid)?j:null;
+  }catch(e){ return null; }   // 실패해도 조용히 — 아래에서 예전 경로로 돈다
+}
+/* 스냅샷에 있으면 그걸 쓰고, 없으면 예전처럼 시트에서 읽는다.
+   ⚠️ 값 모양을 시트 values API 와 똑같이(2차원 배열) 맞춰뒀다 — 파서를 한 줄도 안 고치려고. */
+async function snapVals(key,id,range){
+  if(SNAP&&SNAP[key])return SNAP[key];
+  const token=await getAccessToken();
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+id+'/values/'+encodeURIComponent(range),{headers:{Authorization:'Bearer '+token}});
+  const j=await r.json();
+  if(j.error)return null;
+  return j.values||[];
+}
 async function loadCatalog(){
+  if(SNAP&&SNAP.grid)return parseGrid(SNAP.grid);
   const token=await getAccessToken();
   if(!token)throw new Error('토큰 발급 실패');
   const meta=await(await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties(title,hidden)`,{headers:{Authorization:'Bearer '+token}})).json();
-  if(meta.error)throw new Error('시트 접근 실패 ('+meta.error.status+') — 공유 권한을 확인해 주세요');
+  if(meta.error)throw new Error('시트 접근 실패 ('+(meta.error.status||meta.error.code||meta.error.message||'')+')');
   const tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0).map(p=>p.title);
   const ranges=tabs.map(t=>'ranges='+encodeURIComponent(`'${t.replace(/'/g,"''")}'!A1:N400`)).join('&');
   /* 🙈 숨겨진 «행»도 같이 받아온다 (홍팀장 2026-08-24: "숨겨져 있는 상품들도 품절로 인식해줘라").
@@ -809,7 +835,11 @@ async function loadCatalog(){
      그동안 카탈로그에 그대로 떴다(실측: 단독(유) 탭 4건). 탭 숨김은 이미 걸렀고 행만 빠져 있었다. */
   const fields='sheets(properties.title,data(rowMetadata.hiddenByUser,rowData.values(formattedValue,hyperlink,textFormatRuns(format.link.uri),userEnteredValue.formulaValue)))';
   const grid=await(await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?${ranges}&fields=${encodeURIComponent(fields)}`,{headers:{Authorization:'Bearer '+token}})).json();
-  if(grid.error)throw new Error('데이터 로드 실패 ('+grid.error.status+')');
+  if(grid.error)throw new Error('데이터 로드 실패 ('+(grid.error.status||grid.error.code||grid.error.message||'')+')');
+  return parseGrid(grid);
+}
+/* 시트에서 온 셀 덩어리를 창고별 상품 목록으로. 스냅샷이든 시트 직접 읽기든 **여기 하나만** 쓴다. */
+function parseGrid(grid){
   const groups=[];
   for(const sh of (grid.sheets||[])){
     const name=sh.properties.title;
@@ -878,13 +908,9 @@ async function loadCatalog(){
 const DOGU_ID='1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
 const pkey=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 async function loadMedia(){
-  const token=await getAccessToken();
-  if(!token)return {};
-  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품이미지_v2'!A1:F3000"),{headers:{Authorization:'Bearer '+token}});
-  const j=await r.json();
-  if(j.error)return {};
+  const rows=await snapVals('media',DOGU_ID,"'상품이미지_v2'!A1:F3000");
+  if(!rows)return {};
   const m={};
-  const rows=j.values||[];
   for(let i=1;i<rows.length;i++){
     const v=rows[i]||[];
     const nm=(v[0]||'').trim();
@@ -904,12 +930,10 @@ async function loadMedia(){
 // 📦 합포장 가능 수량 — 도구시트 '합포장' 탭 (A창고 B상품명 C수량 D갱신일 E출처).
 // 매칭은 상품명만 쓴다. 창고명은 참고용 — 이 표의 창고는 공급처 약칭이라 유통시트 창고탭과 다른 게 많다.
 async function loadHap(){
-  const token=await getAccessToken();
-  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'합포장'!A2:E1000"),{headers:{Authorization:'Bearer '+token}});
-  const j=await r.json();
-  if(j.error)return {};
+  const vals=await snapVals('hap',DOGU_ID,"'합포장'!A2:E1000");
+  if(!vals)return {};
   const m={},rows=[];
-  for(const v of (j.values||[])){
+  for(const v of vals){
     const nm=(v[1]||'').trim(); const q=parseInt((v[2]||'').toString().replace(/[^\d]/g,''),10);
     if(!nm||!(q>0))continue;
     const k=pkey(nm); if(!m[k])m[k]=q;
@@ -954,14 +978,11 @@ const LINKSS='1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';
    미러를 버리지 않는 이유: 미러에만 있는 '상태' 칸과, 정본에 아직 안 올라온 상품이 있다.
    ⚠️ 정본 B칸엔 '당일' 같은 메모가 섞인 행이 있다 — 주소 아닌 값은 버린다. */
 async function loadLinks(){
-  const token=await getAccessToken();
-  const get=async(id,range)=>{
-    // ⚠️ 범위는 정본 건수보다 넉넉해야 한다 — 1400으로 두면 2,170건 중 뒤가 통째로 잘린다(2026-08-19).
-    const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+id+'/values/'+encodeURIComponent(range),{headers:{Authorization:'Bearer '+token}});
-    const j=await r.json();
-    return j.error?null:(j.values||[]);
-  };
-  const [mir,can]=await Promise.all([get(DOGU_ID,"'상품링크'!A2:F2400"),get(LINKSS,"'링크'!A2:B3000")]);
+  // ⚠️ 범위는 정본 건수보다 넉넉해야 한다 — 1400으로 두면 2,170건 중 뒤가 통째로 잘린다(2026-08-19).
+  const [mir,can]=await Promise.all([
+    snapVals('mirror',DOGU_ID,"'상품링크'!A2:F2400"),
+    snapVals('canon',LINKSS,"'링크'!A2:B3000")
+  ]);
   const m={};
   for(const v of (mir||[])){
     const nm=(v[0]||'').trim(); if(!nm)continue;
@@ -978,13 +999,10 @@ async function loadLinks(){
 }
 // ── 카테고리: 도구시트 '상품분류' 탭 — 사장님·원비가 media-updater 페이지에서 분류한 것을 그대로 따른다 ──
 async function loadCats(){
-  const token=await getAccessToken();
-  if(!token)return {};
-  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품분류'!A2:B5000"),{headers:{Authorization:'Bearer '+token}});
-  const j=await r.json();
-  if(j.error)return {};
+  const vals=await snapVals('cats',DOGU_ID,"'상품분류'!A2:B5000");
+  if(!vals)return {};
   const m={};
-  for(const v of (j.values||[])){const nm=(v[0]||'').trim(),c=(v[1]||'').trim();if(nm&&c)m[pkey(nm)]=c;}
+  for(const v of vals){const nm=(v[0]||'').trim(),c=(v[1]||'').trim();if(nm&&c)m[pkey(nm)]=c;}
   return m;
 }
 // ── 판매량 (2026-08-12 사장님 지시) ────────────────────────────────
@@ -993,21 +1011,29 @@ async function loadCats(){
 // 정렬 기본값을 여기 순서로 두면 카탈로그에 계절감이 생긴다 — 요즘 나가는 게 위로 올라온다.
 const SALES_DAYS=30;
 async function loadSales(){
-  const token=await getAccessToken();
-  const hr=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품별판매'!A1:ZZ1"),{headers:{Authorization:'Bearer '+token}})).json();
-  if(hr.error)return {};
-  const H=(hr.values&&hr.values[0])||[];
+  let H=[],names=[],nums=[];
+  if(SNAP&&SNAP.salesHead){                       // 📦 스냅샷은 서버가 이미 최근 30일만 잘라 담아뒀다
+    H=SNAP.salesHead||[];names=SNAP.salesNames||[];nums=SNAP.salesNums||[];
+  }else{
+    const token=await getAccessToken();
+    const hr=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'상품별판매'!A1:ZZ1"),{headers:{Authorization:'Bearer '+token}})).json();
+    if(hr.error)return {};
+    H=(hr.values&&hr.values[0])||[];
+    const qi0=[];for(let i=1;i<H.length;i++)if(/수량/.test(H[i]||''))qi0.push(i);
+    if(!qi0.length)return {};
+    const use0=qi0.slice(-SALES_DAYS);
+    const colL=n=>{let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-m-1)/26;}return s;};
+    const rq=['A2:A1000',colL(use0[0])+'2:'+colL(use0[use0.length-1])+'1000']
+      .map(r=>'ranges='+encodeURIComponent("'상품별판매'!"+r)).join('&');
+    const g=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values:batchGet?'+rq,{headers:{Authorization:'Bearer '+token}})).json();
+    if(g.error)return {};
+    names=((g.valueRanges&&g.valueRanges[0]&&g.valueRanges[0].values)||[]);
+    nums=((g.valueRanges&&g.valueRanges[1]&&g.valueRanges[1].values)||[]);
+  }
   const qi=[];for(let i=1;i<H.length;i++)if(/수량/.test(H[i]||''))qi.push(i);
   if(!qi.length)return {};
   const use=qi.slice(-SALES_DAYS);
-  const colL=n=>{let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-m-1)/26;}return s;};
-  const from=use[0],to=use[use.length-1];
-  const rq=['A2:A1000',colL(from)+'2:'+colL(to)+'1000']
-    .map(r=>'ranges='+encodeURIComponent("'상품별판매'!"+r)).join('&');
-  const g=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values:batchGet?'+rq,{headers:{Authorization:'Bearer '+token}})).json();
-  if(g.error)return {};
-  const names=((g.valueRanges&&g.valueRanges[0]&&g.valueRanges[0].values)||[]);
-  const nums=((g.valueRanges&&g.valueRanges[1]&&g.valueRanges[1].values)||[]);
+  const from=use[0];
   const m={};
   for(let r=0;r<names.length;r++){
     const nm=((names[r]||[])[0]||'').trim();
@@ -1697,6 +1723,9 @@ async function startCatalog(){
        예전엔 곁다리 9건이 다 도착한 뒤에야 상품을 읽기 시작했다 — 시트 서버가 느린 날엔
        그 기다림이 그대로 더해져서 15초 제한을 넘겼고, 화면은 "불러오지 못했습니다"가 됐다.
        프록시 호출은 sheets-proxy.js 가 한 번으로 묶어 보내므로 동시에 걸어도 실행 수는 안 는다. */
+    /* 📦 먼저 스냅샷을 받아본다 — 성공하면 아래 loadXxx 들이 전부 이 덩어리에서 꺼내 쓴다(요청 0건).
+       실패하면 SNAP 이 null 로 남고, 예전처럼 시트 프록시로 하나씩 읽는다. */
+    SNAP=await loadSnap();
     const gridP=loadCatalog();
     gridP.catch(()=>{});   // 아래에서 받을 때까지 '처리 안 된 오류'로 잡히지 않게
     /* 🚑 곁다리를 **기다리지 않는다** (2026-09-04 라이브 장애).
@@ -1800,11 +1829,14 @@ function subHead(t,s){
 // 값뿐 아니라 셀 배경색까지 읽는다 — 살구색(#fce5cd) 칠은 '입고 불안정' 표시라서
 // 화면에도 그대로 옮겨야 한다 (사장님 2026-08-12).
 async function loadChanges(){
-  const token=await getAccessToken();
-  const fl='sheets(data.rowData.values(formattedValue,effectiveFormat.backgroundColor))';
-  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID
-      +'?ranges='+encodeURIComponent("'상품변동사항'!A1:M400")+'&fields='+encodeURIComponent(fl),
-      {headers:{Authorization:'Bearer '+token}})).json();
+  let j=SNAP&&SNAP.chg;
+  if(!j){
+    const token=await getAccessToken();
+    const fl='sheets(data.rowData.values(formattedValue,effectiveFormat.backgroundColor))';
+    j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID
+        +'?ranges='+encodeURIComponent("'상품변동사항'!A1:M400")+'&fields='+encodeURIComponent(fl),
+        {headers:{Authorization:'Bearer '+token}})).json();
+  }
   if(j.error)throw new Error('상품변동사항을 읽지 못했습니다.');
   const rd=((((j.sheets||[])[0]||{}).data||[])[0]||{}).rowData||[];
   const rows=rd.map(r=>((r.values||[]).map(c=>(c&&c.formattedValue)||'')));
@@ -2119,9 +2151,9 @@ function daysSince(s){
   return Math.floor((t-d)/86400000);
 }
 async function loadRecs(){
-  const token=await getAccessToken();
-  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'추천상품'!A2:F300"),{headers:{Authorization:'Bearer '+token}})).json();
-  if(j.error)throw new Error('추천상품을 읽지 못했습니다.');
+  const vals=await snapVals('recs',DOGU_ID,"'추천상품'!A2:F300");
+  if(!vals)throw new Error('추천상품을 읽지 못했습니다.');
+  const j={values:vals};
   const t=x=>(x==null?'':String(x)).trim();
   const rows=(j.values||[]).map((v,i)=>({name:t(v[0]),cmt:t(v[1]),show:t(v[2])||'Y',
       ord:parseInt(t(v[3]).replace(/[^\d]/g,''),10)||999,at:t(v[4]),
@@ -2198,9 +2230,9 @@ function renderRecs(list){
 }
 // ── 3) 공지사항 — 도구시트 '공지사항' 탭 (제목 · 내용 · 노출 · 중요 · 작성일) ──
 async function loadNotices(){
-  const token=await getAccessToken();
-  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'공지사항'!A2:E300"),{headers:{Authorization:'Bearer '+token}})).json();
-  if(j.error)throw new Error('공지사항을 읽지 못했습니다.');
+  const vals=await snapVals('notices',DOGU_ID,"'공지사항'!A2:E300");
+  if(!vals)throw new Error('공지사항을 읽지 못했습니다.');
+  const j={values:vals};
   const t=x=>(x==null?'':String(x)).trim();
   return (j.values||[]).map((v,i)=>({title:t(v[0]),body:t(v[1]),show:t(v[2])||'Y',imp:t(v[3]).toUpperCase()==='Y',at:t(v[4]),i}))
     .filter(n=>n.title&&n.show.toUpperCase()!=='N')
@@ -2225,10 +2257,10 @@ function renderNotices(list){
 const NEWS_MAX_SHOW=10;   /* 최근 10건. '일주일'로 끊지 않은 이유 — 발송이 주 3~4회라
                              일주일이면 두세 건이고 연휴가 끼면 화면이 통째로 빈다. */
 async function loadNews(){
-  const token=await getAccessToken();
-  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'+encodeURIComponent("'소식글'!A2:E300"),{headers:{Authorization:'Bearer '+token}})).json();
   // 탭이 아직 없을 수 있다(첫 등록 전) — 그건 오류가 아니라 '아직 없음'이다
-  if(j.error)return [];
+  const vals=await snapVals('news',DOGU_ID,"'소식글'!A2:E300");
+  if(!vals)return [];
+  const j={values:vals};
   const t=x=>(x==null?'':String(x)).trim();
   return (j.values||[]).map((v,i)=>({title:t(v[0]),body:t(v[1]),show:t(v[2])||'Y',at:t(v[3]),
       items:t(v[4]).split(',').map(s=>s.trim()).filter(Boolean),i}))
@@ -2398,7 +2430,7 @@ const API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
      ② **읽기 요청만** 한 번 자동으로 다시 부른다.
      🔴 쓰기 요청(발주·취소·수정·전송)은 절대 자동 재시도하지 않는다 — 그게 중복의 원인이다.
         서버에도 같은 발주를 막는 장치가 있지만, 여기서 안 보내는 것이 먼저다. */
-const API_READONLY={list:1,clients:1,me:1,getcfg:1};
+const API_READONLY={list:1,clients:1,me:1,getcfg:1,catalog:1};
 async function api(action,payload){
   if(!API)throw new Error('서버 주소가 설정되지 않았습니다.');
   const body=JSON.stringify(Object.assign({action},payload||{}));
