@@ -53,7 +53,9 @@ const FK = NS + 'order_for_v1';
 let FOR = null;                 // {id,name,addr,phone} — 지금 대신 넣어주는 업체
 let CLIENTS = null;             // 계정 시트 업체 목록 (마스터만 받아온다)
 const amMaster = () => !!(typeof ME !== 'undefined' && ME && ME.master);
-function loadFor(){ try{ const j = JSON.parse(localStorage.getItem(FK) || 'null'); if(j && j.name) FOR = j; }catch(e){} }
+/* 🔒 브라우저에 남아 있던 옛 값도 들어올 때 한 번 걸러낸다 (홍팀장 2026-09-04) —
+   식봄 주소가 계속 따라 나온 게 여기 남아 있던 값 때문이다. */
+function loadFor(){ try{ const j = JSON.parse(localStorage.getItem(FK) || 'null'); if(j && j.name){ j.addr = outAddr(j.name, j.addr); FOR = j; } }catch(e){} }
 function saveFor(){ try{ FOR ? localStorage.setItem(FK, JSON.stringify(FOR)) : localStorage.removeItem(FK); }catch(e){} }
 
 // ── 작은 도구들 ──────────────────────────────────────────────────
@@ -97,6 +99,38 @@ function fmtTel(raw){
 // ⚠️ '동/호/번지'까지 지우면 서로 다른 집을 같은 집으로 볼 수 있다. 합포장을 잘못 묶는 것이
 //    안 묶는 것보다 나쁘므로, 여기선 일부러 보수적으로만 정규화한다.
 const addrKey = s => S(s).replace(/[\s,\-()]/g, '');
+
+/* 🔒 "이 업체는 주소를 안 쓴다"는 우리와 업체 사이의 약속이다 — 발주서를 만드는 쪽이 이걸 이긴다.
+   거래처 표(CC — convert-core.js / data/clients.js)에 `address:""` 로 박아둔 업체는
+   **어디에 무슨 주소가 저장돼 있든**(계정 시트·출고지 명부·이 브라우저에 남은 값) 발주서에 출고지 주소를 싣지 않는다.
+   2026-09-04 식봄 발주에 우리 회사 출고지 주소가 실려 나간 사고 — 변환기만 이 규칙을 보고
+   발주 화면은 안 봐서, 위에서 "안 씀"이라고 해놓고 아래에서 비슷한 주소를 채워 넣었다.
+   규칙이 한 곳에만 있으면 규칙이 아니다. CC 는 convert-core.js 가 먼저 실리면서 들어온다. */
+/* ⚠️ CC 는 convert-core.js 의 IIFE 안에 있어 전역으로는 안 보인다 — `window.CONVERT.CC` 로만 나온다.
+   (전역 CC 로 찾으면 규칙이 조용히 통째로 꺼진다. 2026-09-04 이 함정에 한 번 빠졌다.) */
+let CCIDX = null;
+function ccTable(){
+  try{
+    if(window.CONVERT && window.CONVERT.CC) return window.CONVERT.CC;
+    if(typeof CC !== 'undefined' && CC) return CC;      // 변환기 없이 clients.js 만 실린 화면용
+  }catch(e){}
+  return null;
+}
+function ccOf(name){
+  const k = pkey(name);
+  if(!k) return null;
+  const t = ccTable();
+  if(!t) return null;                                    // 표가 아직 없으면 캐시도 만들지 않는다
+  if(!CCIDX){ CCIDX = new Map(); Object.keys(t).forEach(n => CCIDX.set(pkey(n), t[n])); }
+  return CCIDX.get(k) || null;
+}
+// address 키가 **있는데 값이 비어 있으면** = 주소를 안 쓰기로 한 업체 (키가 아예 없는 건 '정한 적 없음')
+function noAddrClient(name){
+  const c = ccOf(name);
+  return !!(c && Object.prototype.hasOwnProperty.call(c, 'address') && !S(c.address));
+}
+// 발주서에 실을 출고지 주소 — 규칙이 먼저다. 규칙이 없을 때만 저장해둔 값을 쓴다.
+function outAddr(name, addr){ return noAddrClient(name) ? '' : S(addr); }
 
 /* 📦 합포장 안 되는 상품 — 서버(app_config NO_HAP)에 남는다 (홍팀장 2026-08-28).
    지정은 마스터만, 적용은 모두에게. 업체가 직접 넣어도 나뉘어야 창고가 그대로 보낸다. */
@@ -447,10 +481,12 @@ function buildOut(){
        저장된 게 없으면 예전대로 주문처(계정) 연락처로 나간다 — 발주를 막지는 않는다. */
     const sh = biz ? shipOf(biz) : null;
     const oTel = (sh && S(sh.phone)) ? (fmtTel(sh.phone) || S(sh.phone)) : myTel;
-    const oAddr = (sh && S(sh.addr)) ? S(sh.addr) : (me.addr || '');
+    /* 🔒 주소는 거래처 표의 "안 씀" 규칙을 먼저 통과해야 실린다 (홍팀장 2026-09-04).
+       출고지 업체가 안 쓰는 곳이면 주문처 주소로 **폴백하지 않는다** — 빈칸이 답이다. */
+    const oAddr = (sh && S(sh.addr)) ? outAddr(biz, sh.addr) : outAddr(me.name, me.addr);
     const put = prod => {
       if(biz) ten.push([me.name || '', biz, oAddr, oTel, '', prod, g.rcv, g.addr, tel, g.msg]);
-      else    nine.push([me.name || '', me.addr || '', myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
+      else    nine.push([me.name || '', outAddr(me.name, me.addr), myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
     };
     /* 📦 합포장 안 되는 상품은 **한 줄에 하나씩, 1개씩** 떨어진다 (홍팀장 2026-08-28 — 참치 오마카세 한판).
        한 상자에 같이 못 담는 물건이라 발주서에서부터 나눠야 창고가 그대로 보낸다.
@@ -665,6 +701,8 @@ function meCard(){
   if(!me) return '';
   // 출고지(주문처 주소)는 안 쓰는 업체가 있다 → 연락처만 필수 (사장님 2026-08-20)
   const need = EDIT || !S(me.phone);
+  // 🔒 거래처 표에 "주소 안 씀"으로 약속된 업체 — 칸을 아예 잠근다. 채워도 발주서엔 안 실린다.
+  const lock = noAddrClient(me.name);
   if(need){
     /* 문구는 사장님이 준 그대로 쓴다 (2026-08-25) — 바꿔 쓰지 말 것.
        업체가 이 칸을 그냥 지나쳐서 주문처 주소·연락처가 둘 다 빈 발주가 계속 들어왔다. */
@@ -675,8 +713,12 @@ function meCard(){
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
       + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">업체명</span><input class="ordin" value="' + esc(me.name || '') + '" disabled></div>'
       + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 연락처 <b style="color:var(--up)">*필수</b></span><input class="ordin" id="ord_ph" value="' + esc(me.phone || '') + '" placeholder="02-000-0000 / 010-0000-0000 / 1533-0000"></div>'
-      + '<div style="grid-column:1/-1"><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 주소 <b style="color:var(--accent-d)">(선택)</b></span><input class="ordin" id="ord_ad" value="' + esc(me.addr || '') + '" placeholder="주소는 생략 가능합니다">'
-      +   '<div class="hint" style="margin-top:5px">주소는 생략 가능합니다. 송장에 주소를 노출하지 않으시려면 빈칸으로 두세요.</div></div>'
+      + '<div style="grid-column:1/-1"><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 주소 <b style="color:var(--accent-d)">(선택)</b></span>'
+      +   (lock
+            ? '<input class="ordin" id="ord_ad" value="" placeholder="이 업체는 주소를 쓰지 않기로 되어 있습니다" disabled>'
+              + '<div class="hint" style="margin-top:5px">🔒 <b>주소를 쓰지 않는 업체</b>로 등록돼 있어 발주서에 출고지 주소가 나가지 않습니다.</div></div>'
+            : '<input class="ordin" id="ord_ad" value="' + esc(me.addr || '') + '" placeholder="주소는 생략 가능합니다">'
+              + '<div class="hint" style="margin-top:5px">주소는 생략 가능합니다. 송장에 주소를 노출하지 않으시려면 빈칸으로 두세요.</div></div>')
       + '</div>'
       + '<div class="ordbar" style="margin-bottom:0"><button class="ordb2 pri" id="ord_save">💾 저장</button>'
       + (EDIT ? '<button class="ordb2" id="ord_cancel">취소</button>' : '')
@@ -688,7 +730,9 @@ function meCard(){
     + '<div class="ordme">'
     + '<div><span class="k">업체명(정산)</span><b>' + esc(me.name || '') + '</b></div>'
     + '<div><span class="k">연락처</span><b>' + esc(me.phone || '') + '</b></div>'
-    + '<div><span class="k">출고지</span><b>' + (S(me.addr) ? esc(me.addr) : '<span style="color:var(--muted);font-weight:600">안 씀 (비워두셔도 발주됩니다)</span>') + '</b></div>'
+    + '<div><span class="k">출고지</span><b>' + (lock
+        ? '<span style="color:var(--muted);font-weight:600">🔒 안 씀 (주소를 쓰지 않는 업체)</span>'
+        : (S(me.addr) ? esc(me.addr) : '<span style="color:var(--muted);font-weight:600">안 씀 (비워두셔도 발주됩니다)</span>')) + '</b></div>'
     + '</div></div>';
 }
 
@@ -698,6 +742,8 @@ function meCard(){
 function forCard(){
   const f = FOR || {};
   const manual = !!(f && f.manual);
+  // 🔒 거래처 표에 "주소 안 씀"으로 약속된 업체는 마스터가 대신 넣을 때도 주소 칸이 잠긴다
+  const lock = noAddrClient(f.name);
   if(CLIENTS === false){
     return '<div class="ordbox" id="ordfor">'
       + '<h3>⚠️ 발주 웹앱을 먼저 올려주세요</h3>'
@@ -724,7 +770,12 @@ function forCard(){
         ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'
           + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">업체명(정산)</span><input class="ordin" id="for_nm" value="' + esc(f.name || '') + '" placeholder="세금계산서 나가는 상호"></div>'
           + '<div><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 연락처</span><input class="ordin" id="for_ph" value="' + esc(f.phone || '') + '" placeholder="02-000-0000"></div>'
-          + '<div style="grid-column:1/-1"><span class="k" style="font-size:11.5px;color:var(--muted)">출고지 주소 (선택)</span><input class="ordin" id="for_ad" value="' + esc(f.addr || '') + '" placeholder="안 쓰는 업체는 비워두세요"></div>'
+          + '<div style="grid-column:1/-1"><span class="k" style="font-size:11.5px;color:var(--muted)">출고지 주소 (선택)</span>'
+          +   (lock
+                ? '<input class="ordin" id="for_ad" value="" placeholder="이 업체는 주소를 쓰지 않기로 되어 있습니다" disabled>'
+                  + '<div class="hint" style="margin-top:5px">🔒 거래처 표에 <b>주소 안 씀</b>으로 되어 있어 발주서에 출고지 주소가 나가지 않습니다.</div>'
+                : '<input class="ordin" id="for_ad" value="' + esc(f.addr || '') + '" placeholder="안 쓰는 업체는 비워두세요">')
+          + '</div>'
           + '</div>'
           /* 한 번 저장해두면 다음에 그 업체가 또 카톡으로 발주를 줘도 이름만 쳐서 불러온다
              (홍팀장 2026-08-21). 저장 안 해도 이번 발주는 그냥 나간다. */
@@ -735,7 +786,9 @@ function forCard(){
         ? '<div class="ordme" style="margin-top:10px">'
           + '<div><span class="k">업체명(정산)</span><b>' + esc(f.name) + '</b></div>'
           + '<div><span class="k">연락처</span><b>' + (S(f.phone) ? esc(f.phone) : '<span style="color:var(--up)">⚠️ 넣어주세요 (필수)</span>') + '</b></div>'
-          + '<div><span class="k">출고지</span><b>' + (S(f.addr) ? esc(f.addr) : '<span style="color:var(--muted);font-weight:600">안 씀</span>') + '</b></div>'
+          + '<div><span class="k">출고지</span><b>' + (lock
+              ? '<span style="color:var(--muted);font-weight:600">🔒 안 씀 (주소를 쓰지 않는 업체)</span>'
+              : (S(f.addr) ? esc(f.addr) : '<span style="color:var(--muted);font-weight:600">안 씀</span>')) + '</b></div>'
           + '</div>'
           + (manual ? '' : fixCard(f))
         : '')
@@ -750,6 +803,7 @@ function forCard(){
    ⚠️ 직접 넣기(manual) 모드에는 안 붙인다 — 거긴 미가입 명부용 저장이 따로 있다. */
 function fixCard(f){
   const need = !S(f.phone);
+  const lock = noAddrClient(f.name);   // 🔒 주소 안 쓰는 업체는 계정 시트에도 주소를 넣지 않는다
   return '<details class="ordfix" id="for_fix"' + (need ? ' open' : '') + '>'
     + '<summary>' + (need
         ? '⚠️ <b>연락처가 비어 있습니다</b> — 여기서 바로 넣고 저장하세요'
@@ -759,7 +813,11 @@ function fixCard(f){
     +   '<div><span class="k" style="font-size:11.5px;color:var(--muted)">주문처 연락처 <b style="color:var(--up)">필수</b></span>'
     +     '<input class="ordin" id="fix_ph" autocomplete="off" value="' + esc(f.phone || '') + '" placeholder="02-000-0000 / 010-0000-0000"></div>'
     +   '<div><span class="k" style="font-size:11.5px;color:var(--muted)">출고지 주소 (선택)</span>'
-    +     '<input class="ordin" id="fix_ad" autocomplete="off" value="' + esc(f.addr || '') + '" placeholder="안 쓰는 업체는 비워두세요"></div>'
+    +     (lock
+            ? '<input class="ordin" id="fix_ad" autocomplete="off" value="" placeholder="이 업체는 주소를 쓰지 않기로 되어 있습니다" disabled>'
+              + '<div class="hint" style="margin-top:5px">🔒 거래처 표에 <b>주소 안 씀</b>으로 되어 있습니다.</div>'
+            : '<input class="ordin" id="fix_ad" autocomplete="off" value="' + esc(f.addr || '') + '" placeholder="안 쓰는 업체는 비워두세요">')
+    +   '</div>'
     + '</div>'
     + '<div class="ordbar" style="margin:8px 0 0"><button class="ordb2 pri" id="fix_save">💾 계정 시트에 저장</button>'
     +   '<span class="hint" id="fix_msg" style="align-self:center">저장하면 다음부터 자동으로 따라옵니다</span></div>'
@@ -1222,7 +1280,8 @@ async function submit(){
     // 대신 발주 — 발주의 주인을 고른 업체로 넘기고, 저장되는 즉시 당일 시트까지 보낸다.
     if(master){
       if(FOR.id) req.forId = FOR.id;
-      req.forName = FOR.name; req.forAddr = FOR.addr || ''; req.forPhone = FOR.phone || '';
+      // 🔒 미리보기만 막으면 소용없다 — 시트로 실제로 나가는 값에도 같은 규칙을 건다
+      req.forName = FOR.name; req.forAddr = outAddr(FOR.name, FOR.addr); req.forPhone = FOR.phone || '';
       req.andPush = true;
     }
     /* 🔴 같은 발주가 두 번 들어가는 것을 서버가 막으면 `dup` 으로 돌아온다 (2026-08-26).
@@ -1691,8 +1750,10 @@ function short(s){
 function ordersTsv(rows){
   const nine = [], ten = [];
   rows.forEach(r => {
-    if(r.biz) ten.push([r.cname, r.biz, r.oaddr, r.otel, '', r.prod, r.rcv, r.addr, r.tel, r.msg]);
-    else      nine.push([r.cname, r.oaddr, r.otel, '', r.prod, r.rcv, r.addr, r.tel, r.msg]);
+    // 🔒 옛 발주에 주소가 남아 있어도 여기서 다시 시트로 흘러가지 않게 (홍팀장 2026-09-04)
+    const oa = r.biz ? outAddr(r.biz, r.oaddr) : outAddr(r.cname, r.oaddr);
+    if(r.biz) ten.push([r.cname, r.biz, oa, r.otel, '', r.prod, r.rcv, r.addr, r.tel, r.msg]);
+    else      nine.push([r.cname, oa, r.otel, '', r.prod, r.rcv, r.addr, r.tel, r.msg]);
   });
   return [tsv(nine), tsv(ten)].filter(Boolean).join('\n');
 }
@@ -2453,7 +2514,8 @@ function bindFor(){
       list.style.display = '';
     };
     const pick = c => {
-      FOR = {id:c.id, name:c.name, addr:c.addr, phone:c.phone};
+      // 🔒 명부에 주소가 남아 있어도 "주소 안 씀" 업체면 안 들고 온다 — 여기서 막아야 다음 발주에도 안 따라온다
+      FOR = {id:c.id, name:c.name, addr:outAddr(c.name, c.addr), phone:c.phone};
       saveFor(); redraw();
     };
     q.oninput = draw;
@@ -2475,7 +2537,8 @@ function bindFor(){
   // 💾 미가입 업체 저장 — 계정은 안 만든다(아이디·비번 없음). 대신 발주용 명부에만 올린다.
   const sv = $$('for_save');
   if(sv) sv.onclick = async () => {
-    const nm = S($$('for_nm').value), ph = S($$('for_ph').value), ad = S($$('for_ad').value);
+    const nm = S($$('for_nm').value), ph = S($$('for_ph').value);
+    const ad = outAddr(nm, $$('for_ad').value);   // 🔒 주소 안 쓰는 업체는 명부에도 안 남긴다
     const msg = $$('for_msg');
     if(!nm){ msg.textContent = '업체명을 넣어주세요.'; $$('for_nm').focus(); return; }
     if(!ph){ msg.textContent = '연락처를 넣어주세요. (주소는 선택입니다)'; $$('for_ph').focus(); return; }
@@ -2500,14 +2563,15 @@ function bindFor(){
      바로 그 자리에서 검색되고, 발주 버튼 잠금도 그 즉시 풀린다. */
   const fx = $$('fix_save');
   if(fx) fx.onclick = async () => {
-    const ph = S($$('fix_ph').value), ad = S($$('fix_ad').value), msg = $$('fix_msg');
+    const ph = S($$('fix_ph').value), msg = $$('fix_msg');
     if(!ph){ msg.textContent = '연락처를 넣어주세요. (출고지는 선택입니다)'; $$('fix_ph').focus(); return; }
     if(!(FOR && S(FOR.name))){ msg.textContent = '업체를 먼저 골라주세요.'; return; }
+    const ad = outAddr(FOR.name, $$('fix_ad') ? $$('fix_ad').value : '');   // 🔒 규칙 업체는 시트에도 안 넣는다
     const tel = fmtTel(ph) || ph;
     fx.disabled = true; msg.textContent = '저장 중…';
     try{
       const j = await api('updclient', {token: ME.token, id: FOR.id || '', name: FOR.name, phone: tel, addr: ad});
-      FOR.phone = j.phone || tel; FOR.addr = (j.addr != null ? j.addr : ad);
+      FOR.phone = j.phone || tel; FOR.addr = outAddr(FOR.name, j.addr != null ? j.addr : ad);
       saveFor();
       if(Array.isArray(CLIENTS)){
         const i = CLIENTS.findIndex(c => (FOR.id && c.id === FOR.id) || pkey(c.name) === pkey(FOR.name));
@@ -2535,7 +2599,7 @@ function bindFor(){
       if(!(FOR && S(FOR.name))) return;
       const ph = S($$('fix_ph') ? $$('fix_ph').value : '');
       FOR.phone = fmtTel(ph) || ph;
-      FOR.addr = S($$('fix_ad') ? $$('fix_ad').value : FOR.addr);
+      FOR.addr = outAddr(FOR.name, $$('fix_ad') ? $$('fix_ad').value : FOR.addr);
       saveFor(); paint();
     };
   });
@@ -2548,7 +2612,7 @@ function bindFor(){
       FOR.manual = true; FOR.id = '';
       FOR.name = S($$('for_nm') ? $$('for_nm').value : FOR.name);
       FOR.phone = S($$('for_ph') ? $$('for_ph').value : FOR.phone);
-      FOR.addr = S($$('for_ad') ? $$('for_ad').value : FOR.addr);
+      FOR.addr = outAddr(FOR.name, $$('for_ad') ? $$('for_ad').value : FOR.addr);
       saveFor(); paint();
     };
   });
@@ -2654,7 +2718,9 @@ function bind(){
     const sv = $$('ord_save');
     if(!sv) return;
     sv.onclick = async () => {
-      const ph = S($$('ord_ph').value), ad = S($$('ord_ad').value);
+      const ph = S($$('ord_ph').value);
+      // 🔒 주소 안 쓰기로 한 업체는 자기 화면에서 넣어도 저장되지 않는다
+      const ad = outAddr((typeof ME !== 'undefined' && ME) ? ME.name : '', $$('ord_ad') ? $$('ord_ad').value : '');
       const msg = $$('ord_msg');
       /* 8자리 대표번호(1533-2981, 1588-1588 등)도 받는다 (홍팀장 2026-09-01).
          원래 9자리 미만을 다 막고 있어서 대표번호만 쓰는 업체가 저장을 못 했다.
