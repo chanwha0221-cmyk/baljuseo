@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.42</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.43</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1693,6 +1693,12 @@ async function startCatalog(){
     // 상품 사진·스펙 — 시트('상품이미지' 탭)가 최신본. 도구로 업데이트하면 여기 바로 반영된다.
     // 시트를 못 읽으면 배포된 스냅샷(JSON)으로, 그것도 없으면 사진 없이 동작.
     let media={},cats={},sales={};
+    /* 🚀 상품 본문을 곁다리(사진·분류·판매…)와 **동시에** 시작한다 (2026-09-04).
+       예전엔 곁다리 9건이 다 도착한 뒤에야 상품을 읽기 시작했다 — 시트 서버가 느린 날엔
+       그 기다림이 그대로 더해져서 15초 제한을 넘겼고, 화면은 "불러오지 못했습니다"가 됐다.
+       프록시 호출은 sheets-proxy.js 가 한 번으로 묶어 보내므로 동시에 걸어도 실행 수는 안 는다. */
+    const gridP=loadCatalog();
+    gridP.catch(()=>{});   // 아래에서 받을 때까지 '처리 안 된 오류'로 잡히지 않게
     try{
       const r=await Promise.all([loadMedia().catch(()=>({})),loadCats().catch(()=>({})),loadSales().catch(()=>({})),
                                  loadChanges().catch(()=>null),loadNotices().catch(()=>null),loadLinks().catch(()=>({})),
@@ -1709,7 +1715,7 @@ async function startCatalog(){
     if(!Object.keys(media).length){
       try{ media=await(await fetch('data/product-media.json',{cache:'no-cache'})).json(); }catch(e){ media={}; }
     }
-    const groups=await loadCatalog();
+    const groups=await gridP;
     groups.forEach(g=>g.products.forEach(p=>{p.cat=cats[pkey(p.name)]||'미분류';}));
     MEDIA=Object.keys(media).length?media:MEDIA;
     GROUPS=groups;
