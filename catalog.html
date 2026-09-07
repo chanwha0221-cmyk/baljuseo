@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.54</title>
+<title>마스터 유통 카탈로그 v23.55</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1688,6 +1688,19 @@ document.addEventListener('click',e=>{
     window.scrollTo({top:0,behavior:'smooth'});return;}
   const lc=e.target.closest('.lcchip');
   if(lc){const c=lc.getAttribute('data-c');st.cat=(st.cat===c)?'전체':c;render();return;}
+  /* 📰 소식글 글 안의 상품 버튼 — **새 창**으로 연다 (홍팀장 2026-09-07).
+     같은 창에서 상품으로 가버리면 읽던 글로 돌아올 길이 없다(뒤로가기도 SPA라 안 먹는다).
+     ⚠️ 주소에 버전을 붙인다 — 안 붙이면 한 번 연 사람은 브라우저 캐시의 옛 화면을 계속 본다. */
+  const mvn2=e.target.closest('[data-mvnew]');
+  if(mvn2){
+    const nm=mvn2.getAttribute('data-mvnew')||'';
+    const ver=(document.title.match(/v\d+\.\d+/)||[''])[0];
+    // 지금 보고 있는 파일을 그대로 연다 — 테스트본에서 눌렀는데 실사이트가 열리면 안 된다
+    const page=(location.pathname.split('/').pop()||'catalog.html');
+    const u=page+'?find='+encodeURIComponent(nm)+(ver?('&v='+encodeURIComponent(ver)):'');
+    const w=window.open(u,'_blank','noopener');
+    if(!w)location.href=u;      // 팝업이 막힌 브라우저에선 어쩔 수 없이 같은 창으로
+    return;}
   // 💹 인상·인하 목록에서 상품명을 누르면 그 상품을 바로 검색해 카드를 보여준다 (사장님 2026-08-25)
   const mv=e.target.closest('.mvn');
   if(mv){const nm=mv.getAttribute('data-mv')||'';
@@ -1732,6 +1745,11 @@ $('noteTg').onclick=()=>$('note').classList.toggle('open');
 $('allbtn').onclick=()=>{st.wh='전체';st.mode='group';st.cat='전체';st.q='';$('q').value='';buildWhChips();render();window.scrollTo({top:0,behavior:'smooth'});};
 // ── 캐시 우선 표시: 한 번 본 기기는 직전 데이터로 즉시 그리고, 뒤에서 최신으로 갱신 ──
 const CK='catalog_cache_v2';
+/* 🔗 `?find=상품명` 으로 들어오면 그 상품을 검색한 상태로 시작한다 (홍팀장 2026-09-07).
+   소식글 글 안의 상품 버튼이 **새 창**으로 이 주소를 연다 —
+   홍팀장: "누르면 상품으로 가는 것까진 좋은데 같은 창이라 소식글로 다시 올 수가 없다."
+   글은 글대로 남아 있어야 계속 읽는다. 그래서 상품은 새 탭에서 연다. */
+const BOOT_FIND=(new URLSearchParams(location.search).get('find')||'').trim();
 function finishRender(atMs,fromCache){
   buildAll();
   if(st.mode==='group'&&st.wh!=='전체'&&!GROUPS.find(g=>g.wh===st.wh)){st.wh='전체';}
@@ -1741,6 +1759,12 @@ function finishRender(atMs,fromCache){
   $('ft').innerHTML='마스터 유통 상품 카탈로그<br>'+(fromCache?('저장된 상품 기준 '+t+' · 최신 내용으로 갱신 중…'):('불러온 시각 '+t+' · 새로고침하면 시트 최신 내용이 반영됩니다'));
   $('load').style.display='none';
   buildWhChips();render();
+  // 새 창으로 열린 상품 — 상품이 들어온 뒤에 한 번만 검색을 걸어준다(캐시로 먼저 그린 화면에서도 한 번뿐)
+  if(BOOT_FIND&&!finishRender._found){
+    finishRender._found=1;
+    st.wh='전체';st.mode='group';st.cat='전체';st.q=BOOT_FIND;$('q').value=BOOT_FIND;
+    buildWhChips();render();
+  }
 }
 async function startCatalog(){
   /* 🚫 예외 목록을 먼저 받아온다 — 늦게 오면 감춰야 할 상품이 잠깐 보였다 사라진다.
@@ -2484,8 +2508,8 @@ function newsItem(n,open){
     +'<summary><span class="newsb">소식</span>'+(isNew?'<span class="ntcread">New</span>':'')+'<span class="ntt">'+esc(n.title)+'</span>'
       +(n.at?'<span class="nd2">'+esc(n.at)+'</span>':'')+delBtn('news',n)+'<span class="ntarrow">▾</span></summary>'
     +'<div class="nb">'+esc(newsBody(n.body)||'(내용 없음)')+'</div>'
-    +(btns.length?('<div class="newsp">👇 이 글에 나온 상품 — 누르시면 바로 보실 수 있어요'
-        +'<div class="newspl">'+btns.map(nm=>'<button class="mvn" data-mv="'+esc(nm)+'" title="이 상품 보기">'+esc(nm)+'</button>').join('')+'</div></div>'):'')
+    +(btns.length?('<div class="newsp">👇 이 글에 나온 상품 — 누르시면 새 창에서 열립니다 (이 글은 그대로 있어요)'
+        +'<div class="newspl">'+btns.map(nm=>'<button class="mvn" data-mvnew="'+esc(nm)+'" title="새 창에서 이 상품 보기">'+esc(nm)+' ↗</button>').join('')+'</div></div>'):'')
     +'</details>';
 }
 function renderNews(list){
