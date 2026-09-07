@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-07 09:54",
+ "updatedAt": "2026-09-07 12:13",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -95,6 +95,29 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "진수",
+   "category": "수산",
+   "name": "활 흰다리새우 500g",
+   "spec": [
+    "※ 구성 : 흰다리새우 500g",
+    "※ 중량/ 사이즈 : 500g 17미 내외 (16~18미 내외)",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 흰다리새우 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 특이사항 : 생물 자연감량 10% 발생할 수 있습니다."
+   ],
+   "supplyPrice": 12000,
+   "previousPrice": 11000,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 4000,
+   "orderCutoff": "오후마감 : 14시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/834/321/025/3a99b86950d28a99f6554fd7e5fbafa6.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "여수",
    "category": "수산",
    "name": "국내산 랜덤 돌문어 1kg",
@@ -116,6 +139,22 @@
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/482/574/024/eeccdbbcbe3550ab0fb1729df68b11ae.jpg",
    "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "군산",
+   "category": "",
+   "name": "군산 쫄 갑오징어 1kg",
+   "spec": [],
+   "supplyPrice": 5000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "",
+   "note": "-상품명 변경 : 군산 한입 갑오징어 1kg -> 군산 쫄 갑오징어 1kg"
   },
   {
    "warehouse": "당일생물",
@@ -300,75 +339,6 @@
   },
   {
    "warehouse": "당일생물",
-   "sourceWarehouse": "진수",
-   "category": "수산",
-   "name": "활 흰다리새우 500g",
-   "spec": [
-    "※ 구성 : 흰다리새우 500g",
-    "※ 중량/ 사이즈 : 500g 17미 내외 (16~18미 내외)",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 흰다리새우 100%",
-    "※ 포장방식 : 비닐포장",
-    "※ 특이사항 : 생물 자연감량 10% 발생할 수 있습니다."
-   ],
-   "supplyPrice": 11000,
-   "previousPrice": 14000,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/834/321/025/3a99b86950d28a99f6554fd7e5fbafa6.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "원수",
-   "category": "수산",
-   "name": "동해 살고동 소짜 1kg",
-   "spec": [
-    "※ 구성 : 활 살고동",
-    "※ 중량/ 사이즈 : 50미 내외 / 1kg 내외",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 살고동 100%",
-    "※ 포장방식 : 비닐포장",
-    "※ 특이사항 : 소분포장 불가한 상품으로 대분포장으로 출고됩니다."
-   ],
-   "supplyPrice": 5000,
-   "previousPrice": 5500,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/663/139/024/7cbc83c8758a95ca486c49c3dfcee37a.jpg",
-   "note": "- 택배사 : 씨제이대한통운 > 우체국택배"
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "충무",
-   "category": "수산",
-   "name": "통통 돌문어 1kg",
-   "spec": [
-    "※ 구성 : 돌문어",
-    "※ 중량/ 사이즈 : 1kg 1-4미 내외(중량우선)",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 돌문어 100%",
-    "※ 포장방식 : 아이스팩, 빙장포장, 비닐포장. 소분/대분 랜덤.",
-    "※ 특이사항 : 생물 수분 감량 1-20%"
-   ],
-   "supplyPrice": 19000,
-   "previousPrice": 17000,
-   "tax": "면세",
-   "courier": "씨제이대한통운/롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/952/486/022/eea741fc7e3228232f449b510e9a9bce.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
    "sourceWarehouse": "싱싱",
    "category": "수산",
    "name": "싱싱 뿔소라 1kg",
@@ -463,28 +433,6 @@
    "warehouse": "당일생물",
    "sourceWarehouse": "충무",
    "category": "수산",
-   "name": "통통 보라성게알 100g",
-   "spec": [
-    "※ 구성 : 통영 보라성게알 100g",
-    "※ 중량/ 사이즈 : 1통 / 100g (성게알 100g, 해수 10g~20g)",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 보라성게알 100%",
-    "※ 포장방식 : PE용기, 비닐포장, 빙장포장, 아이스팩"
-   ],
-   "supplyPrice": 12500,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "씨제이대한통운/롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/732/164/022/de597431c3c5227fb7a96b2753ffb770.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "충무",
-   "category": "수산",
    "name": "통통 더 큰 활새우 500g",
    "spec": [
     "※ 구성 : 활새우 1팩",
@@ -571,28 +519,6 @@
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/137/308/025/b2d94c316ed3462b587643152640a35e.jpg",
    "note": "오픈마켓 판매 불가"
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 생물 횟감 병어 1kg",
-   "spec": [
-    "※ 구성 : 생물 병어 1kg",
-    "※ 중량/ 사이즈 : 1kg내외 / 10-15미 내외",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 병어 100%",
-    "※ 포장방식 : 비닐실링"
-   ],
-   "supplyPrice": 5000,
-   "previousPrice": 8500,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/061/043/008/186d4230da1e18f5b0625dec6d8bfc97.jpg",
-   "note": "- 스펙 : 1kg내외 / 8-12미쯤 > 1kg 10-15미쯤"
   },
   {
    "warehouse": "당일생물",
@@ -795,28 +721,6 @@
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/216/751/024/29cd28bd17fb418716d750557833a26c.jpg",
    "note": "스펙변경 : 원물 8kg/ 25-32미 내외 > 21~28미 내외"
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 꼬마 참소라 1kg",
-   "spec": [
-    "※ 구성 :  참소라 1kg",
-    "※ 중량/사이즈 :  1kg/25-40미 내외",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 :  참소라 100%",
-    "※ 포장방식 : 비닐포장"
-   ],
-   "supplyPrice": 7500,
-   "previousPrice": 6500,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/881/203/025/320aaa70f328da5097b97f4d5eecc840.jpg",
-   "note": ""
   },
   {
    "warehouse": "당일생물",
@@ -5859,6 +5763,29 @@
    "warehouse": "생고",
    "sourceWarehouse": "생고",
    "category": "축산",
+   "name": "초특가 투뿔세트",
+   "spec": [
+    "※ 구성 : 설깃살 200g, 업진안살 200g, 삼각&앞치마살 200g (랜덤)",
+    "※ 중량/ 사이즈 : 600g",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 소고기 100%",
+    "※ 포장방식 : 스킨포장",
+    "※ 특이사항 : 여름철 기온 상승으로 인한 품질 우려로 제주 및 도서산간 발송 불가합니다."
+   ],
+   "supplyPrice": 29500,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "한진택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/819/311/023/376b4dd1d07716f6b675c7f9d897daca.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "생고",
+   "sourceWarehouse": "생고",
+   "category": "축산",
    "name": "끝판왕 투뿔 꽃등심 200g",
    "spec": [
     "※ 구성 : 1++등급 한우 꽃등심 (8~9등급), 핑크솔트 1개, 와사비맛소스 1개",
@@ -7102,28 +7029,6 @@
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
    "category": "축산",
-   "name": "깔끔 투쁠 국거리 1kg",
-   "spec": [
-    "※ 구성 : 투쁠 국거리 1kg",
-    "※ 중량/ 사이즈 : 1kg",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 : 진공포장"
-   ],
-   "supplyPrice": 21000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "한진택배",
-   "shipFee": 4000,
-   "orderCutoff": "오후마감 : 12시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/134/023/025/b40505243472c1ed9ec02e693a56a0cb.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "팡팡",
-   "sourceWarehouse": "팡팡",
-   "category": "축산",
    "name": "미국산 마늘폭탄 갈비살 400g",
    "spec": [
     "※ 구성 : 마늘폭탄 갈비살",
@@ -7759,293 +7664,6 @@
    "note": ""
   },
   {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "육향가득 소고기 세트 1kg",
-   "spec": [
-    "※ 구성 : 살치 1팩, 갈비 1팩, 부채 1팩, 우삼겹 1팩",
-    "※ 중량/ 사이즈 : 1kg(살치 200g / 갈비 200g / 부채살 300g / 우삼겹 300g)",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 : 스킨포장 및 트레이포장(우삼겹)"
-   ],
-   "supplyPrice": 24500,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/540/326/023/7039cc87d8dbc01d340492adafb6ca3b.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "도란도란 세트 1kg",
-   "spec": [
-    "※ 구성 : 토시살 1팩, 갈비살 1팩, 우삼겹 1팩, 부채살 1팩",
-    "※ 중량/ 사이즈 : 토시살 200g, 갈비살 200g, 우삼겹 300g, 부채살 300g",
-    "※ 생물여부 :",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 :"
-   ],
-   "supplyPrice": 23500,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/600/638/024/e45876ac4e6d4b6ea82190d26194a0f9.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "한돈 냉장 삼겹살500g",
-   "spec": [
-    "※ 구성 :  삼겹살 1팩",
-    "※ 중량/ 사이즈 : 500g",
-    "※ 생물여부 : 냉장",
-    "※ 성분표시 : 돼지고기 100%",
-    "※ 포장방식 : 기타(트레이 스킨포장)"
-   ],
-   "supplyPrice": 13500,
-   "previousPrice": 12500,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/933/100/025/646e80f384ab86d39816f31e02b814d8.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "원뿔 한우 꽃등심 200g",
-   "spec": [
-    "※ 구성 : 한우 원쁠 등심 200g 1팩, 허브솔트 1개",
-    "※ 중량/ 사이즈 : 200g",
-    "※ 생물여부 : 냉장",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 : 스킨포장"
-   ],
-   "supplyPrice": 18000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/055/101/025/6d972ba602292a07d440566c8aaacf59.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "수원식 구름갈비 600g",
-   "spec": [
-    "※ 구성 : 생갈비 1팩",
-    "※ 중량/ 사이즈 : 600g",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 : 진공포장"
-   ],
-   "supplyPrice": 24000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/754/326/023/2fc09c62f025020a168f3a273b3c842f.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "야들야들 우삼겹 200g",
-   "spec": [
-    "※ 구성 : 우삼겹 1팩",
-    "※ 중량/ 사이즈 : 200g",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 : 트레이 산소포장"
-   ],
-   "supplyPrice": 3800,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/695/647/024/b47ecc795cf63ada1027d2a2a5105556.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "국내산 돈차돌 500g",
-   "spec": [
-    "※ 구성 : 돈차돌 1팩",
-    "※ 중량/사이즈 : 500g",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 돼지 100%",
-    "※ 포장방식 : 진공포장"
-   ],
-   "supplyPrice": 9000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/002/807/024/d97dd076b42e2288f94a82dc250af065.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "초이스 살치살 200g",
-   "spec": [
-    "※ 구성 : 살치살 1팩",
-    "※ 중량/ 사이즈 : 200g",
-    "※ 생물여부 : 냉장",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 : 스킨포장"
-   ],
-   "supplyPrice": 7900,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/788/328/023/c64e21dc9810c0def92bdf9b244d314f.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "쫄깃 부채살 200g",
-   "spec": [
-    "※ 구성 : 부채살 1팩",
-    "※ 중량/ 사이즈 : 200g",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 : 스킨포장"
-   ],
-   "supplyPrice": 5900,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/444/692/024/b15f44a9b8e460796c7ce720aa9ec608.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "깔끔 등심 200g",
-   "spec": [
-    "※ 구성 : 등심 1팩",
-    "※ 중량/ 사이즈 : 200g",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 : 스킨포장"
-   ],
-   "supplyPrice": 6000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/708/697/024/35352f94f246de1903ec85e8d1da9b8f.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "특상 소고기모듬 600g",
-   "spec": [
-    "※ 구성 : 토시살 1팩, 갈비살 1팩, 우삼겹 1팩",
-    "※ 중량/ 사이즈 : 토시살 200g, 갈비살 200g, 우삼겹 200g",
-    "※ 생물여부 :",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 :"
-   ],
-   "supplyPrice": 16500,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/526/014/024/40aaa74791588ef0fd858df24fa676fe.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "탑초이스 LA꽃갈비 1kg",
-   "spec": [
-    "※ 구성 : 탑초이스급 LA꽃갈비 1kg",
-    "※ 중량/ 사이즈 : 1kg / 10-12대쯤",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 소고기 100%",
-    "※ 포장방식 : 비닐실링",
-    "※ 특이사항 : 합배송 최대수량 5kg"
-   ],
-   "supplyPrice": 37000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/750/744/024/6539c64d741ab7ce9afd1995af75cce0.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "창원",
-   "sourceWarehouse": "창원",
-   "category": "축산",
-   "name": "초이스 양념 갈비살 1kg",
-   "spec": [
-    "※ 구성 : 양념 갈비살 1팩",
-    "※ 중량/ 사이즈 : 1kg[갈비살 600g / 양념 400g]",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 소갈비살(미국산) 60%, 정제수, 혼합간장(아미노산액) [탈지대두:외국산(인도산, 미국산, 중국산)], 정제수, 액상과당, 정제소금(국내산), 양조간장원액(대만산), [탈지대두, 소맥(밀), 천일염, 주정, 종국, L-글루타민산나트륨(향미증진제), 백설탕, 물엿, 양파(국내산), 소고기 양념베이스(글리세린), -L글루탐산나트륨(향미증진제), 잔탄검, 대두, 카라멜색소], 마늘, D-소르비톨액, 생강, 볶음참깨",
-    "※ 포장방식 : 트레이실링 + 랩핑"
-   ],
-   "supplyPrice": 23000,
-   "previousPrice": 0,
-   "tax": "과세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/647/615/024/c40a5e49aee6df299ff440f71165708a.jpg",
-   "note": ""
-  },
-  {
    "warehouse": "키트",
    "sourceWarehouse": "키트",
    "category": "수산",
@@ -8262,7 +7880,7 @@
    "previousPrice": 0,
    "tax": "과세",
    "courier": "로젠택배",
-   "shipFee": 0,
+   "shipFee": 4000,
    "orderCutoff": "오후마감 : 12시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/369/402/025/496b3d96ac21385999a177ff01eb66c1.jpg",
@@ -10831,28 +10449,6 @@
   },
   {
    "warehouse": "단독(유)",
-   "sourceWarehouse": "푸모",
-   "category": "가공식품",
-   "name": "한우 곱내장 전골 1.2kg",
-   "spec": [
-    "※ 구성 : 소곱내장모듬, 곰탕, 전골양념소스",
-    "※ 중량/ 사이즈 : 소곱내장모듬 300g, 곰탕 2팩(한팩 450g), 전골양념소스(80g)",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 국내산 한우 소내장 100% / 곰탕 100%",
-    "※ 포장방식 : 비닐실링"
-   ],
-   "supplyPrice": 16500,
-   "previousPrice": 0,
-   "tax": "과세",
-   "courier": "씨제이대한통운",
-   "shipFee": 4000,
-   "orderCutoff": "오전마감 : 12시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/377/919/024/423acbe83448f4e0770ddb223776722a.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "단독(유)",
    "sourceWarehouse": "한돈",
    "category": "축산",
    "name": "한돈 찜갈비 1kg",
@@ -10872,29 +10468,6 @@
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/860/993/024/f9d7234a2846015aa42a25f906f4e150.jpg",
    "note": ""
-  },
-  {
-   "warehouse": "단독(무)",
-   "sourceWarehouse": "쫄깃",
-   "category": "수산",
-   "name": "통통 자연산 바위굴 3kg",
-   "spec": [
-    "※ 구성 : 바위굴",
-    "※ 중량/ 사이즈 :  3kg / 1kg 2-4 미내외",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 바위굴 100%",
-    "※ 포장방식 : 비닐포장, 빙장포장",
-    "※ 특이사항 : 바위굴 원물로 보내드립니다, 손질 꼭 해셔 드셔야 합니다."
-   ],
-   "supplyPrice": 18000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "씨제이대한통운/롯데택배",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/938/394/025/30a1eaabff3b5a5bf8fe287bab614bf9.jpg",
-   "note": "-스펙변경 : 1kg 2~4미 > 3kg 2~5미"
   },
   {
    "warehouse": "단독(무)",
