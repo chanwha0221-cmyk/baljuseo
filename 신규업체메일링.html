@@ -289,7 +289,7 @@ const DEFAULT_TEMPLATE=`안녕하세요, 대표님.
 하단 링크는 현재 위탁 공급이 가능한 상품 리스트 입니다.
 
 마스터 상품 카탈로그
-https://wonbi.github.io/allproduct/
+https://chanwha0221-cmyk.github.io/baljuseo/allproduct/index.html
 ────────────────
 
 1건의 발주도 처리가 가능하며, 발주 주시면 선 출고 해 드리고 그날 정산사이트에서 정산 금액 확인하시고
@@ -453,7 +453,10 @@ async function quickSave(){
     : ('기록됨 — '+date));
 }
 
-const CATALOG_URL='https://wonbi.github.io/allproduct/';
+/* 🔗 메일에 박히는 상품 리스트 주소 — 공급가를 가린 홍팀장 버전 (2026-09-07).
+   예전엔 원비씨 주소(wonbi.github.io/allproduct)가 박혀 있었다. 메일을 받은 업체가
+   그리로 가면 우리 명함이 아니라 원비씨 오픈톡방으로 빠진다. */
+const CATALOG_URL='https://chanwha0221-cmyk.github.io/baljuseo/allproduct/index.html';
 // 저장된 템플릿에도 ①현재 사용자 이름 ②카탈로그 링크가 항상 들어가게 보정 (2026-08-11)
 function fixName(t){ return (t||'').replace(/주식회사 마스터s+(홍찬화|박원비)/g,'주식회사 마스터 '+ME); }
 function fixTemplate(t){
