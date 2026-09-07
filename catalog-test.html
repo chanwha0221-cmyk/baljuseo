@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.53</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.54</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -410,7 +410,6 @@ body{border:5px solid #d64545 !important;box-sizing:border-box;min-height:100vh}
   padding:3px 9px;border-radius:6px;margin-left:8px;vertical-align:middle;letter-spacing:0}
 .testbar{position:sticky;top:0;z-index:99;background:#d64545;color:#fff;font-size:12px;font-weight:700;
   text-align:center;padding:5px 10px;letter-spacing:0}
-
 /* ═══════════════════════════════════════════════════════════════════
    ✨ 디자인 리프레시 (2026-08-19) — 스타일 전용. HTML 구조·클래스·JS는 그대로다.
    원래대로 되돌리려면 이 블록만 통째로 지우면 된다.
@@ -726,7 +725,7 @@ h1{letter-spacing:-.6px}
 <div class="menu" id="menu">
   <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
   <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
-  <button class="mbtn" data-go="news">📰 소식글<span class="tapb">눌러서 확인</span></button>
+  <button class="mbtn" data-go="news">📰 소식글<span class="tapb">눌러서 확인</span><span class="nbadge" id="newsBadge" style="display:none"></span></button>
   <button class="mbtn" data-go="change">📊 상품변동사항<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="order">🧾 발주하기<span class="nbadge" id="ordCount" style="display:none"></span></button>
   <button class="mbtn" data-go="orders" id="mbOrders" style="display:none">📋 발주 내역<span class="nbadge" id="ordsBadge" style="display:none"></span></button>
@@ -2215,6 +2214,7 @@ document.addEventListener('click',e=>{
   const sm=e.target.closest('.ntcac > summary'); if(!sm)return;
   const d=sm.parentElement;
   ntcMarkRead(d.getAttribute('data-nk'),d);
+  newsMarkRead(d.getAttribute('data-newsk'));   // 소식글도 같은 아코디언이다(data 속성만 다르다)
 });
 function chgCls(k){
   if(/출시|재입고/.test(k))return 'new';
@@ -2447,10 +2447,47 @@ function newsInCatalog(nm){
   const k=pkey(nm);
   return ALL.some(p=>pkey(p.name)===k);
 }
+/* 🆕 안 읽은 소식글 (홍팀장 2026-09-07 — "소식글도 들어갔을 때 안읽은 거 있으면 New, 대신 오늘부터")
+   🔴 **오늘부터**가 핵심이다. 기준일 없이 만들면 이미 올라와 있던 글이 전부 New 로 떠서
+      업체 화면이 처음부터 딱지 투성이가 되고, 그러면 진짜 새 글도 같이 묻힌다.
+   읽음 판정은 공지와 같다 — **제목을 눌러 펼치는 행위 자체가 확인**이다(§공지 2026-08-19). */
+const NEWS_NEW_FROM='2026-09-07';
+function newsKey(n){ return (String(n.title||'').trim()+'|'+String(n.at||'').trim()); }
+function newsSeenKey(){ return 'TEST_catalog_news_seen_'+((ME&&ME.id)?ME.id:'guest'); }
+function newsSeenSet(){
+  try{ return new Set(JSON.parse(localStorage.getItem(newsSeenKey())||'[]')); }catch(e){ return new Set(); }
+}
+function newsIsNew(n){
+  if(!n||!n.at||String(n.at).trim()<NEWS_NEW_FROM)return false;
+  return !newsSeenSet().has(newsKey(n));
+}
+function newsUnread(){ return (NEWS||[]).filter(newsIsNew); }
+function renderNewsBadge(){
+  const b=$('newsBadge'); if(!b)return;
+  const n=newsUnread().length;
+  if(!n){ b.style.display='none'; return; }
+  b.style.display=''; b.textContent=n>9?'9+':String(n);
+  b.title='아직 안 보신 소식글 '+n+'건';
+}
+// 펼친 그 글만 읽음 처리한다 — 다시 그리면 방금 연 글이 닫힌다(공지와 같은 이유)
+function newsMarkRead(k){
+  if(!k)return;
+  try{ const s=newsSeenSet(); if(!s.has(k)){ s.add(k); localStorage.setItem(newsSeenKey(),JSON.stringify([...s])); } }catch(e){}
+  document.querySelectorAll('.ntcac[data-newsk]').forEach(d=>{
+    if(d.getAttribute('data-newsk')!==k)return;
+    d.classList.remove('unread'); const b=d.querySelector('.ntcread'); if(b)b.remove();
+  });
+  // 첫 화면 한 줄에도 같은 글이 떠 있다
+  if(NEWS&&NEWS[0]&&newsKey(NEWS[0])===k){
+    const one=document.querySelector('.newsonebtn .ntcread'); if(one)one.remove();
+  }
+  renderNewsBadge();
+}
 function newsItem(n,open){
   const btns=(n.items||[]).filter(newsInCatalog);
-  return '<details class="ntcac news"'+(open?' open':'')+'>'
-    +'<summary><span class="newsb">소식</span><span class="ntt">'+esc(n.title)+'</span>'
+  const isNew=newsIsNew(n);
+  return '<details class="ntcac news'+(isNew?' unread':'')+'" data-newsk="'+esc(newsKey(n))+'"'+(open?' open':'')+'>'
+    +'<summary><span class="newsb">소식</span>'+(isNew?'<span class="ntcread">New</span>':'')+'<span class="ntt">'+esc(n.title)+'</span>'
       +(n.at?'<span class="nd2">'+esc(n.at)+'</span>':'')+delBtn('news',n)+'<span class="ntarrow">▾</span></summary>'
     +'<div class="nb">'+esc(newsBody(n.body)||'(내용 없음)')+'</div>'
     +(btns.length?('<div class="newsp">👇 이 글에 나온 상품 — 누르시면 바로 보실 수 있어요'
@@ -2470,8 +2507,9 @@ async function renderNewsOne(){
   if(!NEWS.length){box.innerHTML='';return;}
   const n=NEWS[0];
   box.innerHTML='<button class="newsonebtn" data-newsone="1">'
-    +'<span class="newsb">소식</span><span class="t">'+esc(n.title)+'</span>'
+    +'<span class="newsb">소식</span>'+(newsIsNew(n)?'<span class="ntcread">New</span>':'')+'<span class="t">'+esc(n.title)+'</span>'
     +(n.at?'<span class="d">'+esc(n.at)+'</span>':'')+'<span class="go">보기 ›</span></button>';
+  renderNewsBadge();   // 첫 화면에서 이미 배지가 떠 있어야 한다 — 소식글 메뉴에 들어가기 전에 알아야 하니까
 }
 document.addEventListener('click',function(e){
   if(e.target.closest('[data-newsone]'))location.hash='news';
@@ -2499,7 +2537,7 @@ async function renderRoute(){
     // ⚠️ 공지 화면에 들어왔다고 전부 읽음 처리하지 않는다 — 제목을 눌러야 확인이다(사장님 2026-08-19).
     else if(v==='notice'){if(!NOTI)NOTI=await loadNotices();NTC_PAGE=1;subV.innerHTML=renderNotices(NOTI);renderNtcBadge();}
     // 📰 소식글 — 글 안의 상품 버튼을 만들려면 상품(ALL)이 먼저 들어와 있어야 한다
-    else if(v==='news'){if(!NEWS)NEWS=await loadNews();subV.innerHTML=renderNews(NEWS);}
+    else if(v==='news'){if(!NEWS)NEWS=await loadNews();subV.innerHTML=renderNews(NEWS);renderNewsBadge();}
     // 🧾 발주 — order.js. 상품(ALL)이 있어야 상품명 검증이 되므로 카탈로그가 먼저 로드된 뒤에만 연다.
     else if(v==='order'){
       if(!(typeof ALL!=='undefined'&&ALL.length)){subV.innerHTML=subHead('🧾 발주하기','')+'<div class="empty">상품을 불러오는 중입니다. 잠시 후 다시 눌러주세요.</div>';}
@@ -2659,7 +2697,7 @@ const API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
         서버에도 같은 발주를 막는 장치가 있지만, 여기서 안 보내는 것이 먼저다. */
 const API_READONLY={list:1,clients:1,me:1,getcfg:1,catalog:1};
 async function api(action,payload){
-  if(!API)throw new Error('발주 서버 주소가 아직 설정되지 않았습니다.');
+  if(!API)throw new Error('서버 주소가 설정되지 않았습니다.');
   const body=JSON.stringify(Object.assign({action},payload||{}));
   const tries=API_READONLY[action]?2:1;
   let lastErr=null;
