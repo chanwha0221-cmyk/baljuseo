@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.62</title>
+<title>마스터 유통 카탈로그 v23.63</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -2289,7 +2289,7 @@ function renderChange(d){
       +(rest.length?'<div class="grid">'+rest.map(chgCard).join('')+'</div>':'')
       +(soldNames.length?'<div class="soldwrap"><div class="soldhd">🚫 품절 '+soldNames.length+'건</div>'
         +'<div class="soldmsg">해당 상품 품절입니다. 판매에 참고해 주시기 바랍니다.<br>재 입고 일정이 궁금하시면 문의 부탁드려요~</div>'
-        +'<div class="soldlist">'+soldNames.map(n=>'<span class="soldit">'+(n.wh?'<span class="w">📦 '+esc(n.wh)+'</span>· ':'')+esc(n.name)+'</span>').join('')+'</div></div>':'')
+        +'<div class="soldlist">'+soldNames.map(n=>'<span class="soldit">'+(n.wh?'<span class="w">📦 '+esc(n.wh)+' ·</span>':'')+esc(n.name)+'</span>').join('')+'</div></div>':'')
       +'</div>';
   }).join('');
   return h;
