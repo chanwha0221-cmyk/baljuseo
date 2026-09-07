@@ -109,11 +109,6 @@
           </div>
           <label>메일 본문 템플릿 <span class="muted">(편집하면 저장돼요)</span></label>
           <textarea id="tpl" style="min-height:280px;line-height:1.7"></textarea>
-          <!-- 본문 최하단 명함 — 올리면 여기 바로 박힌다. [전체 복사]에도 이 순서 그대로 들어감 -->
-          <div id="tpl-card" style="display:none;border:1px solid var(--line);border-top:0;border-radius:0 0 7px 7px;padding:10px;background:#fafbfd">
-            <div class="muted" style="font-size:11.5px;margin-bottom:6px">↓ 메일 맨 아래에 이대로 들어갑니다</div>
-            <img id="tpl-card-img" style="max-width:420px;width:100%;border-radius:6px;display:block">
-          </div>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="btn ghost" onclick="copyPreview()">📋 전체 복사</button>
             <button class="btn ghost" onclick="loadSavedTemplate()">📄 표준 템플릿 불러오기</button>
@@ -144,20 +139,13 @@
         </div>
         <div class="hint" id="compose-hint"></div>
       </div>
+      <!-- 💳 명함 기능 제거 (홍팀장 2026-09-07) — 이미지 대신 본문 서명에 번호·카톡 아이디를 적는다.
+           담당자 고르는 칸만 남긴다(서명 이름이 이걸 따라간다). -->
       <div id="img-col">
-        
         <div class="img-slot">
-          <label style="font-weight:700;font-size:12.5px">💳 명함 <span class="muted">(누구 명함이냐에 따라 본문 이름이 바뀝니다)</span></label>
-          <select id="who-sel" onchange="setPerson(this.value)" style="margin-bottom:6px;font-size:13px"></select>
-          <img id="card-img"><div class="ph" id="card-ph">명함 이미지를 올려주세요</div>
-          <div class="img-btns">
-            <input type="file" id="card-file" accept="image/*" style="display:none" onchange="pickImg(this,'card')">
-            <button class="btn sm" onclick="document.getElementById('card-file').click()">이미지 가져오기</button>
-            <button class="btn sm" onclick="pasteImg('card')">📋 붙여넣기</button>
-            <button class="btn sm" id="card-copy" style="display:none" onclick="copyImg('card')">이미지 복사</button>
-            <button class="btn ghost sm" id="card-dl" style="display:none" onclick="dlImg('card','명함')">저장</button>
-          </div>
-          <div class="muted" id="card-save" style="display:none;margin-top:4px">새 명함 — <a href="#" onclick="saveCard();return false">고정으로 저장</a></div>
+          <label style="font-weight:700;font-size:12.5px">✍️ 서명 이름</label>
+          <select id="who-sel" onchange="setPerson(this.value)" style="font-size:13px"></select>
+          <div class="muted" style="font-size:11.5px;margin-top:6px">본문의 「주식회사 마스터 ○○ 팀장」이 이 이름으로 바뀝니다.</div>
         </div>
       </div>
     </div>
@@ -262,10 +250,9 @@ const PEOPLE=['홍찬화','박원비'];
 let PERSON=localStorage.getItem('mailing_person')||'홍찬화';
 if(PEOPLE.indexOf(PERSON)<0)PERSON='홍찬화';
 let ME=PERSON;
-let CARD_KEY=(PERSON==='박원비')?'card_fileId_wonbi':'card_fileId';
 function setPerson(p){
   if(PEOPLE.indexOf(p)<0)return;
-  PERSON=p; ME=p; CARD_KEY=(p==='박원비')?'card_fileId_wonbi':'card_fileId';
+  PERSON=p; ME=p;
   localStorage.setItem('mailing_person',p);
   location.reload();   // 서명·명함·템플릿을 통째로 다시 불러오는 게 가장 확실
 }
@@ -386,7 +373,7 @@ async function driveBlobURL(id){
 }
 
 // ─── 상태/데이터 ───
-let DATA=[], modalIdx=-1, editIdx=-1, imgBlobs={card:null};
+let DATA=[], modalIdx=-1, editIdx=-1;
 const $=id=>document.getElementById(id);
 function todayKST(){ return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'}); }
 function daysSince(d){ if(!d)return null; const a=new Date(d+'T00:00:00+09:00'),b=new Date(todayKST()+'T00:00:00+09:00'); return Math.floor((b-a)/86400000); }
@@ -485,8 +472,6 @@ async function loadAll(){
     $('tpl-note').value = fixName(SET.template_note || DEFAULT_NOTE);
     $('tpl-kakao').value = fixName(SET.template_kakao || DEFAULT_KAKAO);
     renderTplButtons();
-    // 명함 — 사람별 저장 (2026-08-11)
-    if(SET[CARD_KEY]){ try{ const u=await driveBlobURL(SET[CARD_KEY]); showImg('card',u,false);}catch(e){console.warn('명함 로드 실패',e);} }
     // 데이터 — 통합 탭
     const row9=r=>{const x=r.slice(0,9);while(x.length<9)x.push('');return x.map(v=>(v||'').toString().trim());};
     DATA=(await sheetGet(DATA_TAB,'A2:I100000')).map(row9).filter(r=>r[2]||r[0]);
@@ -1000,98 +985,38 @@ async function deleteNamedTpl(i,e){
 function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:DEFAULT_KAKAO; $('tpl-'+which).value=def; toast('기본값 — 저장하려면 [저장]'); }
 function copyText(id){ navigator.clipboard.writeText($(id).value).then(()=>toast('복사됨')); }
 
-// ─── 이미지 ───
-function showImg(which,url,isNew){
-  const img=$(which+'-img'); img.src=url; img.style.display='block';
-  $(which+'-ph').style.display='none';
-  $(which+'-copy').style.display=''; $(which+'-dl').style.display='';
-  if(which==='card'){ $('card-save').style.display = isNew?'block':'none'; syncCardPreview(url); }
-}
-// 명함을 올리면 본문 바로 아래에도 그대로 박아준다 — 보내는 모양 그대로 보이게 (2026-08-11 사장님 지시)
-function syncCardPreview(url){
-  const box=$('tpl-card'); if(!box)return;
-  const img=$('tpl-card-img');
-  if(url){ img.src=url; box.style.display='block'; }
-  else { box.style.display='none'; }
-}
-function pickImg(input,which){
-  const f=input.files[0]; if(!f)return;
-  imgBlobs[which]=f; showImg(which,URL.createObjectURL(f),which==='card');
-}
-async function toPngBlob(img){
-  return new Promise(res=>{ const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
-    c.getContext('2d').drawImage(img,0,0); c.toBlob(res,'image/png'); });
-}
-async function copyImg(which){
-  try{ const blob=await toPngBlob($(which+'-img')); await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); toast('이미지 복사됨 — 메일에 붙여넣기'); }
-  catch(e){ toast('이미지 복사 미지원 브라우저 — [저장]으로 받아서 첨부'); }
-}
-function dlImg(which,name){ const a=document.createElement('a'); a.href=$(which+'-img').src; a.download=name+'_'+todayKST()+'.png'; a.click(); }
-// 클립보드에서 이미지 읽어 슬롯에 넣기 (캡처/복사한 이미지 바로 사용)
-async function pasteImg(which){
-  try{
-    const items=await navigator.clipboard.read();
-    for(const it of items){
-      const type=it.types.find(t=>t.startsWith('image/'));
-      if(type){ const blob=await it.getType(type); imgBlobs[which]=blob; showImg(which,URL.createObjectURL(blob),which==='card'); toast('명함 붙여넣기 완료'); return; }
-    }
-    toast('클립보드에 이미지가 없어요 — 먼저 캡처/복사해 주세요');
-  }catch(e){ toast('붙여넣기 안 됨 — 슬롯 클릭 후 Ctrl+V 또는 [이미지 가져오기] 사용'); }
-}
-// img 요소 → PNG data URI (Gmail HTML 임베드용)
-function imgDataURL(which){
-  const img=$(which+'-img');
-  if(!img || img.style.display==='none' || !img.naturalWidth) return null;
-  const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
-  c.getContext('2d').drawImage(img,0,0);
-  try{ return c.toDataURL('image/png'); }catch(e){ return null; }
-}
+/* ─── 이미지 슬롯 제거됨 (홍팀장 2026-09-07) ───
+   명함을 이미지로 붙이던 기능을 없앴다. 서명은 본문 글자(번호·카톡 아이디)로 나간다.
+   ⚠️ 이미지가 붙은 메일은 스팸으로 잡힐 확률도 올라간다 — 글자만 나가는 게 유리하다. */
 // 본문 + 공급시트 이미지 + 맨 끝 명함까지 한 덩어리로 (2026-08-11 사장님 지시:
 // "마지막에 명함까지 해서 붙여넣기 해줄 수 있게" — 서명 설정에 의존하지 않고 본문에 직접 붙인다)
 function buildMailHTML(){
   const text=$('tpl').value;
-  const card=imgDataURL('card');
-  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  let html='<div style="font-family:\'Malgun Gothic\',Apple SD Gothic Neo,sans-serif;font-size:14px;line-height:1.7;color:#222">';
-  text.split('\n').forEach(ln=>{
+  const esc2=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let html='<div style="font-family:Malgun Gothic,Apple SD Gothic Neo,sans-serif;font-size:14px;line-height:1.7;color:#222">';
+  text.split(/\n/).forEach(function(ln){
     if(ln.trim()===''){ html+='<div><br></div>'; }
-    else { html+='<div>'+esc(ln)+'</div>'; }
+    else { html+='<div>'+esc2(ln)+'</div>'; }
   });
-  if(card) html+='<div><br></div><div><img src="'+card+'" style="max-width:420px;width:100%;height:auto"></div>';
   html+='</div>';
-  return {html, hasCard:!!card};
+  return {html};
 }
-// 📋 전체 복사 — 본문 + 맨 아래 명함을 HTML째 클립보드에 (메일에 Ctrl+V 한 번)
+// 📋 전체 복사 — 본문을 HTML째 클립보드에 (메일에 Ctrl+V 한 번)
 async function copyPreview(){
-  const {html,hasDaily,hasCard}=buildMailHTML();
+  const {html}=buildMailHTML();
   const plain=$('tpl').value;
   try{
     await navigator.clipboard.write([new ClipboardItem({
       'text/html': new Blob([html],{type:'text/html'}),
       'text/plain': new Blob([plain],{type:'text/plain'})
     })]);
-    const miss=[!hasDaily?'시트 이미지':'',!hasCard?'명함':''].filter(Boolean);
-    toast(miss.length ? '복사됐지만 '+miss.join('·')+'이(가) 없어요 — 오른쪽에서 올리세요'
-                      : '✅ 본문 + 시트 + 명함까지 복사됨 — 메일 본문에 Ctrl+V 한 번이면 끝');
+    toast('✅ 본문 복사됨 — 메일에 Ctrl+V');
   }catch(e){
     toast('복사 실패 — 다시 시도해 주세요 (브라우저 권한 확인)');
   }
 }
-async function saveCard(){
-  if(!imgBlobs.card){ toast('먼저 이미지를 올려주세요'); return; }
-  setStatus('명함 저장 중…'); try{ const id=await driveUpload(imgBlobs.card,'masterc_명함_'+PERSON+'.png'); await setSetting(CARD_KEY,id); $('card-save').style.display='none'; setStatus('저장됨'); toast('명함 고정 저장됨 — 다음에도 자동으로 떠요'); }
-  catch(e){ setStatus('오류'); toast('명함 저장 실패: '+e.message); }
-}
 
 // ─── 추가연락 초안 (채널별 톤) ───
-
-// 명함 슬롯 Ctrl+V 붙여넣기 (슬롯이 명함 하나뿐이라 타겟 고정)
-document.addEventListener('paste', e=>{
-  const items=e.clipboardData && e.clipboardData.items; if(!items) return;
-  for(const it of items){ if(it.type && it.type.startsWith('image/')){ const blob=it.getAsFile(); if(!blob) continue;
-    imgBlobs.card=blob; showImg('card',URL.createObjectURL(blob),true);
-    toast('명함 붙여넣기 완료'); e.preventDefault(); return; } }
-});
 
 // init
 $('q-date').value=todayKST();
