@@ -2113,7 +2113,8 @@ function rowsFromConverted(cols){
     const ten  = c.length >= 10;
     const pay  = S(c[0]);                       // 정산업체명 — 어느 업체 발주인지 확인용
     if(pay && bizes.indexOf(pay) < 0) bizes.push(pay);
-    const biz  = ten ? S(c[1]) : '';            // 송장업체명(있을 때만 표 첫 칸)
+    // 송장업체명(있을 때만 표 첫 칸) — 주소가 들어오면 버린다(위 bizCell 참고)
+    const biz  = ten ? bizCell(c[1]) : '';
     const prod = S(c[ten ? 5 : 4]);
     const rcv  = S(c[ten ? 6 : 5]);
     const addr = S(c[ten ? 7 : 6]);
@@ -2171,6 +2172,21 @@ const HDR_MAP = {
 };
 // 옵션 미선택 기본값 — 진짜 규격이 아니라 상품명 뒤에 붙이면 안 된다 (변환기와 같은 규칙)
 const DEFAULT_OPT = /^(기본|기본옵션|기본형|기본구성|단일상품|단일|본품|선택안함|선택|없음|-)$/;
+/* 🏠 송장업체명 칸에 **주소가 들어오면 버린다** (홍팀장 2026-09-07).
+   업체 파일의 '출고지'는 곳에 따라 업체명이기도 하고 주소이기도 하다. 주소가 그대로 실리면
+   송장에 업체명 대신 주소가 찍힌다(2026-09-07 식봄 「[25768] 강원특별자치도 동해시 …」).
+   판정은 **눈에 보이는 주소 표시만** 본다 — 우편번호 다섯 자리로 시작하거나, 시·도 이름이 들어간 긴 글.
+   업체명은 짧고 이런 말이 안 들어간다. 애매하면 남긴다(지우는 쪽이 아니라 두는 쪽이 안전). */
+const SIDO = /(특별자치도|특별자치시|특별시|광역시|경기도|강원도|충청[남북]도|전라[남북]도|경상[남북]도|제주도)/;
+function looksAddr(v){
+  const s = S(v);
+  if(!s) return false;
+  if(/^[[(]?\d{5}[\])]?/.test(s)) return true;              // [25768] … / (05395)서울 …
+  // 시·도 이름 + 「○○로 12」처럼 번지가 붙은 것만 주소로 본다
+  // ('경기도농산물유통센터' 같은 **업체명**을 주소로 오해하지 않게)
+  return s.length >= 8 && SIDO.test(s) && /(로|길|번지|읍|면|동|가)\s*\d/.test(s);
+}
+function bizCell(v){ return looksAddr(v) ? '' : S(v); }
 function headerItems(raw){
   const lines = S(raw).split(/\r?\n/).filter(l => l.replace(/\t/g, '').trim());
   if(lines.length < 2) return [];
@@ -2197,6 +2213,14 @@ function headerItems(raw){
   const MAP = {};
   Object.keys(HDR_MAP).forEach(f => { MAP[f] = (RH[f] || []).concat(HDR_MAP[f]); });
   Object.keys(RH).forEach(f => { if(!MAP[f]) MAP[f] = RH[f]; });   // final 처럼 규칙에만 있는 칸
+  /* 🔴 송장업체명(biz)만은 **추측하지 않는다** (홍팀장 2026-09-07).
+     식봄 파일의 '출고지' 칸에는 업체명이 아니라 **주소**가 적혀 있는데, 규칙에 없는 칸을
+     기본 이름 목록('업체명·출고지·출고지명·송장업체명')으로 집어 읽어서 그 주소가
+     송장업체명으로 발주에 들어갔다. 홍팀장: "템플릿 우선으로 가기로 했고 템플릿에 주소 없는데
+     또 니가 양식 보고 주소 쳐 넣은 거냐."
+     → 그 업체 규칙이 있으면 **규칙에 적힌 칸 이름만** 본다. 규칙이 아예 없는 업체만 예전처럼 찾는다
+       (한상/대감처럼 한 파일에 채널이 섞여 오는 곳 — 거긴 이 칸이 진짜 업체명이다). */
+  if(RULE.headers) MAP.biz = (RH.biz || []).slice();
   // 머리글 → 칸번호. 정확히 같은 이름이 먼저, 없으면 앞글자가 같은 것(배송위치/(출입정보)… 같은 긴 이름)
   const pick = keys => {
     for(const k of keys){ const i = head.indexOf(k); if(i >= 0) return i; }
@@ -2252,7 +2276,7 @@ function headerItems(raw){
     let ad = g('addr');
     const zp = S(g('zip')).replace(/[^\d]/g, '');
     if(zp && ad && ad.indexOf(zp) < 0) ad = '(' + zp + ')' + ad;
-    out.push({ biz:g('biz'), name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') });
+    out.push({ biz:bizCell(g('biz')), name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') });
   }
   out.skipped = skipped;
   out.warns = warns;
