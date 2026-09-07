@@ -228,6 +228,22 @@
     </div>
   </div>
 </div>
+<!-- 템플릿 저장 위치 고르기 (기존 템플릿 수정 or 신규) -->
+<div class="modal-bg" id="tplsave-modal">
+  <div class="modal" style="max-width:460px">
+    <h3>💾 템플릿 저장</h3>
+    <div class="muted" style="font-size:12px;margin-top:2px">지금 화면의 제목·본문을 어디에 저장할까요?</div>
+    <div id="tplsave-list" style="display:grid;gap:6px;margin-top:12px"></div>
+    <div style="border-top:1px solid #e6e2da;margin-top:12px;padding-top:12px">
+      <div class="fld"><label>➕ 새 템플릿 이름</label>
+        <input id="tplsave-new" placeholder="예: 14일+ 비발주" onkeydown="if(event.key==='Enter')saveTplAsNew()"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+        <button class="btn ghost" onclick="$('tplsave-modal').classList.remove('on')">취소</button>
+        <button class="btn brand" onclick="saveTplAsNew()">새로 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script src="sheets-proxy.js"></script>
@@ -1086,14 +1102,36 @@ function renderTplButtons(){
     '<button class="btn ghost" type="button" title="삭제" style="border:none;border-radius:0;color:#c0392b;padding:6px 9px" onclick="deleteNamedTpl('+i+',event)">✕</button>'+
     '</span>').join('');
 }
-function loadNamedTpl(i){ const t=tplList()[i]; if(!t)return; if(t.subject!=null)$('tpl-subject').value=t.subject; $('tpl').value=t.body||''; toast('「'+t.name+'」 템플릿 불러옴'); }
-async function saveNamedTemplate(){
-  const name=prompt('템플릿 이름을 알려주세요  (예: 14일+ 비발주)'); if(name===null) return;
-  const nm=name.trim(); if(!nm){ toast('이름을 입력해야 저장돼요'); return; }
-  const list=tplList(); const item={name:nm, subject:$('tpl-subject').value, body:$('tpl').value};
-  const i=list.findIndex(t=>t.name===nm);
-  if(i>=0){ if(!confirm('「'+nm+'」 템플릿이 이미 있어요. 덮어쓸까요?')) return; list[i]=item; } else list.push(item);
-  setStatus('저장 중…'); await setSetting('tpl_list', JSON.stringify(list)); renderTplButtons(); setStatus('저장됨'); toast('「'+nm+'」 템플릿 저장됨');
+let CUR_TPL='';   // 마지막으로 불러온 템플릿 이름 — 저장창에서 기본으로 짚어준다
+function loadNamedTpl(i){ const t=tplList()[i]; if(!t)return; if(t.subject!=null)$('tpl-subject').value=t.subject; $('tpl').value=t.body||''; CUR_TPL=t.name; toast('「'+t.name+'」 템플릿 불러옴'); }
+// [💾 템플릿 저장] — 기존 템플릿을 고쳐 저장할지, 새 이름으로 만들지 고르는 창
+function saveNamedTemplate(){
+  const list=tplList(), box=$('tplsave-list');
+  box.innerHTML = list.length
+    ? list.map((t,i)=>'<button class="btn ghost" type="button" style="text-align:left;justify-content:flex-start" onclick="saveTplOver('+i+')">✏️ 「'+escTpl(t.name)+'」 수정'+(t.name===CUR_TPL?' <span class="muted" style="font-size:11px">· 지금 불러온 것</span>':'')+'</button>').join('')
+    : '<span class="muted" style="font-size:12px">저장된 템플릿이 없어요 — 아래에 이름을 넣어 새로 만드세요</span>';
+  $('tplsave-new').value='';
+  $('tplsave-modal').classList.add('on');
+  if(!list.length) setTimeout(()=>$('tplsave-new').focus(),50);
+}
+async function putTpl(list, i, nm){
+  const item={name:nm, subject:$('tpl-subject').value, body:$('tpl').value};
+  if(i>=0) list[i]=item; else list.push(item);
+  setStatus('저장 중…'); await setSetting('tpl_list', JSON.stringify(list));
+  CUR_TPL=nm; $('tplsave-modal').classList.remove('on');
+  renderTplButtons(); setStatus('저장됨'); toast('「'+nm+'」 템플릿 저장됨');
+}
+async function saveTplOver(i){
+  const list=tplList(), t=list[i]; if(!t) return;
+  if(!confirm('「'+t.name+'」 템플릿을 지금 내용으로 덮어쓸까요?')) return;
+  await putTpl(list, i, t.name);
+}
+async function saveTplAsNew(){
+  const nm=($('tplsave-new').value||'').trim();
+  if(!nm){ toast('이름을 입력해야 저장돼요'); return; }
+  const list=tplList(), i=list.findIndex(t=>t.name===nm);
+  if(i>=0 && !confirm('「'+nm+'」 템플릿이 이미 있어요. 덮어쓸까요?')) return;
+  await putTpl(list, i, nm);
 }
 async function deleteNamedTpl(i,e){
   if(e)e.stopPropagation(); const list=tplList(); const t=list[i]; if(!t)return;

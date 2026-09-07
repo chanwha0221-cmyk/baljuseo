@@ -603,6 +603,10 @@ table.ordtbl tr.bad input{border-color:color-mix(in srgb,var(--up) 35%,transpare
 .ordnote{font-size:12px;color:var(--gold);font-weight:700;line-height:1.7}
 .ordsum{font-size:12.5px;color:var(--muted);margin:8px 0 4px}
 .ordsum b{color:var(--ink)}
+/* 📅 날짜 구분 줄 — 목록이 날짜로 끊겨 보이게 (홍팀장 2026-09-07) */
+.ordday{display:flex;align-items:center;gap:8px;margin:16px 0 2px;font-size:13px;font-weight:800;color:var(--ink)}
+.ordday::after{content:"";flex:1;height:1px;background:var(--line)}
+.ordday span{font-size:11.5px;font-weight:700;color:var(--muted)}
 .ordbad{color:var(--up)}
 .ordbox.srch{padding:11px 13px}
 .ordb2.fbtn{padding:5px 13px;font-size:12px;border-radius:20px}
@@ -1340,7 +1344,16 @@ async function submit(){
 /* 발주 내역 — 쌓이면 화면이 끝없이 길어지므로 **페이지로 나누고 검색을 붙인다**
    (사장님 2026-08-20: "내가 발주를 했나? 뭐가 잘못됐지 찾을 때 이름·연락처로 검색"). */
 const PAGE = 10;                 // 한 페이지에 발주 묶음 10건
-let OQ = '', OPAGE = 1, OST = '';
+let OQ = '', OPAGE = 1, OST = '', OD = '';   // OD = 골라 본 날짜(YYYY-MM-DD, 빈값이면 전체)
+/* 📅 '2026-09-07' → '9월 7일 (월)'. 목록이 날짜로 끊겨야 "언제 들어온 발주인지"가 바로 보인다
+   (홍팀장 2026-09-07: "업체별 발주내역은 일별로 정리해주고 우리도 일별로 조회할 수 있게"). */
+const WD = ['일','월','화','수','목','금','토'];
+function dayLabel(d){
+  const m = S(d).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return S(d);
+  const dt = new Date(+m[1], +m[2] - 1, +m[3]);
+  return (+m[2]) + '월 ' + (+m[3]) + '일 (' + WD[dt.getDay()] + ')';
+}
 // ✏️ 수정 중인 발주묶음과 줄 — 고치는 동안 다른 카드는 건드리지 않는다
 let EDIT_NO = '', EDIT_SEQ = [];
 const isEditing = (no, seq) => EDIT_NO === no && EDIT_SEQ.indexOf(String(seq)) >= 0;
@@ -1369,9 +1382,29 @@ async function ordersView(){
     +     ['', '접수', '완료', '취소'].map(s => '<button class="ordb2 fbtn' + (OST === s ? ' on' : '') + '" data-ost2="' + s + '">'
     +        (s === '' ? '전체' : (s === '완료' ? (master ? '전송됨' : '확인됨') : s)) + '</button>').join('')
     +   '</div>'
+    +   dayPicker()          // 📅 날짜로 골라 보기 (홍팀장 2026-09-07)
     + '</div>'
     + '<div id="ordlist"></div>';
   return h + '</div>';
+}
+/* 📅 날짜 고르기 — 받아온 목록에 실제로 있는 날만 세워 준다(없는 날을 고를 일이 없게).
+   묶음 수를 같이 적어 그날 발주가 몇 건이었는지 목록을 열기 전에 보이게 한다. */
+function dayPicker(){
+  const cnt = new Map();                       // 날짜 → 발주번호 집합
+  LIST.forEach(r => {
+    const d = dayOf(r); if(!d) return;
+    if(!cnt.has(d)) cnt.set(d, new Set());
+    cnt.get(d).add(S(r.no));
+  });
+  const days = Array.from(cnt.keys()).sort().reverse();
+  if(!days.length) return '';
+  return '<div class="ordbar" style="margin:8px 0 0;align-items:center">'
+    + '<span style="font-size:12px;color:var(--muted)">📅 날짜</span>'
+    + '<select class="ordin" id="oday" style="width:auto;min-width:170px;padding:6px 9px">'
+    + '<option value="">전체 (' + days.length + '일)</option>'
+    + days.map(d => '<option value="' + esc(d) + '"' + (OD === d ? ' selected' : '') + '>'
+        + esc(dayLabel(d)) + ' · ' + cnt.get(d).size + '묶음</option>').join('')
+    + '</select></div>';
 }
 /* 검색·페이지는 화면에서만 처리한다 — 이미 받아온 목록을 다시 그리는 것이라 서버를 또 부르지 않는다.
    ⚠️ 웹앱은 한 번에 2,000줄까지 내려준다. 그보다 쌓이면 그때 기간 조회로 바꿔야 한다. */
@@ -1382,6 +1415,7 @@ function ordersPaint(){
   const q = pkey(OQ), qd = S(OQ).replace(/[^0-9]/g, '');
   const hit = LIST.filter(r => {
     if(OST && S(r.state) !== OST) return false;
+    if(OD && dayOf(r) !== OD) return false;        // 📅 고른 날짜만
     if(!q) return true;
     const hay = pkey([r.no, r.prod, r.rcv, r.addr, r.msg, r.biz, master ? r.cname : ''].join(' '));
     if(hay.indexOf(q) >= 0) return true;
@@ -1396,9 +1430,20 @@ function ordersPaint(){
 
   let h = dupBanner(master)
     + '<div class="ordsum">발주 <b>' + nos.length + '</b>묶음 · <b>' + hit.length + '</b>건'
-    + (OQ || OST ? ' <button class="ordb2" id="oclr" style="padding:2px 9px;font-size:11px">검색 지우기</button>' : '') + '</div>';
+    + (OD ? ' <span style="color:var(--muted)">· 📅 ' + esc(dayLabel(OD)) + '</span>' : '')
+    + (OQ || OST || OD ? ' <button class="ordb2" id="oclr" style="padding:2px 9px;font-size:11px">검색 지우기</button>' : '') + '</div>';
   if(!nos.length){ box.innerHTML = h + '<div class="empty">' + (LIST.length ? '찾는 발주가 없습니다.' : '아직 발주 내역이 없습니다.') + '</div>'; bindPager(); return; }
-  page.forEach(no => { h += orderCard(no, byNo.get(no), master); });
+  /* 📅 날짜가 바뀌는 자리마다 줄을 넣는다 — 어느 날 발주인지 카드마다 날짜를 찾아 읽지 않게. */
+  let lastDay = '';
+  page.forEach(no => {
+    const rows = byNo.get(no), d = dayOf(rows[0]);
+    if(d !== lastDay){
+      lastDay = d;
+      const cnt = page.filter(n => dayOf(byNo.get(n)[0]) === d).length;
+      h += '<div class="ordday">📅 ' + esc(dayLabel(d)) + ' <span>' + cnt + '묶음</span></div>';
+    }
+    h += orderCard(no, rows, master);
+  });
   if(pages > 1){
     h += '<div class="opager">'
       + '<button class="ordb2" data-opg="' + (OPAGE - 1) + '"' + (OPAGE <= 1 ? ' disabled' : '') + '>‹ 이전</button>'
@@ -1416,8 +1461,17 @@ function ordersPaint(){
    🔴 판정은 **서로 다른 발주번호에 같은 내용(업체·상품·받는분·주소·연락처)이 있을 때만**.
       한 발주번호 안의 같은 상품 두 줄은 수량을 나눠 적은 정상 발주일 수 있어서 세지 않는다.
    🔴 자동으로 지우지 않는다. 어느 것을 남길지는 홍팀장이 정한다(§3-3과 같은 뿌리 — 조용히 틀리는 게 제일 나쁘다). */
+/* 📅 발주가 들어온 날 (YYYY-MM-DD). `at` 은 'YYYY-MM-DD HH:mm' 이다. */
+const dayOf = r => S(r.at).slice(0, 10);
+/* 🔴 2026-09-07 — **날짜가 다르면 중복이 아니다** (홍팀장: "4일에 발주한 분이 7일에 또 발주한 건데
+   니가 중복으로 거른 거야. 날짜 지난 건은 중복에서 빼줘, 그게 타당하지 않냐").
+   맞다. 같은 고객이 며칠 뒤 같은 상품을 또 시키는 건 **재주문이지 중복이 아니다.**
+   중복 사고는 '같은 날 두 번 눌린 것'이라, 날짜를 키에 넣어 그날 안에서만 본다.
+   ⚠️ 키가 바뀌었으므로 예전에 [확인함] 해둔 기록은 안 맞는다 — 대신 날짜가 다른 건들은
+      아예 중복으로 안 잡히니 화면에서 저절로 빠진다. */
 function dupKeyOf(r){
-  return pkey([S(r.cid), S(r.prod), S(r.rcv), S(r.addr)].join('|')) + '|' + S(r.tel).replace(/[^0-9]/g, '');
+  return pkey([S(r.cid), S(r.prod), S(r.rcv), S(r.addr)].join('|')) + '|' + S(r.tel).replace(/[^0-9]/g, '')
+    + '|' + dayOf(r);
 }
 /* 🔢 한 줄 안에 같은 상품이 두 번 들어온 것 (홍팀장 2026-08-28).
    예: 「점보 닭다리 1kg x 2 / 점보 닭다리 1kg x 2」 = 4개. 업체가 담기를 두 번 눌렀거나
@@ -1640,7 +1694,12 @@ function bindPager(){
     };
   });
   const c = document.getElementById('oclr');
-  if(c) c.onclick = () => { OQ = ''; OST = ''; const s = document.getElementById('osearch'); if(s) s.value = ''; syncFbtn(); OPAGE = 1; resetEdit(); ordersPaint(); };
+  if(c) c.onclick = () => {
+    OQ = ''; OST = ''; OD = '';
+    const s = document.getElementById('osearch'); if(s) s.value = '';
+    const dd = document.getElementById('oday'); if(dd) dd.value = '';
+    syncFbtn(); OPAGE = 1; resetEdit(); ordersPaint();
+  };
 }
 function syncFbtn(){
   document.querySelectorAll('[data-ost2]').forEach(b => b.classList.toggle('on', b.getAttribute('data-ost2') === OST));
@@ -1805,6 +1864,9 @@ function ordersBind(){
     s.oninput = () => { clearTimeout(otmr); otmr = setTimeout(() => { OQ = s.value; OPAGE = 1; resetEdit(); ordersPaint(); }, 250); };
     s.onkeydown = e => { if(e.key === 'Escape'){ s.value = ''; OQ = ''; OPAGE = 1; resetEdit(); ordersPaint(); } };
   }
+  // 📅 날짜 고르기 — 화면 안에서만 거른다(서버를 다시 부르지 않는다)
+  const dd = document.getElementById('oday');
+  if(dd) dd.onchange = () => { OD = dd.value || ''; OPAGE = 1; resetEdit(); ordersPaint(); };
   ordersPaint();
   /* 🔴 화면을 연 것은 확인이 아니다 (사장님 2026-08-25) — [👀 확인함]을 눌러야 확인이다.
      예전엔 여기서 전부 읽음 처리해서, 목록이 뜨기도 전에 닫으면 알림만 조용히 꺼졌다. */
