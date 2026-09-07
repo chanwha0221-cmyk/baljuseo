@@ -234,6 +234,10 @@
     <h3>💾 템플릿 저장</h3>
     <div class="muted" style="font-size:12px;margin-top:2px">지금 화면의 제목·본문을 어디에 저장할까요?</div>
     <div id="tplsave-list" style="display:grid;gap:6px;margin-top:12px"></div>
+    <label style="display:flex;align-items:center;gap:7px;margin-top:12px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="tplsave-default" style="width:16px;height:16px">
+      ⭐ 저장하면서 <b>기본 템플릿</b>으로 — 화면 열 때 이게 자동으로 뜸
+    </label>
     <div style="border-top:1px solid #e6e2da;margin-top:12px;padding-top:12px">
       <div class="fld"><label>➕ 새 템플릿 이름</label>
         <input id="tplsave-new" placeholder="예: 14일+ 비발주" onkeydown="if(event.key==='Enter')saveTplAsNew()"></div>
@@ -486,6 +490,8 @@ async function loadAll(){
     if(SET.template_v!=='20260811'){ await setSetting('template',DEFAULT_TEMPLATE); await setSetting('template_v','20260811'); SET.template=DEFAULT_TEMPLATE; }
     $('tpl').value = fixTemplate(SET.template || DEFAULT_TEMPLATE);
     $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT;
+    // ⭐ 기본으로 지정해 둔 내 템플릿이 있으면 그걸로 화면을 채운다 (열 때마다 이게 뜬다)
+    applyDefaultTpl();
     $('tpl-note').value = fixName(SET.template_note || DEFAULT_NOTE);
     $('tpl-kakao').value = fixName(SET.template_kakao || DEFAULT_KAKAO);
     renderTplButtons();
@@ -874,6 +880,8 @@ function prosRow(p,done){
         /* 이미 보낸 곳 — 또 보냈으면 날짜만 오늘로 민다(행을 새로 만들지 않는다) */
         ? '<span class="pill" title="마지막연락">✉ '+esc(p.sentAt||'')+(p.sentDays==null?'':' ('+p.sentDays+'일 전)')+'</span>'
           +'<button class="btn sm ghost" data-pros="sent" data-m="'+esc(p.mail)+'">↻ 오늘 또 보냄</button>'
+          /* 실수로 [✉ 보냄]을 누른 것 되돌리기 — 기록을 지우면 위 발굴 목록으로 다시 올라온다 */
+          +'<button class="btn sm ghost" title="보낸 기록 취소 — 발굴 목록으로 되돌림" style="color:var(--red)" data-pros="unsent" data-m="'+esc(p.mail)+'">🗑</button>'
         /* 🚨 상호로 걸린 기록은 **미리** 띄운다 — 눌러서 확인하게 하면 안 누르고 넘어간다.
            목록에서 자동으로 빠지는 건 이메일이 똑같을 때뿐이라, 같은 업체를 다른 주소로
            접촉했거나 원비씨가 상호만 적어둔 건 여기서만 보인다. 보고 ✕ 누르면 된다. */
@@ -960,6 +968,20 @@ document.addEventListener('click',async e=>{
     const nm=b.getAttribute('data-n');
     prosHide(nm,true);
     toast(nm+' — 목록에서 뺐습니다');
+    return;
+  }
+  /* 🗑 보낸 기록 취소 — 잘못 누른 [✉ 보냄]을 되돌린다.
+     '보낸 곳' 판정은 DATA에 그 주소가 있느냐뿐이므로, 그 행을 지우면 발굴 목록으로 돌아간다. */
+  if(act==='unsent'){
+    const m=b.getAttribute('data-m');
+    const i=DATA.findIndex(r=>pkeyN(r[2])===pkeyN(m));
+    if(i<0){ toast('기록을 찾지 못했어요 — 새로고침 후 다시'); return; }
+    if(!confirm('「'+(DATA[i][0]||m)+'」 보낸 기록을 지울까요?\n\n메일링 목록에서도 삭제되고, 위 발굴 목록으로 다시 올라옵니다.')) return;
+    b.disabled=true;
+    try{
+      DATA.splice(i,1); render(); renderPros();
+      setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('보낸 기록을 지웠습니다');
+    }catch(err){ alert('저장하지 못했습니다\n\n'+(err.message||err)); b.disabled=false; }
     return;
   }
   b.disabled=true;
@@ -1096,11 +1118,30 @@ function renderTplButtons(){
   const box=$('tpl-list'); if(!box) return;
   const list=tplList();
   if(!list.length){ box.innerHTML='<span class="muted" style="font-size:12px">저장된 템플릿 없음 — 제목·본문 넣고 [💾 템플릿 저장] 누르면 이름 입력 후 버튼이 생겨요</span>'; return; }
-  box.innerHTML='<span class="muted" style="font-size:12px">내 템플릿:</span>'+list.map((t,i)=>
-    '<span style="display:inline-flex;align-items:center;border:1px solid #d7d2c8;border-radius:8px;overflow:hidden">'+
+  box.innerHTML='<span class="muted" style="font-size:12px">내 템플릿:</span>'+list.map((t,i)=>{
+    const on = t.name===(SET.tpl_default||'');
+    return '<span style="display:inline-flex;align-items:center;border:1px solid '+(on?'#e0a800':'#d7d2c8')+';border-radius:8px;overflow:hidden">'+
+    '<button class="btn ghost" type="button" title="'+(on?'기본 템플릿 — 열면 이게 뜬다 (눌러서 해제)':'이걸 기본으로 (열 때 자동으로 뜸)')+'" style="border:none;border-radius:0;padding:6px 8px" onclick="setDefaultTpl('+i+',event)">'+(on?'⭐':'☆')+'</button>'+
     '<button class="btn ghost" type="button" style="border:none;border-radius:0" onclick="loadNamedTpl('+i+')">📄 '+escTpl(t.name)+'</button>'+
     '<button class="btn ghost" type="button" title="삭제" style="border:none;border-radius:0;color:#c0392b;padding:6px 9px" onclick="deleteNamedTpl('+i+',event)">✕</button>'+
-    '</span>').join('');
+    '</span>';
+  }).join('');
+}
+// ⭐ 기본 템플릿 — 화면 열 때 자동으로 채워지는 것
+function applyDefaultTpl(){
+  const nm=SET.tpl_default||''; if(!nm) return;
+  const t=tplList().find(x=>x.name===nm); if(!t) return;
+  if(t.subject!=null) $('tpl-subject').value=t.subject;
+  $('tpl').value = fixTemplate(t.body||'');
+  CUR_TPL=t.name;
+}
+async function setDefaultTpl(i,e){
+  if(e)e.stopPropagation();
+  const t=tplList()[i]; if(!t) return;
+  const off = SET.tpl_default===t.name;          // 이미 기본이면 해제
+  setStatus('저장 중…'); await setSetting('tpl_default', off?'':t.name);
+  renderTplButtons(); setStatus('저장됨');
+  toast(off ? '「'+t.name+'」 기본 해제' : '「'+t.name+'」이 기본 템플릿 — 열면 이게 떠요');
 }
 let CUR_TPL='';   // 마지막으로 불러온 템플릿 이름 — 저장창에서 기본으로 짚어준다
 function loadNamedTpl(i){ const t=tplList()[i]; if(!t)return; if(t.subject!=null)$('tpl-subject').value=t.subject; $('tpl').value=t.body||''; CUR_TPL=t.name; toast('「'+t.name+'」 템플릿 불러옴'); }
@@ -1111,15 +1152,19 @@ function saveNamedTemplate(){
     ? list.map((t,i)=>'<button class="btn ghost" type="button" style="text-align:left;justify-content:flex-start" onclick="saveTplOver('+i+')">✏️ 「'+escTpl(t.name)+'」 수정'+(t.name===CUR_TPL?' <span class="muted" style="font-size:11px">· 지금 불러온 것</span>':'')+'</button>').join('')
     : '<span class="muted" style="font-size:12px">저장된 템플릿이 없어요 — 아래에 이름을 넣어 새로 만드세요</span>';
   $('tplsave-new').value='';
+  $('tplsave-default').checked = !!SET.tpl_default && SET.tpl_default===CUR_TPL;
   $('tplsave-modal').classList.add('on');
   if(!list.length) setTimeout(()=>$('tplsave-new').focus(),50);
 }
 async function putTpl(list, i, nm){
   const item={name:nm, subject:$('tpl-subject').value, body:$('tpl').value};
   if(i>=0) list[i]=item; else list.push(item);
+  const mkDef=$('tplsave-default').checked, wasDef=SET.tpl_default===nm;
   setStatus('저장 중…'); await setSetting('tpl_list', JSON.stringify(list));
+  if(mkDef!==wasDef) await setSetting('tpl_default', mkDef?nm:'');
   CUR_TPL=nm; $('tplsave-modal').classList.remove('on');
-  renderTplButtons(); setStatus('저장됨'); toast('「'+nm+'」 템플릿 저장됨');
+  renderTplButtons(); setStatus('저장됨');
+  toast('「'+nm+'」 템플릿 저장됨'+(mkDef?' · 기본으로 지정':''));
 }
 async function saveTplOver(i){
   const list=tplList(), t=list[i]; if(!t) return;
