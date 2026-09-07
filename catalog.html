@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.55</title>
+<title>마스터 유통 카탈로그 v23.56</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -246,6 +246,8 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .newspl{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
 .newspl .mvn{flex:0 0 auto;min-width:0;background:var(--soft);border:1px solid color-mix(in srgb,var(--accent) 32%,var(--line));
   color:var(--accent-d);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:700;text-align:left}
+/* 새 창으로 여는 링크라 <a> 다 — 버튼처럼 보이게만 맞춘다 (2026-09-07) */
+.newspl a.mvn{display:inline-block;text-decoration:none;cursor:pointer}
 @media(hover:hover){.newspl .mvn:hover{background:var(--card);text-decoration:none}}
 /* 🗑 마스터만 보이는 지우기 버튼 (사장님 2026-09-01 "카탈로그에서도 삭제할 수 있게") */
 .delb{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:7px;
@@ -1688,19 +1690,14 @@ document.addEventListener('click',e=>{
     window.scrollTo({top:0,behavior:'smooth'});return;}
   const lc=e.target.closest('.lcchip');
   if(lc){const c=lc.getAttribute('data-c');st.cat=(st.cat===c)?'전체':c;render();return;}
-  /* 📰 소식글 글 안의 상품 버튼 — **새 창**으로 연다 (홍팀장 2026-09-07).
-     같은 창에서 상품으로 가버리면 읽던 글로 돌아올 길이 없다(뒤로가기도 SPA라 안 먹는다).
-     ⚠️ 주소에 버전을 붙인다 — 안 붙이면 한 번 연 사람은 브라우저 캐시의 옛 화면을 계속 본다. */
-  const mvn2=e.target.closest('[data-mvnew]');
-  if(mvn2){
-    const nm=mvn2.getAttribute('data-mvnew')||'';
-    const ver=(document.title.match(/v\d+\.\d+/)||[''])[0];
-    // 지금 보고 있는 파일을 그대로 연다 — 테스트본에서 눌렀는데 실사이트가 열리면 안 된다
-    const page=(location.pathname.split('/').pop()||'catalog.html');
-    const u=page+'?find='+encodeURIComponent(nm)+(ver?('&v='+encodeURIComponent(ver)):'');
-    const w=window.open(u,'_blank','noopener');
-    if(!w)location.href=u;      // 팝업이 막힌 브라우저에선 어쩔 수 없이 같은 창으로
-    return;}
+  /* 📰 소식글 글 안의 상품 — 그냥 `target="_blank"` 링크다(주소는 newsProdUrl 이 만든다).
+     🔴 2026-09-07 사고: 처음엔 `window.open(u,'_blank','noopener')` 로 열고 반환값이 null 이면
+        팝업이 막힌 줄 알고 `location.href=u` 로 폴백했다. 그런데 **noopener 를 주면 성공해도
+        null 을 돌려준다** → 새 창이 열리면서 보던 창까지 같이 이동했다
+        (홍팀장: "아니 두 창이 다 바뀌잖아").
+     → 링크로 두면 브라우저가 알아서 새 탭에 연다. 여기선 아래 `.mvn`(같은 창 검색) 분기로
+       안 내려가게만 막는다 — 소식글 버튼도 같은 class 라 그냥 두면 두 동작이 겹친다. */
+  if(e.target.closest('[data-mvnew]'))return;
   // 💹 인상·인하 목록에서 상품명을 누르면 그 상품을 바로 검색해 카드를 보여준다 (사장님 2026-08-25)
   const mv=e.target.closest('.mvn');
   if(mv){const nm=mv.getAttribute('data-mv')||'';
@@ -2501,6 +2498,14 @@ function newsMarkRead(k){
   }
   renderNewsBadge();
 }
+/* 글 안의 상품이 열릴 주소.
+   🔴 지금 보고 있는 **파일 이름 그대로** 만든다 — `catalog.html` 로 박으면 테스트본에서 누른 사람이
+      실사이트로 넘어간다. 버전(`&v=`)은 캐시가 옛 화면을 물고 있지 않게 붙인다. */
+function newsProdUrl(nm){
+  const ver=(document.title.match(/v\d+\.\d+/)||[''])[0];
+  const page=(location.pathname.split('/').pop()||'catalog.html');
+  return page+'?find='+encodeURIComponent(nm)+(ver?('&v='+encodeURIComponent(ver)):'');
+}
 function newsItem(n,open){
   const btns=(n.items||[]).filter(newsInCatalog);
   const isNew=newsIsNew(n);
@@ -2509,7 +2514,7 @@ function newsItem(n,open){
       +(n.at?'<span class="nd2">'+esc(n.at)+'</span>':'')+delBtn('news',n)+'<span class="ntarrow">▾</span></summary>'
     +'<div class="nb">'+esc(newsBody(n.body)||'(내용 없음)')+'</div>'
     +(btns.length?('<div class="newsp">👇 이 글에 나온 상품 — 누르시면 새 창에서 열립니다 (이 글은 그대로 있어요)'
-        +'<div class="newspl">'+btns.map(nm=>'<button class="mvn" data-mvnew="'+esc(nm)+'" title="새 창에서 이 상품 보기">'+esc(nm)+' ↗</button>').join('')+'</div></div>'):'')
+        +'<div class="newspl">'+btns.map(nm=>'<a class="mvn" data-mvnew="1" href="'+esc(newsProdUrl(nm))+'" target="_blank" rel="noopener" title="새 창에서 이 상품 보기">'+esc(nm)+' ↗</a>').join('')+'</div></div>'):'')
     +'</details>';
 }
 function renderNews(list){
