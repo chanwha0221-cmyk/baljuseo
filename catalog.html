@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.56</title>
+<title>마스터 유통 카탈로그 v23.57</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -821,7 +821,11 @@ function parsePrice(s){
   const parts=s.split(/>|＞|→/).map(x=>x.trim());
   const num=x=>{const m=(x.match(/[\d,]+/)||[''])[0].replace(/,/g,'');return m?parseInt(m,10):null;};
   if(parts.length>=2){
-    const o=num(parts[0]),c=num(parts[parts.length-1]);
+    const o0=num(parts[0]),c=num(parts[parts.length-1]);
+    /* 🔴 앞자리 0 은 «이전 가격이 0원이었다»가 아니라 «변동 없음»이다 (홍팀장 2026-09-07).
+       유통시트에 `0 > 18000` 로 적힌 상품이 407개인데, 그대로 읽으면 업체 화면에
+       0원 취소선이 붙고 방향도 «인상»으로 잡힌다. 안 오른 물건이 오른 것처럼 보인다. */
+    const o=(o0!=null&&o0>0)?o0:null;
     return{old:o,cur:c,dir:(c!=null&&o!=null)?(c>o?'up':(c<o?'down':'')):''};
   }
   return{old:null,cur:num(s),dir:''};
