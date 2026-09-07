@@ -1526,7 +1526,11 @@ function dupBanner(master){
   const hidB = sall.filter(it => dupHidden(sameKeyOf(it), master));
   const ss = DUPSHOWALL ? sall : sall.filter(it => !dupHidden(sameKeyOf(it), master));
 
-  const hidden = hidA.length + hidB.length;
+  /* 🔴 업체 화면에는 '확인 끝낸 N건 숨겨져 있습니다 · 다시 보기' 줄을 남기지 않는다
+     (홍팀장 2026-09-07: "저게 계속 남으면 화면을 밀 것 같은데, 확인하면 아예 없애줘").
+     업체는 확인하면 그 순간 화면에서 통째로 빠진다. 잘못 눌러도 **마스터 화면에는 그대로 남아 있어**
+     (`✅ 업체 확인` 배지) 우리가 되돌릴 수 있다 — 되돌릴 길이 사라지는 게 아니다. */
+  const hidden = master ? (hidA.length + hidB.length) : 0;
   if(!gs.length && !ss.length && !hidden) return '';
   const showAgain = '<a href="#" id="dupshowall" style="color:var(--accent)">다시 보기</a>';
   if(!gs.length && !ss.length) return '<div class="hint" style="margin:6px 2px">'
