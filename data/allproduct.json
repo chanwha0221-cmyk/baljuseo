@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-07 12:13",
+ "updatedAt": "2026-09-07 12:20",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -73,28 +73,6 @@
   },
   {
    "warehouse": "당일생물",
-   "sourceWarehouse": "인지",
-   "category": "수산",
-   "name": "참치 오마카세 한판",
-   "spec": [
-    "※​구성 : 참다랑어 3-4번 도로, 눈다랑어 몸살, 황다랑어 복육, 황새치 몸살, 황새치 뱃살, 참다랑어 배꼽살, 간장 2팩, 와사비 2팩, 초장 2팩",
-    "※중량/사이즈 : 참다랑어 3-4번 도로 100g / 눈다랑어 몸살 100g / 황다랑어 복육 200g / 황새치 몸살 150g / 황새치 뱃살 50g / 참다랑어 배꼽살 1점",
-    "※생물여부 : 참치 냉동 / 그 외 냉장",
-    "※성분표시 : 참치 100%",
-    "※포장방식 : 진공포장"
-   ],
-   "supplyPrice": 44000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "로젠택배",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/676/283/012/90bc4f4de4acfc5724019f6004e8d264.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
    "sourceWarehouse": "진수",
    "category": "수산",
    "name": "활 흰다리새우 500g",
@@ -145,7 +123,13 @@
    "sourceWarehouse": "군산",
    "category": "",
    "name": "군산 쫄 갑오징어 1kg",
-   "spec": [],
+   "spec": [
+    "※ 구성 : 갑오징어 1kg",
+    "※ 중량/ 사이즈 : 1kg 내외 / (19-28미 내외)",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 갑오징어 100%",
+    "※ 포장방식 : 비닐실링"
+   ],
    "supplyPrice": 5000,
    "previousPrice": 0,
    "tax": "면세",
@@ -153,7 +137,7 @@
    "shipFee": 4000,
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
-   "image": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/003/401/025/c75392755ead811fd7e79e4cb78dac03.jpg",
    "note": "-상품명 변경 : 군산 한입 갑오징어 1kg -> 군산 쫄 갑오징어 1kg"
   },
   {
