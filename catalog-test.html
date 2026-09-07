@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.61</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.62</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -199,6 +199,9 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .soldmsg{font-size:11.5px;line-height:1.7;color:var(--ink);margin:5px 0 9px}
 .soldlist{display:flex;flex-wrap:wrap;gap:6px}
 .soldit{font-size:12.5px;font-weight:700;color:var(--up);background:color-mix(in srgb,var(--up) 12%,transparent);border:1px solid color-mix(in srgb,var(--up) 28%,transparent);border-radius:16px;padding:4px 12px}
+/* 품절 상품도 창고명을 같이 보여준다 (홍팀장 2026-09-07 "그게 필요한 사람이 있다") —
+   어느 창고 물건이 빠졌는지가 합포장·대체상품 판단에 걸린다 */
+.soldit .w{font-weight:800;font-size:11px;opacity:.72;margin-right:3px}
 .mbtn .tapb{display:block;font-size:9.5px;font-weight:700;color:var(--accent);margin-top:2px;letter-spacing:0}
 .mbtn.on .tapb{color:#fff;opacity:.85}
 /* 🔴 안 읽은 공지 배지 (사장님 2026-08-19) — 업체가 새 공지를 놓치지 않게 */
@@ -2286,13 +2289,14 @@ function renderChange(d){
     const list=by[k];
     const sold=list.filter(it=>/품절/.test(it.kind));
     const rest=list.filter(it=>!/품절/.test(it.kind));
+    /* 창고명까지 같이 — 같은 이름이라도 창고가 다르면 다른 줄로 남긴다 (홍팀장 2026-09-07) */
     const soldNames=[];const seen={};
-    sold.forEach(it=>{const q=pkey(it.name);if(!seen[q]){seen[q]=1;soldNames.push(it.name);}});
+    sold.forEach(it=>{const q=pkey(it.name)+'|'+(it.wh||'');if(!seen[q]){seen[q]=1;soldNames.push({name:it.name,wh:it.wh||''});}});
     return '<div class="daygrp"><div class="dayhd">'+esc(k)+' · '+list.length+'건</div>'
       +(rest.length?'<div class="grid">'+rest.map(chgCard).join('')+'</div>':'')
       +(soldNames.length?'<div class="soldwrap"><div class="soldhd">🚫 품절 '+soldNames.length+'건</div>'
         +'<div class="soldmsg">해당 상품 품절입니다. 판매에 참고해 주시기 바랍니다.<br>재 입고 일정이 궁금하시면 문의 부탁드려요~</div>'
-        +'<div class="soldlist">'+soldNames.map(n=>'<span class="soldit">'+esc(n)+'</span>').join('')+'</div></div>':'')
+        +'<div class="soldlist">'+soldNames.map(n=>'<span class="soldit">'+(n.wh?'<span class="w">📦 '+esc(n.wh)+'</span>· ':'')+esc(n.name)+'</span>').join('')+'</div></div>':'')
       +'</div>';
   }).join('');
   return h;
