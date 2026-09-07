@@ -1355,6 +1355,9 @@ async function ordersView(){
   OPAGE = 1;
   // 🆕 아직 내가 [👀 확인함]을 안 누른 발주 — 카드에 NEW 를 달아준다
   if(master){ takeAcks(j); NEWNOS = newSet(LIST); }
+  /* 🔁 업체도 자기 건의 중복 확인 기록을 받는다 (홍팀장 2026-09-07).
+     예전엔 마스터만 받아서, 업체는 확인을 눌러도 배너가 그대로였고 서버는 권한 오류를 냈다. */
+  else takeDupOk(j.dupok);
   let h = subHead(master ? '📋 전체 발주 내역' : '📋 내 발주 내역',
                   master ? '마스터 계정 — 모든 업체의 발주가 보입니다' : '내가 넣은 발주만 보입니다');
   h += '<div class="ordwrap">';
@@ -1458,13 +1461,21 @@ let DUPOK = new Set();
       실제 키는 `pkey|전화` 또는 `same|발주번호|상품` 이라 `!` 로 시작할 일이 없다.
       지운 기록도 서버에는 그대로 남는다(화면에 되살리기만 없다) — 잘못 지워도 복구할 수 있다. */
 let DUPDEL = new Set();
+/* ✅ 업체가 "두 건 맞다"고 확인한 것 — 서버에 `~키` 로 남는다 (홍팀장 2026-09-07).
+   🔴 마스터의 [확인함](`키`)과 **일부러 갈라 놓았다.** 업체가 눌렀다고 마스터 배너까지 사라지면
+      우리가 두 건을 그냥 지나친다. 업체 화면에서만 접히고, 마스터에겐 "업체 확인" 표시로 뜬다. */
+let DUPVOK = new Set();
 function takeDupOk(list){
-  DUPOK = new Set(); DUPDEL = new Set();
+  DUPOK = new Set(); DUPDEL = new Set(); DUPVOK = new Set();
   (list || []).forEach(k => {
     const s = String(k || '');
-    if(s.charAt(0) === '!') DUPDEL.add(s.slice(1)); else if(s) DUPOK.add(s);
+    if(s.charAt(0) === '!') DUPDEL.add(s.slice(1));
+    else if(s.charAt(0) === '~') DUPVOK.add(s.slice(1));
+    else if(s) DUPOK.add(s);
   });
 }
+// 이 건이 지금 이 화면에서 접혀야 하나 — 업체는 자기가 확인한 것도 접힌다
+function dupHidden(k, master){ return DUPOK.has(k) || (!master && DUPVOK.has(k)); }
 let DUPSHOWALL = false;          // '숨긴 것 다시 보기'를 눌렀나
 function dupGroups(list){
   const m = new Map();
@@ -1485,15 +1496,22 @@ function dupGroups(list){
 }
 /* 배너 한 줄 — 왼쪽은 눌러서 찾기, 오른쪽은 [확인함]·[🗑 삭제]. 두 종류(발주번호 중복·한 줄 중복)가 같은 모양을 쓴다.
    [✓ 확인함] = 봤다(다시 보기로 꺼내 볼 수 있음) / [🗑 삭제] = 다 처리했다(화면에서 아주 빠짐). */
-function dupRow(inner, q, k){
-  const off = DUPOK.has(k);
+function dupRow(inner, q, k, master){
+  const off = master ? DUPOK.has(k) : (DUPOK.has(k) || DUPVOK.has(k));
+  // 마스터 화면에서만 보이는 표시 — 업체가 이미 "맞다"고 확인한 건
+  const vtag = (master && DUPVOK.has(k))
+    ? '<span style="white-space:nowrap;font-size:11.5px;font-weight:800;color:#1e8e5a;background:#e8f7ef;'
+      + 'border-radius:6px;padding:3px 8px">✅ 업체 확인</span>' : '';
   return '<div style="margin-top:8px;padding:8px 10px;border:1px solid #f0d4d4;border-radius:8px;'
     + 'background:#fff;display:flex;gap:8px;align-items:center">'
     + '<div class="dupit" data-dupq="' + esc(q) + '" style="flex:1;min-width:0;cursor:pointer">' + inner + '</div>'
+    + vtag
     + '<button class="ordb2" data-dupok="' + esc(k) + '" data-dupon="' + (off ? '0' : '1') + '"'
-    + ' style="white-space:nowrap">' + (off ? '되돌리기' : '✓ 확인함') + '</button>'
-    + '<button class="ordb2 warn" data-dupdel="' + esc(k) + '" title="다 처리한 건 — 목록에서 아주 지웁니다"'
-    + ' style="white-space:nowrap">🗑 삭제</button></div>';
+    + ' style="white-space:nowrap">' + (off ? '되돌리기' : (master ? '✓ 확인함' : '✓ 두 건 맞습니다')) + '</button>'
+    // 🗑 아주 지우는 건 마스터만 — 업체가 지우면 우리가 확인할 기회가 사라진다
+    + (master ? ('<button class="ordb2 warn" data-dupdel="' + esc(k) + '" title="다 처리한 건 — 목록에서 아주 지웁니다"'
+        + ' style="white-space:nowrap">🗑 삭제</button>') : '')
+    + '</div>';
 }
 function dupBanner(master){
   const cname = r => (master && S(r.cname)) ? ' <span style="color:var(--muted)">(' + esc(S(r.cname)) + ')</span>' : '';
@@ -1501,12 +1519,12 @@ function dupBanner(master){
   // ① 발주번호가 다른데 내용이 같은 것
   // 🗑 삭제한 건은 [다시 보기]에도 안 나온다 — 여기서 먼저 걷어낸다.
   const all = dupGroups(LIST).filter(rows => !DUPDEL.has(dupKeyOf(rows[0])));
-  const hidA = all.filter(rows => DUPOK.has(dupKeyOf(rows[0])));
-  const gs = DUPSHOWALL ? all : all.filter(rows => !DUPOK.has(dupKeyOf(rows[0])));
+  const hidA = all.filter(rows => dupHidden(dupKeyOf(rows[0]), master));
+  const gs = DUPSHOWALL ? all : all.filter(rows => !dupHidden(dupKeyOf(rows[0]), master));
   // ② 한 줄 안에 같은 상품이 두 번
   const sall = sameProdGroups(LIST).filter(it => !DUPDEL.has(sameKeyOf(it)));
-  const hidB = sall.filter(it => DUPOK.has(sameKeyOf(it)));
-  const ss = DUPSHOWALL ? sall : sall.filter(it => !DUPOK.has(sameKeyOf(it)));
+  const hidB = sall.filter(it => dupHidden(sameKeyOf(it), master));
+  const ss = DUPSHOWALL ? sall : sall.filter(it => !dupHidden(sameKeyOf(it), master));
 
   const hidden = hidA.length + hidB.length;
   if(!gs.length && !ss.length && !hidden) return '';
@@ -1522,29 +1540,40 @@ function dupBanner(master){
   if(gs.length){
     const show = gs.slice(0, 8);
     h += '<h3 style="color:#c0392b">🔁 같은 발주가 두 번 들어온 것으로 보입니다 — ' + gs.length + '건</h3>'
-      + '<div class="hint">발주번호가 다른데 <b>업체·상품·받는분·주소·연락처가 모두 같습니다.</b> '
-      + '눌러서 확인하시고, 잘못 들어온 쪽을 <b>취소</b>해 주세요. '
-      + '수량을 나눠 넣으신 것이면 <b>[확인함]</b>을 누르시면 목록에서 사라집니다. '
-      + '한쪽을 취소하는 등 <b>다 처리한 건은 [🗑 삭제]</b> — 아주 빠져서 다시 안 뜹니다.</div>'
+      /* 🔴 업체용 문구를 따로 쓴다 (홍팀장 2026-09-07).
+         업체는 "확인을 눌러야 발주가 들어가나?" 로 읽는다 — **두 건 다 이미 접수돼 있다.**
+         이 배너는 경고일 뿐 발주를 막지 않는다. 그 사실을 먼저 말해 준다. */
+      + (master
+        ? ('<div class="hint">발주번호가 다른데 <b>업체·상품·받는분·주소·연락처가 모두 같습니다.</b> '
+          + '눌러서 확인하시고, 잘못 들어온 쪽을 <b>취소</b>해 주세요. '
+          + '수량을 나눠 넣으신 것이면 <b>[확인함]</b>을 누르시면 목록에서 사라집니다. '
+          + '한쪽을 취소하는 등 <b>다 처리한 건은 [🗑 삭제]</b> — 아주 빠져서 다시 안 뜹니다.</div>')
+        : ('<div class="hint"><b>두 건 다 이미 접수됐습니다 — 이 표시는 확인용 안내입니다.</b> '
+          + '같은 분께 두 번 보내는 것이 맞으면 <b>[✓ 두 건 맞습니다]</b>를 눌러 주세요. 그대로 출고됩니다. '
+          + '잘못 들어간 것이면 그 발주를 <b>취소</b>해 주세요.</div>'))
       + show.map(rows => {
           const r = rows[0], nos = Array.from(new Set(rows.map(x => S(x.no))));
           return dupRow('<b>' + esc(S(r.prod)) + '</b> · ' + esc(S(r.rcv)) + cname(r)
             + '<div style="font-size:12px;color:var(--muted);margin-top:3px">'
-            + nos.map(n => esc(n)).join(' · ') + ' — 눌러서 찾기</div>', S(r.rcv), dupKeyOf(r));
+            + nos.map(n => esc(n)).join(' · ') + ' — 눌러서 찾기</div>', S(r.rcv), dupKeyOf(r), master);
         }).join('')
       + (gs.length > show.length ? '<div class="hint" style="margin-top:8px">외 ' + (gs.length - show.length) + '건 더 있습니다.</div>' : '');
   }
   if(ss.length){
     const show = ss.slice(0, 8);
     h += '<h3 style="color:#c0392b' + (gs.length ? ';margin-top:14px' : '') + '">🔢 한 발주 안에 같은 상품이 두 번 — ' + ss.length + '건</h3>'
-      + '<div class="hint">업체에 <b>수량이 맞는지 물어보세요.</b> '
-      + '맞으면 <b>[확인함]</b>, 잘못 담긴 것이면 업체가 <b>발주 내역에서 그 부분을 지우면</b> 됩니다. '
-      + '다 처리한 건은 <b>[🗑 삭제]</b>로 아주 빼세요.</div>'
+      + (master
+        ? ('<div class="hint">업체에 <b>수량이 맞는지 물어보세요.</b> '
+          + '맞으면 <b>[확인함]</b>, 잘못 담긴 것이면 업체가 <b>발주 내역에서 그 부분을 지우면</b> 됩니다. '
+          + '다 처리한 건은 <b>[🗑 삭제]</b>로 아주 빼세요.</div>')
+        : ('<div class="hint"><b>적어 주신 수량 그대로 접수돼 있습니다 — 이 표시는 확인용 안내입니다.</b> '
+          + '합친 수량이 맞으면 <b>[✓ 두 건 맞습니다]</b>를 눌러 주세요. '
+          + '잘못 담긴 것이면 발주 내역에서 그 줄을 고치거나 취소해 주세요.</div>'))
       + show.map(it => {
           const r = it.r, g = it.g;
           return dupRow('<b>' + esc(g.name) + '</b> — ' + g.n + '번 = <b>' + g.qty + '개</b> · ' + esc(S(r.rcv)) + cname(r)
             + '<div style="font-size:12px;color:var(--muted);margin-top:3px">'
-            + esc(S(r.no)) + ' · ' + esc(S(r.prod)) + ' — 눌러서 찾기</div>', S(r.rcv), sameKeyOf(it));
+            + esc(S(r.no)) + ' · ' + esc(S(r.prod)) + ' — 눌러서 찾기</div>', S(r.rcv), sameKeyOf(it), master);
         }).join('')
       + (ss.length > show.length ? '<div class="hint" style="margin-top:8px">외 ' + (ss.length - show.length) + '건 더 있습니다.</div>' : '');
   }
