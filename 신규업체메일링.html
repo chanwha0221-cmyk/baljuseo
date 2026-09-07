@@ -169,6 +169,15 @@
   <div class="card" id="pros-card" style="display:none">
     <h2>🎯 발굴 대상 <span class="badge green" id="pros-left">0</span>
       <span class="muted" style="font-weight:400">— 상호로 검색해 보고, 메일 보낸 곳은 [보냄]을 누르면 아래로 내려갑니다</span></h2>
+    <!-- 📂 명단 파일 넣기 — 공정위에서 지역별로 받아온 자료를 그대로 올린다 (홍팀장 2026-09-07)
+         🔴 넣자마자 저장하지 않는다. 몇 건이 새로 붙는지 먼저 보여주고 [합치기]를 눌러야 저장된다.
+            이미 ✕한 곳·이미 보낸 곳·이미 명단에 있는 곳은 여기서 미리 걸러서 숫자로 알린다. -->
+    <div class="ct-bulk" style="margin:0 0 12px">
+      <button class="btn brand" id="pros-pick">📂 명단 파일 넣기</button>
+      <input type="file" id="pros-file" accept=".csv,.tsv,.txt,.xlsx,.xls" style="display:none">
+      <span class="muted" style="align-self:center;font-size:12px">공정위 통신판매사업자 파일 그대로 · 지역별로 나눠 넣어도 됩니다</span>
+    </div>
+    <div id="pros-import" style="margin-bottom:12px"></div>
     <div id="pros-list"></div>
     <!-- 📄 게시판식 쪽 넘기기 — 한 쪽 50곳 = 하루 발송량. 1쪽이 곧 오늘 몫이다 -->
     <div id="pros-pager" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:12px"></div>
@@ -494,7 +503,8 @@ async function loadAll(){
       }catch(e){ console.warn('원비 탭 흡수 실패',e); }
     }
     render();
-    renderPros();   // 🎯 발굴 대상 175곳 — 설정(진행상태)을 읽은 뒤라야 보낸 곳이 갈린다
+    await prosLoadAdded();   // 📂 올려둔 명단(시트 '발굴명단')을 먼저 읽어야 합쳐서 보인다
+    renderPros();            // 🎯 발굴 대상 — 설정(진행상태)을 읽은 뒤라야 보낸 곳이 갈린다
     setStatus('동기화됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){ setStatus('오류: '+e.message); console.error(e); toast('동기화 실패 — 콘솔 확인'); }
 }
@@ -513,6 +523,13 @@ const PROS_HIDE='pros_hide';
 const PROS_PER=50;      // 한 쪽에 50곳 = 하루 발송량
 let PROS_PAGE=1;
 const pkeyN=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+/* 명단은 두 곳에서 온다:
+   ① 배포된 파일 `신규발굴_데이터.js`(서울 2,742곳 — 취급 칸이 '농수산'인 것만)
+   ② 홍팀장이 올린 파일 → 시트 '발굴명단' 탭 (지역별로 계속 누적)
+   둘을 합치고 이메일로 중복을 없앤다. ①이 먼저라 같은 곳이 겹치면 원본 쪽이 남는다. */
+let PROSADD=[];       // 시트 '발굴명단'에서 읽어온 것
+const PROS_TAB='발굴명단';
+const PROS_HEAD=['상호','대표자','지역','이메일','사이트','업태종목','취급','출처','등록일시'];
 function prosList(){
   const P=(typeof window.PROSPECTS!=='undefined')?window.PROSPECTS:[];
   const seen=new Set(), out=[];
@@ -524,7 +541,175 @@ function prosList(){
     if(seen.has(k))return; seen.add(k);
     out.push({name:r[0]||'', ceo:r[1]||'', area:r[2]||'', mail, site:r[4]||'', cat:r[5]||''});
   });
+  PROSADD.forEach(r=>{
+    const mail=String(r[3]||'').trim();
+    if(!/@/.test(mail))return;
+    const k=mail.toLowerCase();
+    if(seen.has(k))return; seen.add(k);
+    out.push({name:r[0]||'', ceo:r[1]||'', area:r[2]||'', mail, site:r[4]||'', cat:r[5]||''});
+  });
   return out;
+}
+
+/* ══ 📂 명단 파일 넣기 ═══════════════════════════════════════════════════
+   🔴 칸 순서를 믿지 않고 **머리글 글자로 찾는다.** 기관마다 칸이 다르고, 한 칸만 끼어들어도
+      순서로 읽으면 통째로 밀린다(쿠팡·식봄 파일에서 이미 겪었다).
+   🔴 이메일이 없는 줄은 버린다 — 메일을 보내려고 모으는 명단이라 없으면 쓸모가 없다.
+   🔴 폐업·휴업으로 적힌 줄도 버린다. 영업 안 하는 곳에 보내는 건 낭비다. */
+const PH={
+  name:['상호','상호명','업체명','사업자명','회사명'],
+  ceo :['대표자','대표자명','대표','성명','대표이사'],
+  area:['사업장소재지','소재지','주소','사업장주소','시군구','지역'],
+  mail:['전자우편','이메일','메일','e-mail','email','전자우편주소'],
+  site:['인터넷도메인','도메인','홈페이지','사이트','url','웹사이트'],
+  biz :['업태','업종'],
+  item:['종목','취급품목','품목'],
+  stat:['영업상태','운영상태','상태','영업상태명']
+};
+/* 🐟 우리가 팔 물건을 다루는 곳인가 — 원자료엔 '농수산' 같은 분류가 없을 수 있어 여기서 매긴다.
+   상호·업태·종목을 통째로 보고 판정한다. 애매하면 '불명'으로 두고 목록에는 안 올린다
+   (넘겨짚어 넣으면 엉뚱한 곳에 메일이 나간다). */
+const FOODWORD=/수산|농산|축산|식품|먹거리|푸드|food|정육|육류|해산|건어|젓갈|반찬|김치|과일|청과|쌀|곡물|축협|수협|마켓|식자재|delicatessen|델리/i;
+const NOTFOOD=/화장품|뷰티|의류|패션|가구|전자|자동차|도서|완구|게임|여행|보험|부동산|건기식|건강기능/i;
+function prosCat(name,biz,item){
+  const t=[name,biz,item].join(' ');
+  if(NOTFOOD.test(t)&&!FOODWORD.test(t))return '불명';
+  return FOODWORD.test(t)?'농수산':'불명';
+}
+function prosParse(rows){
+  if(!rows||rows.length<2)return {err:'내용이 없습니다.'};
+  const cut=r=>(r||[]).map(x=>String(x==null?'':x).trim());
+  let hi=-1,head=null;
+  for(let i=0;i<Math.min(10,rows.length);i++){
+    const c=cut(rows[i]), low=c.map(x=>x.toLowerCase());
+    const has=keys=>low.some(x=>keys.some(k=>x===k.toLowerCase()||x.indexOf(k.toLowerCase())>=0));
+    if(has(PH.name)&&has(PH.mail)){ hi=i; head=low; break; }
+  }
+  if(hi<0)return {err:'머리글에서 「상호」와 「전자우편(이메일)」 칸을 못 찾았습니다. 원본 파일이 맞는지 봐주세요.'};
+  const pick=keys=>{
+    for(const k of keys){ const i=head.indexOf(k.toLowerCase()); if(i>=0)return i; }
+    for(const k of keys){ const i=head.findIndex(x=>x.indexOf(k.toLowerCase())>=0); if(i>=0)return i; }
+    return -1;
+  };
+  const at={}; Object.keys(PH).forEach(f=>{ at[f]=pick(PH[f]); });
+  const out=[], stat={총:0,메일없음:0,폐업:0,분류밖:0};
+  for(let i=hi+1;i<rows.length;i++){
+    const c=cut(rows[i]);
+    const g=f=>(at[f]>=0?(c[at[f]]||''):'');
+    const nm=g('name'); if(!nm)continue;
+    stat.총++;
+    const st=g('stat');
+    if(st&&/폐업|휴업|직권말소|말소/.test(st)){ stat.폐업++; continue; }
+    const mail=g('mail');
+    if(!/@/.test(mail)){ stat.메일없음++; continue; }
+    const biz=g('biz'), item=g('item');
+    const cat=prosCat(nm,biz,item);
+    if(cat!=='농수산'){ stat.분류밖++; continue; }
+    // 지역은 소재지 앞부분만 (서울특별시 강남구 …→ 강남구)
+    const ad=g('area');
+    const m=ad.match(/([가-힣]+[시군구])\s/)||ad.match(/([가-힣]+[시군구])$/);
+    out.push([nm,g('ceo'),m?m[1]:ad.split(/\s+/)[1]||'',mail,g('site'),[biz,item].filter(Boolean).join(' '),cat]);
+  }
+  return {rows:out, stat};
+}
+async function prosReadFile(file){
+  const nm=(file.name||'').toLowerCase();
+  if(/\.(xlsx|xls)$/.test(nm)){
+    if(!window.XLSX){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        s.onload=res; s.onerror=()=>rej(new Error('엑셀 읽는 도구를 못 불러왔습니다. CSV로 저장해서 올려주세요.'));
+        document.head.appendChild(s);
+      });
+    }
+    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''});
+  }
+  const txt=await new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>res(String(fr.result||'').replace(/^﻿/,''));
+    fr.onerror=()=>rej(new Error('파일을 읽지 못했습니다.'));
+    fr.readAsText(file,'utf-8');
+  });
+  const splitCsv=line=>{const o=[];let cur='',q=false;
+    for(let i=0;i<line.length;i++){const ch=line[i];
+      if(ch==='"'){ if(q&&line[i+1]==='"'){cur+='"';i++;} else q=!q; }
+      else if((ch===','||ch==='\t')&&!q){o.push(cur);cur='';}
+      else cur+=ch;}
+    o.push(cur); return o;};
+  return txt.split(/\r?\n/).filter(l=>l.trim()).map(splitCsv);
+}
+let PROSPEND=null;      // [합치기] 누르기 전까지 들고만 있는 것
+async function prosImport(file){
+  const box=$('pros-import');
+  box.innerHTML='<div class="muted" style="font-size:12.5px">📖 '+esc(file.name)+' 읽는 중…</div>';
+  try{
+    const raw=await prosReadFile(file);
+    const r=prosParse(raw);
+    if(r.err){ box.innerHTML='<div class="card" style="margin:0;border-color:var(--red);color:var(--red);font-size:13px">⚠️ '+esc(r.err)+'</div>'; return; }
+    // 이미 있는 곳 걸러내기 — 명단 / ✕ / 보낸 곳
+    const have=new Set(prosList().map(p=>p.mail.toLowerCase()));
+    const hide=prosSet(PROS_HIDE);
+    const sent=new Set(DATA.map(x=>pkeyN(x[2])).filter(Boolean));
+    let dupList=0,dupHide=0,dupSent=0;
+    const fresh=r.rows.filter(row=>{
+      const k=String(row[3]).toLowerCase();
+      if(have.has(k)){dupList++;return false;}
+      if(hide.has(pkeyN(row[0]))){dupHide++;return false;}
+      if(sent.has(pkeyN(row[3]))){dupSent++;return false;}
+      return true;
+    });
+    PROSPEND={file:file.name, rows:fresh};
+    box.innerHTML='<div class="card" style="margin:0;font-size:13px;line-height:1.9">'
+      +'<b>📂 '+esc(file.name)+'</b><br>'
+      +'읽은 줄 <b>'+r.stat.총+'</b>건 중 — '
+      +'폐업·휴업 '+r.stat.폐업+' · 이메일 없음 '+r.stat.메일없음+' · 우리 품목 아님 '+r.stat.분류밖+' 제외<br>'
+      +'이미 명단에 있음 '+dupList+' · ✕ 뺀 곳 '+dupHide+' · 이미 보낸 곳 '+dupSent+' 제외<br>'
+      +'<b style="color:var(--green);font-size:15px">➕ 새로 추가될 곳 '+fresh.length+'곳</b>'
+      +'<div style="margin-top:10px;display:flex;gap:7px">'
+      +(fresh.length?'<button class="btn brand" data-pros="merge">✅ '+fresh.length+'곳 합치기</button>':'')
+      +'<button class="btn ghost" data-pros="cancel">취소</button></div></div>';
+  }catch(e){
+    box.innerHTML='<div class="card" style="margin:0;border-color:var(--red);color:var(--red);font-size:13px">⚠️ '+esc(e.message||e)+'</div>';
+  }
+}
+/* 합치기 — 시트 '발굴명단' 탭에 **append만** 한다. 기존 줄은 건드리지 않는다
+   (clear 후 통째 쓰기는 한 번 실패하면 명단이 통째로 날아간다). */
+async function prosMerge(){
+  if(!PROSPEND||!PROSPEND.rows.length)return;
+  const box=$('pros-import');
+  box.innerHTML='<div class="muted" style="font-size:12.5px">💾 저장 중… '+PROSPEND.rows.length+'곳</div>';
+  const now=new Date().toLocaleString('ko-KR');
+  const vals=PROSPEND.rows.map(r=>r.concat([PROSPEND.file,now]));
+  const t=await getToken();
+  const tabs=await listTabs();
+  if(!tabs.includes(PROS_TAB)) await addTab(PROS_TAB,PROS_HEAD);
+  const res=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'/values/'
+    +encodeURIComponent(PROS_TAB)+'!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
+    {method:'POST',headers:{Authorization:'Bearer '+t,'Content-Type':'application/json'},
+     body:JSON.stringify({values:vals})});
+  if(!res.ok){ box.innerHTML='<div class="card" style="margin:0;border-color:var(--red);color:var(--red)">⚠️ 저장 실패 ('+res.status+') — 다시 시도해 주세요</div>'; return; }
+  const n=PROSPEND.rows.length; PROSPEND=null;
+  await prosLoadAdded();
+  PROS_PAGE=1; renderPros();
+  box.innerHTML='<div class="card" style="margin:0;font-size:13px;color:var(--green)"><b>✅ '+n+'곳 추가했습니다</b> — 목록 맨 뒤에 붙었습니다</div>';
+  toast(n+'곳 추가됨');
+}
+// 📂 파일 고르기 — 같은 파일을 다시 고를 수 있게 value 를 비운다
+(function(){
+  const b=document.getElementById('pros-pick'), f=document.getElementById('pros-file');
+  if(!b||!f)return;
+  b.onclick=()=>{ f.value=''; f.click(); };
+  f.onchange=e=>{ const x=e.target.files[0]; if(x)prosImport(x); };
+})();
+async function prosLoadAdded(){
+  try{
+    const tabs=await listTabs();
+    if(!tabs.includes(PROS_TAB)){ PROSADD=[]; return; }
+    const rows=await sheetGet(PROS_TAB,'A2:I100000');
+    PROSADD=(rows||[]).filter(r=>r&&r[0]&&/@/.test(String(r[3]||'')));
+  }catch(e){ console.warn('발굴명단 읽기 실패',e); PROSADD=[]; }
 }
 const prosSet=k=>new Set(String(SET[k]||'').split('|').map(pkeyN).filter(Boolean));
 // ✕ 안 보낼 곳 표시 — 이건 메일 기록이 아니라 판단이라 설정에 남긴다
@@ -633,6 +818,8 @@ document.addEventListener('click',async e=>{
   const b=e.target.closest&&e.target.closest('[data-pros]');
   if(!b)return;
   const act=b.getAttribute('data-pros');
+  if(act==='merge'){ b.disabled=true; await prosMerge(); return; }
+  if(act==='cancel'){ PROSPEND=null; $('pros-import').innerHTML=''; return; }
   if(act==='page'){            // 쪽 넘기기는 저장할 게 없다 — 다시 그리기만
     PROS_PAGE=parseInt(b.getAttribute('data-p'),10)||1;
     renderPros();
