@@ -433,7 +433,7 @@ async function quickSave(){
   const q=($('q-mail').value||'').trim();
   if(!q){ toast('메일주소를 입력하세요'); return; }
   const date=$('q-date').value||todayKST();
-  const r=await touchSent(q,'',date,'');
+  const r=touchSent(q,'',date,'');
   $('q-mail').value=''; quickCheck();
   toast(r.updated
     ? ('갱신됨 — 마지막연락 '+(r.days==null?r.prev:r.days+'일 전')+' → '+date)
@@ -739,7 +739,7 @@ function prosHide(name,on){
   },1500);
 }
 // 저장이 아직 안 끝났는데 창을 닫으려 하면 붙잡는다
-window.addEventListener('beforeunload',e=>{ if(hideTimer){ e.preventDefault(); e.returnValue=''; } });
+window.addEventListener('beforeunload',e=>{ if(hideTimer||saveTimer){ e.preventDefault(); e.returnValue=''; } });
 /* ✉ 보냄 — 메일링 관리 목록에 기록한다.
    이래야 ①위 [이 주소로 보낸 적 있나?]에 걸리고 ②2주 뒤 추가연락 대상에 뜨고 ③회신 추적이 된다.
 
@@ -748,7 +748,7 @@ window.addEventListener('beforeunload',e=>{ if(hideTimer){ e.preventDefault(); e
       추가연락 대상 계산도 회신 추적도 다 어그러진다.
       · 보낸날짜(최초)는 그대로 둔다 — 언제부터 두드린 곳인지가 남아야 한다.
       · 상태(회신·보류 등)도 안 건드린다. 그건 사람이 판단해서 넣은 값이다. */
-async function touchSent(mail,name,date,keyword){
+function touchSent(mail,name,date,keyword){
   const day=date||todayKST();
   const hit=qFind(mail)[0];
   let res;
@@ -762,14 +762,33 @@ async function touchSent(mail,name,date,keyword){
     DATA.push([name||'','이메일',mail,day,day,'진행중','',keyword||'',PERSON]);
     res={updated:false, name:name||mail};
   }
-  setStatus('저장 중…');
-  await save();
-  render(); renderPros();
-  setStatus('저장됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
+  render(); renderPros();       // 화면은 지금 바로 — DATA 는 이미 고쳐졌다
+  saveSoon();                   // 시트 쓰기는 뒤에서 묶어서 (아래 주석 참고)
   return res;
 }
-async function prosSend(p){
-  const r=await touchSent(p.mail,p.name,null,'발굴A');
+/* 💾 묶어서 저장 — [✉ 보냄]을 누를 때마다 메일링 목록 시트를 통째로 지우고 다시 쓰느라
+   한 번에 몇 초씩 걸렸다(홍팀장 2026-09-07). 하루 50번 누르는 버튼이라 그게 곧 하루다.
+   🔴 DATA(메모리)는 이미 갱신돼 있으니 화면·중복검사는 즉시 맞다. 시트만 늦게 따라간다.
+   🔴 연달아 눌러도 저장은 마지막 한 번 — 1.2초 쉬면 그때 올린다.
+   🔴 아직 못 올린 게 있으면 창을 못 닫게 붙잡는다(아래 beforeunload). */
+let saveTimer=null;
+function saveSoon(){
+  setStatus('기록함 — 잠시 후 저장');
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    saveTimer=null;
+    try{
+      setStatus('저장 중…');
+      await save();
+      setStatus('저장됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
+    }catch(e){
+      setStatus('⚠️ 저장 실패');
+      toast('저장하지 못했습니다 — 새로고침 후 다시 눌러주세요');
+    }
+  },1200);
+}
+function prosSend(p){
+  const r=touchSent(p.mail,p.name,null,'발굴A');
   toast(r.updated
     ? (p.name+' — 마지막연락 '+(r.days==null?r.prev:r.days+'일 전')+' → 오늘로 갱신했습니다')
     : (p.name+' — 메일링 목록에 기록했습니다'));
@@ -858,7 +877,7 @@ document.addEventListener('click',async e=>{
     if(act==='sent'){
       const p=prosList().find(x=>pkeyN(x.mail)===pkeyN(b.getAttribute('data-m')));
       if(!p){ b.disabled=false; return; }
-      if(await prosSend(p)) toast(p.name+' — 메일링 목록에 기록했습니다');
+      if(prosSend(p)) toast(p.name+' — 메일링 목록에 기록했습니다');
       else b.disabled=false;                 // 중복이라 취소한 경우 — 버튼 되살린다
     }
   }catch(err){ alert('저장하지 못했습니다\n\n'+(err.message||err)); b.disabled=false; }
