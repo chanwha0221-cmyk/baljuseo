@@ -1463,6 +1463,12 @@ function ordersPaint(){
    🔴 자동으로 지우지 않는다. 어느 것을 남길지는 홍팀장이 정한다(§3-3과 같은 뿌리 — 조용히 틀리는 게 제일 나쁘다). */
 /* 📅 발주가 들어온 날 (YYYY-MM-DD). `at` 은 'YYYY-MM-DD HH:mm' 이다. */
 const dayOf = r => S(r.at).slice(0, 10);
+/* 🔴 중복 경고는 **오늘 것만** 띄운다 (홍팀장 2026-09-07: "이미 지났죠????? 9월 1일 중복을
+   지금 노출해 봤자 뭔 상관이죠. 중복 발주는 당일만 보여준다").
+   지난 날 중복은 이미 출고까지 끝나 손쓸 수가 없다 — 화면에 남아 봐야 오늘 것을 가릴 뿐이다.
+   ⚠️ 기기 시계가 아니라 한국 시간으로 센다(밤 12시 넘어 로그인한 다른 시간대 기기 때문). */
+const todayKST = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul',
+  year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 /* 🔴 2026-09-07 — **날짜가 다르면 중복이 아니다** (홍팀장: "4일에 발주한 분이 7일에 또 발주한 건데
    니가 중복으로 거른 거야. 날짜 지난 건은 중복에서 빼줘, 그게 타당하지 않냐").
    맞다. 같은 고객이 며칠 뒤 같은 상품을 또 시키는 건 **재주문이지 중복이 아니다.**
@@ -1487,8 +1493,10 @@ function splitProds(prod){
 }
 function sameProdGroups(list){
   const out = [];
+  const td = todayKST();
   (list || []).forEach(r => {
     if(S(r.state) === '취소') return;
+    if(dayOf(r) !== td) return;                       // 오늘 것만 — 지난 건은 물어볼 시점이 지났다
     const parts = splitProds(r.prod);
     if(parts.length < 2) return;
     const m = new Map();
@@ -1533,8 +1541,10 @@ function dupHidden(k, master){ return DUPOK.has(k) || (!master && DUPVOK.has(k))
 let DUPSHOWALL = false;          // '숨긴 것 다시 보기'를 눌렀나
 function dupGroups(list){
   const m = new Map();
+  const td = todayKST();
   (list || []).forEach(r => {
     if(S(r.state) === '취소') return;                 // 이미 취소한 건 중복이 아니다
+    if(dayOf(r) !== td) return;                       // 오늘 것만 (지난 건은 이미 나갔다)
     if(!S(r.prod) || !S(r.rcv)) return;
     const k = dupKeyOf(r);
     if(!m.has(k)) m.set(k, []);
