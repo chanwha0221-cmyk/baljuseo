@@ -156,7 +156,8 @@
        진행상태(보냄/삭제)는 '메일설정' 탭에 적는다 — 브라우저에 두면 집·회사 PC가 따로 논다. -->
   <div class="card" id="pros-card" style="display:none">
     <h2>🎯 발굴 대상 <span class="badge green" id="pros-left">0</span>
-      <span class="muted" style="font-weight:400">— 상호로 검색해 보고, 메일 보낸 곳은 [보냄]을 누르면 아래로 내려갑니다</span></h2>
+      <span class="muted" style="font-weight:400">— 상호로 검색해 보고, 메일 보낸 곳은 [보냄]을 누르면 아래로 내려갑니다</span>
+      <div class="muted" id="pros-note" style="font-weight:400;font-size:12px;margin-top:5px"></div></h2>
     <!-- 📂 명단 파일 넣기 — 공정위에서 지역별로 받아온 자료를 그대로 올린다 (홍팀장 2026-09-07)
          🔴 넣자마자 저장하지 않는다. 몇 건이 새로 붙는지 먼저 보여주고 [합치기]를 눌러야 저장된다.
             이미 ✕한 곳·이미 보낸 곳·이미 명단에 있는 곳은 여기서 미리 걸러서 숫자로 알린다. -->
@@ -518,25 +519,70 @@ const pkeyN=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 let PROSADD=[];       // 시트 '발굴명단'에서 읽어온 것
 const PROS_TAB='발굴명단';
 const PROS_HEAD=['상호','대표자','지역','이메일','사이트','업태종목','취급','출처','등록일시'];
+
+/* ══ 🐟 축산은 뺀다 · 위탁할 것 같은 곳부터 (홍팀장 2026-09-07) ═══════════
+   홍팀장: **"업체 구하기에 축산이 너무 많다. 축산은 빼자. 수산 메인으로 가고,
+   누가 봐도 위탁할 것 같은 이것저것 하는 업체들 위주로 봐보자. 축산 이런 데는 쉽지 않아."**
+
+   왜 축산이 안 되나 — 정육·한우 전문점은 **자기 매입 라인이 이미 있다.** 도축·부분육 거래처를
+   따로 잡고 있어서 남의 물건을 위탁으로 받을 이유가 없다. 반대로 «이것저것 파는 곳»
+   (종합몰·식자재·잡화 섞인 온라인 셀러)은 품목을 계속 늘려야 하고 재고를 안 지려 하니
+   위탁이 곧 그쪽 사업 방식이다 — 우리 무기와 정확히 맞는다.
+
+   🔴 원본 명단 파일·시트는 안 건드린다. 화면에서 걸러 보여줄 뿐이라 규칙이 바뀌면 되살아난다. */
+const P_SEA  =/수산|해산|어패|건어|젓갈|횟감|생선|해물|해조|어물|미역|다시마|멸치|오징어|새우|게장|씨푸드|seafood/i;
+/* 🔴 «수협»은 넣지 않는다 — «프로축구선수협회»가 수산으로 잡혔다(2026-09-07 실측). */
+const P_MEAT =/정육|축산|한우|한돈|육류|우육|돈육|계육|닭고기|오리고기|삼겹|갈비|육가공|도축|축협|양념육|소시지/i;
+/* 약한 신호 — «미트»는 루미트레이드(무역)·패러미트처럼 엉뚱한 상호에도 붙는다.
+   그래서 이건 «종합몰 신호가 없을 때만» 축산으로 본다. */
+const P_MEAT2=/미트|meat/i;
+const P_MULTI=/종합|잡화|식자재|마켓|market|몰|전자상거래|통신판매|온라인|쇼핑|스토어|store|유통|도소매|무역/i;
+const P_FOOD =/식품|푸드|food|먹거리|반찬|김치|과일|청과|농산|건강/i;
+const P_OPENMK=/smartstore|shopping|coupang|11st|gmarket|auction|interpark|tmon|cafe24|imweb|\bshop/i;
+/* 축산 전문인가 — 상호에 축산 단어가 박혔는데 수산 흔적이 없으면 전문점으로 본다.
+   «○○수산축산»처럼 둘 다 하는 곳은 남긴다(그런 곳은 이미 여러 품목을 돌린다). */
+function prosIsMeat(p){
+  const t=(p.name||'')+' '+(p.cat||'');
+  if(P_SEA.test(t))return false;                  // 둘 다 하는 곳은 남긴다
+  if(P_MEAT.test(t))return true;                  // 정육·한우·축산 = 전문점
+  return P_MEAT2.test(t) && !P_MULTI.test(t);     // «미트»는 종합몰이면 봐준다
+}
+/* 위탁 점수 — 높을수록 «남의 물건 받아 팔 것 같은 곳». 목록을 이 순서로 세운다. */
+function prosScore(p){
+  const t=(p.name||'')+' '+(p.cat||'');
+  let s=0;
+  if(P_SEA.test(t))s+=5;                                   // 수산 = 우리 메인
+  if(P_MULTI.test(t))s+=3;                                 // 종합·식자재·유통 = 품목 늘리는 곳
+  if(/종합|잡화/.test(t))s+=1;
+  if(P_OPENMK.test(p.site||''))s+=2;                       // 오픈마켓·스마트스토어 셀러
+  if(P_FOOD.test(t))s+=1;
+  if((p.cat||'').split(/[\/\s,·]+/).filter(Boolean).length>=3)s+=2;  // 카테고리 3개+ = 이것저것
+  return s;
+}
+let PROS_MEATCUT=0;   // 이번 목록에서 축산으로 뺀 곳 수 (화면에 한 줄로 알린다)
 function prosList(){
   const P=(typeof window.PROSPECTS!=='undefined')?window.PROSPECTS:[];
   const seen=new Set(), out=[];
-  P.forEach(r=>{
-    if(r[8]!=='농수산')return;
+  let meat=0;
+  const add=r=>{
     const mail=String(r[3]||'').trim();
     if(!/@/.test(mail))return;
     const k=mail.toLowerCase();
     if(seen.has(k))return; seen.add(k);
-    out.push({name:r[0]||'', ceo:r[1]||'', area:r[2]||'', mail, site:r[4]||'', cat:r[5]||''});
-  });
-  PROSADD.forEach(r=>{
-    const mail=String(r[3]||'').trim();
-    if(!/@/.test(mail))return;
-    const k=mail.toLowerCase();
-    if(seen.has(k))return; seen.add(k);
-    out.push({name:r[0]||'', ceo:r[1]||'', area:r[2]||'', mail, site:r[4]||'', cat:r[5]||''});
-  });
-  return out;
+    const p={name:r[0]||'', ceo:r[1]||'', area:r[2]||'', mail, site:r[4]||'', cat:r[5]||''};
+    if(prosIsMeat(p)){ meat++; return; }
+    p.score=prosScore(p);
+    const t=p.name+' '+p.cat;
+    p.tag=P_SEA.test(t)?'🐟 수산':((P_MULTI.test(t)||P_OPENMK.test(p.site||''))?'🛒 종합·온라인':'');
+    out.push(p);
+  };
+  P.forEach(r=>{ if(r[8]==='농수산')add(r); });
+  PROSADD.forEach(add);
+  PROS_MEATCUT=meat;
+  /* 점수 높은 곳부터 — 같은 점수면 원래 순서를 지킨다(쪽이 매번 뒤바뀌면 어디까지 봤는지 잃는다) */
+  return out.map((p,i)=>({p,i}))
+            .sort((a,b)=>(b.p.score-a.p.score)||(a.i-b.i))
+            .map(x=>x.p);
 }
 
 /* ══ 📂 명단 파일 넣기 ═══════════════════════════════════════════════════
@@ -593,7 +639,7 @@ function prosParse(rows){
     return -1;
   };
   const at={}; Object.keys(PH).forEach(f=>{ at[f]=pick(PH[f]); });
-  const out=[], stat={총:0,메일없음:0,폐업:0,분류밖:0};
+  const out=[], stat={총:0,메일없음:0,폐업:0,분류밖:0,축산:0};
   for(let i=hi+1;i<rows.length;i++){
     const c=cut(rows[i]);
     const g=f=>(at[f]>=0?(c[at[f]]||''):'');
@@ -606,7 +652,10 @@ function prosParse(rows){
     const biz=g('biz'), item=g('item');
     const cat=prosCat(nm,biz,item);
     if(cat!=='농수산'){ stat.분류밖++; continue; }
-    out.push([nm,g('ceo'),prosArea(g('area')),mail,g('site'),[biz,item].filter(Boolean).join(' '),cat]);
+    const cats=[biz,item].filter(Boolean).join(' ');
+    // 🐟 축산 전문은 넣는 단계에서 뺀다 — 시트에 쌓아둬 봐야 화면에서 또 걸러야 한다
+    if(prosIsMeat({name:nm,cat:cats})){ stat.축산++; continue; }
+    out.push([nm,g('ceo'),prosArea(g('area')),mail,g('site'),cats,cat]);
   }
   return {rows:out, stat};
 }
@@ -662,7 +711,7 @@ async function prosImport(file){
     box.innerHTML='<div class="card" style="margin:0;font-size:13px;line-height:1.9">'
       +'<b>📂 '+esc(file.name)+'</b><br>'
       +'읽은 줄 <b>'+r.stat.총+'</b>건 중 — '
-      +'폐업·휴업 '+r.stat.폐업+' · 이메일 없음 '+r.stat.메일없음+' · 우리 품목 아님 '+r.stat.분류밖+' 제외<br>'
+      +'폐업·휴업 '+r.stat.폐업+' · 이메일 없음 '+r.stat.메일없음+' · 우리 품목 아님 '+r.stat.분류밖+' · 🥩 축산 전문 '+r.stat.축산+' 제외<br>'
       +'이미 명단에 있음 '+dupList+' · ✕ 뺀 곳 '+dupHide+' · 이미 보낸 곳 '+dupSent+' 제외<br>'
       +'<b style="color:var(--green);font-size:15px">➕ 새로 추가될 곳 '+fresh.length+'곳</b>'
       +'<div style="margin-top:10px;display:flex;gap:7px">'
@@ -799,6 +848,7 @@ function prosRow(p,done){
   const site=p.site?('<a href="'+esc(/^https?:/.test(p.site)?p.site:'http://'+p.site)+'" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none">'+esc(p.site.slice(0,44))+'</a>'):'<span class="muted">사이트 없음</span>';
   return '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line)">'
     + '<b style="min-width:150px;font-size:13px">'+esc(p.name)+'</b>'
+    + (p.tag?'<span class="pill" title="위탁 가능성 — 이 순서로 정렬됩니다">'+esc(p.tag)+'</span>':'')
     + '<span class="pill">'+esc(p.area)+'</span>'
     + '<span style="font-size:12px;color:var(--sub);min-width:150px">'+esc(p.mail)+'</span>'
     + '<span style="font-size:11.5px;flex:1;min-width:120px">'+site+'</span>'
@@ -838,6 +888,10 @@ function renderPros(){
   const done=all.filter(p=>p.sent);
   $('pros-left').textContent=left.length;
   $('pros-done-n').textContent=done.length;
+  /* 왜 이 순서인지 한 줄로 — 안 적어두면 «왜 얘가 위에 있지»가 된다 */
+  const note=$('pros-note');
+  if(note)note.innerHTML='🐟 수산·종합취급(위탁 가능성 높은 곳) 순으로 정렬'
+    +(PROS_MEATCUT?' · 🥩 축산 전문 <b>'+PROS_MEATCUT+'</b>곳은 목록에서 뺐습니다':'');
   /* 📄 한 쪽에 50곳 — 163곳을 한 번에 깔면 스크롤만 하다 끝난다.
      50은 하루 발송량과 같다(그 이상 보내면 도메인이 스팸으로 찍힌다) → 1쪽이 곧 오늘 몫. */
   const pages=Math.max(1,Math.ceil(left.length/PROS_PER));
