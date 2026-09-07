@@ -576,6 +576,19 @@ function prosCat(name,biz,item){
   if(NOTFOOD.test(t)&&!FOODWORD.test(t))return '불명';
   return FOODWORD.test(t)?'농수산':'불명';
 }
+/* 📍 소재지에서 «시·군·구»만 뽑는다.
+   🔴 앞에서부터 `[시군구]`로 끝나는 걸 찾으면 «서울특별시»가 먼저 걸린다(2026-09-07 실측).
+      광역 단위(특별시·광역시·도)를 건너뛰고 그다음 시·군·구를 잡아야 «강남구»가 나온다.
+      경기도 성남시 분당구처럼 둘 다 있으면 앞의 «성남시»면 충분하다. */
+function prosArea(ad){
+  const parts=String(ad||'').trim().split(/\s+/);
+  for(const p of parts){
+    if(/(특별시|광역시|특별자치시|특별자치도)$/.test(p))continue;
+    if(/^(경기|강원|충청|충북|충남|전라|전북|전남|경상|경북|경남|제주)/.test(p)&&/도$/.test(p))continue;
+    if(/[시군구]$/.test(p))return p;
+  }
+  return parts[1]||parts[0]||'';
+}
 function prosParse(rows){
   if(!rows||rows.length<2)return {err:'내용이 없습니다.'};
   const cut=r=>(r||[]).map(x=>String(x==null?'':x).trim());
@@ -605,10 +618,7 @@ function prosParse(rows){
     const biz=g('biz'), item=g('item');
     const cat=prosCat(nm,biz,item);
     if(cat!=='농수산'){ stat.분류밖++; continue; }
-    // 지역은 소재지 앞부분만 (서울특별시 강남구 …→ 강남구)
-    const ad=g('area');
-    const m=ad.match(/([가-힣]+[시군구])\s/)||ad.match(/([가-힣]+[시군구])$/);
-    out.push([nm,g('ceo'),m?m[1]:ad.split(/\s+/)[1]||'',mail,g('site'),[biz,item].filter(Boolean).join(' '),cat]);
+    out.push([nm,g('ceo'),prosArea(g('area')),mail,g('site'),[biz,item].filter(Boolean).join(' '),cat]);
   }
   return {rows:out, stat};
 }
