@@ -710,15 +710,36 @@ async function prosLoadAdded(){
   }catch(e){ console.warn('발굴명단 읽기 실패',e); PROSADD=[]; }
 }
 const prosSet=k=>new Set(String(SET[k]||'').split('|').map(pkeyN).filter(Boolean));
-// ✕ 안 보낼 곳 표시 — 이건 메일 기록이 아니라 판단이라 설정에 남긴다
-async function prosHide(name,on){
+/* ✕ 안 보낼 곳 표시 — 메일 기록이 아니라 판단이라 설정에 남긴다.
+   🔴 **화면부터 바꾸고 저장은 뒤에서 묶어서** 한다 (홍팀장 2026-09-07 "왜 자꾸 로딩 걸리냐").
+      setSetting 은 설정 탭을 통째로 지우고 다시 쓰는 구조라 프록시 왕복이 두 번이고,
+      구글 대기줄 사정에 따라 한 번에 7초~90초까지 걸린다. ✕ 하나마다 그걸 기다리면
+      50곳 정리하는 데 하루가 간다.
+   🔴 ✕ 는 되돌리기 쉬운 판단이라 즉시 반영해도 안전하다(발주·발송처럼 무거운 게 아니다).
+   🔴 연달아 눌러도 저장은 마지막 한 번만 — 1.5초 쉬면 그때 한꺼번에 올린다. */
+let hideTimer=null;
+function prosHide(name,on){
   const s=prosSet(PROS_HIDE);
   const k=pkeyN(name);
   if(on)s.add(k); else s.delete(k);
-  const names=prosList().filter(p=>s.has(pkeyN(p.name))).map(p=>p.name);
-  await setSetting(PROS_HIDE,names.join('|'));
-  renderPros();
+  SET[PROS_HIDE]=prosList().filter(p=>s.has(pkeyN(p.name))).map(p=>p.name).join('|');
+  renderPros();                       // 화면은 지금 바로
+  setStatus('✕ 표시함 — 잠시 후 저장');
+  clearTimeout(hideTimer);
+  hideTimer=setTimeout(async()=>{
+    hideTimer=null;
+    try{
+      setStatus('저장 중…');
+      await setSetting(PROS_HIDE,SET[PROS_HIDE]);
+      setStatus('저장됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
+    }catch(e){
+      setStatus('⚠️ 저장 실패');
+      toast('저장하지 못했습니다 — 새로고침 후 다시 눌러주세요');
+    }
+  },1500);
 }
+// 저장이 아직 안 끝났는데 창을 닫으려 하면 붙잡는다
+window.addEventListener('beforeunload',e=>{ if(hideTimer){ e.preventDefault(); e.returnValue=''; } });
 /* ✉ 보냄 — 메일링 관리 목록에 기록한다.
    이래야 ①위 [이 주소로 보낸 적 있나?]에 걸리고 ②2주 뒤 추가연락 대상에 뜨고 ③회신 추적이 된다.
 
@@ -824,6 +845,14 @@ document.addEventListener('click',async e=>{
     $('pros-card').scrollIntoView({block:'start',behavior:'smooth'});
     return;
   }
+  /* ✕ 는 버튼을 막지 않는다 — 저장을 안 기다리고 바로 목록에서 빠지므로
+     연달아 눌러도 걸리는 느낌이 없다. 그 줄은 어차피 다시 그려지면서 사라진다. */
+  if(act==='hide'){
+    const nm=b.getAttribute('data-n');
+    prosHide(nm,true);
+    toast(nm+' — 목록에서 뺐습니다');
+    return;
+  }
   b.disabled=true;
   try{
     if(act==='sent'){
@@ -831,10 +860,6 @@ document.addEventListener('click',async e=>{
       if(!p){ b.disabled=false; return; }
       if(await prosSend(p)) toast(p.name+' — 메일링 목록에 기록했습니다');
       else b.disabled=false;                 // 중복이라 취소한 경우 — 버튼 되살린다
-    }else if(act==='hide'){
-      const nm=b.getAttribute('data-n');
-      await prosHide(nm,true);
-      toast(nm+' — 목록에서 뺐습니다');
     }
   }catch(err){ alert('저장하지 못했습니다\n\n'+(err.message||err)); b.disabled=false; }
 });
