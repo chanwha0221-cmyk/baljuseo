@@ -866,16 +866,15 @@ function prosSend(p){
   return true;
 }
 /* 📧 메일주소로 몰 찾기 (2026-09-08 홍팀장) — 상호 검색은 법인명이라 안 걸리는 곳이 많다.
-   반면 메일주소는 스마트스토어·자사몰 하단 사업자정보에 그대로 박혀 있어서 훨씬 잘 잡힌다.
-   🔴 @ 앞 아이디도 같이 넣는다 — 스토어 주소(smartstore.naver.com/아이디)와 같은 경우가 흔하다.
-   🔴 info·admin 같은 흔한 아이디는 빼고 메일 전체로만 찾는다(엉뚱한 곳이 쏟아진다).
+   반면 메일주소는 오픈마켓 판매자정보·자사몰 하단에 그대로 박혀 있어서 걸리면 확실하다.
+   🔴 **메일 전체를 따옴표로 묶은 것만** 쓴다. @ 앞 아이디까지 OR로 붙여봤더니
+      jwk0173 → 대장균 논문, sm247885 → 체코 낚시용품몰이 나왔다(2026-09-08 실측).
+      아이디가 짧거나 숫자 조합이면 남의 상품코드·계정과 겹친다.
    ※ 전화번호는 못 쓴다 — 공정위 원본 파일이 죄다 `010-개인정보`로 가려져 있고,
       '신고기관 대표연락처'는 업체가 아니라 시청 번호다. */
-const MAILQ_GENERIC=/^(admin|info|master|shop|help|sales|contact|order|ceo|mail|service|support|cs|hello|biz|company|manager|marketing)$/i;
 function mailQuery(mail){
-  const m=String(mail||'').trim(); if(!m||m.indexOf('@')<1) return '';
-  const id=m.split('@')[0];
-  return '"'+m+'"'+((id.length>=4 && !MAILQ_GENERIC.test(id)) ? (' OR "'+id+'"') : '');
+  const m=String(mail||'').trim();
+  return (m && m.indexOf('@')>0) ? '"'+m+'"' : '';
 }
 function prosRow(p,done){
   const q=encodeURIComponent(p.name);
