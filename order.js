@@ -314,6 +314,9 @@ function candidates(raw){
     const k = pkey(p.name);
     let sc = 0;
     if(k.indexOf(t) >= 0 || t.indexOf(k) >= 0) sc += 6;
+    // 🔎 별칭으로 걸린 것도 후보에 올린다 — '꽃게'로 적어 와도 '연안 활 대숫게 1kg'이 뜬다
+    //    (사전은 search-syn.js. 글자 그대로 맞은 것보다는 한 칸 낮게 준다.)
+    else if(window.SEARCHSYN && SEARCHSYN.match(p.name, raw)) sc += 5;
     toks.forEach(tk => { if(k.indexOf(tk) >= 0) sc += 2; });
     // 앞 두 글자가 같으면 같은 계열일 확률이 높다(갈치/갈치살…)
     if(t.length >= 2 && k.slice(0, 2) === t.slice(0, 2)) sc += 1;
@@ -967,7 +970,8 @@ function findHits(kw){
   const out = [];
   (typeof ALL !== 'undefined' ? ALL : []).forEach(p => {
     if(!sellable(p)) return;
-    if(pkey(p.name).indexOf(k) < 0) return;
+    // 🔎 별칭 사전(search-syn.js)까지 쳐서 찾는다 — '꽃게'로 쳐도 숫게·대숫게가 나온다
+    if(window.SEARCHSYN ? !SEARCHSYN.match(p.name, kw) : pkey(p.name).indexOf(k) < 0) return;
     out.push(p);
   });
   // 짧은 이름이 먼저 — 친 글자에 가까운 쪽이다 ('오징어' → '오징어 1kg' 이 '통통 생물 오징어 1kg' 보다 앞)
