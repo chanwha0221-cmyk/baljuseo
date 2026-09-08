@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.64</title>
+<title>마스터 유통 카탈로그 v23.65</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1961,11 +1961,22 @@ function buildTint(){
 //   데이터는 이미 받아둔 CHG 그대로라 요청이 늘지 않는다. 기간은 변동사항 페이지와 같은
 //   '최근 3개 적용날짜'(CHG_DAYS) — 날짜 수가 아니라 실제로 변동이 있었던 날 3개다.
 //   같은 상품이 사흘 안에 여러 번 움직였으면 최신 것만 (CHG.items가 최신순).
+/* 🔄 지금 카탈로그에 걸려 있는 단가 (홍팀장 2026-09-08)
+   변동사항(CHG)은 "그날 이렇게 바꿨다"는 기록이라 시간이 지나면 금액이 낡는다.
+   화면에 숫자를 띄우는 자리는 이 지도를 먼저 보고, 없을 때만 기록의 금액을 쓴다.
+   매번 새로 만든다 — 캐시해 두면 새로고침 뒤에도 옛 값을 들고 있게 된다(그게 지금 고치는 병이다). */
+function liveCur(){
+  const m=new Map();
+  (ALL||[]).forEach(p=>{ const k=pkey(p.name);
+    if(!m.has(k)&&p.price&&p.price.cur!=null)m.set(k,p.price.cur); });
+  return m;
+}
 function renderMoveBox(){
   const box=$('mvbox'); if(!box)return;
   const items=(CHG&&CHG.items)||[];
   const days=[];
   items.forEach(it=>{ if(it.day&&days.length<CHG_DAYS&&days.indexOf(it.day)<0)days.push(it.day); });
+  const CUR=liveCur();
   const up=[],down=[],seen={};
   items.forEach(it=>{
     if(!it.day||days.indexOf(it.day)<0)return;
@@ -1976,7 +1987,9 @@ function renderMoveBox(){
     //    실제로 있다(흑산도 전통 홍어 30,500>32,500). 바로 옆에 금액을 같이 보여주는 목록이라
     //    글자와 숫자가 어긋나면 업체가 우리를 못 믿는다. 금액이 둘 다 있으면 금액대로 가른다.
     const pp=parsePrice(it.price);
-    const byNum=(pp&&pp.old!=null&&pp.cur!=null&&pp.old!==pp.cur)?(pp.cur>pp.old?'up':'down'):'';
+    // 지금 단가가 있으면 그것으로 가른다 — 화면에 뜨는 숫자와 칸이 어긋나면 안 된다
+    const nowP=(function(){ const v=CUR.get(k); return v==null?(pp?pp.cur:null):v; })();
+    const byNum=(pp&&pp.old!=null&&nowP!=null&&pp.old!==nowP)?(nowP>pp.old?'up':'down'):'';
     ((byNum||(/인상/.test(it.kind)?'up':'down'))==='up'?up:down).push(it);
     seen[k]=1;
   });
@@ -1985,10 +1998,16 @@ function renderMoveBox(){
   const shortDay=d=>String(d||'').replace(/^\s*\d{4}\s*[-.\/]\s*/,'').replace(/\s*[-.\/]\s*/g,'-').trim();
   const row=it=>{
     const p=parsePrice(it.price)||{old:null,cur:null};
-    // 💰 단가숨김 업체 — 오르내린 사실은 알려주되 금액은 안 띄운다 (인상/인하 칸은 그대로 갈린다)
+    /* 💰 금액은 **지금 카탈로그 단가**로 맞춘다 (홍팀장 2026-09-08)
+       변동사항 시트의 값은 그 변동이 올라간 날의 값이라, 그 뒤에 단가가 또 움직이면
+       이 목록만 옛 금액으로 남는다 (9/8 '연안 활 숫게' 9,000 인데 실제 단가는 9,500이었다).
+       업체는 이 목록을 보고 발주를 넣는다 — 카드와 목록의 숫자가 다르면 그게 사고다.
+       카탈로그에 살아 있는 상품이면 그 단가를, 없으면(내려간 상품) 시트 값을 쓴다. */
+    const live=CUR.get(pkey(it.name));
+    const cur=(live!=null)?live:p.cur;
     const price=noPrice()?'<span class="mvp">별도 안내</span>'
-      :(p.cur==null)?'<span class="mvp">문의</span>'
-      :('<span class="mvp">'+((p.old!=null&&p.old!==p.cur)?'<s>'+won(p.old)+'</s>':'')+won(p.cur)+'원</span>');
+      :(cur==null)?'<span class="mvp">문의</span>'
+      :('<span class="mvp">'+((p.old!=null&&p.old!==cur)?'<s>'+won(p.old)+'</s>':'')+won(cur)+'원</span>');
     return '<div class="mvit"><button class="mvn" data-mv="'+esc(it.name)+'" title="이 상품 검색">'+esc(it.name)+'</button>'
       +price+'<span class="mvd">'+esc(shortDay(it.day))+'</span>'
       +'<button class="cpbtn" data-cp="'+esc(it.name)+'" title="상품명 복사">📋</button></div>';
@@ -2246,6 +2265,15 @@ function chgCls(k){
   if(/인하/.test(k))return 'down';
   return 'out';
 }
+/* 변동사항 카드의 금액도 지금 카탈로그 단가로 맞춘다 (홍팀장 2026-09-08 — 💹 목록과 같은 병).
+   기록된 이전가(old)는 그대로 두고 **현재가만** 살아 있는 값으로 바꾼다. */
+function chgPrice(it){
+  const p=parsePrice(it.price)||{old:null,cur:null,dir:''};
+  const v=liveCur().get(pkey(it.name));
+  if(v==null||v===p.cur)return p;
+  return {old:(p.old!=null&&p.old!==v)?p.old:null,cur:v,
+          dir:(p.old!=null&&p.old!==v)?(v>p.old?'up':'down'):''};
+}
 function chgCard(it){
   const m=MEDIA['n:'+pkey(it.name)]||null;
   const href=(m&&m.link)||'';
@@ -2261,7 +2289,7 @@ function chgCard(it){
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(it.name)+'" title="상품명 복사">📋</button></div>'
     +(line?'<div class="rf">'+line+'</div>':'')
     +(it.memo&&it.memo!=='-'?'<div class="rf">'+esc(it.memo.slice(0,60))+'</div>':'')
-    +'<div class="prow"><div>'+priceHtml(parsePrice(it.price)||{old:null,cur:null,dir:''})+'</div><div class="ship">'+shipTxt+'</div></div>'
+    +'<div class="prow"><div>'+priceHtml(chgPrice(it))+'</div><div class="ship">'+shipTxt+'</div></div>'
     +'</div></div>';
 }
 // 최근 3일치만 보여준다 (사장님 2026-08-12): "오늘 이런 변동 있으니 판매에 참고해"가 이 화면의 목적이고,
