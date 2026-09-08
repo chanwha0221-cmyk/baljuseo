@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.68</title>
+<title>마스터 유통 카탈로그 v23.69</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -541,6 +541,9 @@ h1{letter-spacing:-.6px}
 .search{min-height:1.4em;line-height:1.4;white-space:pre;overflow-x:auto;overflow-y:hidden;cursor:text}
 .search::-webkit-scrollbar{height:0}
 .search:empty::before{content:attr(data-ph);color:var(--muted);pointer-events:none}
+/* 📣 안내문에 공지 한 줄이 같이 들어간다(홍팀장 2026-09-08) — 길어서 한 줄로는 잘린다.
+   **비어 있을 때만** 줄바꿈을 허용해 다 보여주고, 글자를 치는 순간 원래대로 한 줄 스크롤로 돌아간다. */
+.search:empty{white-space:pre-line;overflow:visible}
 .sclr{position:absolute;right:9px;top:50%;transform:translateY(-50%);display:none;border:0;background:transparent;
   color:var(--muted);font-size:14px;line-height:1;padding:6px;cursor:pointer;border-radius:50%}
 .sclr.on{display:block}
@@ -711,7 +714,7 @@ h1{letter-spacing:-.6px}
      아래 스크립트의 value 어댑터 덕분에 q.value 로 읽고 쓰는 기존 코드는 그대로 동작한다. -->
 <div class="searchwrap big">
 <span class="sico" aria-hidden="true">🔍</span>
-<div class="search" id="q" contenteditable="true" role="searchbox" aria-label="상품명 검색" inputmode="search" enterkeyhint="search" spellcheck="false" data-ph="상품명 검색 — 예: 갈치, 새우, 한우, 김치…"></div>
+<div class="search" id="q" contenteditable="true" role="searchbox" aria-label="상품명 검색" inputmode="search" enterkeyhint="search" spellcheck="false" data-ph="상품명 검색 — 예: 갈치, 새우, 한우, 김치…&#10;📣 꽃게 단가 상시 변동 중입니다. 매일 오전에 단가 업데이트하고 공지 드릴게요"></div>
 <button class="sclr" id="qclr" type="button" aria-label="검색어 지우기">✕</button>
 </div>
 <div class="clicktip">👆 <b>상품명을 클릭</b>하시면 상품 상세 및 사진을 확인하실 수 있습니다!</div>
