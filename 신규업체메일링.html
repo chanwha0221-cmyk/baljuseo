@@ -865,8 +865,21 @@ function prosSend(p){
     : (p.name+' — 메일링 목록에 기록했습니다'));
   return true;
 }
+/* 📧 메일주소로 몰 찾기 (2026-09-08 홍팀장) — 상호 검색은 법인명이라 안 걸리는 곳이 많다.
+   반면 메일주소는 스마트스토어·자사몰 하단 사업자정보에 그대로 박혀 있어서 훨씬 잘 잡힌다.
+   🔴 @ 앞 아이디도 같이 넣는다 — 스토어 주소(smartstore.naver.com/아이디)와 같은 경우가 흔하다.
+   🔴 info·admin 같은 흔한 아이디는 빼고 메일 전체로만 찾는다(엉뚱한 곳이 쏟아진다).
+   ※ 전화번호는 못 쓴다 — 공정위 원본 파일이 죄다 `010-개인정보`로 가려져 있고,
+      '신고기관 대표연락처'는 업체가 아니라 시청 번호다. */
+const MAILQ_GENERIC=/^(admin|info|master|shop|help|sales|contact|order|ceo|mail|service|support|cs|hello|biz|company|manager|marketing)$/i;
+function mailQuery(mail){
+  const m=String(mail||'').trim(); if(!m||m.indexOf('@')<1) return '';
+  const id=m.split('@')[0];
+  return '"'+m+'"'+((id.length>=4 && !MAILQ_GENERIC.test(id)) ? (' OR "'+id+'"') : '');
+}
 function prosRow(p,done){
   const q=encodeURIComponent(p.name);
+  const mq=mailQuery(p.mail);
   const site=p.site?('<a href="'+esc(/^https?:/.test(p.site)?p.site:'http://'+p.site)+'" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none">'+esc(p.site.slice(0,44))+'</a>'):'<span class="muted">사이트 없음</span>';
   return '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line)">'
     + '<b style="min-width:150px;font-size:13px">'+esc(p.name)+'</b>'
@@ -876,6 +889,7 @@ function prosRow(p,done){
     + '<span style="font-size:11.5px;flex:1;min-width:120px">'+site+'</span>'
     + '<a class="btn sm ghost" href="https://search.naver.com/search.naver?query='+q+'" target="_blank" rel="noopener" style="text-decoration:none">N 네이버</a>'
     + '<a class="btn sm ghost" href="https://www.google.com/search?q='+q+'" target="_blank" rel="noopener" style="text-decoration:none">G 구글</a>'
+    + (mq?'<a class="btn sm ghost" href="https://www.google.com/search?q='+encodeURIComponent(mq)+'" target="_blank" rel="noopener" title="메일주소·아이디로 검색 — 이 주소를 쓰는 몰이 나옵니다" style="text-decoration:none;border-color:var(--blue);color:var(--blue)">📧 메일</a>':'')
     + (done
         /* 이미 보낸 곳 — 또 보냈으면 날짜만 오늘로 민다(행을 새로 만들지 않는다) */
         ? '<span class="pill" title="마지막연락">✉ '+esc(p.sentAt||'')+(p.sentDays==null?'':' ('+p.sentDays+'일 전)')+'</span>'
