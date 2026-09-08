@@ -59,7 +59,7 @@ if (-not $Files -or $Files.Count -eq 0) { Say '바뀐 파일이 없습니다. �
 #   order.js 만 배포하면 버전이 그대로라 이미 들어온 브라우저는 옛 order.js 를 계속 쓴다.
 #   → 실제로 원비씨 화면에만 발주 알림이 안 뜨던 원인이 이것이었다. 여기서 뿌리를 막는다.
 #   ⚠️ 새 공용 js 를 만들면 **여기 한 줄부터 추가**할 것 (2026-08-31 claim.js 가 빠져 있어 같은 함정을 밟았다).
-$OwnerOf = @{ 'order.js' = @('catalog.html','catalog-test.html'); 'convert-core.js' = @('catalog.html','catalog-test.html','index.html'); 'claim.js' = @('catalog.html','catalog-test.html'); 'sheets-proxy.js' = @('catalog.html','catalog-test.html') }
+$OwnerOf = @{ 'order.js' = @('catalog.html','catalog-test.html'); 'convert-core.js' = @('catalog.html','catalog-test.html','index.html'); 'claim.js' = @('catalog.html','catalog-test.html'); 'sheets-proxy.js' = @('catalog.html','catalog-test.html'); 'search-syn.js' = @('catalog.html','catalog-test.html') }
 foreach ($k in $OwnerOf.Keys) {
   if ($Files -contains $k) {
     foreach ($owner in $OwnerOf[$k]) {

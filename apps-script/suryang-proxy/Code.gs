@@ -1,0 +1,482 @@
+/**
+ * sheets-proxy — 구글 시트 중계 웹앱
+ *
+ * 왜 만들었나 (2026-08-27):
+ *   baljuseo 는 GitHub Pages 로 배포된다. repo 를 private 으로 묶어도
+ *   "빌드된 사이트는 공개"다 (GitHub 설정 화면이 직접 경고한다).
+ *   그런데 각 도구는 서비스계정 개인키를 HTML 안에 그대로 박아두고
+ *   브라우저에서 JWT 를 서명해 Sheets API 를 직접 호출하고 있었다.
+ *   → sheets-writer / catalog-reader 개인키가 인터넷 전체에 공개돼 있었다.
+ *      (실제로 로그인 없이 curl 로 받아지는 것을 확인함)
+ *
+ *   이 웹앱은 그 키를 브라우저에서 완전히 걷어내기 위한 중계다.
+ *
+ * 구조:
+ *   브라우저 --(팀 세션토큰)--> 이 웹앱 --(웹앱 소유자 권한)--> Sheets API
+ *   브라우저는 구글 자격증명을 한 번도 만지지 않는다.
+ *
+ * 배포 설정 (중요):
+ *   실행: 나(웹앱 소유자)  /  액세스: 모든 사용자
+ *   "모든 사용자"여야 팀원이 로그인 없이 쓴다. 대신 아래 TEAM_PASSCODE 가 문지기다.
+ *
+ * Script Properties (배포 후 setup() 으로 넣는다):
+ *   TEAM_PASSCODE   팀 비밀번호. 사람이 브라우저에서 한 번 입력하는 값
+ *   HMAC_SECRET     세션토큰 서명용 임의 문자열 (아무도 몰라도 됨)
+ *   ALLOW_SHEETS    (선택) 허용 스프레드시트 ID 쉼표 구분. 비우면 전체 허용
+ *                   — 발주서 변환기처럼 사용자가 시트 주소를 직접 붙여넣는
+ *                     도구가 있어서 기본은 비워둔다
+ */
+
+var SESSION_DAYS = 30;
+var SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets/';
+
+function props_() { return PropertiesService.getScriptProperties(); }
+
+// ── 응답 ──────────────────────────────────────────────────────────────
+// Apps Script 웹앱은 임의 CORS 헤더를 못 붙인다. ContentService 의 JSON 출력은
+// 브라우저에서 그냥 읽히므로 그걸 쓴다. (요청도 text/plain 으로 받아 preflight 를 피함)
+function out_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ── 세션 토큰 ─────────────────────────────────────────────────────────
+function b64url_(bytes) {
+  return Utilities.base64EncodeWebSafe(bytes).replace(/=+$/, '');
+}
+
+function sign_(payloadB64) {
+  var secret = props_().getProperty('HMAC_SECRET');
+  if (!secret) throw new Error('HMAC_SECRET 미설정 — setup() 을 먼저 실행하세요');
+  return b64url_(Utilities.computeHmacSha256Signature(payloadB64, secret));
+}
+
+function issueToken_() {
+  var exp = Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000;
+  var payload = b64url_(Utilities.newBlob(JSON.stringify({ exp: exp })).getBytes());
+  return { token: payload + '.' + sign_(payload), exp: exp };
+}
+
+function checkToken_(token) {
+  if (!token || token.indexOf('.') < 0) return false;
+  var parts = token.split('.');
+  var payloadB64 = parts[0], sig = parts[1];
+  // 길이가 같을 때만 비교되도록 문자열 동등비교 전에 길이부터 본다
+  var expect = sign_(payloadB64);
+  if (sig.length !== expect.length || sig !== expect) return false;
+  try {
+    var data = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(payloadB64)).getDataAsString());
+    return data.exp > Date.now();
+  } catch (e) {
+    return false;
+  }
+}
+
+// ── 진입점 ────────────────────────────────────────────────────────────
+// GET 은 배포 확인용으로만 쓴다. 실제 호출은 전부 POST(text/plain).
+function doGet() {
+  return out_({ ok: true, service: 'sheets-proxy', note: '동작 확인용. 실제 호출은 POST.' });
+}
+
+function doPost(e) {
+  var req;
+  try {
+    req = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return out_({ error: { code: 400, message: '요청 본문이 JSON 이 아닙니다' } });
+  }
+
+  if (req.action === 'login') {
+    var pw = props_().getProperty('TEAM_PASSCODE');
+    if (!pw) return out_({ error: { code: 500, message: 'TEAM_PASSCODE 미설정' } });
+    if (String(req.pw || '') !== pw) {
+      Utilities.sleep(1000);  // 무차별 대입 늦추기
+      return out_({ error: { code: 401, message: '비밀번호가 틀렸습니다' } });
+    }
+    return out_(issueToken_());
+  }
+
+  if (req.action === 'call') {
+    if (!checkToken_(req.token)) {
+      return out_({ error: { code: 401, message: 'session-expired' } });
+    }
+    return out_(relay_(req));
+  }
+
+  // 카탈로그는 거래처(고객)가 쓰는 페이지라 팀 비밀번호를 걸 수 없다.
+  // 대신 비밀번호 없이 받되 "어느 시트의 어느 탭"까지만 허용한다.
+  // 도구시트에는 전체판매·업무관리 같은 내부 탭이 같이 있어서
+  // 시트 단위로 열면 안 되고 반드시 탭 단위로 좁혀야 한다.
+  if (req.action === 'public') {
+    var verdict = publicAllowed_(req);
+    if (!verdict.ok) return out_({ error: { code: 403, message: verdict.why } });
+    /* 🔴 카탈로그는 **거래처 여러 곳이 동시에** 본다. 그 읽기가 전부 이 계정 몫으로 잡혀서
+       구글 "분당 읽기" 한도를 먹어치우고, 그 바람에 팀 도구(수량관리)까지 같이 죽었다.
+       카탈로그가 보는 것은 상품 목록·사진·분류 — **하루에 몇 번 바뀌는 자료**다. 길게 담아둔다.
+       ⚠️ 그래서 유통시트를 고친 뒤 카탈로그 🔄 새로고침을 눌러도 최대 이 시간만큼은 옛 값이 보인다. */
+    return out_(relay_(req, 60));
+  }
+
+  /* 📦 여러 범위를 **한 번의 실행**으로 (2026-09-04).
+     🔴 왜: 카탈로그는 열 때마다 프록시를 12번 부른다(사진·분류·판매·변동·공지·링크2·합포장·추천·소식글
+        + 유통시트 메타·본문). 그 12개가 동시에 날아가면 Apps Script 가 실행 슬롯에 줄을 세우고,
+        거래처 몇 곳이 겹치는 순간 뒤에 선 요청이 15초를 넘겨 끊긴다 →
+        화면엔 "상품을 불러오지 못했습니다"만 뜬다(2026-09-04 실측: 작은 메타 읽기 하나가 16초, 49초).
+     → 한 번의 실행 안에서 fetchAll 로 동시에 받아 한 번에 돌려준다. 실행 12 → 2.
+     ⚠️ 읽기 전용이다. 각 path 는 public 규칙으로 하나씩 다시 검사한다(배치라고 봐주지 않는다). */
+  /* ☀️ 깨워두기 (2026-09-04 홍팀장: "거래처가 편한 쪽으로 무조건").
+     Apps Script 는 한동안 아무도 안 부르면 첫 요청에 20~50초를 쓴다(실측). 그 첫 손님이
+     **거래처**면 카탈로그가 통째로 안 뜬다. 그래서 별도 프로젝트(proxy-warmer)가 몇 분마다
+     이 액션을 두드려 늘 깨어 있게 한다. 하는 일이 없어야 싸다 — 시트를 읽지 않는다. */
+  if (req.action === 'warm') {
+    return out_({ ok: true, warm: true, at: new Date().toISOString() });
+  }
+
+  if (req.action === 'publicBatch') {
+    var paths = req.paths || [];
+    if (!paths.length) return out_({ error: { code: 400, message: 'paths 없음' } });
+    if (paths.length > 24) return out_({ error: { code: 400, message: '한 번에 24개까지만 됩니다' } });
+    return out_({ results: relayBatch_(paths, 60) });
+  }
+
+  // 제안서 도구의 상품 이미지 업로드.
+  // Drive 멀티파트를 그대로 중계하는 것보다 DriveApp 으로 받는 편이 짧고 안전하다.
+  if (req.action === 'uploadImage') {
+    if (!checkToken_(req.token)) {
+      return out_({ error: { code: 401, message: 'session-expired' } });
+    }
+    try {
+      var blob = Utilities.newBlob(
+        Utilities.base64Decode(req.data),
+        req.mimeType || 'application/octet-stream',
+        req.name || 'upload'
+      );
+      var file = DriveApp.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      return out_({ id: file.getId(), url: 'https://drive.google.com/file/d/' + file.getId() + '/view' });
+    } catch (err) {
+      return out_({ error: { code: 500, message: '업로드 실패: ' + err.message } });
+    }
+  }
+
+  /* 🖼 상품 상세 페이지 원본 가져오기 (홍팀장 2026-09-03 — 카탈로그 [상세페이지 만들기]).
+     상세메이커는 상품 게시글의 HTML 을 읽어 사진·설명을 뽑는다. 그런데 브라우저가
+     카탈로그(github.io)에서 masterc.kr 을 직접 부르면 CORS 로 막힌다(실측: Failed to fetch).
+     그래서 업체가 손으로 Ctrl+U → 전체복사 하던 것을, 여기서 대신 가져와 넘긴다.
+     ⚠️ 아무 주소나 대신 열어주면 남의 서버를 우리 이름으로 두드리는 통로가 된다 —
+        **우리 상품 게시판 도메인만** 허용한다.
+     ⚠️ 카탈로그는 거래처 여러 곳이 동시에 본다. 같은 상품을 여러 번 부르지 않게 10분 담아둔다. */
+  if (req.action === 'fetchPage') {
+    var u = String(req.url || '');
+    if (!/^https:\/\/(www\.)?masterc\.(kr|co\.kr)\//.test(u)) {
+      return out_({ error: { code: 403, message: '허용되지 않은 주소입니다' } });
+    }
+    var ck = 'pg_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, u));
+    var cache = CacheService.getScriptCache();
+    var hit = cache.get(ck);
+    if (hit) return out_({ ok: true, url: u, html: hit, cached: true });
+    try {
+      var res = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true });
+      var code = res.getResponseCode();
+      if (code !== 200) return out_({ error: { code: code, message: '상품 페이지를 가져오지 못했습니다 (' + code + ')' } });
+      var html = res.getContentText();
+      // 캐시 한 칸은 100KB 까지다 — 더 큰 글은 담지 않고 그때그때 가져온다
+      if (html.length < 95000) { try { cache.put(ck, html, 600); } catch (e2) {} }
+      return out_({ ok: true, url: u, html: html });
+    } catch (err) {
+      return out_({ error: { code: 500, message: '상품 페이지를 가져오지 못했습니다: ' + err.message } });
+    }
+  }
+
+  return out_({ error: { code: 400, message: '알 수 없는 action: ' + req.action } });
+}
+
+// ── 무인증(카탈로그) 허용 판정 ────────────────────────────────────────
+// PUBLIC_READ  / PUBLIC_WRITE 형식: "시트ID" 또는 "시트ID|탭이름" 을 쉼표로
+//   "시트ID"       → 그 시트의 모든 탭
+//   "시트ID|탭이름" → 그 탭만
+// 카탈로그 무인증 범위의 기본값.
+// 시트 ID 와 탭 이름은 비밀이 아니라 클라이언트 HTML 에 이미 들어있는 값이므로
+// 코드에 둔다. Script Property 로 덮어쓸 수 있다.
+/* 🔴 2026-08-27 사고 — 여기에 탭을 빠뜨리면 **에러도 안 뜨고 화면만 빈다.**
+   처음엔 도구시트를 `카탈로그_계정` 하나만 열어뒀는데, 카탈로그는 그 시트에서
+   사진·합포장·분류·추천상품·공지사항까지 읽는다 → 전부 403 → 상품 584개가
+   통째로 "사진 준비중"으로 떴다. 링크 정본 시트는 아예 빠져 있었다.
+   ⚠️ 목록의 근거는 catalog.html 이다. 거기서 읽는 탭이 늘면 **여기도 같이 늘려야 한다.**
+      확인: `grep -oE "'[가-힣A-Za-z_0-9]+'![A-Z]" catalog.html | sort -u`
+   ⚠️ 시트를 통째로 열지 않는다. 도구시트엔 전체판매·업무관리 같은 내부 탭이 같이 있다. */
+var DOGU_ = '1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';   // 도구시트
+var LINK_ = '1Gfjvk_4u-sFCm-u6xLE5idMxtqmBq9X3dC_BHanq-uQ';   // 상품정보 업데이트(링크 정본)
+/* 수량 리더 시트 — 팀끼리 재고 수량만 주고받는 표다(창고/상품명/수량/팀).
+   개인정보도 단가도 없다. 그래서 **비밀번호 없이** 열어둔다(홍팀장 2026-08-27 지시).
+   원래 이 도구는 로그인이 없었다. 오늘 개인키를 걷어내면서 로그인이 생겨버렸는데,
+   그건 보안이 아니라 **일하는 사람을 막는 것**이었다. 시트 하나만 여는 것이라 범위도 좁다. */
+var SURYANG_ = '1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI';
+/* 🔴🔴 2026-09-07 — 이 프로젝트는 **수량관리 전용**이다 (홍팀장 지시).
+   홍팀장: **"얘는 그냥 혼자만 독립으로 간다고 몇 번을 말해."**
+
+   왜 갈랐나 — 공용 `sheets-proxy` 하나에 도구 20개가 매달려 있어서, 그 웹앱의
+   배포 권한이 풀리거나 구글 대기줄이 막히면 **수량관리까지 같이 멈췄다.**
+   오늘도 프록시가 45초 무응답이 되면서 「불러오는 중」에서 굳었다.
+   8/27에 한 번 떼어냈다가 구글 로그인이 사람을 막는다고 공용 프록시로 되돌린 게
+   그대로 남아 있었다 — 그 되돌림을 취소한 것이 이 프로젝트다.
+
+   그래서 허용목록도 **수량 리더 시트 하나뿐이다.** 카탈로그·도구시트·링크시트는
+   여기서 열지 않는다. 이 웹앱이 죽어도 카탈로그는 멀쩡하고, 그 반대도 마찬가지다.
+   ⚠️ 여기에 다른 시트를 추가하지 말 것. 추가하는 순간 다시 물린다. */
+var DEFAULT_PUBLIC = {
+  PUBLIC_READ:  SURYANG_,
+  PUBLIC_WRITE: SURYANG_
+};
+
+/* 🔴 2026-08-27 — 허용목록은 **코드가 정본이다.** Script Property 로 덮어쓰지 않는다.
+   예전엔 `props_().getProperty(name) || DEFAULT_PUBLIC[name]` 였다. 그래서
+   setupCatalogPublic() 이 저장해둔 옛 목록이 코드를 조용히 덮어썼고,
+   코드를 고쳐 배포해도 **아무 일이 안 일어났다. 이유 표시도 없이.**
+   허용목록은 보안 관련이라 깃에 남고 리뷰되는 곳에 있어야 한다. */
+function parseRules_(name) {
+  return (DEFAULT_PUBLIC[name] || '').split(',')
+    .map(function (s) { return s.trim(); })
+    .filter(String)
+    .map(function (s) {
+      var bits = s.split('|');
+      return { id: bits[0].trim(), tab: (bits[1] || '').trim() };
+    });
+}
+
+// 경로에서 건드리는 탭 이름들을 뽑는다.
+// 예: {ID}/values/'카탈로그_계정'!C5?valueInputOption=RAW
+//     {ID}/values:batchGet?ranges='탭'!A1&ranges=...
+function tabsInPath_(path) {
+  var decoded;
+  try { decoded = decodeURIComponent(path); } catch (e) { decoded = path; }
+  var tabs = [];
+  var re = /'([^']+)'!|(?:values\/|ranges=)([^!'&?]+)!/g;
+  var m;
+  while ((m = re.exec(decoded)) !== null) tabs.push((m[1] || m[2]).trim());
+  return tabs;
+}
+
+function publicAllowed_(req) {
+  var path = String(req.path || '');
+  if (!path) return { ok: false, why: 'path 없음' };
+
+  var method = (req.method || 'GET').toUpperCase();
+  var writing = (method !== 'GET');
+  var rules = parseRules_(writing ? 'PUBLIC_WRITE' : 'PUBLIC_READ');
+  if (!rules.length) return { ok: false, why: '무인증 접근이 설정돼 있지 않습니다' };
+
+  var id = path.split(/[\/?:]/)[0];
+  var forSheet = rules.filter(function (r) { return r.id === id; });
+  if (!forSheet.length) return { ok: false, why: '허용되지 않은 시트입니다' };
+
+  // 시트 전체를 연 규칙이 있으면 탭은 안 따진다
+  if (forSheet.some(function (r) { return !r.tab; })) return { ok: true };
+
+  var allowedTabs = forSheet.map(function (r) { return r.tab; });
+  var tabs = tabsInPath_(path);
+
+  // 탭을 특정하지 못하는 요청(시트 전체 메타 조회 등)은 탭 제한이 걸린 시트에서는 막는다
+  if (!tabs.length) return { ok: false, why: '탭을 특정하지 않은 요청은 허용되지 않습니다' };
+
+  for (var i = 0; i < tabs.length; i++) {
+    if (allowedTabs.indexOf(tabs[i]) < 0) {
+      return { ok: false, why: '허용되지 않은 탭입니다: ' + tabs[i] };
+    }
+  }
+  // 구조 변경(batchUpdate)은 무인증으로 절대 허용하지 않는다
+  if (/:batchUpdate\b/.test(path) && !/values:batchUpdate/.test(path)) {
+    return { ok: false, why: '구조 변경은 허용되지 않습니다' };
+  }
+  return { ok: true };
+}
+
+// ── Sheets API 중계 ───────────────────────────────────────────────────
+function relay_(req, ttlSec) {
+  var path = String(req.path || '');
+  if (!path) return { error: { code: 400, message: 'path 없음' } };
+
+  // 스프레드시트 ID 화이트리스트 (설정돼 있을 때만)
+  var allow = (props_().getProperty('ALLOW_SHEETS') || '').split(',')
+    .map(function (s) { return s.trim(); })
+    .filter(String);
+  if (allow.length) {
+    var id = path.split(/[\/?:]/)[0];
+    if (allow.indexOf(id) < 0) {
+      return { error: { code: 403, message: '허용되지 않은 시트: ' + id } };
+    }
+  }
+
+  var method = (req.method || 'GET').toLowerCase();
+  var opts = {
+    method: method,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  };
+  if (method !== 'get' && req.body != null) {
+    opts.contentType = 'application/json';
+    opts.payload = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+  }
+
+  /* 🔴 2026-08-27 — 읽기 캐시. 없으면 구글 할당량이 터진다.
+     예전엔 도구마다 자기 서비스계정으로 시트를 읽어 **여러 신분에 부하가 나뉘어** 있었다.
+     프록시로 모으면서 전부 **한 계정 한 줄**로 서게 됐고, 구글의 "사용자당 분당 읽기" 한도를
+     넘겼다 → `Quota exceeded for quota metric 'Read requests'` + 429 + 간헐 404.
+     수량관리는 15초마다 같은 범위를 다시 읽고, 그걸 팀원 수만큼 곱한다. 카탈로그도 같이 붙는다.
+     → **같은 범위 읽기를 잠깐 재사용**한다. 적중률이 높아서 실제 호출이 확 준다.
+     ⚠️ 쓰기가 지나가면 그 시트의 캐시를 **즉시 무효화**한다(아래 bumpVer_).
+        그래서 우리 도구를 통해 바꾼 것은 곧바로 보인다.
+        사람이 시트를 **직접** 고친 것만 최대 CACHE_SEC 만큼 늦게 보인다. */
+  // 팀 도구(call)는 10초 — 남이 고친 것을 빨리 봐야 한다. 카탈로그(public)는 위에서 60초를 준다.
+  var CACHE_SEC = ttlSec || 10;
+  var sheetId = path.split(/[\/?:]/)[0];
+
+  if (method === 'get') {
+    var ck = cacheKey_(sheetId, path);
+    var hit = cacheGet_(ck);
+    if (hit) { try { return JSON.parse(hit); } catch (_) {} }
+
+    var res0 = UrlFetchApp.fetch(SHEETS_BASE + path, opts);
+    var out0 = { status: res0.getResponseCode(), body: res0.getContentText() };
+    if (out0.status === 200) cachePut_(ck, JSON.stringify(out0), CACHE_SEC);
+    return out0;
+  }
+
+  var res = UrlFetchApp.fetch(SHEETS_BASE + path, opts);
+  // 쓰기가 성공했으면 그 시트의 읽기 캐시를 버린다 — 방금 쓴 것이 바로 보여야 한다
+  var code = res.getResponseCode();
+  if (code >= 200 && code < 300) bumpVer_(sheetId);
+  return { status: code, body: res.getContentText() };
+}
+
+/* 📦 배치 읽기 — 한 실행에서 여러 범위를 동시에 받아온다.
+   캐시에 있는 것은 그대로 쓰고, 없는 것만 fetchAll 로 **병렬** 요청한다.
+   결과는 요청한 순서 그대로 [{status, body}, …] 로 돌려준다(한 건이 막혀도 그 자리만 403이다). */
+function relayBatch_(paths, ttlSec) {
+  var out = [], miss = [], reqs = [];
+  for (var i = 0; i < paths.length; i++) {
+    var p = String(paths[i] || '');
+    var v = p ? publicAllowed_({ path: p, method: 'GET' }) : { ok: false, why: 'path 없음' };
+    if (!v.ok) {
+      out[i] = { status: 403, body: JSON.stringify({ error: { code: 403, message: v.why } }) };
+      continue;
+    }
+    var ck = cacheKey_(p.split(/[\/?:]/)[0], p);
+    var hit = cacheGet_(ck);
+    if (hit) { try { out[i] = JSON.parse(hit); continue; } catch (_) {} }
+    miss.push({ i: i, ck: ck });
+    reqs.push({
+      url: SHEETS_BASE + p, method: 'get',
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+  }
+  if (reqs.length) {
+    var rs = UrlFetchApp.fetchAll(reqs);
+    for (var k = 0; k < rs.length; k++) {
+      var o = { status: rs[k].getResponseCode(), body: rs[k].getContentText() };
+      out[miss[k].i] = o;
+      if (o.status === 200) cachePut_(miss[k].ck, JSON.stringify(o), ttlSec || 60);
+    }
+  }
+  return out;
+}
+
+/* 🧩 큰 응답도 캐시한다 (2026-09-04).
+   🔴 예전엔 90KB 를 넘으면 **아예 안 담았다.** 그런데 카탈로그의 본문 읽기(유통시트 20개 탭)가
+      바로 그 큰 응답이다 → 거래처가 열 때마다 매번 통째로 다시 읽었고, 그 무거운 실행이
+      슬롯을 오래 잡아 뒤의 요청까지 끊기게 만들었다.
+   → 캐시 한 칸(100KB) 제한은 **쪼개서** 넘는다. 머리 칸에 조각 수를 적고 조각을 따로 담는다.
+   ⚠️ 조각이 하나라도 사라졌으면(캐시는 언제든 비워질 수 있다) 통째로 없는 셈 친다. */
+var CHUNK_ = 90000, MAXCHUNKS_ = 30;
+function cacheGet_(ck) {
+  try {
+    var c = CacheService.getScriptCache();
+    var head = c.get(ck);
+    if (!head) return null;
+    if (head.indexOf('__CHUNKS__') !== 0) return head;
+    var n = parseInt(head.slice(10), 10) || 0;
+    if (!n) return null;
+    var keys = [];
+    for (var i = 0; i < n; i++) keys.push(ck + '#' + i);
+    var got = c.getAll(keys), s = '';
+    for (var j = 0; j < n; j++) {
+      var part = got[ck + '#' + j];
+      if (part == null) return null;   // 조각이 빠졌으면 못 쓴다
+      s += part;
+    }
+    return s;
+  } catch (_) { return null; }
+}
+function cachePut_(ck, str, ttl) {
+  try {
+    var c = CacheService.getScriptCache();
+    if (str.length < CHUNK_) { c.put(ck, str, ttl); return; }
+    var n = Math.ceil(str.length / CHUNK_);
+    if (n > MAXCHUNKS_) return;        // 2.7MB 넘게는 담지 않는다
+    var m = {};
+    for (var i = 0; i < n; i++) m[ck + '#' + i] = str.substr(i * CHUNK_, CHUNK_);
+    c.putAll(m, ttl);
+    c.put(ck, '__CHUNKS__' + n, ttl);  // 조각을 다 넣은 뒤에 머리를 적는다
+  } catch (_) {}
+}
+
+/* 시트별 '판 번호'. 쓰기가 있으면 올려서 그 시트의 옛 캐시를 통째로 못 쓰게 만든다.
+   CacheService 는 키를 훑을 수 없어서, 키 안에 판 번호를 넣는 방식으로 무효화한다. */
+function verKey_(id) { return 'v_' + id; }
+function sheetVer_(id) {
+  try {
+    var c = CacheService.getScriptCache(), v = c.get(verKey_(id));
+    if (!v) { v = '1'; c.put(verKey_(id), v, 21600); }
+    return v;
+  } catch (_) { return '1'; }
+}
+function bumpVer_(id) {
+  try { CacheService.getScriptCache().put(verKey_(id), String(new Date().getTime()), 21600); } catch (_) {}
+}
+function cacheKey_(id, path) {
+  // 캐시 키는 250자 제한이 있다 → 경로는 해시로 줄인다
+  var raw = sheetVer_(id) + '|' + path;
+  var b = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, raw, Utilities.Charset.UTF_8);
+  var h = '';
+  for (var i = 0; i < b.length; i++) { var x = (b[i] < 0 ? b[i] + 256 : b[i]).toString(16); h += (x.length === 1 ? '0' : '') + x; }
+  return 'r_' + id.slice(0, 12) + '_' + h;
+}
+
+// ── 최초 1회 설정 ─────────────────────────────────────────────────────
+// 편집기에서 이 함수를 직접 실행한다. 비밀번호는 여기서 바꾼다.
+function setup() {
+  var p = props_();
+  p.setProperty('TEAM_PASSCODE', 'CHANGE_ME');       // ← 팀 비밀번호로 교체
+  p.setProperty('HMAC_SECRET', Utilities.getUuid() + Utilities.getUuid());
+  p.setProperty('ALLOW_SHEETS', '');                 // 비우면 전체 허용
+  Logger.log('설정 완료. TEAM_PASSCODE 를 실제 비밀번호로 바꿨는지 확인하세요.');
+}
+
+// 카탈로그(거래처용)를 비밀번호 없이 열어주는 범위 설정.
+// 다른 속성은 건드리지 않으므로 언제든 다시 실행해도 안전하다.
+function setupCatalogPublic() {
+  var 상품시트 = '1bFfYmNNzPpIztK6_AD918Hu7s3JvaqkGGlwfIi6LxqY';
+  var 도구시트 = '1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM';
+  var 계정탭 = '카탈로그_계정';
+
+  /* 🔴 2026-08-27 — 이 함수는 이제 **설정값을 지우는 일만** 한다.
+     허용목록의 정본은 코드의 DEFAULT_PUBLIC 이다(위 parseRules_ 주석 참고).
+     예전에 이 함수가 저장해둔 좁은 목록이 코드를 덮어써서, 카탈로그가 사진·합포장·
+     분류·추천상품·공지사항을 통째로 못 읽었다(상품 584개가 "사진 준비중"). */
+  props_().deleteProperty('PUBLIC_READ');
+  props_().deleteProperty('PUBLIC_WRITE');
+  Logger.log('옛 설정값을 지웠습니다. 이제 코드의 DEFAULT_PUBLIC 이 정본입니다:\n  읽기 = %s\n  쓰기 = %s',
+    DEFAULT_PUBLIC.PUBLIC_READ, DEFAULT_PUBLIC.PUBLIC_WRITE);
+}
+
+// 비밀번호만 바꾸고 싶을 때 (기존 세션은 그대로 살아있다)
+function setPasscode(pw) {
+  props_().setProperty('TEAM_PASSCODE', pw);
+}
+
+// 유출 의심 시 — 모든 기기의 세션을 즉시 무효화한다
+function revokeAllSessions() {
+  props_().setProperty('HMAC_SECRET', Utilities.getUuid() + Utilities.getUuid());
+  Logger.log('모든 세션 무효화됨. 팀원은 비밀번호를 다시 입력해야 합니다.');
+}
