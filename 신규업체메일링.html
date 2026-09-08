@@ -150,8 +150,14 @@
         <!-- 🏢 업체명 — 제목·본문의 (업체명) 자리에 꽂는다 (홍팀장 2026-09-08) -->
         <div class="img-slot">
           <label style="font-weight:700;font-size:12.5px">🏢 업체명</label>
-          <input id="company-name" placeholder="예: 주식회사 해피드림푸드" style="font-size:13px;width:100%;box-sizing:border-box" oninput="stampCompany()">
+          <input id="company-name" placeholder="예: 주식회사 해피드림푸드" style="font-size:13px;width:100%;box-sizing:border-box" oninput="stampSlots()">
           <div class="muted" id="company-hint" style="font-size:11.5px;margin-top:6px;text-align:left">제목·본문의 「(업체명)」 자리에 이 이름이 들어갑니다.</div>
+        </div>
+        <!-- 🔎 무엇을 보고 — 「… 메일 드리게 되었습니다.」 앞자리. 그날 도는 몰이 같으니 기기에 기억한다 -->
+        <div class="img-slot">
+          <label style="font-weight:700;font-size:12.5px">🔎 무엇을 보고</label>
+          <textarea id="source-text" rows="3" placeholder="예: 운영하고 계신 G마켓 상품을 보고 상품 제안드리고 싶어" style="font-size:13px;width:100%;box-sizing:border-box;line-height:1.5;resize:vertical" oninput="stampSlots()"></textarea>
+          <div class="muted" id="source-hint" style="font-size:11.5px;margin-top:6px;text-align:left">본문 「… 메일 드리게 되었습니다.」 앞자리에 들어갑니다.</div>
         </div>
       </div>
     </div>
@@ -500,6 +506,9 @@ async function loadAll(){
     applyDefaultTpl();
     $('tpl-note').value = fixName(SET.template_note || DEFAULT_NOTE);
     $('tpl-kakao').value = fixName(SET.template_kakao || DEFAULT_KAKAO);
+    /* 🔎 '무엇을 보고'는 그날 내내 같은 문장이라 이 기기에 기억해뒀다가 되살린다
+       (업체명은 매번 바뀌니 기억하지 않는다 — 남아 있으면 남의 이름으로 나간다) */
+    try{ const s=localStorage.getItem('mailing_source'); if(s && $('source-text') && !$('source-text').value) $('source-text').value=s; }catch(e){}
     restampCompany();   // 🏢 동기화 끝나기 전에 업체명을 먼저 적어놨으면 여기서 다시 꽂는다
     renderTplButtons();
     // 데이터 — 통합 탭
@@ -1136,41 +1145,54 @@ function saveEdit(){
       "주식회사 마스터 홍찬화 팀장"까지 "(업체명)"으로 망가진다. 그래서 **꽂기 전 원본을
       필드마다 들고 있다가 저장할 땐 그 원본을 올린다.** 꽂아둔 상태에서 손으로 고쳤을 때만
       글자 되바꾸기로 넘어간다(그때도 원본과 대조해서 판단). */
-const COMPANY_PH=/[\(\[\{<]\s*업체명\s*[\)\]\}>]/g;
-const COMPANY_FIELDS=['tpl-subject','tpl','tpl-note','tpl-kakao'];
-let COMPANY_CUR='';        // 지금 화면 글에 박혀 있는 업체명 ('' = 「(업체명)」 상태)
-let COMPANY_ORIG={};       // 필드별 「(업체명)」 상태 원본
-function stampOne(raw,name){ return name ? String(raw==null?'':raw).replace(COMPANY_PH,name) : String(raw==null?'':raw); }
-function stampCompany(){
-  const el=$('company-name'); if(!el) return;
-  const nv=el.value.trim();
-  if(nv===COMPANY_CUR) return;
-  let hit=0;
-  COMPANY_FIELDS.forEach(id=>{
-    const f=$(id); if(!f) return;
-    const base=rawOf(id);            // 「(업체명)」 상태로 되돌린 원본
-    COMPANY_ORIG[id]=base;
-    const after=stampOne(base,nv);
-    if(after!==f.value) hit++;
-    f.value=after;
-  });
-  COMPANY_CUR=nv;
-  const h=$('company-hint'); if(!h) return;
-  h.textContent = !nv ? '제목·본문의 「(업체명)」 자리에 이 이름이 들어갑니다.'
-    : hit ? '제목·본문에 넣었습니다.'
-          : '⚠️ 넣을 자리가 없어요 — 제목이나 본문에 (업체명) 이라고 적어두세요.';
-  h.style.color = (nv && !hit) ? 'var(--red)' : '';
+   🔴 채우는 자리는 2개다 — 「(업체명)」과 「(보고온곳)」.
+      (보고온곳)은 *무엇을 보고 연락하는지* 한 문장을 통째로 넣는 자리다. 하루는 G마켓,
+      하루는 옥션 식으로 몰아서 도니까 한 번 적어두고 그날 내내 쓴다(그래서 이 칸만 기기에 기억).
+      예: 「운영하고 계신 G마켓 상품을 보고 상품 제안드리고 싶어」 + 「메일 드리게 되었습니다.」 */
+const SLOTS=[
+  {key:'company', tag:'(업체명)',  ph:/[\(\[\{<]\s*업체명\s*[\)\]\}>]/g,  input:'company-name', hint:'company-hint',
+   idle:'제목·본문의 「(업체명)」 자리에 이 이름이 들어갑니다.', miss:'⚠️ 넣을 자리가 없어요 — 제목이나 본문에 (업체명) 이라고 적어두세요.'},
+  {key:'source',  tag:'(보고온곳)', ph:/[\(\[\{<]\s*보고온곳\s*[\)\]\}>]/g, input:'source-text',  hint:'source-hint', remember:'mailing_source',
+   idle:'본문 「… 메일 드리게 되었습니다.」 앞자리에 들어갑니다.', miss:'⚠️ 넣을 자리가 없어요 — 본문에 (보고온곳) 이라고 적어두세요.'}
+];
+const SLOT_FIELDS=['tpl-subject','tpl','tpl-note','tpl-kakao'];
+let SLOT_CUR={};           // 지금 화면 글에 박혀 있는 값들 (빈 값 = 태그 상태)
+let SLOT_ORIG={};          // 필드별 원본(태그가 살아있는 상태)
+function hasSlot(sl,s){ return new RegExp(sl.ph.source).test(String(s==null?'':s)); }
+function stampOne(raw){
+  let s=String(raw==null?'':raw);
+  SLOTS.forEach(sl=>{ const v=SLOT_CUR[sl.key]; if(v) s=s.replace(sl.ph,v); });
+  return s;
 }
-/* 저장용 원문 — 업체명이 빠지고 「(업체명)」이 들어간 상태 */
+function stampSlots(){
+  const next={};
+  SLOTS.forEach(sl=>{ next[sl.key]=(($(sl.input)||{}).value||'').trim(); });
+  if(SLOTS.every(sl=>next[sl.key]===(SLOT_CUR[sl.key]||''))) return;
+  SLOT_FIELDS.forEach(id=>{ if($(id)) SLOT_ORIG[id]=rawOf(id); });   // 지금 값 기준으로 원본 복구
+  SLOT_CUR=next;                                                     // 새 값으로 갈아끼우고
+  SLOT_FIELDS.forEach(id=>{ const f=$(id); if(f) f.value=stampOne(SLOT_ORIG[id]); });
+  SLOTS.forEach(sl=>{
+    const h=$(sl.hint); if(!h) return;
+    const v=SLOT_CUR[sl.key];
+    const has=SLOT_FIELDS.some(id=>hasSlot(sl,SLOT_ORIG[id]));
+    h.textContent = !v ? sl.idle : (has ? '넣었습니다.' : sl.miss);
+    h.style.color = (v && !has) ? 'var(--red)' : '';
+    if(sl.remember) try{ localStorage.setItem(sl.remember, v); }catch(e){}
+  });
+}
+/* 저장용 원문 — 채운 값이 빠지고 태그가 들어간 상태 */
 function rawOf(id){
   const f=$(id); if(!f) return '';
-  if(!COMPANY_CUR) return f.value;                                  // 애초에 안 꽂은 상태
-  const o=COMPANY_ORIG[id];
-  if(o!=null && f.value===stampOne(o,COMPANY_CUR)) return o;        // 손 안 댔으면 원본 그대로
-  return f.value.split(COMPANY_CUR).join('(업체명)');                // 꽂은 뒤 고쳤으면 글자로 되돌림
+  if(SLOTS.every(sl=>!SLOT_CUR[sl.key])) return f.value;        // 애초에 아무것도 안 꽂은 상태
+  const o=SLOT_ORIG[id];
+  if(o!=null && f.value===stampOne(o)) return o;                // 손 안 댔으면 원본 그대로
+  let s=f.value;                                                // 꽂은 뒤 고쳤으면 글자로 되돌림
+  SLOTS.forEach(sl=>{ const v=SLOT_CUR[sl.key]; if(v) s=s.split(v).join(sl.tag); });
+  return s;
 }
-/* 템플릿을 새로 불러온 뒤엔 「(업체명)」이 되살아나 있으니 다시 꽂는다 */
-function restampCompany(){ COMPANY_CUR=''; COMPANY_ORIG={}; stampCompany(); }
+/* 템플릿을 새로 불러온 뒤엔 태그가 되살아나 있으니 다시 꽂는다 */
+function restampCompany(){ SLOT_CUR={}; SLOT_ORIG={}; stampSlots(); }
+function stampCompany(){ stampSlots(); }
 
 // ─── 템플릿 ───
 async function saveTemplate(){ setStatus('저장 중…'); SET.subject=rawOf('tpl-subject'); await setSetting('template',rawOf('tpl')); setStatus('저장됨'); toast('제목·본문 저장됨'); }
