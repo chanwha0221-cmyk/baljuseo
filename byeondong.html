@@ -838,12 +838,37 @@
     document.getElementById('mgov').style.display='flex';
   }
   document.getElementById('mgclose').addEventListener('click', function(){ document.getElementById('mgov').style.display='none'; });
+  /* ⏰ 마감시간 표기인지 본다 (2026-09-08).
+     상품명이 그대로 저장된 행이 실제로 있었다 — 수량 리더 시트 1462행에
+     `B=군산 순살 임연수 1팩 / J=군산 순살 임연수 1팩`. 바로 옆 📋 버튼이 상품명을
+     클립보드에 넣으니 입력칸에 Ctrl+V 하기가 너무 쉽다.
+     🔴 한 번 잘못 들어가면 3단계가 그걸 «진짜 마감시간»으로 물어와 유통시트에 뿌린다.
+     통과: '연장마감 : 16시', '오후마감 : 12시', '16시'  /  차단: 시(時)가 없는 값, 상품명 꼴. */
+  function looksLikeTime(s){
+    s=String(s||'').trim();
+    if(!/\d{1,2}\s*시/.test(s)) return false;
+    if(/[가-힣]{2,}\s*\d+\s*(kg|g|미|팩|박스|개|마리|세트|인분)/i.test(s)) return false;
+    return true;
+  }
   document.getElementById('mgsave').addEventListener('click', function(){
     var inputs = document.querySelectorAll('#mglist input');
-    var jobs=[]; var btn=this;
+    var jobs=[], bad=[]; var btn=this;
     for(var i=0;i<inputs.length;i++){
+      inputs[i].style.borderColor='';
       var val=inputs[i].value.trim();
-      if(val!==''){ jobs.push({ pk:inputs[i].getAttribute('data-k'), name:inputs[i].getAttribute('data-name'), time:val }); }
+      if(val==='') continue;
+      if(!looksLikeTime(val)){
+        inputs[i].style.borderColor='#dc2626';
+        bad.push(inputs[i].getAttribute('data-name')+' → "'+val+'"');
+        continue;
+      }
+      jobs.push({ pk:inputs[i].getAttribute('data-k'), name:inputs[i].getAttribute('data-name'), time:val });
+    }
+    if(bad.length){
+      alert('⏰ 마감시간 표기가 아닌 칸이 '+bad.length+'건 있어요 (빨간 테두리).\n\n· '
+            +bad.slice(0,8).join('\n· ')+(bad.length>8?'\n… 외 '+(bad.length-8)+'건':'')
+            +'\n\n예: 연장마감 : 16시 / 오후마감 : 12시 / 16시');
+      return;
     }
     if(jobs.length===0){ alert('입력한 마감시간이 없어요.'); return; }
     btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='저장중...';
