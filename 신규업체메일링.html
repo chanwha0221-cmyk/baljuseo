@@ -147,6 +147,12 @@
           <select id="who-sel" onchange="setPerson(this.value)" style="font-size:13px"></select>
           <div class="muted" style="font-size:11.5px;margin-top:6px">본문의 「주식회사 마스터 ○○ 팀장」이 이 이름으로 바뀝니다.</div>
         </div>
+        <!-- 🏢 업체명 — 제목·본문의 (업체명) 자리에 꽂는다 (홍팀장 2026-09-08) -->
+        <div class="img-slot">
+          <label style="font-weight:700;font-size:12.5px">🏢 업체명</label>
+          <input id="company-name" placeholder="예: 주식회사 해피드림푸드" style="font-size:13px;width:100%;box-sizing:border-box" oninput="stampCompany()">
+          <div class="muted" id="company-hint" style="font-size:11.5px;margin-top:6px;text-align:left">제목·본문의 「(업체명)」 자리에 이 이름이 들어갑니다.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -1117,13 +1123,61 @@ function saveEdit(){
 
 // 검색키워드 입력 자동완성 — 과거 입력값 + 키워드 뱅크 시드
 
+/* ══ 🏢 업체명 꽂기 (2026-09-08 홍팀장) ══════════════════════════════════
+   제목·본문에 적어둔 「(업체명)」 자리에 오른쪽 칸의 이름을 넣는다.
+   🔴 **템플릿에는 절대 박히면 안 된다.** 한 번 저장되면 그 다음 업체부터 남의 이름이
+      나간다 — 저장하는 자리(putTpl·saveTemplate·saveTpl)는 전부 rawOf()로
+      「(업체명)」으로 되돌린 값을 올린다.
+   🔴 업체명을 고쳐도 되게, **직전에 넣은 이름을 기억했다가 그걸 새 이름으로 바꾼다.**
+      비우면 「(업체명)」으로 되돌아간다.
+   🔴 본문 아래 가입 안내의 `업체명 : ` 줄은 건드리면 안 되므로 **괄호로 감싼 것만** 바꾼다.
+   🔴 되돌릴 때 이름만 보고 글자를 되바꾸면 위험하다 — 업체명이 「마스터」면 본문의
+      "주식회사 마스터 홍찬화 팀장"까지 "(업체명)"으로 망가진다. 그래서 **꽂기 전 원본을
+      필드마다 들고 있다가 저장할 땐 그 원본을 올린다.** 꽂아둔 상태에서 손으로 고쳤을 때만
+      글자 되바꾸기로 넘어간다(그때도 원본과 대조해서 판단). */
+const COMPANY_PH=/[\(\[\{<]\s*업체명\s*[\)\]\}>]/g;
+const COMPANY_FIELDS=['tpl-subject','tpl','tpl-note','tpl-kakao'];
+let COMPANY_CUR='';        // 지금 화면 글에 박혀 있는 업체명 ('' = 「(업체명)」 상태)
+let COMPANY_ORIG={};       // 필드별 「(업체명)」 상태 원본
+function stampOne(raw,name){ return name ? String(raw==null?'':raw).replace(COMPANY_PH,name) : String(raw==null?'':raw); }
+function stampCompany(){
+  const el=$('company-name'); if(!el) return;
+  const nv=el.value.trim();
+  if(nv===COMPANY_CUR) return;
+  let hit=0;
+  COMPANY_FIELDS.forEach(id=>{
+    const f=$(id); if(!f) return;
+    const base=rawOf(id);            // 「(업체명)」 상태로 되돌린 원본
+    COMPANY_ORIG[id]=base;
+    const after=stampOne(base,nv);
+    if(after!==f.value) hit++;
+    f.value=after;
+  });
+  COMPANY_CUR=nv;
+  const h=$('company-hint'); if(!h) return;
+  h.textContent = !nv ? '제목·본문의 「(업체명)」 자리에 이 이름이 들어갑니다.'
+    : hit ? '제목·본문에 넣었습니다.'
+          : '⚠️ 넣을 자리가 없어요 — 제목이나 본문에 (업체명) 이라고 적어두세요.';
+  h.style.color = (nv && !hit) ? 'var(--red)' : '';
+}
+/* 저장용 원문 — 업체명이 빠지고 「(업체명)」이 들어간 상태 */
+function rawOf(id){
+  const f=$(id); if(!f) return '';
+  if(!COMPANY_CUR) return f.value;                                  // 애초에 안 꽂은 상태
+  const o=COMPANY_ORIG[id];
+  if(o!=null && f.value===stampOne(o,COMPANY_CUR)) return o;        // 손 안 댔으면 원본 그대로
+  return f.value.split(COMPANY_CUR).join('(업체명)');                // 꽂은 뒤 고쳤으면 글자로 되돌림
+}
+/* 템플릿을 새로 불러온 뒤엔 「(업체명)」이 되살아나 있으니 다시 꽂는다 */
+function restampCompany(){ COMPANY_CUR=''; COMPANY_ORIG={}; stampCompany(); }
+
 // ─── 템플릿 ───
-async function saveTemplate(){ setStatus('저장 중…'); SET.subject=$('tpl-subject').value; await setSetting('template',$('tpl').value); setStatus('저장됨'); toast('제목·본문 저장됨'); }
-function resetTemplate(){ if(confirm('기본 제목·템플릿으로 되돌릴까요?')){ $('tpl-subject').value=DEFAULT_SUBJECT; $('tpl').value=DEFAULT_TEMPLATE; toast('기본값 — 저장하려면 [템플릿 저장]'); } }
+async function saveTemplate(){ setStatus('저장 중…'); SET.subject=rawOf('tpl-subject'); await setSetting('template',rawOf('tpl')); setStatus('저장됨'); toast('제목·본문 저장됨'); }
+function resetTemplate(){ if(confirm('기본 제목·템플릿으로 되돌릴까요?')){ $('tpl-subject').value=DEFAULT_SUBJECT; $('tpl').value=DEFAULT_TEMPLATE; restampCompany(); toast('기본값 — 저장하려면 [템플릿 저장]'); } }
 // 저장된 '표준 템플릿' 다시 불러오기 (일회성 메일 쓴 뒤 복귀용)
-function loadSavedTemplate(){ if(SET.template){ $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT; $('tpl').value = SET.template; toast('저장된 표준 템플릿을 불러왔어요'); } else { toast('저장된 표준 템플릿이 없어요 — 먼저 [템플릿 저장]'); } }
+function loadSavedTemplate(){ if(SET.template){ $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT; $('tpl').value = SET.template; restampCompany(); toast('저장된 표준 템플릿을 불러왔어요'); } else { toast('저장된 표준 템플릿이 없어요 — 먼저 [템플릿 저장]'); } }
 // 쪽지/카톡 템플릿 저장·복원 (which: 'note' | 'kakao')
-async function saveTpl(which){ setStatus('저장 중…'); await setSetting('template_'+which, $('tpl-'+which).value); setStatus('저장됨'); toast((which==='note'?'쪽지':'카톡')+' 템플릿 저장됨'); }
+async function saveTpl(which){ setStatus('저장 중…'); await setSetting('template_'+which, rawOf('tpl-'+which)); setStatus('저장됨'); toast((which==='note'?'쪽지':'카톡')+' 템플릿 저장됨'); }
 // ─── 커스텀(이름붙인) 메일 본문 템플릿 — 14일+ 등 ───
 function tplList(){ try{ return JSON.parse(SET.tpl_list||'[]'); }catch{ return []; } }
 function escTpl(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1157,7 +1211,7 @@ async function setDefaultTpl(i,e){
   toast(off ? '「'+t.name+'」 기본 해제' : '「'+t.name+'」이 기본 템플릿 — 열면 이게 떠요');
 }
 let CUR_TPL='';   // 마지막으로 불러온 템플릿 이름 — 저장창에서 기본으로 짚어준다
-function loadNamedTpl(i){ const t=tplList()[i]; if(!t)return; if(t.subject!=null)$('tpl-subject').value=t.subject; $('tpl').value=t.body||''; CUR_TPL=t.name; toast('「'+t.name+'」 템플릿 불러옴'); }
+function loadNamedTpl(i){ const t=tplList()[i]; if(!t)return; if(t.subject!=null)$('tpl-subject').value=t.subject; $('tpl').value=t.body||''; CUR_TPL=t.name; restampCompany(); toast('「'+t.name+'」 템플릿 불러옴'); }
 // [💾 템플릿 저장] — 기존 템플릿을 고쳐 저장할지, 새 이름으로 만들지 고르는 창
 function saveNamedTemplate(){
   const list=tplList(), box=$('tplsave-list');
@@ -1170,7 +1224,8 @@ function saveNamedTemplate(){
   if(!list.length) setTimeout(()=>$('tplsave-new').focus(),50);
 }
 async function putTpl(list, i, nm){
-  const item={name:nm, subject:$('tpl-subject').value, body:$('tpl').value};
+  /* 🏢 업체명은 빼고 「(업체명)」으로 되돌려 저장한다 — 안 그러면 다음 업체에 남의 이름이 나간다 */
+  const item={name:nm, subject:rawOf('tpl-subject'), body:rawOf('tpl')};
   if(i>=0) list[i]=item; else list.push(item);
   const mkDef=$('tplsave-default').checked, wasDef=SET.tpl_default===nm;
   setStatus('저장 중…'); await setSetting('tpl_list', JSON.stringify(list));
@@ -1196,7 +1251,7 @@ async function deleteNamedTpl(i,e){
   if(!confirm('「'+t.name+'」 템플릿을 삭제할까요?')) return;
   list.splice(i,1); setStatus('저장 중…'); await setSetting('tpl_list', JSON.stringify(list)); renderTplButtons(); setStatus('삭제됨'); toast('「'+t.name+'」 삭제됨');
 }
-function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:DEFAULT_KAKAO; $('tpl-'+which).value=def; toast('기본값 — 저장하려면 [저장]'); }
+function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:DEFAULT_KAKAO; $('tpl-'+which).value=def; restampCompany(); toast('기본값 — 저장하려면 [저장]'); }
 function copyText(id){ navigator.clipboard.writeText($(id).value).then(()=>toast('복사됨')); }
 
 /* ─── 이미지 슬롯 제거됨 (홍팀장 2026-09-07) ───
