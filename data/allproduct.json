@@ -1,7 +1,30 @@
 {
- "updatedAt": "2026-09-08 10:39",
+ "updatedAt": "2026-09-08 10:55",
  "supplier": "마스터 유통",
  "products": [
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "인천",
+   "category": "수산",
+   "name": "연안 활 숫게 1kg",
+   "spec": [
+    "※ 구성 : 활 숫꽃게 1kg",
+    "※ 중량/ 사이즈 : 1kg/3-6미쯤",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 활 숫꽃게 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 특이사항 : 대사작용으로 인한 감량 10%내외 있을 수 있음."
+   ],
+   "supplyPrice": 9500,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "우체국택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/899/701/006/6f6ed39bc9662c3ded0f43b50a521794.jpg",
+   "note": ""
+  },
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "충무",
@@ -22,6 +45,29 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/452/779/022/6c1779c2c96ee99964d7d202e20625eb.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "인천",
+   "category": "수산",
+   "name": "연안 활 대숫게 1kg",
+   "spec": [
+    "※ 구성 : 꽃게 100%",
+    "※ 중량/ 사이즈 : 1kg / 3-4미 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 숫꽃게 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 특이사항 : 대사작용으로 인한 감량 10%내외 있을 수 있음."
+   ],
+   "supplyPrice": 12000,
+   "previousPrice": 0,
+   "tax": "면세",
+   "courier": "우체국택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/984/716/024/7ff107a84e76127e1ce5071cd31bc4d2.jpg",
    "note": ""
   },
   {
@@ -414,28 +460,6 @@
   },
   {
    "warehouse": "당일생물",
-   "sourceWarehouse": "군산",
-   "category": "수산",
-   "name": "군산 쫄 갑오징어 1kg",
-   "spec": [
-    "※ 구성 : 갑오징어 1kg",
-    "※ 중량/ 사이즈 : 1kg 내외 / (19-28미 내외)",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 갑오징어 100%",
-    "※ 포장방식 : 비닐실링"
-   ],
-   "supplyPrice": 5000,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/003/401/025/c75392755ead811fd7e79e4cb78dac03.jpg",
-   "note": "-상품명 변경 : 군산 한입 갑오징어 1kg -> 군산 쫄 갑오징어 1kg"
-  },
-  {
-   "warehouse": "당일생물",
    "sourceWarehouse": "인천",
    "category": "수산",
    "name": "연안 끝판왕 담치 1kg",
@@ -456,28 +480,6 @@
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/531/080/022/ba68e084b26144df53a2a08c459ef194.jpg",
    "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 생물 자연산 대하 1kg",
-   "spec": [
-    "※ 구성 : 자연산 생물 대하 1kg",
-    "※ 중량/ 사이즈 : 1kg 35-40미쯤",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 대하 100%",
-    "※ 포장방식 : 비닐실링, 빙장포장"
-   ],
-   "supplyPrice": 19000,
-   "previousPrice": 16000,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/661/774/022/d7880b50317dd82719ff54b9badc5d5b.jpg",
-   "note": "- 스펙 : 1kg 15미 내외 > 1kg 35-40미쯤"
   },
   {
    "warehouse": "당일생물",
@@ -545,28 +547,6 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/665/955/021/ef13435b9b5952457ace63c5c41eb9ef.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 앵치멍게 3kg",
-   "spec": [
-    "※ 구성 : 활 멍게",
-    "※ 중량/ 사이즈 : 3kg / 30~40미",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 활 멍게 100%",
-    "※ 포장방식 : 비닐실링"
-   ],
-   "supplyPrice": 4500,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/102/734/024/aba818f2a86b5f0af3657054e70c3478.jpg",
    "note": ""
   },
   {
@@ -702,29 +682,6 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/667/523/024/57090d8f01c834728367d1c7fc4f1ab7.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 활 갯가재 500g",
-   "spec": [
-    "※ 구성 : 갯가재 500g",
-    "※ 중량/ 사이즈 : 500g내외 / 10마리 내외",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 갯가재 100%",
-    "※ 포장방식 : 비닐실링",
-    "※ 기타 : 작은 새우나 게 등 바다생물이 혼입될 수 있습니다."
-   ],
-   "supplyPrice": 9500,
-   "previousPrice": 0,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/125/835/021/e4c9322b8e82298543b587136da491ea.jpg",
    "note": ""
   },
   {
@@ -906,7 +863,7 @@
    "tax": "면세",
    "courier": "롯데택배",
    "shipFee": 4000,
-   "orderCutoff": "군산 순살 임연수 1팩",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "",
    "note": ""
