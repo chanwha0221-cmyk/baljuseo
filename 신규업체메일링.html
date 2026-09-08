@@ -500,6 +500,7 @@ async function loadAll(){
     applyDefaultTpl();
     $('tpl-note').value = fixName(SET.template_note || DEFAULT_NOTE);
     $('tpl-kakao').value = fixName(SET.template_kakao || DEFAULT_KAKAO);
+    restampCompany();   // 🏢 동기화 끝나기 전에 업체명을 먼저 적어놨으면 여기서 다시 꽂는다
     renderTplButtons();
     // 데이터 — 통합 탭
     const row9=r=>{const x=r.slice(0,9);while(x.length<9)x.push('');return x.map(v=>(v||'').toString().trim());};
