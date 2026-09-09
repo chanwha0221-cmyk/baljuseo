@@ -264,7 +264,7 @@ const OFFCAT = [
   {name:'연안 몸뱃살연어 500g', wh:'인천'},
   /* 🐟 납품용 대구 (홍팀장 2026-09-03) — 동글지구가 넣는 냉동 15kg 벌크.
      정식 상품이 아니라 카탈로그에 올릴 물건이 아닌데, 정식이 아니라는 이유로 발주가 막혀 있었다. */
-  {name:'납품용 대구 15kg', wh:'동해',
+  {name:'납품용 대구 15kg', wh:'동해', only:['지구식품','동글지구'],
    note:'카탈로그에 없는 납품용 규격입니다 — 냉동 15kg 벌크 단위로 나갑니다.'},
 ];
 const OFFCAT_NOTE = '뱃살 위주로 나가지만 100% 뱃살은 아닙니다 — 등살·꼬리살이 섞일 수 있습니다. 그대로 받으시는 조건으로 발주를 받습니다.';
@@ -272,6 +272,16 @@ function offcat(raw){
   const k = pkey(S(raw));
   const m = OFFCAT.find(o => pkey(o.name) === k);
   return m ? {name:m.name, group:m.wh, offcat:true, note:m.note || ''} : null;
+}
+/* 👤 **그 업체 화면에서만** 보이는 물건 (홍팀장 2026-09-09 — "동글지구 혼자 쓰는 상품인데 검색하니 안 나온다").
+   only 가 붙은 OFFCAT 은 이름을 정확히 적어야만 통과하던 물건이라, 정작 그 업체가 화면에서 찾지 못했다.
+   → 적힌 업체가 로그인했을 때만 후보·검색에 띄운다. 다른 업체 화면에는 여전히 없는 물건이다.
+   ⚠️ 카탈로그 상품 카드(catalog.html)에는 올리지 않는다 — 유통시트에 없는 규격이라 단가가 없다. */
+function offcatMine(){
+  const me = (typeof ME !== 'undefined' && ME) ? ME : null;
+  const nm = me ? pkey(S(me.name)) : '';
+  if(!nm) return [];
+  return OFFCAT.filter(o => (o.only || []).some(x => pkey(x) === nm));
 }
 
 /* ✂️ 상품명 끝에 매달려 온 수량 구분자 (홍팀장 2026-09-03 — 지구식품 「납품용 대구 15kg x」).
@@ -321,6 +331,12 @@ function candidates(raw){
     // 앞 두 글자가 같으면 같은 계열일 확률이 높다(갈치/갈치살…)
     if(t.length >= 2 && k.slice(0, 2) === t.slice(0, 2)) sc += 1;
     if(sc > 0) out.push({p, sc});
+  });
+  // 👤 그 업체에게만 열어둔 물건도 후보에 올린다(다른 업체 화면에는 안 뜬다)
+  offcatMine().forEach(o => {
+    const k = pkey(o.name);
+    if(k.indexOf(t) >= 0 || t.indexOf(k) >= 0 || toks.some(tk => k.indexOf(tk) >= 0))
+      out.push({p:{name:o.name, group:o.wh, offcat:true, note:o.note || ''}, sc:7});
   });
   return out.sort((a, b) => b.sc - a.sc || a.p.name.length - b.p.name.length).slice(0, 5).map(x => x.p);
 }
