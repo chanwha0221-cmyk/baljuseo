@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v9.1</title>
+<title>통장 내역 조회 v9.2</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v9.1</span>
+  <span class="ver">v9.2</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -863,7 +863,10 @@ function renderMisPanel(){
   if(MIS_SORT==='amt') arr.sort((a,b)=>b.e.amt-a.e.amt);
   else arr.sort((a,b)=>{ const fa=a.e.from||'9999', fb=b.e.from||'9999'; return fa<fb?-1:fa>fb?1:(b.e.amt-a.e.amt); });
   const today=new Date(); today.setHours(0,0,0,0);
-  const daysSince=d=>{ const m=String(d||'').match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return null; return Math.max(1,Math.round((today-new Date(m[1],m[2]-1,m[3]))/86400000)+1); };
+  /* 🔴 2026-09-09 홍팀장 지적 — 여기 `+1` 때문에 **전부 하루씩 부풀려** 나갔다.
+     8월 31일 발주분이 오늘(9/9) 기준 9일인데 「10일 지연」으로 찍혔다.
+     지연 = 오늘 − 그 발주일. 당일은 0(표시 안 함). 없는 하루를 만들지 않는다. */
+  const daysSince=d=>{ const m=String(d||'').match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return null; return Math.max(0,Math.round((today-new Date(m[1],m[2]-1,m[3]))/86400000)); };
   const total=MIS_DATA.reduce((s,e)=>s+e.amt,0);
   box.innerHTML='<table style="border-collapse:collapse;width:100%;font-size:12px;min-width:640px">'
     +'<thead><tr style="background:#f8f7f4">'
@@ -880,14 +883,18 @@ function renderMisPanel(){
       +(function(){
           /* 덩어리가 둘 이상이면 기간 한 줄로 뭉뚱그리지 않는다 — 그게 44일 오해의 원인이었다 */
           const cs=misChunks(e);
-          if(cs.length<2) return fmtKDate(e.from)+' ~ '+fmtKDate(e.to)
-            +(ds?' <span style="color:'+(ds>=14?'#c0392b;font-weight:700':'#a8a49e')+';font-size:11px">('+ds+'일 지연)</span>':'');
+          /* 📝 문구 (홍팀장 2026-09-09 — "8/31~9/2를 10일 지연이라 하면 뭘 어떻게 믿냐").
+             「8월 31일 ~ 9월 2일 (10일 지연)」은 **구간이 10일**로 읽힌다. 실제로는
+             그 기간 발주분 대금이 **가장 오래된 8월 31일 기준 며칠째 안 들어왔다**는 뜻이다.
+             → 기준일을 문구에 박는다. 세는 방식이 눈에 보여야 숫자를 믿을 수 있다. */
+          if(cs.length<2) return fmtKDate(e.from)+' ~ '+fmtKDate(e.to)+' 발주분'
+            +(ds?' <span style="color:'+(ds>=14?'#c0392b;font-weight:700':'#a8a49e')+';font-size:11px">('+fmtKDate(e.from)+'부터 '+ds+'일째 미입금)</span>':'');
           return cs.map((c,ci)=>{
             const cd=daysSince(c.from), old=cd&&cd>=14;
             return '<div style="'+(ci?'margin-top:2px':'')+'">'
               +(old?'🔴 ':'')+fmtKDate(c.from)+(c.to!==c.from?(' ~ '+fmtKDate(c.to)):'')
               +' <span style="font-size:11px;color:#a8a49e">'+c.n+'건 · '+fmtN(c.amt)+'</span>'
-              +(cd?' <span style="font-size:11px;color:'+(old?'#c0392b;font-weight:700':'#a8a49e')+'">('+cd+'일 지연)</span>':'')
+              +(cd?' <span style="font-size:11px;color:'+(old?'#c0392b;font-weight:700':'#a8a49e')+'">('+cd+'일째 미입금)</span>':'')
               +'</div>';
           }).join('');
         })()
