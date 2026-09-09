@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.40</title>
+<title>마스터 유통 상품 도구 v1.41</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -264,7 +264,6 @@ a{color:var(--accent)}
   <input id="voBiz" list="voBizDL" placeholder="업체명 — 계정 이름 그대로 (예: 동글지구)" autocomplete="off" style="margin-top:8px">
   <datalist id="voBizDL"></datalist>
   <input id="voName" placeholder="상품명 — 발주서에 적히는 이름 그대로 (예: 납품용 대구 15kg)" autocomplete="off" style="margin-top:7px">
-  <input id="voWh" placeholder="창고 (예: 동해) — 비워도 됩니다" autocomplete="off" style="margin-top:7px">
   <input id="voNote" placeholder="발주 화면에 띄울 안내 한 줄 — 비워도 됩니다" autocomplete="off" style="margin-top:7px">
   <div><button class="cp" id="voAdd">＋ 추가</button></div>
   <div id="voRows" style="margin-top:12px"></div>
@@ -1676,7 +1675,9 @@ async function voLoad(){
     let v;
     try{ v=await readTab(VOTAB,'E'); }
     catch(e){ await voEnsureTab(); v=[]; }        // 탭이 없으면 만들고 빈 목록으로 시작한다
-    VO=v.map(r=>({biz:t(r[0]),name:t(r[1]),wh:t(r[2]),note:t(r[3]),at:t(r[4])})).filter(x=>x.biz&&x.name);
+    /* 창고는 안 쓴다 (홍팀장 2026-09-09 — "발주할 때 창고명 블랭크잖아").
+       시트 C열은 옛 자료 때문에 남겨두되 읽지도 쓰지도 않는다. */
+    VO=v.map(r=>({biz:t(r[0]),name:t(r[1]),note:t(r[3]),at:t(r[4])})).filter(x=>x.biz&&x.name);
     VON=v.length; VOOK=true;
     $p('voStat').textContent=VO.length+'건';
     voCnt();
@@ -1692,7 +1693,6 @@ function voDraw(){
     +'<span style="font-size:11.5px;font-weight:800;color:#1f6fd6;background:rgba(31,111,214,.12);padding:2px 8px;border-radius:5px;white-space:nowrap">'+esc(v.biz)+'</span>'
     +'<b style="flex:1;min-width:160px;font-size:13px">'+esc(v.name)+'</b>'
     +'<button class="cpbtn" data-cp="'+esc(v.name)+'" title="상품명 복사">📋</button>'
-    +(v.wh?'<span style="font-size:11px;color:var(--muted)">'+esc(v.wh)+'</span>':'')
     +'<span style="font-size:11px;color:var(--muted)">'+esc(v.at)+'</span>'
     +'<button class="fxg del" data-vo="del" data-i="'+i+'">🗑</button>'
     +(v.note?'<div style="flex:1 1 100%;font-size:11.5px;color:var(--muted)">ℹ️ '+esc(v.note)+'</div>':'')
@@ -1710,15 +1710,15 @@ $p('voAdd').onclick=function(){
   if(!biz)return alert('업체명을 적어주세요 — 계정 이름과 똑같아야 합니다.');
   if(!nm)return alert('상품명을 적어주세요.');
   if(VO.some(v=>pkey(v.biz)===pkey(biz)&&pkey(v.name)===pkey(nm)))return alert('이미 열어둔 상품입니다.');
-  VO.unshift({biz:biz,name:nm,wh:t($p('voWh').value),note:t($p('voNote').value),at:day()});
-  $p('voName').value='';$p('voWh').value='';$p('voNote').value='';
+  VO.unshift({biz:biz,name:nm,note:t($p('voNote').value),at:day()});
+  $p('voName').value='';$p('voNote').value='';
   voDraw();$p('voLog').textContent='추가했습니다 — 저장을 눌러야 반영됩니다.';
 };
 $p('voSave').onclick=async function(){
   if(!VOOK){ $p('voLog').textContent='⚠️ 목록을 불러오지 못한 상태입니다. 새로고침한 뒤에 저장하세요.'; return; }
   const b=this;b.disabled=true;b.textContent='저장 중…';$p('voLog').textContent='';
   try{
-    const rows=VO.map(v=>[v.biz,v.name,v.wh,v.note,v.at||day()]);
+    const rows=VO.map(v=>[v.biz,v.name,'',v.note,v.at||day()]);   // C열(창고)은 안 쓴다
     await writeTab(VOTAB,{end:'E',length:5},rows,VON);
     VON=VO.length;
     $p('voStat').textContent=VO.length+'건';
