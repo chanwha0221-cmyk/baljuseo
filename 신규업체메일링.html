@@ -116,6 +116,18 @@
             <button class="btn ghost" onclick="resetTemplate()">기본값 복원</button>
           </div>
           <div id="tpl-list" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px"></div>
+          <!-- 📱 메일 보낸 뒤 「확인해 달라」고 한 통 넣는 카톡·문자 (홍팀장 2026-09-09).
+               연락처가 살아있는 곳인지도 이걸로 걸러진다 — 안 읽히는 메일만 쌓이는 걸 막는다.
+               ⚠️ 메일 본문과 **같은 슬롯**을 쓴다: (업체명)·(보고온곳)을 바꾸면 여기 문구도 같이 바뀐다. -->
+          <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)">
+            <label>📱 메일 확인 요청 카톡·문자 <span class="muted">(메일 보낸 뒤 한 통)</span></label>
+            <textarea id="tpl-ping" style="min-height:120px;line-height:1.6"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+              <button class="btn brand" type="button" onclick="copyText('tpl-ping')">📋 복사</button>
+              <button class="btn ghost" type="button" onclick="saveTpl('ping')">저장</button>
+              <button class="btn ghost" type="button" onclick="resetTpl('ping')">기본값</button>
+            </div>
+          </div>
           </div>
         <!-- 네이버쪽지 -->
         <div id="form-note" class="fld" style="display:none">
@@ -340,6 +352,14 @@ const DEFAULT_NOTE=`안녕하세요, 대표님.
 
 필요하실 때 빠르고 정확하게 대응해 드리겠습니다. 관심 있으시면 편하게 답 주세요. 감사합니다.`;
 
+/* 📱 메일 보낸 뒤 「확인 좀 해달라」고 넣는 카톡·문자 (홍팀장 2026-09-09).
+   짧고 간략하게. (보고온곳)은 메일 본문과 같은 자리라 한 번 적으면 둘 다 바뀐다. */
+const DEFAULT_PING=`대표님, 안녕하십니까.
+
+저는 주식회사 마스터 ${ME} 팀장입니다.
+(보고온곳) 메일 드리게 되었습니다.
+편한 시간에 메일 한번 확인해 주시면 감사드리겠습니다.`;
+
 const DEFAULT_KAKAO=`안녕하세요 대표님! 주식회사 마스터 ${ME}입니다.
 전국 산지 직수매로 상시 300~500종 농·축·수산물 운영하고, 소량도 택배로 바로 보내드려요.
 당일 공급 가능한 상품시트랑 명함 보내드릴게요. 필요하실 때 편하게 연락 주세요!`;
@@ -506,6 +526,7 @@ async function loadAll(){
     applyDefaultTpl();
     $('tpl-note').value = fixName(SET.template_note || DEFAULT_NOTE);
     $('tpl-kakao').value = fixName(SET.template_kakao || DEFAULT_KAKAO);
+    $('tpl-ping').value = fixName(SET.template_ping || DEFAULT_PING);
     /* 🔎 '무엇을 보고'는 그날 내내 같은 문장이라 이 기기에 기억해뒀다가 되살린다
        (업체명은 매번 바뀌니 기억하지 않는다 — 남아 있으면 남의 이름으로 나간다) */
     try{ const s=localStorage.getItem('mailing_source'); if(s && $('source-text') && !$('source-text').value) $('source-text').value=s; }catch(e){}
@@ -1156,7 +1177,7 @@ const SLOTS=[
   {key:'source',  tag:'(보고온곳)', ph:/[\(\[\{<]\s*보고온곳\s*[\)\]\}>]/g, input:'source-text',  hint:'source-hint', remember:'mailing_source',
    idle:'본문 「… 메일 드리게 되었습니다.」 앞자리에 들어갑니다.', miss:'⚠️ 넣을 자리가 없어요 — 본문에 (보고온곳) 이라고 적어두세요.'}
 ];
-const SLOT_FIELDS=['tpl-subject','tpl','tpl-note','tpl-kakao'];
+const SLOT_FIELDS=['tpl-subject','tpl','tpl-note','tpl-kakao','tpl-ping'];
 let SLOT_CUR={};           // 지금 화면 글에 박혀 있는 값들 (빈 값 = 태그 상태)
 let SLOT_ORIG={};          // 필드별 원본(태그가 살아있는 상태)
 function hasSlot(sl,s){ return new RegExp(sl.ph.source).test(String(s==null?'':s)); }
@@ -1201,7 +1222,7 @@ function resetTemplate(){ if(confirm('기본 제목·템플릿으로 되돌릴�
 // 저장된 '표준 템플릿' 다시 불러오기 (일회성 메일 쓴 뒤 복귀용)
 function loadSavedTemplate(){ if(SET.template){ $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT; $('tpl').value = SET.template; restampCompany(); toast('저장된 표준 템플릿을 불러왔어요'); } else { toast('저장된 표준 템플릿이 없어요 — 먼저 [템플릿 저장]'); } }
 // 쪽지/카톡 템플릿 저장·복원 (which: 'note' | 'kakao')
-async function saveTpl(which){ setStatus('저장 중…'); await setSetting('template_'+which, rawOf('tpl-'+which)); setStatus('저장됨'); toast((which==='note'?'쪽지':'카톡')+' 템플릿 저장됨'); }
+async function saveTpl(which){ setStatus('저장 중…'); await setSetting('template_'+which, rawOf('tpl-'+which)); setStatus('저장됨'); toast((which==='note'?'쪽지':which==='ping'?'확인요청 카톡·문자':'카톡')+' 템플릿 저장됨'); }
 // ─── 커스텀(이름붙인) 메일 본문 템플릿 — 14일+ 등 ───
 function tplList(){ try{ return JSON.parse(SET.tpl_list||'[]'); }catch{ return []; } }
 function escTpl(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1275,7 +1296,7 @@ async function deleteNamedTpl(i,e){
   if(!confirm('「'+t.name+'」 템플릿을 삭제할까요?')) return;
   list.splice(i,1); setStatus('저장 중…'); await setSetting('tpl_list', JSON.stringify(list)); renderTplButtons(); setStatus('삭제됨'); toast('「'+t.name+'」 삭제됨');
 }
-function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:DEFAULT_KAKAO; $('tpl-'+which).value=def; restampCompany(); toast('기본값 — 저장하려면 [저장]'); }
+function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:(which==='ping'?DEFAULT_PING:DEFAULT_KAKAO); $('tpl-'+which).value=def; restampCompany(); toast('기본값 — 저장하려면 [저장]'); }
 function copyText(id){ navigator.clipboard.writeText($(id).value).then(()=>toast('복사됨')); }
 
 /* ─── 이미지 슬롯 제거됨 (홍팀장 2026-09-07) ───
