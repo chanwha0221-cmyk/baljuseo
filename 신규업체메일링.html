@@ -171,6 +171,19 @@
           <textarea id="source-text" rows="3" placeholder="예: 운영하고 계신 G마켓 상품을 보고 상품 제안드리고 싶어" style="font-size:13px;width:100%;box-sizing:border-box;line-height:1.5;resize:vertical" oninput="stampSlots()"></textarea>
           <div class="muted" id="source-hint" style="font-size:11.5px;margin-top:6px;text-align:left">본문 「… 메일 드리게 되었습니다.」 앞자리에 들어갑니다.</div>
         </div>
+        <!-- 📇 명함 이미지 (홍팀장 2026-09-09) — 눌러서 클립보드로 복사 → 카톡·문자에 바로 붙여넣기.
+             2026-09-07에 드라이브 업로드 방식의 명함 슬롯을 걷어냈다. 이번 건 그것과 다르다:
+             이미지는 레포에 같이 있고(assets/), 버튼은 **클립보드에 넣어주는 일만** 한다. -->
+        <div class="img-slot">
+          <label style="font-weight:700;font-size:12.5px">📇 명함</label>
+          <img id="card-img" alt="명함" style="width:100%;border:1px solid var(--line);border-radius:8px;margin-top:6px;cursor:pointer;background:#fff" onclick="copyCard()">
+          <div style="display:flex;gap:6px;margin-top:7px">
+            <button class="btn brand" type="button" onclick="copyCard()" style="flex:1">📇 명함 복사</button>
+            <button class="btn ghost" type="button" onclick="document.getElementById('card-file').click()">바꾸기</button>
+          </div>
+          <input type="file" id="card-file" accept="image/*" style="display:none" onchange="pickCard(this)">
+          <div class="muted" id="card-hint" style="font-size:11.5px;margin-top:6px;text-align:left">눌러서 복사한 뒤 카톡·문자에 붙여넣으세요.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -532,6 +545,7 @@ async function loadAll(){
     try{ const s=localStorage.getItem('mailing_source'); if(s && $('source-text') && !$('source-text').value) $('source-text').value=s; }catch(e){}
     restampCompany();   // 🏢 동기화 끝나기 전에 업체명을 먼저 적어놨으면 여기서 다시 꽂는다
     renderTplButtons();
+    loadCard();          // 📇 명함 (담당자별)
     // 데이터 — 통합 탭
     const row9=r=>{const x=r.slice(0,9);while(x.length<9)x.push('');return x.map(v=>(v||'').toString().trim());};
     DATA=(await sheetGet(DATA_TAB,'A2:I100000')).map(row9).filter(r=>r[2]||r[0]);
@@ -1298,6 +1312,56 @@ async function deleteNamedTpl(i,e){
 }
 function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:(which==='ping'?DEFAULT_PING:DEFAULT_KAKAO); $('tpl-'+which).value=def; restampCompany(); toast('기본값 — 저장하려면 [저장]'); }
 function copyText(id){ navigator.clipboard.writeText($(id).value).then(()=>toast('복사됨')); }
+
+/* ─── 📇 명함 (홍팀장 2026-09-09 "클릭하면 이미지가 복사돼서 카톡에 바로 붙는 게 제일 나이스") ───
+   기본 이미지는 레포에 같이 있다(assets/card-<사람>.png). [바꾸기]로 고른 파일은
+   **그 브라우저에만** 저장한다(localStorage) — 시트·드라이브에 올리지 않는다.
+   ⚠️ 클립보드에 그림을 넣는 건 PNG 만 된다. 무엇을 고르든 캔버스로 PNG 로 바꿔 넣는다. */
+const CARD_SRC={'홍찬화':'assets/card-hong.png','박원비':'assets/card-wonbi.png'};
+function cardKey(){ return 'mailing_card_'+ME; }
+function loadCard(){
+  const img=$('card-img'); if(!img) return;
+  let mine=''; try{ mine=localStorage.getItem(cardKey())||''; }catch(e){}
+  img.src = mine || (CARD_SRC[ME]||'');
+  img.onerror=function(){
+    img.removeAttribute('src'); img.style.display='none';
+    const h=$('card-hint'); if(h){ h.textContent='명함 이미지가 아직 없어요 — [바꾸기]로 넣어주세요.'; h.style.color='var(--red)'; }
+  };
+  img.onload=function(){ img.style.display=''; };
+}
+function pickCard(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=function(){
+    try{ localStorage.setItem(cardKey(), r.result); }catch(e){ toast('이미지가 너무 커서 이 브라우저에 저장하지 못했어요'); return; }
+    loadCard(); toast('명함을 바꿨어요 (이 브라우저에만 저장됩니다)');
+  };
+  r.readAsDataURL(f); inp.value='';
+}
+async function copyCard(){
+  const img=$('card-img');
+  if(!img||!img.getAttribute('src')) return toast('명함 이미지가 없어요 — [바꾸기]로 넣어주세요');
+  try{
+    const blob=await new Promise((res,rej)=>{
+      const c=document.createElement('canvas'), i=new Image();
+      i.onload=function(){
+        c.width=i.naturalWidth; c.height=i.naturalHeight;
+        const x=c.getContext('2d');
+        x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height);   // 투명 배경이면 카톡에서 까맣게 나온다
+        x.drawImage(i,0,0);
+        c.toBlob(b=>b?res(b):rej(new Error('그림을 만들지 못했습니다')),'image/png');
+      };
+      i.onerror=()=>rej(new Error('그림을 읽지 못했습니다'));
+      i.src=img.src;
+    });
+    await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+    toast('📇 명함 복사됨 — 카톡·문자에 붙여넣으세요');
+  }catch(e){
+    /* 클립보드에 그림을 못 넣는 브라우저·환경이 있다 → 그때는 파일로 내려준다(첨부로 보내면 된다) */
+    const a=document.createElement('a'); a.href=img.src; a.download='명함_'+ME+'.png'; a.click();
+    toast('이 브라우저는 그림 복사가 막혀 있어 파일로 내려받았어요');
+  }
+}
 
 /* ─── 이미지 슬롯 제거됨 (홍팀장 2026-09-07) ───
    명함을 이미지로 붙이던 기능을 없앴다. 서명은 본문 글자(번호·카톡 아이디)로 나간다.
