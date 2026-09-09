@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>통장 내역 조회 v8.9</title>
+<title>통장 내역 조회 v9.1</title>
 <script src="../sheets-proxy.js"></script>
 <script>
 // 🔄 구버전 캐시 자동 탈출 (2026-07-29 사장님: "맨날 롤백되잖아") — 열 때마다 서버 최신본과 버전 비교,
@@ -186,7 +186,7 @@ td.bal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
 <body class="mode-bank">
 <header>
   <span class="logo">통장 <span>내역 조회</span></span>
-  <span class="ver">v8.9</span>
+  <span class="ver">v9.1</span>
 </header>
 <div class="main-tabs">
   <button class="main-tab active" id="mt-bank" onclick="switchMainTab('bank')">💰 통장내역 조회</button>
@@ -1837,6 +1837,29 @@ function _normPayer(s){ return String(s||'').replace(/\s+/g,''); }
      ② clear·PUT 응답의 ok 를 반드시 본다 — fetch 는 401/403 에도 throw 하지 않는다
      ③ 저장 전에 시트 최신본을 읽어 **메모리에 없는 것만** 합친다(딴 PC 것 보존).
         단 방금 화면에서 지운 것이 되살아나면 안 되므로, 삭제 직후에는 {skipMerge:true} 로 부른다. */
+/* 🗄 백데이터 보관 (홍팀장 2026-09-09) — 여기가 2026-09-01에 정산별칭 50건이 통째로 날아간 파일이다.
+   규칙 셋이 «빈 것으로 덮어쓰기»는 막았지만, 이미 잘못 덮인 뒤 되돌릴 방법은 시트 버전 기록뿐이었다.
+   → 저장이 성공할 때마다 그 시점 내용을 발주 서버(Supabase)에 담는다. 탭별 최근 30번분, 같은 탭은 10분에 한 번.
+   토큰은 같은 도메인의 카탈로그 로그인에서 빌린다 — 없으면 조용히 넘어간다(저장은 이미 끝났다). */
+const BAK_API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
+const BAK_TABS={'정산별칭':'ALIAS','정산내역누적':'SETTLE','미정산상세':'MISETTLE','업체호칭':'CALLNAME','정산특이사항':'SETTLENOTE'};
+const BAK_GAP_MS=10*60*1000;
+async function bakSave(tab, rows){
+  const name=BAK_TABS[tab];
+  if(!name || !rows || !rows.length) return;
+  const lk='mas_bak_at_'+name;
+  try{ if(Date.now() - (+localStorage.getItem(lk)||0) < BAK_GAP_MS) return; }catch(e){}
+  let tk='';
+  try{ const a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null'); tk=(a&&a.token)||''; }catch(e){}
+  if(!tk){ console.warn('백업 건너뜀 — 카탈로그 로그인이 없습니다 ('+tab+')'); return; }
+  try{
+    const r=await fetch(BAK_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'bak',token:tk,name:name,rows:rows})});
+    const j=await r.json();
+    if(j&&j.ok){ try{ localStorage.setItem(lk,String(Date.now())); }catch(e){} }
+    else console.warn('백업 실패('+tab+'): '+((j&&j.error)||'알 수 없음'));
+  }catch(e){ console.warn('백업 실패('+tab+'): '+e.message); }
+}
 async function _safeReplace(tab, header, rows){
   const t=await getToken();
   await ensureTabNamed(t, tab, header);
@@ -1846,6 +1869,7 @@ async function _safeReplace(tab, header, rows){
   if(!_cr.ok) throw new Error(tab+' 비우기 실패 HTTP '+_cr.status);
   const _pr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab+'!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
   if(!_pr.ok) throw new Error(tab+' 저장 실패 HTTP '+_pr.status);
+  bakSave(tab, rows);   // 🗄 저장이 끝난 뒤 뒤에서 담는다 — 기다리지 않는다
   return rows.length;
 }
 async function _readTab(tab, range){
@@ -1913,6 +1937,7 @@ async function saveSettleRecords(records, source){
   if(rows.length){
     const _pr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('정산내역누적!A2')}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
     if(!_pr.ok) throw new Error('누적시트 기록 실패 HTTP '+_pr.status+' — 🔁 다시 저장을 꼭 눌러주세요(시트가 비워진 상태)');
+    bakSave('정산내역누적', rows);   // 🗄 저장이 끝난 뒤 뒤에서 담는다
   }
 }
 // 특정 업체의 특정 날짜 근처 정산금액 조회 (전월 대조용) — 입금일 이전 N일 안에서 금액 일치하는 정산 찾기
