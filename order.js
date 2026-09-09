@@ -707,6 +707,13 @@ table.olist td.ad input.ein{min-width:230px}
 .excbar .gh{display:inline-flex;gap:6px;align-items:center;background:#fff;border:1px solid #f0d4d4;
   border-radius:14px;padding:3px 6px 3px 10px;margin:4px 5px 0 0;font-size:12px}
 .excbar .gh button{border:none;background:transparent;color:var(--accent-d);font-weight:800;cursor:pointer;font-family:inherit;font-size:12px}
+/* 🔔 감춰둔 사이에 시트가 움직인 예외 상품 (홍팀장 2026-09-09) — 마스터 화면에만 뜬다 */
+.excalert{margin-top:9px;background:#fff;border:1.5px solid #e8b4b4;border-radius:10px;padding:9px 12px;font-size:12.5px;color:#c0392b;font-weight:700}
+.excmv{margin-top:7px;background:#fff8e6;border:1.5px solid #e6c66a;border-radius:9px;padding:8px 10px;
+  font-size:12px;font-weight:800;color:#8a6100;line-height:1.6;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.excack{border:1px solid #d9b45a;background:#fff;color:#8a6100;font-weight:800;font-family:inherit;font-size:11.5px;
+  border-radius:8px;padding:5px 10px;cursor:pointer;white-space:nowrap}
+.excack:hover{background:#fdf3d8}
 /* 🔔 새 발주 알림 — 오른쪽 아래 팝업 + 내역 카드 NEW 표시 (홍팀장 2026-08-24) */
 .ordpop{position:fixed;right:16px;bottom:24px;z-index:120;background:var(--card);border:2px solid var(--accent);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.28);padding:13px 34px 12px 15px;max-width:330px;cursor:pointer;animation:ordpopin .25s;font-family:inherit}
 @keyframes ordpopin{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
