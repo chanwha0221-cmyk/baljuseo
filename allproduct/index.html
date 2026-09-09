@@ -335,7 +335,7 @@ async function loadCatalog(){
     const wh = (r.warehouse || '미지정').trim();
     if (order.indexOf(wh) < 0) { order.push(wh); byWh[wh] = []; }
     const cur = (r.supplyPrice == null || r.supplyPrice === '') ? null : Number(r.supplyPrice);
-    const old = (r.previousPrice == null || r.previousPrice === '') ? null : Number(r.previousPrice);
+    const old = (r.previousPrice == null || r.previousPrice === '' || Number(r.previousPrice) <= 0) ? null : Number(r.previousPrice);   // 🔴 0은 이전가가 아니다 — 「0원」 취소선 방지 (2026-09-09)
     byWh[wh].push({
       name   : String(r.name || '').trim(),
       url    : r.link || '',
@@ -693,7 +693,7 @@ function mediaOf(p){
 function priceCell(p){
   if(!isAdmin())return '<span class="pinq">별도 문의</span>'+(p.__edited?'<span class="editedTag">수정됨</span>':'');
   if(p.price.cur==null)return '<span class="pask editable" data-edit-price="'+p.id+'" title="클릭해서 가격 입력">수량·단가 문의</span>';
-  const oldh=(p.price.old!=null&&p.price.old!==p.price.cur)?'<span class="pold">'+won(p.price.old)+'원</span>':'';
+  const oldh=(p.price.old>0&&p.price.old!==p.price.cur)?'<span class="pold">'+won(p.price.old)+'원</span>':'';
   return oldh+'<span class="pcur editable" data-edit-price="'+p.id+'" title="클릭해서 가격 수정">'+won(p.price.cur)+'<small>원</small></span>'
        +(p.__edited?'<span class="editedTag">수정됨</span>':'');
 }
@@ -760,7 +760,7 @@ function cardHtml(p,showWh){
   const ship=p.ship<0?'—':(p.ship>0
     ?((p.courier?esc(p.courier.split('/')[0])+' ':'')+'<b>'+won(p.ship)+'</b>')
     :'<span class="free">무료배송</span>');
-  const hasChg=p.price.old!=null&&p.price.cur!=null&&p.price.old!==p.price.cur;
+  const hasChg=p.price.old>0&&p.price.cur!=null&&p.price.old!==p.price.cur;
   return '<div class="mcard"><div class="mtop">'+thwrap+'<div class="mhead">'
     +'<div class="mname"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
     +(tags?'<div class="itag">'+tags+'</div>':'')+'</div></div>'

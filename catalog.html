@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.72</title>
+<title>마스터 유통 카탈로그 v23.73</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1332,7 +1332,7 @@ function buildProposalDoc(){
         name:p.name,
         spec:(m&&Array.isArray(m.spec))?m.spec:[],
         supplyPrice:(p.price&&p.price.cur!=null)?p.price.cur:0,
-        previousPrice:(p.price&&p.price.old!=null)?p.price.old:0,
+        previousPrice:(p.price&&p.price.old>0)?p.price.old:null,   // 🔴 0으로 내보내면 받는 쪽이 「0원」 취소선을 그린다 (2026-09-09)
         tax:p.tax||'',
         courier:p.courier||'',
         shipFee:(p.ship>0?p.ship:0),
@@ -1472,7 +1472,7 @@ function priceHtml(p){
   if(noPrice())return '<div class="price" style="font-size:13px;color:var(--gold)">단가 별도 안내</div>';
   if(p.cur==null)return '<div class="price" style="font-size:13px;color:var(--gold)">수량·단가 문의</div>';
   const cls='price'+(p.dir==='up'?' up':(p.dir==='down'?' down':''));
-  const oldh=(p.old!=null&&p.old!==p.cur)?'<span class="old">'+won(p.old)+'원</span>':'';
+  const oldh=(p.old>0&&p.old!==p.cur)?'<span class="old">'+won(p.old)+'원</span>':'';
   return oldh+'<div class="'+cls+'">'+won(p.cur)+'<small>원</small></div>';
 }
 // extra = 카드 맨 아래 덧붙임(추천 코멘트), top = 카드 위쪽 배지(추천상품/소식글)
@@ -2021,7 +2021,7 @@ function renderMoveBox(){
     const cur=(live!=null)?live:p.cur;
     const price=noPrice()?'<span class="mvp">별도 안내</span>'
       :(cur==null)?'<span class="mvp">문의</span>'
-      :('<span class="mvp">'+((p.old!=null&&p.old!==cur)?'<s>'+won(p.old)+'</s>':'')+won(cur)+'원</span>');
+      :('<span class="mvp">'+((p.old>0&&p.old!==cur)?'<s>'+won(p.old)+'</s>':'')+won(cur)+'원</span>');
     return '<div class="mvit"><button class="mvn" data-mv="'+esc(it.name)+'" title="이 상품 검색">'+esc(it.name)+'</button>'
       +price+'<span class="mvd">'+esc(shortDay(it.day))+'</span>'
       +'<button class="cpbtn" data-cp="'+esc(it.name)+'" title="상품명 복사">📋</button></div>';
