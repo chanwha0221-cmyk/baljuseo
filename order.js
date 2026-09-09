@@ -268,8 +268,15 @@ const OFFCAT = [
    note:'카탈로그에 없는 납품용 규격입니다 — 냉동 15kg 벌크 단위로 나갑니다.'},
 ];
 const OFFCAT_NOTE = '뱃살 위주로 나가지만 100% 뱃살은 아닙니다 — 등살·꼬리살이 섞일 수 있습니다. 그대로 받으시는 조건으로 발주를 받습니다.';
+/* 🔐 도구에서 열어준 «이 업체 전용 상품» (2026-09-09 홍팀장 — "업체명·상품명만 넣으면 그 업체만 되게").
+   상품도구 [🔐 업체 전용 상품]에 등록하면 도구시트 '업체전용상품' 탭에 쌓이고,
+   서버가 **그 업체 계정에게만** 실어 보낸다(window.VONLY). 소스를 고쳐 배포할 일이 없다.
+   OFFCAT(코드에 박힌 것)과 하는 일은 같다 — 카탈로그 상품 목록엔 없고, 발주에서만 통한다. */
+function vonly(){ try{ return (window.VONLY||[]).filter(o=>o&&o.name); }catch(e){ return []; } }
 function offcat(raw){
   const k = pkey(S(raw));
+  const v = vonly().find(o => pkey(o.name) === k);
+  if(v) return {name:v.name, group:v.wh || '', offcat:true, note:v.note || ''};
   const m = OFFCAT.find(o => pkey(o.name) === k);
   return m ? {name:m.name, group:m.wh, offcat:true, note:m.note || ''} : null;
 }
@@ -280,8 +287,9 @@ function offcat(raw){
 function offcatMine(){
   const me = (typeof ME !== 'undefined' && ME) ? ME : null;
   const nm = me ? pkey(S(me.name)) : '';
-  if(!nm) return [];
-  return OFFCAT.filter(o => (o.only || []).some(x => pkey(x) === nm));
+  const hard = nm ? OFFCAT.filter(o => (o.only || []).some(x => pkey(x) === nm)) : [];
+  // 도구에서 등록한 것은 서버가 이미 내 계정 것만 걸러서 보냈다 — 여기서 또 거를 필요가 없다
+  return hard.concat(vonly());
 }
 
 /* ✂️ 상품명 끝에 매달려 온 수량 구분자 (홍팀장 2026-09-03 — 지구식품 「납품용 대구 15kg x」).

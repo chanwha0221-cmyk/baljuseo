@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.71</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.72</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1820,6 +1820,9 @@ async function startCatalog(){
     /* 📦 먼저 스냅샷을 받아본다 — 성공하면 아래 loadXxx 들이 전부 이 덩어리에서 꺼내 쓴다(요청 0건).
        실패하면 SNAP 이 null 로 남고, 예전처럼 시트 프록시로 하나씩 읽는다. */
     SNAP=await loadSnap();
+    /* 🔐 이 업체에게만 열어준 상품 (2026-09-09) — 서버가 내 계정 것만 걸러서 보낸다.
+       카탈로그 상품 목록에는 안 올라가고, 발주 화면(order.js)의 검색·후보에서만 쓴다. */
+    window.VONLY=(SNAP&&SNAP.vonly)?SNAP.vonly.map(r=>({name:String(r[1]||'').trim(),wh:String(r[2]||'').trim(),note:String(r[3]||'').trim()})).filter(x=>x.name):[];
     const gridP=loadCatalog();
     gridP.catch(()=>{});   // 아래에서 받을 때까지 '처리 안 된 오류'로 잡히지 않게
     /* 🚑 곁다리를 **기다리지 않는다** (2026-09-04 라이브 장애).
