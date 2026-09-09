@@ -2241,7 +2241,11 @@ function headerItems(raw){
   for(let i = 0; i < Math.min(6, lines.length); i++){
     const c = cut(lines[i]);
     const has = keys => c.some(x => keys.some(k => x === k || x.indexOf(k) === 0));
-    if(has(HDR_MAP.name) && has(HDR_MAP.qty) && has(HDR_MAP.rcv)){ hr = i; head = c; break; }
+    /* 🔢 수량 칸이 **없는** 표도 있다 (홍팀장 2026-09-09 여수39): 「연안 활 숫게 1kg x 4」처럼
+       수량이 상품명 뒤에 붙어 온다. 예전엔 수량 칸이 없으면 표로 안 보고 옛 변환기로 넘겼는데,
+       그쪽은 송장업체명·주문 연락처를 모른다 → 채널이 통째로 사라졌다.
+       → 상품명+받는분이 있으면 표로 본다. 수량은 아래에서 상품명 꼬리(x N)로 읽는다. */
+    if(has(HDR_MAP.name) && has(HDR_MAP.rcv) && (has(HDR_MAP.qty) || has(HDR_MAP.addr) || has(HDR_MAP.tel))){ hr = i; head = c; break; }
   }
   if(hr < 0) return [];
   /* 📑 이 업체 규칙이 있으면 그 칸 이름을 **먼저** 본다 (없으면 예전대로).
@@ -2267,7 +2271,7 @@ function headerItems(raw){
     return -1;
   };
   const at = {}; Object.keys(MAP).forEach(f => { at[f] = pick(MAP[f]); });
-  if(at.name < 0 || at.qty < 0) return [];
+  if(at.name < 0) return [];
   const stIdx = head.findIndex(x => x.indexOf('배송상태') === 0 || x === '주문상태' || x === '상태');
   const dash = v => { const s = S(v); return (s === '-' || s === '_') ? '' : s; };   // 식봄은 빈칸을 '-' 로 준다
   const out = [], skipped = [], warns = [];
@@ -2296,7 +2300,14 @@ function headerItems(raw){
     /* 📦 수량 — 옵션에 붙은 배수가 진짜 개수다 (전체 규칙).
        「특왕 민물장어 1kg*2」는 수량 칸이 1이어도 1kg 두 개다. 배수를 안 읽으면 절반만 발주된다.
        🔴 수량 칸에 2 이상이 같이 적혀 있으면 곱한 값이 맞는지 **묻는다** — 조용히 두 배로 내보내지 않는다. */
-    const base = parseInt(S(g('qty')).replace(/[^\d]/g, ''), 10) || 0;
+    /* 🔢 수량 칸이 없으면 상품명 꼬리에서 읽는다 — 「… 1kg x 4」 (홍팀장 2026-09-09 여수39).
+       ⚠️ 이름 한가운데의 x(3x4 같은 규격)는 건드리지 않는다. 끝에 매달린 것만 뗀다. */
+    let base = parseInt(S(g('qty')).replace(/[^\d]/g, ''), 10) || 0;
+    if(at.qty < 0){
+      const tx = nm.match(/\s+[xX*×]\s*(\d{1,3})\s*$/);
+      if(tx){ base = parseInt(tx[1], 10) || 1; nm = nm.slice(0, tx.index).trim(); }
+      else base = 1;
+    }
     const mult = multOf(fin) || multOf(multCell(c, at));
     /* 옵션 배수 = 한 건에 몇 개, 수량 칸 = 몇 건. **곱하면 총 개수다** (홍팀장 2026-09-02).
          「1kg*2」 × 수량 1 = 2   ·   「1kg」 × 수량 2 = 2   ·   「(초수) x 1」 × 수량 2 = 2
