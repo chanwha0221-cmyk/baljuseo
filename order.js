@@ -61,7 +61,7 @@ function saveFor(){ try{ FOR ? localStorage.setItem(FK, JSON.stringify(FOR)) : l
 // ── 작은 도구들 ──────────────────────────────────────────────────
 const S = v => String(v == null ? '' : v).trim();
 const D = v => S(v).replace(/[^0-9]/g, '');
-function blank(){ return {biz:'',name:'',qty:'',rcv:'',addr:'',tel:'',msg:''}; }
+function blank(){ return {biz:'',name:'',qty:'',rcv:'',addr:'',tel:'',msg:'',otel:''}; }
 function loadDraft(){
   try{ const j = JSON.parse(localStorage.getItem(DK) || '[]'); if(Array.isArray(j)&&j.length) return j.map(r=>Object.assign(blank(), r)); }catch(e){}
   return [];
@@ -453,8 +453,8 @@ function buildOut(){
     const c = checkRow(r);
     if(c.errs.length || !c.p) return;
     const wh = whOf(c.p);
-    const key = [S(r.biz), S(r.rcv), addrKey(r.addr), D(r.tel), wh].join('');
-    if(!groups.has(key)) groups.set(key, {biz:S(r.biz), rcv:S(r.rcv), addr:S(r.addr), tel:S(r.tel), msg:'', wh, items:[]});
+    const key = [S(r.biz), D(r.otel), S(r.rcv), addrKey(r.addr), D(r.tel), wh].join('');
+    if(!groups.has(key)) groups.set(key, {biz:S(r.biz), otel:S(r.otel), rcv:S(r.rcv), addr:S(r.addr), tel:S(r.tel), msg:'', wh, items:[]});
     const g = groups.get(key);
     /* 🐟 발주서에 나가는 이름 = 카탈로그 정식 이름 + 고른 삭힘정도.
        합포장 한도·합포장 불가 판정은 괄호 없는 정식 이름(base)으로 봐야 한다 — 괄호가 붙으면 못 찾는다. */
@@ -507,7 +507,10 @@ function buildOut(){
        한상***으로 찍힌 송장에 용감***의 번호가 나가면 그쪽이 전화를 못 받는다.
        저장된 게 없으면 예전대로 주문처(계정) 연락처로 나간다 — 발주를 막지는 않는다. */
     const sh = biz ? shipOf(biz) : null;
-    const oTel = (sh && S(sh.phone)) ? (fmtTel(sh.phone) || S(sh.phone)) : myTel;
+    const fTel = S(g.otel);                                 // ☎ 파일에 적혀 온 그 채널의 주문 연락처
+    const oTel = fTel ? (fmtTel(fTel) || fTel)
+                : (sh && S(sh.phone)) ? (fmtTel(sh.phone) || S(sh.phone))
+                : myTel;
     /* 🔒 주소는 거래처 표의 "안 씀" 규칙을 먼저 통과해야 실린다 (홍팀장 2026-09-04).
        출고지 업체가 안 쓰는 곳이면 주문처 주소로 **폴백하지 않는다** — 빈칸이 답이다. */
     const oAddr = (sh && S(sh.addr)) ? outAddr(biz, sh.addr) : outAddr(me.name, me.addr);
@@ -2194,6 +2197,11 @@ const HDR_MAP = {
      예전엔 이 칸을 아예 안 읽어 전부 9칸(자기 이름)으로 나갔다 — 채널 구분이 통째로 사라졌다.
      ⚠️ 자기 업체명을 적어 보낸 줄은 buildOut 이 걸러 9칸으로 되돌린다(2026-08-24 규칙 그대로). */
   biz : ['업체명', '출고지', '출고지명', '송장업체명'],
+  /* ☎ 그 출고지(채널)의 **주문 연락처** (홍팀장 2026-09-09 — 여수39).
+     한 사업자 밑에 채널이 여러 개면 파일에 「송장업체명 + 주문 연락처」가 짝으로 온다.
+     예전엔 이 칸을 안 읽어 **전부 계정 하나의 번호**로 나갔고, 원비씨가 발주마다 손으로 다시 넣었다.
+     → 파일에 적혀 있으면 그 번호가 그대로 나간다. 없으면 예전대로 명부·계정 번호를 쓴다. */
+  otel: ['주문 연락처', '주문연락처', '주문처 연락처', '주문처연락처', '출고지 연락처', '출고지연락처', '보내는분 연락처', '보내는분연락처'],
   // 아래 둘은 우리 7칸에 그대로 들어가지 않고, 상품명·주소를 **거들기만** 한다
   opt : ['등록옵션명'],
   zip : ['수취인우편번호', '우편번호']       // '수취인우편번호(2)' — 앞글자가 달라 '우편번호'로는 안 걸렸다
@@ -2304,12 +2312,13 @@ function headerItems(raw){
     let ad = g('addr');
     const zp = S(g('zip')).replace(/[^\d]/g, '');
     if(zp && ad && ad.indexOf(zp) < 0) ad = '(' + zp + ')' + ad;
-    out.push({ biz:bizCell(g('biz')), name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg') });
+    out.push({ biz:bizCell(g('biz')), name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg'),
+               otel:fmtTel(g('otel')) || g('otel') });   // ☎ 출고지(채널) 주문 연락처 — 있으면 이 번호로 나간다
   }
   out.skipped = skipped;
   out.warns = warns;
   // 원문에 없던 손질을 했으면 화면에 그대로 말해준다 — 주소가 왜 달라졌는지 묻지 않게
-  out.used = { opt: at.opt >= 0, zip: at.zip >= 0, rule: !!RULE.headers, final: at.final >= 0, biz: at.biz >= 0 };
+  out.used = { opt: at.opt >= 0, zip: at.zip >= 0, rule: !!RULE.headers, final: at.final >= 0, biz: at.biz >= 0, otel: at.otel >= 0 };
   return out;
 }
 
@@ -2411,11 +2420,12 @@ function runConvert(append){
       + (S(who.name) ? '<br>정산업체명은 ' + whoLine(who.name) + ' 로 나갑니다 — 파일 안의 판매처가 아닙니다.' : '<br>위에서 <b>어느 업체 발주인지</b> 골라주세요.')
       + (byHead.length ? '<br><b style="color:var(--up)">🚫 취소·반품·교환 ' + byHead.length + '줄은 뺐습니다</b> — ' + esc(byHead.slice(0, 5).join(', ')) + (byHead.length > 5 ? ' 외' : '') : '')
       + (hdUsed && hdUsed.rule ? '<br><span class="hint">📑 이 업체 발주서 규칙으로 읽었습니다.</span>' : '')
-      + ((hdUsed && (hdUsed.opt || hdUsed.zip || hdUsed.biz))
+      + ((hdUsed && (hdUsed.opt || hdUsed.zip || hdUsed.biz || hdUsed.otel))
           ? '<br><span class="hint">' + [hdUsed.opt ? '옵션명을 상품명 뒤에 붙였습니다(규격이 옵션 칸에 있어서)' : '',
                                           hdUsed.zip ? '우편번호를 주소 앞에 (00000) 으로 붙였습니다' : '',
                                           // 🏷 채널이 여러 개인 업체 — 그 이름으로 송장이 나간다는 걸 그 자리에서 알린다
-                                          hdUsed.biz ? '업체명 칸을 읽었습니다 — 그 이름이 송장에 찍히는 10칸 발주로 나갑니다' : ''].filter(Boolean).join(' · ') + '</span>'
+                                          hdUsed.biz ? '업체명 칸을 읽었습니다 — 그 이름이 송장에 찍히는 10칸 발주로 나갑니다' : '',
+                                          hdUsed.otel ? '☎ 주문 연락처 칸을 읽었습니다 — 그 채널 번호가 그대로 발주서에 나갑니다' : ''].filter(Boolean).join(' · ') + '</span>'
           : '')
       + '</div>');
     /* 📦 수량을 원문 그대로 안 넣은 줄은 **한 줄씩** 말해준다 (홍팀장 2026-09-02).
