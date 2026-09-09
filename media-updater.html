@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.37</title>
+<title>마스터 유통 상품 도구 v1.38</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1027,6 +1027,10 @@ const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 const t=x=>(x==null?'':String(x)).trim();
 const day=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());};
 let REC=[],NOT=[],RECN=0,NOTN=0;
+/* 🔴 불러오기가 성공했을 때만 저장을 허용한다 (2026-09-09).
+   저장은 탭을 통째로 되쓰는 방식이라, 못 읽어서 목록이 빈 상태로 저장하면 시트가 지워진다.
+   "못 읽음"과 "정말 비어 있음"을 같은 것으로 취급하지 않는다(CLAUDE.md §0-0-3 4번). */
+let RECOK=false,NOTOK=false;
 // 소식글에서 올라온 상품은 등록일부터 10일만 노출된다 (11일차에 카탈로그에서 자동으로 빠짐)
 // 🔴 개수 상한(옛 NEWS_MAX=10)은 없앴다 — "10개 넘어도 강제로 내리지 마라"(홍팀장 2026-09-02).
 //    내리는 기준은 날짜 하나뿐이다.
@@ -1061,9 +1065,10 @@ async function recLoad(){
     const v=await readTab('추천상품','F');
     REC=v.map(r=>({name:t(r[0]),cmt:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',at:t(r[4]),news:t(r[5])==='소식글'})).filter(r=>r.name);
     RECN=v.length;
+    RECOK=true;
     $p('rcStat').textContent=REC.length+'개 등록됨';
     recDraw();
-  }catch(e){ $p('rcStat').textContent='⚠️ '+e.message; }
+  }catch(e){ RECOK=false; $p('rcStat').textContent='⚠️ '+e.message+' — 새로고침 전에는 저장하지 마세요'; }
 }
 function recDraw(){
   if(!REC.length){$p('rcRows').innerHTML='<div class="ci" style="color:var(--muted)">아직 없습니다. 위에서 상품을 검색해 추가하세요.</div>';return;}
@@ -1488,6 +1493,23 @@ async function bumpCatalogSnap(){
     return (j&&j.grid)?'ok':'fail';
   }catch(e){ return 'fail'; }
 }
+/* 🗄 백데이터 보관 (홍팀장 2026-09-09 "공지는 안 내리고 계속 가는데 어디 백데이터로 저장은 되고 있나")
+   공지·추천상품의 원본은 도구시트 탭 하나뿐이고, 저장은 그 탭을 **통째로 되쓴다** —
+   한 번 잘못 덮이면 시트 버전 기록 말고는 되돌릴 데가 없었다.
+   → 저장이 성공할 때마다 그 시점 전체를 발주 서버(Supabase)에 담아둔다. 최근 30번분이 남는다.
+   ⚠️ 백업 실패가 저장을 되돌리지는 않는다(저장은 이미 끝났다) — 화면에 한 줄로 알리기만 한다. */
+async function bakSave(name,rows){
+  let tk='';
+  try{ const a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null'); tk=(a&&a.token)||''; }catch(e){}
+  if(!tk)return 'notoken';
+  if(!rows||!rows.length)return 'empty';
+  try{
+    const r=await fetch(SNAP_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'bak',token:tk,name:name,rows:rows})});
+    let j=null; try{ j=JSON.parse(await r.text()); }catch(e){}
+    return (j&&j.ok)?'ok':'fail';
+  }catch(e){ return 'fail'; }
+}
 /* 저장 뒤 안내 문구 — 캐시 갱신은 기다리지 않고 뒤에서 돌린다(실측 7초 / 92초).
    기다리면 그동안 저장 버튼이 묶인다. 끝나면 문구만 바꾼다. */
 function bumpAndTell(logId){
@@ -1500,12 +1522,16 @@ function bumpAndTell(logId){
   });
 }
 $p('rcSave').onclick=async function(){
+  // 못 읽은 상태로 저장하면 시트가 지워진다 (공지와 같은 규칙)
+  if(!RECOK){ $p('rcLog').textContent='⚠️ 추천상품을 불러오지 못한 상태입니다. 새로고침해서 목록이 뜬 뒤에 저장하세요.'; return; }
   const b=this;b.disabled=true;b.textContent='저장 중…';$p('rcLog').textContent='';
   try{
-    await writeTab('추천상품',{end:'F',length:6},REC.map((r,i)=>[r.name,r.cmt,r.show?'Y':'N',String(i+1),r.at||day(),r.news?'소식글':'추천']),RECN);
+    const rows=REC.map((r,i)=>[r.name,r.cmt,r.show?'Y':'N',String(i+1),r.at||day(),r.news?'소식글':'추천']);
+    await writeTab('추천상품',{end:'F',length:6},rows,RECN);
     RECN=REC.length;
     $p('rcStat').textContent=REC.length+'개 등록됨';
     $p('rcLog').textContent='✅ 저장했습니다 — 카탈로그에 띄우는 중…';
+    bakSave('RECO',rows).then(s=>{ if(s==='fail'||s==='notoken')$p('rcLog').textContent+=' (백업은 못 남겼습니다)'; });
     bumpAndTell('rcLog');
   }catch(e){ $p('rcLog').textContent='⚠️ '+e.message; }
   finally{ b.disabled=false;b.textContent='💾 저장'; }
@@ -1536,9 +1562,10 @@ async function notLoad(){
     const v=await readTab('공지사항','E');
     NOT=v.map(r=>({title:t(r[0]),body:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',imp:t(r[3]).toUpperCase()==='Y',at:t(r[4])})).filter(n=>n.title);
     NOTN=v.length;
+    NOTOK=true;
     $p('ncStat').textContent=NOT.length+'건';
     notDraw();
-  }catch(e){ $p('ncStat').textContent='⚠️ '+e.message; }
+  }catch(e){ NOTOK=false; $p('ncStat').textContent='⚠️ '+e.message+' — 새로고침 전에는 저장하지 마세요'; }
 }
 function notDraw(){
   if(!NOT.length){$p('ncRows').innerHTML='<div class="ci" style="color:var(--muted)">등록된 공지가 없습니다.</div>';return;}
@@ -1590,15 +1617,19 @@ $p('ncAdd').onclick=function(){
   notDraw();$p('ncLog').textContent='등록했습니다 — 저장을 눌러야 반영됩니다.';
 };
 $p('ncSave').onclick=async function(){
+  // 못 읽은 상태로 저장하면 시트의 공지가 통째로 지워진다 — 그 상태에선 아예 막는다
+  if(!NOTOK){ $p('ncLog').textContent='⚠️ 공지를 불러오지 못한 상태입니다. 새로고침해서 목록이 뜬 뒤에 저장하세요 (지금 저장하면 기존 공지가 지워집니다).'; return; }
   // 제목이 빈 공지는 저장해도 다시 못 읽어온다(불러올 때 제목 없는 행은 버린다) — 저장을 막아 유실을 막는다
   const empty=NOT.findIndex(n=>!t(n.title));
   if(empty>=0){ $p('ncLog').textContent='⚠️ '+(empty+1)+'번째 공지의 제목이 비어 있습니다. 제목을 채워주세요.'; return; }
   const b=this;b.disabled=true;b.textContent='저장 중…';$p('ncLog').textContent='';
   try{
-    await writeTab('공지사항',{end:'E',length:5},NOT.map(n=>[n.title,n.body,n.show?'Y':'N',n.imp?'Y':'N',n.at||day()]),NOTN);
+    const rows=NOT.map(n=>[n.title,n.body,n.show?'Y':'N',n.imp?'Y':'N',n.at||day()]);
+    await writeTab('공지사항',{end:'E',length:5},rows,NOTN);
     NOTN=NOT.length;
     $p('ncStat').textContent=NOT.length+'건';
     $p('ncLog').textContent='✅ 저장했습니다 — 카탈로그에 띄우는 중…';
+    bakSave('NOTICE',rows).then(s=>{ if(s==='fail'||s==='notoken')$p('ncLog').textContent+=' (백업은 못 남겼습니다)'; });
     bumpAndTell('ncLog');
   }catch(e){ $p('ncLog').textContent='⚠️ '+e.message; }
   finally{ b.disabled=false;b.textContent='💾 저장'; }
