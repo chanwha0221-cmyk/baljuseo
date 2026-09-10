@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.43</title>
+<title>마스터 유통 상품 도구 v1.44</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1667,6 +1667,9 @@ $p('ncSave').onclick=async function(){
    ⚠️ 업체명은 **계정 이름과 정확히 같아야** 한다. 그래서 계정 목록을 받아 자동완성으로 깔아준다. */
 const VOTAB='업체전용상품';
 let VO=[],VON=0,VOOK=false;
+/* 🔴 이 블록엔 pkey 가 없었다 (2026-09-10 「pkey is not defined」) — 다른 블록에만 정의돼 있어서
+   목록 그리기도 [＋추가]도 그 자리에서 죽었다. 비교 규칙은 서버 nameKey 와 같은 것이어야 한다. */
+const pkey=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 /* 🌐 «전체» 대상 (홍팀장 2026-09-10 — "꽃게가 확 오르면서 소량 들어왔다. 카탈로그엔 업데이트 안 하고
    필요한 업체만 발주 받게"): 업체명 자리에 «전체»를 넣으면 서버가 모든 업체 화면에 실어 보낸다.
    카탈로그 상품 목록에는 여전히 안 올라간다 — 아는 사람만 발주하는 자리다.
