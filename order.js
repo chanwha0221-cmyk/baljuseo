@@ -369,6 +369,14 @@ function candidates(raw){
 }
 function whOf(p){ return p ? (p.effWh || p.srcWh || p.group || '') : ''; }
 function hapLimit(name){ try{ return (typeof HAP !== 'undefined' && HAP) ? (HAP[pkey(name)] || 0) : 0; }catch(e){ return 0; } }
+/* 📦 26개를 한 상자 10개 기준으로 → [10,10,6]. 검증 경고와 실제 발주서 분리가 **같은 셈**을 써야
+   "이렇게 나눠 넣습니다"와 실제 나간 줄이 어긋나지 않는다 (홍팀장 2026-09-10). */
+function capChunks(qty, cap){
+  const out = [];
+  if(!(cap > 0)) return [qty];
+  for(let left = qty; left > 0; left -= cap) out.push(Math.min(cap, left));
+  return out;
+}
 /* 💰 단가숨김 업체 (홍팀장 2026-08-31, 빅피쉬) — 카탈로그 쪽 noPrice()와 같은 뜻.
    이름을 달리 쓰는 건 catalog.html이 전역 const noPrice 를 이미 잡고 있어서다
    (같은 이름으로 또 선언하면 order.js가 통째로 안 돌아간다 — 발주가 죽는다). */
@@ -453,8 +461,11 @@ function checkRow(r){
 
   if(p){
     if(isLate(p)) warns.push('⏰ ' + (whOf(p) || '이 창고') + ' 마감(' + S(p.cut) + ')이 지났습니다 — 내일 출고됩니다.');
+    /* 📦 한 상자에 담기는 개수를 넘겼다 — **어떻게 나눠 넣는지까지** 말해준다 (홍팀장 2026-09-10).
+       예전엔 "박스가 나뉩니다"까지만 알리고 발주서는 「x 26」 한 줄로 나갔다. */
     const lim = hapLimit(p.name);
-    if(lim && q > lim) warns.push('📦 합포장 한도 ' + lim + '개를 넘습니다(' + q + '개) — 박스가 나뉩니다.');
+    if(lim && q > lim) warns.push('📦 ' + p.name + ' 는 한 상자에 ' + lim + '개까지입니다 — '
+      + capChunks(q, lim).join('+') + ' 로 나눠 넣습니다.');
   }
   return {p, errs, warns, cands: res.cands, qty: (q > 0 ? q : 0)};
 }
@@ -522,7 +533,7 @@ function buildOut(){
           + (amMaster() ? '업체에 확인해 주세요.' : '확인해 주세요.'));
       }
     });
-    items.forEach(it => { if(it.lim && it.qty > it.lim) warn.push('📦 ' + it.name + ' ' + it.qty + '개 (합포장 한도 ' + it.lim + ') — 박스 분리 확인 필요'); });
+    // (한도 초과 경고는 아래에서 **실제로 나눈 결과**와 함께 낸다 — 같은 말을 두 번 하지 않는다)
     const tel = fmtTel(g.tel) || g.tel;                     // 받는분 연락처는 하이픈 넣어 정리
     const myTel = fmtTel(me.phone) || S(me.phone);          // 주문처 연락처도 같은 규칙
     // 자기 업체명을 적은 건 10칸으로 치지 않는다 — 같은 업체 발주가 날마다 갈리는 원인 (2026-08-24)
@@ -542,16 +553,27 @@ function buildOut(){
       if(biz) ten.push([me.name || '', biz, oAddr, oTel, '', prod, g.rcv, g.addr, tel, g.msg]);
       else    nine.push([me.name || '', outAddr(me.name, me.addr), myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
     };
-    /* 📦 합포장 안 되는 상품은 **한 줄에 하나씩, 1개씩** 떨어진다 (홍팀장 2026-08-28 — 참치 오마카세 한판).
-       한 상자에 같이 못 담는 물건이라 발주서에서부터 나눠야 창고가 그대로 보낸다.
-       한 번 지정해두면 다음 발주부터 사람 손이 안 든다. */
+    /* 📦 한 상자에 못 담는 만큼 **발주서에서부터 줄을 나눈다.**
+       ① 합포장 안 되는 상품은 1개씩 (홍팀장 2026-08-28 — 참치 오마카세 한판)
+       ② 합포장 한도가 있는 상품은 그 개수씩 (홍팀장 2026-09-10 — 「활 새우 500g」 합포장 10개에
+          26개가 들어왔다: "10 10 6으로 나누든 해서 발주 분리한다고 말해 줬어야 하는 거 아니냐").
+       예전엔 ②를 경고만 하고 「x 26」 한 줄로 내보냈다 — 창고는 적힌 대로 담으므로 결국 사람이 손으로 나눴다.
+       ⚠️ 나누는 셈은 checkRow 경고와 같은 capChunks 를 쓴다. 두 곳이 갈리면 화면 말과 발주서가 어긋난다. */
     const solo = [], rest = [];
-    items.forEach(it => (isNoHap(it.base || it.name) ? solo : rest).push(it));
+    items.forEach(it => {
+      const cap = isNoHap(it.base || it.name) ? 1 : (it.lim || 0);
+      if(cap && it.qty > cap) solo.push({name:it.name, base:it.base, qty:it.qty, cap:cap});
+      else rest.push(it);
+    });
     if(rest.length) put(rest.map(it => it.name + ' x ' + it.qty).join(' / '));
     solo.forEach(it => {
-      for(let n = 0; n < it.qty; n++) put(it.name + ' x 1');
-      if(it.qty > 1) warn.push('📦 ' + it.name + ' — 합포장이 안 되는 상품이라 ' + it.qty + '줄로 나눠 넣었습니다.');
-      split.push({name:it.name, qty:it.qty, rcv:S(g.rcv)});
+      const chunks = capChunks(it.qty, it.cap);
+      chunks.forEach(n => put(it.name + ' x ' + n));
+      warn.push(it.cap === 1
+        ? '📦 ' + it.name + ' — 합포장이 안 되는 상품이라 ' + it.qty + '줄로 나눠 넣었습니다.'
+        : '📦 ' + it.name + ' — 한 상자에 ' + it.cap + '개까지라 ' + chunks.join('+') + ' 로 '
+          + chunks.length + '줄로 나눠 넣었습니다.');
+      split.push({name:it.name, qty:it.qty, cap:it.cap, chunks:chunks.slice(), rcv:S(g.rcv)});
     });
   });
   return {nine, ten, notes, warn, merged, split};
