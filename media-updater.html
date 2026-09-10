@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.41</title>
+<title>마스터 유통 상품 도구 v1.43</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -260,8 +260,13 @@ a{color:var(--accent)}
 <div class="card">
   <h2>🔐 업체 전용 상품 <span id="voStat" style="font-weight:400;font-size:12px;color:var(--muted)">불러오는 중…</span></h2>
   <p style="font-size:12.5px;color:var(--muted)">카탈로그에는 <b>안 올리고</b>, 적어둔 업체 화면에서만 검색·발주되게 여는 자리입니다.<br>
-     그 업체가 발주 화면에서 상품명 일부만 쳐도 후보에 뜹니다. 다른 업체에게는 보이지 않습니다. 단가는 안 붙습니다.</p>
-  <input id="voBiz" list="voBizDL" placeholder="업체명 — 계정 이름 그대로 (예: 동글지구)" autocomplete="off" style="margin-top:8px">
+     그 업체가 발주 화면에서 상품명 일부만 쳐도 후보에 뜹니다. 다른 업체에게는 보이지 않습니다. 단가는 안 붙습니다.<br>
+     <b style="color:var(--up)">🌐 전체 업체</b>로 열면 <b>모든 업체</b>가 발주할 수 있습니다 — 카탈로그에는 여전히 안 올라갑니다.
+     소량만 들어와 카탈로그에 올리기는 뭐한 물건(예: 단가가 확 뛴 날의 꽃게)을 필요한 곳만 넣게 할 때 씁니다.</p>
+  <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
+    <input id="voBiz" list="voBizDL" placeholder="업체명 — 계정 이름 그대로 (예: 동글지구)" autocomplete="off" style="margin:0;flex:1">
+    <button class="cp" id="voAll" type="button" style="margin:0;white-space:nowrap" title="모든 업체가 발주할 수 있게">🌐 전체 업체</button>
+  </div>
   <datalist id="voBizDL"></datalist>
   <input id="voName" placeholder="상품명 — 발주서에 적히는 이름 그대로 (예: 납품용 대구 15kg)" autocomplete="off" style="margin-top:7px">
   <input id="voNote" placeholder="발주 화면에 띄울 안내 한 줄 — 비워도 됩니다" autocomplete="off" style="margin-top:7px">
@@ -1662,6 +1667,13 @@ $p('ncSave').onclick=async function(){
    ⚠️ 업체명은 **계정 이름과 정확히 같아야** 한다. 그래서 계정 목록을 받아 자동완성으로 깔아준다. */
 const VOTAB='업체전용상품';
 let VO=[],VON=0,VOOK=false;
+/* 🌐 «전체» 대상 (홍팀장 2026-09-10 — "꽃게가 확 오르면서 소량 들어왔다. 카탈로그엔 업데이트 안 하고
+   필요한 업체만 발주 받게"): 업체명 자리에 «전체»를 넣으면 서버가 모든 업체 화면에 실어 보낸다.
+   카탈로그 상품 목록에는 여전히 안 올라간다 — 아는 사람만 발주하는 자리다.
+   ⚠️ 서버(api index.ts catBody)의 VONLY_ALL 과 **같은 말들**이어야 한다. 한쪽만 늘리면 조용히 안 열린다. */
+const VOALL_RE=/^(전체|전체업체|모든업체|공통|all|\*)$/;
+const voIsAll=s=>VOALL_RE.test(pkey(s||''));
+const VOALL='전체';
 async function voEnsureTab(){
   const j=await S.api(DOGU,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({requests:[{addSheet:{properties:{title:VOTAB}}}]})});
@@ -1690,7 +1702,9 @@ function voDraw(){
   if(!VO.length){$p('voRows').innerHTML='<div class="ci" style="color:var(--muted)">아직 없습니다. 위에 업체명·상품명을 넣고 [＋ 추가]를 누르세요.</div>';return;}
   $p('voRows').innerHTML=VO.map((v,i)=>
     '<div class="ci" style="flex-wrap:wrap;row-gap:6px">'
-    +'<span style="font-size:11.5px;font-weight:800;color:#1f6fd6;background:rgba(31,111,214,.12);padding:2px 8px;border-radius:5px;white-space:nowrap">'+esc(v.biz)+'</span>'
+    +(voIsAll(v.biz)
+      ? '<span style="font-size:11.5px;font-weight:800;color:#c2410c;background:rgba(234,88,12,.14);padding:2px 8px;border-radius:5px;white-space:nowrap">🌐 전체 업체</span>'
+      : '<span style="font-size:11.5px;font-weight:800;color:#1f6fd6;background:rgba(31,111,214,.12);padding:2px 8px;border-radius:5px;white-space:nowrap">'+esc(v.biz)+'</span>')
     +'<b style="flex:1;min-width:160px;font-size:13px">'+esc(v.name)+'</b>'
     +'<button class="cpbtn" data-cp="'+esc(v.name)+'" title="상품명 복사">📋</button>'
     +'<span style="font-size:11px;color:var(--muted)">'+esc(v.at)+'</span>'
@@ -1703,13 +1717,20 @@ $p('voRows').addEventListener('click',function(ev){
   if(c){ try{ navigator.clipboard.writeText(c.getAttribute('data-cp')); c.textContent='✅'; setTimeout(()=>c.textContent='📋',900); }catch(e){} return; }
   const b=ev.target.closest('[data-vo="del"]'); if(!b)return;
   const i=+b.getAttribute('data-i');
-  if(confirm(VO[i].biz+' 전용 「'+VO[i].name+'」을 지울까요?')){VO.splice(i,1);voDraw();}
+  if(confirm((voIsAll(VO[i].biz)?'전체 업체에 열어둔 ':VO[i].biz+' 전용 ')+'「'+VO[i].name+'」을 지울까요?')){VO.splice(i,1);voDraw();}
 });
+$p('voAll').onclick=function(){ $p('voBiz').value=VOALL; $p('voName').focus(); };
 $p('voAdd').onclick=function(){
-  const biz=t($p('voBiz').value), nm=t($p('voName').value);
-  if(!biz)return alert('업체명을 적어주세요 — 계정 이름과 똑같아야 합니다.');
+  let biz=t($p('voBiz').value); const nm=t($p('voName').value);
+  if(!biz)return alert('업체명을 적어주세요 — 계정 이름과 똑같아야 합니다. 모든 업체에게 열려면 [🌐 전체 업체]를 누르세요.');
   if(!nm)return alert('상품명을 적어주세요.');
+  const all=voIsAll(biz);
+  if(all)biz=VOALL;                                   // «전체업체»·«공통»으로 적어도 시트엔 «전체»로 통일해 넣는다
   if(VO.some(v=>pkey(v.biz)===pkey(biz)&&pkey(v.name)===pkey(nm)))return alert('이미 열어둔 상품입니다.');
+  // 이미 전체로 열려 있는 상품을 업체 하나로 또 여는 것은 의미가 없다 — 모르고 두 번 넣는 것을 막는다
+  if(!all&&VO.some(v=>voIsAll(v.biz)&&pkey(v.name)===pkey(nm)))
+    return alert('「'+nm+'」은 이미 🌐 전체 업체에 열려 있습니다 — 따로 넣지 않아도 이 업체가 발주할 수 있습니다.');
+  if(all&&!confirm('「'+nm+'」을 모든 업체가 발주할 수 있게 엽니다.\n(카탈로그 상품 목록에는 올라가지 않습니다.)\n\n진행할까요?'))return;
   VO.unshift({biz:biz,name:nm,note:t($p('voNote').value),at:day()});
   $p('voName').value='';$p('voNote').value='';
   voDraw();$p('voLog').textContent='추가했습니다 — 저장을 눌러야 반영됩니다.';
@@ -1738,7 +1759,8 @@ $p('voSave').onclick=async function(){
       body:JSON.stringify({action:'accounts',token:tk})});
     const j=await r.json();
     const names=((j&&(j.rows||j.list))||[]).map(x=>t(x.name)).filter(Boolean).sort();
-    $p('voBizDL').innerHTML=names.map(n=>'<option value="'+esc(n)+'">').join('');
+    // 맨 위는 «전체» — 모든 업체에게 여는 자리다(2026-09-10)
+    $p('voBizDL').innerHTML='<option value="'+VOALL+'">'+names.map(n=>'<option value="'+esc(n)+'">').join('');
   }catch(e){}
 })();
 
