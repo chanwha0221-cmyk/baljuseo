@@ -223,14 +223,25 @@ function multCell(cells, at){
 }
 
 // ── 상품 찾기 (완전일치만) ───────────────────────────────────────
-let PIDX = null, WHS = null;
+/* 🔴 인덱스를 **한 번 만들고 영원히 안 버리던** 자리였다 (홍팀장 2026-09-10:
+     "탑에 1 있는데 왜 없다 하냐" — 카탈로그 검색엔 「명품게장 선물세트」가 뜨는데
+     발주에서는 「카탈로그에 없는 상품명입니다」였다).
+   카탈로그는 **저장된 화면(캐시)으로 먼저 그리고** 최신 상품이 도착하면 다시 그린다(buildAll).
+   그 사이에 발주 화면을 한 번이라도 열면 인덱스가 **옛 목록으로 굳어**, 오늘 새로 올라온 상품은
+   화면에 보이는데도 계속 「없는 상품명」이 된다.
+   → 상품 목록이 다시 만들어질 때마다 버린다(catalog.html buildAll 끝에서 resetProdIndex 호출).
+      혹시 그 호출이 빠진 경로가 있어도 개수가 달라지면 여기서 스스로 다시 만든다. */
+let PIDX = null, WHS = null, PIDX_N = -1;
 function prodIndex(){
-  if(PIDX) return PIDX;
-  PIDX = new Map();
+  const n = (typeof ALL !== 'undefined' && ALL) ? ALL.length : 0;
+  if(PIDX && n === PIDX_N) return PIDX;
+  PIDX = new Map(); PIDX_N = n;
   (typeof ALL !== 'undefined' ? ALL : []).forEach(p => { const k = pkey(p.name); if(!PIDX.has(k)) PIDX.set(k, p); });
   WHS = Array.from(new Set((typeof ALL !== 'undefined' ? ALL : []).map(p => p.effWh || p.group).filter(Boolean)));
   return PIDX;
 }
+// 상품 목록이 새로 만들어졌다 — 다음에 찾을 때 인덱스를 다시 짓는다 (catalog.html buildAll 이 부른다)
+window.resetProdIndex = function(){ PIDX = null; WHS = null; PIDX_N = -1; };
 /* 창고명 접두어만 예외로 떼어낸다 — 업체가 "인천 갈치 1kg"처럼 창고를 앞에 붙여 적는 일이 잦다.
    그 밖의 "비슷한 이름"은 절대 자동으로 붙이지 않는다. */
 function stripWh(raw){

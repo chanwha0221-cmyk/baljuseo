@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.78</title>
+<title>마스터 유통 카탈로그 v23.79</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1247,6 +1247,10 @@ function buildAll(){
     GROUPS.splice(at<0?0:at+1,0,g);
     excCards.forEach(p=>ALL.push(p));   // 마스터 검색에서도 잡혀야 되돌릴 수 있다
   }
+  /* 🔎 발주 화면의 상품 인덱스를 버린다 (홍팀장 2026-09-10 「탑에 1 있는데 왜 없다 하냐」).
+     ALL 을 통째로 새로 만들었으니, 옛 목록으로 굳은 인덱스를 그대로 두면 오늘 올라온 상품이
+     화면엔 보이는데 발주에서는 「카탈로그에 없는 상품명」이 된다. */
+  if(window.resetProdIndex)resetProdIndex();
 }
 /* 시트에서 이미 사라진 예외 상품 — 카드가 없어 화면에 못 그린다.
    이름만이라도 남겨두지 않으면 되돌릴 방법이 없어진다. */
