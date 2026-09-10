@@ -273,10 +273,15 @@ const OFFCAT_NOTE = '뱃살 위주로 나가지만 100% 뱃살은 아닙니다 �
    서버가 **그 업체 계정에게만** 실어 보낸다(window.VONLY). 소스를 고쳐 배포할 일이 없다.
    OFFCAT(코드에 박힌 것)과 하는 일은 같다 — 카탈로그 상품 목록엔 없고, 발주에서만 통한다. */
 function vonly(){ try{ return (window.VONLY||[]).filter(o=>o&&o.name); }catch(e){ return []; } }
+/* 도구에서 열어준 상품에 안내문을 따로 안 적었을 때 뜨는 기본 문구 (홍팀장 2026-09-10).
+   🔴 예전엔 OFFCAT_NOTE(연어 뱃살 얘기)가 대신 떴고, 카탈로그에서 예외로 빼둔 상품이면
+      「오늘 판매하지 않습니다」라는 **차단 문구**가 떠서 업체가 놀랐다. 열어준 물건은 발주가 돼야 한다. */
+const VONLY_NOTE = '금일 인상 및 소량 입고 상품이라 카탈로그에는 노출하지 않았습니다. 발주 후 담당에게 수량 공유 주시면 감사 드리겠습니다.';
+const vonlyOpen = name => { const k = pkey(S(name)); return vonly().some(o => pkey(o.name) === k); };
 function offcat(raw){
   const k = pkey(S(raw));
   const v = vonly().find(o => pkey(o.name) === k);
-  if(v) return {name:v.name, group:v.wh || '', offcat:true, note:v.note || ''};
+  if(v) return {name:v.name, group:v.wh || '', offcat:true, vonly:true, note:v.note || ''};
   const m = OFFCAT.find(o => pkey(o.name) === k);
   return m ? {name:m.name, group:m.wh, offcat:true, note:m.note || ''} : null;
 }
@@ -319,7 +324,9 @@ function findProd(raw){
    누르면 막는 건 함정이다. 마스터도 마찬가지 — checkRow 가 대신 발주도 막는다(§예외).
    ⚠️ 이름을 **정확히 쳤을 때**는 findProd 가 그대로 찾아내고 checkRow 가 이유를 말해준다.
       그 길은 건드리지 않는다. 여기서 거르는 건 "골라 담으라고 내미는 목록"뿐이다. */
-const sellable = p => !(p && typeof isExc === 'function' && isExc(p.name));
+/* 🔐 도구로 열어준 상품은 예외에 걸려 있어도 보여준다 (홍팀장 2026-09-10) —
+   카탈로그에서 내리려고 예외로 빼둔 물건을 [🔐 업체 전용 상품]으로 다시 연 경우다. */
+const sellable = p => !(p && typeof isExc === 'function' && isExc(p.name)) || vonlyOpen(p && p.name);
 
 /* 후보: 참고용일 뿐이다. 점수로 자동 선택하지 않는다. */
 function candidates(raw){
@@ -343,8 +350,9 @@ function candidates(raw){
   // 👤 그 업체에게만 열어둔 물건도 후보에 올린다(다른 업체 화면에는 안 뜬다)
   offcatMine().forEach(o => {
     const k = pkey(o.name);
+    if(out.some(x => pkey(x.p.name) === k)) return;      // 카탈로그에도 있는 이름이면 두 번 올리지 않는다
     if(k.indexOf(t) >= 0 || t.indexOf(k) >= 0 || toks.some(tk => k.indexOf(tk) >= 0))
-      out.push({p:{name:o.name, group:o.wh, offcat:true, note:o.note || ''}, sc:7});
+      out.push({p:{name:o.name, group:o.wh, offcat:true, vonly:true, note:o.note || ''}, sc:7});
   });
   return out.sort((a, b) => b.sc - a.sc || a.p.name.length - b.p.name.length).slice(0, 5).map(x => x.p);
 }
@@ -390,7 +398,10 @@ function checkRow(r){
   /* 🚫 예외로 뺀 상품은 대신 발주로도 못 나간다 (홍팀장 2026-08-28).
      마스터 화면에는 카드가 남아 있어(되돌리려고) 이름으로 찾아진다 — 여기서 막지 않으면
      "업체 화면엔 안 보이는데 우리가 넣어버리는" 일이 생긴다. */
-  else if(typeof isExc === 'function' && isExc(p.name))
+  /* 🔐 단, 도구에서 열어준 상품은 예외에 걸려 있어도 받는다 (홍팀장 2026-09-10).
+     카탈로그에 안 올리려고 예외로 뺀 물건을 [🔐 업체 전용 상품]으로 다시 열어준 것이라,
+     여기서 막으면 **열어준 의미가 없다.** 업체 화면엔 아래 ℹ️ 안내가 대신 뜬다. */
+  else if(typeof isExc === 'function' && isExc(p.name) && !vonlyOpen(p.name))
     errs.push('🚫 예외로 빼놓은 상품입니다 — 오늘 판매하지 않습니다. 판매하려면 카탈로그에서 [↩ 판매 재개]를 먼저 누르세요.');
   /* 🐟 홍어는 삭힘정도가 없으면 창고가 출고를 못 한다 (홍팀장 2026-09-02).
      경고로 두면 그냥 지나쳐 발주가 나가버린다 — 막는다. */
@@ -398,7 +409,9 @@ function checkRow(r){
     errs.push('🐟 삭힘정도를 골라주세요 — 삭힘정도가 없으면 출고되지 않습니다.');
 
   // 🐟 카탈로그에서 내린 상품을 받아주는 경우 — 무엇을 감안하는 것인지 그 자리에서 알린다
-  if(p && p.offcat) warns.push('ℹ️ ' + (p.note || OFFCAT_NOTE));
+  if(p && p.offcat) warns.push('ℹ️ ' + (p.note || (p.vonly ? VONLY_NOTE : OFFCAT_NOTE)));
+  // 카탈로그에도 이름이 있는 상품을 도구로 열어둔 경우(=예외로 빼둔 것을 다시 연 것)도 같은 안내
+  else if(p && vonlyOpen(p.name)) warns.push('ℹ️ ' + VONLY_NOTE);
 
   const q = parseInt(D(r.qty), 10);
   if(!S(r.qty)) errs.push('수량을 넣어주세요.');
