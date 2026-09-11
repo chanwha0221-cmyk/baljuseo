@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.44</title>
+<title>마스터 유통 상품 도구 v1.45</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -170,6 +170,18 @@ a{color:var(--accent)}
 
 <!-- ── 📣 추천상품 · 공지사항 — 카탈로그 메뉴에 그대로 뜬다 (2026-08-12 사장님 지시) ── -->
 <div id="tab-promo" style="display:none">
+<!-- 💬 단가 업데이트 안내 (홍팀장 2026-09-11) — 아침마다 카톡방에 "카탈로그 단가 업데이트 됐다"고 알린다.
+     요일에 맞는 문구가 자동으로 골라져 있고, 버튼 하나로 복사. 🔄 다른 문구로 바꿔 쓸 수 있다.
+     🔴 카탈로그 링크는 붙이지 않는다(발송글 링크 자동 첨부 금지 규칙). -->
+<div class="card">
+  <h2>💬 단가 업데이트 안내 <span style="font-weight:400;font-size:12px;color:var(--muted)">— 아침 카톡방용</span></h2>
+  <pre id="puMsg" style="white-space:pre-wrap;font-family:inherit;font-size:13.5px;line-height:1.75;background:var(--soft);border-radius:9px;padding:11px 13px;margin-top:8px"></pre>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button class="cp" id="puCopy" style="font-size:13px;padding:8px 16px">📋 복사</button>
+    <button class="cp" id="puNext">🔄 다른 문구</button>
+    <span id="puTag" style="font-size:11.5px;color:var(--muted);margin-top:8px"></span>
+  </div>
+</div>
 <div class="card">
   <h2>⭐ 추천상품 <span id="rcStat" style="font-weight:400;font-size:12px;color:var(--muted)">불러오는 중…</span></h2>
   <p style="font-size:12.5px;color:var(--muted)">여기 담은 상품이 <a href="catalog.html#rec" target="_blank" rel="noopener">카탈로그 [⭐ 추천상품]</a> 메뉴에 그대로 뜹니다. 코멘트는 상품 사진 아래에 붙습니다.<br>위에 있을수록 앞에 나옵니다. <b>고친 뒤 반드시 [💾 저장]</b>을 누르세요.</p>
@@ -2329,6 +2341,47 @@ document.querySelectorAll('.tabbtn').forEach(function(bt){
   if(bt.getAttribute('data-t')!=='close')return;
   bt.addEventListener('click',function(){ if(!clInit){clInit=true;initClose();} });
 });
+})();
+
+/* 💬 단가 업데이트 안내 (홍팀장 2026-09-11) — 요일로 문구를 고른다: 월=주초, 금=금요일, 나머지는 날짜로 돌려 쓴다.
+   복사는 원가 시트 주소 복사와 같은 3단(clipboard → execCommand → prompt) — 못 가져가고 끝나는 일이 없게. */
+(function(){
+const $u=id=>document.getElementById(id);
+if(!$u('puMsg'))return;
+const MSG=[
+  {tag:'기본',t:'☀️ 좋은 아침입니다 사장님들!\n📋 오늘 카탈로그 단가 업데이트 되었습니다.\n🔄 카탈로그 접속하셔서 새로고침 한 번 부탁드립니다!! 🙏'},
+  {tag:'부드럽게',t:'😊 안녕하세요 사장님들, 마스터입니다!\n📢 오늘자 카탈로그 단가 업데이트 되었습니다.\n🔄 카탈로그 접속하시고 새로고침 한 번 하신 뒤\n👀 발주 전에 확인 부탁드립니다~!! 💙'},
+  {tag:'짧게',t:'🌅 좋은 아침입니다~!\n💰 카탈로그 단가 업데이트 완료!\n🔄 접속하셔서 새로고침 한 번 부탁드려요!! 🙏'},
+  {tag:'월요일',t:'🔥 사장님들 한 주 시작입니다!\n📋 이번 주 카탈로그 단가 업데이트 되었습니다.\n🔄 카탈로그 접속하셔서 새로고침 한 번 부탁드리고\n💪 이번 주도 잘 부탁드립니다!!'},
+  {tag:'금요일',t:'🎉 벌써 금요일이네요 사장님들!\n📋 카탈로그 단가 업데이트 되었습니다.\n🔄 카탈로그 접속하셔서 새로고침 한 번 부탁드리고\n🍀 주말 장사도 대박나세요!!'}
+];
+const d=new Date(), wd=d.getDay();
+let i=wd===1?3:wd===5?4:(d.getDate()%3);
+function show(){ $u('puMsg').textContent=MSG[i].t; $u('puTag').textContent=MSG[i].tag+' 문구'; }
+show();
+$u('puNext').onclick=function(){ i=(i+1)%MSG.length; show(); };
+function legacyCopy(t){
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=t; ta.setAttribute('readonly','');
+    ta.style.cssText='position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0,t.length);
+    const ok=document.execCommand('copy'); ta.remove(); return ok;
+  }catch(e){ return false; }
+}
+$u('puCopy').onclick=function(){
+  const b=this, txt=MSG[i].t;
+  const done=function(m){ b.textContent=m; setTimeout(function(){ b.textContent='📋 복사'; },1500); };
+  const fallback=function(){
+    if(legacyCopy(txt)){ done('✅ 복사했습니다'); return; }
+    try{ window.prompt('아래 문구를 복사하세요 (Ctrl+C)', txt); }catch(e){}
+    done('📋 문구를 띄웠습니다');
+  };
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function(){ done('✅ 복사했습니다'); }, fallback);
+    else fallback();
+  }catch(e){ fallback(); }
+};
 })();
 
 </script>
