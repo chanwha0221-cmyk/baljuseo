@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.85</title>
+<title>마스터 유통 카탈로그 v23.86</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -2733,13 +2733,16 @@ window.addEventListener('hashchange',renderRoute);
       누를지 말지는 쓰는 사람이 정한다. (임시저장이 있어도 믿고 날릴 일은 아니다)
    🔴 실패하면 조용히 넘어간다 — 버전 확인이 안 된다고 카탈로그를 못 쓰게 하면 안 된다. */
 const MYVER=(document.title.match(/v[\d.]+/)||['v0'])[0];
+const FORCEVER='20260911-1';   // ⚠️ force.txt 와 같은 값 — 발주 읽는 법을 바꿔 배포할 때 둘 다 올린다
 let VERBAR=false;
 function showVerBar(live){
   if(VERBAR)return; VERBAR=true;
   const d=document.createElement('div');
   d.className='verbar';
-  d.innerHTML='<span>🔄 <b>새 버전이 나왔습니다</b> ('+esc(MYVER)+' → <b>'+esc(live)+'</b>)'
-    +' — 새로고침하셔야 최신 화면으로 바뀝니다.</span>'
+  d.innerHTML=(live
+      ? '<span>🔄 <b>새 버전이 나왔습니다</b> ('+esc(MYVER)+' → <b>'+esc(live)+'</b>)'
+        +' — 새로고침하셔야 최신 화면으로 바뀝니다.</span>'
+      : '<span>🔄 <b>발주 기능이 업데이트됐습니다</b> — 새로고침하셔야 발주서가 제대로 읽힙니다.</span>')
     +'<button id="verReload">새로고침</button>'
     +'<button id="verClose" class="x" title="나중에">✕</button>';
   document.body.appendChild(d);
@@ -2755,7 +2758,20 @@ async function checkVer(){
      → 버전 띠는 마스터만 본다. 업체는 아래 checkPrice(단가 변동)만 본다.
      ⚠️ 업체 화면이 낡는 문제(2026-09-01 쿠팡 파일 사고)는 단가가 바뀔 때마다 새로고침하게
         되면서 같이 풀린다 — 단가는 며칠에 한 번은 반드시 바뀐다. */
-  if(!amMasterC())return;
+  /* 🔴 단, 발주서 읽는 법이 바뀐 배포는 업체도 새로고침해야 한다 (홍팀장 2026-09-11 아크미).
+     15:11에 '옵션(수집) 먼저 읽기'를 올렸는데, 아침부터 켜둔 아크미 탭은 옛 코드로 계속 상품명 칸을 읽었다.
+     → force.txt 값이 이 화면에 박힌 FORCEVER 와 다르면 업체에게도 띠를 띄운다.
+       order.js·convert-core.js 의 «읽는 법»을 바꿔 배포할 땐 두 값을 같이 올린다(CLAUDE.md §3-3-1). */
+  if(!amMasterC()){
+    try{
+      const r=await fetch('force.txt?t='+Date.now(),{cache:'no-store'});
+      if(!r.ok)return;
+      const live=(await r.text()).trim();
+      if(!/^[\w.-]{1,40}$/.test(live))return;
+      if(live!==FORCEVER)showVerBar(null);
+    }catch(e){}
+    return;
+  }
   try{
     const r=await fetch('version.txt?t='+Date.now(),{cache:'no-store'});
     if(!r.ok)return;
