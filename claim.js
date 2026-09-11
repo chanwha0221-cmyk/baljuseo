@@ -257,10 +257,106 @@ function validate(d){
   return e;
 }
 
-/* ── 목록 ────────────────────────────────────────────────────── */
+/* ── 목록: 게시판 (홍팀장 2026-09-11 "분류도 안 보이게 해놨냐 / 게시판 형태로 제목 누르면 들어가서 보게")
+   예전엔 모든 클레임을 본문·사진 링크까지 펼친 채 한 줄로 이어 붙여서, 어디서 한 건이 끝나는지도 안 보였다.
+   → 위: 상태·유형·업체 분류칩 / 가운데: 한 줄짜리 게시판(확인 대기가 맨 위) / 제목 누르면 상세.
+   상세 화면은 예전 카드(cardHtml) 그대로라 📋 복사·펼쳐보기·사진 저장·✅ 확인이 전부 그대로 돈다. */
+var GRPS = [
+  { g:'prod',  t:'🐟 상품',        c:'#d64545', m:function(k){ return k === '선도이상'; } },
+  { g:'miss',  t:'📦 누락·오배송', c:'#b7791f', m:function(k){ return k === '누락오배송'; } },
+  { g:'broke', t:'💥 택배파손',    c:'#1f6fd6', m:function(k){ return k.indexOf('파손') === 0; } },
+  { g:'late',  t:'🚚 택배지연',    c:'#7a5af5', m:function(k){ return k.indexOf('지연') === 0; } }
+];
+var GETC = { g:'etc', t:'기타', c:'#888888' };
+function grpOf(k){ k = S(k); for(var i = 0; i < GRPS.length; i++) if(GRPS[i].m(k)) return GRPS[i]; return GETC; }
+var FIL = { st:'all', grp:'all', who:'' }, CLPG = 0, CLPER = 10, OPEN = null;
+function clCss(){
+  if(document.getElementById('clCss')) return;
+  var s = document.createElement('style'); s.id = 'clCss';
+  s.textContent =
+    '.clchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0}'
+  + '.clchip{border:1.5px solid var(--line,#ddd);background:var(--card,#fff);color:var(--muted,#777);padding:5px 11px;border-radius:16px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}'
+  + '.clchip.on{background:var(--accent);border-color:var(--accent);color:#fff}'
+  + '.clchips select{border:1.5px solid var(--line,#ddd);border-radius:16px;padding:5px 10px;font-size:12.5px;font-family:inherit;background:var(--card,#fff);color:inherit}'
+  + '.clboard{border:1px solid var(--line,#ddd);border-radius:10px;background:var(--card,#fff);overflow:hidden;margin-top:6px}'
+  + '.clrow{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--line,#eee);cursor:pointer;flex-wrap:wrap}'
+  + '.clrow:last-child{border-bottom:0}.clrow:hover{background:var(--chip,#f4f4f2)}'
+  + '.clrow .t{flex:1;min-width:170px;font-size:13.5px;font-weight:700;line-height:1.4}'
+  + '.clrow .t small{font-weight:400;color:var(--muted,#777);font-size:12px}'
+  + '.clrow .m{font-size:12px;color:var(--muted,#777);white-space:nowrap}'
+  + '.clpill{font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;white-space:nowrap}'
+  + '.clpg{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-top:10px}';
+  document.head.appendChild(s);
+}
+function clPill(txt, col){ return '<span class="clpill" style="color:'+col+';background:'+col+'1f">'+txt+'</span>'; }
+function stPill(ok){ return ok ? clPill('✅ 확인', '#0f7a5a') : clPill('⏳ 대기', '#d64545'); }
+
 function listHtml(master){
   if(!MINE.length) return '<div class="empty">아직 등록된 클레임이 없습니다.</div>';
-  return MINE.map(function(c){
+  clCss();
+  if(OPEN){
+    var cur = null; MINE.forEach(function(c){ if(S(c.id) === OPEN) cur = c; });
+    if(cur) return '<button class="ordb2" type="button" data-back="1" style="margin-bottom:10px">← 목록</button>' + cardHtml(cur, master);
+    OPEN = null;
+  }
+  var nWait = 0, byG = {}, whos = {};
+  MINE.forEach(function(c){
+    if(!T(c.ack_at)) nWait++;
+    var g = grpOf(c.type).g; byG[g] = (byG[g] || 0) + 1;
+    var w = S(c.cname); if(w) whos[w] = (whos[w] || 0) + 1;
+  });
+  var list = MINE.filter(function(c){
+    var ok = !!T(c.ack_at);
+    if(FIL.st === 'wait' && ok) return false;
+    if(FIL.st === 'ok' && !ok) return false;
+    if(FIL.grp !== 'all' && grpOf(c.type).g !== FIL.grp) return false;
+    if(FIL.who && S(c.cname) !== FIL.who) return false;
+    return true;
+  });
+  // 확인 대기가 맨 위, 그 안에선 최신순
+  list.sort(function(a, b){
+    var oa = !!T(a.ack_at), ob = !!T(b.ack_at);
+    if(oa !== ob) return oa ? 1 : -1;
+    return S(a.at) < S(b.at) ? 1 : (S(a.at) > S(b.at) ? -1 : 0);
+  });
+  var chip = function(attr, val, label, on){ return '<button type="button" class="clchip'+(on?' on':'')+'" '+attr+'="'+E(val)+'">'+label+'</button>'; };
+  var h = '<div class="clchips">'
+    + chip('data-fst', 'all',  '전체 '+MINE.length, FIL.st === 'all')
+    + chip('data-fst', 'wait', '⏳ 확인 대기 '+nWait, FIL.st === 'wait')
+    + chip('data-fst', 'ok',   '✅ 확인됨 '+(MINE.length - nWait), FIL.st === 'ok')
+    + '</div><div class="clchips">'
+    + chip('data-fgrp', 'all', '모든 유형', FIL.grp === 'all');
+  GRPS.concat([GETC]).forEach(function(g){ if(byG[g.g]) h += chip('data-fgrp', g.g, g.t+' '+byG[g.g], FIL.grp === g.g); });
+  if(master){
+    h += '<select id="cl_fwho"><option value="">🏢 모든 업체</option>';
+    Object.keys(whos).sort().forEach(function(w){ h += '<option value="'+E(w)+'"'+(FIL.who === w ? ' selected' : '')+'>'+E(w)+' ('+whos[w]+')</option>'; });
+    h += '</select>';
+  }
+  h += '</div>';
+  if(!list.length) return h + '<div class="empty">조건에 맞는 클레임이 없습니다.</div>';
+  var pages = Math.ceil(list.length / CLPER);
+  CLPG = Math.max(0, Math.min(CLPG, pages - 1));
+  h += '<div class="clboard">' + list.slice(CLPG * CLPER, CLPG * CLPER + CLPER).map(function(c){
+    var ok = !!T(c.ack_at), g = grpOf(c.type), ty = typeOf(S(c.type));
+    var sub = ty ? ty.t.replace(/^[^—]*—\s*/, '') : S(c.type);   // '택배지연배송 — 미도착' → '미도착'
+    return '<div class="clrow" data-open="'+E(S(c.id))+'"'+(ok ? '' : ' style="background:rgba(214,69,69,.05)"')+'>'
+      + stPill(ok) + clPill(g.t + (sub && g !== GETC ? ' · ' + E(sub) : ''), g.c)
+      + '<span class="t">'+E(S(c.prod))+' <small>· '+E(S(c.rcv))+(S(c.how) ? ' · '+E(S(c.how)) : '')+'</small></span>'
+      + (master ? '<span class="m" style="font-weight:700;color:var(--ink)">'+E(S(c.cname))+'</span>' : '')
+      + '<span class="m">'+E(S(c.at).slice(5, 16).replace('T', ' '))+'</span>'
+      + '</div>';
+  }).join('') + '</div>';
+  if(pages > 1){
+    h += '<div class="clpg">' + (CLPG > 0 ? chip('data-clpg', CLPG - 1, '‹', false) : '');
+    for(var p = 0; p < pages; p++) h += chip('data-clpg', p, String(p + 1), p === CLPG);
+    h += (CLPG < pages - 1 ? chip('data-clpg', CLPG + 1, '›', false) : '') + '</div>';
+  }
+  return h;
+}
+
+/* 상세 카드 — 예전 목록 한 칸 그대로 */
+function cardHtml(c, master){
+  return (function(c){
     var ok = !!T(c.ack_at);
     var ty = typeOf(S(c.type));
     var n = +c.imgn || 0;   // 목록엔 장수만 온다 — 사진 자체는 [펼쳐보기] 때 따로 받는다
@@ -294,7 +390,7 @@ function listHtml(master){
       + (master && !ok ? '<div style="margin-top:9px"><button class="ordb2 pri" type="button" data-ack="'+E(S(c.id))+'">✅ 확인</button></div>' : '')
       + (ok ? '<div class="hint" style="margin-top:7px">'+E(S(c.ack_by)||'마스터')+' 확인 · '+E(S(c.ack_at).slice(0,16).replace('T',' '))+'</div>' : '')
       + '</div>';
-  }).join('');
+  })(c);
 }
 
 /* 🔔 클레임 배지 (홍팀장 2026-09-03 — "클레임 들어왔는지 알아야 반응을 하지").
@@ -383,8 +479,23 @@ var CLAIM = {
       box.innerHTML = '<div class="empty">불러오지 못했습니다 — ' + E(e.message || String(e)) + '</div>';
       return;
     }
-    box.innerHTML = listHtml(master);
+    CLAIM.draw(master);
     paintBadge();                     // 목록을 다시 그렸으면 배지도 같이 맞춘다(확인 누른 직후 등)
+  },
+  /* 서버를 다시 부르지 않고 그리기만 — 분류칩·페이지·제목 클릭은 이것만 부른다 */
+  draw: function(master){
+    var box = $c('cl_list');
+    if(!box) return;
+    box.innerHTML = listHtml(master);
+    var redraw = function(){ CLAIM.draw(master); };
+    box.querySelectorAll('[data-open]').forEach(function(r){
+      r.onclick = function(){ OPEN = r.getAttribute('data-open'); redraw(); box.scrollIntoView({block:'start'}); };
+    });
+    box.querySelectorAll('[data-back]').forEach(function(b){ b.onclick = function(){ OPEN = null; redraw(); }; });
+    box.querySelectorAll('[data-fst]').forEach(function(b){ b.onclick = function(){ FIL.st = b.getAttribute('data-fst'); CLPG = 0; redraw(); }; });
+    box.querySelectorAll('[data-fgrp]').forEach(function(b){ b.onclick = function(){ FIL.grp = b.getAttribute('data-fgrp'); CLPG = 0; redraw(); }; });
+    box.querySelectorAll('[data-clpg]').forEach(function(b){ b.onclick = function(){ CLPG = +b.getAttribute('data-clpg'); redraw(); }; });
+    var fw = $c('cl_fwho'); if(fw) fw.onchange = function(){ FIL.who = fw.value; CLPG = 0; redraw(); };
     box.querySelectorAll('[data-see]').forEach(function(a){
       a.onclick = async function(ev){
         ev.preventDefault();
