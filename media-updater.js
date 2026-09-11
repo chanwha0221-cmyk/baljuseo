@@ -353,6 +353,19 @@ function imgLoads(u){
    예전엔 호출부가 try{}catch(e){} 로 통째 삼키고 실패를 전부 '글이 삭제·이동됐을 수 있음'으로 표시해서,
    멀쩡한 글까지 삭제된 것처럼 보고했다(사장님 지적). why: cross='이 페이지에서 masterc.kr을 못 읽음'
    / login='로그인 풀림' / gone='진짜 삭제된 글' / noimg='글은 있는데 첨부 사진이 없음'. */
+/* 🌏 글에서 원산지 한 마디 뽑기 (2026-09-11). 두 가지 모양을 받는다.
+   ①「원산지 : 국내산」  ②「○ 원산지 공개 합니다.」 다음 줄 「국내산」(메타 설명에선 한 줄로 이어 붙어 온다).
+   ○·※ 가 나오면 다음 칸이라 거기서 끊는다. 20자가 넘으면 원산지가 아니라 딴 문장을 문 것 — 버린다. */
+function originOf(t){
+  t=String(t||'');
+  const i=t.indexOf('원산지'); if(i<0)return '';
+  const seg=t.slice(i,i+160);
+  let m=seg.match(/원산지\s*[:：]\s*([^\n○※]{1,30})/);
+  if(m){ const v=m[1].trim(); return (v&&v.length<=20)?v:''; }
+  m=seg.match(/원산지[^\n○※]*?합니다\.?\s*([^○※]{1,40})/);
+  if(m){ const v=m[1].split('\n').map(function(s){return s.trim();}).filter(Boolean)[0]||''; return (v&&v.length<=20)?v:''; }
+  return '';
+}
 async function scrape(url){
   let r,h;
   try{
@@ -385,14 +398,20 @@ async function scrape(url){
   const backs=cands.slice(0,6);   // 예비 사진 — 대표가 나중에 깨지면 취합 화면이 자동 교체한다
   let spec=[];
   const txt=(doc.body?doc.body.textContent:'')||'';
+  const md=h.match(/<meta name="description" content="([^"]*)"/);
+  const mdesc=md?md[1].replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&amp;/g,'&').replace(/&nbsp;/g,' '):'';
   const si=txt.indexOf('상품 스펙');
   if(si>=0)spec=txt.slice(si,si+900).split('\n').map(s=>s.trim()).filter(s=>s.indexOf('※')===0).slice(0,7);
-  if(!spec.length){
-    const md=h.match(/<meta name="description" content="([^"]*)"/);
-    if(md){
-      const d=md[1].replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&amp;/g,'&').replace(/&nbsp;/g,' ');
-      spec=d.split('※').slice(1).map(function(p){return '※ '+p.split(/○/)[0].replace(/\.\.\.$/,'').trim().replace(/\s+/g,' ');}).filter(function(s){return s.length>4&&s.length<80;}).slice(0,7);
-    }
+  if(!spec.length&&mdesc){
+    spec=mdesc.split('※').slice(1).map(function(p){return '※ '+p.split(/○/)[0].replace(/\.\.\.$/,'').trim().replace(/\s+/g,' ');}).filter(function(s){return s.length>4&&s.length<80;}).slice(0,7);
+  }
+  /* 🌏 원산지 — 게시판 글엔 「○ 원산지 공개 합니다.」 아래 한 줄로 **따로** 적혀 있어서, ※ 줄만 뽑던
+     예전 방식에선 통째로 빠졌다 (홍팀장 2026-09-11 "원산지 물어보는 사람이 많네 생각보다").
+     스펙 맨 위에 「※ 원산지 : 국내산」으로 붙인다 — 카탈로그 카드·제안서가 스펙을 그대로 보여주니 따로 고칠 데가 없다.
+     못 찾으면 붙이지 않는다(추측해서 채우지 않는다). */
+  if(!spec.some(function(s){return s.indexOf('원산지')>=0;})){
+    const org=originOf(txt)||originOf(mdesc);
+    if(org)spec.unshift('※ 원산지 : '+org);
   }
   const why=img?'':(gone?'gone':(cands.length?'':'noimg'));
   return {img:img,spec:spec,backs:backs,bad:bad,why:why,detail:title};
