@@ -262,6 +262,21 @@ const needAge  = nm => /홍어/.test(S(nm)) && !/홍어애|무침|삼합/.test(S
 const ageOf    = nm => { const m = S(nm).match(AGE_RE); return m ? m[1] : ''; };
 const stripAge = nm => S(nm).replace(AGE_RE, '').trim();
 const withAge  = (nm, age) => age ? (stripAge(nm) + ' (' + age + ')') : stripAge(nm);
+/* 🦴 민장 민물장어 뼈·머리 (홍팀장 2026-09-11 — "민장창고 민물장어는 머리뼈를 넣어달라고 해야 넣어준다").
+   삭힘정도와 같은 방식이다: 고르면 상품명 뒤에 「(뼈,머리 포함)」이 붙어 당일 시트까지 그대로 나가고,
+   상품은 괄호를 뗀 정식 이름으로 찾는다. ⚠️ 삭힘정도와 달리 **안 골라도 발주는 된다**(기본은 안 넣음).
+   대상은 아래 다섯 개 이름 그대로 — 선물세트·다른 창고 장어는 아니다. 늘릴 땐 이름을 정확히 적을 것. */
+const BONE_TAG   = '뼈,머리 포함';
+/* 업체마다 적는 모양이 다르다 — 「(머리,뼈 포함)」「머리뼈포함」「[뼈/머리]」 전부 같은 뜻으로 받는다
+   (홍팀장 2026-09-11 "비슷한 거 들어가 있으면 거르지 말고 발주 들어가게"). 괄호는 있어도 없어도 된다.
+   발주서엔 언제나 「(뼈,머리 포함)」 한 가지로 나간다(withBone 이 떼고 다시 붙인다). */
+const BONE_RE    = /\s*[\(（\[]?\s*(?:뼈\s*[,·/&+]?\s*머리|머리\s*[,·/&+]?\s*뼈)\s*(?:포함|같이|넣어\s*주세요|넣어)?\s*[\)）\]]?\s*$/;
+const BONE_ITEMS = ['갓성비 민물장어 1kg', '통실 민물장어 1kg', '특왕 민물장어 1kg', '프리미엄 민물장어 2kg', '민물장어 1kg'];
+const BONE_SET   = new Set(BONE_ITEMS.map(x => String(x).replace(/\s+/g, '').toLowerCase()));
+const stripBone  = nm => S(nm).replace(BONE_RE, '').trim();
+const hasBone    = nm => BONE_RE.test(S(nm));
+const canBone    = nm => BONE_SET.has(String(stripBone(stripAge(nm))).replace(/\s+/g, '').toLowerCase());
+const withBone   = (nm, on) => on ? (stripBone(nm) + ' (' + BONE_TAG + ')') : stripBone(nm);
 
 /* 🐟 카탈로그에서 내렸지만 발주는 받아주는 상품 (홍팀장 2026-09-02).
    '몸뱃살'은 뱃살 위주로 나가되 100% 뱃살이 아니다 — 그렇게 커팅이 안 된다고 한다.
@@ -324,7 +339,7 @@ function findProd(raw){
   if(p) return {p, cands:[]};
   const x = stripTailX(t);                                  // ✂️ 「… 15kg x」 꼬리부터 떼고 다시 찾는다
   if(x){ p = hit(x); if(p) return {p, cands:[]}; }
-  const a = stripAge(x || t);                               // 🐟 뒤에 붙은 삭힘정도는 떼고 상품을 찾는다
+  const a = stripBone(stripAge(x || t));                    // 🐟🦴 뒤에 붙은 삭힘정도·(뼈,머리 포함)은 떼고 상품을 찾는다
   if(a !== (x || t)){ p = hit(a); if(p) return {p, cands:[]}; }
   const s = stripWh(a);
   if(s){ p = hit(s); if(p) return {p, cands:[]}; }
@@ -427,6 +442,10 @@ function checkRow(r){
   else if(needAge(p.name) && !ageOf(r.name))
     errs.push('🐟 삭힘정도를 골라주세요 — 삭힘정도가 없으면 출고되지 않습니다.');
 
+  /* 🦴 뼈·머리를 적어 왔는데 민장 민물장어 다섯 개가 아니면 — 막지는 않되 그 요청이 빠진다는 걸 말한다.
+     조용히 떼어 버리면 업체는 넣어 달라고 한 줄 알고 기다린다. */
+  if(p && hasBone(r.name) && !canBone(p.name))
+    warns.push('🦴 「뼈·머리 포함」은 민장 민물장어(갓성비·통실·특왕 1kg, 프리미엄 2kg, 민물장어 1kg)만 됩니다 — 이 상품은 빼고 넣습니다.');
   // 🐟 카탈로그에서 내린 상품을 받아주는 경우 — 무엇을 감안하는 것인지 그 자리에서 알린다
   if(p && p.offcat) warns.push('ℹ️ ' + (p.note || (p.vonly ? VONLY_NOTE : OFFCAT_NOTE)));
   // 카탈로그에도 이름이 있는 상품을 도구로 열어둔 경우(=예외로 빼둔 것을 다시 연 것)도 같은 안내
@@ -493,7 +512,8 @@ function buildOut(){
     const g = groups.get(key);
     /* 🐟 발주서에 나가는 이름 = 카탈로그 정식 이름 + 고른 삭힘정도.
        합포장 한도·합포장 불가 판정은 괄호 없는 정식 이름(base)으로 봐야 한다 — 괄호가 붙으면 못 찾는다. */
-    g.items.push({name:withAge(c.p.name, ageOf(r.name)), base:c.p.name, qty:c.qty, lim:hapLimit(c.p.name)});
+    // 🦴 민장 민물장어는 (뼈,머리 포함)을 골랐으면 그 괄호도 달고 나간다 — 합포장·한도는 여전히 정식 이름(base)으로
+    g.items.push({name:withBone(withAge(c.p.name, ageOf(r.name)), canBone(c.p.name) && hasBone(r.name)), base:c.p.name, qty:c.qty, lim:hapLimit(c.p.name)});
     if(S(r.msg) && !g.msg) g.msg = S(r.msg);
     else if(S(r.msg) && g.msg && g.msg !== S(r.msg)) notes.push((i+1) + '번 행: 같은 배송지에 배송메시지가 둘이라 첫 번째 것만 넣었습니다.');
   });
@@ -1022,11 +1042,14 @@ function view(){
    생김새가 다르면 "위에 뜬 건 추천이고 아래는 뭐지" 하고 한 번 더 망설인다. */
 function candBtn(p, i){
   const im = imgOf(p);
-  return '<button class="ordcd" data-pick="' + esc(p.name) + '" data-i="' + i + '">'
+  const card = nm => '<button class="ordcd" data-pick="' + esc(nm) + '" data-i="' + i + '">'
     + (im ? '<img src="' + esc(im) + '" alt="">' : '<img src="" alt="" style="visibility:hidden">')
-    + '<span><span class="nm">' + esc(p.name) + '</span>'
+    + '<span><span class="nm">' + esc(nm) + '</span>'
     + '<span class="pz">' + esc(priceText(p)) + '</span>'
     + '<span class="wh">📦 ' + esc(whOf(p)) + (p.cut ? ' · ' + esc(p.cut) : '') + '</span></span></button>';
+  /* 🦴 민장 민물장어는 「(뼈,머리 포함)」 카드를 바로 옆에 하나 더 붙인다 (홍팀장 2026-09-11 —
+     "밑에 선택하는 상품명에 민물장어 (뼈,머리 포함) 이거 딸려 나오게"). 단가·창고는 같은 상품이다. */
+  return card(p.name) + (canBone(p.name) ? card(withBone(p.name, true)) : '');
 }
 
 /* 🔎 직접 찾기 (사장님 2026-09-01)
@@ -1085,7 +1108,8 @@ function rowHtml(r, i){
         + (f === 'tel' ? ' inputmode="tel"' : '') + '></td>').join('')
     + '<td><button class="orddel" data-del="' + i + '" title="이 줄 삭제">✕</button></td></tr>';
   const askAge = c.p && needAge(c.p.name);        // 🐟 홍어 줄은 고른 뒤에도 단계를 바꿀 수 있게 계속 펼쳐 둔다
-  if(filled && (c.errs.length || c.warns.length || askAge || (OPEN === i && c.cands.length))){
+  const askBone = c.p && canBone(c.p.name);       // 🦴 민장 민물장어 줄도 뼈·머리를 고를 수 있게 펼쳐 둔다
+  if(filled && (c.errs.length || c.warns.length || askAge || askBone || (OPEN === i && c.cands.length))){
     h += '<tr class="' + (bad ? 'bad' : '') + '"><td></td><td colspan="7" style="padding-top:0">';
     if(c.errs.length) h += '<div class="orderr">⚠️ ' + c.errs.map(esc).join('<br>⚠️ ') + '</div>';
     if(c.warns.length) h += '<div class="ordwarn">' + c.warns.map(esc).join('<br>') + '</div>';
@@ -1097,6 +1121,15 @@ function rowHtml(r, i){
         + '<div class="ordcand">'
         + AGE_LEVELS.map(a => '<button class="ordb2' + (a === cur ? ' pri' : '') + '" data-age="' + a
             + '" data-i="' + i + '" style="margin:3px 5px 0 0">' + a + '</button>').join('')
+        + '</div>';
+    }
+    /* 🦴 민장 민물장어 뼈·머리 — 요청해야 넣어주는 물건이라 기본은 「빼기」다. 누르면 상품명 뒤 괄호만 갈아 끼운다. */
+    if(askBone){
+      const on = hasBone(r.name);
+      h += '<div class="ordask">🦴 <b>뼈·머리</b>는 요청하셔야 넣어 드립니다 — 필요하면 「포함」을 눌러주세요.</div>'
+        + '<div class="ordcand">'
+        + '<button class="ordb2' + (on ? ' pri' : '') + '" data-bone="1" data-i="' + i + '" style="margin:3px 5px 0 0">🦴 뼈·머리 포함</button>'
+        + '<button class="ordb2' + (on ? '' : ' pri') + '" data-bone="0" data-i="' + i + '" style="margin:3px 5px 0 0">빼기 (기본)</button>'
         + '</div>';
     }
     if(!c.p && S(r.name)){
@@ -3041,6 +3074,16 @@ document.addEventListener('click', e => {
     }
     return;
   }
+  /* 🦴 민장 민물장어 뼈·머리 넣기/빼기 — 상품명은 그대로 두고 뒤 괄호만 갈아 끼운다 (홍팀장 2026-09-11) */
+  const bn = e.target.closest && e.target.closest('[data-bone]');
+  if(bn){
+    const i = +bn.getAttribute('data-i');
+    if(ROWS[i]){
+      ROWS[i].name = withBone(S(ROWS[i].name), bn.getAttribute('data-bone') === '1');
+      saveDraft(); paint();
+    }
+    return;
+  }
   const pick = e.target.closest && e.target.closest('[data-pick]');
   if(pick){
     const i = +pick.getAttribute('data-i');
@@ -3052,7 +3095,9 @@ document.addEventListener('click', e => {
       ROWS.forEach((r, j) => { if(pkey(S(r.name)) === k) hit.push(j); });
       // 🐟 업체가 적어 온 삭힘정도는 상품을 바꿔도 살린다 — 여기서 날아가던 것이었다 (홍팀장 2026-09-02)
       hit.forEach(j => {
-        ROWS[j].name = withAge(nm, needAge(nm) ? ageOf(S(ROWS[j].name)) : '');
+        // 🦴 (뼈,머리 포함) 도 같은 식으로 살린다 — 카드에서 「뼈·머리 포함」을 골랐거나 원래 적혀 있었으면
+        ROWS[j].name = withBone(withAge(nm, needAge(nm) ? ageOf(S(ROWS[j].name)) : ''),
+                                canBone(nm) && (hasBone(nm) || hasBone(S(ROWS[j].name))));
         delete FIND[j];
       });
       OPEN = -1; saveDraft(); paint();
