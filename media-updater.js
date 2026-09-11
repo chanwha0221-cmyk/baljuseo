@@ -359,11 +359,12 @@ function imgLoads(u){
 function originOf(t){
   t=String(t||'');
   const i=t.indexOf('원산지'); if(i<0)return '';
-  const seg=t.slice(i,i+160);
-  let m=seg.match(/원산지\s*[:：]\s*([^\n○※]{1,30})/);
-  if(m){ const v=m[1].trim(); return (v&&v.length<=20)?v:''; }
-  m=seg.match(/원산지[^\n○※]*?합니다\.?\s*([^○※]{1,40})/);
-  if(m){ const v=m[1].split('\n').map(function(s){return s.trim();}).filter(Boolean)[0]||''; return (v&&v.length<=20)?v:''; }
+  const seg=t.slice(i,i+200);
+  let m=seg.match(/원산지\s*[:：]\s*([^\n○※]{1,40})/);
+  if(m){ const v=m[1].trim(); return (v&&v.length<=40)?v:''; }
+  /* 두 줄로 적힌 글이 있다 — 「원물 : 캐나다」 / 「가공 : 군산」. 첫 줄만 잡으면 가공지가 빠진다 → 줄을 「 / 」로 잇는다 */
+  m=seg.match(/원산지[^\n○※]*?합니다\.?\s*([^○※]{1,80})/);
+  if(m){ const v=m[1].split('\n').map(function(s){return s.trim().replace(/\s+/g,' ');}).filter(Boolean).join(' / '); return (v&&v.length<=40)?v:''; }
   return '';
 }
 async function scrape(url){
