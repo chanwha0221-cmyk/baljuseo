@@ -116,9 +116,9 @@
           <textarea id="tpl" style="min-height:280px;line-height:1.7"></textarea>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="btn ghost" onclick="copyPreview()">📋 전체 복사</button>
-            <button class="btn ghost" onclick="loadSavedTemplate()">📄 표준 템플릿 불러오기</button>
-            <button class="btn ghost" onclick="saveNamedTemplate()">💾 템플릿 저장</button>
-            <button class="btn ghost" onclick="resetTemplate()">기본값 복원</button>
+            
+            <button class="btn brand" onclick="saveNamedTemplate()">💾 템플릿 저장</button>
+            
           </div>
           <div id="tpl-list" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px"></div>
           <!-- 📱 메일 보낸 뒤 「확인해 달라」고 한 통 넣는 카톡·문자 (홍팀장 2026-09-09).
@@ -255,26 +255,6 @@
     <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
       <button class="btn ghost" onclick="$('edit-modal').classList.remove('on')">취소</button>
       <button class="btn brand" onclick="saveEdit()">저장</button>
-    </div>
-  </div>
-</div>
-<!-- 템플릿 저장 위치 고르기 (기존 템플릿 수정 or 신규) -->
-<div class="modal-bg" id="tplsave-modal">
-  <div class="modal" style="max-width:460px">
-    <h3>💾 템플릿 저장</h3>
-    <div class="muted" style="font-size:12px;margin-top:2px">지금 화면의 제목·본문을 어디에 저장할까요?</div>
-    <div id="tplsave-list" style="display:grid;gap:6px;margin-top:12px"></div>
-    <label style="display:flex;align-items:center;gap:7px;margin-top:12px;font-size:13px;cursor:pointer">
-      <input type="checkbox" id="tplsave-default" style="width:16px;height:16px">
-      ⭐ 저장하면서 <b>기본 템플릿</b>으로 — 화면 열 때 이게 자동으로 뜸
-    </label>
-    <div style="border-top:1px solid #e6e2da;margin-top:12px;padding-top:12px">
-      <div class="fld"><label>➕ 새 템플릿 이름</label>
-        <input id="tplsave-new" placeholder="예: 14일+ 비발주" onkeydown="if(event.key==='Enter')saveTplAsNew()"></div>
-      <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
-        <button class="btn ghost" onclick="$('tplsave-modal').classList.remove('on')">취소</button>
-        <button class="btn brand" onclick="saveTplAsNew()">새로 저장</button>
-      </div>
     </div>
   </div>
 </div>
@@ -528,22 +508,12 @@ function openCompose(to){
   toast('✉ 썬더버드 여는 중 — 본문 칸에 Ctrl+V 하면 내용이 들어갑니다');
 }
 
-/* 🔗 메일에 박히는 상품 리스트 주소 — 공급가를 가린 홍팀장 버전 (2026-09-07).
-   예전엔 원비씨 주소(wonbi.github.io/allproduct)가 박혀 있었다. 메일을 받은 업체가
-   그리로 가면 우리 명함이 아니라 원비씨 오픈톡방으로 빠진다. */
-const CATALOG_URL='https://chanwha0221-cmyk.github.io/baljuseo/allproduct/index.html';
-// 저장된 템플릿에도 ①현재 사용자 이름 ②카탈로그 링크가 항상 들어가게 보정 (2026-08-11)
-function fixName(t){ return (t||'').replace(/주식회사 마스터s+(홍찬화|박원비)/g,'주식회사 마스터 '+ME); }
-function fixTemplate(t){
-  if(!t)return t;
-  t=t.replace(/주식회사 마스터\s+(홍찬화|박원비)(\s*팀장)?/g,'주식회사 마스터 '+ME+'$2');
-  if(t.indexOf(CATALOG_URL)<0){
-    const line='\n마스터 상품 카탈로그\n'+CATALOG_URL;
-    const i=t.lastIndexOf('────────────────');
-    t = i>0 ? t.slice(0,i)+line+'\n'+t.slice(i) : t+line;
-  }
-  return t;
-}
+/* 📝 처음 여는 메일 문구 (홍팀장 2026-09-11 확정 — "템플릿 싹다 지우고 그냥 이거만 뜨게").
+   🔴 링크를 자동으로 끼워 넣지 않는다. 예전 링크 보정 함수가 카탈로그 주소가 없으면 한 줄 더 붙였는데,
+      문구에 이미 다른 주소가 있으면 링크가 두 개가 됐다("밑에 링크 하나 더 붙이고 지랄"). 적힌 그대로 나간다. */
+const MAIL_START="대표님, 안녕하십니까.\n\n주식회사 마스터 홍찬화 팀장입니다.\n운영하고 계신 테무 스토어 보고 상품 제안 차 메일 드립니다.\n\n저희는 동해 · 인천 · 군산 · 통영에 자체 창고를 운영하고 있습니다.\n산지 어판장에서 당일 수매한 시세 그대로 공급이 가능하며,\n수산물을 주력으로 하는 이유도 여기에 있습니다.\n\n수산물 외에 농산 · 축산까지 500여 품목을 함께 취급하고 있어,\n품목별로 거래처를 나누어 두실 필요 없이 한 곳에서 받아보실 수 있습니다.\n\n소량 발주도 가능합니다. 한 건이라도 택배로 발송해 드리고 있습니다.\n\n발주 이후 상품 리스트 · 상세페이지 · 정산 확인 · 송장 확인 · 클레임 접수는\n모두 웹에서 확인하실 수 있도록 준비되어 있습니다.\n\n아래 주소에서 취급 품목을 보실 수 있습니다.\n필요하신 상품이 있으시면 편하게 연락 주시면 감사하겠습니다.\n\n마스터 상품 카탈로그\nhttps://chanwha0221-cmyk.github.io/baljuseo/allproduct/partners.html\n\n감사합니다.\n\n\n주식회사 마스터 홍찬화 팀장  010-2455-4156\n카카오톡  master_ch\n\n※ 메일 수신을 원치 않으시면 회신 주시기 바랍니다. 이후 발송하지 않겠습니다.";
+// 쪽지·카톡·확인요청 문구의 서명 이름만 사람에 맞춘다(메일 본문은 손대지 않는다)
+function fixName(t){ return (t||'').replace(/주식회사 마스터\s+(홍찬화|박원비)/g,'주식회사 마스터 '+ME); }
 async function loadAll(){
   try{
     setStatus('동기화 중…');
@@ -551,14 +521,13 @@ async function loadAll(){
     if(!tabs.includes(DATA_TAB)) await addTab(DATA_TAB,HEADER); else await sheetPut(DATA_TAB,'A1',[HEADER]);
     if(!tabs.includes(SET_TAB)) await addTab(SET_TAB,null);
     await loadSettings();
-    // 템플릿 — 시트 저장본이 우선이지만, 서명 이름과 카탈로그 링크는 열 때마다 보정한다
-    // (2026-08-11 사장님 지시: 사람에 따라 팀장 이름이 자동으로 바뀌고, 가운데에 카탈로그 링크가 들어가야 함)
-    // 2026-08-11 사장님이 본문을 새로 확정 — 저장본이 구버전이면 새 기본값으로 갈아끼운다
-    if(SET.template_v!=='20260811'){ await setSetting('template',DEFAULT_TEMPLATE); await setSetting('template_v','20260811'); SET.template=DEFAULT_TEMPLATE; }
-    $('tpl').value = fixTemplate(SET.template || DEFAULT_TEMPLATE);
+    /* 📝 메일 템플릿 (홍팀장 2026-09-11) — 표준·기본 템플릿 없음.
+       이 기기에서 마지막으로 쓴 내 템플릿이 뜨고, 없으면 MAIL_START. 링크 자동 보정 없음. */
     $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT;
-    // ⭐ 기본으로 지정해 둔 내 템플릿이 있으면 그걸로 화면을 채운다 (열 때마다 이게 뜬다)
-    applyDefaultTpl();
+    $('tpl').value = MAIL_START;
+    { let last=''; try{ last=localStorage.getItem('mailing_tpl_last')||''; }catch(e){}
+      const t=tplList().find(x=>x.name===last);
+      if(t){ if(t.subject!=null) $('tpl-subject').value=t.subject; $('tpl').value=t.body||''; CUR_TPL=t.name; } }
     $('tpl-note').value = fixName(SET.template_note || DEFAULT_NOTE);
     $('tpl-kakao').value = fixName(SET.template_kakao || DEFAULT_KAKAO);
     $('tpl-ping').value = fixName(SET.template_ping || DEFAULT_PING);
@@ -1278,86 +1247,48 @@ function rawOf(id){
 function restampCompany(){ SLOT_CUR={}; SLOT_ORIG={}; stampSlots(); }
 function stampCompany(){ stampSlots(); }
 
-// ─── 템플릿 ───
-async function saveTemplate(){ setStatus('저장 중…'); SET.subject=rawOf('tpl-subject'); await setSetting('template',rawOf('tpl')); setStatus('저장됨'); toast('제목·본문 저장됨'); }
-function resetTemplate(){ if(confirm('기본 제목·템플릿으로 되돌릴까요?')){ $('tpl-subject').value=DEFAULT_SUBJECT; $('tpl').value=DEFAULT_TEMPLATE; restampCompany(); toast('기본값 — 저장하려면 [템플릿 저장]'); } }
-// 저장된 '표준 템플릿' 다시 불러오기 (일회성 메일 쓴 뒤 복귀용)
-function loadSavedTemplate(){ if(SET.template){ $('tpl-subject').value = SET.subject || DEFAULT_SUBJECT; $('tpl').value = SET.template; restampCompany(); toast('저장된 표준 템플릿을 불러왔어요'); } else { toast('저장된 표준 템플릿이 없어요 — 먼저 [템플릿 저장]'); } }
-// 쪽지/카톡 템플릿 저장·복원 (which: 'note' | 'kakao')
-async function saveTpl(which){ setStatus('저장 중…'); await setSetting('template_'+which, rawOf('tpl-'+which)); setStatus('저장됨'); toast((which==='note'?'쪽지':which==='ping'?'확인요청 카톡·문자':'카톡')+' 템플릿 저장됨'); }
-// ─── 커스텀(이름붙인) 메일 본문 템플릿 — 14일+ 등 ───
-function tplList(){ try{ return JSON.parse(SET.tpl_list||'[]'); }catch{ return []; } }
+// ─── 템플릿 (홍팀장 2026-09-11 전면 정리) ───
+/* "표준 템플릿이고 기본 템플릿이고 없애. 저장 누르면 그 상태 그대로 이름만 물어보고 저장. 템플릿 여러 개."
+   · 저장 = 이름 한 번 묻고 지금 화면의 제목·본문 그대로(같은 이름이면 덮어쓴다).
+   · 목록은 새 칸 tpl_list2 — 옛 목록(tpl_list)·표준(template)·기본 지정값은 시트에 그대로 두고(백업) 안 읽는다. */
+const TPL_KEY='tpl_list2';
+let CUR_TPL='';   // 지금 화면에 불러온 템플릿 이름 — 저장창에 미리 채워 준다
+function tplList(){ try{ return JSON.parse(SET[TPL_KEY]||'[]'); }catch{ return []; } }
 function escTpl(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function tplRemember(nm){ try{ localStorage.setItem('mailing_tpl_last', nm||''); }catch(e){} }
 function renderTplButtons(){
   const box=$('tpl-list'); if(!box) return;
   const list=tplList();
-  if(!list.length){ box.innerHTML='<span class="muted" style="font-size:12px">저장된 템플릿 없음 — 제목·본문 넣고 [💾 템플릿 저장] 누르면 이름 입력 후 버튼이 생겨요</span>'; return; }
+  if(!list.length){ box.innerHTML='<span class="muted" style="font-size:12px">저장된 템플릿 없음 — [💾 템플릿 저장]을 누르면 이름만 묻고 지금 화면 그대로 저장돼요</span>'; return; }
   box.innerHTML='<span class="muted" style="font-size:12px">내 템플릿:</span>'+list.map((t,i)=>{
-    const on = t.name===(SET.tpl_default||'');
-    return '<span style="display:inline-flex;align-items:center;border:1px solid '+(on?'#e0a800':'#d7d2c8')+';border-radius:8px;overflow:hidden">'+
-    '<button class="btn ghost" type="button" title="'+(on?'기본 템플릿 — 열면 이게 뜬다 (눌러서 해제)':'이걸 기본으로 (열 때 자동으로 뜸)')+'" style="border:none;border-radius:0;padding:6px 8px" onclick="setDefaultTpl('+i+',event)">'+(on?'⭐':'☆')+'</button>'+
-    '<button class="btn ghost" type="button" style="border:none;border-radius:0" onclick="loadNamedTpl('+i+')">📄 '+escTpl(t.name)+'</button>'+
-    '<button class="btn ghost" type="button" title="삭제" style="border:none;border-radius:0;color:#c0392b;padding:6px 9px" onclick="deleteNamedTpl('+i+',event)">✕</button>'+
-    '</span>';
+    const on=t.name===CUR_TPL;
+    return '<span style="display:inline-flex;align-items:center;border:1px solid '+(on?'var(--brand)':'#d7d2c8')+';border-radius:8px;overflow:hidden">'+
+      '<button class="btn ghost" type="button" style="border:none;border-radius:0'+(on?';font-weight:800':'')+'" onclick="loadNamedTpl('+i+')">📄 '+escTpl(t.name)+'</button>'+
+      '<button class="btn ghost" type="button" title="삭제" style="border:none;border-radius:0;color:#c0392b;padding:6px 9px" onclick="deleteNamedTpl('+i+',event)">✕</button>'+
+      '</span>';
   }).join('');
 }
-// ⭐ 기본 템플릿 — 화면 열 때 자동으로 채워지는 것
-function applyDefaultTpl(){
-  const nm=SET.tpl_default||''; if(!nm) return;
-  const t=tplList().find(x=>x.name===nm); if(!t) return;
-  if(t.subject!=null) $('tpl-subject').value=t.subject;
-  $('tpl').value = fixTemplate(t.body||'');
-  CUR_TPL=t.name;
-}
-async function setDefaultTpl(i,e){
-  if(e)e.stopPropagation();
-  const t=tplList()[i]; if(!t) return;
-  const off = SET.tpl_default===t.name;          // 이미 기본이면 해제
-  setStatus('저장 중…'); await setSetting('tpl_default', off?'':t.name);
-  renderTplButtons(); setStatus('저장됨');
-  toast(off ? '「'+t.name+'」 기본 해제' : '「'+t.name+'」이 기본 템플릿 — 열면 이게 떠요');
-}
-let CUR_TPL='';   // 마지막으로 불러온 템플릿 이름 — 저장창에서 기본으로 짚어준다
-function loadNamedTpl(i){ const t=tplList()[i]; if(!t)return; if(t.subject!=null)$('tpl-subject').value=t.subject; $('tpl').value=t.body||''; CUR_TPL=t.name; restampCompany(); toast('「'+t.name+'」 템플릿 불러옴'); }
-// [💾 템플릿 저장] — 기존 템플릿을 고쳐 저장할지, 새 이름으로 만들지 고르는 창
-function saveNamedTemplate(){
-  const list=tplList(), box=$('tplsave-list');
-  box.innerHTML = list.length
-    ? list.map((t,i)=>'<button class="btn ghost" type="button" style="text-align:left;justify-content:flex-start" onclick="saveTplOver('+i+')">✏️ 「'+escTpl(t.name)+'」 수정'+(t.name===CUR_TPL?' <span class="muted" style="font-size:11px">· 지금 불러온 것</span>':'')+'</button>').join('')
-    : '<span class="muted" style="font-size:12px">저장된 템플릿이 없어요 — 아래에 이름을 넣어 새로 만드세요</span>';
-  $('tplsave-new').value='';
-  $('tplsave-default').checked = !!SET.tpl_default && SET.tpl_default===CUR_TPL;
-  $('tplsave-modal').classList.add('on');
-  if(!list.length) setTimeout(()=>$('tplsave-new').focus(),50);
-}
-async function putTpl(list, i, nm){
-  /* 🏢 업체명은 빼고 「(업체명)」으로 되돌려 저장한다 — 안 그러면 다음 업체에 남의 이름이 나간다 */
+function loadNamedTpl(i){ const t=tplList()[i]; if(!t)return; if(t.subject!=null)$('tpl-subject').value=t.subject; $('tpl').value=t.body||''; CUR_TPL=t.name; tplRemember(t.name); restampCompany(); renderTplButtons(); toast('「'+t.name+'」 템플릿 불러옴'); }
+async function saveNamedTemplate(){
+  const nm=(prompt('템플릿 이름 (같은 이름이면 덮어씁니다)', CUR_TPL||'')||'').trim();
+  if(!nm) return;
+  const list=tplList(), i=list.findIndex(t=>t.name===nm);
+  if(i>=0 && nm!==CUR_TPL && !confirm('「'+nm+'」 템플릿이 이미 있어요. 덮어쓸까요?')) return;
+  /* 🏢 오른쪽에서 꽂아 넣은 업체명·보고온곳은 태그로 되돌려 저장한다 — 안 그러면 다음 업체에 남의 이름이 나간다 */
   const item={name:nm, subject:rawOf('tpl-subject'), body:rawOf('tpl')};
   if(i>=0) list[i]=item; else list.push(item);
-  const mkDef=$('tplsave-default').checked, wasDef=SET.tpl_default===nm;
-  setStatus('저장 중…'); await setSetting('tpl_list', JSON.stringify(list));
-  if(mkDef!==wasDef) await setSetting('tpl_default', mkDef?nm:'');
-  CUR_TPL=nm; $('tplsave-modal').classList.remove('on');
-  renderTplButtons(); setStatus('저장됨');
-  toast('「'+nm+'」 템플릿 저장됨'+(mkDef?' · 기본으로 지정':''));
-}
-async function saveTplOver(i){
-  const list=tplList(), t=list[i]; if(!t) return;
-  if(!confirm('「'+t.name+'」 템플릿을 지금 내용으로 덮어쓸까요?')) return;
-  await putTpl(list, i, t.name);
-}
-async function saveTplAsNew(){
-  const nm=($('tplsave-new').value||'').trim();
-  if(!nm){ toast('이름을 입력해야 저장돼요'); return; }
-  const list=tplList(), i=list.findIndex(t=>t.name===nm);
-  if(i>=0 && !confirm('「'+nm+'」 템플릿이 이미 있어요. 덮어쓸까요?')) return;
-  await putTpl(list, i, nm);
+  setStatus('저장 중…'); await setSetting(TPL_KEY, JSON.stringify(list));
+  CUR_TPL=nm; tplRemember(nm); renderTplButtons(); setStatus('저장됨'); toast('「'+nm+'」 저장됨');
 }
 async function deleteNamedTpl(i,e){
   if(e)e.stopPropagation(); const list=tplList(); const t=list[i]; if(!t)return;
   if(!confirm('「'+t.name+'」 템플릿을 삭제할까요?')) return;
-  list.splice(i,1); setStatus('저장 중…'); await setSetting('tpl_list', JSON.stringify(list)); renderTplButtons(); setStatus('삭제됨'); toast('「'+t.name+'」 삭제됨');
+  list.splice(i,1); setStatus('저장 중…'); await setSetting(TPL_KEY, JSON.stringify(list));
+  if(CUR_TPL===t.name){ CUR_TPL=''; tplRemember(''); }
+  renderTplButtons(); setStatus('삭제됨'); toast('「'+t.name+'」 삭제됨');
 }
+// 쪽지/카톡/확인요청 문구 저장 (which: 'note' | 'kakao' | 'ping') — 이건 예전 그대로
+async function saveTpl(which){ setStatus('저장 중…'); await setSetting('template_'+which, rawOf('tpl-'+which)); setStatus('저장됨'); toast((which==='note'?'쪽지':which==='ping'?'확인요청 카톡·문자':'카톡')+' 템플릿 저장됨'); }
 function resetTpl(which){ const def=which==='note'?DEFAULT_NOTE:(which==='ping'?DEFAULT_PING:DEFAULT_KAKAO); $('tpl-'+which).value=def; restampCompany(); toast('기본값 — 저장하려면 [저장]'); }
 function copyText(id){ navigator.clipboard.writeText($(id).value).then(()=>toast('복사됨')); }
 
