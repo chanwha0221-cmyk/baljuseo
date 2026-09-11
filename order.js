@@ -973,6 +973,8 @@ function view(){
   if(!ROWS.length){ ROWS = loadDraft(); }
   if(!ROWS.length){ ROWS = [blank(), blank(), blank()]; }
   if(master) loadFor();
+  // 📑 발주 화면을 열 때마다 업체 규칙·합포장 불가를 새로 받는다 — 낮에 규칙을 바꿔도 새로고침 없이 먹게
+  if(hasApi() && ME && ME.token){ loadVRules(); loadNoHap(); }
   return subHead(master ? '🧾 대신 발주' : '🧾 발주하기',
                  master ? '카톡·엑셀로 받은 발주를 넣고 바로 당일 시트로 보냅니다'
                         : '카탈로그 상품을 담거나, 엑셀에서 복사해 붙여넣으세요')
@@ -3327,6 +3329,13 @@ function badge(){
 
 // 페이지를 새로 열어도 담아둔 게 있으면 메뉴 배지에 뜨게
 window.addEventListener('load', () => { if(!ROWS.length) ROWS = loadDraft(); badge(); });
+/* 🔴 업체 규칙·합포장 불가 목록은 **order.js 가 스스로** 받는다 (2026-09-11 아크미 사고).
+   카탈로그는 저장된 로그인으로 들어오면 startCatalog() 를 order.js 가 실리기 **전에** 돌린다
+   (catalog.html 이 order.js 를 맨 끝에서 싣는다). 그 순간 window.loadVRules 가 없어 `if(window.loadVRules)` 가
+   조용히 건너뛰었고 → 규칙을 한 번도 안 받아 아크미 파일이 '상품명' 칸으로 읽혔다(홍팀장: "상품명에서 땡겨오잖아").
+   합포장 불가(NOHAP)도 같은 자리라 새로고침한 화면에선 같이 빠져 있었다.
+   새로 로그인하는 경우엔 ME 가 아직 없어 여기서 안 받고, 그땐 startCatalog 가 받는다(그때는 order.js 가 이미 있다). */
+if(typeof ME !== 'undefined' && ME && ME.token){ loadVRules(); loadNoHap(); }
 
 // _build·_check는 검증용 출구다(브라우저 없이 변환 결과를 확인할 때 쓴다). 화면 동작과 무관.
 window.ORDER = {view, bind, add, orders: ordersView, ordersBind, rows: () => ROWS, _build: buildOut, _check: checkRow,
