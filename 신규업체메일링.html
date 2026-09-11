@@ -33,6 +33,11 @@
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
   td.memo{white-space:normal;word-break:keep-all;min-width:130px;line-height:1.45}
+  #all-table th,#all-table td{white-space:nowrap}
+  #all-table td.memo{overflow:hidden;text-overflow:ellipsis;max-width:240px;min-width:0}
+  #all-table .row-actions{flex-wrap:nowrap}
+  #all-table th.sortable{cursor:pointer;user-select:none}
+  #all-table th.sortable:hover{color:#222}
   th{font-size:11.5px;color:var(--sub);font-weight:700}
   tr.overdue td{background:var(--redbg)}
   tr.done td{opacity:.5}
@@ -188,6 +193,23 @@
     </div>
   </div>
 
+  <!-- 📋 전체 업체 — 메일 작성 바로 밑 (홍팀장 2026-09-11). 예전엔 «펼치기» 안에 접혀 있어서
+       [기록]을 눌러도 어디로 갔는지 안 보였다. 한 줄에 한 업체, 보낸날짜·마지막연락 머리글을 누르면 정렬. -->
+  <div class="card">
+    <h2>전체 업체 <span class="badge green" id="total-count">0</span> <span class="muted" style="font-weight:400;font-size:12px">— 찬화·원비 합친 목록 (내 것만 수정·삭제 가능)</span></h2>
+    <div style="overflow-x:auto">
+    <table id="all-table">
+      <thead><tr>
+        <th>담당</th><th>업체명</th><th>채널</th><th>연락처</th>
+        <th class="sortable" data-sort="sent">보낸날짜 <span class="sarr"></span></th><th class="sortable" data-sort="last">마지막연락 <span class="sarr"></span></th>
+        <th>경과</th><th>상태</th><th>메모</th><th></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    </div>
+    <div class="empty" id="empty" style="display:none">아직 등록된 업체가 없어요.</div>
+  </div>
+
   <!-- 🎯 발굴 대상 A — 신규발굴_데이터.js 에서 '농수산' 취급으로 걸러낸 175곳 (홍팀장 2026-09-04)
        상호로 네이버·구글을 바로 열어 뭘 파는 곳인지 확인하고, 보낸 곳은 아래로 내린다.
        진행상태(보냄/삭제)는 '메일설정' 탭에 적는다 — 브라우저에 두면 집·회사 PC가 따로 논다. -->
@@ -205,42 +227,13 @@
     </div>
     <div id="pros-import" style="margin-bottom:12px"></div>
     <div id="pros-list"></div>
-    <!-- 📄 게시판식 쪽 넘기기 — 한 쪽 50곳 = 하루 발송량. 1쪽이 곧 오늘 몫이다 -->
+    <!-- 📄 게시판식 쪽 넘기기 — 한 쪽 5곳 (홍팀장 2026-09-11 "5개씩, 게시판처럼 1 2 3") -->
     <div id="pros-pager" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:12px"></div>
     <details id="pros-done-wrap" style="margin-top:12px">
       <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--sub)">✉ 보낸 곳 <span id="pros-done-n">0</span>곳 (펼치기)</summary>
       <div id="pros-done" style="margin-top:8px;opacity:.65"></div>
     </details>
   </div>
-
-  <details style="margin-bottom:14px"><summary style="cursor:pointer;font-size:13px;color:var(--sub);padding:6px 0">⚙️ 2차 메일 대상 · 전체 업체 목록 (펼치기)</summary>
-
-
-  <!-- 🔔 추가연락 대상 -->
-  <div class="card" id="overdue-card" style="display:none">
-    <h2>📮 14일+ 2차 메일 대상 <span class="badge red" id="overdue-count">0</span>
-      <span class="muted" style="font-weight:400">— 마지막 연락 14일 이상 + 진행중/보류 = 2차 메일 보낼 업체 · 채널별</span></h2>
-    <div id="overdue-list"></div>
-  </div>
-
-  <!-- 🔑 키워드별 성과 -->
-  
-
-  <!-- 전체 리스트 -->
-  <div class="card">
-    <h2>전체 업체 <span class="badge green" id="total-count">0</span> <span class="muted" style="font-weight:400;font-size:12px">— 찬화·원비 합친 목록 (내 것만 수정·삭제 가능)</span></h2>
-    <table>
-      <thead><tr>
-        <th style="width:7%">담당</th>
-        <th style="width:13%">업체명</th><th style="width:8%">채널</th><th style="width:14%">연락처</th>
-        <th style="width:8%">보낸날짜</th><th style="width:8%">마지막연락</th>
-        <th style="width:5%">경과</th><th style="width:6%">상태</th><th style="width:14%">메모</th><th style="width:190px"></th>
-      </tr></thead>
-      <tbody id="tbody"></tbody>
-    </table>
-    <div class="empty" id="empty" style="display:none">아직 등록된 업체가 없어요.</div>
-  </div>
-  </details>
   </div><!-- /tab-manage -->
 
   
@@ -500,7 +493,9 @@ async function quickSave(){
   if(!q){ toast('메일주소를 입력하세요'); return; }
   const date=$('q-date').value||todayKST();
   const isNew=!qFind(q).length;          // 기록하기 전에 봐야 한다 — 기록하고 나면 누구나 «보낸 곳»이 된다
-  const r=touchSent(q,'',date,'');
+  // 업체명은 오른쪽 [🏢 업체명] 칸에 넣은 그대로 같이 적는다 — 예전엔 빈칸으로 기록돼 목록에 (이름없음)만 쌓였다 (홍팀장 2026-09-11)
+  const nm=(($('company-name')||{}).value||'').trim();
+  const r=touchSent(q,nm,date,'');
   $('q-mail').value=''; quickCheck();
   /* ✉ 처음 보내는 곳이면 그 주소로 썬더버드 메일쓰기 창을 연다 (홍팀장 2026-09-11 —
      "그 메일 주소로 썬더버드 열리게 해라, 밑에 내용까지 들어간 상태로").
@@ -510,24 +505,27 @@ async function quickSave(){
     ? ('갱신됨 — 마지막연락 '+(r.days==null?r.prev:r.days+'일 전')+' → '+date+' (이미 보낸 곳이라 메일창은 안 열었어요)')
     : ('기록됨 — '+date));
 }
-/* 📨 mailto: 로 연다 — 이 PC의 메일 기본 앱이 썬더버드라 그대로 작성창이 뜬다(받는 사람·제목·본문 채워진 채).
-   ⚠️ 주소창으로 넘기는 글은 평문뿐이라 굵게·링크 서식은 안 따라간다(썬더버드가 주소는 알아서 링크로 만든다).
-   ⚠️ 본문이 아주 길면 윈도우가 중간을 자를 수 있다 → 서식 있는 본문을 클립보드에도 같이 넣어둔다.
-      잘려 보이면 썬더버드 본문에서 Ctrl+A → Ctrl+V 한 번이면 된다. */
-async function openCompose(to){
+/* 📨 썬더버드 메일쓰기 창 — 이 PC의 메일 기본 앱이 썬더버드라 mailto: 로 연다.
+   🔴 본문은 주소에 싣지 않는다 (2026-09-11 실사고: "썬더버드 여는 중이라고 하고 열리지도 않잖아").
+      크롬은 외부 앱으로 넘기는 주소가 2,083자를 넘으면 아무 말 없이 버린다. 한글 본문은 인코딩하면 수천 자다.
+      → 받는 사람·제목만 주소로 넘기고, 본문(서식 포함)은 클립보드에 넣는다. 창이 뜨면 본문 칸에 Ctrl+V.
+   🔴 클립보드는 기다리지 않는다 — 기다리는 사이 클릭의 «사용자 동작»이 식으면 크롬이 앱 호출을 막는다.
+   🔴 저장 대기 중이면 beforeunload 가 «페이지를 나갈까요?»를 띄운다. 메일 앱 호출은 페이지를 떠나는 게 아니니
+      그 순간만 MAILTO_GO 로 비켜 준다. */
+function openCompose(to){
   const subj=($('tpl-subject').value||'').trim();
-  const body=($('tpl').value||'').replace(/\r?\n/g,'\r\n');
   try{
     const {html}=buildMailHTML();
-    await navigator.clipboard.write([new ClipboardItem({
+    navigator.clipboard.write([new ClipboardItem({
       'text/html': new Blob([html],{type:'text/html'}),
       'text/plain': new Blob([$('tpl').value],{type:'text/plain'})
-    })]);
-  }catch(e){ /* 클립보드가 막혀도 메일창은 연다 */ }
+    })]).catch(()=>{});
+  }catch(e){}
+  MAILTO_GO=true; setTimeout(()=>{ MAILTO_GO=false; },1500);
   const a=document.createElement('a');
-  a.href='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+  a.href='mailto:'+String(to).replace(/\s+/g,'')+'?subject='+encodeURIComponent(subj);
   document.body.appendChild(a); a.click(); a.remove();
-  toast('✉ 썬더버드로 여는 중 — '+to+' (본문은 클립보드에도 복사해 뒀어요)');
+  toast('✉ 썬더버드 여는 중 — 본문 칸에 Ctrl+V 하면 내용이 들어갑니다');
 }
 
 /* 🔗 메일에 박히는 상품 리스트 주소 — 공급가를 가린 홍팀장 버전 (2026-09-07).
@@ -606,7 +604,9 @@ async function save(){ await dataReplace(DATA); }
    🔴 설정에 남기는 건 ✕(안 보낼 곳)뿐이다. 그건 메일 기록과 상관없는 판단이라서.
       원본 명단 파일은 안 건드린다(잘못 눌러도 되살린다). */
 const PROS_HIDE='pros_hide';
-const PROS_PER=50;      // 한 쪽에 50곳 = 하루 발송량
+const PROS_PER=5;       // 한 쪽에 5곳 — 게시판처럼 1 2 3 쪽으로 넘긴다 (홍팀장 2026-09-11)
+/* 쪽번호는 지금 쪽 둘레로 10개만 보인다 — 5곳씩이면 수십 쪽이라 다 깔면 번호 줄이 화면을 덮는다 */
+function pagerNums(cur,total){ const W=10; let a=Math.max(1,cur-Math.floor(W/2)), b=Math.min(total,a+W-1); a=Math.max(1,b-W+1); const r=[]; for(let i=a;i<=b;i++)r.push(i); return r; }
 let PROS_PAGE=1;
 const pkeyN=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 /* 명단은 두 곳에서 온다:
@@ -885,7 +885,8 @@ function prosHide(name,on){
   },1500);
 }
 // 저장이 아직 안 끝났는데 창을 닫으려 하면 붙잡는다
-window.addEventListener('beforeunload',e=>{ if(hideTimer||saveTimer){ e.preventDefault(); e.returnValue=''; } });
+let MAILTO_GO=false;   // 썬더버드를 부르는 그 순간만 켠다 — openCompose 참고
+window.addEventListener('beforeunload',e=>{ if(MAILTO_GO) return; if(hideTimer||saveTimer){ e.preventDefault(); e.returnValue=''; } });
 /* ✉ 보냄 — 메일링 관리 목록에 기록한다.
    이래야 ①위 [이 주소로 보낸 적 있나?]에 걸리고 ②2주 뒤 추가연락 대상에 뜨고 ③회신 추적이 된다.
 
@@ -1032,7 +1033,7 @@ function renderPros(){
     pg.innerHTML = pages<=1 ? '' :
       ('<span class="muted" style="font-size:12px;margin-right:4px">'+(from+1)+'–'+(from+page.length)+' / '+left.length+'곳</span>'
        + '<button class="btn sm ghost" data-pros="page" data-p="'+(PROS_PAGE-1)+'"'+(PROS_PAGE<=1?' disabled':'')+'>‹</button>'
-       + Array.from({length:pages},(_,i)=>i+1).map(n=>
+       + pagerNums(PROS_PAGE,pages).map(n=>
            '<button class="btn sm '+(n===PROS_PAGE?'brand':'ghost')+'" data-pros="page" data-p="'+n+'">'+n+'</button>').join('')
        + '<button class="btn sm ghost" data-pros="page" data-p="'+(PROS_PAGE+1)+'"'+(PROS_PAGE>=pages?' disabled':'')+'>›</button>');
   }
@@ -1090,12 +1091,23 @@ document.addEventListener('click',async e=>{
 
 // 🧠 작성한 본문을 AI가 한 줄로 축약해서 메모에 채움
 
+let ALL_SORT={k:'last',dir:'desc'};   // 기본 = 예전과 같다(마지막연락 최근순)
+document.addEventListener('click',e=>{
+  const th=e.target.closest&&e.target.closest('#all-table th.sortable'); if(!th)return;
+  const k=th.dataset.sort;
+  ALL_SORT=(ALL_SORT.k===k)?{k,dir:ALL_SORT.dir==='desc'?'asc':'desc'}:{k,dir:'desc'};
+  render();
+});
 function render(){
   const tb=$('tbody'); tb.innerHTML=''; const overdue=[];
   // 날짜수 적은(최근 연락) 업체부터 위로 — 표시 순서만 정렬, onclick은 원본 DATA 인덱스 유지 (2026-06-09 사장님 지시)
   // 👥 찬화·원비 한 목록 (2026-08-11 — 중복 방지가 유일한 목적). 담당 칼럼으로만 구분하고 편집은 누구나 가능.
   const _view=DATA.map((r,i)=>({r,i,ds:daysSince(r[4])}));
-  _view.sort((a,b)=>{ if(a.ds===null) return 1; if(b.ds===null) return -1; return a.ds-b.ds; });
+  /* 📅 보낸날짜·마지막연락 머리글을 누르면 그 칸으로 정렬, 한 번 더 누르면 뒤집힌다 (홍팀장 2026-09-11).
+     날짜 없는 줄은 어느 쪽이든 맨 아래. */
+  const col=ALL_SORT.k==='sent'?3:4, dir=ALL_SORT.dir==='asc'?1:-1;
+  _view.sort((a,b)=>{ const x=a.r[col]||'', y=b.r[col]||''; if(!x&&!y) return 0; if(!x) return 1; if(!y) return -1; return x<y?-dir:(x>y?dir:0); });
+  document.querySelectorAll('#all-table th.sortable').forEach(th=>{ const s=th.querySelector('.sarr'); if(s) s.textContent=(th.dataset.sort===ALL_SORT.k)?(ALL_SORT.dir==='asc'?'▲':'▼'):'↕'; });
   _view.forEach(({r,i})=>{
     const [name,chan,contact,sent,last,stat,memo,,who]=r;
     const ds=daysSince(last), isDone=(stat==='종료'||stat==='회신');
@@ -1109,7 +1121,7 @@ function render(){
       <td>${esc(sent)||'—'}</td><td>${esc(last)||'—'}</td>
       <td class="days ${isOver?'hot':''}">${ds===null?'—':ds+'일'}</td>
       <td><span class="pill ${esc(stat)}">${esc(stat)||'—'}</span></td>
-      <td class="muted memo">${esc(memo)}</td>
+      <td class="muted memo" title="${esc(memo)}">${esc(memo)}</td>
       <td><div class="row-actions">
         <button class="btn sm" onclick="markContact(${i})">연락함</button>
         <button class="btn ghost sm" onclick="editRow(${i})">수정</button>
@@ -1121,7 +1133,7 @@ function render(){
   const byWho={}; DATA.forEach(r=>{ const w=r[8]||'—'; byWho[w]=(byWho[w]||0)+1; });
   $('total-count').textContent=DATA.length+' ('+Object.entries(byWho).map(([k,v])=>k+' '+v).join(' · ')+')';
   // 📮 20일+ 추가연락 대상 — 채널별 그룹
-  const oc=$('overdue-card');
+  const oc=$('overdue-card'); if(!oc) return;   // 2차 메일 대상 패널은 뺐다 (홍팀장 2026-09-11)
   const fups=DATA.map((r,i)=>({r,i,ds:daysSince(r[4])}))
     .filter(x=>x.ds!==null && x.ds>=FOLLOWUP_DAYS && !(x.r[5]==='종료'||x.r[5]==='회신'));
   if(fups.length){
