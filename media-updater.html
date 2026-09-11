@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.48</title>
+<title>마스터 유통 상품 도구 v1.49</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1663,9 +1663,26 @@ async function notLoad(){
     notDraw();
   }catch(e){ NOTOK=false; $p('ncStat').textContent='⚠️ '+e.message+' — 새로고침 전에는 저장하지 마세요'; }
 }
+/* 📄 공지 목록은 5개씩 게시판처럼 (홍팀장 2026-09-11 "어디까지 늘릴건데 5개씩 해서 게시판 형태로").
+   ⚠️ data-i 는 **NOT 전체에서의 번호** 그대로다 — 쪽 안의 순번을 쓰면 2쪽에서 누른 체크·수정·삭제가 1쪽 공지를 건드린다. */
+const NC_PER=5;
+let NC_PAGE=1;
+function ncPager(pages){
+  if(pages<2)return '';
+  const b=(p,label,dis,on)=>'<button type="button" class="fxg" data-ncpg="'+p+'"'+(dis?' disabled':'')
+    +' style="min-width:30px;'+(on?'background:var(--accent,#1f6fd6);color:#fff;border-color:transparent;':'')+'">'+label+'</button>';
+  let h='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:10px">'
+    +'<span style="font-size:11.5px;color:var(--muted);margin-right:4px">전체 '+NOT.length+'건 · '+NC_PAGE+'/'+pages+'쪽</span>'
+    +b(NC_PAGE-1,'‹',NC_PAGE<=1,false);
+  for(let p=1;p<=pages;p++)h+=b(p,String(p),false,p===NC_PAGE);
+  return h+b(NC_PAGE+1,'›',NC_PAGE>=pages,false)+'</div>';
+}
 function notDraw(){
   if(!NOT.length){$p('ncRows').innerHTML='<div class="ci" style="color:var(--muted)">등록된 공지가 없습니다.</div>';return;}
-  $p('ncRows').innerHTML=NOT.map((n,i)=>
+  const pages=Math.max(1,Math.ceil(NOT.length/NC_PER));
+  if(NC_PAGE>pages)NC_PAGE=pages; if(NC_PAGE<1)NC_PAGE=1;
+  const from=(NC_PAGE-1)*NC_PER;
+  $p('ncRows').innerHTML=NOT.slice(from,from+NC_PER).map((n,k,_a,i=from+k)=>
     '<div class="ci" style="flex-wrap:wrap;row-gap:6px;align-items:flex-start">'
     +(n.imp?'<span style="color:#c0392b;font-size:13px;font-weight:700;flex:none">[중요]</span>':'')
     +'<input class="nctit" data-nc="title" data-i="'+i+'" value="'+esc(n.title)+'" placeholder="공지 제목">'
@@ -1675,9 +1692,12 @@ function notDraw(){
     +'<button class="fxg" data-nc="edit" data-i="'+i+'" title="제목·내용을 고칩니다">✏️ 수정</button>'
     +'<button class="fxg del" data-nc="del" data-i="'+i+'">🗑</button>'
     +'<textarea data-nc="body" data-i="'+i+'" rows="3" style="flex:1 1 100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7">'+esc(n.body)+'</textarea>'
-    +'</div>').join('');
+    +'</div>').join('')+ncPager(pages);
 }
 $p('ncRows').addEventListener('click',function(ev){
+  // 📄 쪽 넘기기 — 고치던 값은 이미 NOT 에 들어가 있으니 다시 그리기만 하면 된다
+  const pg=ev.target.closest('[data-ncpg]');
+  if(pg){ if(pg.disabled)return; NC_PAGE=+pg.getAttribute('data-ncpg')||1; notDraw(); return; }
   /* ✏️ 수정 — 그 줄을 켜고 제목 칸으로 커서를 보낸다. 고친 값은 아래 input 핸들러가 바로 받아 두고,
      실제 시트 반영은 [💾 저장]에서 한 번에 한다(등록·삭제와 같은 규칙). */
   const ed=ev.target.closest('[data-nc="edit"]');
@@ -1709,6 +1729,7 @@ $p('ncAdd').onclick=function(){
   const ti=t($p('ncT').value),bo=$p('ncB').value.trim();
   if(!ti)return alert('공지 제목을 적어주세요.');
   NOT.unshift({title:ti,body:bo,show:true,imp:$p('ncI').checked,at:day()});
+  NC_PAGE=1;   // 새 공지는 맨 위에 쌓인다 — 1쪽으로 돌아가야 방금 넣은 게 보인다
   $p('ncT').value='';$p('ncB').value='';$p('ncI').checked=false;
   notDraw();$p('ncLog').textContent='등록했습니다 — 저장을 눌러야 반영됩니다.';
 };
