@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-11 09:48",
+ "updatedAt": "2026-09-11 10:24",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -367,6 +367,29 @@
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/115/913/024/a3c1175186aeb2c43234b76c04671c66.jpg",
    "note": "- 상품명 : 자숙대게 3.5kg > 북해도 대게 3.5kg"
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "충무",
+   "category": "수산",
+   "name": "통통 돌문어 1kg",
+   "spec": [
+    "※ 구성 : 돌문어",
+    "※ 중량/ 사이즈 : 1kg 1-4미 내외(중량우선)",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 돌문어 100%",
+    "※ 포장방식 : 아이스팩, 빙장포장, 비닐포장. 소분/대분 랜덤.",
+    "※ 특이사항 : 생물 수분 감량 1-20%"
+   ],
+   "supplyPrice": 19500,
+   "previousPrice": 19000,
+   "tax": "면세",
+   "courier": "씨제이대한통운/롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/952/486/022/eea741fc7e3228232f449b510e9a9bce.jpg",
+   "note": ""
   },
   {
    "warehouse": "당일생물",
@@ -784,6 +807,28 @@
    "warehouse": "군산",
    "sourceWarehouse": "군산",
    "category": "수산",
+   "name": "반건조 꽃열기 3미",
+   "spec": [
+    "※ 구성 : 열기 3미",
+    "※ 중량/ 사이즈 : 손질전 800g~900g 내외 / 손질 후 500g~650g 내외",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 열기 99.5%, 천일염0.5%",
+    "※ 포장방식 : 실링포장"
+   ],
+   "supplyPrice": 8000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/268/407/025/faa77b5e6467827f5074fed0c798c66c.png",
+   "note": ""
+  },
+  {
+   "warehouse": "군산",
+   "sourceWarehouse": "군산",
+   "category": "수산",
    "name": "급냉 호래기 500g",
    "spec": [
     "※ 구성 : 호래기",
@@ -802,28 +847,6 @@
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/068/684/023/6d048c5ba7ad6b9134ab569cc34d6c66.jpg",
    "note": "- 포장방식 : 트레이포장"
-  },
-  {
-   "warehouse": "군산",
-   "sourceWarehouse": "군산",
-   "category": "",
-   "name": "반건조 꽃열기 3미",
-   "spec": [
-    "※ 구성 : 열기 3미",
-    "※ 중량/ 사이즈 : 손질전 800g~900g 내외 / 손질 후 500g~650g 내외",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 열기 99.5%, 천일염0.5%",
-    "※ 포장방식 : 실링포장"
-   ],
-   "supplyPrice": 8000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/268/407/025/faa77b5e6467827f5074fed0c798c66c.png",
-   "note": ""
   },
   {
    "warehouse": "군산",
@@ -912,28 +935,6 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/199/392/025/ca8b44e14d0679c8ac93c1deac1efc5e.png",
-   "note": ""
-  },
-  {
-   "warehouse": "군산",
-   "sourceWarehouse": "군산",
-   "category": "수산",
-   "name": "초대왕 반건조 갑오징어 600g급",
-   "spec": [
-    "※ 구성 : 반건조 갑오징어 1마리",
-    "※ 중량/사이즈 : 550g~650g 내외",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 갑오징어(말레이시아) 99.7%, 천일염(국산) 0.3%",
-    "※ 포장방식 : 실링포장"
-   ],
-   "supplyPrice": 14000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/462/333/025/fe861f6018abf944f4f18238b7b4037d.jpg",
    "note": ""
   },
   {
@@ -1584,28 +1585,6 @@
   {
    "warehouse": "군산",
    "sourceWarehouse": "군산",
-   "category": "수산",
-   "name": "대왕 황금 알가자미 1미 500g급",
-   "spec": [
-    "※ 구성 : 참가자미 1미",
-    "※ 중량/ 사이즈 : 1미 400g~600g 내외",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 가자미 99.8%, 천일염(국산) 0.2%",
-    "※ 포장방식 : 실링포장"
-   ],
-   "supplyPrice": 8000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/472/336/025/a90be5236e5d089899a97fe48b0fcd53.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "군산",
-   "sourceWarehouse": "군산",
    "category": "축산",
    "name": "초벌 돼지막창 300g",
    "spec": [
@@ -2038,7 +2017,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "",
+   "category": "수산",
    "name": "프리미엄 초벌 풍천장어 1.5kg",
    "spec": [
     "※ 구성 :  초벌 풍천장어 + 특제 소스 2종",
@@ -7791,7 +7770,7 @@
   {
    "warehouse": "단독(유)",
    "sourceWarehouse": "원수",
-   "category": "",
+   "category": "수산",
    "name": "정품 반건조 오징어 250g급",
    "spec": [],
    "supplyPrice": 6000,
