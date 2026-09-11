@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.45</title>
+<title>마스터 유통 상품 도구 v1.46</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1107,9 +1107,26 @@ async function recLoad(){
     recDraw();
   }catch(e){ RECOK=false; $p('rcStat').textContent='⚠️ '+e.message+' — 새로고침 전에는 저장하지 마세요'; }
 }
-function recDraw(){
+/* 📄 5개씩 끊어 보여준다 (홍팀장 2026-09-11 "언제까지 늘일거냐, 게시판처럼 2 3 옆으로 가게")
+   번호·▲▼·data-i 는 전체 REC 기준 그대로 — 페이지는 보여주는 범위만 자른다.
+   recDraw(i) 로 부르면 i번째 상품이 있는 페이지로 간다(▲▼로 페이지 경계를 넘을 때·새로 추가했을 때). */
+let RCPG=0; const RCPER=5;
+function recDraw(focus){
   if(!REC.length){$p('rcRows').innerHTML='<div class="ci" style="color:var(--muted)">아직 없습니다. 위에서 상품을 검색해 추가하세요.</div>';return;}
-  $p('rcRows').innerHTML=REC.map((r,i)=>
+  const pages=Math.ceil(REC.length/RCPER);
+  if(focus!=null)RCPG=Math.floor(focus/RCPER);
+  RCPG=Math.max(0,Math.min(RCPG,pages-1));
+  const from=RCPG*RCPER;
+  const pgBtn=(p,label,on)=>'<button class="fxg" data-rcpg="'+p+'" style="min-width:30px;padding:4px 9px;font-size:12px'
+    +(on?';background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700':'')+'">'+label+'</button>';
+  let pager='';
+  if(pages>1){
+    pager='<div style="display:flex;gap:5px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:10px">'
+      +(RCPG>0?pgBtn(RCPG-1,'‹',false):'');
+    for(let p=0;p<pages;p++)pager+=pgBtn(p,p+1,p===RCPG);
+    pager+=(RCPG<pages-1?pgBtn(RCPG+1,'›',false):'')+'</div>';
+  }
+  $p('rcRows').innerHTML=REC.slice(from,from+RCPER).map((r,k)=>{const i=from+k; return (
     '<div class="ci" style="flex-wrap:wrap;row-gap:6px">'
     +'<span style="font-size:11px;color:var(--muted);width:20px">'+(i+1)+'</span>'
     +'<b style="flex:1;min-width:150px;font-size:13px">'+esc(r.name)+'</b>'
@@ -1120,13 +1137,14 @@ function recDraw(){
     +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-rc="show" data-i="'+i+'"'+(r.show?' checked':'')+'>노출</label>'
     +'<button class="fxg del" data-rc="del" data-i="'+i+'">🗑</button>'
     +'<input data-rc="cmt" data-i="'+i+'" value="'+esc(r.cmt)+'" placeholder="코멘트 (상품 사진 아래에 붙습니다)" style="flex:1 1 100%;font-size:12.5px">'
-    +'</div>').join('');
+    +'</div>');}).join('')+pager;
 }
 $p('rcRows').addEventListener('click',function(ev){
+  const pg=ev.target.closest('[data-rcpg]'); if(pg){RCPG=+pg.getAttribute('data-rcpg');recDraw();return;}
   const b=ev.target.closest('[data-rc]'); if(!b)return;
   const k=b.getAttribute('data-rc'),i=+b.getAttribute('data-i');
-  if(k==='up'&&i>0){const x=REC[i];REC[i]=REC[i-1];REC[i-1]=x;recDraw();}
-  else if(k==='dn'&&i<REC.length-1){const x=REC[i];REC[i]=REC[i+1];REC[i+1]=x;recDraw();}
+  if(k==='up'&&i>0){const x=REC[i];REC[i]=REC[i-1];REC[i-1]=x;recDraw(i-1);}
+  else if(k==='dn'&&i<REC.length-1){const x=REC[i];REC[i]=REC[i+1];REC[i+1]=x;recDraw(i+1);}
   else if(k==='del'){if(confirm('"'+REC[i].name+'" 을(를) 추천에서 뺄까요?')){REC.splice(i,1);recDraw();}}
 });
 $p('rcRows').addEventListener('input',function(ev){
@@ -1144,7 +1162,7 @@ $p('rcAdd').onclick=function(){
   if(!nm)return alert('상품명을 입력하거나 목록에서 고르세요.');
   if(REC.some(r=>r.name===nm))return alert('이미 추천에 들어 있는 상품입니다.');
   REC.push({name:nm,cmt:'',show:true,at:day(),news:false});   // 손으로 넣은 건 항상 '추천'
-  $p('rcQ').value='';recDraw();
+  $p('rcQ').value='';recDraw(REC.length-1);   // 새로 넣은 건 맨 끝 페이지에 있으니 그리로 간다
   $p('rcLog').textContent='추가했습니다 — 저장을 눌러야 반영됩니다.';
 };
 /* ══ 📰 소식글 등록 (홍팀장 2026-09-01) ══════════════════════════════════
