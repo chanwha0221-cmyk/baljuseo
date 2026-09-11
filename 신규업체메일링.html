@@ -592,7 +592,17 @@ async function loadAll(){
     setStatus('동기화됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){ setStatus('오류: '+e.message); console.error(e); toast('동기화 실패 — 콘솔 확인'); }
 }
-async function save(){ await dataReplace(DATA); }
+/* 🛡 업체명은 최신 시트에서 살린다 (홍팀장 2026-09-11 — (이름없음) 31곳을 썬더버드 보낸편지함 제목으로 채운 뒤)
+   저장은 시트를 통째로 다시 쓰는데, 채우기 전에 열어둔 창(내 창·원비 창)의 DATA 는 업체명이 비어 있다.
+   그 창에서 [기록]을 누르면 채운 이름이 도로 빈칸이 된다 → 쓰기 직전 시트를 읽어, 내 쪽이 비어 있는 업체명만 가져온다. */
+async function save(){
+  try{
+    const cur=await sheetGet(DATA_TAB,'A2:I100000'), nm={};
+    (cur||[]).forEach(r=>{ const k=pkeyN(r[2]); if(k&&String(r[0]||'').trim())nm[k]=r[0]; });
+    DATA.forEach(r=>{ if(!String(r[0]||'').trim()){ const v=nm[pkeyN(r[2])]; if(v)r[0]=v; } });
+  }catch(e){ console.warn('업체명 병합 건너뜀',e); }
+  await dataReplace(DATA);
+}
 
 /* ══ 🎯 발굴 대상 A — '농수산' 취급 175곳 ══════════════════════════════════
    통신판매업 신고 명단(신규발굴_데이터.js)에서 취급이 '농수산'으로 잡힌 곳만 남긴다.
