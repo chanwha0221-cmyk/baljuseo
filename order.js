@@ -2324,6 +2324,12 @@ function headerItems(raw){
     return -1;
   };
   const at = {}; Object.keys(MAP).forEach(f => { at[f] = pick(MAP[f]); });
+  /* 🏷 파일에 「주문처」 칸이 있으면 그 값이 송장업체명이다 (홍팀장 2026-09-11 — 티알에스큐).
+     우리 발주 시트 칸 이름 그대로 보내는 업체는 송장에 찍힐 이름을 '주문처'에 적는다.
+     적혀 있으면 10칸, 비어 있으면 맨 위에서 고른 업체로 9칸 — 자기 이름을 적은 줄은 buildOut 이 9칸으로 되돌린다.
+     예전엔 이 칸을 안 봐서 적어 보내도 전부 9칸으로 뭉개졌다.
+     ⚠️ 정확히 '주문처'인 칸만 본다. 앞글자로 집으면 '주문처 주소'·'주문처 연락처'가 송장명으로 들어간다. */
+  if(at.biz < 0){ const oi = head.indexOf('주문처'); if(oi >= 0) at.biz = oi; }
   if(at.name < 0) return [];
   const stIdx = head.findIndex(x => x.indexOf('배송상태') === 0 || x === '주문상태' || x === '상태');
   const dash = v => { const s = S(v); return (s === '-' || s === '_') ? '' : s; };   // 식봄은 빈칸을 '-' 로 준다
