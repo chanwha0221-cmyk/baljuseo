@@ -277,6 +277,12 @@ const stripBone  = nm => S(nm).replace(BONE_RE, '').trim();
 const hasBone    = nm => BONE_RE.test(S(nm));
 const canBone    = nm => BONE_SET.has(String(stripBone(stripAge(nm))).replace(/\s+/g, '').toLowerCase());
 const withBone   = (nm, on) => on ? (stripBone(nm) + ' (' + BONE_TAG + ')') : stripBone(nm);
+/* ✖ 상품명 **끝**에 붙은 배수 — 「특왕 민물장어 1kg*2 (머리뼈포함)」 = 1kg 두 개 (홍팀장 2026-09-11, 아따).
+   파일로 읽을 때(headerItems)만 떼던 것을 줄 확인(checkRow)·상품 찾기(findProd)에서도 뗀다 — 표에 그대로
+   들어온 줄은 상품도 못 찾고 수량도 안 곱해졌다. 뒤에 (뼈,머리 포함)·(중수)가 붙어 있어도 그걸 걷어내고 본다.
+   ⚠️ 「*숫자」「×숫자」가 맨 끝일 때만. 이름 한가운데의 3x4 같은 규격은 건드리지 않는다. */
+const TAIL_MULT_RE = /\s*[*×]\s*(\d{1,3})\s*$/;
+function tailMult(nm){ const m = stripBone(stripAge(S(nm))).match(TAIL_MULT_RE); return m ? (parseInt(m[1], 10) || 0) : 0; }
 
 /* 🐟 카탈로그에서 내렸지만 발주는 받아주는 상품 (홍팀장 2026-09-02).
    '몸뱃살'은 뱃살 위주로 나가되 100% 뱃살이 아니다 — 그렇게 커팅이 안 된다고 한다.
@@ -339,7 +345,7 @@ function findProd(raw){
   if(p) return {p, cands:[]};
   const x = stripTailX(t);                                  // ✂️ 「… 15kg x」 꼬리부터 떼고 다시 찾는다
   if(x){ p = hit(x); if(p) return {p, cands:[]}; }
-  const a = stripBone(stripAge(x || t));                    // 🐟🦴 뒤에 붙은 삭힘정도·(뼈,머리 포함)은 떼고 상품을 찾는다
+  const a = stripBone(stripAge(x || t)).replace(TAIL_MULT_RE, '').trim();   // 🐟🦴✖ 삭힘정도·(뼈,머리 포함)·끝의 *2 는 떼고 찾는다
   if(a !== (x || t)){ p = hit(a); if(p) return {p, cands:[]}; }
   const s = stripWh(a);
   if(s){ p = hit(s); if(p) return {p, cands:[]}; }
@@ -451,9 +457,13 @@ function checkRow(r){
   // 카탈로그에도 이름이 있는 상품을 도구로 열어둔 경우(=예외로 빼둔 것을 다시 연 것)도 같은 안내
   else if(p && vonlyOpen(p.name)) warns.push('ℹ️ ' + VONLY_NOTE);
 
-  const q = parseInt(D(r.qty), 10);
-  if(!S(r.qty)) errs.push('수량을 넣어주세요.');
-  else if(!(q > 0)) errs.push('수량은 1 이상 숫자로 넣어주세요.');
+  const q0 = parseInt(D(r.qty), 10);
+  const nx = tailMult(r.name);                     // ✖ 상품명 끝 *2 — 수량 칸이 비어 있으면 1건으로 본다
+  if(!S(r.qty) && !nx) errs.push('수량을 넣어주세요.');
+  else if(S(r.qty) && !(q0 > 0)) errs.push('수량은 1 이상 숫자로 넣어주세요.');
+  const q = ((q0 > 0) ? q0 : (nx ? 1 : 0)) * (nx || 1);   // 이하 합포장·발주서는 곱한 수량으로
+  if(nx > 1 && q > 0) warns.push('✖ 상품명 끝 *' + nx + ' — ' + nx + '개 묶음이라 수량을 ' + q + '개로 넣습니다'
+    + ((q0 > 1) ? ' (수량 칸 ' + q0 + ' × ' + nx + '). 맞는지 확인해 주세요.' : '.'));
 
   if(!S(r.rcv)) errs.push('받는분 성함을 넣어주세요.');
 
