@@ -499,11 +499,35 @@ async function quickSave(){
   const q=($('q-mail').value||'').trim();
   if(!q){ toast('메일주소를 입력하세요'); return; }
   const date=$('q-date').value||todayKST();
+  const isNew=!qFind(q).length;          // 기록하기 전에 봐야 한다 — 기록하고 나면 누구나 «보낸 곳»이 된다
   const r=touchSent(q,'',date,'');
   $('q-mail').value=''; quickCheck();
+  /* ✉ 처음 보내는 곳이면 그 주소로 썬더버드 메일쓰기 창을 연다 (홍팀장 2026-09-11 —
+     "그 메일 주소로 썬더버드 열리게 해라, 밑에 내용까지 들어간 상태로").
+     🔴 이미 보낸 곳은 열지 않는다 — 이 도구의 존재 이유가 중복 발송 거르기다. 기록(마지막연락 갱신)만 한다. */
+  if(isNew && q.indexOf('@')>0){ openCompose(q); return; }
   toast(r.updated
-    ? ('갱신됨 — 마지막연락 '+(r.days==null?r.prev:r.days+'일 전')+' → '+date)
+    ? ('갱신됨 — 마지막연락 '+(r.days==null?r.prev:r.days+'일 전')+' → '+date+' (이미 보낸 곳이라 메일창은 안 열었어요)')
     : ('기록됨 — '+date));
+}
+/* 📨 mailto: 로 연다 — 이 PC의 메일 기본 앱이 썬더버드라 그대로 작성창이 뜬다(받는 사람·제목·본문 채워진 채).
+   ⚠️ 주소창으로 넘기는 글은 평문뿐이라 굵게·링크 서식은 안 따라간다(썬더버드가 주소는 알아서 링크로 만든다).
+   ⚠️ 본문이 아주 길면 윈도우가 중간을 자를 수 있다 → 서식 있는 본문을 클립보드에도 같이 넣어둔다.
+      잘려 보이면 썬더버드 본문에서 Ctrl+A → Ctrl+V 한 번이면 된다. */
+async function openCompose(to){
+  const subj=($('tpl-subject').value||'').trim();
+  const body=($('tpl').value||'').replace(/\r?\n/g,'\r\n');
+  try{
+    const {html}=buildMailHTML();
+    await navigator.clipboard.write([new ClipboardItem({
+      'text/html': new Blob([html],{type:'text/html'}),
+      'text/plain': new Blob([$('tpl').value],{type:'text/plain'})
+    })]);
+  }catch(e){ /* 클립보드가 막혀도 메일창은 연다 */ }
+  const a=document.createElement('a');
+  a.href='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('✉ 썬더버드로 여는 중 — '+to+' (본문은 클립보드에도 복사해 뒀어요)');
 }
 
 /* 🔗 메일에 박히는 상품 리스트 주소 — 공급가를 가린 홍팀장 버전 (2026-09-07).
