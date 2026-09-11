@@ -2364,13 +2364,17 @@ function headerItems(raw){
      ⚠️ 정확히 '주문처'인 칸만 본다. 앞글자로 집으면 '주문처 주소'·'주문처 연락처'가 송장명으로 들어간다. */
   if(at.biz < 0){ const oi = head.indexOf('주문처'); if(oi >= 0) at.biz = oi; }
   if(at.name < 0) return [];
+  /* 🔁 상품명 칸이 **그 줄에서** 비면 볼 다음 칸들 — 업체 규칙의 nameFallback (홍팀장 2026-09-11 아크미:
+     "옵션(수집)을 먼저 확인해, 여기에 우리 상품명을 넣을 예정. 저기가 빈칸이면 상품명을 확인"). */
+  const nameFb = (RULE.nameFallback || []).map(k => pick([k])).filter(x => x >= 0 && x !== at.name);
   const stIdx = head.findIndex(x => x.indexOf('배송상태') === 0 || x === '주문상태' || x === '상태');
   const dash = v => { const s = S(v); return (s === '-' || s === '_') ? '' : s; };   // 식봄은 빈칸을 '-' 로 준다
   const out = [], skipped = [], warns = [];
   for(let i = hr + 1; i < lines.length; i++){
     const c = cut(lines[i]);
     const g = f => (at[f] >= 0 ? dash(c[at[f]]) : '');
-    const nm0 = g('name');
+    let nm0 = g('name');
+    for(let fi = 0; !nm0 && fi < nameFb.length; fi++) nm0 = dash(c[nameFb[fi]]);   // 비었으면 규칙이 정한 다음 칸
     if(!nm0) continue;
     // 옵션 칸이 규칙에 없으면 상품명을 품은 칸을 찾아 쓴다 (규칙 없는 업체도 이걸로 읽힌다)
     const op = g('opt');
@@ -2382,6 +2386,14 @@ function headerItems(raw){
           아크미처럼 상품명 칸에 이미 우리 이름이 적혀 있고, 옵션 칸은 긴 설명문인 경우다. */
     let nm = (RULE.optMode !== 'parse' && op && !DEFAULT_OPT.test(op) && nm0.indexOf(op) < 0)
       ? (nm0 + ' ' + op) : nm0;
+    /* ✖ 이름 **끝**에 붙은 배수 — 「강화 사자발 약쑥 떡 12개*2」 = 12개들이 두 개 (홍팀장 2026-09-11 아크미).
+       이름 칸에 우리 상품명을 적어 오는 업체는 배수도 거기 붙여 온다. 떼지 않으면 상품을 못 찾고,
+       배수로 안 쓰면 절반만 나간다(전체 규칙 「옵션 배수 × 수량」과 같은 셈). 뒤에 (뼈,머리 포함)이 붙어 있어도 뗀다.
+       ⚠️ 「*숫자」「×숫자」가 맨 끝일 때만 — 이름 한가운데의 3x4 같은 규격은 건드리지 않는다. */
+    let nmMult = 0;
+    { const bone = hasBone(nm), core = bone ? stripBone(nm) : nm;
+      const tm = core.match(/\s*[*×]\s*(\d{1,3})\s*$/);
+      if(tm){ nmMult = parseInt(tm[1], 10) || 0; nm = withBone(core.slice(0, tm.index).trim(), bone); } }
     // 🐟 홍어면 어느 칸에 적혀 있든 삭힘정도를 찾아 이름 뒤에 붙인다 (전체 규칙)
     if(needAge(nm) && !ageOf(nm)){
       const age = ageFromOpt(fin) || ageFromOpt(op);
@@ -2400,7 +2412,7 @@ function headerItems(raw){
       if(tx){ base = parseInt(tx[1], 10) || 1; nm = nm.slice(0, tx.index).trim(); }
       else base = 1;
     }
-    const mult = multOf(fin) || multOf(multCell(c, at));
+    const mult = multOf(fin) || multOf(multCell(c, at)) || nmMult;
     /* 옵션 배수 = 한 건에 몇 개, 수량 칸 = 몇 건. **곱하면 총 개수다** (홍팀장 2026-09-02).
          「1kg*2」 × 수량 1 = 2   ·   「1kg」 × 수량 2 = 2   ·   「(초수) x 1」 × 수량 2 = 2
        한쪽만 보면 절반이 되거나 두 배가 된다. 어느 쪽도 조용히 틀리면 그대로 창고로 간다.
