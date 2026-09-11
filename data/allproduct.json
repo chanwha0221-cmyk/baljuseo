@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-11 09:15",
+ "updatedAt": "2026-09-11 09:48",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -395,6 +395,29 @@
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
    "category": "수산",
+   "name": "연안 명주조개 1kg",
+   "spec": [
+    "※ 구성 : 명주조개 1kg",
+    "※ 중량/사이즈 : 1kg/20-30미내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 명주조개 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 특이사항 : 90%이상 해감 후 발송"
+   ],
+   "supplyPrice": 5000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "우체국택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/422/249/025/ecd0f52179acb6c9c0c7dea478f15139.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "인천",
+   "category": "수산",
    "name": "연안 갓성비 암게 1kg",
    "spec": [
     "※ 구성 : 활 암꽃게 1kg",
@@ -601,6 +624,29 @@
    "warehouse": "당일생물",
    "sourceWarehouse": "인천",
    "category": "수산",
+   "name": "연안 주먹참소라 1kg",
+   "spec": [
+    "※ 구성 : 참소라 1kg",
+    "※ 중량/ 사이즈 : 1kg/4-8미",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 참소라 100%",
+    "※ 포장방식 : 비닐실링",
+    "※ 기타 : 자연산이라 크기차이가 있습니다."
+   ],
+   "supplyPrice": 20000,
+   "previousPrice": 16000,
+   "tax": "면세",
+   "courier": "우체국택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/319/691/006/6d705d678c33a8fab4c920558389a92e.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "인천",
+   "category": "수산",
    "name": "연안 앵치멍게 3kg",
    "spec": [
     "※ 구성 : 활 멍게",
@@ -762,7 +808,13 @@
    "sourceWarehouse": "군산",
    "category": "",
    "name": "반건조 꽃열기 3미",
-   "spec": [],
+   "spec": [
+    "※ 구성 : 열기 3미",
+    "※ 중량/ 사이즈 : 손질전 800g~900g 내외 / 손질 후 500g~650g 내외",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 열기 99.5%, 천일염0.5%",
+    "※ 포장방식 : 실링포장"
+   ],
    "supplyPrice": 8000,
    "previousPrice": null,
    "tax": "면세",
@@ -770,7 +822,7 @@
    "shipFee": 4000,
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
-   "image": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/268/407/025/faa77b5e6467827f5074fed0c798c66c.png",
    "note": ""
   },
   {
@@ -1988,7 +2040,14 @@
    "sourceWarehouse": "동해",
    "category": "",
    "name": "프리미엄 초벌 풍천장어 1.5kg",
-   "spec": [],
+   "spec": [
+    "※ 구성 :  초벌 풍천장어 + 특제 소스 2종",
+    "※ 중량/사이즈 :  1.5kg급 (손질 후 중량 650g 이상, 2~3미)",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 장어 100%",
+    "※ 포장방식 : 진공포장",
+    "※ 특이사항 : 중량우선으로 반마리가 갈 수 있습니다."
+   ],
    "supplyPrice": 29000,
    "previousPrice": null,
    "tax": "면세",
@@ -1996,7 +2055,7 @@
    "shipFee": 4000,
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "27-07-20",
-   "image": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/538/406/025/8450471fbab0c0b9f2ecf880786868a3.jpg",
    "note": ""
   },
   {
