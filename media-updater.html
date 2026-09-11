@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.46</title>
+<title>마스터 유통 상품 도구 v1.47</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -243,7 +243,7 @@ a{color:var(--accent)}
     <summary style="cursor:pointer;font-size:12.5px;font-weight:700">✏️ 올라간 소식글 고치기
       <span id="ngEdStat" style="font-weight:400;color:var(--muted)">— 여는 순간 불러옵니다</span></summary>
     <p style="font-size:12px;color:var(--muted);margin:7px 0 0">카탈로그 [📰 소식글]에 올라간 글을 여기서 고칩니다.
-      제목·본문·연결상품을 고치고 <b>[💾 이 글 저장]</b>을 누르면 그 글 한 줄만 바뀝니다.<br>
+      제목·본문을 고치면 <b>손을 떼는 순간 자동 저장</b>됩니다(그 글 한 줄만). 연결상품은 칸을 벗어날 때 확인 후 저장됩니다.<br>
       <b>[🗇 내리기]</b>는 글을 지우지 않고 카탈로그에서만 감춥니다. 연결상품은 <b>쉼표로</b> 구분하고, 카탈로그 정본 이름과 한 글자라도 다르면 저장되지 않습니다.</p>
     <div id="ngEdRows" style="margin-top:8px"></div>
     <div id="ngEdLog" style="font-size:11.5px;margin-top:6px;line-height:1.7"></div>
@@ -1446,7 +1446,7 @@ $p('ngSave').onclick=async function(){
     }
     $p('ngBody').value=''; $p('ngTitle').value=''; NGHIT=[]; NGOUT={}; ngDrawHit();
     NGPICK=[]; ngDrawPick();
-    NGED=[]; if($p('ngEdBox').open)ngEdLoad();     // 방금 올린 글이 수정 목록에도 바로 보이게
+    if(!ngEdPending()){ NGED=[]; if($p('ngEdBox').open)ngEdLoad(); }   // 방금 올린 글이 수정 목록에도 바로 보이게(고치던 글이 저장 중이면 날리지 않는다)
     log(L.join('<br>'));
   }catch(e){ log('<b style="color:#c0392b">⚠️ '+esc(e.message||e)+'</b>'); }
   finally{ b.disabled=false; b.textContent='📰 소식글 등록'; }
@@ -1465,7 +1465,7 @@ async function ngEdLoad(){
     const j=await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!A2:E300"));
     if(j&&j.error)throw new Error(j.error.message||'읽기 실패');
     NGED=(j.values||[]).map(function(r,i){
-      return {row:i+2,title:t(r[0]),body:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',at:t(r[3]),links:t(r[4])};
+      return {row:i+2,title:t(r[0]),body:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',at:t(r[3]),links:t(r[4]),okLinks:t(r[4])};
     }).filter(function(r){return r.title||r.body;});
     st.textContent='— '+NGED.length+'건';
     ngEdDraw();
@@ -1481,54 +1481,89 @@ function ngEdDraw(){
       +'<input data-nge="title" data-i="'+i+'" value="'+esc(n.title)+'" placeholder="제목" style="flex:1 1 240px">'
       +'<span style="font-size:11px;color:var(--muted)">'+esc(n.at)+'</span>'
       +'<span style="font-size:11px;color:var(--muted)">'+(n.show?'게시 중':'내려둠')+'</span>'
-      +'<button class="fxg" data-nge="save" data-i="'+i+'" title="이 글 한 줄만 저장합니다">💾 이 글 저장</button>'
+      +'<span data-ngst="'+i+'" style="font-size:11px;color:'+(n.stErr?'#c0392b':'var(--muted)')+'">'+esc(n.st||'자동 저장')+'</span>'
       +'<button class="fxg'+(n.show?' del':'')+'" data-nge="hide" data-i="'+i+'">'+(n.show?'🗇 내리기':'↩ 다시 올리기')+'</button>'
       +'<textarea data-nge="body" data-i="'+i+'" rows="6" style="flex:1 1 100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7">'+esc(n.body)+'</textarea>'
       +'<input data-nge="links" data-i="'+i+'" value="'+esc(n.links)+'" placeholder="연결상품 — 쉼표로 구분 (예: 프리미엄 LA꽃갈비 2kg, 일품 LA꽃갈비 2kg)" style="flex:1 1 100%">'
       +'</div>';
   }).join('');
 }
+/* 💾 자동 저장 (홍팀장 2026-09-11 "저장 버튼 없애고 자동저장으로 만들어놔")
+   [💾 이 글 저장]을 안 누르면 고친 게 그냥 사라졌다. 이제 제목·본문은 손을 떼고 1.5초 뒤(또는 칸을 벗어나는 순간) 저장한다.
+   연결상품은 치는 도중엔 이름이 반쪽이라 정본 확인이 늘 실패한다 — 칸을 벗어날 때(change) 확인하고 저장한다.
+   정본에 없는 이름이면 연결상품만 옛 값(okLinks)으로 두고 제목·본문은 그대로 저장된다(§3-3).
+   🔴 저장은 여전히 그 글 한 줄만(A{행}:E{행}). 같은 글 저장이 겹치면 끝난 뒤 한 번 더 저장한다(again). */
+function ngEdSt(n,msg,err){
+  n.st=msg; n.stErr=!!err;
+  const el=document.querySelector('#ngEdRows [data-ngst="'+NGED.indexOf(n)+'"]');
+  if(el){ el.textContent=msg; el.style.color=err?'#c0392b':'var(--muted)'; }
+}
+function ngEdPending(){ return NGED.some(function(n){return n.dirty||n.busy;}); }
+let NGBUMP=null;
+async function ngEdSave(n){
+  clearTimeout(n.timer); n.timer=null;
+  if(n.busy){ n.again=true; return 'queued'; }
+  if(!t(n.title)){ ngEdSt(n,'⚠️ 제목이 비면 저장 안 함',true); return 'fail'; }
+  n.busy=true; n.dirty=false; ngEdSt(n,'저장 중…');
+  let res='ok';
+  try{
+    await ngEdPut(n);
+    const d=new Date();
+    ngEdSt(n,'✓ 저장됨 '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'));
+    clearTimeout(NGBUMP); NGBUMP=setTimeout(function(){ bumpAndTell('ngEdLog'); },4000);   // 연달아 고칠 땐 마지막에 한 번만 카탈로그에 띄운다
+  }catch(e){ n.dirty=true; res='fail'; ngEdSt(n,'⚠️ 저장 실패 — '+(e.message||e)+' (다시 고치면 재시도)',true); }
+  finally{ n.busy=false; if(n.again){ n.again=false; ngEdSave(n); } }
+  return res;
+}
 $p('ngEdRows').addEventListener('input',function(ev){
   const b=ev.target.closest('[data-nge="title"],[data-nge="body"],[data-nge="links"]'); if(!b)return;
-  const i=+b.getAttribute('data-i'), k=b.getAttribute('data-nge');
-  if(k==='title')NGED[i].title=b.value; else if(k==='body')NGED[i].body=b.value; else NGED[i].links=b.value;
+  const n=NGED[+b.getAttribute('data-i')], k=b.getAttribute('data-nge');
+  if(k==='links'){ n.links=b.value; return; }
+  if(k==='title')n.title=b.value; else n.body=b.value;
+  n.dirty=true; clearTimeout(n.timer); ngEdSt(n,'입력 중…');
+  n.timer=setTimeout(function(){ ngEdSave(n); },1500);
+});
+$p('ngEdRows').addEventListener('focusout',function(ev){
+  const b=ev.target.closest('[data-nge="title"],[data-nge="body"]'); if(!b)return;
+  const n=NGED[+b.getAttribute('data-i')]; if(n&&n.timer)ngEdSave(n);
+});
+$p('ngEdRows').addEventListener('change',async function(ev){
+  const b=ev.target.closest('[data-nge="links"]'); if(!b)return;
+  const n=NGED[+b.getAttribute('data-i')];
+  await ngLoadNames();
+  const raw=String(n.links||'').split(/[,\n]/).map(function(s){return s.trim();}).filter(Boolean);
+  const ok=[],bad=[];
+  raw.forEach(function(s){ const c=ngCanon(s); if(c){ if(ok.indexOf(c)<0)ok.push(c); } else bad.push(s); });
+  if(bad.length){ ngEdSt(n,'⚠️ 정본에 없는 이름이라 연결상품은 저장 안 함 — '+bad.join(', '),true); return; }
+  n.okLinks=n.links=ok.join(', '); b.value=n.links;
+  ngEdSave(n);
 });
 /* 한 줄만 저장 — 범위를 그 행으로 못 박는다(A{행}:E{행}). */
 async function ngEdPut(n){
   const j=await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!A"+n.row+":E"+n.row)+'?valueInputOption=RAW',
     {method:'PUT',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({values:[[n.title,n.body,n.show?'Y':'N',n.at||day(),n.links]]})});
+     body:JSON.stringify({values:[[n.title,n.body,n.show?'Y':'N',n.at||day(),n.okLinks||'']]})});
   if(j&&j.error)throw new Error(j.error.message||'저장하지 못했습니다');
 }
 $p('ngEdRows').addEventListener('click',async function(ev){
-  const b=ev.target.closest('[data-nge="save"],[data-nge="hide"]'); if(!b)return;
-  const i=+b.getAttribute('data-i'), n=NGED[i], act=b.getAttribute('data-nge');
-  const log=function(h){ $p('ngEdLog').innerHTML=h; };
-  if(act==='hide'){
-    if(n.show&&!confirm('"'+n.title+'"\n\n카탈로그에서 내릴까요? (글은 시트에 그대로 남습니다)'))return;
-    n.show=!n.show;
-  }else{
-    if(!t(n.title))return alert('제목이 비면 카탈로그가 그 글을 버립니다. 제목을 채워주세요.');
-    /* 연결상품은 정본 이름만 — 한 글자라도 다르면 다른 상품이다(§3-3).
-       이름이 안 맞으면 저장을 막는다. 조용히 엉뚱한 상품이 붙는 게 제일 나쁘다. */
-    await ngLoadNames();
-    const raw=String(n.links||'').split(/[,\n]/).map(function(s){return s.trim();}).filter(Boolean);
-    const ok=[],bad=[];
-    raw.forEach(function(s){ const c=ngCanon(s); if(c){ if(ok.indexOf(c)<0)ok.push(c); } else bad.push(s); });
-    if(bad.length){ alert('카탈로그 정본 목록에 없는 이름입니다.\n\n'+bad.join('\n')+'\n\n한 글자라도 다르면 붙이지 않습니다. 위 [➕ 관련 상품 직접 고르기] 칸에서 정확한 이름을 확인하세요.'); return; }
-    n.links=ok.join(', ');
-  }
-  b.disabled=true; const was=b.textContent; b.textContent='저장 중…'; log('');
-  try{
-    await ngEdPut(n);
-    ngEdDraw();
-    log('✅ 저장했습니다 — <b>'+esc(n.title)+'</b>'+(n.show?'':' <span style="color:var(--muted)">(내려둠)</span>')+' · 카탈로그에 띄우는 중…');
-    bumpAndTell('ngEdLog');
-  }catch(e){ log('<b style="color:#c0392b">⚠️ '+esc(e.message||e)+'</b>'); }
-  finally{ b.disabled=false; b.textContent=was; }
+  const b=ev.target.closest('[data-nge="hide"]'); if(!b)return;
+  const n=NGED[+b.getAttribute('data-i')];
+  if(n.show&&!confirm('"'+n.title+'"\n\n카탈로그에서 내릴까요? (글은 시트에 그대로 남습니다)'))return;
+  if(!t(n.title))return alert('제목이 비면 카탈로그가 그 글을 버립니다. 제목을 채워주세요.');
+  n.show=!n.show; ngEdDraw();
+  const r=await ngEdSave(n);
+  if(r==='ok')$p('ngEdLog').innerHTML='✅ '+(n.show?'다시 올렸습니다':'내렸습니다')+' — <b>'+esc(n.title)+'</b> · 카탈로그에 띄우는 중…';
 });
-// 처음 펼칠 때 한 번만 읽는다(글 목록은 무거우니 열지 않으면 안 읽는다)
-$p('ngEdBox').addEventListener('toggle',function(){ if(this.open&&!NGED.length)ngEdLoad(); });
+/* 펼칠 때마다 새로 읽는다 — 다른 창·다른 PC에서 올린 글도 최신 순으로 바로 보이게.
+   고치던 글이 아직 저장 전/저장 중이면 다시 읽지 않는다(덮어써서 날아가면 안 된다). */
+$p('ngEdBox').addEventListener('toggle',function(){ if(this.open&&!ngEdPending())ngEdLoad(); });
+document.addEventListener('visibilitychange',function(){
+  const box=$p('ngEdBox');
+  if(document.visibilityState==='visible'&&box.open&&!ngEdPending()&&!box.contains(document.activeElement))ngEdLoad();
+});
+window.addEventListener('beforeunload',function(e){
+  if(NGED.some(function(n){return n.dirty||n.busy;})){ e.preventDefault(); e.returnValue=''; }
+});
 /* ⚡ 올린 공지·추천상품을 업체가 바로 보게 한다 (홍팀장 2026-09-04 "지금 공지 하나 올렸는데 너무 느려")
    카탈로그는 상품·공지·추천을 **스냅샷 서버가 3분간 담아둔 것**으로 받는다(그래야 0.5초에 열린다).
    그냥 두면 새로 올린 것이 최대 3분 늦게 뜬다 — 풍랑주의보 같은 긴급 공지엔 3분도 길다.
