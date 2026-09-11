@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.47</title>
+<title>마스터 유통 상품 도구 v1.48</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -257,6 +257,12 @@ a{color:var(--accent)}
   <p style="font-size:12.5px;color:var(--muted)">배송 공지·휴무 안내·상품 관련 알림을 여기서 씁니다. <a href="catalog.html#notice" target="_blank" rel="noopener">카탈로그 [📢 공지사항]</a>에 바로 뜹니다.<br>이미 올라간 공지는 아래 목록의 <b>[✏️ 수정]</b>으로 고친 뒤 <b>[💾 저장]</b>을 누르면 됩니다.</p>
   <input id="ncT" placeholder="공지 제목 (예: 광복절 배송 안내)" autocomplete="off" style="margin-top:8px">
   <textarea id="ncB" rows="4" placeholder="공지 내용 — 줄바꿈 그대로 보입니다" style="width:100%;margin-top:7px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7"></textarea>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">
+    <button class="cp" type="button" id="ncImgBtn" style="margin-top:0">🖼 이미지 넣기</button>
+    <input type="file" id="ncImgFile" accept="image/*" multiple style="display:none">
+    <span style="font-size:11.5px;color:var(--muted)">내용 칸에 그림을 <b>Ctrl+V</b> 해도 들어갑니다 · 넣은 자리에 「[이미지] 주소」 줄이 생기고 카탈로그엔 그림으로 보입니다</span>
+  </div>
+  <div id="ncImgPrev" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
   <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;margin-top:7px"><input type="checkbox" id="ncI"> 중요 공지 (맨 위로 · 빨간 줄 표시)</label>
   <div><button class="cp" id="ncAdd">＋ 공지 등록</button></div>
   <div id="ncRows" style="margin-top:12px"></div>
@@ -1706,6 +1712,69 @@ $p('ncAdd').onclick=function(){
   $p('ncT').value='';$p('ncB').value='';$p('ncI').checked=false;
   notDraw();$p('ncLog').textContent='등록했습니다 — 저장을 눌러야 반영됩니다.';
 };
+/* 🖼 공지 이미지 (홍팀장 2026-09-11 "카탈로그 공지에 이미지 넣을 수 있게").
+   그림은 서버(Supabase Storage 'notice')에 올리고 본문엔 「[이미지] 주소」 한 줄만 넣는다 —
+   시트·카탈로그 스냅샷에 그림을 통째로 실으면 모든 업체 화면이 느려진다. 카탈로그가 그 줄을 그림으로 그린다.
+   ⚠️ 큰 사진은 올리기 전에 긴 변 1600px·JPEG 로 줄인다(폰 사진 몇 MB → 수백 KB). 움직이는 gif 는 그대로.
+   ⚠️ 올리는 건 마스터만 된다(서버가 막는다) — 토큰은 같은 도메인의 카탈로그 로그인에서 빌린다. */
+const NC_IMG_RE=/^\[이미지\]\s*(https:\/\/\S+)$/;
+function ncTok(){ try{ const a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null'); return (a&&a.token)||''; }catch(e){ return ''; } }
+function ncShrink(file){
+  return new Promise((res,rej)=>{
+    if(file.type==='image/gif'){ const r=new FileReader(); r.onload=()=>res({type:'image/gif',data:r.result}); r.onerror=()=>rej(new Error('파일을 읽지 못했습니다')); r.readAsDataURL(file); return; }
+    const u=URL.createObjectURL(file), im=new Image();
+    im.onload=()=>{
+      const M=1600, s=Math.min(1,M/Math.max(im.naturalWidth,im.naturalHeight));
+      const c=document.createElement('canvas'); c.width=Math.round(im.naturalWidth*s); c.height=Math.round(im.naturalHeight*s);
+      const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(im,0,0,c.width,c.height);
+      URL.revokeObjectURL(u); res({type:'image/jpeg',data:c.toDataURL('image/jpeg',0.85)});
+    };
+    im.onerror=()=>{ URL.revokeObjectURL(u); rej(new Error('그림 파일이 아닙니다')); };
+    im.src=u;
+  });
+}
+async function ncUpload(file){
+  const tk=ncTok(); if(!tk) throw new Error('카탈로그에 마스터로 로그인돼 있어야 올릴 수 있습니다');
+  const s=await ncShrink(file);
+  const r=await fetch(SNAP_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({action:'noticeimg',token:tk,type:s.type,data:s.data})});
+  const j=await r.json().catch(()=>null);
+  if(!j||!j.ok||!j.url) throw new Error((j&&j.error)||('서버 응답 이상 HTTP '+r.status));
+  return j.url;
+}
+// 커서 자리에 「[이미지] 주소」 줄을 끼운다 — 앞뒤 줄바꿈을 맞춰 딱 한 줄로 떨어지게
+function ncInsertAt(ta,url){
+  const v=ta.value, p=(typeof ta.selectionStart==='number')?ta.selectionStart:v.length;
+  const pre=v.slice(0,p), post=v.slice(p), line='[이미지] '+url;
+  ta.value=pre+(pre&&!pre.endsWith('\n')?'\n':'')+line+(post&&!post.startsWith('\n')?'\n':'')+post;
+  ta.dispatchEvent(new Event('input',{bubbles:true}));   // 기존 공지 칸이면 NOT[i].body 도 이걸로 따라간다
+}
+async function ncAddFiles(ta,files){
+  const list=[...(files||[])].filter(f=>/^image\//.test(f.type)); if(!list.length) return;
+  const log=$p('ncLog');
+  for(const f of list){
+    log.textContent='🖼 이미지 올리는 중… ('+(f.name||'붙여넣은 그림')+')';
+    try{ ncInsertAt(ta,await ncUpload(f)); log.textContent='🖼 이미지 넣었습니다 — [💾 저장]을 눌러야 카탈로그에 반영됩니다.'; }
+    catch(e){ log.textContent='⚠️ 이미지 못 올림 — '+e.message; return; }
+  }
+  ncPrev();
+}
+function ncPrev(){
+  const box=$p('ncImgPrev'); if(!box) return;
+  const urls=$p('ncB').value.split('\n').map(l=>(l.trim().match(NC_IMG_RE)||[])[1]).filter(Boolean);
+  box.innerHTML=urls.map(u=>'<img src="'+esc(u)+'" style="height:64px;border-radius:6px;border:1px solid var(--line)">').join('');
+}
+$p('ncImgBtn').onclick=()=>$p('ncImgFile').click();
+$p('ncImgFile').onchange=function(){ ncAddFiles($p('ncB'),this.files); this.value=''; };
+$p('ncB').addEventListener('input',ncPrev);
+{ const add0=$p('ncAdd').onclick; $p('ncAdd').onclick=function(){ add0.call(this); ncPrev(); }; }   // 등록하면 입력칸이 비니 미리보기도 비운다
+// 그림을 Ctrl+V 로 붙여넣으면 바로 올린다 — 새 공지 칸이든, 목록의 기존 공지 내용 칸이든
+document.addEventListener('paste',function(ev){
+  const ta=ev.target.closest&&ev.target.closest('#ncB, #ncRows textarea[data-nc="body"]'); if(!ta) return;
+  const files=[...((ev.clipboardData&&ev.clipboardData.files)||[])].filter(f=>/^image\//.test(f.type));
+  if(!files.length) return;                      // 글자 붙여넣기는 그대로 둔다
+  ev.preventDefault(); ncAddFiles(ta,files);
+});
 $p('ncSave').onclick=async function(){
   // 못 읽은 상태로 저장하면 시트의 공지가 통째로 지워진다 — 그 상태에선 아예 막는다
   if(!NOTOK){ $p('ncLog').textContent='⚠️ 공지를 불러오지 못한 상태입니다. 새로고침해서 목록이 뜬 뒤에 저장하세요 (지금 저장하면 기존 공지가 지워집니다).'; return; }

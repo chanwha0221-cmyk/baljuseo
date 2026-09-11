@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.81</title>
+<title>마스터 유통 카탈로그 v23.82</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -225,6 +225,7 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .ntcac[open] .ntarrow{transform:rotate(180deg)}
 /* ⚠️ 본문 크기를 여기서 다시 지정해야 한다 — 기존 규칙이 '.ntc .nb'라 새 구조(.ntcac)엔 안 걸려
       브라우저 기본 16px로 커진다 (2026-08-19 사장님: "폰트가 넘나 큰데"). 원래 값은 13px. */
+.ntcimg{display:block;max-width:100%;height:auto;border-radius:10px;margin:6px 0;border:1px solid var(--line)}
 .ntcac>.nb{font-size:13px;line-height:1.75;white-space:pre-wrap;color:var(--ink);
   padding:12px 15px 14px;border-top:1px solid var(--line);margin-top:2px}
 .ntcread{font-size:10px;font-weight:800;color:#fff;background:var(--up);padding:2px 7px;border-radius:5px;white-space:nowrap;
@@ -2279,6 +2280,19 @@ function renderNtcBadge(){
    - 그래야 "읽었다"를 기계가 정확히 알 수 있다. 화면에 떠 있었다고 읽은 게 아니다.
    - 배지 숫자 = 안 읽은 공지 수. 화면 어디를 봐도 이 숫자와 어긋나면 안 된다.
      (사장님: "안본 공지랑 배너 숫자는 동일해야 아 내가 안본 공지가 있구나 라고 인식이 된다") */
+/* 🖼 공지 본문의 「[이미지] 주소」 줄은 그림으로 그린다 (홍팀장 2026-09-11). 나머지 줄은 예전처럼 글자.
+   그림은 상품도구가 Supabase Storage 'notice' 버킷에 올리고 주소 한 줄만 본문에 넣는다.
+   🔴 우리 버킷 주소만 그림으로 바꾼다 — 아무 주소나 그리면 남의 그림을 끌어다 쓰는 자리가 된다.
+   pre-wrap 이라 그림 앞뒤 줄바꿈이 빈 줄로 보이므로 그림 쪽 줄바꿈은 먹는다. 누르면 원본이 새 창으로 열린다. */
+const NTC_IMG_RE=/^\[이미지\]\s*(https:\/\/yzttmdrlujgstfjsbser\.supabase\.co\/storage\/v1\/object\/public\/notice\/\S+)$/;
+function ntcBodyHtml(body){
+  const parts=String(body||'').split('\n').map(l=>{ const m=l.trim().match(NTC_IMG_RE); return m?{img:m[1]}:{t:l}; });
+  return parts.map((x,i)=>{
+    if(x.img) return '<a href="'+esc(x.img)+'" target="_blank" rel="noopener"><img class="ntcimg" src="'+esc(x.img)+'" loading="lazy" alt="공지 이미지"></a>';
+    const nx=parts[i+1];
+    return esc(x.t)+(nx&&!nx.img?'\n':'');
+  }).join('');
+}
 function noticeItem(n,isNew){
   const k=ntcKey(n);
   return '<details class="ntcac'+(n.imp?' imp':'')+(isNew?' unread':'')+'" data-nk="'+esc(k)+'">'
@@ -2291,7 +2305,7 @@ function noticeItem(n,isNew){
       +delBtn('notice',n)
       +'<span class="ntarrow">▾</span>'
     +'</summary>'
-    +'<div class="nb">'+(n.body?esc(n.body):'(내용 없음)')+'</div>'
+    +'<div class="nb">'+(n.body?ntcBodyHtml(n.body):'(내용 없음)')+'</div>'
     +'</details>';
 }
 // 제목을 누르면 그 공지만 읽음 처리하고, 화면의 표시들을 즉시 맞춘다(다시 그리지 않는다 — 그러면 방금 연 게 닫힌다)
