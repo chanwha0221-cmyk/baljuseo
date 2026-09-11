@@ -1125,7 +1125,9 @@ function render(){
     const tr=document.createElement('tr'); tr.className=isOver?'overdue':(isDone?'done':'');
     tr.innerHTML=`
       <td><span class="badge ${who===PERSON?'green':''}" style="font-size:11px">${esc(who)||'—'}</span></td>
-      <td><b>${esc(name)||'<span class="muted">(이름없음)</span>'}</b></td>
+      <td><b>${esc(name)||'<span class="muted">(이름없음)</span>'}</b>
+        <!-- ✏️ 이름 옆 바로 수정 (홍팀장 2026-09-11) — [수정] 버튼이 표 맨 오른쪽이라 옆으로 밀어야 보였다 -->
+        <button class="btn ghost sm" title="업체 정보 수정" style="margin-left:4px;padding:1px 6px" onclick="editRow(${i})">✏️</button></td>
       <td><span class="chan ${chan==='카톡전화'?'카톡전화':esc(chan)}">${esc(chanLabel(chan))||'—'}</span></td>
       <td>${esc(contact)||'—'}</td>
       <td>${esc(sent)||'—'}</td><td>${esc(last)||'—'}</td>
