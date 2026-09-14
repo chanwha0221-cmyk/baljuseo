@@ -125,7 +125,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v3.10</span>
+  <span class="ver">v3.11</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <!-- 📄 수량 시트 바로가기 (2026-09-14 홍팀장 "새 시트 주소를 물려놔야 할 거 아니여") — SHEET_ID(새 독립 시트)를 그대로 연다 -->
@@ -264,11 +264,12 @@
      그 뒤로도 계속 공용 프록시(도구 20개와 한 줄)로 나가고 있었다 → 오류가 계속 났다.
      이제 suryang-proxy.js(주소만 전용 웹앱) + 새 시트. 다시 sheets-proxy.js 로 돌리지 말 것. -->
 <script>window.SHEETS_PROXY_PUBLIC = true;</script>
-<script src="suryang-proxy.js?v=20260914"></script>
+<script src="suryang-proxy.js?v=20260914b"></script>
 <script>
 //=================== 설정 ===================
 const TEAMS = ["토끼","거북","기린","여우","하마","고양","늑대"];
 const K_ENTRIES='sqm_entries_v1', K_HOLD='sqm_holding_v1', K_SEQ='sqm_seq_v1';
+const K_DL='sqm_deadline_v1';   // ⏰ 마감시간 표 캐시 — 정본 읽기가 늦거나 실패해도 화면에서 마감시간이 사라지지 않게 (2026-09-14)
 const K_DIRTY='sqm_dirty_v1';   // 시트 저장 완료 전이면 '1' (새로고침 롤백 방지용)
 
 // ── 구글 시트(수량 리더 시트) 직접 연동 — secretary/식봄ERP와 동일 서비스계정 ──
@@ -398,11 +399,13 @@ function save(){
   localStorage.setItem(K_ENTRIES, JSON.stringify(entries));
   localStorage.setItem(K_HOLD, JSON.stringify(holdingMap));
   localStorage.setItem(K_SEQ, String(nextSeq));
+  if(Object.keys(deadlineMap).length) localStorage.setItem(K_DL, JSON.stringify(deadlineMap));   // 빈 표로는 캐시를 덮지 않는다
 }
 function loadCache(){
   try{ entries = JSON.parse(localStorage.getItem(K_ENTRIES)||'[]'); }catch(e){ entries=[]; }
   try{ holdingMap = JSON.parse(localStorage.getItem(K_HOLD)||'{}'); }catch(e){ holdingMap={}; }
   nextSeq = parseInt(localStorage.getItem(K_SEQ)||'1') || 1;
+  try{ deadlineMap = JSON.parse(localStorage.getItem(K_DL)||'{}'); }catch(e){ deadlineMap={}; }   // _deadlineAt 은 0 그대로 → 첫 로드에서 정본으로 새로 받는다
 }
 
 //=================== 시트 ⇄ 앱 ===================
