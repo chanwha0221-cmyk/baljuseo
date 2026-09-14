@@ -396,14 +396,46 @@ async function api(ss,path,opt){
 const q1=encodeURIComponent;
 const pkey=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 const today=()=>new Date().toISOString().slice(0,10);
+/* 🗄 상품분류의 원본은 Supabase다 (2026-09-14 홍팀장 "프록시 느린 거 고쳐").
+   그날 프록시가 한 번 읽는 데 14~45초가 걸려 이 탭이 전부 «미분류»로 떴다(시트는 멀쩡했다).
+   → 읽기·쓰기 모두 발주 서버(Supabase)로 한다. 토큰은 같은 도메인의 카탈로그 로그인에서 빌린다(마스터만).
+   구글시트 '상품분류' 탭은 **보기용 사본** — 제안서·카탈로그 비상경로가 아직 읽어서 뒤에서 맞춰 둔다.
+   🔴 시트에서 손으로 고친 것은 반영되지 않는다(홍팀장 확인: 손으로 고치는 사람 없음). */
+const SUPA='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
+function supaToken(){ try{ const a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null'); return (a&&a.token)||''; }catch(e){ return ''; } }
+async function supa(action,data){
+  const tk=supaToken();
+  if(!tk)throw new Error('이 브라우저에서 카탈로그에 마스터로 로그인한 뒤 새로고침해 주세요');
+  const r=await fetch(SUPA,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:action,token:tk},data||{}))});
+  let j=null; try{ j=JSON.parse(await r.text()); }catch(e){}
+  if(!j)throw new Error('서버 응답을 읽지 못했습니다');
+  if(!j.ok)throw new Error(j.error||'요청이 거절됐습니다');
+  return j;
+}
 async function loadProducts(){
-  const meta=await api(YUTONG,'?fields=sheets.properties(title,hidden)');
-  if(meta.error)throw new Error('유통시트 접근 실패: '+meta.error.status);
-  const tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0).map(p=>p.title);
-  const ranges=tabs.map(t=>'ranges='+q1("'"+t.replace(/'/g,"''")+"'!A1:N400")).join('&');
-  const grid=await api(YUTONG,'/values:batchGet?'+ranges);
+  /* 상품 목록도 프록시 대신 카탈로그 스냅샷(Supabase)에서 받는다 — 0.5초. 못 받으면 예전처럼 시트를 읽는다. */
+  let tabs=null,vrs=null;
+  try{
+    const j=await supa('catalog',{});
+    if(j.grid&&j.grid.sheets){
+      tabs=[];vrs=[];
+      j.grid.sheets.forEach(function(sh){
+        tabs.push(sh.properties.title);
+        vrs.push({values:((sh.data&&sh.data[0]&&sh.data[0].rowData)||[]).map(r=>(r.values||[]).map(c=>(c&&c.formattedValue)||''))});
+      });
+    }
+  }catch(e){ tabs=null; }
+  if(!tabs){
+    const meta=await api(YUTONG,'?fields=sheets.properties(title,hidden)');
+    if(meta.error)throw new Error('유통시트 접근 실패: '+meta.error.status);
+    tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0).map(p=>p.title);
+    const ranges=tabs.map(t=>'ranges='+q1("'"+t.replace(/'/g,"''")+"'!A1:N400")).join('&');
+    const grid=await api(YUTONG,'/values:batchGet?'+ranges);
+    if(!grid||grid.error||!grid.valueRanges)throw new Error('유통시트를 읽지 못했습니다'+(grid&&grid.error?': '+grid.error.message:''));
+    vrs=grid.valueRanges;
+  }
   const out=[],seen={};
-  ((grid.valueRanges)||[]).forEach(function(vr,ti){
+  vrs.forEach(function(vr,ti){
     const tab=tabs[ti],rows=vr.values||[];
     let hr=-1;
     for(let i=0;i<Math.min(40,rows.length);i++){const j=(rows[i]||[]).join('|');if(j.indexOf('상품명')>=0&&j.indexOf('공급가')>=0){hr=i;break;}}
@@ -425,65 +457,89 @@ async function loadProducts(){
   });
   return out;
 }
-async function ensureTab(){
-  const meta=await api(DOGU,'?fields=sheets.properties.title');
-  if((meta.sheets||[]).some(s=>s.properties.title===CTAB))return;
-  await api(DOGU,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:CTAB}}}]})});
-  await api(DOGU,'/values/'+q1("'"+CTAB+"'!A1:E1")+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[['상품명','카테고리','창고','등재일','분류일']]})});
+/* 📄 시트 사본 맞추기 — 저장이 끝난 뒤 3초 모아서 뒤에서 한 번. 실패해도 원본(DB)은 이미 저장됐다.
+   🔴 빈 내용이면 쓰지 않는다. 줄이 줄었으면(🗑) 예전 줄 수만큼 빈 칸으로 덮어 꼬리를 지운다. */
+const MIR={rows:null,list:null,n:0,ln:0,timer:0};
+function mirrorLater(){ clearTimeout(MIR.timer); MIR.timer=setTimeout(mirrorNow,3000); }
+async function mirrorNow(){
+  try{
+    if(MIR.rows&&MIR.rows.length){
+      const rows=MIR.rows, pad=Math.max(MIR.n,rows.length);
+      const out=rows.map(r=>[0,1,2,3,4].map(i=>r[i]||''));
+      while(out.length<pad)out.push(['','','','','']);
+      const j=await api(DOGU,'/values/'+q1("'"+CTAB+"'!A2:E"+(pad+1))+'?valueInputOption=RAW',
+        {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:out})});
+      if(j&&!j.error)MIR.n=rows.length;
+    }
+    if(MIR.list&&MIR.list.length){
+      const rows=[['카테고리목록']].concat(MIR.list.map(c=>[c]));
+      while(rows.length<200)rows.push(['']);
+      await api(DOGU,'/values/'+q1("'"+CTAB+"'!G1:G200")+'?valueInputOption=RAW',
+        {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+    }
+  }catch(e){ console.warn('상품분류 시트 사본 맞추기 실패(원본은 저장됨)',e); }
+}
+// 같은 상품명이 두 줄이면 첫 줄을 쓴다 — 서버(catpatch)와 같은 기준
+function rowsToMap(rows){
+  const map={};
+  (rows||[]).forEach(function(r){const nm=(r[0]||'').trim();if(nm&&!map[pkey(nm)])map[pkey(nm)]={name:nm,cat:(r[1]||'').trim()};});
+  MIR.rows=rows||null;
+  return map;
+}
+let TABP=null,LISTREV=0;
+function tabsOnce(){
+  if(!TABP)TABP=(async function(){
+    const j=await supa('tabget',{names:['상품분류','카테고리목록']});
+    let c=j.tabs['상품분류'],l=j.tabs['카테고리목록'];
+    if(!c)c=await supa('tabimport',{name:'상품분류'});      // 처음 한 번만 시트에서 옮겨 온다
+    if(!l)l=await supa('tabimport',{name:'카테고리목록'});
+    return {c:c,l:l};
+  })();
+  return TABP;
 }
 async function loadRows(){
-  const v=await api(DOGU,'/values/'+q1("'"+CTAB+"'!A2:E5000"));
-  /* 🔴 읽기 실패를 "0건"으로 넘기면 전부 미분류로 보이고, 이어서 syncNew 가 552건을 중복 등재한다 (2026-09-14) */
-  if(!v||v.error||!v.values)throw new Error('상품분류를 읽지 못했습니다'+(v&&v.error?': '+v.error.message:''));
-  const map={};
-  ((v.values)||[]).forEach(function(r,i){const nm=(r[0]||'').trim();if(nm)map[pkey(nm)]={row:i+2,name:nm,cat:(r[1]||'').trim()};});
-  return map;
+  const t=await tabsOnce();
+  const rows=t.c.rows||[];
+  /* 🔴 읽기 실패·빈 목록을 "0건"으로 넘기면 전부 미분류로 보이고, 이어서 syncNew 가 552건을 중복 등재한다 (2026-09-14) */
+  if(!rows.length)throw new Error('상품분류가 비어 있습니다 — 새로고침해 주세요');
+  MIR.n=Math.max(MIR.n,rows.length);
+  return rowsToMap(rows);
 }
 async function syncNew(){
   const add=PRODUCTS.filter(p=>!ROWMAP[pkey(p.name)]);
   if(!add.length)return 0;
-  const j=await api(DOGU,'/values/'+q1("'"+CTAB+"'!A:E")+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
-    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:add.map(p=>[p.name,'',p.wh,today(),''])})});
-  if(j.error)throw new Error('신규 등재 실패: '+j.error.message);
+  const j=await supa('catpatch',{add:add.map(p=>[p.name,p.wh])});
+  ROWMAP=rowsToMap(j.rows); mirrorLater();
   return add.length;
 }
-/* 상품 카테고리 일괄 반영 — 100행 단위로 끊어 저장 */
+/* 상품 카테고리 일괄 반영 — 서버가 최신본 위에 이름으로 적용한다(동시에 분류해도 서로 안 지운다) */
 async function batchSet(keys,cat){
-  const t=today();
-  for(let i=0;i<keys.length;i+=100){
-    const chunk=keys.slice(i,i+100),data=[];
-    chunk.forEach(k=>{const r=ROWMAP[k];if(!r)return;
-      data.push({range:"'"+CTAB+"'!B"+r.row,values:[[cat]]});
-      data.push({range:"'"+CTAB+"'!E"+r.row,values:[[cat?t:'']]});});
-    if(!data.length)continue;
-    const j=await api(DOGU,'/values:batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({valueInputOption:'RAW',data:data})});
-    if(j.error)throw new Error(j.error.message);
-    chunk.forEach(k=>{if(ROWMAP[k])ROWMAP[k].cat=cat;});
-    if(keys.length>100)$c('ctLog').textContent='저장 중… '+Math.min(i+100,keys.length)+'/'+keys.length;
-  }
+  const names=keys.map(k=>ROWMAP[k]&&ROWMAP[k].name).filter(Boolean);
+  if(!names.length)return;
+  const j=await supa('catpatch',{set:names.map(n=>[n,cat])});
+  ROWMAP=rowsToMap(j.rows); mirrorLater();
 }
 async function saveCat(rec,cat){return batchSet([pkey(rec.name)],cat).then(()=>({}),e=>({error:{message:e.message}}));}
-/* 상품분류 탭에서 행 하나 삭제 (행 번호는 loadRows 가 준 값) */
-async function delRow(row){
-  const meta=await api(DOGU,'?fields=sheets.properties(sheetId,title)');
-  const sh=(meta.sheets||[]).find(s=>s.properties.title===CTAB);
-  if(!sh)return {error:{message:'상품분류 탭을 찾지 못했습니다'}};
-  return api(DOGU,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({requests:[{deleteDimension:{range:{sheetId:sh.properties.sheetId,dimension:'ROWS',startIndex:row-1,endIndex:row}}}]})});
+/* 분류 목록에서 한 줄 빼기 (유통시트는 안 건드린다) */
+async function delRow(name){
+  try{
+    const j=await supa('catpatch',{del:[name]});
+    ROWMAP=rowsToMap(j.rows); mirrorLater();
+    return {};
+  }catch(e){ return {error:{message:e.message}}; }
 }
-/* 카테고리 목록은 상품분류 탭 G열에 저장 — 기본 카테고리도 지우면 그대로 유지된다 */
+/* 카테고리 목록 — 기본 카테고리도 지우면 그대로 유지된다 */
 async function loadCatList(){
-  const v=await api(DOGU,'/values/'+q1("'"+CTAB+"'!G2:G200"));
-  // 실패를 빈 목록으로 넘기면 아래에서 기본 카테고리로 G열을 덮어쓴다
-  if(!v||v.error)throw new Error('카테고리 목록을 읽지 못했습니다'+(v&&v.error?': '+v.error.message:''));
-  return ((v.values)||[]).map(r=>(r[0]||'').trim()).filter(Boolean);
+  const t=await tabsOnce();
+  LISTREV=t.l.rev||0;
+  return (t.l.rows||[]).map(r=>(r[0]||'').trim()).filter(Boolean);
 }
 async function saveCatList(){
-  const rows=[['카테고리목록']].concat(CATLIST.map(c=>[c]));
-  while(rows.length<200)rows.push(['']);
-  return api(DOGU,'/values/'+q1("'"+CTAB+"'!G1:G200")+'?valueInputOption=RAW',
-    {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:rows})});
+  try{
+    const j=await supa('tabset',{name:'카테고리목록',rows:CATLIST.map(c=>[c]),baseRev:LISTREV,allowEmpty:true});
+    LISTREV=j.rev; MIR.list=CATLIST.slice(); mirrorLater();
+    return {};
+  }catch(e){ return {error:{message:e.message}}; }
 }
 let PRODUCTS=[],ROWMAP={},FILTER='미분류',CATLIST=[],SEL={};
 const $c=id=>document.getElementById(id);
@@ -538,10 +594,9 @@ function renderList(){
       const k=this.getAttribute('data-del'),rec=ROWMAP[k];if(!rec)return;
       if(!confirm('"'+rec.name+'"\n\n이 줄을 분류 목록에서 지웁니다.\n(유통시트는 그대로 두고, 분류 목록에서만 빠집니다)'))return;
       this.disabled=true;$c('ctLog').textContent='지우는 중… '+rec.name;
-      const del=await delRow(rec.row);
+      const del=await delRow(rec.name);
       if(del&&del.error){this.disabled=false;$c('ctLog').textContent='❌ 삭제 실패: '+del.error.message;return;}
       PRODUCTS=PRODUCTS.filter(p=>pkey(p.name)!==k);delete SEL[k];
-      ROWMAP=await loadRows();
       renderChips();renderList();
       $c('ctLog').textContent='🗑 "'+rec.name+'" 분류 목록에서 지움';
     };
@@ -612,7 +667,6 @@ $c('ctDel').onclick=async function(){
 };
 (async function(){
   try{
-    await ensureTab();
     const r=await Promise.all([loadProducts(),loadRows(),loadCatList()]);
     PRODUCTS=r[0];ROWMAP=r[1];CATLIST=r[2];
     if(!CATLIST.length){
@@ -621,7 +675,6 @@ $c('ctDel').onclick=async function(){
       await saveCatList();
     }
     const n=await syncNew();
-    if(n)ROWMAP=await loadRows();
     fillSelects();renderChips();renderList();
     if(n)$c('ctLog').textContent='📥 유통시트에서 새 상품 '+n+'건을 목록에 등재했습니다.';
   }catch(e){

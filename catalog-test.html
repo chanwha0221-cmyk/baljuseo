@@ -1272,23 +1272,10 @@ document.addEventListener('change',function(e){
    목록은 상품도구(media-updater)의 PRESET 과 같게 유지할 것. 두 곳이 갈라지면
    여기서 넣은 값이 도구 화면의 선택지에 없어서 나중에 손댈 수가 없다. */
 const CAT_PRESET=['수산','축산','가공식품','김치·반찬','농산물','과일','생활용품','기타'];
-/* 도구시트 '상품분류' 탭(A상품명 B카테고리)에 쓴다. 행 번호가 필요해 그때 한 번 더 읽는다.
-   ⚠️ 쓰기는 public 경로로 안 나간다 — SheetsProxy.call(팀 비밀번호). 공지·소식글 지우기와 같은 규칙. */
+/* 🗄 상품분류의 원본은 Supabase다 (2026-09-14 — 프록시가 14~45초씩 걸려 옮김). 서버가 최신본 위에
+   상품명으로 적용하고(없으면 줄을 만든다) 카탈로그 사본도 바로 고친다. 구글시트 탭은 상품도구가 사본으로 맞춘다. */
 async function setCat(name,cat){
-  const token=await getAccessToken();
-  const j=await(await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+DOGU_ID+'/values/'
-    +encodeURIComponent("'상품분류'!A2:B5000"),{headers:{Authorization:'Bearer '+token}})).json();
-  if(j.error)throw new Error('상품분류를 읽지 못했습니다.');
-  const rows=j.values||[];
-  let row=-1;
-  for(let i=0;i<rows.length;i++){ if(pkey((rows[i]||[])[0])===pkey(name)){row=i+2;break;} }
-  if(row<0){   // 아직 등재 안 된 상품이면 줄을 새로 만든다
-    await SheetsProxy.call(DOGU_ID+'/values/'+encodeURIComponent("'상품분류'!A:B")
-      +':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS','POST',JSON.stringify({values:[[name,cat]]}));
-  }else{
-    await SheetsProxy.call(DOGU_ID+'/values/'+encodeURIComponent("'상품분류'!B"+row)
-      +'?valueInputOption=RAW','PUT',JSON.stringify({values:[[cat]]}));
-  }
+  await api('catpatch',{token:ME.token,set:[[name,cat]]});
   // 화면 즉시 반영 — 원본(g.src)까지 같이 고쳐야 다시 그려도 유지된다
   const k=pkey(name);
   ALL.forEach(p=>{ if(pkey(p.name)===k)p.cat=cat; });
