@@ -125,7 +125,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v3.13</span>
+  <span class="ver">v3.14</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <!-- 📄 수량 시트 바로가기 (2026-09-14 홍팀장 "새 시트 주소를 물려놔야 할 거 아니여") — SHEET_ID(새 독립 시트)를 그대로 연다 -->
@@ -264,7 +264,10 @@
      그 뒤로도 계속 공용 프록시(도구 20개와 한 줄)로 나가고 있었다 → 오류가 계속 났다.
      이제 suryang-proxy.js(주소만 전용 웹앱) + 새 시트. 다시 sheets-proxy.js 로 돌리지 말 것. -->
 <script>window.SHEETS_PROXY_PUBLIC = true;</script>
-<script src="suryang-proxy.js?v=20260914c"></script>
+<!-- ⚡ 2026-09-14 홍팀장 "안정성+속도+여러 명 써도 안 터지게 — 메인으로": Apps Script 중계를 빼고 **수량 전용 서비스계정으로 직접**.
+     suryang-key.js = 수량 시트 두 개에만 공유된 전용 계정 키. 다른 도구 시트엔 이 계정 공유 금지. -->
+<script src="suryang-key.js?v=20260914"></script>
+<script src="suryang-direct.js?v=20260914"></script>
 <script>
 //=================== 설정 ===================
 const TEAMS = ["토끼","거북","기린","여우","하마","고양","늑대"];
