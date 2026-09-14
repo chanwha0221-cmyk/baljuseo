@@ -125,7 +125,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v3.14</span>
+  <span class="ver">v3.15</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <!-- 📄 수량 시트 바로가기 (2026-09-14 홍팀장 "새 시트 주소를 물려놔야 할 거 아니여") — SHEET_ID(새 독립 시트)를 그대로 연다 -->
@@ -628,7 +628,9 @@ async function writeToSheet(){
     _sheetInputRows = inputRows.length;   // 방금 내가 쓴 줄 수가 새 기준
     setSync('ok');
     localStorage.setItem(K_DIRTY,'0');   // 시트 저장 성공 → 깨끗 (이제 새로고침해도 안전)
-    applySheetBorders(inputRows.length, statusRows.length); // 새 행에도 칸 테두리 자동 (비동기·실패 무방)
+    /* 🚫 2026-09-14 — 저장마다 테두리 그리던 요청 뺐다(홍팀장: 추석 전 "수량 구합니다" 실시간 폭주).
+       수량 전용 계정 한도가 분당 약 60회라 저장 1번에 4회 → 3회로 줄여 동시 저장 여유를 늘린다. 테두리는 모양일 뿐. */
+    // applySheetBorders(inputRows.length, statusRows.length);
   }catch(e){ setSync('error'); console.error('시트 저장 실패:',e); toast('⚠️ 시트 저장 실패: '+e.message,'warn'); }
 }
 
