@@ -602,7 +602,10 @@ function buildOut(){
        ⚠️ 나누는 셈은 checkRow 경고와 같은 capChunks 를 쓴다. 두 곳이 갈리면 화면 말과 발주서가 어긋난다. */
     const solo = [], rest = [];
     items.forEach(it => {
-      const cap = (it.free || isNoHap(it.base || it.name)) ? 1 : (it.lim || 0);
+      /* 🔴 2026-09-14 홍팀장 "단독(무)에 있는 상품만 그렇게 하라고 했지 온 동네방네 합포장을 풀고 있어".
+         1개씩 나누는 건 **단독(무) 무료배송 상품만**. 「합포장 안 되는 상품」 목록(NOHAP)으로 나누던 것은 끈다
+         — 단독(유) 비만 바다장어가 그 목록에 올라 있어 풀려 나갔다. 합포장 한도(lim, 박스 개수)는 그대로. */
+      const cap = it.free ? 1 : (it.lim || 0);
       // 🚚 무료배송은 1개여도 제 줄로 — 다른 상품 뒤에 「/」로 붙으면 창고가 한 상자로 묶는다
       if(it.free || (cap && it.qty > cap)) solo.push({name:it.name, base:it.base, qty:it.qty, cap:cap, free:it.free});
       else rest.push(it);
@@ -1304,7 +1307,8 @@ function paintOut(ok, bad){
      경고만 띄우고 끝내면 사람이 입력칸으로 돌아가 손으로 나눠야 했다.
      이 버튼은 그 상품을 **합포장 안 되는 상품으로 지정**한다 — 지금 미리보기가 바로 나뉘고,
      다음 발주부터도 자동으로 나뉜다. 마스터만 보인다. */
-  if(amMaster() && o.merged.length){
+  /* 🚫 2026-09-14 — 버튼 끔. 1개씩 나누기는 단독(무)만 한다(buildOut 참고). 목록에 넣어도 더 이상 안 나뉘므로 버튼이 거짓말이 된다. */
+  if(false && amMaster() && o.merged.length){
     // 🐟 합포장 지정은 삭힘정도를 뗀 정식 이름으로 한다 — (중수)까지 박아두면 (고수)는 안 걸린다
     const todo = o.merged.filter(m => !isNoHap(m.base || m.name));
     if(todo.length) h += '<div class="ordnote" style="margin-top:8px">'
