@@ -390,6 +390,11 @@ function candidates(raw){
 }
 function whOf(p){ return p ? (p.effWh || p.srcWh || p.group || '') : ''; }
 function hapLimit(name){ try{ return (typeof HAP !== 'undefined' && HAP) ? (HAP[pkey(name)] || 0) : 0; }catch(e){ return 0; } }
+/* 🚚 단독(무) 탭 = 무료배송 상품 — 한 개씩 따로 출고한다 (홍팀장 2026-09-14).
+   「단독(무) 상품 x 2」로 들어오면 「x 1」 두 건으로 나간다. 다른 상품과도 한 줄로 묶지 않는다.
+   업체가 **넣는 순간** 줄 아래에 알리고, 발주서도 그대로 잘라서 낸다(아래 buildOut). */
+const FREE_WH = '단독(무)';
+const isFreeShip = p => !!p && S(p.group) === FREE_WH;
 /* 📦 26개를 한 상자 10개 기준으로 → [10,10,6]. 검증 경고와 실제 발주서 분리가 **같은 셈**을 써야
    "이렇게 나눠 넣습니다"와 실제 나간 줄이 어긋나지 않는다 (홍팀장 2026-09-10). */
 function capChunks(qty, cap){
@@ -493,7 +498,10 @@ function checkRow(r){
     /* 📦 한 상자에 담기는 개수를 넘겼다 — **어떻게 나눠 넣는지까지** 말해준다 (홍팀장 2026-09-10).
        예전엔 "박스가 나뉩니다"까지만 알리고 발주서는 「x 26」 한 줄로 나갔다. */
     const lim = hapLimit(p.name);
-    if(lim && q > lim) warns.push('📦 ' + p.name + ' 는 한 상자에 ' + lim + '개까지입니다 — '
+    if(isFreeShip(p)){
+      if(q > 1) warns.push('🚚 무료배송 상품이라 x 1 / ' + q + '건으로 나눠 출고합니다.');
+    }
+    else if(lim && q > lim) warns.push('📦 ' + p.name + ' 는 한 상자에 ' + lim + '개까지입니다 — '
       + capChunks(q, lim).join('+') + ' 로 나눠 넣습니다.');
   }
   return {p, errs, warns, cands: res.cands, qty: (q > 0 ? q : 0)};
@@ -523,7 +531,7 @@ function buildOut(){
     /* 🐟 발주서에 나가는 이름 = 카탈로그 정식 이름 + 고른 삭힘정도.
        합포장 한도·합포장 불가 판정은 괄호 없는 정식 이름(base)으로 봐야 한다 — 괄호가 붙으면 못 찾는다. */
     // 🦴 민장 민물장어는 (뼈,머리 포함)을 골랐으면 그 괄호도 달고 나간다 — 합포장·한도는 여전히 정식 이름(base)으로
-    g.items.push({name:withBone(withAge(c.p.name, ageOf(r.name)), canBone(c.p.name) && hasBone(r.name)), base:c.p.name, qty:c.qty, lim:hapLimit(c.p.name)});
+    g.items.push({name:withBone(withAge(c.p.name, ageOf(r.name)), canBone(c.p.name) && hasBone(r.name)), base:c.p.name, qty:c.qty, lim:hapLimit(c.p.name), free:isFreeShip(c.p)});
     if(S(r.msg) && !g.msg) g.msg = S(r.msg);
     else if(S(r.msg) && g.msg && g.msg !== S(r.msg)) notes.push((i+1) + '번 행: 같은 배송지에 배송메시지가 둘이라 첫 번째 것만 넣었습니다.');
   });
@@ -550,7 +558,7 @@ function buildOut(){
     g.items.forEach(it => {
       const hit = items.find(m => pkey(m.name) === pkey(it.name));
       if(hit){ hit.qty += it.qty; hit.parts.push(it.qty); }
-      else items.push({name:it.name, base:it.base, qty:it.qty, lim:it.lim, parts:[it.qty]});
+      else items.push({name:it.name, base:it.base, qty:it.qty, lim:it.lim, free:it.free, parts:[it.qty]});
     });
     /* 합쳤다는 말은 **보는 사람에 따라 다르다** (홍팀장 2026-08-28).
        대신 발주면 답을 아는 사람은 업체다 → "업체에 확인해 주세요".
@@ -591,15 +599,19 @@ function buildOut(){
        ⚠️ 나누는 셈은 checkRow 경고와 같은 capChunks 를 쓴다. 두 곳이 갈리면 화면 말과 발주서가 어긋난다. */
     const solo = [], rest = [];
     items.forEach(it => {
-      const cap = isNoHap(it.base || it.name) ? 1 : (it.lim || 0);
-      if(cap && it.qty > cap) solo.push({name:it.name, base:it.base, qty:it.qty, cap:cap});
+      const cap = (it.free || isNoHap(it.base || it.name)) ? 1 : (it.lim || 0);
+      // 🚚 무료배송은 1개여도 제 줄로 — 다른 상품 뒤에 「/」로 붙으면 창고가 한 상자로 묶는다
+      if(it.free || (cap && it.qty > cap)) solo.push({name:it.name, base:it.base, qty:it.qty, cap:cap, free:it.free});
       else rest.push(it);
     });
     if(rest.length) put(rest.map(it => it.name + ' x ' + it.qty).join(' / '));
     solo.forEach(it => {
       const chunks = capChunks(it.qty, it.cap);
       chunks.forEach(n => put(it.name + ' x ' + n));
-      warn.push(it.cap === 1
+      if(it.free && it.qty <= 1) return;
+      warn.push(it.free
+        ? '🚚 ' + it.name + ' — 무료배송 상품이라 x 1 / ' + it.qty + '건으로 나눠 넣었습니다.'
+        : it.cap === 1
         ? '📦 ' + it.name + ' — 합포장이 안 되는 상품이라 ' + it.qty + '줄로 나눠 넣었습니다.'
         : '📦 ' + it.name + ' — 한 상자에 ' + it.cap + '개까지라 ' + chunks.join('+') + ' 로 '
           + chunks.length + '줄로 나눠 넣었습니다.');
