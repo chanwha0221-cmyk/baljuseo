@@ -197,7 +197,8 @@ const colLetter=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCo
 const sheetLink=p=>p.gid?('https://docs.google.com/spreadsheets/d/'+YUTONG+'/edit#gid='+p.gid+'&range='+p.cell):'';
 async function loadProducts(){
   const meta=await api(YUTONG,'?fields=sheets.properties(title,hidden)');
-  if(meta.error)throw new Error('유통시트 접근 실패: '+meta.error.status);
+  // 프록시 오류는 {code,message} 라 .status 가 없다 — 예전엔 "undefined" 로만 떠서 원인을 못 봤다 (2026-09-14)
+  if(meta.error)throw new Error('유통시트 접근 실패: '+(meta.error.message||meta.error.status||meta.error.code||'알 수 없음'));
   const tabs=(meta.sheets||[]).map(s=>s.properties).filter(p=>!p.hidden&&EXCLUDE.indexOf(p.title)<0).map(p=>p.title);
   const ranges=tabs.map(t=>'ranges='+q("'"+t.replace(/'/g,"''")+"'!A1:N400")).join('&');
   // 🙈 숨겨진 행도 같이 받는다 — 숨긴 상품은 안 파는 것이니 '손봐야 할 상품'에 올리지 않는다 (홍팀장 2026-08-24)
