@@ -271,7 +271,13 @@
 
     if (window.SHEETS_PROXY_PUBLIC) {
       if (readOnly && batchOK) return queuePublicGet(path).then(toResponse);
-      return postWithRetry({ action: 'public', path: path, method: method, body: body }, readOnly)
+      /* 🔁 수량 전용 (2026-09-14) — 몇 번 보내도 결과가 같은 쓰기는 다시 건다.
+         웹앱이 POST 를 doGet 으로 답하는 일이 잦아 ⏰ 마감시간 저장이 "잠시 응답하지 못했습니다"로 실패했다(11:33 실측).
+         칸 덮어쓰기(PUT)·범위 쓰기(values:batchUpdate)·범위 지우기(values:batchClear)는 두 번 들어가도 같은 값이다.
+         🔴 덧붙이기(:append — 삭제 로그)는 두 번 들어가면 줄이 중복되므로 여전히 한 번만. */
+      var idempotent = readOnly || method === 'PUT' || /values:batch(Update|Clear)\b/.test(path);
+      if (/:append\b/.test(path)) idempotent = false;
+      return postWithRetry({ action: 'public', path: path, method: method, body: body }, idempotent, readOnly ? undefined : WRITE_MS)
         .then(toResponse);
     }
 
