@@ -446,6 +446,8 @@ function pp(cl,pr,qty){
   if(cl==='대상수산'&&norm(pn).includes('초벌')&&norm(pn).includes('고창')&&norm(pn).includes('민물')&&norm(pn).includes('장어'))return{name:'초벌 고창 민물 장어 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
   if(cl==='대상수산'&&(norm(pn).includes('생물 풍천 민물 장어')||(norm(pn).includes('민물')&&norm(pn).includes('장어'))))return{name:'특왕 민물장어 1kg',qty:Math.round(qty*wi),maxB:999};
   // 초벌 고창 풍천 장어 → 1kg 기준 (2kg 들어오면 1kg x 2). 민물·바다 장어는 위에서 이미 처리 (2026-06-19)
+  // 프리미엄 초벌 풍천장어 1.5kg은 따로 있는 상품 — 이름·수량 그대로. 아래 1kg 규칙에 걸려 1.5kg→「1kg x 2」로 바뀌던 사고 (2026-09-14 홍팀장)
+  if(norm(pn).includes('프리미엄')&&norm(pn).includes('풍천')&&norm(pn).includes('장어'))return{name:'프리미엄 초벌 풍천장어 1.5kg',qty,maxB:999};
   if(cl==='대상수산'&&norm(pn).includes('풍천')&&norm(pn).includes('장어')&&!norm(pn).includes('민물'))return{name:'초벌 고창 풍천 장어 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
   if(norm(pn).includes('풀도다리')){const isFrozen=norm(pn).includes('급냉');return{name:isFrozen?'연안 급냉 풀도다리 1kg':'연안 활 풀도다리 1kg',qty:Math.round(qty*wi),maxB:999};}
   // 골뱅이 어묵탕은 완전 다른 상품 — 활 골뱅이 규칙보다 먼저 처리 (2026-07-13 사고: 157세트가 활 골뱅이 1kg으로 치환됨)
