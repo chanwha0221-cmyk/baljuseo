@@ -433,6 +433,8 @@ async function ensureTab(){
 }
 async function loadRows(){
   const v=await api(DOGU,'/values/'+q1("'"+CTAB+"'!A2:E5000"));
+  /* 🔴 읽기 실패를 "0건"으로 넘기면 전부 미분류로 보이고, 이어서 syncNew 가 552건을 중복 등재한다 (2026-09-14) */
+  if(!v||v.error||!v.values)throw new Error('상품분류를 읽지 못했습니다'+(v&&v.error?': '+v.error.message:''));
   const map={};
   ((v.values)||[]).forEach(function(r,i){const nm=(r[0]||'').trim();if(nm)map[pkey(nm)]={row:i+2,name:nm,cat:(r[1]||'').trim()};});
   return map;
@@ -473,6 +475,8 @@ async function delRow(row){
 /* 카테고리 목록은 상품분류 탭 G열에 저장 — 기본 카테고리도 지우면 그대로 유지된다 */
 async function loadCatList(){
   const v=await api(DOGU,'/values/'+q1("'"+CTAB+"'!G2:G200"));
+  // 실패를 빈 목록으로 넘기면 아래에서 기본 카테고리로 G열을 덮어쓴다
+  if(!v||v.error)throw new Error('카테고리 목록을 읽지 못했습니다'+(v&&v.error?': '+v.error.message:''));
   return ((v.values)||[]).map(r=>(r[0]||'').trim()).filter(Boolean);
 }
 async function saveCatList(){
