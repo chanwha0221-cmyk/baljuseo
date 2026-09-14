@@ -99,6 +99,9 @@ function fmtTel(raw){
 // ⚠️ '동/호/번지'까지 지우면 서로 다른 집을 같은 집으로 볼 수 있다. 합포장을 잘못 묶는 것이
 //    안 묶는 것보다 나쁘므로, 여기선 일부러 보수적으로만 정규화한다.
 const addrKey = s => S(s).replace(/[\s,\-()]/g, '');
+/* 🏠 주소의 '/' → 한 칸 띄어쓰기 (홍팀장 2026-09-02 규칙, 업체 발주에도 적용 2026-09-14).
+   「청암로 161 305/1303」 — 변환기(convert-core addrSlash)에만 있어서 업체가 직접 넣은 발주는 슬래시가 그대로 나갔다. */
+const addrNoSlash = s => S(s).replace(/\s*\/\s*/g, ' ').replace(/ {2,}/g, ' ').trim();
 
 /* 🔒 "이 업체는 주소를 안 쓴다"는 우리와 업체 사이의 약속이다 — 발주서를 만드는 쪽이 이걸 이긴다.
    거래처 표(CC — convert-core.js / data/clients.js)에 `address:""` 로 박아둔 업체는
@@ -588,8 +591,8 @@ function buildOut(){
        출고지 업체가 안 쓰는 곳이면 주문처 주소로 **폴백하지 않는다** — 빈칸이 답이다. */
     const oAddr = (sh && S(sh.addr)) ? outAddr(biz, sh.addr) : outAddr(me.name, me.addr);
     const put = prod => {
-      if(biz) ten.push([me.name || '', biz, oAddr, oTel, '', prod, g.rcv, g.addr, tel, g.msg]);
-      else    nine.push([me.name || '', outAddr(me.name, me.addr), myTel, '', prod, g.rcv, g.addr, tel, g.msg]);
+      if(biz) ten.push([me.name || '', biz, addrNoSlash(oAddr), oTel, '', prod, g.rcv, addrNoSlash(g.addr), tel, g.msg]);
+      else    nine.push([me.name || '', addrNoSlash(outAddr(me.name, me.addr)), myTel, '', prod, g.rcv, addrNoSlash(g.addr), tel, g.msg]);
     };
     /* 📦 한 상자에 못 담는 만큼 **발주서에서부터 줄을 나눈다.**
        ① 합포장 안 되는 상품은 1개씩 (홍팀장 2026-08-28 — 참치 오마카세 한판)
