@@ -17,7 +17,7 @@
 | `secretary.html` | **비서** — 업무일지/합포장 기억소/데일리 초안/공유서. 구글시트 서비스계정 연동. 💎고마진 탭의 **[📦 재고 가져오기]** = 마스터 수량시트(월간, 주소는 도구시트 `설정!B1`)의 창고탭 전부에서 `잔여수량`을 읽어 반영 + **수량시트에 없는 상품은 목록에서 뺌**(원본 전체상품원가는 안 건드림). 가져온 값은 도구시트 `재고_캐시` 탭에 저장 → 재접속/다른 PC에서도 마지막 값 표시. ⚠️ **수량시트만은 서비스계정이 아니라 «팀장님 구글 로그인(OAuth)»으로 읽는다** — 그 시트는 유통사 소유(65명 공유)라 우리가 `sheets-writer@...`에 공유를 줄 권한이 없기 때문. Client ID·스코프는 byeondong.html과 동일 공용, 토큰은 sessionStorage `mas_hm_utok`(1시간). 팝업이라 `hmUserToken()`은 반드시 버튼 클릭 직후에 부를 것. 계정 잘못 잡히면 [계정 바꾸기] |
 | `sales.html` | 판매 분석 |
 | `식봄ERP.html` | **식봄 ERP** 3탭: ①상품 대량등록(엑셀 생성) ②상세페이지 HTML 변환기 ③마진 체크. 서비스계정 + SheetJS |
-| `수량관리.html` | **팀 수량 관리** (하이브리드 v2.0): 브라우저 계산 + 구글시트 저장 → IMPORTRANGE 소스 |
+| `수량관리.html` | **팀 수량 관리** (하이브리드 v2.1): 브라우저 계산 + 구글시트 저장 → IMPORTRANGE 소스 |
 | `제안서.html` | **상품 제안서 생성기** — 팀원 원본 pptx를 토큰화한 `제안서_assets/template.pptx`에 글자만 치환. 배경=원본 슬라이드 실렌더(`제안서_assets/bg1~6`), 브라우저 JSZip으로 pptx 생성 → **원본 디자인 100% 보존, 글자만 편집.** 좌표/스타일 맵=`제안서_assets/fields.js`. 라이브: `/제안서.html` |
 | `통장내역조회/통장내역조회.html` | **통장 내역 조회 v5.6** — 통장 입금내역 × 정산(색칠) 대사. 미정산 현황·선입금 배정. 사고이력·교훈은 WORKFLOW §2026-07-31 블록 참조 |
 | `정산점검판.html` | **정산 점검판** — 토스뱅크 거래내역 + 네이버 정산내역(paySettleDailyDetail) xlsx를 브라우저에서 직접 파싱(순수 JS: zip 파서 + DecompressionStream, 외부 라이브러리 0). 현금마진 = 정산입금 − 매입, 유성주 60% / 홍찬화 40% 배분 대비 실인출 대사. 선지급 차감 누락·재고·매입 여력 산출. 누적은 localStorage(`masterJeongsan.v2`), 중복제거 = 토스는 일시+적요+금액+잔액 / 네이버는 상품주문번호. **성주 공유는 [공유 링크 만들기] → 집계 숫자만 deflate+base64url로 `#s=`에 담긴 링크(1.6KB, 서버·시트 불필요). 원본 거래(상대 계좌번호·구매자 실명)는 절대 안 담김 — 이 원칙 깨지 말 것.** 링크로 열면 읽기전용 모드(입력 3개 섹션 숨김, localStorage 안 건드림). **검증: 마진+잡수입−성주−홍−잔액 = 0 이어야 함** |
@@ -57,7 +57,8 @@
 - 문지기는 **팀 비밀번호(`TEAM_PASSCODE`)**. 거래처가 쓰는 페이지(catalog·수량관리)만 `window.SHEETS_PROXY_PUBLIC = true`로 비밀번호 없이 나가고, 서버가 허용된 시트·탭인지 본다(`DEFAULT_PUBLIC`, 코드가 정본).
 - ⚠️ **프록시를 안 타는 도구 2개**: `byeondong.html`·`판매캘린더.html` — 사용자 OAuth Client ID 방식(공개돼도 되는 값). 서비스계정과 무관.
 - **secretary/식봄ERP 시트** ID: `1t1E8TZ9442OvgFV6Ah5nK6gexHv7xxVFf0jBVDXFUzM` (전체상품원가 등)
-- **수량 리더 시트** ID: `1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI` — 탭: `입력 시트`(업데이트시간/팀명/창고명/상품명/필요수량), `현황판`(창고명/품목명/수량보유팀/1~10순위/합계), `삭제 로그`
+- **수량 관리 시트 (독립)** ID: `1zyUBBKvg0E1CTxhRYFJJUPIgMJdYgSxmsc-n5g7u7dI` (2026-09-14~, 링크 있는 사람 편집) — 탭: `입력 시트`(업데이트시간/팀명/창고명/상품명/필요수량), `현황판`(창고명/품목명/수량보유팀/1~10순위/합계), `삭제 로그`. 수량관리.html 은 전용 `suryang-proxy.js` 로만 붙는다(공용 sheets-proxy.js 금지). 화면 상단 [📄 수량 시트 열기]가 이 시트.
+- **수량 리더 시트**(옛) ID: `1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI` — 이제 **`마감시간` 탭 정본으로만** 쓴다(byeondong 쓰기·상품정보업데이트 읽기·수량관리 ⏰). 수량 데이터는 여기 넣지 말 것.
 - 🚨 **새 도구를 만들 때 개인키를 다시 박지 말 것.** 프록시 한 줄(`<script src="sheets-proxy.js"></script>`)만 넣으면 된다.
 
 ## 🚨 배포 (Claude는 `deploy.ps1`만 쓴다 — 2026-08-19 사장님 지시)
@@ -73,7 +74,7 @@ powershell -ExecutionPolicy Bypass -File C:\work\baljuseo\deploy.ps1 -Message "�
 - ⚠️ 진단 시 브라우저 `text.length`는 **바이트가 아니라 글자 수**다. 한글 파일은 바이트의 약 75% — 커밋 블롭과 비교하려면 `git show HEAD:파일 | wc -c`(바이트)와 헷갈리지 말 것.
 - ⚠️ `deploy.ps1`은 **UTF-8 BOM으로 저장 유지**. BOM 없이 저장하면 PowerShell 5.1이 ANSI로 읽어 한글이 깨지고 파싱 에러가 난다.
 - `-Files a.html,b.html` 로 대상 지정, `-NoBump` 로 버전 고정, 인자 없으면 `git status`의 바뀐 html/js/json/css 전부.
-- ⚠️ **`-Files`에 `.md`(CLAUDE.md 등)를 넣을 땐 반드시 `-NoBump`**. 버전 올리기가 파일 안의 첫 `v숫자.숫자`를 찾아 +1 하는데, md에는 `<title>`이 없어 **엉뚱한 문장의 버전 숫자를 고쳐 놓는다** (2026-08-20 실제로 수량관리 v2.0 설명이 v2.1로 둔갑 — 되돌림).
+- ⚠️ **`-Files`에 `.md`(CLAUDE.md 등)를 넣을 땐 반드시 `-NoBump`**. 버전 올리기가 파일 안의 첫 `v숫자.숫자`를 찾아 +1 하는데, md에는 `<title>`이 없어 **엉뚱한 문장의 버전 숫자를 고쳐 놓는다** (2026-08-20 실제로 수량관리 v2.1 설명이 v2.1로 둔갑 — 되돌림).
 - ⚠️ PowerShell 안에서 부를 땐 `powershell -File ... -Files a,b` 로 하면 **배열이 문자열 하나로 넘어가 add가 실패**한다(조용히 "커밋할 변경 없음"으로 끝남). `& C:\work\baljuseo\deploy.ps1 -Files a,b -Message "..."` 처럼 호출 연산자로 실행할 것.
 
 ### (참고) update.bat — 사장님이 직접 더블클릭할 때

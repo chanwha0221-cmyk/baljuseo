@@ -125,9 +125,11 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v3.9</span>
+  <span class="ver">v3.10</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
+  <!-- 📄 수량 시트 바로가기 (2026-09-14 홍팀장 "새 시트 주소를 물려놔야 할 거 아니여") — SHEET_ID(새 독립 시트)를 그대로 연다 -->
+  <button class="btn-ghost" onclick="window.open('https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit','_blank')" title="수량 관리 시트 (독립) — 링크 있는 사람 누구나 편집">📄 수량 시트 열기</button>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
   <button class="btn-danger" onclick="clearAll()">⚠️ 전체 초기화</button>
 </div>
