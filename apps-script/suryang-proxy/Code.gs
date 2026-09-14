@@ -224,9 +224,16 @@ var SURYANG_ = '1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI';
    그래서 허용목록도 **수량 리더 시트 하나뿐이다.** 카탈로그·도구시트·링크시트는
    여기서 열지 않는다. 이 웹앱이 죽어도 카탈로그는 멀쩡하고, 그 반대도 마찬가지다.
    ⚠️ 여기에 다른 시트를 추가하지 말 것. 추가하는 순간 다시 물린다. */
+/* 🔁 2026-09-14 — 시트도 새로 팠다 (홍팀장 "아예 카피 뜨고 독자적으로, 링크 있는 사람 다 쓸 수 있게").
+   수량 입력·현황판·삭제 로그 = 새 시트 「수량 관리 시트 (독립)」.
+   ⏰ 마감시간만은 옛 수량 리더 시트가 정본이다 — byeondong 팝업이 거기에 쓰고 상품정보업데이트 3단계가 거기서 읽는다.
+      그래서 옛 시트는 **마감시간 탭 읽기 하나만** 연다. 쓰기는 새 시트뿐. */
+SURYANG_ = '1zyUBBKvg0E1CTxhRYFJJUPIgMJdYgSxmsc-n5g7u7dI';
+var MAGAM_CANON_ = '1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI';
 var DEFAULT_PUBLIC = {
-  PUBLIC_READ:  SURYANG_,
-  PUBLIC_WRITE: SURYANG_
+  PUBLIC_READ:  SURYANG_ + ',' + MAGAM_CANON_ + '|마감시간',
+  // 마감시간 편집(⏰ 팝업)도 정본에 써야 byeondong·3단계가 본다 — 옛 시트는 마감시간 탭만, 범위 PUT 으로만
+  PUBLIC_WRITE: SURYANG_ + ',' + MAGAM_CANON_ + '|마감시간'
 };
 
 /* 🔴 2026-08-27 — 허용목록은 **코드가 정본이다.** Script Property 로 덮어쓰지 않는다.

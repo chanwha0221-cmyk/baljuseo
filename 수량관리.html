@@ -125,7 +125,7 @@
 </div>
 <div class="topbar">
   <h1>📊 수량 관리 시스템</h1>
-  <span class="ver">v3.8</span>
+  <span class="ver">v3.9</span>
   <span id="sync" class="ver" style="background:#d9822b">● 연결 중…</span>
   <span class="spacer"></span>
   <button class="btn-ghost" onclick="showLog()">🗑 삭제 로그</button>
@@ -257,8 +257,12 @@
      아침에 개인키를 걷어내면서 팀 비밀번호가, 그 다음엔 구글 로그인이 생겼는데
      둘 다 일하는 사람을 막기만 했다. 프록시의 **무인증 모드**로 되돌린다.
      SHEETS_PROXY_PUBLIC 은 shim 보다 **먼저** 켜져 있어야 한다. -->
+<!-- 🔴🔴 2026-09-14 — 공용 sheets-proxy.js 에서 **완전히 뗐다** (홍팀장 "아예 카피 뜨고 독자적으로").
+     9/7에 수량 전용 웹앱(apps-script/suryang-proxy)을 만들어 배포까지 해놓고 이 줄을 안 바꿔서
+     그 뒤로도 계속 공용 프록시(도구 20개와 한 줄)로 나가고 있었다 → 오류가 계속 났다.
+     이제 suryang-proxy.js(주소만 전용 웹앱) + 새 시트. 다시 sheets-proxy.js 로 돌리지 말 것. -->
 <script>window.SHEETS_PROXY_PUBLIC = true;</script>
-<script src="sheets-proxy.js"></script>
+<script src="suryang-proxy.js?v=20260914"></script>
 <script>
 //=================== 설정 ===================
 const TEAMS = ["토끼","거북","기린","여우","하마","고양","늑대"];
@@ -266,7 +270,10 @@ const K_ENTRIES='sqm_entries_v1', K_HOLD='sqm_holding_v1', K_SEQ='sqm_seq_v1';
 const K_DIRTY='sqm_dirty_v1';   // 시트 저장 완료 전이면 '1' (새로고침 롤백 방지용)
 
 // ── 구글 시트(수량 리더 시트) 직접 연동 — secretary/식봄ERP와 동일 서비스계정 ──
-const SHEET_ID='1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI';
+const SHEET_ID='1zyUBBKvg0E1CTxhRYFJJUPIgMJdYgSxmsc-n5g7u7dI';   // 🔁 2026-09-14 새 독립 시트 「수량 관리 시트 (독립)」 — 링크 있는 사람 편집
+/* ⏰ 마감시간만은 옛 「수량 리더 시트」가 정본(byeondong 팝업이 쓰고, 상품정보업데이트 3단계가 읽음).
+   새 시트에 복사된 마감시간 탭은 낡아가는 사본이니 읽지 않는다. 읽기 전용. */
+const DEADLINE_SHEET_ID='1WrasAPb8uQLacnwOe2_vVZHD-3cQR7oYKLxOEB_k0SI';
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
 const OAUTH_SCOPE='https://www.googleapis.com/auth/spreadsheets';
 const SH_INPUT='입력 시트', SH_STATUS='현황판', SH_LOG='삭제 로그', SH_DEADLINE='마감시간';
@@ -287,13 +294,22 @@ let sheetOnline = false;
       거기서 빠지면 화면이 조용히 비고 에러도 안 뜬다(2026-08-27 카탈로그 사고와 같은 함정). */
 async function getAccessToken(){ return 'via-proxy'; }
 
-async function sheetGet(name,range){
+async function sheetGet(name,range,sid){
   const token=await getAccessToken();
-  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(name+'!'+range)}?prettyPrint=false`;
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${sid||SHEET_ID}/values/${encodeURIComponent(name+'!'+range)}?prettyPrint=false`;
   const r=await fetch(url,{headers:{'Authorization':'Bearer '+token}});
   const d=await r.json();
   if(d.error) throw new Error(d.error.message);
   return d.values||[];
+}
+/* 범위 하나 쓰기 — 탭 이름이 주소에 들어가야 수량 전용 웹앱이 «마감시간 탭만» 허용을 확인할 수 있다.
+   (values:batchUpdate 는 주소에 탭이 없어 정본 시트에선 막힌다) */
+async function sheetPut(name,range,values,sid){
+  const token=await getAccessToken();
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${sid||SHEET_ID}/values/${encodeURIComponent(name+'!'+range)}?valueInputOption=USER_ENTERED&prettyPrint=false`;
+  const r=await fetch(url,{method:'PUT',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({values})});
+  const d=await r.json(); if(d.error) throw new Error(d.error.message);
+  return d;
 }
 /* 🔴 2026-09-03 — 삭제 로그는 **덧붙이기만** 한다.
    예전엔 저장할 때마다 로그 전체(1000줄 넘음)를 다시 PUT 하고, 읽을 때도 전부 받아왔다.
@@ -331,7 +347,7 @@ async function getSheetIds(){
 }
 // ⏰ '마감시간' 탭을 새 탭으로 열기 (gid 조회해서 그 탭으로 바로, 실패 시 스프레드시트만 열기)
 async function openDeadlineSheet(){
-  const base=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+  const base=`https://docs.google.com/spreadsheets/d/${DEADLINE_SHEET_ID}/edit`;   // 정본(옛 시트). gid 는 시트 복사 때 그대로라 새 시트에서 찾은 값이 맞다
   try{
     const ids=await getSheetIds();
     const gid=ids[SH_DEADLINE];
@@ -401,10 +417,10 @@ function loadCache(){
    매번 타임아웃 → 로컬 캐시만 보이고 배지는 계속 "불러오는 중"이었다.
    → `prettyPrint=false` 하나로 277KB→119KB, 6.8초→2.3초. (실측 2026-09-03)
    ⚠️ 삭제 로그는 계속 자라므로 언젠가 또 걸린다. 그때는 로그를 나눠 읽거나 오래된 줄을 접어야 한다. */
-async function sheetBatchGet(ranges){
+async function sheetBatchGet(ranges, sid){
   const token=await getAccessToken();
   const qs=ranges.map(r=>'ranges='+encodeURIComponent(r)).join('&');
-  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchGet?majorDimension=ROWS&prettyPrint=false&${qs}`;
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${sid||SHEET_ID}/values:batchGet?majorDimension=ROWS&prettyPrint=false&${qs}`;
   const r=await fetch(url,{headers:{'Authorization':'Bearer '+token}});
   const d=await r.json();
   if(d.error) throw new Error(d.error.message);
@@ -448,13 +464,16 @@ async function _loadFromSheet(silent){
             안 들어가서 매번 구글까지 갔다 오고, 새로고침 한 번에 8.7초가 걸렸다.
             실제로 쓰는 건 상품명(B)과 마감시간(J) 둘뿐이라 그 두 열만 받는다. */
       const ranges=[SH_INPUT+'!A2:E', SH_STATUS+'!A2:C'];
-      if(needDeadline) ranges.push(SH_DEADLINE+'!B2:B', SH_DEADLINE+'!J2:J');
       const got=await sheetBatchGet(ranges);
       inp=got[0]||[]; stat=got[1]||[];
       if(needDeadline){
-        // 두 열을 다시 짝지어 준다 — 아래 코드가 r[1]=상품, r[9]=마감시간 을 기대한다
-        const _nm=got[2]||[], _tm=got[3]||[];
-        dlRows=_nm.map((r,i)=>{ const a=[]; a[1]=(r&&r[0])||''; a[9]=((_tm[i]||[])[0])||''; return a; });
+        /* 마감시간은 정본(옛 시트)에서 따로 받는다 — 10분에 한 번. 실패해도 수량 로드는 막지 않고 직전 표를 쓴다. */
+        try{
+          const dg=await sheetBatchGet([SH_DEADLINE+'!B2:B', SH_DEADLINE+'!J2:J'], DEADLINE_SHEET_ID);
+          // 두 열을 다시 짝지어 준다 — 아래 코드가 r[1]=상품, r[9]=마감시간 을 기대한다
+          const _nm=dg[0]||[], _tm=dg[1]||[];
+          dlRows=_nm.map((r,i)=>{ const a=[]; a[1]=(r&&r[0])||''; a[9]=((_tm[i]||[])[0])||''; return a; });
+        }catch(e){ console.warn('마감시간(정본) 읽기 실패 — 직전 표 유지',e); }
       }
     }catch(e){
       /* 탭 하나가 없으면 batchGet 은 통째로 실패한다 → 예전 방식으로 물러난다.
@@ -486,10 +505,9 @@ async function _loadFromSheet(silent){
     stat.forEach(r=>{ if(!r) return; const wh=String(r[0]||'').trim(), it=String(r[1]||'').trim(), c=String(r[2]||'').trim(); if(wh&&it&&c) holdingMap[wh+'||'+it]=c; });
     // 마감시간 시트 (A:창고 / B:상품 / J:발주마감시간) — 상품명만으로 매칭 (창고명 다를 수 있어 무시)
     // 이번에 안 받아왔으면(needDeadline=false) 직전에 만든 표를 그대로 쓴다 — 비우지 않는다.
-    if(needDeadline){
+    if(needDeadline && dlRows !== null){   // 정본에서 못 받았으면 새 시트의 낡은 사본으로 대신하지 않는다 — 직전 표 유지
       try{
-        // 위 batchGet 에서 이미 받아왔으면 그걸 쓴다. 물러난 경우에만 따로 읽는다.
-        const dl = dlRows !== null ? dlRows : await sheetGet(SH_DEADLINE,'A2:J');
+        const dl = dlRows;
         const m = {};
         dl.forEach(r=>{ if(!r)return; const it=String(r[1]||'').trim(), t=String(r[9]||'').trim(); if(it&&t) m[it]=t; });
         deadlineMap = m; _deadlineAt = Date.now();
@@ -743,16 +761,17 @@ async function saveDeadline(forceVal){
   document.getElementById('dlOverlay').classList.remove('show');
   setSync('saving');
   try{
-    const rows = await sheetGet(SH_DEADLINE,'A2:J');
+    // ⏰ 정본(옛 수량 리더 시트)에서 읽고 거기에 쓴다 — byeondong·상품정보업데이트가 그 탭을 본다 (2026-09-14)
+    const rows = await sheetGet(SH_DEADLINE,'A2:J',DEADLINE_SHEET_ID);
     // 창고+상품명이 둘 다 같은 행 우선, 없으면 상품명만 같은 행, 그것도 없으면 새 줄
     let idx = rows.findIndex(r=>r && String(r[1]||'').trim()===it && String(r[0]||'').trim()===wh);
     if(idx<0) idx = rows.findIndex(r=>r && String(r[1]||'').trim()===it);
     if(idx>=0){
-      await sheetValuesUpdate([{range:`${SH_DEADLINE}!J${idx+2}`, values:[[val]]}]);
+      await sheetPut(SH_DEADLINE,`J${idx+2}`,[[val]],DEADLINE_SHEET_ID);
     }else{
       if(!val){ setSync('ok'); toast('시트에 없는 상품이라 지울 것도 없어요'); return; }
       const row = rows.length + 2;   // 마지막 데이터 다음 줄
-      await sheetValuesUpdate([{range:`${SH_DEADLINE}!A${row}:J${row}`, values:[[wh,it,'','','','','','','',val]]}]);
+      await sheetPut(SH_DEADLINE,`A${row}:J${row}`,[[wh,it,'','','','','','','',val]],DEADLINE_SHEET_ID);
     }
     if(val) deadlineMap[it] = val; else delete deadlineMap[it];
     setSync('ok'); render();
