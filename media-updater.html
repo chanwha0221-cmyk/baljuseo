@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.49</title>
+<title>마스터 유통 상품 도구 v1.50</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1144,19 +1144,54 @@ function left(at){
   return k>0?('D-'+k):'만료';
 }
 
-async function readTab(tab,cols){
-  const j=await S.api(DOGU,'/values/'+e1("'"+tab+"'!A2:"+cols+"300"));
-  if(j.error)throw new Error(j.error.message||'읽기 실패');
-  return j.values||[];
+/* 🗄 추천상품·공지사항·소식글·업체전용상품의 원본은 Supabase다 (2026-09-14 홍팀장 "나머지 4개 탭도 다 옮겨").
+   프록시(Apps Script)가 한 번 읽는 데 14~45초라 목록이 비어 보이던 사고 뒤에 옮겼다(상품분류와 같은 방식).
+   저장하는 순간 서버가 카탈로그 사본까지 고친다 — 다시 굽기(bumpCatalogSnap)는 필요 없다. 백업(BAK:*)도 서버가 남긴다.
+   구글시트 탭은 **보기용 사본** — 저장 뒤 3초 모아서 뒤에서 맞춰 둔다. 시트에서 손으로 고친 것은 반영되지 않는다.
+   🔴 통째 저장(tabset)은 내가 읽은 뒤 누가 고쳤으면(카탈로그 🗑 내리기 등) 서버가 거절한다 — 남의 수정을 덮지 않는다. */
+function sbTok(){ try{ const a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null'); return (a&&a.token)||''; }catch(e){ return ''; } }
+async function sb(action,data){
+  const tk=sbTok();
+  if(!tk)throw new Error('이 브라우저에서 카탈로그에 마스터로 로그인한 뒤 새로고침해 주세요');
+  const r=await fetch('https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(Object.assign({action:action,token:tk},data||{}))});
+  let j=null; try{ j=JSON.parse(await r.text()); }catch(e){}
+  if(!j)throw new Error('서버 응답을 읽지 못했습니다');
+  if(!j.ok){ const er=new Error(j.error||'요청이 거절됐습니다'); er.conflict=!!j.conflict; throw er; }
+  return j;
 }
-async function writeTab(tab,cols,rows,prevCount){
-  const pad=Math.max(prevCount,rows.length);
-  const blank=new Array(cols.length).fill('');
-  const out=rows.slice();
-  while(out.length<pad)out.push(blank.slice());
-  const j=await S.api(DOGU,'/values/'+e1("'"+tab+"'!A2:"+cols.end+(1+Math.max(pad,1))) +'?valueInputOption=RAW',
-    {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:out.length?out:[blank]})});
-  if(j.error)throw new Error(j.error.message||'저장 실패');
+const TREV={},TMIRN={},TMIRT={};
+async function readTab(tab,cols){
+  const j=await sb('tabget',{names:[tab]});
+  let rec=j.tabs[tab];
+  if(!rec){
+    /* 처음 한 번만 시트에서 옮겨 온다. 서버가 프록시로 못 읽는 날이 있어 이 브라우저가 읽은 것을 넘긴다.
+       이 브라우저도 못 읽었으면 서버에게 맡긴다(서버도 못 읽으면 저장하지 않고 에러 — 빈 목록으로 옮기지 않는다). */
+    let rows=null;
+    try{ const v=await S.api(DOGU,'/values/'+e1("'"+tab+"'!A2:"+cols+"300")); if(v&&!v.error&&Array.isArray(v.values))rows=v.values; }catch(e){}
+    rec=await sb('tabimport',(rows&&rows.length)?{name:tab,rows:rows}:{name:tab});
+  }
+  TREV[tab]=rec.rev; TMIRN[tab]=Math.max(TMIRN[tab]||0,(rec.rows||[]).length);
+  return rec.rows||[];
+}
+async function writeTab(tab,cols,rows){
+  const j=await sb('tabset',{name:tab,rows:rows,baseRev:TREV[tab],allowEmpty:tab!=='공지사항'});
+  TREV[tab]=j.rev; mirrorTab(tab,cols,j.rows);
+  return j.rows;
+}
+function mirrorTab(tab,cols,rows){
+  clearTimeout(TMIRT[tab]);
+  TMIRT[tab]=setTimeout(async function(){
+    try{
+      if(!rows||!rows.length)return;                               // 🔴 빈 내용으로는 시트를 덮지 않는다
+      const w=cols.length, pad=Math.max(TMIRN[tab]||0,rows.length);
+      const out=rows.map(r=>{const a=r.slice(0,w);while(a.length<w)a.push('');return a;});
+      while(out.length<pad)out.push(new Array(w).fill(''));
+      const res=await S.api(DOGU,'/values/'+e1("'"+tab+"'!A2:"+cols.end+(1+pad))+'?valueInputOption=RAW',
+        {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:out})});
+      if(res&&!res.error)TMIRN[tab]=rows.length;
+    }catch(e){ console.warn(tab+' 시트 사본 맞추기 실패(원본은 저장됨)',e); }
+  },3000);
 }
 
 /* ── 추천상품 ── */
@@ -1401,19 +1436,6 @@ $p('ngBody').addEventListener('input',function(){
     if(!ngTitleTouched)$p('ngTitle').value=body.trim()?ngAutoTitle(body):'';
   },250);
 });
-// 도구시트에 '소식글' 탭이 없으면 머리글까지 만들어 둔다
-async function ngEnsurePostTab(){
-  const m=await S.api(DOGU,'?fields=sheets.properties.title');
-  if(m&&m.error)throw new Error(m.error.message||'도구시트를 열지 못했습니다');
-  const has=(((m||{}).sheets)||[]).some(function(s){return s.properties&&s.properties.title===POST_TAB;});
-  if(has)return;
-  const a=await S.api(DOGU,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({requests:[{addSheet:{properties:{title:POST_TAB}}}]})});
-  if(a&&a.error)throw new Error(a.error.message||'소식글 탭을 만들지 못했습니다');
-  await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!A1:E1")+'?valueInputOption=RAW',
-    {method:'PUT',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({values:[['제목','본문','노출','작성일','연결상품']]})});
-}
 $p('ngSave').onclick=async function(){
   const b=this, body=String($p('ngBody').value||'').trim();
   const log=function(h){ $p('ngLog').innerHTML=h; };
@@ -1441,22 +1463,15 @@ $p('ngSave').onclick=async function(){
 
     // ① 카탈로그 게시판
     if($p('ngPost').checked){
-      await ngEnsurePostTab();
       /* 🔴 2026-09-01 사고 — 같은 글이 두 번 올라갔다. 중복 확인을 톤 기록 시트에만 걸어놓고
          게시판은 무조건 append 했다(홍팀장: "같은 글 있음 안 올라간다며").
-         게시판은 게시판대로 본문(B열)을 보고 막는다. 내린 글(노출 N)도 본문은 남아 있으므로
-         일부러 다시 올리려면 시트에서 그 행을 지우고 넣어야 한다 — 그게 사고보다 낫다. */
-      const cur=await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!B2:B300"));
-      const had=(((cur||{}).values)||[]).some(function(r){
-        return String(r[0]||'').replace(/\s+/g,'')===body.replace(/\s+/g,'');
-      });
-      if(had){
+         게시판은 게시판대로 본문(B칸)을 보고 막는다 — 이제 서버(tabappend dedupCol:1)가 최신본에서 막는다.
+         내린 글(노출 N)도 본문은 남아 있으므로 같은 글은 다시 안 올라간다 — 그게 사고보다 낫다. */
+      const j=await sb('tabappend',{name:POST_TAB,row:[title,body,'Y',day(),links.join(', ')],dedupCol:1});
+      if(j.dup){
         L.push('<span style="color:var(--muted)">📰 카탈로그엔 이미 같은 글이 있어 다시 올리지 않았습니다.</span>');
       }else{
-        const j=await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!A:E")+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
-          {method:'POST',headers:{'Content-Type':'application/json'},
-           body:JSON.stringify({values:[[title,body,'Y',day(),links.join(', ')]]})});
-        if(j&&j.error)throw new Error(j.error.message||'게시판에 올리지 못했습니다');
+        mirrorTab(POST_TAB,{end:'E',length:5},j.rows);
         L.push('✅ 카탈로그에 올렸습니다 — <b>'+esc(title)+'</b>'
           +(links.length?(' · 🔗 상품 '+links.length+'건 연결'):' · <span style="color:var(--muted)">연결된 상품 없음</span>'));
       }
@@ -1489,19 +1504,30 @@ $p('ngSave').onclick=async function(){
        ⚠️ 개수 상한 없음 — 📰가 10개를 넘어도 오래된 걸 밀어내지 않는다(홍팀장 2026-09-02). */
     if(links.length){
       const radd=[],rkeep=[];
-      links.forEach(function(nm){
-        const ex=REC.find(r=>r.name===nm);
-        if(ex){
-          if(!ex.news){rkeep.push(nm);return;}            // ⭐ 추천은 그대로 둔다
-          ex.at=day(); ex.show=true; radd.push(nm);       // 이미 소식글이면 날짜만 오늘로 되살린다
-          return;
-        }
-        REC.push({name:nm,cmt:'',show:true,at:day(),news:true});
-        radd.push(nm);
-      });
+      const recApply=function(){
+        radd.length=0; rkeep.length=0;
+        links.forEach(function(nm){
+          const ex=REC.find(r=>r.name===nm);
+          if(ex){
+            if(!ex.news){rkeep.push(nm);return;}            // ⭐ 추천은 그대로 둔다
+            ex.at=day(); ex.show=true; radd.push(nm);       // 이미 소식글이면 날짜만 오늘로 되살린다
+            return;
+          }
+          REC.push({name:nm,cmt:'',show:true,at:day(),news:true});
+          radd.push(nm);
+        });
+      };
+      const recRows=()=>REC.map((r,i)=>[r.name,r.cmt,r.show?'Y':'N',String(i+1),r.at||day(),r.news?'소식글':'추천']);
+      recApply();
       try{
-        await writeTab('추천상품',{end:'F',length:6},
-          REC.map((r,i)=>[r.name,r.cmt,r.show?'Y':'N',String(i+1),r.at||day(),r.news?'소식글':'추천']),RECN);
+        try{ await writeTab('추천상품',{end:'F',length:6},recRows()); }
+        catch(e){
+          // 페이지를 연 뒤 다른 곳(카탈로그 🗑 등)에서 추천상품이 바뀌었으면 최신본을 받아 그 위에 다시 얹는다
+          if(!e.conflict)throw e;
+          await recLoad(); if(!RECOK)throw e;
+          recApply();
+          await writeTab('추천상품',{end:'F',length:6},recRows());
+        }
         RECN=REC.length; recDraw(); $p('rcStat').textContent=REC.length+'개 등록됨';
         if(radd.length)L.push('⭐ 추천상품에도 올렸습니다 — 📰 '+esc(radd.join(', ')));
         if(rkeep.length)L.push('<span style="color:var(--muted)">⭐ 이미 추천이라 그대로 둠 — '+esc(rkeep.join(', '))+'</span>');
@@ -1525,10 +1551,10 @@ async function ngEdLoad(){
   const st=$p('ngEdStat');
   try{
     st.textContent='— 불러오는 중…';
-    const j=await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!A2:E300"));
-    if(j&&j.error)throw new Error(j.error.message||'읽기 실패');
-    NGED=(j.values||[]).map(function(r,i){
-      return {row:i+2,title:t(r[0]),body:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',at:t(r[3]),links:t(r[4]),okLinks:t(r[4])};
+    const rows=await readTab(POST_TAB,'E');
+    // idx = 서버 원본에서의 줄 번호, mTitle = 서버에 마지막으로 저장된 제목(그 줄이 맞는지 서버가 확인하는 값)
+    NGED=rows.map(function(r,i){
+      return {idx:i,mTitle:t(r[0]),title:t(r[0]),body:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',at:t(r[3]),links:t(r[4]),okLinks:t(r[4])};
     }).filter(function(r){return r.title||r.body;});
     st.textContent='— '+NGED.length+'건';
     ngEdDraw();
@@ -1601,12 +1627,13 @@ $p('ngEdRows').addEventListener('change',async function(ev){
   n.okLinks=n.links=ok.join(', '); b.value=n.links;
   ngEdSave(n);
 });
-/* 한 줄만 저장 — 범위를 그 행으로 못 박는다(A{행}:E{행}). */
+/* 한 줄만 저장 — 서버가 줄 번호 + 마지막 저장 제목·작성일로 그 글이 맞는지 확인하고 그 줄만 고친다. */
 async function ngEdPut(n){
-  const j=await S.api(DOGU,'/values/'+e1("'"+POST_TAB+"'!A"+n.row+":E"+n.row)+'?valueInputOption=RAW',
-    {method:'PUT',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({values:[[n.title,n.body,n.show?'Y':'N',n.at||day(),n.okLinks||'']]})});
-  if(j&&j.error)throw new Error(j.error.message||'저장하지 못했습니다');
+  const at=n.at||day();
+  const j=await sb('tabrow',{name:POST_TAB,idx:n.idx,match:{0:n.mTitle,3:n.at||''},
+    set:{0:n.title,1:n.body,2:n.show?'Y':'N',3:at,4:n.okLinks||''}});
+  n.idx=j.idx; n.mTitle=t(n.title); n.at=at;
+  mirrorTab(POST_TAB,{end:'E',length:5},j.rows);
 }
 $p('ngEdRows').addEventListener('click',async function(ev){
   const b=ev.target.closest('[data-nge="hide"]'); if(!b)return;
@@ -1627,52 +1654,12 @@ document.addEventListener('visibilitychange',function(){
 window.addEventListener('beforeunload',function(e){
   if(NGED.some(function(n){return n.dirty||n.busy;})){ e.preventDefault(); e.returnValue=''; }
 });
-/* ⚡ 올린 공지·추천상품을 업체가 바로 보게 한다 (홍팀장 2026-09-04 "지금 공지 하나 올렸는데 너무 느려")
-   카탈로그는 상품·공지·추천을 **스냅샷 서버가 3분간 담아둔 것**으로 받는다(그래야 0.5초에 열린다).
-   그냥 두면 새로 올린 것이 최대 3분 늦게 뜬다 — 풍랑주의보 같은 긴급 공지엔 3분도 길다.
-   → 저장 직후 fresh 로 한 번 불러 **서버가 담아둔 것을 새로 채우게** 한다.
-     그 뒤로는 업체들이 평소처럼 캐시로 받아도 새 내용이 들어 있다.
-   토큰은 같은 도메인의 카탈로그 로그인(catalog_auth_v1)에서 빌린다 — 이 도구엔 로그인이 따로 없다.
-   ⚠️ 실패해도 저장은 이미 끝난 뒤다. 조용히 넘어가면 예전처럼 3분 안에 저절로 반영된다. */
 const SNAP_API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
-async function bumpCatalogSnap(){
-  let tk='';
-  try{ const a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null'); tk=(a&&a.token)||''; }catch(e){}
-  if(!tk)return 'notoken';
-  try{
-    const r=await fetch(SNAP_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'catalog',token:tk,fresh:1})});
-    let j=null; try{ j=JSON.parse(await r.text()); }catch(e){}
-    return (j&&j.grid)?'ok':'fail';
-  }catch(e){ return 'fail'; }
-}
-/* 🗄 백데이터 보관 (홍팀장 2026-09-09 "공지는 안 내리고 계속 가는데 어디 백데이터로 저장은 되고 있나")
-   공지·추천상품의 원본은 도구시트 탭 하나뿐이고, 저장은 그 탭을 **통째로 되쓴다** —
-   한 번 잘못 덮이면 시트 버전 기록 말고는 되돌릴 데가 없었다.
-   → 저장이 성공할 때마다 그 시점 전체를 발주 서버(Supabase)에 담아둔다. 최근 30번분이 남는다.
-   ⚠️ 백업 실패가 저장을 되돌리지는 않는다(저장은 이미 끝났다) — 화면에 한 줄로 알리기만 한다. */
-async function bakSave(name,rows){
-  let tk='';
-  try{ const a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null'); tk=(a&&a.token)||''; }catch(e){}
-  if(!tk)return 'notoken';
-  if(!rows||!rows.length)return 'empty';
-  try{
-    const r=await fetch(SNAP_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'bak',token:tk,name:name,rows:rows})});
-    let j=null; try{ j=JSON.parse(await r.text()); }catch(e){}
-    return (j&&j.ok)?'ok':'fail';
-  }catch(e){ return 'fail'; }
-}
-/* 저장 뒤 안내 문구 — 캐시 갱신은 기다리지 않고 뒤에서 돌린다(실측 7초 / 92초).
-   기다리면 그동안 저장 버튼이 묶인다. 끝나면 문구만 바꾼다. */
+/* ⚡ 저장 뒤 안내 (홍팀장 2026-09-04 "지금 공지 하나 올렸는데 너무 느려").
+   2026-09-14부터는 원본이 Supabase라 저장하는 순간 서버가 카탈로그 사본까지 고친다 —
+   예전의 다시 굽기(fresh, 7~92초)와 따로 남기던 백업(bak)은 서버 저장에 들어가서 없앴다. */
 function bumpAndTell(logId){
-  bumpCatalogSnap().then(s=>{
-    const el=$p(logId); if(!el)return;
-    el.textContent = s==='ok'
-      ? '✅ 저장 완료 — 카탈로그에 지금 바로 반영됐습니다.'
-      : '✅ 저장 완료 — 카탈로그에는 3분 안에 반영됩니다.'
-        +(s==='notoken'?' (즉시 반영은 카탈로그에 로그인해 둔 브라우저에서만 됩니다)':'');
-  });
+  const el=$p(logId); if(el)el.textContent='✅ 저장 완료 — 카탈로그에 지금 바로 반영됐습니다.';
 }
 $p('rcSave').onclick=async function(){
   // 못 읽은 상태로 저장하면 시트가 지워진다 (공지와 같은 규칙)
@@ -1680,11 +1667,9 @@ $p('rcSave').onclick=async function(){
   const b=this;b.disabled=true;b.textContent='저장 중…';$p('rcLog').textContent='';
   try{
     const rows=REC.map((r,i)=>[r.name,r.cmt,r.show?'Y':'N',String(i+1),r.at||day(),r.news?'소식글':'추천']);
-    await writeTab('추천상품',{end:'F',length:6},rows,RECN);
+    await writeTab('추천상품',{end:'F',length:6},rows);
     RECN=REC.length;
     $p('rcStat').textContent=REC.length+'개 등록됨';
-    $p('rcLog').textContent='✅ 저장했습니다 — 카탈로그에 띄우는 중…';
-    bakSave('RECO',rows).then(s=>{ if(s==='fail'||s==='notoken')$p('rcLog').textContent+=' (백업은 못 남겼습니다)'; });
     bumpAndTell('rcLog');
   }catch(e){ $p('rcLog').textContent='⚠️ '+e.message; }
   finally{ b.disabled=false;b.textContent='💾 저장'; }
@@ -1699,9 +1684,9 @@ let NAMESP=null;
 function ngLoadNames(){
   NAMESP=(async function(){
     try{
-      const j=await S.api(DOGU,'/values/'+e1("'상품분류'!A2:A5000"));
+      const j=(await sb('tabget',{names:['상품분류']})).tabs['상품분류']||{rows:[]};   // 🗄 정본은 Supabase (2026-09-14)
       const seen={},op=[];
-      (j.values||[]).forEach(r=>{const n=t(r[0]);if(n&&!seen[n]){seen[n]=1;NAMES.add(n);op.push('<option value="'+esc(n)+'">');}});
+      (j.rows||[]).forEach(r=>{const n=t(r[0]);if(n&&!seen[n]){seen[n]=1;NAMES.add(n);op.push('<option value="'+esc(n)+'">');}});
       $p('rcDL').innerHTML=op.join('');
     }catch(e){}
   })();
@@ -1862,11 +1847,9 @@ $p('ncSave').onclick=async function(){
   const b=this;b.disabled=true;b.textContent='저장 중…';$p('ncLog').textContent='';
   try{
     const rows=NOT.map(n=>[n.title,n.body,n.show?'Y':'N',n.imp?'Y':'N',n.at||day()]);
-    await writeTab('공지사항',{end:'E',length:5},rows,NOTN);
+    await writeTab('공지사항',{end:'E',length:5},rows);
     NOTN=NOT.length;
     $p('ncStat').textContent=NOT.length+'건';
-    $p('ncLog').textContent='✅ 저장했습니다 — 카탈로그에 띄우는 중…';
-    bakSave('NOTICE',rows).then(s=>{ if(s==='fail'||s==='notoken')$p('ncLog').textContent+=' (백업은 못 남겼습니다)'; });
     bumpAndTell('ncLog');
   }catch(e){ $p('ncLog').textContent='⚠️ '+e.message; }
   finally{ b.disabled=false;b.textContent='💾 저장'; }
@@ -1889,19 +1872,10 @@ const pkey=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 const VOALL_RE=/^(전체|전체업체|모든업체|공통|all|\*)$/;
 const voIsAll=s=>VOALL_RE.test(pkey(s||''));
 const VOALL='전체';
-async function voEnsureTab(){
-  const j=await S.api(DOGU,':batchUpdate',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({requests:[{addSheet:{properties:{title:VOTAB}}}]})});
-  if(j&&j.error&&!/already exists|이미 존재/i.test(j.error.message||''))throw new Error(j.error.message);
-  await S.api(DOGU,'/values/'+e1("'"+VOTAB+"'!A1:E1")+'?valueInputOption=RAW',
-    {method:'PUT',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({values:[['업체명','상품명','창고','안내문','등록일']]})});
-}
 async function voLoad(){
   try{
-    let v;
-    try{ v=await readTab(VOTAB,'E'); }
-    catch(e){ await voEnsureTab(); v=[]; }        // 탭이 없으면 만들고 빈 목록으로 시작한다
+    /* 🔴 못 읽었을 때 «빈 목록으로 시작»하지 않는다 — 그 상태로 저장하면 업체 전용 상품이 다 사라진다. 에러로 막는다. */
+    const v=await readTab(VOTAB,'E');
     /* 창고는 안 쓴다 (홍팀장 2026-09-09 — "발주할 때 창고명 블랭크잖아").
        시트 C열은 옛 자료 때문에 남겨두되 읽지도 쓰지도 않는다. */
     VO=v.map(r=>({biz:t(r[0]),name:t(r[1]),note:t(r[3]),at:t(r[4])})).filter(x=>x.biz&&x.name);
@@ -1955,11 +1929,9 @@ $p('voSave').onclick=async function(){
   const b=this;b.disabled=true;b.textContent='저장 중…';$p('voLog').textContent='';
   try{
     const rows=VO.map(v=>[v.biz,v.name,'',v.note,v.at||day()]);   // C열(창고)은 안 쓴다
-    await writeTab(VOTAB,{end:'E',length:5},rows,VON);
+    await writeTab(VOTAB,{end:'E',length:5},rows);
     VON=VO.length;
     $p('voStat').textContent=VO.length+'건';
-    $p('voLog').textContent='✅ 저장했습니다 — 업체 화면에 띄우는 중…';
-    bakSave('VONLY',rows).then(s=>{ if(s==='fail'||s==='notoken')$p('voLog').textContent+=' (백업은 못 남겼습니다)'; });
     bumpAndTell('voLog');
   }catch(e){ $p('voLog').textContent='⚠️ '+e.message; }
   finally{ b.disabled=false;b.textContent='💾 저장'; }

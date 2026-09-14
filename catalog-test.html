@@ -2119,7 +2119,7 @@ function renderMoveBox(){
    ⚠️ 행을 지우지 않는다. 노출칸(C)을 'N' 으로 바꾼다.
       ① 잘못 눌러도 시트에서 Y 로 되돌리면 살아난다
       ② 행을 지우면 아래 행 번호가 전부 밀려서, 연달아 지울 때 엉뚱한 글이 사라진다
-   🔒 쓰기는 public 경로로 안 나간다 — SheetsProxy.call(팀 비밀번호)로만 나간다.
+   🔒 쓰기는 발주 서버(api 'tabrow')로만 나간다 — 서버가 마스터 토큰을 확인한다(2026-09-14, 예전엔 SheetsProxy.call 팀 비밀번호).
       카탈로그는 정적 페이지라 화면의 권한 검사는 소스를 뜯으면 지나칠 수 있다.
       비밀번호는 사장님·원비씨가 다른 도구에서 쓰던 그것이고 세션이 남아 있어 보통 안 묻는다. */
 /* kind → 도구시트 탭 · 사람한테 보일 이름.
@@ -2128,13 +2128,14 @@ const DELTAB={news:'소식글',notice:'공지사항',rec:'추천상품'};
 const DELWHAT={news:'소식글',notice:'공지',rec:'추천상품'};
 function delBtn(kind,n,cls,label){
   if(!(ME&&ME.master))return '';
-  return '<button class="'+(cls||'delb')+'" data-del="'+kind+':'+(n.i+2)+'" data-dt="'+esc(n.title||'')
+  return '<button class="'+(cls||'delb')+'" data-del="'+kind+':'+(n.i+2)+'" data-dt="'+esc(n.title||n.name||'')
     +'" title="이 '+(DELWHAT[kind]||'글')+'을 화면에서 내립니다">'+(label||'🗑')+'</button>';
 }
-async function adminHideRow(tab,row){
-  if(!window.SheetsProxy||!SheetsProxy.call)throw new Error('이 화면에선 지울 수 없습니다.');
-  await SheetsProxy.call(DOGU_ID+'/values/'+encodeURIComponent("'"+tab+"'!C"+row)+'?valueInputOption=RAW',
-    'PUT',JSON.stringify({values:[['N']]}));
+/* 🗄 2026-09-14 — 이 탭들의 원본은 Supabase다. 서버가 마스터 토큰을 확인하고,
+   줄 번호가 밀렸을 수 있어(상품도구에서 순서를 바꾸거나 지움) 첫 칸(제목·상품명)으로 그 줄이 맞는지 한 번 더 본다. */
+async function adminHideRow(tab,row,key){
+  if(!key)throw new Error('어느 글인지 확인하지 못했습니다. 새로고침 후 다시 해 주세요.');
+  await api('tabrow',{token:ME.token,name:tab,idx:row-2,match:{0:key},set:{2:'N'}});
 }
 document.addEventListener('click',async function(e){
   const b=e.target.closest('[data-del]'); if(!b)return;
@@ -2154,7 +2155,7 @@ document.addEventListener('click',async function(e){
   if(!confirm('이 '+what+'을 화면에서 내릴까요?\n\n'+(b.getAttribute('data-dt')||'')+'\n\n시트에는 남아 있어 되살릴 수 있습니다.'))return;
   b.disabled=true; b.textContent='…';
   try{
-    await adminHideRow(tab,row);
+    await adminHideRow(tab,row,b.getAttribute('data-dt')||'');
     if(kind==='news'){
       NEWS=(NEWS||[]).filter(n=>n.i+2!==row);
       if(location.hash.replace(/^#/,'')==='news')subV.innerHTML=renderNews(NEWS);
@@ -2181,7 +2182,7 @@ document.addEventListener('click',async function(e){
    "공지 수정 버튼도 만들어 주세요...... 제일 기본적인게 없네"
    지우기(🗑)만 있어서 오타 한 글자를 고치려면 내리고 상품도구에서 새로 써야 했다 —
    그러면 업체 화면에서 공지가 한 번 사라졌다 새 글로 다시 뜬다.
-   🔒 쓰기 규칙은 지우기와 똑같다 — 버튼은 마스터에게만 그리고, 저장은 SheetsProxy.call(팀 비밀번호)로만.
+   🔒 쓰기 규칙은 지우기와 똑같다 — 버튼은 마스터에게만 그리고, 저장은 발주 서버 tabrow(마스터 토큰 확인)로만.
    ⚠️ A:D(제목·내용·노출·중요)만 덮어쓴다. **작성일(E)은 손대지 않는다** —
       고쳤다고 날짜가 오늘로 바뀌면 옛 공지가 목록 맨 위로 올라온다. */
 function edtBtn(n){
@@ -2218,11 +2219,10 @@ async function ntcEditSave(){
   const title=$('ntcEdT').value.trim(), body=$('ntcEdB').value, imp=$('ntcEdI').checked;
   /* 제목이 빈 공지는 저장해도 다시 못 읽어온다(불러올 때 제목 없는 행은 버린다) — 유실을 여기서 막는다 */
   if(!title){ msg.textContent='⚠️ 제목은 비울 수 없습니다.'; return; }
-  if(!window.SheetsProxy||!SheetsProxy.call){ msg.textContent='⚠️ 이 화면에선 고칠 수 없습니다.'; return; }
   b.disabled=true; b.textContent='저장 중…'; msg.textContent='';
   try{
-    await SheetsProxy.call(DOGU_ID+'/values/'+encodeURIComponent("'공지사항'!A"+row+':D'+row)+'?valueInputOption=RAW',
-      'PUT',JSON.stringify({values:[[title,body,'Y',imp?'Y':'N']]}));
+    // 🗄 원본은 Supabase (2026-09-14) — 줄 번호 + 옛 제목·작성일로 그 공지가 맞는지 서버가 확인하고 A~D만 고친다
+    await api('tabrow',{token:ME.token,name:'공지사항',idx:row-2,match:{0:n.title,4:n.at||''},set:{0:title,1:body,2:'Y',3:imp?'Y':'N'}});
     n.title=title; n.body=body; n.imp=imp;
     /* 제목이 바뀌면 읽음 표시의 신원(제목+작성일)이 달라져 업체 화면엔 '안 읽은 공지'로 다시 뜬다 —
        내용이 바뀌었으니 그게 맞다. 다만 방금 고친 나까지 알림을 받을 필요는 없다. */
