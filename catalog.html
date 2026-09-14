@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.90</title>
+<title>마스터 유통 카탈로그 v23.91</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -2438,7 +2438,7 @@ async function loadRecs(){
       return true;
     })
     .sort((a,b)=>{
-      if(a.news!==b.news)return a.news?1:-1;                       // 추천이 먼저
+      if(a.news!==b.news)return a.news?-1:1;                       // 최근 소식글이 먼저 (홍팀장 2026-09-14), 그다음 추천
       if(a.news)return (b.at||'').localeCompare(a.at||'')||(a.i-b.i); // 소식글은 최신 먼저
       return (a.ord-b.ord)||(a.i-b.i);
     });

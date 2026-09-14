@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.50</title>
+<title>마스터 유통 상품 도구 v1.51</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1195,10 +1195,21 @@ function mirrorTab(tab,cols,rows){
 }
 
 /* ── 추천상품 ── */
+/* 📰 최근 소식글이 맨 위 (홍팀장 2026-09-14 "최근 쓴 소식글이 위로 와야 할거 아냐").
+   소식글 상품은 REC 끝에 push 돼서 ⭐추천 밑, 옛 소식글 밑으로 깔렸다.
+   순서: 살아있는 📰(등록일 최신 먼저) → ⭐추천(손으로 정한 순서 그대로) → 만료된 📰. 카탈로그 loadRecs 도 소식글 먼저. */
+function recDayNum(at){ const m=String(at||'').match(/(\d{4})[-.\/]\s*(\d{1,2})[-.\/]\s*(\d{1,2})/); return m?(+m[1])*10000+(+m[2])*100+(+m[3]):0; }
+function recSort(list){
+  const n=new Date(); n.setHours(0,0,0,0);
+  const grp=r=>{ if(!r.news)return 1; const k=recDayNum(r.at); if(!k)return 0;
+    const d=new Date(Math.floor(k/10000),Math.floor(k/100)%100-1,k%100); return Math.floor((n-d)/86400000)>=10?2:0; };
+  return list.map((r,i)=>({r,i,g:grp(r),k:recDayNum(r.at)}))
+    .sort((a,b)=>(a.g-b.g)||(a.g!==1?(b.k-a.k):0)||(a.i-b.i)).map(x=>x.r);
+}
 async function recLoad(){
   try{
     const v=await readTab('추천상품','F');
-    REC=v.map(r=>({name:t(r[0]),cmt:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',at:t(r[4]),news:t(r[5])==='소식글'})).filter(r=>r.name);
+    REC=recSort(v.map(r=>({name:t(r[0]),cmt:t(r[1]),show:(t(r[2])||'Y').toUpperCase()!=='N',at:t(r[4]),news:t(r[5])==='소식글'})).filter(r=>r.name));
     RECN=v.length;
     RECOK=true;
     $p('rcStat').textContent=REC.length+'개 등록됨';
@@ -1516,6 +1527,7 @@ $p('ngSave').onclick=async function(){
           REC.push({name:nm,cmt:'',show:true,at:day(),news:true});
           radd.push(nm);
         });
+        const s=recSort(REC); REC.length=0; s.forEach(r=>REC.push(r));   // 방금 올린 📰가 맨 위로
       };
       const recRows=()=>REC.map((r,i)=>[r.name,r.cmt,r.show?'Y':'N',String(i+1),r.at||day(),r.news?'소식글':'추천']);
       recApply();
