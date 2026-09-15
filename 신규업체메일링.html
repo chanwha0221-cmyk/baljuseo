@@ -365,10 +365,15 @@ async function addTab(name,header){
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{method:'POST',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:name}}}]})});
   if(header) await sheetPut(name,'A1',[header]);
 }
+/* 🔴 2026-09-15 메일링 목록 전멸 — 못 읽은 것을 빈 목록으로 돌려줬다.
+   프록시가 밀려 읽기가 실패한 순간 DATA=[] → 원비 옛 탭 4건을 "새로 합칠 것"으로 보고 save() → 탭 전체가 4건으로 덮였다.
+   → 읽기 실패는 **던진다.** 정말 빈 탭은 200 + values 없음이라 그대로 [] 다. */
 async function sheetGet(tab,range){
   const t=await getToken();
   const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab)}!${range}`,{headers:{Authorization:`Bearer ${t}`}});
-  return (await r.json()).values||[];
+  let j=null; try{ j=await r.json(); }catch(e){}
+  if(!r.ok || !j || j.error) throw new Error('시트 읽기 실패('+tab+'): '+((j&&j.error&&(j.error.message||j.error.status))||('HTTP '+r.status)));
+  return j.values||[];
 }
 async function sheetPut(tab,cell,values){
   const t=await getToken();
@@ -540,6 +545,7 @@ async function loadAll(){
     // 데이터 — 통합 탭
     const row9=r=>{const x=r.slice(0,9);while(x.length<9)x.push('');return x.map(v=>(v||'').toString().trim());};
     DATA=(await sheetGet(DATA_TAB,'A2:I100000')).map(row9).filter(r=>r[2]||r[0]);
+    LOADED=true;   // 🛡 여기까지 왔으면 통합 탭을 실제로 읽은 것이다 — 이 전엔 저장 금지
     DATA.forEach(r=>{ if(!r[8]) r[8]='홍찬화'; });   // 담당 비어있던 옛 행 = 찬화 것
     // 🔀 옛 원비 탭 → 통합 탭으로 흡수 (연락처·업체명 기준 중복 제외). 원비 탭 자체는 백업으로 남긴다.
     if(tabs.includes(LEGACY_WONBI_TAB)){
@@ -564,12 +570,27 @@ async function loadAll(){
 /* 🛡 업체명은 최신 시트에서 살린다 (홍팀장 2026-09-11 — (이름없음) 31곳을 썬더버드 보낸편지함 제목으로 채운 뒤)
    저장은 시트를 통째로 다시 쓰는데, 채우기 전에 열어둔 창(내 창·원비 창)의 DATA 는 업체명이 비어 있다.
    그 창에서 [기록]을 누르면 채운 이름이 도로 빈칸이 된다 → 쓰기 직전 시트를 읽어, 내 쪽이 비어 있는 업체명만 가져온다. */
-async function save(){
-  try{
-    const cur=await sheetGet(DATA_TAB,'A2:I100000'), nm={};
-    (cur||[]).forEach(r=>{ const k=pkeyN(r[2]); if(k&&String(r[0]||'').trim())nm[k]=r[0]; });
-    DATA.forEach(r=>{ if(!String(r[0]||'').trim()){ const v=nm[pkeyN(r[2])]; if(v)r[0]=v; } });
-  }catch(e){ console.warn('업체명 병합 건너뜀',e); }
+/* 🛡 2026-09-15 전멸 사고 뒤 — 저장은 탭을 통째로 다시 쓰므로 **줄어드는 저장**을 막는다.
+   ① 목록을 한 번도 제대로 못 읽은 창(LOADED=false)은 저장하지 않는다.
+   ② 쓰기 직전 시트 줄 수를 읽어, 이번 동작이 일부러 지우는 줄 수(opts.drop)보다 더 줄어들면 거절한다.
+      다른 사람이 방금 넣은 줄을 옛 창이 덮는 것도 여기서 걸린다 → "새로고침 후 다시".
+   ③ 그 확인 읽기가 실패하면 저장하지 않는다(확인 못 한 채 덮지 않는다). */
+let LOADED=false;
+async function save(opts){
+  const drop=(opts&&opts.drop)||0;
+  if(!LOADED){ setStatus('저장 안 함 — 목록을 못 읽은 창'); toast('⚠️ 목록을 제대로 못 읽은 창이라 저장하지 않았어요. 새로고침 후 다시 해주세요.'); throw new Error('not loaded'); }
+  let cur;
+  try{ cur=await sheetGet(DATA_TAB,'A2:I100000'); }
+  catch(e){ setStatus('저장 안 함 — 시트 확인 실패'); toast('⚠️ 시트를 확인하지 못해 저장하지 않았어요. 잠시 후 새로고침해서 다시 해주세요.'); throw e; }
+  const curRows=(cur||[]).filter(r=>(r[2]||'').toString().trim()||(r[0]||'').toString().trim());
+  if(DATA.length < curRows.length - drop){
+    setStatus('저장 안 함 — 목록이 줄어듦');
+    toast('⚠️ 시트엔 '+curRows.length+'곳인데 이 창은 '+DATA.length+'곳이라 저장을 막았어요. 새로고침 후 다시 해주세요.');
+    throw new Error('shrink blocked '+curRows.length+'→'+DATA.length);
+  }
+  const nm={};
+  curRows.forEach(r=>{ const k=pkeyN(r[2]); if(k&&String(r[0]||'').trim())nm[k]=r[0]; });
+  DATA.forEach(r=>{ if(!String(r[0]||'').trim()){ const v=nm[pkeyN(r[2])]; if(v)r[0]=v; } });
   await dataReplace(DATA);
 }
 
@@ -1048,7 +1069,7 @@ document.addEventListener('click',async e=>{
     b.disabled=true;
     try{
       DATA.splice(i,1); render(); renderPros();
-      setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('보낸 기록을 지웠습니다');
+      setStatus('저장 중…'); await save({drop:1}); setStatus('저장됨'); toast('보낸 기록을 지웠습니다');
     }catch(err){ alert('저장하지 못했습니다\n\n'+(err.message||err)); b.disabled=false; }
     return;
   }
@@ -1164,9 +1185,9 @@ async function fuDelete(chan){
   const names=idx.map(i=>DATA[i][0]||DATA[i][2]).slice(0,5).join(', ');
   if(!confirm(idx.length+'곳을 메일링 목록에서 완전히 삭제할까요? (메일 거부 업체 등)\n\n'+names+(idx.length>5?' 외 '+(idx.length-5)+'곳':''))) return;
   idx.sort((a,b)=>b-a).forEach(i=>{ DATA.splice(i,1); });  // 뒤에서부터 삭제 — 인덱스 안 밀리게
-  render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast(idx.length+'곳 삭제됨');
+  render(); setStatus('저장 중…'); await save({drop:idx.length}); setStatus('저장됨'); toast(idx.length+'곳 삭제됨');
 }
-async function delRow(i){ if(!confirm(`'${DATA[i][0]||DATA[i][2]}' 삭제할까요?`))return; DATA.splice(i,1); render(); setStatus('저장 중…'); await save(); setStatus('저장됨'); toast('삭제됨'); }
+async function delRow(i){ if(!confirm(`'${DATA[i][0]||DATA[i][2]}' 삭제할까요?`))return; DATA.splice(i,1); render(); setStatus('저장 중…'); await save({drop:1}); setStatus('저장됨'); toast('삭제됨'); }
 function editRow(i){
   const r=DATA[i]; editIdx=i;
   $('e-name').value=r[0]||''; $('e-chan').value=r[1]||'이메일'; $('e-contact').value=r[2]||'';
