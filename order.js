@@ -401,8 +401,10 @@ function hapLimit(name){ try{ return (typeof HAP !== 'undefined' && HAP) ? (HAP[
 /* 🚚 단독(무) 탭 = 무료배송 상품 — 한 개씩 따로 출고한다 (홍팀장 2026-09-14).
    「단독(무) 상품 x 2」로 들어오면 「x 1」 두 건으로 나간다. 다른 상품과도 한 줄로 묶지 않는다.
    업체가 **넣는 순간** 줄 아래에 알리고, 발주서도 그대로 잘라서 낸다(아래 buildOut). */
-const FREE_WH = '단독(무)';
-const isFreeShip = p => !!p && S(p.group) === FREE_WH;
+/* 🎁 2026-09-15 홍팀장 — 단독(선물) 탭도 전부 무료배송 선물세트라 똑같이 1개씩 나눠 나간다
+   ("VIP 굴비 선물세트 x 9 → 9줄"). 탭이 더 생기면 이 목록에만 넣는다. */
+const FREE_WHS = ['단독(무)', '단독(선물)'];
+const isFreeShip = p => !!p && FREE_WHS.indexOf(S(p.group)) >= 0;
 /* 📦 26개를 한 상자 10개 기준으로 → [10,10,6]. 검증 경고와 실제 발주서 분리가 **같은 셈**을 써야
    "이렇게 나눠 넣습니다"와 실제 나간 줄이 어긋나지 않는다 (홍팀장 2026-09-10). */
 function capChunks(qty, cap){
