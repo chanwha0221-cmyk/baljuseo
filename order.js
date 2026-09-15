@@ -164,6 +164,16 @@ async function loadVRules(){
 window.loadVRules = loadVRules;
 /* 지금 이 발주가 누구 것인지로 규칙을 고른다 — 마스터면 고른 업체, 업체면 자기 계정.
    한 업체가 양식을 여러 개 쓰면 머리글이 더 많이 맞는 규칙을 쓴다. */
+/* 🚩 업체 특성 깃발 — 칸 매핑(headers)과 별개로, 그 업체 규칙들 중 **하나라도** 켜 둔 값을 본다 (2026-09-15).
+   예: 티알에스큐 {emptyOtel:'rcv'} = 주문처 연락처가 비면 받는분 연락처. 양식 규칙이 여러 개여도 깃발은 업체 단위다. */
+function vflag(key){
+  const who = (typeof amMaster === 'function' && amMaster())
+    ? (FOR || {}) : ((typeof ME !== 'undefined' && ME) ? ME : {});
+  const id = pkey(S(who.id || ''));
+  if(!id) return undefined;
+  const hit = VRULES.find(r => pkey(S(r.account_id)) === id && r.rule && r.rule[key] !== undefined);
+  return hit ? hit.rule[key] : undefined;
+}
 function vrule(head){
   const who = (typeof amMaster === 'function' && amMaster())
     ? (FOR || {}) : ((typeof ME !== 'undefined' && ME) ? ME : {});
@@ -606,12 +616,13 @@ function buildOut(){
        저장된 게 없으면 예전대로 주문처(계정) 연락처로 나간다 — 발주를 막지는 않는다. */
     const sh = biz ? shipOf(biz) : null;
     const fTel = S(g.otel);                                 // ☎ 파일에 적혀 온 그 채널의 주문 연락처
-    /* 👤 주문처 = 받는분이면(본인이 받는 선물 — 2026-09-15 티알에스큐 박만진→박만진, 주문처 연락처 칸 비어 옴)
-       받는분 연락처가 곧 그 주문처 번호다(홍팀장: "박만진은 받는 사람 연락처 넣으래").
-       ⚠️ 이름이 다른 송장명(채널)에는 여전히 받는분 번호를 쓰지 않는다 — 저장 번호 → 주문처(계정) 번호 순. */
-    const selfTel = (biz && S(g.rcv) && pkey(g.rcv) === pkey(biz)) ? tel : '';
+    /* ☎ 주문처 연락처 규칙 (홍팀장 2026-09-15 확정 — "번호가 채워져 있으면 그걸 써, 비어 있는 것만 생각하면 된다"):
+         ① 파일에 번호가 있으면 그 번호  ② 비어 있으면 원래 업체(주문처) 연락처
+         ③ 예외는 **업체 규칙(Supabase vendor_rules)의 emptyOtel:'rcv'** 인 업체만 — 비어 있으면 받는분 연락처 (티알에스큐).
+       🔴 업체 특성은 코드에 박지 말고 그 업체 규칙에 저장한다. 처음엔 「주문처=받는분이면 받는분 번호」를 모든 업체 공통으로 박았다가 질책받았다. */
+    const rcvTel = (!fTel && biz && vflag('emptyOtel') === 'rcv') ? tel : '';
     const oTel = fTel ? (fmtTel(fTel) || fTel)
-                : selfTel ? selfTel
+                : rcvTel ? rcvTel
                 : (sh && S(sh.phone)) ? (fmtTel(sh.phone) || S(sh.phone))
                 : myTel;
     /* 🔒 주소는 거래처 표의 "안 씀" 규칙을 먼저 통과해야 실린다 (홍팀장 2026-09-04).
@@ -1241,17 +1252,18 @@ function shipOf(name){
 /* 🔴 2026-09-15 티알에스큐 — 파일에 「주문처 연락처」가 이미 들어 있는데 5곳 전부 "이 출고지 연락처 넣으라"고 물었다
    (홍팀장: "파일에 있잖아, 들어가 있는 거 사용해"). 번호가 이미 정해지는 이름은 묻지 않는다:
      ① 그 이름의 줄마다 파일에서 온 주문처 연락처(otel)가 있다 → 그 번호로 나간다
-     ② 주문처 = 받는분(본인이 받는 선물 — 박만진→박만진) → 받는분 연락처가 곧 그 사람 번호다(buildOut 참고) */
+     ② 업체 규칙이 emptyOtel:'rcv'(티알에스큐) → 비어 있으면 받는분 연락처로 나간다(buildOut 참고) */
 function shipsInRows(){
   const me = orderer(), out = [];
   const byName = new Map();
+  const rcvRule = vflag('emptyOtel') === 'rcv';
   ROWS.forEach(r => {
     const b = S(r.biz);
     if(!b) return;
     if(S(me.name) && pkey(b) === pkey(me.name)) return;
     const k = pkey(b);
     if(!byName.has(k)) byName.set(k, {name:b, need:false});
-    const telDecided = S(r.otel) || (S(r.rcv) && pkey(r.rcv) === k && S(r.tel));
+    const telDecided = S(r.otel) || (rcvRule && S(r.tel));
     if(!telDecided) byName.get(k).need = true;
   });
   byName.forEach(v => { if(v.need) out.push(v.name); });
