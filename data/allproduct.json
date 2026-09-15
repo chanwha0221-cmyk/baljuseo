@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-15 10:38",
+ "updatedAt": "2026-09-15 13:31",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -10215,7 +10215,7 @@
    "tax": "면세",
    "courier": "롯데택배",
    "shipFee": 0,
-   "orderCutoff": "",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/670/410/025/dacea81415eaf45f148b7164a865af63.png",
    "note": ""
@@ -10567,6 +10567,22 @@
    "orderCutoff": "오전마감 : 10시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/820/237/024/a3b6608a0dc24ff49bee2f7630e28373.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(무)",
+   "sourceWarehouse": "호반",
+   "category": "",
+   "name": "푸짐 소머리 반두 세트 7kg",
+   "spec": [],
+   "supplyPrice": 62000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "로젠택배",
+   "shipFee": 0,
+   "orderCutoff": "오후마감 : 14시",
+   "shelfLife": "",
+   "image": "",
    "note": ""
   },
   {
