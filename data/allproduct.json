@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-15 10:20",
+ "updatedAt": "2026-09-15 10:38",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -978,7 +978,7 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "",
+   "category": "수산",
    "name": "급냉 손질곰치 세트 1kg",
    "spec": [
     "※ 원산지 : 국내산(동해)",
@@ -7457,6 +7457,30 @@
   },
   {
    "warehouse": "단독(유)",
+   "sourceWarehouse": "이성",
+   "category": "수산",
+   "name": "활 홍가리비 1kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 홍가리비 1kg",
+    "※ 중량/ 사이즈 : 홍가리비 1kg/ 20-25미 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 홍가리비 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 특이사항 : 생물 대사작용으로 인한 중량감소 10프로 내외"
+   ],
+   "supplyPrice": 4800,
+   "previousPrice": 5000,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/074/340/025/e1adce66d5ad02181c8539313af120ff.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(유)",
    "sourceWarehouse": "푸카",
    "category": "가공식품",
    "name": "찐 불향 오징어제육볶음 300g",
@@ -7591,30 +7615,6 @@
    "orderCutoff": "오후마감 : 12시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/078/336/025/3261f3cf4faf939d2104d779c4526509.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "단독(유)",
-   "sourceWarehouse": "이성",
-   "category": "수산",
-   "name": "활 홍가리비 1kg",
-   "spec": [
-    "※ 원산지 : 국내산",
-    "※ 구성 : 홍가리비 1kg",
-    "※ 중량/ 사이즈 : 홍가리비 1kg/ 20-25미 내외",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 홍가리비 100%",
-    "※ 포장방식 : 비닐포장",
-    "※ 특이사항 : 생물 대사작용으로 인한 중량감소 10프로 내외"
-   ],
-   "supplyPrice": 4800,
-   "previousPrice": 5000,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/074/340/025/e1adce66d5ad02181c8539313af120ff.jpg",
    "note": ""
   },
   {
@@ -8877,7 +8877,7 @@
   },
   {
    "warehouse": "단독(유)",
-   "sourceWarehouse": "고령",
+   "sourceWarehouse": "",
    "category": "가공식품",
    "name": "대도리탕 밀키트 1kg",
    "spec": [
@@ -10200,7 +10200,7 @@
   {
    "warehouse": "단독(무)",
    "sourceWarehouse": "군컬",
-   "category": "",
+   "category": "수산",
    "name": "프리미엄 꽃멸치 1박스",
    "spec": [
     "※ 원산지 : 국내산",
@@ -11908,7 +11908,7 @@
   {
    "warehouse": "단독(선물)",
    "sourceWarehouse": "디디",
-   "category": "",
+   "category": "수산",
    "name": "S급 러시아 박달대게 3kg 선물세트",
    "spec": [
     "※ 원산지 : 러시아",
