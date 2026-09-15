@@ -3183,6 +3183,25 @@ document.addEventListener('click', e => {
       const was = S(ROWS[i].name), k = pkey(was), nm = pick.getAttribute('data-pick');
       const hit = [];
       ROWS.forEach((r, j) => { if(pkey(S(r.name)) === k) hit.push(j); });
+      /* ⚖️ 원문 무게 ÷ 고른 상품 규격 = 수량 (홍팀장 2026-09-15 대상수산, 2시 마감 — "선택을 하니까 다 1개로 바뀌잖아 대참사").
+         대상수산 파일은 수량 칸이 없고 「. 연안 활 大숫꽃게 3k」「. 프리미엄 초벌 고창 풍천장어 3k」처럼 **무게로** 적어 온다.
+         고른 게 「연안 활 대숫게 1kg」이면 3개, 「프리미엄 초벌 풍천장어 1.5kg」이면 2개다.
+         🔴 나눠 떨어질 때만 바꾼다(2k → 1.5kg 처럼 안 떨어지면 수량은 그대로 두고 알린다). 원문이 규격보다 작거나 같으면 안 건드린다. */
+      const kgOf = s => {
+        const all = [...String(s || '').matchAll(/(\d+(?:\.\d+)?)\s*(kg|k|g)(?![a-z])/gi)];
+        if(!all.length) return 0;
+        const m = all[all.length - 1], v = parseFloat(m[1]);
+        return /^g$/i.test(m[2]) ? v / 1000 : v;
+      };
+      const unit = kgOf(nm), qtyMsg = [];
+      hit.forEach(j => {
+        const src = kgOf(S(ROWS[j].name));
+        if(!(unit > 0 && src > unit)) return;
+        const ratio = src / unit, n = Math.round(ratio);
+        const base = parseInt(S(ROWS[j].qty), 10) || 1;
+        if(Math.abs(ratio - n) < 1e-6){ ROWS[j].qty = String(n * base); qtyMsg.push(n * base); }
+        else qtyMsg.push('?');
+      });
       // 🐟 업체가 적어 온 삭힘정도는 상품을 바꿔도 살린다 — 여기서 날아가던 것이었다 (홍팀장 2026-09-02)
       hit.forEach(j => {
         // 🦴 (뼈,머리 포함) 도 같은 식으로 살린다 — 카드에서 「뼈·머리 포함」을 골랐거나 원래 적혀 있었으면
@@ -3191,7 +3210,10 @@ document.addEventListener('click', e => {
         delete FIND[j];
       });
       OPEN = -1; saveDraft(); paint();
-      toast(hit.length > 1 ? (hit.length + '줄을 「' + nm + '」 으로 바꿨습니다') : '상품을 바꿨습니다');
+      const qn = qtyMsg.filter(x => x !== '?'), qBad = qtyMsg.length - qn.length;
+      toast((hit.length > 1 ? (hit.length + '줄을 「' + nm + '」 으로 바꿨습니다') : '상품을 바꿨습니다')
+        + (qn.length ? ' · 원문 무게로 수량 ' + qn.join('/') + '개' : '')
+        + (qBad ? ' · ⚠️ ' + qBad + '줄은 무게가 규격으로 안 나눠져 수량을 그대로 뒀습니다 — 확인하세요' : ''));
     }
     return;
   }
