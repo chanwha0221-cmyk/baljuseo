@@ -280,6 +280,11 @@ const stripBone  = nm => S(nm).replace(BONE_RE, '').trim();
 const hasBone    = nm => BONE_RE.test(S(nm));
 const canBone    = nm => BONE_SET.has(String(stripBone(stripAge(nm))).replace(/\s+/g, '').toLowerCase());
 const withBone   = (nm, on) => on ? (stripBone(nm) + ' (' + BONE_TAG + ')') : stripBone(nm);
+/* 🦴 발주서 표기는 「특왕 민물장어 1kg x 1 (뼈,머리 포함)」 — 수량 **뒤**에 붙인다 (홍팀장 2026-09-15).
+   예전엔 「… 1kg (뼈,머리 포함) x 1」로 나갔다. 화면 안에서는 이름에 붙여 들고 다니고, 글자로 내보낼 때만 뒤로 뺀다.
+   🔴 읽어 들이는 곳(발주내역 중복검사·수량수정·서버 이름대조)은 boneBack 으로 **옛/새 표기 둘 다** 같은 상품으로 본다. */
+const itemText   = (nm, qty) => hasBone(nm) ? (stripBone(nm) + ' x ' + qty + ' (' + BONE_TAG + ')') : (S(nm) + ' x ' + qty);
+const boneBack   = s => S(s).replace(/\s*[xX×]\s*(\d+)\s*[\(（]\s*뼈\s*,\s*머리\s*포함\s*[\)）]\s*$/, ' (' + BONE_TAG + ') x $1');
 /* ✖ 상품명 **끝**에 붙은 배수 — 「특왕 민물장어 1kg*2 (머리뼈포함)」 = 1kg 두 개 (홍팀장 2026-09-11, 아따).
    파일로 읽을 때(headerItems)만 떼던 것을 줄 확인(checkRow)·상품 찾기(findProd)에서도 뗀다 — 표에 그대로
    들어온 줄은 상품도 못 찾고 수량도 안 곱해졌다. 뒤에 (뼈,머리 포함)·(중수)가 붙어 있어도 그걸 걷어내고 본다.
@@ -611,10 +616,10 @@ function buildOut(){
       if(it.free || (cap && it.qty > cap)) solo.push({name:it.name, base:it.base, qty:it.qty, cap:cap, free:it.free});
       else rest.push(it);
     });
-    if(rest.length) put(rest.map(it => it.name + ' x ' + it.qty).join(' / '));
+    if(rest.length) put(rest.map(it => itemText(it.name, it.qty)).join(' / '));
     solo.forEach(it => {
       const chunks = capChunks(it.qty, it.cap);
-      chunks.forEach(n => put(it.name + ' x ' + n));
+      chunks.forEach(n => put(itemText(it.name, n)));
       if(it.free && it.qty <= 1) return;
       warn.push(it.free
         ? '🚚 ' + it.name + ' — 무료배송 상품이라 x 1 / ' + it.qty + '건으로 나눠 넣었습니다.'
@@ -1635,7 +1640,7 @@ function dupKeyOf(r){
    ⚠️ 규격이 다르면(1kg / 500g) 이름이 달라 안 잡힌다. 이름이 **완전히 같을 때만**(§3-3). */
 const pkeyO = s => String(s || '').replace(/\s+/g, '').toLowerCase();
 function splitProds(prod){
-  return S(prod).split('/').map(s => s.trim()).filter(Boolean).map(it => {
+  return S(prod).split('/').map(s => boneBack(s.trim())).filter(Boolean).map(it => {
     const m = it.match(/\s*[xX×]\s*(\d+)\s*$/);
     return { name: m ? it.slice(0, m.index).trim() : it, qty: m ? parseInt(m[1], 10) : 1 };
   });
@@ -1868,7 +1873,7 @@ function syncFbtn(){
    서버도 이름을 대조해서 다르면 거부한다 — 화면만 막아두면 막은 게 아니다. */
 function splitProd(s){
   return S(s).split('/').map(x => {
-    const t = S(x), m = t.match(/^(.*?)\s*[xX×]\s*(\d+)$/);
+    const t = boneBack(x), m = t.match(/^(.*?)\s*[xX×]\s*(\d+)$/);
     return m ? {name:S(m[1]), qty:m[2]} : {name:t, qty:''};
   });
 }
@@ -3258,10 +3263,10 @@ document.addEventListener('click', e => {
       const g = f => { const el = document.querySelector('.ein[data-no="' + no + '"][data-seq="' + seq + '"][data-f="' + f + '"]'); return el ? S(el.value) : ''; };
       // 상품 칸은 이름은 그대로 두고 수량만 새로 조립한다
       const qs = Array.from(document.querySelectorAll('.qin[data-no="' + no + '"][data-seq="' + seq + '"]'));
-      const prod = qs.length ? qs.map(q => q.getAttribute('data-name') + ' x ' + S(q.value)).join(' / ') : undefined;
+      const prod = qs.length ? qs.map(q => itemText(q.getAttribute('data-name'), S(q.value))).join(' / ') : undefined;
       return {seq, prod, rcv:g('rcv'), addr:g('addr'), tel:(fmtTel(g('tel')) || S(g('tel'))), msg:g('msg')};
     });
-    const badQ = edits.find(x => x.prod !== undefined && !/^(.+ x [1-9]\d*)( \/ .+ x [1-9]\d*)*$/.test(x.prod));
+    const badQ = edits.find(x => x.prod !== undefined && !/^(.+ x [1-9]\d*( \(뼈,머리 포함\))?)( \/ .+ x [1-9]\d*( \(뼈,머리 포함\))?)*$/.test(x.prod));
     if(badQ){ alert('수량은 1 이상 숫자로 넣어주세요.'); return; }
     const bad = edits.find(x => !x.rcv || !x.addr || !x.tel);
     if(bad){ alert('성함 · 주소 · 연락처는 비울 수 없습니다.'); return; }
