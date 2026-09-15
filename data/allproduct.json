@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-15 09:34",
+ "updatedAt": "2026-09-15 10:20",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -719,6 +719,30 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "충무",
+   "category": "수산",
+   "name": "통통 자연산 참돔회 300g",
+   "spec": [
+    "※ 원산지 : 국내산 (통영)",
+    "※ 구성 : 자연산 참돔회 300g + 모듬초장",
+    "※ 중량/사이즈 : 300g (껍질 제거 후 순살 기준)",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 참돔 100%",
+    "※ 포장방식 : 빙장포장, 스킨포장.",
+    "※ 특이사항 : 당일 손질, 뼈 제거, 껍질 제거 완료. 원물 2-3kg급 사용."
+   ],
+   "supplyPrice": 15500,
+   "previousPrice": 15000,
+   "tax": "면세",
+   "courier": "씨제이대한통운/롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/966/245/025/be2ff410551c0abf6a1d4a7e83a5f6ac.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "진수",
    "category": "수산",
    "name": "탱탱 생물 오징어 1kg",
@@ -956,7 +980,14 @@
    "sourceWarehouse": "동해",
    "category": "",
    "name": "급냉 손질곰치 세트 1kg",
-   "spec": [],
+   "spec": [
+    "※ 원산지 : 국내산(동해)",
+    "※ 구성 : 곰치세트 1팩",
+    "※ 중량/ 사이즈 : 곰치 1팩 1kg, 지리탕소스 70g",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 곰치 75%, 곰치알 15%, 곰치간 8%,곰치위 2%,지리탕소스[정제수,정제소금(국산),멸치엑기스[멸치추출농축액-1 40%[멸치10%: 국산),덱스트린,정제수,정제소금(국산),글리신(향미증진제),혼합간장[아미노산간장(탈지대두:외국산),정제수,정제소금(국산), 양조간장-HO(탈지대두:외국산) 물엿],백설탕,조개엑기스,물엿, L-글루탐산나트륨(향미증진제), 멸치분말(국산),다시마액기스,덱스트린, 5-리보뉴클레오티드이나트륨(향미증진제),무분말, 게엑기스분말,새우엑기스분말,홍합액기스분말,마늘농축액,양파분말,호박산이나트륨, 잔탄검,신키퍼NO.3,구연산,파라옥시 안식향산에틸(합성보존료)0.02%이하]",
+    "※ 포장방식 : 트레이포장"
+   ],
    "supplyPrice": 16000,
    "previousPrice": null,
    "tax": "면세",
@@ -964,7 +995,7 @@
    "shipFee": 4000,
    "orderCutoff": "",
    "shelfLife": "27-03-20",
-   "image": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/708/964/024/c0999eff2022665a463a9f291a5cb44e.jpg",
    "note": ""
   },
   {
@@ -1389,29 +1420,6 @@
   {
    "warehouse": "동해",
    "sourceWarehouse": "동해",
-   "category": "수산",
-   "name": "손질 명태포 700g",
-   "spec": [
-    "※ 원산지 : 러시아산",
-    "※ 구성 : 명태포 1팩",
-    "※ 중량/ 사이즈 : 700g",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 명태 99.98%, 폴리인산나트륨(가공지 : 중국)",
-    "※ 포장방식 : 비닐실링"
-   ],
-   "supplyPrice": 3500,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/109/863/024/641b68e948fbc3415c08da17bafcdfea.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "동해",
-   "sourceWarehouse": "동해",
    "category": "김치·반찬",
    "name": "황금 암꽃게장 2kg",
    "spec": [
@@ -1525,29 +1533,6 @@
    "orderCutoff": "오후마감 : 14시",
    "shelfLife": "27-07-20",
    "image": "https://masterc.co.kr/files/attach/images/8333658/538/406/025/8450471fbab0c0b9f2ecf880786868a3.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "동해",
-   "sourceWarehouse": "동해",
-   "category": "가공식품",
-   "name": "만능 해각포 50g",
-   "spec": [
-    "※ 원산지 : 국내산",
-    "※ 구성 : 해각포 1팩",
-    "※ 중량/ 사이즈 : 50g",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 붉은대게 100%",
-    "※ 포장방식 : 기타포장(지퍼백)"
-   ],
-   "supplyPrice": 9000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/465/900/024/aad186c320decfd217f9e6218595799e.jpg",
    "note": ""
   },
   {
@@ -1881,29 +1866,6 @@
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/848/112/025/d7764aeadc689be40f7f4b002e347dff.jpg",
    "note": "- 상품명 : 봄 제철 중산 쭈꾸미 2kg > 봄 제철 쭈꾸미 2kg\n급냉 주꾸미 입니다."
-  },
-  {
-   "warehouse": "동해",
-   "sourceWarehouse": "동해",
-   "category": "수산",
-   "name": "자숙골뱅이 500g",
-   "spec": [
-    "※ 원산지 : 국내산",
-    "※ 구성 :  자숙 골뱅이 1팩",
-    "※ 중량/사이즈 :  500g",
-    "※ 생물여부 : 자숙 후 급냉",
-    "※ 성분표시 :  골뱅이 100%",
-    "※ 포장방식 :  비닐실링"
-   ],
-   "supplyPrice": 3500,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/342/266/025/ed64626661cccd2fb095303301434261.jpg",
-   "note": ""
   },
   {
    "warehouse": "동해",
@@ -3726,29 +3688,6 @@
    "warehouse": "군산",
    "sourceWarehouse": "군산",
    "category": "수산",
-   "name": "군산 순살 임연수 1팩",
-   "spec": [
-    "※ 구성 : 순살 임연수 1팩",
-    "※ 중량/ 사이즈 : 1팩 48-58g",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 임연수 99.5%, 천일염0.5%",
-    "※ 포장방식 : 진공포장",
-    "※ 특이사항 : 큰 뼈는 전부 제거하나,"
-   ],
-   "supplyPrice": 1000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/418/404/025/b78b9f5e0de3982d280f9b5ca76f7a20.jpg",
-   "note": "-스펙변경 : 임연수 99.5%, 천일염0.5% -> 임연수 100%"
-  },
-  {
-   "warehouse": "군산",
-   "sourceWarehouse": "군산",
-   "category": "수산",
    "name": "무염 특대 황금 알가자미 3미",
    "spec": [
     "※ 원산지 : 가자미(서해안)",
@@ -5280,29 +5219,6 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/684/689/006/733c026ed629d9285b09cb0e586941bf.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "인천",
-   "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 반건조 알가자미 1팩",
-   "spec": [
-    "※ 원산지 : 국내산",
-    "※ 구성 : 반건조 알가자미",
-    "※ 중량/ 사이즈 : 750g내외/5미 내외",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 가자미 100%",
-    "※ 포장방식 : 비닐실링"
-   ],
-   "supplyPrice": 16000,
-   "previousPrice": 15000,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/777/690/006/f814bd8a87fb4552057ab6bf6b2a519d.jpg",
    "note": ""
   },
   {
@@ -7685,7 +7601,7 @@
    "spec": [
     "※ 원산지 : 국내산",
     "※ 구성 : 홍가리비 1kg",
-    "※ 중량/ 사이즈 : 홍가리비 1kg/ 35미 내외",
+    "※ 중량/ 사이즈 : 홍가리비 1kg/ 20-25미 내외",
     "※ 생물여부 : 생물",
     "※ 성분표시 : 홍가리비 100%",
     "※ 포장방식 : 비닐포장",
@@ -10286,7 +10202,14 @@
    "sourceWarehouse": "군컬",
    "category": "",
    "name": "프리미엄 꽃멸치 1박스",
-   "spec": [],
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 세멸, 꽃새우",
+    "※ 중량/ 사이즈 : 벌크포장 1.5kg / 세멸 / 미수많음",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 :  멸치95% 꽃새우5%",
+    "※ 포장방식 : 박스포장"
+   ],
    "supplyPrice": 21000,
    "previousPrice": null,
    "tax": "면세",
@@ -10294,7 +10217,7 @@
    "shipFee": 0,
    "orderCutoff": "",
    "shelfLife": "-",
-   "image": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/670/410/025/dacea81415eaf45f148b7164a865af63.png",
    "note": ""
   },
   {
@@ -11987,7 +11910,14 @@
    "sourceWarehouse": "디디",
    "category": "",
    "name": "S급 러시아 박달대게 3kg 선물세트",
-   "spec": [],
+   "spec": [
+    "※ 원산지 : 러시아",
+    "※ 구성 :  S급 러시아 박달대게 2~4마리",
+    "※ 중량/사이즈 :  3kg급 (자숙 전 원물 기준) 자숙시 중량감소 20~30%, 자숙 후 수율 8~90%",
+    "※ 생물여부 : 자숙(완조리 후 신선 배송)",
+    "※ 성분표시 :  대게 100%",
+    "※ 포장방식 :  고급 선물용 전용 박스 + 부직포 + 아이스팩 + 게포크 2개"
+   ],
    "supplyPrice": 87000,
    "previousPrice": null,
    "tax": "면세",
@@ -11995,7 +11925,7 @@
    "shipFee": 0,
    "orderCutoff": "",
    "shelfLife": "-",
-   "image": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/688/409/025/35c1599c33cec58a4dbb1b6dbad480f8.jpg",
    "note": ""
   },
   {
