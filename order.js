@@ -413,6 +413,21 @@ function capChunks(qty, cap){
   for(let left = qty; left > 0; left -= cap) out.push(Math.min(cap, left));
   return out;
 }
+/* 📦 원본 줄 단위를 살려서 나눈다 (홍팀장 2026-09-15 — 김태서 「大숫꽃게 5k」 두 줄이 합쳐져 한도 8로 8+2가 됐다:
+   "넣어주신 원본 최대한 맞춰서 키로수 맞추자"). 원본 줄(parts)을 쪼개지 않고 앞에서부터 한 상자(cap)에 들어가는 만큼만 묶는다.
+   5+5 (한도 8) → 5 / 5 · 1개짜리 26줄 (한도 10) → 10 / 10 / 6. 한 줄이 한도보다 크면 그 줄만 capChunks 로 자른다. */
+function packParts(parts, cap){
+  if(!(cap > 0) || !Array.isArray(parts) || parts.length < 2) return null;
+  const out = [];
+  let cur = 0;
+  parts.forEach(n => {
+    if(n > cap){ if(cur){ out.push(cur); cur = 0; } capChunks(n, cap).forEach(x => out.push(x)); return; }
+    if(cur + n > cap){ out.push(cur); cur = 0; }
+    cur += n;
+  });
+  if(cur) out.push(cur);
+  return out;
+}
 /* 💰 단가숨김 업체 (홍팀장 2026-08-31, 빅피쉬) — 카탈로그 쪽 noPrice()와 같은 뜻.
    이름을 달리 쓰는 건 catalog.html이 전역 const noPrice 를 이미 잡고 있어서다
    (같은 이름으로 또 선언하면 order.js가 통째로 안 돌아간다 — 발주가 죽는다). */
@@ -620,12 +635,13 @@ function buildOut(){
          ⚠️ 이날 한 번 끈 뒤 말을 거꾸로 알아듣고 되살렸다가 다시 껐다. **되살리지 말 것.** 박스 한도(lim)로 나누기는 그대로. */
       const cap = it.free ? 1 : (it.lim || 0);
       // 🚚 무료배송은 1개여도 제 줄로 — 다른 상품 뒤에 「/」로 붙으면 창고가 한 상자로 묶는다
-      if(it.free || (cap && it.qty > cap)) solo.push({name:it.name, base:it.base, qty:it.qty, cap:cap, free:it.free});
+      if(it.free || (cap && it.qty > cap)) solo.push({name:it.name, base:it.base, qty:it.qty, cap:cap, free:it.free, parts:it.parts});
       else rest.push(it);
     });
     if(rest.length) put(rest.map(it => itemText(it.name, it.qty)).join(' / '));
     solo.forEach(it => {
-      const chunks = capChunks(it.qty, it.cap);
+      // 두 줄 이상이 합쳐진 거면 원본 줄 단위로(packParts), 아니면 한도대로(capChunks). 무료배송은 늘 1개씩.
+      const chunks = (!it.free && packParts(it.parts, it.cap)) || capChunks(it.qty, it.cap);
       chunks.forEach(n => put(itemText(it.name, n)));
       if(it.free && it.qty <= 1) return;
       warn.push(it.free
