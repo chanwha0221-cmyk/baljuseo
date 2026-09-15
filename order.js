@@ -2262,15 +2262,30 @@ const hasEngine = () => { try{ return !!(window.CONVERT && window.CONVERT.conver
    9칸  [정산][주소][연락처][창고][상품][성함][주소][연락처][메시지]
    10칸 [정산][송장][주소][연락처][창고][상품][성함][주소][연락처][메시지]
    ⚠️ 합포장(' / ')은 표에서 다시 줄로 나눈다 — 한 줄 = 한 상품이라야 상품명 검증이 걸린다. */
+/* 🏷 거래처 표(CC)에 있는 이름인가 — 공백·대소문자 무시 */
+function knownClient(n){
+  try{
+    const cc = window.CONVERT && window.CONVERT.CC; if(!cc) return false;
+    const k = pkey(n); return Object.keys(cc).some(x => pkey(x) === k);
+  }catch(e){ return false; }
+}
 function rowsFromConverted(cols){
   const out = [], bizes = [];
+  const who = S(orderer().name);
   (cols || []).forEach(c => {
     if(!c || c.length < 9) return;
     const ten  = c.length >= 10;
     const pay  = S(c[0]);                       // 정산업체명 — 어느 업체 발주인지 확인용
-    if(pay && bizes.indexOf(pay) < 0) bizes.push(pay);
     // 송장업체명(있을 때만 표 첫 칸) — 주소가 들어오면 버린다(위 bizCell 참고)
-    const biz  = ten ? bizCell(c[1]) : '';
+    let biz = ten ? bizCell(c[1]) : '', otel = '';
+    /* 🔴 2026-09-15 티알에스큐 — 「윤규빈 010-5668-1078 · 상품 · 수량 · 받는분…」 처럼 줄 앞에 **주문처 이름+연락처**가 온 원문.
+       변환기는 그 이름을 9칸의 정산업체 자리(c[0])에 넣어 돌려주는데, 여기서 버려서 9칸으로 나갔다
+       (홍팀장: "티알에스큐 이름 넣어서 발주하면 10칸으로 주기로 했잖아"). 규칙: 파일에 주문처 값이 있으면 10칸(CLAUDE.md §3-3-1).
+       → 9칸인데 c[0] 이 **거래처 표에 없는 이름**이고 위에서 고른(로그인한) 업체와도 다르면, 그건 정산업체가 아니라
+         송장에 찍힐 주문처다 → 송장명 칸으로 올리고 c[2] 를 주문처 연락처로 싣는다. 정산업체는 여전히 고른 업체다. */
+    if(!ten && pay && !knownClient(pay) && !(who && pkey(pay) === pkey(who))){
+      biz = bizCell(pay); otel = S(c[2]);
+    }else if(pay && bizes.indexOf(pay) < 0) bizes.push(pay);
     const prod = S(c[ten ? 5 : 4]);
     const rcv  = S(c[ten ? 6 : 5]);
     const addr = S(c[ten ? 7 : 6]);
