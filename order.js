@@ -2297,7 +2297,7 @@ function rowsFromConverted(cols){
       if(!seg) return;
       // '상품명 x 3' → 이름·수량 분리. 뒤에 괄호 옵션이 붙어 있으면 이름에 그대로 둔다.
       const m = seg.match(/^(.*?)\s*[x×X]\s*(\d+)\s*$/);
-      out.push({ biz: biz, name: S(m ? m[1] : seg), qty: m ? m[2] : '1', rcv: rcv, addr: addr, tel: tel, msg: msg });
+      out.push({ biz: biz, name: S(m ? m[1] : seg), qty: m ? m[2] : '1', rcv: rcv, addr: addr, tel: tel, msg: msg, otel: otel });
     });
   });
   return { rows: out, bizes: bizes };
