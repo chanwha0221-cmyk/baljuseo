@@ -1105,10 +1105,14 @@ function candBtn(p, i){
 const FIND = {};                     // 행 index → 직접 찾기에 친 글자
 function clearFind(){ Object.keys(FIND).forEach(k => { delete FIND[k]; }); }
 // 표 안에 같은 상품명이 몇 줄인가 — 일괄 수정 안내·적용이 같은 셈을 쓴다
+// ⚖️ 무게(2k·1.5kg·500g)를 뺀 이름 — 무게만 다른 줄을 한 묶음으로 보려고 (2026-09-15 대상수산)
+function nameNoKg(s){ return pkey(String(s || '').replace(/(\d+(?:\.\d+)?)\s*(kg|k|g)(?![a-z])/gi, '')); }
 function sameName(name){
   const k = pkey(name);
   if(!k) return 0;
-  return ROWS.filter(r => pkey(S(r.name)) === k).length;
+  const kw = nameNoKg(name);
+  // 이름이 똑같은 줄 + 무게만 다르고 아직 상품이 안 잡힌 줄 (고르면 같이 바뀌는 범위와 똑같이 센다)
+  return ROWS.filter(r => { const n = S(r.name); return pkey(n) === k || (kw && nameNoKg(n) === kw && !checkRow(r).p); }).length;
 }
 function findHits(kw){
   const k = pkey(kw);
@@ -3182,7 +3186,15 @@ document.addEventListener('click', e => {
          🔴 바꿀 대상을 **먼저 담아두고** 고친다. 돌면서 고치면 첫 줄을 바꾼 순간 기준 글자가 사라진다. */
       const was = S(ROWS[i].name), k = pkey(was), nm = pick.getAttribute('data-pick');
       const hit = [];
-      ROWS.forEach((r, j) => { if(pkey(S(r.name)) === k) hit.push(j); });
+      /* ⚖️ 무게만 다른 같은 이름도 함께 고른다 (홍팀장 2026-09-15 — "키로수 다른 애들마다 다 상품을 잡아줘야 되는데 하나만 해도 되게").
+         「大숫꽃게 2k / 3k / 5k」는 같은 상품이고 무게가 수량이다. 단 **이미 카탈로그 상품으로 잡힌 줄은 건드리지 않는다**
+         (「갈치 250g」·「갈치 500g」처럼 규격이 다른 진짜 상품이 따로 있다). 수량은 아래에서 줄마다 무게대로 계산한다. */
+      const kw = nameNoKg(was);
+      ROWS.forEach((r, j) => {
+        const n = S(r.name);
+        if(pkey(n) === k) hit.push(j);
+        else if(kw && nameNoKg(n) === kw && !checkRow(r).p) hit.push(j);
+      });
       /* ⚖️ 원문 무게 ÷ 고른 상품 규격 = 수량 (홍팀장 2026-09-15 대상수산, 2시 마감 — "선택을 하니까 다 1개로 바뀌잖아 대참사").
          대상수산 파일은 수량 칸이 없고 「. 연안 활 大숫꽃게 3k」「. 프리미엄 초벌 고창 풍천장어 3k」처럼 **무게로** 적어 온다.
          고른 게 「연안 활 대숫게 1kg」이면 3개, 「프리미엄 초벌 풍천장어 1.5kg」이면 2개다.
