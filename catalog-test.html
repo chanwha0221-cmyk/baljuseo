@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.107</title>
+<title>마스터 유통 카탈로그 v23.108</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -279,6 +279,16 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .ntcmodal .btns button.x{background:transparent;color:var(--muted);border:1px solid var(--line)}
 .ntcmodal .btns button:disabled{opacity:.55;cursor:default}
 .ntcmodal .msg{font-size:12px;color:var(--up);margin-top:8px;line-height:1.6}
+/* 📌 팝업 공지 (홍팀장 2026-09-16) — 제목 앞에 📌 를 붙인 공지를 들어오자마자 창으로 띄운다.
+   "업체들이 배송 마감일정을 조금씩 바꾸고 있다. 자주 들여다보라고 공지는 했지만 안 볼 것 같다."
+   공지상자는 제목만 접혀 있어서, 안 펼치면 못 보고 지나간다. 놓치면 사고 나는 공지만 📌. */
+.popntc{z-index:9700}
+.popntc .box{max-width:620px;padding:15px 16px 14px}
+.popntc .pt{font-size:15.5px;font-weight:800;color:var(--ink);line-height:1.45;margin:0 0 3px}
+.popntc .pd{font-size:11.5px;color:var(--muted);margin:0 0 10px}
+.popntc .pb{font-size:13px;color:var(--ink);line-height:1.75;white-space:pre-wrap;word-break:break-word}
+.popntc .pb img{max-width:100%;height:auto;display:block;margin:7px 0;border:1px solid var(--line);border-radius:10px}
+.popntc .btns{margin-top:13px}
 /* 🔄 새 버전 알림 바 — 화면 맨 아래에 붙는다.
    위에 두면 로그인·공지와 겹쳐서 정작 볼 것을 가린다. 발주 중에도 방해되면 안 된다. */
 .verbar{position:fixed;left:12px;right:12px;bottom:12px;z-index:9000;display:flex;align-items:center;gap:10px;
@@ -2304,6 +2314,58 @@ function ntcBodyHtml(body){
     return esc(x.t)+(nx&&!nx.img?'\n':'');
   }).join('');
 }
+/* ══ 📌 팝업 공지 (홍팀장 2026-09-16) ══════════════════════════════════════
+   제목이 📌 로 시작하는 공지를 화면에 들어오는 즉시 창으로 띄운다.
+   켜고 끄는 건 제목 한 글자다 — 📌 를 붙이면 뜨고 떼면 안 뜬다(✏️ 공지 고치기에서 바로 된다).
+   시트에 칸을 새로 만들지 않은 이유: 공지사항 탭은 A~E 다섯 칸이 고정이고 저장하는 곳이
+   여럿이라(카탈로그 ✏️·상품도구) 칸을 늘리면 한쪽만 고쳐져 값이 밀린다.
+   🔴 본문이 바뀌면 [오늘 하루 안 보기]를 눌렀어도 다시 뜬다 — 마감일정이 바뀌는 게 이 팝업의
+      존재 이유라, 어제 본 사람이 오늘 바뀐 일정을 못 보면 안 띄우느니만 못하다.
+   🔴 확인 전(임시) 계정에는 안 띄운다 — 그 화면은 pendwall 하나만 보여야 한다. */
+function ntcPopSum(s){ let h=0; s=String(s||''); for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0; return h.toString(36); }
+function ntcPopKey(n){ return ntcKey(n)+'|'+ntcPopSum(n.body); }     // 본문이 바뀌면 다른 글로 친다
+function ntcPopStore(){ return 'TEST_catalog_ntcpop_'+((ME&&ME.id)?ME.id:'guest'); }
+function ntcPopDay(){ const d=new Date(),p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+function ntcPopSkipped(k){
+  try{ return (JSON.parse(localStorage.getItem(ntcPopStore())||'{}'))[k]===ntcPopDay(); }catch(e){ return false; }
+}
+function ntcPopSkip(k){
+  try{ const m=JSON.parse(localStorage.getItem(ntcPopStore())||'{}');
+       m[k]=ntcPopDay(); localStorage.setItem(ntcPopStore(),JSON.stringify(m)); }catch(e){}
+}
+function ntcPopClose(){ const m=$('ntcPopM'); if(m)m.remove(); }
+function ntcPopMaybe(){
+  if(ntcPopMaybe._done||$('ntcPopM'))return;
+  /* 로그인 응답이 아직 안 왔으면 기다린다 — 임시 계정인지 모르는 채로 띄우면 안 된다.
+     _done 을 세우지 않고 나가므로 공지가 다시 그려질 때 또 들어온다. */
+  if(typeof ME==='undefined'||!ME){
+    if((ntcPopMaybe._wait=(ntcPopMaybe._wait||0)+1)<=20)setTimeout(ntcPopMaybe,300);
+    return;
+  }
+  if(isPending())return;
+  const n=(NOTI||[]).find(x=>/^\s*📌/.test(String(x.title||'')));
+  if(!n)return;
+  const k=ntcPopKey(n);
+  if(ntcPopSkipped(k))return;
+  ntcPopMaybe._done=1;
+  const d=document.createElement('div');
+  d.className='ntcmodal popntc'; d.id='ntcPopM';
+  d.innerHTML='<div class="box">'
+    +'<div class="pt">'+esc(n.title)+'</div>'
+    +(n.at?'<div class="pd">'+esc(n.at)+' · 📢 공지사항에서 다시 보실 수 있습니다</div>':'')
+    +'<div class="pb">'+(n.body?ntcBodyHtml(n.body):'(내용 없음)')+'</div>'
+    +'<div class="btns"><button class="x" id="ntcPopS">오늘 하루 안 보기</button>'
+      +'<button id="ntcPopX">확인했습니다</button></div>'
+    +'</div>';
+  document.body.appendChild(d);
+  ntcMarkRead(ntcKey(n));                                   // 팝업으로 본 것도 읽은 것이다(배지와 어긋나면 안 된다)
+  d.addEventListener('click',e=>{ if(e.target===d)ntcPopClose(); });
+  $('ntcPopX').onclick=ntcPopClose;
+  $('ntcPopS').onclick=()=>{ ntcPopSkip(k); ntcPopClose(); };
+  document.addEventListener('keydown',function esc2(e){
+    if(e.key==='Escape'){ ntcPopClose(); document.removeEventListener('keydown',esc2); }
+  });
+}
 function noticeItem(n,isNew){
   const k=ntcKey(n);
   return '<details class="ntcac'+(n.imp?' imp':'')+(isNew?' unread':'')+'" data-nk="'+esc(k)+'">'
@@ -2356,6 +2418,7 @@ function renderNoticeBox(){
       +rest.map(n=>noticeItem(n,isNew(n))).join('')+'</details>'):'');
   syncNtcMore();
   renderNtcBadge();
+  ntcPopMaybe();                       // 📌 팝업 공지 — 캐시 복원·서버 갱신 두 경로가 다 여기를 지난다
   if(unread&&!renderNoticeBox._told){
     renderNoticeBox._told=1;
     setTimeout(()=>toast('📢 아직 안 보신 공지 '+unread+'건 — 제목을 눌러 확인해 주세요'),900);
