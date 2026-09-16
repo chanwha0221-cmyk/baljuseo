@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.51</title>
+<title>마스터 유통 상품 도구 v1.52</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -254,13 +254,13 @@ a{color:var(--accent)}
 </div>
 <div class="card">
   <h2>📢 공지사항 <span id="ncStat" style="font-weight:400;font-size:12px;color:var(--muted)">불러오는 중…</span></h2>
-  <p style="font-size:12.5px;color:var(--muted)">배송 공지·휴무 안내·상품 관련 알림을 여기서 씁니다. <a href="catalog.html#notice" target="_blank" rel="noopener">카탈로그 [📢 공지사항]</a>에 바로 뜹니다.<br>이미 올라간 공지는 아래 목록의 <b>[✏️ 수정]</b>으로 고친 뒤 <b>[💾 저장]</b>을 누르면 됩니다.</p>
+  <p style="font-size:12.5px;color:var(--muted)">배송 공지·휴무 안내·상품 관련 알림을 여기서 씁니다. <a href="catalog.html#notice" target="_blank" rel="noopener">카탈로그 [📢 공지사항]</a>에 바로 뜹니다.<br>이미 올라간 공지는 아래 목록의 <b>[✏️ 수정]</b>으로 고친 뒤 <b>[💾 저장]</b>을 누르면 됩니다.<br>사진은 목록의 <b>[🖼 이미지]</b>로 넣고, 썸네일의 <b>[🔄 바꾸기]·[✕ 빼기]</b>로 고칩니다 — 내용 칸에 <b>끌어다 놓아도</b> 올라갑니다.</p>
   <input id="ncT" placeholder="공지 제목 (예: 광복절 배송 안내)" autocomplete="off" style="margin-top:8px">
   <textarea id="ncB" rows="4" placeholder="공지 내용 — 줄바꿈 그대로 보입니다" style="width:100%;margin-top:7px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7"></textarea>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">
     <button class="cp" type="button" id="ncImgBtn" style="margin-top:0">🖼 이미지 넣기</button>
     <input type="file" id="ncImgFile" accept="image/*" multiple style="display:none">
-    <span style="font-size:11.5px;color:var(--muted)">내용 칸에 그림을 <b>Ctrl+V</b> 해도 들어갑니다 · 넣은 자리에 「[이미지] 주소」 줄이 생기고 카탈로그엔 그림으로 보입니다</span>
+    <span style="font-size:11.5px;color:var(--muted)">내용 칸에 그림을 <b>Ctrl+V</b> 하거나 <b>끌어다 놓아도</b> 들어갑니다 · 넣은 자리에 「[이미지] 주소」 줄이 생기고 카탈로그엔 그림으로 보입니다</span>
   </div>
   <div id="ncImgPrev" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
   <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;margin-top:7px"><input type="checkbox" id="ncI"> 중요 공지 (맨 위로 · 빨간 줄 표시)</label>
@@ -1753,9 +1753,13 @@ function notDraw(){
     +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-nc="imp" data-i="'+i+'"'+(n.imp?' checked':'')+'>중요</label>'
     +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-nc="show" data-i="'+i+'"'+(n.show?' checked':'')+'>노출</label>'
     +'<button class="fxg" data-nc="edit" data-i="'+i+'" title="제목·내용을 고칩니다">✏️ 수정</button>'
+    +'<button class="fxg" data-nc="img" data-i="'+i+'" title="사진을 고르거나 내용 칸에 끌어다 놓으세요">🖼 이미지</button>'
     +'<button class="fxg del" data-nc="del" data-i="'+i+'">🗑</button>'
     +'<textarea data-nc="body" data-i="'+i+'" rows="3" style="flex:1 1 100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;background:var(--card);color:var(--ink);line-height:1.7">'+esc(n.body)+'</textarea>'
+    +'<div class="ncprev" data-i="'+i+'" style="flex:1 1 100%;display:flex;gap:8px;flex-wrap:wrap"></div>'
     +'</div>').join('')+ncPager(pages);
+  // 🖼 줄마다 붙어 있는 그림을 썸네일로 보여준다 (바꾸기·빼기 버튼 포함)
+  $p('ncRows').querySelectorAll('textarea[data-nc="body"]').forEach(ta=>ncDrawPrev(ta));
 }
 $p('ncRows').addEventListener('click',function(ev){
   // 📄 쪽 넘기기 — 고치던 값은 이미 NOT 에 들어가 있으니 다시 그리기만 하면 된다
@@ -1771,6 +1775,13 @@ $p('ncRows').addEventListener('click',function(ev){
     const t=row.querySelector('.nctit');
     if(t){ t.focus(); t.setSelectionRange(t.value.length,t.value.length); }
     $p('ncLog').textContent='제목·내용을 고친 뒤 [💾 저장]을 누르세요.';
+    return;
+  }
+  // 🖼 이미지 — 그 공지의 내용 칸에 그림을 올려 넣는다 (파일 고르기 / 칸에 끌어다 놓기 둘 다 된다)
+  const im=ev.target.closest('[data-nc="img"]');
+  if(im){
+    const ta=im.closest('.ci').querySelector('textarea[data-nc="body"]');
+    if(ta) ncPick(ta,'');
     return;
   }
   const b=ev.target.closest('[data-nc="del"]'); if(!b)return;
@@ -1827,8 +1838,9 @@ async function ncUpload(file){
   return j.url;
 }
 // 커서 자리에 「[이미지] 주소」 줄을 끼운다 — 앞뒤 줄바꿈을 맞춰 딱 한 줄로 떨어지게
+// ⚠️ 커서를 안 둔 칸(버튼·끌어다 놓기)은 selectionStart 가 0 이라 글 맨 앞에 박힌다 → 그때는 맨 끝에 붙인다
 function ncInsertAt(ta,url){
-  const v=ta.value, p=(typeof ta.selectionStart==='number')?ta.selectionStart:v.length;
+  const v=ta.value, p=(document.activeElement===ta&&typeof ta.selectionStart==='number')?ta.selectionStart:v.length;
   const pre=v.slice(0,p), post=v.slice(p), line='[이미지] '+url;
   ta.value=pre+(pre&&!pre.endsWith('\n')?'\n':'')+line+(post&&!post.startsWith('\n')?'\n':'')+post;
   ta.dispatchEvent(new Event('input',{bubbles:true}));   // 기존 공지 칸이면 NOT[i].body 도 이걸로 따라간다
@@ -1841,17 +1853,100 @@ async function ncAddFiles(ta,files){
     try{ ncInsertAt(ta,await ncUpload(f)); log.textContent='🖼 이미지 넣었습니다 — [💾 저장]을 눌러야 카탈로그에 반영됩니다.'; }
     catch(e){ log.textContent='⚠️ 이미지 못 올림 — '+e.message; return; }
   }
-  ncPrev();
+  ncDrawPrev(ta);
 }
-function ncPrev(){
-  const box=$p('ncImgPrev'); if(!box) return;
-  const urls=$p('ncB').value.split('\n').map(l=>(l.trim().match(NC_IMG_RE)||[])[1]).filter(Boolean);
-  box.innerHTML=urls.map(u=>'<img src="'+esc(u)+'" style="height:64px;border-radius:6px;border:1px solid var(--line)">').join('');
+/* 🖼 이미 올라간 공지의 그림 고치기 (홍팀장 2026-09-17 "수정 버튼을 왜 다 안 만드냐").
+   지금까지는 목록의 공지에 그림을 바꾸려면 본문의 「[이미지] 주소」 줄을 손으로 지우고 다시 붙여야 했다.
+   → 줄마다 썸네일을 깔고 [🔄 바꾸기]·[✕ 빼기]를 붙인다. 줄은 **주소로** 찾는다(번호로 찾으면 그 사이 글을 고쳤을 때 엉뚱한 줄을 건드린다). */
+function ncPrevBox(ta){
+  if(!ta) return null;
+  if(ta.id==='ncB') return $p('ncImgPrev');
+  const row=ta.closest('.ci'); return row?row.querySelector('.ncprev'):null;
 }
-$p('ncImgBtn').onclick=()=>$p('ncImgFile').click();
-$p('ncImgFile').onchange=function(){ ncAddFiles($p('ncB'),this.files); this.value=''; };
+function ncDrawPrev(ta){
+  const box=ncPrevBox(ta); if(!box) return;
+  const urls=ta.value.split('\n').map(l=>(l.trim().match(NC_IMG_RE)||[])[1]).filter(Boolean);
+  box.innerHTML=urls.map(u=>
+    '<span style="display:inline-flex;flex-direction:column;gap:3px;align-items:center">'
+    +'<img src="'+esc(u)+'" style="height:64px;border-radius:6px;border:1px solid var(--line)">'
+    +'<span style="display:flex;gap:3px">'
+    +'<button type="button" class="fxg" data-ncimgrep="'+esc(u)+'" style="font-size:11px;padding:2px 6px">🔄 바꾸기</button>'
+    +'<button type="button" class="fxg del" data-ncimgdel="'+esc(u)+'" style="font-size:11px;padding:2px 6px">✕ 빼기</button>'
+    +'</span></span>').join('');
+}
+function ncPrev(){ ncDrawPrev($p('ncB')); }
+// 「[이미지] oldUrl」 줄을 새 주소로 갈아끼운다 — newUrl 이 없으면 그 줄을 뺀다
+function ncSetImgLine(ta,oldUrl,newUrl){
+  const ls=ta.value.split('\n');
+  let hit=-1;
+  ls.forEach((l,i)=>{ if(hit<0){ const m=l.trim().match(NC_IMG_RE); if(m&&m[1]===oldUrl) hit=i; } });
+  if(hit<0) return false;
+  if(newUrl) ls[hit]='[이미지] '+newUrl; else ls.splice(hit,1);
+  ta.value=ls.join('\n');
+  ta.dispatchEvent(new Event('input',{bubbles:true}));   // 목록 칸이면 NOT[i].body 도 따라간다
+  ncDrawPrev(ta);
+  return true;
+}
+async function ncSwapFile(ta,oldUrl,file){
+  const log=$p('ncLog');
+  log.textContent='🖼 이미지 올리는 중… ('+(file.name||'그림')+')';
+  try{
+    const url=await ncUpload(file);
+    if(!ncSetImgLine(ta,oldUrl,url)) ncInsertAt(ta,url);   // 그 사이 줄이 지워졌으면 그냥 넣어준다
+    log.textContent='🖼 이미지 바꿨습니다 — [💾 저장]을 눌러야 카탈로그에 반영됩니다.';
+  }catch(e){ log.textContent='⚠️ 이미지 못 올림 — '+e.message; }
+  ncDrawPrev(ta);
+}
+/* 파일 고르기는 숨은 input 하나를 돌려쓴다 — 어느 칸에, 어느 그림을 바꾸려고 눌렀는지 여기에 담아둔다 */
+let NC_PICK={ta:null,old:''};
+function ncPick(ta,oldUrl){ NC_PICK={ta:ta,old:oldUrl||''}; $p('ncImgFile').click(); }
+$p('ncImgBtn').onclick=()=>ncPick($p('ncB'),'');
+$p('ncImgFile').onchange=function(){
+  // ⚠️ this.files 를 그대로 들고 있으면 안 된다 — 바로 밑 value='' 가 그 FileList 를 **그 자리에서 비운다**(살아있는 목록).
+  //    배열로 먼저 떠 놓아야 고른 사진이 사라지지 않는다.
+  const files=[...(this.files||[])], p=NC_PICK; this.value=''; NC_PICK={ta:null,old:''};
+  const ta=p.ta||$p('ncB'); if(!files.length) return;
+  if(p.old) ncSwapFile(ta,p.old,files[0]); else ncAddFiles(ta,files);
+};
 $p('ncB').addEventListener('input',ncPrev);
 { const add0=$p('ncAdd').onclick; $p('ncAdd').onclick=function(){ add0.call(this); ncPrev(); }; }   // 등록하면 입력칸이 비니 미리보기도 비운다
+// 썸네일의 [🔄 바꾸기]·[✕ 빼기] — 새 공지 칸이든 목록의 기존 공지든 같은 자리에서 받는다
+document.addEventListener('click',function(ev){
+  const tg=ev.target; if(!tg||!tg.closest) return;
+  const rep=tg.closest('[data-ncimgrep]'), del=tg.closest('[data-ncimgdel]');
+  const btn=rep||del; if(!btn) return;
+  const box=btn.closest('#ncImgPrev, .ncprev'); if(!box) return;
+  const ta=(box.id==='ncImgPrev')?$p('ncB'):(box.closest('.ci')||document).querySelector('textarea[data-nc="body"]');
+  if(!ta) return;
+  ev.preventDefault();
+  if(rep){ ncPick(ta,rep.getAttribute('data-ncimgrep')); return; }
+  if(confirm('이 그림을 공지에서 뺄까요?')){
+    ncSetImgLine(ta,del.getAttribute('data-ncimgdel'),'');
+    $p('ncLog').textContent='🖼 이미지를 뺐습니다 — [💾 저장]을 눌러야 카탈로그에 반영됩니다.';
+  }
+});
+/* 🖱 끌어다 놓기 — 내용 칸이나 썸네일 줄에 사진 파일을 떨어뜨리면 그대로 올라간다.
+   ⚠️ dragover 에서 preventDefault 를 안 하면 브라우저가 그 그림 파일로 페이지를 통째로 열어버린다. */
+function ncDropTA(el){
+  if(!el||!el.closest) return null;
+  const ta=el.closest('#ncB, #ncRows textarea[data-nc="body"]'); if(ta) return ta;
+  const box=el.closest('#ncImgPrev, .ncprev');
+  if(box) return (box.id==='ncImgPrev')?$p('ncB'):(box.closest('.ci')||document).querySelector('textarea[data-nc="body"]');
+  return null;
+}
+function ncDropMark(ta,on){ if(ta) ta.style.outline=on?'2px dashed #1f6fd6':''; }
+document.addEventListener('dragover',function(ev){
+  const ta=ncDropTA(ev.target); if(!ta) return;
+  ev.preventDefault(); if(ev.dataTransfer) ev.dataTransfer.dropEffect='copy';
+  ncDropMark(ta,true);
+});
+document.addEventListener('dragleave',function(ev){ ncDropMark(ncDropTA(ev.target),false); });
+document.addEventListener('drop',function(ev){
+  const ta=ncDropTA(ev.target); if(!ta) return;
+  ev.preventDefault(); ncDropMark(ta,false);
+  const files=[...((ev.dataTransfer&&ev.dataTransfer.files)||[])].filter(f=>/^image\//.test(f.type));
+  if(files.length) ncAddFiles(ta,files);
+});
 // 그림을 Ctrl+V 로 붙여넣으면 바로 올린다 — 새 공지 칸이든, 목록의 기존 공지 내용 칸이든
 document.addEventListener('paste',function(ev){
   const ta=ev.target.closest&&ev.target.closest('#ncB, #ncRows textarea[data-nc="body"]'); if(!ta) return;
