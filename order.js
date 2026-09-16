@@ -162,6 +162,60 @@ async function loadVRules(){
   }catch(e){ /* 못 받으면 규칙 없이 예전대로 읽는다 */ }
 }
 window.loadVRules = loadVRules;
+/* ══ 🏷 업체별 상품명 별칭 — 한 번 고른 이름은 다음부터 저절로 붙는다 (홍팀장 2026-09-16) ══
+   "지금 저 상품명으로 들어와서 수정해서 발주하면 앞으로 저 상품명은 저걸로 매칭되는 기능 있는거지?"
+   업체가 자기 옵션명(두름 「반건조 갑 오징어 대 1미」)으로 보내면 매번 후보에서 골라야 했다.
+   고른 그 선택을 서버(vendor_aliases)에 남기고, 다음에 같은 이름이 오면 그 상품으로 바로 붙인다.
+   🔴 **배우는 건 사람이 후보를 고른 순간뿐이다.** 비슷하다고 코드가 스스로 만들지 않는다(§3-3 추측 매칭 금지).
+   🔴 업체별로 따로다 — 같은 「대」가 업체마다 다른 상품이다.
+   🔴 바꾼 것은 **반드시 화면에 적는다.** 조용히 다른 상품으로 바뀌는 것이 제일 나쁘다. */
+let VALIAS = {};                 // pkey(업체가 보낸 이름) → 그때 고른 우리 상품명
+let VALIAS_FOR = '';             // 지금 담긴 별칭이 누구 것인지 (마스터가 업체를 바꿔 고르면 다시 받는다)
+function aliasWho(){
+  const who = amMaster() ? (FOR || {}) : ((typeof ME !== 'undefined' && ME) ? ME : {});
+  return S(who.id || '');
+}
+async function loadVAlias(){
+  try{
+    if(!(typeof ME !== 'undefined' && ME && ME.token)) return;
+    const id = aliasWho();
+    if(!id){ VALIAS = {}; VALIAS_FOR = ''; return; }
+    const j = await api('valias', { token: ME.token, accountId: amMaster() ? id : '' });
+    const m = {};
+    (j.rows || []).forEach(r => { const k = pkey(S(r.raw)); if(k) m[k] = S(r.name); });
+    VALIAS = m; VALIAS_FOR = id;
+  }catch(e){ /* 못 받으면 예전대로 후보에서 고른다 — 발주는 막지 않는다 */ }
+}
+window.loadVAlias = loadVAlias;
+function aliasReady(){ return !!VALIAS_FOR && VALIAS_FOR === aliasWho(); }
+/* 들어온 줄에 별칭을 입힌다. 바꾼 목록을 돌려줘서 화면에 그대로 적는다. */
+function applyAlias(rows){
+  const done = [];
+  if(!aliasReady()) return done;
+  (rows || []).forEach(r => {
+    const raw = S(r.name); if(!raw) return;
+    const hit = VALIAS[pkey(raw)];
+    if(!hit || pkey(hit) === pkey(raw)) return;
+    /* 🐟 삭힘정도·🦴 뼈머리는 업체가 적어 온 것을 살린다 — 후보를 손으로 고를 때와 같은 규칙 */
+    r.name = withBone(withAge(hit, needAge(hit) ? ageOf(raw) : ''), canBone(hit) && hasBone(raw));
+    r._raw = raw;                  // 원문을 들고 있는다 — 다시 고치면 이 이름의 별칭을 갱신해야 한다
+    done.push(raw + ' → ' + r.name);
+  });
+  return done;
+}
+/* 후보를 고른 순간 그 선택을 남긴다 — 이것이 유일한 학습 경로다 */
+function saveVAlias(raw, name){
+  try{
+    if(!(typeof ME !== 'undefined' && ME && ME.token)) return;
+    const id = aliasWho(); if(!id) return;
+    const a = S(raw), b = S(name);
+    if(!a || !b || pkey(a) === pkey(b)) return;
+    VALIAS[pkey(a)] = b; VALIAS_FOR = id;      // 이번 화면에서 바로 먹게(서버 응답을 기다리지 않는다)
+    api('valiasset', { token: ME.token, accountId: amMaster() ? id : '', raw: a, name: b })
+      .catch(() => {});                        // 저장이 실패해도 발주는 그대로 나간다
+  }catch(e){}
+}
+
 /* 지금 이 발주가 누구 것인지로 규칙을 고른다 — 마스터면 고른 업체, 업체면 자기 계정.
    한 업체가 양식을 여러 개 쓰면 머리글이 더 많이 맞는 규칙을 쓴다. */
 /* 🚩 업체 특성 깃발 — 칸 매핑(headers)과 별개로, 그 업체 규칙들 중 **하나라도** 켜 둔 값을 본다 (2026-09-15).
@@ -1031,8 +1085,9 @@ function view(){
   if(!ROWS.length){ ROWS = loadDraft(); }
   if(!ROWS.length){ ROWS = [blank(), blank(), blank()]; }
   if(master) loadFor();
-  // 📑 발주 화면을 열 때마다 업체 규칙·합포장 불가를 새로 받는다 — 낮에 규칙을 바꿔도 새로고침 없이 먹게
-  if(hasApi() && ME && ME.token){ loadVRules(); loadNoHap(); }
+  // 📑 발주 화면을 열 때마다 업체 규칙·합포장 불가·🏷 별칭을 새로 받는다 — 낮에 바뀌어도 새로고침 없이 먹게
+  // (별칭은 loadFor() 뒤에 받는다 — 마스터는 «고른 업체» 것이라 FOR 가 정해져야 누구 것인지 안다)
+  if(hasApi() && ME && ME.token){ loadVRules(); loadNoHap(); loadVAlias(); }
   return subHead(master ? '🧾 대신 발주' : '🧾 발주하기',
                  master ? '카톡·엑셀로 받은 발주를 넣고 바로 당일 시트로 보냅니다'
                         : '카탈로그 상품을 담거나, 엑셀에서 복사해 붙여넣으세요')
@@ -2660,6 +2715,7 @@ function runConvert(append){
   // 기존 줄 중 빈 줄은 버리고 채운다(처음 화면의 빈 3줄이 그대로 남지 않게)
   const keep = append ? ROWS.filter(x => FIELDS.some(f => S(x[f]))) : [];
   ROWS = keep.concat(got.rows);
+  const aliased = applyAlias(got.rows);        // 🏷 전에 골라 둔 이름은 여기서 이미 붙는다
   saveDraft(); paint();
 
   /* 🔴 어느 업체 발주인지 확인시킨다 — 조용히 FOR 를 덮어쓰지 않는다.
@@ -2690,6 +2746,12 @@ function runConvert(append){
     if(hw.length) notes.push('<div class="ordwarn">📦 <b>수량 확인</b><br>'
       + hw.map(w => '· ' + esc(w)).join('<br>') + '</div>');
   }
+  /* 🏷 전에 골라 둔 이름으로 바뀐 줄 — 조용히 바꾸지 않고 무엇이 무엇으로 바뀌었는지 다 적는다.
+     틀리게 배웠으면 그 줄에서 다시 고르면 된다(그 순간 별칭도 새 선택으로 바뀐다). */
+  if(aliased && aliased.length) notes.push('<div class="ordrecon ok">🏷 <b>전에 고르신 상품으로 ' + aliased.length + '줄을 바꿨습니다</b><br>'
+    + aliased.slice(0, 12).map(x => '· ' + esc(x)).join('<br>')
+    + (aliased.length > 12 ? '<br>· 외 ' + (aliased.length - 12) + '줄' : '')
+    + '<br><span class="hint">틀렸으면 그 줄에서 다시 고르시면 됩니다 — 그러면 다음부터는 새로 고르신 상품으로 나갑니다.</span></div>');
   if(simple){
     const who = orderer();
     notes.push('<div class="ordrecon warn">🧾 <b>상품·수량만</b> 읽었습니다 (' + got.rows.length + '줄) — 받는분 칸이 원문에 없습니다.'
@@ -2947,7 +3009,8 @@ function bindFor(){
     const pick = c => {
       // 🔒 명부에 주소가 남아 있어도 "주소 안 씀" 업체면 안 들고 온다 — 여기서 막아야 다음 발주에도 안 따라온다
       FOR = {id:c.id, name:c.name, addr:outAddr(c.name, c.addr), phone:c.phone};
-      saveFor(); redraw();
+      // 🏷 업체가 바뀌면 그 업체 규칙·별칭을 다시 받는다 — 앞 업체 것으로 읽으면 엉뚱한 상품이 된다
+      saveFor(); loadVRules(); loadVAlias(); redraw();
     };
     q.oninput = draw;
     q.onfocus = draw;
@@ -3077,8 +3140,10 @@ function bind(){
       if(!got.length){ alert('가져올 내용이 없습니다. 첫 줄은 머리글이어도 되고, 업체명 / 상품명 / 수량 / 성함 / 주소 / 연락처 / 배송메시지 순서로 넣어주세요.'); }
       else{
         ROWS = ROWS.filter(r => FIELDS.some(f => S(r[f]))).concat(got);
+        const al = applyAlias(got);            // 🏷 전에 골라 둔 이름은 바로 붙인다
         OPEN = -1; paint();
-        toast(file.name + ' — ' + got.length + '줄 가져왔습니다');
+        toast(file.name + ' — ' + got.length + '줄 가져왔습니다'
+          + (al.length ? ' · 🏷 전에 고르신 상품으로 ' + al.length + '줄 바꿨습니다' : ''));
       }
     }catch(e){ alert(e.message || '파일을 읽지 못했습니다.'); }
     finally{ if(btn){ btn.disabled = false; btn.textContent = '📂 파일 넣기'; } }
@@ -3135,8 +3200,10 @@ function bind(){
     }
     if(!got.length){ toast('가져올 내용이 없습니다'); return; }
     ROWS = ROWS.filter(r => FIELDS.some(f => S(r[f]))).concat(got);
+    const al = applyAlias(got);                // 🏷 전에 골라 둔 이름은 바로 붙인다
     $$('ord_pt').value = ''; $$('ord_pastebox').style.display = 'none';
-    paint(); toast(got.length + '줄 가져왔습니다');
+    paint(); toast(got.length + '줄 가져왔습니다'
+      + (al.length ? ' · 🏷 전에 고르신 상품으로 ' + al.length + '줄 바꿨습니다' : ''));
   });
   bindMe();
 
@@ -3241,6 +3308,9 @@ document.addEventListener('click', e => {
       /* 📋 같은 이름은 함께 바꾼다 — 몇 줄이 바뀌는지는 누르기 전에 이미 화면에 떠 있다(rowHtml).
          🔴 바꿀 대상을 **먼저 담아두고** 고친다. 돌면서 고치면 첫 줄을 바꾼 순간 기준 글자가 사라진다. */
       const was = S(ROWS[i].name), k = pkey(was), nm = pick.getAttribute('data-pick');
+      /* 🏷 별칭으로 이미 한 번 바뀐 줄이면 **업체가 보낸 원문**으로 배운다 —
+         바뀐 이름으로 배우면 「우리 상품명 → 다른 우리 상품명」 이라는 이상한 별칭이 생긴다. */
+      const rawWas = S(ROWS[i]._raw) || was;
       const hit = [];
       /* ⚖️ 무게만 다른 같은 이름도 함께 고른다 (홍팀장 2026-09-15 — "키로수 다른 애들마다 다 상품을 잡아줘야 되는데 하나만 해도 되게").
          「大숫꽃게 2k / 3k / 5k」는 같은 상품이고 무게가 수량이다. 단 **이미 카탈로그 상품으로 잡힌 줄은 건드리지 않는다**
@@ -3277,9 +3347,13 @@ document.addEventListener('click', e => {
                                 canBone(nm) && (hasBone(nm) || hasBone(S(ROWS[j].name))));
         delete FIND[j];
       });
+      // 🏷 고른 선택을 업체 별칭으로 남긴다 — 다음에 같은 이름이 오면 저절로 이 상품이 된다
+      const learned = pkey(rawWas) !== pkey(nm);
+      saveVAlias(rawWas, nm);
       OPEN = -1; saveDraft(); paint();
       const qn = qtyMsg.filter(x => x !== '?'), qBad = qtyMsg.length - qn.length;
       toast((hit.length > 1 ? (hit.length + '줄을 「' + nm + '」 으로 바꿨습니다') : '상품을 바꿨습니다')
+        + (learned ? ' · 🏷 다음부터 「' + rawWas + '」 는 이 상품으로 나갑니다' : '')
         + (qn.length ? ' · 원문 무게로 수량 ' + qn.join('/') + '개' : '')
         + (qBad ? ' · ⚠️ ' + qBad + '줄은 무게가 규격으로 안 나눠져 수량을 그대로 뒀습니다 — 확인하세요' : ''));
     }
@@ -3481,11 +3555,12 @@ window.addEventListener('load', () => { if(!ROWS.length) ROWS = loadDraft(); bad
    조용히 건너뛰었고 → 규칙을 한 번도 안 받아 아크미 파일이 '상품명' 칸으로 읽혔다(홍팀장: "상품명에서 땡겨오잖아").
    합포장 불가(NOHAP)도 같은 자리라 새로고침한 화면에선 같이 빠져 있었다.
    새로 로그인하는 경우엔 ME 가 아직 없어 여기서 안 받고, 그땐 startCatalog 가 받는다(그때는 order.js 가 이미 있다). */
-if(typeof ME !== 'undefined' && ME && ME.token){ loadVRules(); loadNoHap(); }
+if(typeof ME !== 'undefined' && ME && ME.token){ loadVRules(); loadNoHap(); loadVAlias(); }
 
 // _build·_check는 검증용 출구다(브라우저 없이 변환 결과를 확인할 때 쓴다). 화면 동작과 무관.
 window.ORDER = {view, bind, add, orders: ordersView, ordersBind, rows: () => ROWS, _build: buildOut, _check: checkRow,
                 _fromConverted: rowsFromConverted, _setRows: r => { ROWS = r; },
                 _cells: rowsFromCells, _foreign: foreign, _header: headerItems, _fileRaw: fileToRaw,
-                _find: findHits, _row: rowHtml, _setFind: (i, kw) => { FIND[i] = kw; }};
+                _find: findHits, _row: rowHtml, _setFind: (i, kw) => { FIND[i] = kw; },
+                _alias: applyAlias, _learn: saveVAlias};
 })();
