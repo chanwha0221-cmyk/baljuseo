@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-16 10:52",
+ "updatedAt": "2026-09-16 14:57",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -75,6 +75,98 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "충무",
+   "category": "수산",
+   "name": "통통 홍가리비 1kg",
+   "spec": [
+    "※ 원산지 : 국내산(통영)",
+    "※ 구성 : 홍가리비",
+    "※ 중량/ 사이즈 : 홍가리비1kg / 28미 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 홍가리비 100%",
+    "※ 포장방식 : 아이스팩, 빙장포장, 비닐포장, 대분포장"
+   ],
+   "supplyPrice": 3500,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운/롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/793/599/022/28e10d22329477f4a3da78245ba3bd4e.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "후포디",
+   "category": "수산",
+   "name": "초박달 대왕 홍게 3kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 홍게 3kg",
+    "※ 중량/ 사이즈 : 3kg / 5~6미 내외",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 홍게 100%",
+    "※ 포장방식 : 비닐포장"
+   ],
+   "supplyPrice": 39000,
+   "previousPrice": 33000,
+   "tax": "면세",
+   "courier": "로젠택배/씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/294/848/024/eb32ff9c90a12d8c26c22a993358a749.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "게홍",
+   "category": "수산",
+   "name": "일품 박달홍게 4kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 홍게",
+    "※ 중량/ 사이즈 : 원물 4kg/ 8~10미 내외",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 홍게 100%",
+    "※ 포장방식 : 비닐포장"
+   ],
+   "supplyPrice": 22000,
+   "previousPrice": 23000,
+   "tax": "면세",
+   "courier": "로젠택배/씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/896/892/024/f182470ae7304d6cf1cc8623c964dc04.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "열수",
+   "category": "수산",
+   "name": "A급 정품 홍게 4kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 홍게",
+    "※ 중량/ 사이즈 : 원물 4kg/ 8~11미 내외",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 홍게 100%",
+    "※ 포장방식 : 비닐포장"
+   ],
+   "supplyPrice": 24000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/190/018/025/0677b61dff50a2f34dfe252acaa94ece.jpg",
+   "note": "맛있는 속초 홍게 4kg > A급 정품 홍게 4kg"
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "여수",
    "category": "수산",
    "name": "국내산 랜덤 돌문어 1kg",
@@ -124,31 +216,8 @@
   },
   {
    "warehouse": "당일생물",
-   "sourceWarehouse": "충무",
-   "category": "",
-   "name": "통통 홍가리비 1kg",
-   "spec": [
-    "※ 원산지 : 국내산(통영)",
-    "※ 구성 : 홍가리비",
-    "※ 중량/ 사이즈 : 홍가리비1kg / 28미 내외",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 홍가리비 100%",
-    "※ 포장방식 : 아이스팩, 빙장포장, 비닐포장, 대분포장"
-   ],
-   "supplyPrice": 3500,
-   "previousPrice": 1800,
-   "tax": "면세",
-   "courier": "씨제이대한통운/롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/793/599/022/28e10d22329477f4a3da78245ba3bd4e.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
    "sourceWarehouse": "군산",
-   "category": "",
+   "category": "수산",
    "name": "군산 황금 통 아나고 2kg",
    "spec": [
     "※ 원산지 : 국내산",
@@ -167,52 +236,6 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/703/414/025/2eaf9d92a6a86b7f1dda0e18d749bb1b.png",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "후포디",
-   "category": "",
-   "name": "초박달 대왕 홍게 3kg",
-   "spec": [
-    "※ 원산지 : 국내산",
-    "※ 구성 : 홍게 3kg",
-    "※ 중량/ 사이즈 : 3kg / 5~6미 내외",
-    "※ 생물여부 : 냉장",
-    "※ 성분표시 : 홍게 100%",
-    "※ 포장방식 : 비닐포장"
-   ],
-   "supplyPrice": 39000,
-   "previousPrice": 33000,
-   "tax": "면세",
-   "courier": "로젠택배/씨제이대한통운",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/294/848/024/eb32ff9c90a12d8c26c22a993358a749.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "게홍",
-   "category": "",
-   "name": "일품 박달홍게 4kg",
-   "spec": [
-    "※ 원산지 : 국내산",
-    "※ 구성 : 홍게",
-    "※ 중량/ 사이즈 : 원물 4kg/ 8~10미 내외",
-    "※ 생물여부 : 냉장",
-    "※ 성분표시 : 홍게 100%",
-    "※ 포장방식 : 비닐포장"
-   ],
-   "supplyPrice": 22000,
-   "previousPrice": 23000,
-   "tax": "면세",
-   "courier": "로젠택배/씨제이대한통운",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/896/892/024/f182470ae7304d6cf1cc8623c964dc04.jpg",
    "note": ""
   },
   {
@@ -929,29 +952,6 @@
   },
   {
    "warehouse": "당일생물",
-   "sourceWarehouse": "열수",
-   "category": "수산",
-   "name": "A급 정품 홍게 4kg",
-   "spec": [
-    "※ 원산지 : 국내산",
-    "※ 구성 : 홍게",
-    "※ 중량/ 사이즈 : 원물 4kg/ 8~11미 내외",
-    "※ 생물여부 : 냉장",
-    "※ 성분표시 : 홍게 100%",
-    "※ 포장방식 : 비닐포장"
-   ],
-   "supplyPrice": 24000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/190/018/025/0677b61dff50a2f34dfe252acaa94ece.jpg",
-   "note": "맛있는 속초 홍게 4kg > A급 정품 홍게 4kg"
-  },
-  {
-   "warehouse": "당일생물",
    "sourceWarehouse": "인천",
    "category": "수산",
    "name": "연안 2미중문어 1kg",
@@ -1063,7 +1063,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/269/367/025/97275f531f053d6d50a543a6863fc552.jpg",
    "note": "창고명 변동 : 인지 > 동해"
@@ -1086,7 +1086,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/166/684/023/40232cb8b7d6b445acaf0d27b62f5298.jpg",
    "note": "급냉 상시 상품입니다."
@@ -1109,7 +1109,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/130/815/022/363e4917d56f49288001a59b43971052.jpg",
    "note": ""
@@ -1132,7 +1132,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "27-03-20",
    "image": "https://masterc.co.kr/files/attach/images/8333658/046/869/024/5989860102ce31e3f80ae09d40de7d0c.jpg",
    "note": ""
@@ -1155,7 +1155,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/621/685/023/cfa90a624e0df20aa1f45b7aa1bf6954.jpg",
    "note": ""
@@ -1178,7 +1178,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/433/823/023/fffd5734c02e03cfa96d0521dcd9624e.jpg",
    "note": ""
@@ -1201,7 +1201,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/130/686/006/04c781a1b9f0e3c91652ca27940f9efb.jpg",
    "note": ""
@@ -1224,7 +1224,7 @@
    "tax": "과세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "28-01-01",
    "image": "https://masterc.co.kr/files/attach/images/8333658/248/690/006/91f01c9b5a928a2967450d2ee136cf5f.jpg",
    "note": "성분표시 변경"
@@ -1248,7 +1248,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/656/263/024/97e9b6efedd3c5322fac103810a9c7be.jpg",
    "note": ""
@@ -1271,7 +1271,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/356/946/024/02ed592d84669a8b26333325fa66b238.jpg",
    "note": "제주 등뼈 > 국내산 등뼈"
@@ -1295,7 +1295,7 @@
    "tax": "과세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "2027. 11. 1",
    "image": "https://masterc.co.kr/files/attach/images/8333658/180/690/006/2f7eddb803bb127eab28123c00f50fcf.jpg",
    "note": "성분표시 및 포장, 중량사진 변경되었습니다."
@@ -1318,7 +1318,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/934/825/023/be1ff755aba7afab8f2e009e696d93c4.jpg",
    "note": ""
@@ -1342,7 +1342,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "27-07-20",
    "image": "https://masterc.co.kr/files/attach/images/8333658/538/406/025/8450471fbab0c0b9f2ecf880786868a3.jpg",
    "note": ""
@@ -1366,7 +1366,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "27-07-20",
    "image": "https://masterc.co.kr/files/attach/images/8333658/145/734/006/9e884e54ef58ebbc7e94de2936b6c6d4.jpg",
    "note": ""
@@ -1389,7 +1389,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/767/733/006/00485fc0145e1c675df848125d5324cd.jpg",
    "note": ""
@@ -1412,7 +1412,7 @@
    "tax": "과세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/631/580/024/e10dd2c6452d3f596fae26d1d229d846.jpg",
    "note": ""
@@ -1436,7 +1436,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/757/245/025/0f7b980f221e8fe5059f5fff29ba15e9.jpg",
    "note": ""
@@ -1459,7 +1459,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/885/647/024/6044226e5f4527567217fb9079e67887.jpg",
    "note": ""
@@ -1483,7 +1483,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/328/586/024/43331a3694092914401cde77a7f6729e.jpg",
    "note": ""
@@ -1506,7 +1506,7 @@
    "tax": "과세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "2027. 2. 26",
    "image": "https://masterc.co.kr/files/attach/images/8333658/805/977/007/3cbe0ea141b1808d0d9322c038abd542.jpg",
    "note": ""
@@ -1530,7 +1530,7 @@
    "tax": "과세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "제조일로부터 6개월",
    "image": "https://masterc.co.kr/files/attach/images/8333658/597/042/025/0e2c254a56a38a34bcac67f3cfc2564b.jpg",
    "note": ""
@@ -1554,7 +1554,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/433/335/025/f867f68065ef1034249c4edd69a1f947.jpg",
    "note": ""
@@ -1577,7 +1577,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/143/016/025/2d415f58923bd9ad683b436bf5b54d54.jpg",
    "note": "포장, 중량사진 추가 되었습니다."
@@ -1600,7 +1600,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/848/112/025/d7764aeadc689be40f7f4b002e347dff.jpg",
    "note": "- 상품명 : 봄 제철 중산 쭈꾸미 2kg > 봄 제철 쭈꾸미 2kg\n급냉 주꾸미 입니다."
@@ -1623,7 +1623,7 @@
    "tax": "과세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "제조일로부터 6개월",
    "image": "https://masterc.co.kr/files/attach/images/8333658/300/214/025/b65018b842f2885adc8b50b0dece6ae3.jpg",
    "note": ""
@@ -1646,7 +1646,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "27-03-20",
    "image": "https://masterc.co.kr/files/attach/images/8333658/708/964/024/c0999eff2022665a463a9f291a5cb44e.jpg",
    "note": ""
@@ -1670,7 +1670,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/429/335/025/272297a37964dc1bd2f8223ed8a60106.jpg",
    "note": ""
@@ -1694,7 +1694,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/457/335/025/d6ab914734bb760f765fa753a9246067.jpg",
    "note": ""
@@ -1718,7 +1718,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/459/335/025/caacc3893ff7c3cd98a3e72fa36647f7.jpg",
    "note": ""
@@ -1742,7 +1742,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/461/335/025/910f004eb63555598167558a7bbce0e4.jpg",
    "note": ""
@@ -1766,7 +1766,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/467/335/025/38e710fe1c8e2fe73c1ecbe2bd334d40.jpg",
    "note": ""
@@ -1790,7 +1790,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/469/335/025/5f98d979052178bb890beaeca23e032a.jpg",
    "note": ""
@@ -1813,7 +1813,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/479/335/025/925dfac3266f61c5f08ea004d90303e2.jpg",
    "note": ""
@@ -1836,7 +1836,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/484/335/025/02acef68dfec671870c3344d8f6c76ff.jpg",
    "note": ""
@@ -1860,7 +1860,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/491/335/025/ee8a9f74de0c358688442f36dcbfb5ba.jpg",
    "note": ""
@@ -1884,7 +1884,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/493/335/025/06e7200d57aca3fdcb2b889a9a809e60.jpg",
    "note": ""
@@ -1908,7 +1908,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/499/335/025/3d0ccfefed04705bac5c9bfae9f8e50f.jpg",
    "note": ""
@@ -1932,7 +1932,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/061/348/025/033b520142764e239ee0f607db040a72.png",
    "note": ""
@@ -1955,7 +1955,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/335/302/025/e98d7b28530133cdcc881880b6667c42.jpg",
    "note": ""
@@ -1979,7 +1979,7 @@
    "tax": "과세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/357/266/025/cb2d36670bc89b239973d20f67bbb371.jpg",
    "note": ""
@@ -2004,7 +2004,7 @@
    "tax": "과세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/030/261/025/166a33e896a680ad93ec700f5efca797.jpg",
    "note": ""
@@ -2027,7 +2027,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/123/222/025/5d5d0ee335f5e1ce448a713fb3467216.jpg",
    "note": "바다송어 소 2미\r\n> 자연산 반건조 바다송어 소 2미"
@@ -2049,7 +2049,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/118/222/025/ce4c60f2ca48ec5bd51f3fbbd2d26e99.jpg",
    "note": "바다송어 중 1미\r\n> 자연산 반건조 바다송어 중 1미"
@@ -2072,7 +2072,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/170/035/025/f5c74f2a75ec196bd20d457d654d64b7.jpg",
    "note": ""
@@ -2095,7 +2095,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/911/212/025/49ca67250901a9b7354e36a98f1c57f6.jpg",
    "note": ""
@@ -2118,7 +2118,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/695/012/025/630094d33d9da98956d9f52e90196acf.jpg",
    "note": ""
@@ -2141,7 +2141,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/544/841/023/f050e927c1b10ecf5d3749350d5bbdea.jpg",
    "note": ""
@@ -2164,7 +2164,7 @@
    "tax": "면세",
    "courier": "씨제이대한통운",
    "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
+   "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/866/164/023/c32c05454c5e22430e42b300c844464e.jpg",
    "note": ""
@@ -10247,6 +10247,29 @@
   },
   {
    "warehouse": "단독(무)",
+   "sourceWarehouse": "디디",
+   "category": "수산",
+   "name": "동해 직발송 박달홍게 4kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 홍게",
+    "※ 중량/ 사이즈 : 원물 4kg/ 8-12미 내외",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 홍게 100%",
+    "※ 포장방식 : 비닐포장"
+   ],
+   "supplyPrice": 22000,
+   "previousPrice": 17500,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/832/100/025/72041ba8f4078cd249dd5e580afe2a2a.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(무)",
    "sourceWarehouse": "홍어",
    "category": "수산",
    "name": "흑산도 전통 홍어 500g",
@@ -10266,29 +10289,6 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/106/590/023/d0a48e5e8d38de847cfe7fe4ebdde982.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "단독(무)",
-   "sourceWarehouse": "디디",
-   "category": "",
-   "name": "동해 직발송 박달홍게 4kg",
-   "spec": [
-    "※ 원산지 : 국내산",
-    "※ 구성 : 홍게",
-    "※ 중량/ 사이즈 : 원물 4kg/ 8-12미 내외",
-    "※ 생물여부 : 냉장",
-    "※ 성분표시 : 홍게 100%",
-    "※ 포장방식 : 비닐포장"
-   ],
-   "supplyPrice": 22000,
-   "previousPrice": 17500,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/832/100/025/72041ba8f4078cd249dd5e580afe2a2a.jpg",
    "note": ""
   },
   {
