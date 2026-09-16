@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.108</title>
+<title>마스터 유통 카탈로그 v23.109</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -2715,10 +2715,44 @@ function newsItem(n,open){
     +'<summary><span class="newsb">소식</span>'+(isNew?'<span class="ntcread">New</span>':'')+'<span class="ntt">'+esc(n.title)+'</span>'
       +(n.at?'<span class="nd2">'+esc(n.at)+'</span>':'')+delBtn('news',n)+'<span class="ntarrow">▾</span></summary>'
     +'<div class="nb">'+esc(newsBody(n.body)||'(내용 없음)')+'</div>'
-    +(btns.length?('<div class="newsp">👇 이 글에 나온 상품 — 누르시면 새 창에서 열립니다 (이 글은 그대로 있어요)'
-        +'<div class="newspl">'+btns.map(nm=>'<a class="mvn" data-mvnew="1" href="'+esc(newsProdUrl(nm))+'" target="_blank" rel="noopener" title="새 창에서 이 상품 보기">'+esc(nm)+' ↗</a>').join('')+'</div></div>'):'')
+    +((btns.length||amMasterC())?('<div class="newsp">👇 이 글에 나온 상품 — 누르시면 새 창에서 열립니다 (이 글은 그대로 있어요)'
+        +'<div class="newspl">'+btns.map(nm=>'<a class="mvn" data-mvnew="1" href="'+esc(newsProdUrl(nm))+'" target="_blank" rel="noopener" title="새 창에서 이 상품 보기">'+esc(nm)+' ↗</a>').join('')
+        /* ➕ 마스터는 이 자리에서 바로 상품을 붙인다 (홍팀장 2026-09-16) — 상품도구까지 안 가도 되게 */
+        +(amMasterC()?'<button class="mvn" data-newsadd="'+esc(newsKey(n))+'" title="이 글에 상품 버튼 추가">＋ 상품 추가</button>':'')
+        +'</div></div>'):'')
     +'</details>';
 }
+/* ➕ 소식글에 상품 붙이기 — 마스터 전용 (홍팀장 2026-09-16 "여기서 상품 추가할 수 있게").
+   🔴 상품명은 카탈로그 정본과 **완전일치**일 때만 붙인다(§3-3) — 추측 매칭 금지.
+   저장은 소식글 탭 연결상품 칸(E) 한 칸만. 서버가 줄 번호 + 제목·작성일로 그 글이 맞는지 확인한다. */
+document.addEventListener('click',async function(e){
+  const b=e.target.closest('[data-newsadd]'); if(!b)return;
+  e.preventDefault(); e.stopPropagation();
+  if(!amMasterC())return;
+  const key=b.getAttribute('data-newsadd');
+  const n=(NEWS||[]).find(x=>newsKey(x)===key);
+  if(!n){ alert('글을 찾지 못했습니다. 새로고침 후 다시 해주세요.'); return; }
+  const raw=prompt('이 글에 붙일 상품명을 넣어주세요.\n카탈로그 이름과 한 글자라도 다르면 안 붙습니다.','');
+  if(raw===null)return;
+  const want=pkey(raw); if(!want)return;
+  const hit=(ALL||[]).find(p=>pkey(p.name)===want);
+  if(!hit){ alert('카탈로그에 없는 이름입니다.\n\n'+raw+'\n\n상품 목록의 이름을 그대로 복사해 넣어주세요.'); return; }
+  if((n.items||[]).some(x=>pkey(x)===want)){ alert('이미 붙어 있는 상품입니다.'); return; }
+  const items=(n.items||[]).concat([hit.name]);
+  const old=b.textContent; b.disabled=true; b.textContent='추가 중…';
+  try{
+    await api('tabrow',{token:ME.token,name:'소식글',idx:n.i,match:{0:n.title,3:n.at},set:{4:items.join(', ')}});
+    n.items=items;
+    if(location.hash.replace(/^#/,'')==='news'){
+      subV.innerHTML=renderNews(NEWS);
+      subV.querySelectorAll('details.news').forEach(d=>{ if(d.getAttribute('data-newsk')===key)d.open=true; });
+    }
+    toast('➕ '+hit.name+' — 이 글에 붙였습니다');
+  }catch(err){
+    alert('붙이지 못했습니다.\n\n'+(err.message||err));
+    b.disabled=false; b.textContent=old;
+  }
+});
 function renderNews(list){
   let h=subHead('📰 소식글','카톡으로 보내드린 소식글입니다. 글 안의 상품은 눌러서 바로 보실 수 있어요.');
   if(!list.length)return h+'<div class="empty">아직 올라온 소식글이 없습니다.</div>';
