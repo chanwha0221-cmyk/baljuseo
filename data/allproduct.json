@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-16 16:07",
+ "updatedAt": "2026-09-17 08:40",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -2219,29 +2219,6 @@
   {
    "warehouse": "경기",
    "sourceWarehouse": "경기",
-   "category": "축산",
-   "name": "맛상 양 티본 스테이크 500g",
-   "spec": [
-    "※ 원산지 : 호주산",
-    "※ 구성 : 양티본 스테이크 500g 1팩 / 4~6덩이 내외 / 두께 1.5cm~2cm 내외",
-    "※ 중량/사이즈 : 500g",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 양고기 100%",
-    "※ 포장방식 : 비닐실링"
-   ],
-   "supplyPrice": 10000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "오후마감 : 14시",
-   "shelfLife": "27-7-13",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/845/173/025/b6407d5031072cc9a93a78833ad5b396.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "경기",
-   "sourceWarehouse": "경기",
    "category": "가공식품",
    "name": "맛상 삐카돈까스 1kg",
    "spec": [
@@ -2489,6 +2466,29 @@
    "orderCutoff": "오후마감 : 14시",
    "shelfLife": "28-05-22",
    "image": "https://masterc.co.kr/files/attach/images/8333658/972/159/012/200d46cb738de793a530bea83b4d0450.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "경기",
+   "sourceWarehouse": "경기",
+   "category": "축산",
+   "name": "맛상 양 티본 스테이크 500g",
+   "spec": [
+    "※ 원산지 : 호주산",
+    "※ 구성 : 양티본 스테이크 500g 1팩 / 4~6덩이 내외 / 두께 1.5cm~2cm 내외",
+    "※ 중량/사이즈 : 500g",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 양고기 100%",
+    "※ 포장방식 : 비닐실링"
+   ],
+   "supplyPrice": 10000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "오후마감 : 14시",
+   "shelfLife": "27-7-13",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/845/173/025/b6407d5031072cc9a93a78833ad5b396.jpg",
    "note": ""
   },
   {
@@ -6583,29 +6583,6 @@
    "warehouse": "팡팡",
    "sourceWarehouse": "팡팡",
    "category": "축산",
-   "name": "호주산 양갈비 500g",
-   "spec": [
-    "※ 원산지 : 호주산(A등급)",
-    "※ 구성 : 양갈비",
-    "※ 중량/ 사이즈 : 500g",
-    "※ 생물여부 : 냉동",
-    "※ 성분표시 : 양갈비 100%",
-    "※ 포장방식 : 비닐실링"
-   ],
-   "supplyPrice": 11500,
-   "previousPrice": 11000,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "오후마감 : 12시",
-   "shelfLife": "도축일로부터 24개월",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/594/001/025/840600cc17016fa9550ae2dc8de844c9.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "팡팡",
-   "sourceWarehouse": "팡팡",
-   "category": "축산",
    "name": "미국산 소갈비살 200g",
    "spec": [
     "※ 원산지 : 미국산(초이스)",
@@ -6646,6 +6623,29 @@
    "orderCutoff": "오후마감 : 12시",
    "shelfLife": "도축일로부터 24개월",
    "image": "https://masterc.co.kr/files/attach/images/8333658/623/001/025/686fc7e6cd7d101875726e7b662e86a9.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "팡팡",
+   "sourceWarehouse": "팡팡",
+   "category": "축산",
+   "name": "호주산 양갈비 500g",
+   "spec": [
+    "※ 원산지 : 호주산(A등급)",
+    "※ 구성 : 양갈비",
+    "※ 중량/ 사이즈 : 500g",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 양갈비 100%",
+    "※ 포장방식 : 비닐실링"
+   ],
+   "supplyPrice": 11500,
+   "previousPrice": 11000,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "오후마감 : 12시",
+   "shelfLife": "도축일로부터 24개월",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/594/001/025/840600cc17016fa9550ae2dc8de844c9.jpg",
    "note": ""
   },
   {
