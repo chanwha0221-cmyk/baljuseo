@@ -2376,7 +2376,10 @@ const HDR_MAP = {
         적어서는 못 읽는다 — 줄을 못 찾으면 규칙을 볼 기회조차 없다. */
   rcv : ['받는사람', '받는분', '수취인', '수령인', '고객명', '수취인명', '받는분 성함', '성함'],
   addr: ['배송지', '배송주소', '받는분 주소', '주소', '수취인주소', '수취인 주소'],
-  tel : ['배송지연락처', '수취인연락처', '받는분 연락처', '받는분연락처', '수취인 연락처', '수취인전화번호', '연락처', '휴대폰'],
+  /* ☎ '수취인전화' — 지투지샵/사방넷 (홍팀장 2026-09-16 "고객 연락처도 안 들어가").
+     '수취인전화번호'만 있어서 «수취인전화» 는 어디에도 안 걸렸다(앞글자 매칭은 머리글이 더 길 때만 된다).
+     ⚠️ '수취인전화2'(같은 번호 복사본)보다 먼저 잡히도록 정확히 같은 이름을 앞에 둔다. */
+  tel : ['배송지연락처', '수취인연락처', '받는분 연락처', '받는분연락처', '수취인 연락처', '수취인전화', '수취인 전화', '수취인전화번호', '수취인휴대폰', '연락처', '휴대폰', '전화번호'],
   msg : ['배송위치', '배송메시지', '배송메세지', '배송요청사항', '배송메모', '요청사항', '배송시요청사항'],
   /* 🏷 업체명(출고지명) — 사업자는 하나인데 채널이 여러 개인 곳 (홍팀장 2026-09-03).
      한 파일 안에 「한상***」·「대감***」처럼 채널이 섞여 오고, 그 이름이 **송장에 찍혀야 한다.**
@@ -2412,6 +2415,13 @@ function looksAddr(v){
   return s.length >= 8 && SIDO.test(s) && /(로|길|번지|읍|면|동|가)\s*\d/.test(s);
 }
 function bizCell(v){ return looksAddr(v) ? '' : S(v); }
+/* 👤 받는분 성함 칸에 주문자명이 대괄호로 따라오는 파일 (2026-09-16 지투지샵 — 「수취인명[주문자명]」 → 「지영[성지현]」).
+   송장에 찍힐 이름은 **앞의 수취인**이다. 괄호를 안 떼면 그대로 송장에 나간다. 괄호가 없으면 그대로 둔다. */
+function rcvName(v){
+  const s = S(v); if(!s) return s;
+  const m = s.match(/^(.+?)\s*[[［]\s*[^\]］]*\s*[\]］]\s*$/);
+  return m ? S(m[1]) : s;
+}
 function headerItems(raw){
   const lines = S(raw).split(/\r?\n/).filter(l => l.replace(/\t/g, '').trim());
   if(lines.length < 2) return [];
@@ -2507,8 +2517,11 @@ function headerItems(raw){
     /* 🔢 수량 칸이 없으면 상품명 꼬리에서 읽는다 — 「… 1kg x 4」 (홍팀장 2026-09-09 여수39).
        ⚠️ 이름 한가운데의 x(3x4 같은 규격)는 건드리지 않는다. 끝에 매달린 것만 뗀다. */
     let base = parseInt(S(g('qty')).replace(/[^\d]/g, ''), 10) || 0;
+    /* 🔴 2026-09-16 지투지샵 — 「연안 급냉 소숫게 1kgx3」처럼 **띄어쓰기 없이** 붙여 온다.
+       예전엔 앞에 공백이 있을 때만 떼서, 수량은 1로 나가고 상품명은 못 찾았다(홍팀장: "x 1 이걸 그냥 상품명에 붙여서 넣어버려").
+       ⚠️ 여전히 **맨 끝**에 매달린 것만 뗀다 — 이름 한가운데의 3x4 같은 규격은 그대로 둔다. */
     if(at.qty < 0){
-      const tx = nm.match(/\s+[xX*×]\s*(\d{1,3})\s*$/);
+      const tx = nm.match(/\s*[xX*×]\s*(\d{1,3})\s*$/);
       if(tx){ base = parseInt(tx[1], 10) || 1; nm = nm.slice(0, tx.index).trim(); }
       else base = 1;
     }
@@ -2530,7 +2543,7 @@ function headerItems(raw){
     let ad = g('addr');
     const zp = S(g('zip')).replace(/[^\d]/g, '');
     if(zp && ad && ad.indexOf(zp) < 0) ad = '(' + zp + ')' + ad;
-    out.push({ biz:bizCell(g('biz')), name:nm, qty:q || '1', rcv:g('rcv'), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg'),
+    out.push({ biz:bizCell(g('biz')), name:nm, qty:q || '1', rcv:rcvName(g('rcv')), addr:ad, tel:fmtTel(g('tel')) || g('tel'), msg:g('msg'),
                otel:fmtTel(g('otel')) || g('otel') });   // ☎ 출고지(채널) 주문 연락처 — 있으면 이 번호로 나간다
   }
   out.skipped = skipped;
