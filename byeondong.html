@@ -236,7 +236,7 @@
         · <b>✕</b>로 뿌리기 싫은 상품 빼기 → 아래 '제외된 상품'에서 <b>↩</b>로 다시 올리기.</div>
       <div class="step2"><b>④</b> <b>🔀 각 시트 적용</b> — 상품변동사항·당일생물·창고 탭에 자동으로 들어가요.<br>
         · 창고 공급처를 어느 탭에 넣을지 모르면 <b>물어봐요</b> (한 번 답하면 저장 · <b>여러 탭이면 쉼표로</b> 답해요).<br>
-        · <b>&lt;○○창고 전상품&gt;</b> 행은 상품으로 안 넣고, 창고 탭에서 <b>그 창고 상품들을 일괄 처리</b>해요 (아래 ⚡ 예외 규칙 참고).</div>
+        · <b>&lt;○○창고 전상품&gt;</b> 행은 상품으로 안 넣고, 창고 탭에서 <b>그 창고 상품들을 일괄 처리</b>해요 — 택배사·특이사항·<b>마감시간</b> (아래 ⚡ 예외 규칙 참고).</div>
       <div class="step2"><b>⑤ (선택)</b> <b>📗 엑셀 생성</b> — 리모컨 업데이트용 <b>변경분만</b> 엑셀로 뽑아요. <b>재입고인데 리모컨에 없던 상품은 출시처럼 신규 등록</b>(원가까지 채움)돼요. 🅧 화면에서 <b>✕제외한 상품도 리모컨엔 포함</b>돼요 — 시트엔 안 넣어도 업체가 당일로 발주 줄 수 있어서 미리 등록해두는 거예요.</div>
       <div class="step2"><b>⑥ (선택)</b> <b>🔗 링크 업데이트</b> — 링크 시트 + 그룹웨어 문서복사를 새 창으로 열어줘요.</div>
     </div>
@@ -256,7 +256,9 @@
       · 변동이 <b>택배사</b>면: 그 창고 상품들의 <b>택배사(E열)를 실제로 바꾸고</b> 스펙에 변경 문구를 달아요.<br>
       · 변동이 <b>특이사항/스펙</b>이면: 그 창고 상품들 <b>스펙(I열)에 문구만 붙여요</b> — 택배사 등 다른 칸은 안 건드려요.
       (예: 여름철 기온 상승으로 제주·도서산간 발송 불가)<br>
-      · <b>그 외(마감시간 등)는 자동으로 안 하고</b> 리포트에 "수동 확인"으로 떠요 — 예전 전상품 덮어쓰기 사고 방지.
+      · 변동이 <b>마감시간</b>이면: 그 창고 상품들의 <b>마감 칸(H열)을 새 시간으로 바꾸고</b>, <b>마감시간 정본 시트(수량 리더)</b>도 같이 맞춰요.
+      상품으로는 안 들어가요. (예: &lt;전상품&gt; 마감시간 14시 &gt; 16시 → 동해 상품 전부 16시)<br>
+      · <b>그 외는 자동으로 안 하고</b> 리포트에 "수동 확인"으로 떠요 — 예전 전상품 덮어쓰기 사고 방지.
 
       <h3>3. ✕제외한 상품도 리모컨(📗엑셀)엔 들어가요</h3>
       ✕제외는 "<b>우리 시트에 상시로 안 돌린다</b>"는 뜻이지 상품이 없어지는 게 아니에요.
@@ -666,6 +668,33 @@
       LINKMAP={};
       v.forEach(function(r){ var nm=cell(r,0), url=cell(r,1); if(nm && url && !LINKMAP[pkey(nm)]) LINKMAP[pkey(nm)]=url; });
       return true;
+    });
+  }
+  /* ⏰ 마감시간 시트(수량 리더) 일괄 반영 (홍팀장 2026-09-16 — 「<동해창고 전상품> 마감 14시 > 16시」).
+     pairs = [{name,time}]. 이미 있는 상품은 J열만 고치고, 없는 상품은 줄을 새로 붙인다.
+     🔴 마감시간 정본은 이 시트다 — 창고 탭 마감 칸만 고치면 수량관리·상품도구가 옛 시간을 계속 쓴다. */
+  function syncMagamTimes(pairs){
+    if(!pairs || !pairs.length) return Promise.resolve({upd:0, add:0});
+    return readRange(MAGAM_ID, "'"+MAGAM_TAB+"'!A2:J").then(function(rows){
+      var at={};
+      rows.forEach(function(r, i){ var nm=cell(r,1); if(nm && at[pkey(nm)]===undefined) at[pkey(nm)] = i+2; });   // 1-based 행
+      var data=[], add=[], seen={};
+      pairs.forEach(function(p){
+        var k=pkey(p.name); if(!p.name || !p.time || seen[k]) return; seen[k]=1;
+        if(at[k]!==undefined) data.push({ range:"'"+MAGAM_TAB+"'!J"+at[k], values:[[p.time]] });
+        else add.push([ '', p.name, '', '', '', '', '', '', '', p.time ]);
+        MAGAM[k]=p.time;
+      });
+      var jobs=[];
+      if(data.length) jobs.push(fetch('https://sheets.googleapis.com/v4/spreadsheets/'+MAGAM_ID+'/values:batchUpdate',
+        { method:'POST', headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' },
+          body: JSON.stringify({ valueInputOption:'USER_ENTERED', data:data }) })
+        .then(function(r){ if(!r.ok) throw new Error('마감시간 시트 수정 실패 HTTP '+r.status); return true; }));
+      if(add.length) jobs.push(fetch('https://sheets.googleapis.com/v4/spreadsheets/'+MAGAM_ID+'/values/'+encodeURIComponent("'"+MAGAM_TAB+"'!A:J")+':append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+        { method:'POST', headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' },
+          body: JSON.stringify({ values: add }) })
+        .then(function(r){ if(!r.ok) throw new Error('마감시간 시트 추가 실패 HTTP '+r.status); return true; }));
+      return Promise.all(jobs).then(function(){ return {upd:data.length, add:add.length}; });
     });
   }
   // ===== Sheets API 쓰기(append) — 마감시간 시트 맨 아래 =====
@@ -1080,9 +1109,9 @@
   // ★변동 칸 '택배사'(E+I 변경) 또는 '특이사항/스펙'(I 문구만 append) 때만 실행 — 그 외(마감시간 등)는 안전 스킵+리포트 (2026-06-10 전상품 덮어쓰기 사고 교훈)
   function applyBulkAll(tab, readStart1, bulks, col0){
     col0=col0||0;
-    var cA=colLetter(col0), cI=colLetter(col0+8), cE=colLetter(col0+4);   // 시작열 오프셋 적용: A유통기한~I스펙, E택배사
+    var cA=colLetter(col0), cI=colLetter(col0+8), cE=colLetter(col0+4), cH=colLetter(col0+7);   // A유통기한~I스펙, E택배사, H마감
     return readRange(APPLY_ID, "'"+tab+"'!"+cA+readStart1+":"+cI).then(function(rows){
-      var data=[], notes=[];
+      var data=[], notes=[], magamPairs=[];
       bulks.forEach(function(b){
         var wh=String(b.v[6]||'').trim();
         if(!wh){ var m=String(b.name||'').match(/^[<〈]\s*(.+?)\s*(?:창고)?\s*전상품/); if(m) wh=m[1].trim(); }
@@ -1092,7 +1121,13 @@
         // 지원 모드 ①택배사: E열 실제 변경+스펙 문구 ②특이사항(2026-08-05 사장님 — 생고/단독 여름 발송불가 건): I열 문구만 append, 다른 칸 안 건드림
         var isCourier=String(b.byun||'').indexOf('택배사')>=0;
         var isNoteOnly=!isCourier && /특이사항|스펙/.test(String(b.byun||'')) && !!note;
-        if(!wh || (isCourier && !newCourier) || (!isCourier && !isNoteOnly)){
+        /* ⏰ ③마감시간 (홍팀장 2026-09-16 — 「<동해창고 전상품> 마감시간 14시 > 16시」):
+           그 창고 상품들의 마감 칸(H)을 새 시간으로 바꾸고, 아래에서 마감시간 정본 시트도 같이 맞춘다.
+           새 시간은 마감시간 칸 우선, 없으면 참고사항의 「마감시간 : 옛 > 새」에서 뒤엣것. 스펙 문구는 안 붙인다(시간만 바뀌면 된다). */
+        var isMagam=!isCourier && /마감/.test(String(b.byun||''));
+        var newTime=String(b.v[15]==null?'':b.v[15]).trim();
+        if(isMagam && !newTime){ var mm=String(b.v[14]==null?'':b.v[14]).match(/마감\s*시간[^:：>\n]*[:：]?\s*[^>\n]*>\s*([^\n]+)/); if(mm) newTime=mm[1].trim(); }
+        if(!wh || (isCourier && !newCourier) || (isMagam && !newTime) || (!isCourier && !isMagam && !isNoteOnly)){
           notes.push({tab:tab, wh:wh||b.name, n:0, skip:'변동「'+(b.byun||'?')+'」은 전상품 자동변경 미지원(택배사·특이사항만 됨) — 수동 확인'});
           return;
         }
@@ -1102,17 +1137,22 @@
           if(!wc || (wc!==whK && wc!==whK+'창고' && wc+'창고'!==whK)) return;
           var row1=readStart1+idx;
           if(isCourier) data.push({ range:"'"+tab+"'!"+cE+row1, values:[[newCourier]] });
+          if(isMagam){ data.push({ range:"'"+tab+"'!"+cH+row1, values:[[newTime]] }); magamPairs.push({name:cell(rr,2), time:newTime}); }
           var spec=String(cell(rr,8)||'');               // I 스펙 — 같은 문구 이미 있으면 중복 안 붙임
-          if(note && spec.indexOf(note)<0) data.push({ range:"'"+tab+"'!"+cI+row1, values:[[ spec ? spec+'\n'+note : note ]] });
+          if(!isMagam && note && spec.indexOf(note)<0) data.push({ range:"'"+tab+"'!"+cI+row1, values:[[ spec ? spec+'\n'+note : note ]] });
           n++;
         });
-        notes.push({tab:tab, wh:wh, n:n, label:isCourier?('택배사 '+newCourier):'특이사항 문구'});
+        notes.push({tab:tab, wh:wh, n:n, label:isCourier?('택배사 '+newCourier):(isMagam?('마감시간 '+newTime):'특이사항 문구')});
       });
       if(!data.length) return notes;
       var url='https://sheets.googleapis.com/v4/spreadsheets/'+APPLY_ID+'/values:batchUpdate';
       return fetch(url,{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
         body:JSON.stringify({valueInputOption:'USER_ENTERED', data:data})})
-        .then(function(r){ if(!r.ok) throw new Error('"'+tab+'" 전상품 일괄변경 실패 HTTP '+r.status); return notes; });
+        .then(function(r){ if(!r.ok) throw new Error('"'+tab+'" 전상품 일괄변경 실패 HTTP '+r.status); return true; })
+        // ⏰ 창고 탭이 바뀐 뒤 마감시간 정본 시트도 같이 맞춘다 (실패하면 리포트에 남긴다 — 창고 탭은 이미 바뀐 뒤다)
+        .then(function(){ return syncMagamTimes(magamPairs); })
+        .then(function(mg){ if(mg && (mg.upd||mg.add)) notes.push({tab:MAGAM_TAB, wh:'마감시간 정본', n:mg.upd+mg.add, label:'마감시간 시트 반영(수정 '+mg.upd+' · 추가 '+mg.add+')'}); return notes; })
+        .catch(function(e){ notes.push({tab:MAGAM_TAB, wh:'마감시간 정본', n:0, skip:'마감시간 시트 반영 실패 — '+e.message+' (창고 탭은 반영됨)'}); return notes; });
     });
   }
 
@@ -1158,7 +1198,7 @@
     var nDay=uni.filter(function(it){return it.day.indexOf('당일')>=0;}).length;
     var nPoom=uni.filter(function(it){return it.poom;}).length;
     var nBulk=uni.filter(function(it){return it.day.indexOf('당일')<0 && isBulkAll(it);}).length;
-    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 '+uni.length+'건 (병합 후 최종 · 같은 상품은 1줄)\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제'+(nBulk?'\n· <창고 전상품> 일괄 '+nBulk+'건 → 그 창고 상품 택배사 변경 또는 특이사항 문구':'')+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건 → 마지막(최신) 건 기준 병합 (출시 있으면 최종가 출시로)':'')+(costDrop?'\n· 🚫 원가 관련 '+costDrop+'건 제외 — 업체 비노출(어떤 탭에도 안 넣음)':'')+'\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
+    if(!confirm('각 시트에 적용할까요?\n반영 대상 ▶ '+tgtLabel+'\n\n· 상품변동사항 '+uni.length+'건 (병합 후 최종 · 같은 상품은 1줄)\n· 당일 '+nDay+'건 → 당일생물 탭\n· 상시 → 공급처별 창고 탭\n· 품절 '+nPoom+'건 삭제'+(nBulk?'\n· <창고 전상품> 일괄 '+nBulk+'건 → 그 창고 상품 택배사·마감시간 변경 또는 특이사항 문구':'')+(dupSkip?'\n· 같은 상품 중복 '+dupSkip+'건 → 마지막(최신) 건 기준 병합 (출시 있으면 최종가 출시로)':'')+(costDrop?'\n· 🚫 원가 관련 '+costDrop+'건 제외 — 업체 비노출(어떤 탭에도 안 넣음)':'')+'\n(탭 이름은 시트에서 자동 인식 · 같은 상품 중복은 아래것 삭제)')) return;
     var btn=this; btn.disabled=true; var o=btn.innerHTML; btn.innerHTML='적용중...';
     var rep={ vari:0, notice:0, wh:{}, whGid:{}, poomDel:0, unmatched:[], variGid:0, variTab:'', noticeGid:0, noticeTab:'', bulk:[], dupDel:0 };
     var supTabG={};   // 공급처→창고탭(배열) — 리포트 써머리에서 "어느 탭에 들어갔는지" 표기용
