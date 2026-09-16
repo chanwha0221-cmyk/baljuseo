@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.109</title>
+<title>마스터 유통 카탈로그 v23.110</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -289,6 +289,17 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .popntc .pb{font-size:13px;color:var(--ink);line-height:1.75;white-space:pre-wrap;word-break:break-word}
 .popntc .pb img{max-width:100%;height:auto;display:block;margin:7px 0;border:1px solid var(--line);border-radius:10px}
 .popntc .btns{margin-top:13px}
+/* 📌 팝업이 두 건 이상이면 한 창에서 넘겨 본다 (홍팀장 2026-09-16 "팝업 두개도 슬라이드로") */
+.popntc .pslide{animation:popfade .18s ease}
+@keyframes popfade{from{opacity:0;transform:translateX(9px)}to{opacity:1;transform:none}}
+.popntc .pnav{display:flex;align-items:center;gap:8px;margin-top:11px}
+.popntc .parr{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;
+  padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+@media(hover:hover){.popntc .parr:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}}
+.popntc .parr:disabled{opacity:.3;cursor:default}
+.popntc .pdots{display:flex;gap:6px;flex:1;justify-content:center}
+.popntc .pdot{width:8px;height:8px;border-radius:50%;background:var(--line);border:0;padding:0;cursor:pointer}
+.popntc .pdot.on{background:var(--accent)}
 /* 🔄 새 버전 알림 바 — 화면 맨 아래에 붙는다.
    위에 두면 로그인·공지와 겹쳐서 정작 볼 것을 가린다. 발주 중에도 방해되면 안 된다. */
 .verbar{position:fixed;left:12px;right:12px;bottom:12px;z-index:9000;display:flex;align-items:center;gap:10px;
@@ -2226,9 +2237,12 @@ function ntcEditOpen(row){
   d.innerHTML='<div class="box">'
     +'<h3>✏️ 공지 고치기</h3>'
     +'<p class="hint">저장하면 업체 화면에 바로 반영됩니다. 작성일('+esc(n.at||'-')+')은 그대로 둡니다.</p>'
-    +'<input class="t" id="ntcEdT" type="text" placeholder="공지 제목" value="'+esc(n.title||'')+'">'
+    +'<input class="t" id="ntcEdT" type="text" placeholder="공지 제목" value="'+esc(ntcPopStrip(n.title))+'">'
     +'<textarea id="ntcEdB" rows="9" placeholder="공지 내용 — 줄바꿈 그대로 보입니다">'+esc(n.body||'')+'</textarea>'
-    +'<label class="impl"><input type="checkbox" id="ntcEdI"'+(n.imp?' checked':'')+'> 중요 공지 (맨 위로 · 빨간 줄 표시)</label>'
+    +'<div><label class="impl"><input type="checkbox" id="ntcEdI"'+(n.imp?' checked':'')+'> 중요 공지 (맨 위로 · 빨간 줄 표시)</label></div>'
+    /* 📌 는 손으로 치는 게 아니라 여기서 켠다 (홍팀장 2026-09-16 "이모티콘을 소환할 수도 없고 버튼으로 만들어줘")
+       제목 앞의 📌 한 글자가 팝업 스위치라, 체크하면 붙이고 풀면 뗀다. */
+    +'<div><label class="impl"><input type="checkbox" id="ntcEdP"'+(ntcPopOn(n)?' checked':'')+'> 📌 팝업으로 띄우기 (들어오는 즉시 창으로 보여줍니다)</label></div>'
     +'<div class="btns"><button class="x" id="ntcEdX">취소</button><button id="ntcEdS">💾 저장</button></div>'
     +'<div class="msg" id="ntcEdMsg"></div>'
     +'</div>';
@@ -2242,9 +2256,11 @@ async function ntcEditSave(){
   const row=NTCED; if(!(row>1))return;
   const n=(NOTI||[]).find(x=>x.i+2===row); if(!n)return ntcEditClose();
   const msg=$('ntcEdMsg'), b=$('ntcEdS');
-  const title=$('ntcEdT').value.trim(), body=$('ntcEdB').value, imp=$('ntcEdI').checked;
+  const body=$('ntcEdB').value, imp=$('ntcEdI').checked, pop=$('ntcEdP').checked;
+  /* 📌 는 제목 맨 앞의 한 글자다 — 체크에 맞춰 붙이거나 뗀다. 칸에 직접 📌 를 붙여 넣어도 두 번 붙지 않는다. */
+  const bare=ntcPopStrip($('ntcEdT').value), title=(pop?'📌 ':'')+bare;
   /* 제목이 빈 공지는 저장해도 다시 못 읽어온다(불러올 때 제목 없는 행은 버린다) — 유실을 여기서 막는다 */
-  if(!title){ msg.textContent='⚠️ 제목은 비울 수 없습니다.'; return; }
+  if(!bare){ msg.textContent='⚠️ 제목은 비울 수 없습니다.'; return; }
   b.disabled=true; b.textContent='저장 중…'; msg.textContent='';
   try{
     // 🗄 원본은 Supabase (2026-09-14) — 줄 번호 + 옛 제목·작성일로 그 공지가 맞는지 서버가 확인하고 A~D만 고친다
@@ -2256,10 +2272,14 @@ async function ntcEditSave(){
     // 중요 여부가 바뀌면 순서가 달라진다 — 불러올 때와 같은 기준으로 다시 세운다
     NOTI.sort((a,b2)=>(b2.imp-a.imp)||(b2.at||'').localeCompare(a.at||'')||(b2.i-a.i));
     ntcCachePatch();
+    /* 📌 를 켰으면 내 화면에 바로 띄워 보여준다 — 업체에게 어떻게 보이는지 확인하지 못하면
+       켜 놓고도 못 미더워 두 번 고치게 된다. 껐으면 떠 있던 창을 치운다. */
+    if(pop){ ntcPopUnskip(n); ntcPopMaybe._done=0; }
+    ntcPopClose();
     if(location.hash.replace(/^#/,'')==='notice')subV.innerHTML=renderNotices(NOTI);
     renderNoticeBox(); renderNtcBadge();
     ntcEditClose();
-    toast('고쳤습니다 — 업체 화면에 바로 반영됩니다');
+    toast(pop?'고쳤습니다 — 📌 팝업으로 뜹니다(지금 보이는 창이 업체 화면입니다)':'고쳤습니다 — 업체 화면에 바로 반영됩니다');
   }catch(err){
     msg.textContent='⚠️ 저장하지 못했습니다. '+(err.message||err);
     b.disabled=false; b.textContent='💾 저장';
@@ -2322,6 +2342,9 @@ function ntcBodyHtml(body){
    🔴 본문이 바뀌면 [오늘 하루 안 보기]를 눌렀어도 다시 뜬다 — 마감일정이 바뀌는 게 이 팝업의
       존재 이유라, 어제 본 사람이 오늘 바뀐 일정을 못 보면 안 띄우느니만 못하다.
    🔴 확인 전(임시) 계정에는 안 띄운다 — 그 화면은 pendwall 하나만 보여야 한다. */
+const NTC_POP_RE=/^\s*📌\s*/;                                        // 제목 맨 앞의 📌 = 팝업 표시
+function ntcPopOn(n){ return NTC_POP_RE.test(String((n&&n.title)||'')); }
+function ntcPopStrip(t){ return String(t||'').replace(NTC_POP_RE,'').trim(); }
 function ntcPopSum(s){ let h=0; s=String(s||''); for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0; return h.toString(36); }
 function ntcPopKey(n){ return ntcKey(n)+'|'+ntcPopSum(n.body); }     // 본문이 바뀌면 다른 글로 친다
 function ntcPopStore(){ return 'TEST_catalog_ntcpop_'+((ME&&ME.id)?ME.id:'guest'); }
@@ -2329,11 +2352,41 @@ function ntcPopDay(){ const d=new Date(),p=x=>String(x).padStart(2,'0'); return 
 function ntcPopSkipped(k){
   try{ return (JSON.parse(localStorage.getItem(ntcPopStore())||'{}'))[k]===ntcPopDay(); }catch(e){ return false; }
 }
-function ntcPopSkip(k){
+function ntcPopSkip(list){
   try{ const m=JSON.parse(localStorage.getItem(ntcPopStore())||'{}');
-       m[k]=ntcPopDay(); localStorage.setItem(ntcPopStore(),JSON.stringify(m)); }catch(e){}
+       (list||[]).forEach(n=>{ m[ntcPopKey(n)]=ntcPopDay(); });      // 창에 있던 건 다 오늘 안 보기
+       localStorage.setItem(ntcPopStore(),JSON.stringify(m)); }catch(e){}
+}
+function ntcPopUnskip(n){                                             // 마스터가 방금 켠 글은 다시 보이게
+  try{ const m=JSON.parse(localStorage.getItem(ntcPopStore())||'{}');
+       delete m[ntcPopKey(n)]; localStorage.setItem(ntcPopStore(),JSON.stringify(m)); }catch(e){}
 }
 function ntcPopClose(){ const m=$('ntcPopM'); if(m)m.remove(); }
+/* 📌 이 여러 건이면 한 창에서 넘겨 본다 — 창을 여러 개 띄우면 업체는 X만 연타한다. */
+let POPL=[],POPI=0;
+function ntcPopGo(i){
+  if(i<0||i>=POPL.length)return;
+  POPI=i; ntcPopDraw();
+}
+function ntcPopDraw(){
+  const box=$('ntcPopIn'); if(!box)return;
+  const n=POPL[POPI], many=POPL.length>1;
+  box.innerHTML='<div class="pslide">'
+    +'<div class="pt">📌 '+esc(ntcPopStrip(n.title))+'</div>'
+    +'<div class="pd">'+(n.at?esc(n.at)+' · ':'')+'📢 공지사항에서 다시 보실 수 있습니다</div>'
+    +'<div class="pb">'+(n.body?ntcBodyHtml(n.body):'(내용 없음)')+'</div>'
+    +'</div>'
+    +(many?('<div class="pnav">'
+      +'<button class="parr" data-popgo="'+(POPI-1)+'"'+(POPI<=0?' disabled':'')+'>‹ 이전</button>'
+      +'<span class="pdots">'+POPL.map((x,i)=>'<button class="pdot'+(i===POPI?' on':'')+'" data-popgo="'+i+'" title="'+esc(ntcPopStrip(x.title))+'"></button>').join('')+'</span>'
+      +'<button class="parr" data-popgo="'+(POPI+1)+'"'+(POPI>=POPL.length-1?' disabled':'')+'>다음 ›</button>'
+      +'</div>'):'')
+    +'<div class="btns"><button class="x" id="ntcPopS">오늘 하루 안 보기'+(many?(' ('+POPL.length+'건)'):'')+'</button>'
+      +'<button id="ntcPopX">확인했습니다</button></div>';
+  ntcMarkRead(ntcKey(n));                                   // 팝업으로 본 것도 읽은 것이다(배지와 어긋나면 안 된다)
+  $('ntcPopX').onclick=ntcPopClose;
+  $('ntcPopS').onclick=()=>{ ntcPopSkip(POPL); ntcPopClose(); };
+}
 function ntcPopMaybe(){
   if(ntcPopMaybe._done||$('ntcPopM'))return;
   /* 로그인 응답이 아직 안 왔으면 기다린다 — 임시 계정인지 모르는 채로 띄우면 안 된다.
@@ -2343,28 +2396,33 @@ function ntcPopMaybe(){
     return;
   }
   if(isPending())return;
-  const n=(NOTI||[]).find(x=>/^\s*📌/.test(String(x.title||'')));
-  if(!n)return;
-  const k=ntcPopKey(n);
-  if(ntcPopSkipped(k))return;
+  const list=(NOTI||[]).filter(ntcPopOn).filter(n=>!ntcPopSkipped(ntcPopKey(n)));
+  if(!list.length)return;
   ntcPopMaybe._done=1;
+  POPL=list; POPI=0;
   const d=document.createElement('div');
   d.className='ntcmodal popntc'; d.id='ntcPopM';
-  d.innerHTML='<div class="box">'
-    +'<div class="pt">'+esc(n.title)+'</div>'
-    +(n.at?'<div class="pd">'+esc(n.at)+' · 📢 공지사항에서 다시 보실 수 있습니다</div>':'')
-    +'<div class="pb">'+(n.body?ntcBodyHtml(n.body):'(내용 없음)')+'</div>'
-    +'<div class="btns"><button class="x" id="ntcPopS">오늘 하루 안 보기</button>'
-      +'<button id="ntcPopX">확인했습니다</button></div>'
-    +'</div>';
+  d.innerHTML='<div class="box" id="ntcPopIn"></div>';
   document.body.appendChild(d);
-  ntcMarkRead(ntcKey(n));                                   // 팝업으로 본 것도 읽은 것이다(배지와 어긋나면 안 된다)
-  d.addEventListener('click',e=>{ if(e.target===d)ntcPopClose(); });
-  $('ntcPopX').onclick=ntcPopClose;
-  $('ntcPopS').onclick=()=>{ ntcPopSkip(k); ntcPopClose(); };
-  document.addEventListener('keydown',function esc2(e){
-    if(e.key==='Escape'){ ntcPopClose(); document.removeEventListener('keydown',esc2); }
+  d.addEventListener('click',e=>{
+    const g=e.target.closest('[data-popgo]');
+    if(g){ ntcPopGo(+g.getAttribute('data-popgo')); return; }
+    if(e.target===d)ntcPopClose();                          // 바깥을 누르면 닫는다
   });
+  /* 손가락으로 넘기기 — 업체 절반이 휴대폰으로 본다 */
+  let x0=null;
+  d.addEventListener('touchstart',e=>{ x0=e.touches[0].clientX; },{passive:true});
+  d.addEventListener('touchend',e=>{
+    if(x0==null)return; const dx=e.changedTouches[0].clientX-x0; x0=null;
+    if(Math.abs(dx)>45)ntcPopGo(POPI+(dx<0?1:-1));
+  },{passive:true});
+  document.addEventListener('keydown',function pk2(e){
+    if(!$('ntcPopM')){ document.removeEventListener('keydown',pk2); return; }
+    if(e.key==='Escape'){ ntcPopClose(); document.removeEventListener('keydown',pk2); }
+    else if(e.key==='ArrowRight')ntcPopGo(POPI+1);
+    else if(e.key==='ArrowLeft')ntcPopGo(POPI-1);
+  });
+  ntcPopDraw();
 }
 function noticeItem(n,isNew){
   const k=ntcKey(n);
