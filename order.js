@@ -171,6 +171,7 @@ window.loadVRules = loadVRules;
    🔴 바꾼 것은 **반드시 화면에 적는다.** 조용히 다른 상품으로 바뀌는 것이 제일 나쁘다. */
 let VALIAS = {};                 // pkey(업체가 보낸 이름) → 그때 고른 우리 상품명
 let VALIAS_FOR = '';             // 지금 담긴 별칭이 누구 것인지 (마스터가 업체를 바꿔 고르면 다시 받는다)
+let VALIAS_ROWS = [];            // 🏷 원문 그대로의 목록 — [🏷 상품명 매칭] 창이 보여주고 고치는 자료
 function aliasWho(){
   const who = amMaster() ? (FOR || {}) : ((typeof ME !== 'undefined' && ME) ? ME : {});
   return S(who.id || '');
@@ -179,11 +180,12 @@ async function loadVAlias(){
   try{
     if(!(typeof ME !== 'undefined' && ME && ME.token)) return;
     const id = aliasWho();
-    if(!id){ VALIAS = {}; VALIAS_FOR = ''; return; }
+    if(!id){ VALIAS = {}; VALIAS_ROWS = []; VALIAS_FOR = ''; return; }
     const j = await api('valias', { token: ME.token, accountId: amMaster() ? id : '' });
     const m = {};
     (j.rows || []).forEach(r => { const k = pkey(S(r.raw)); if(k) m[k] = S(r.name); });
     VALIAS = m; VALIAS_FOR = id;
+    VALIAS_ROWS = (j.rows || []).map(r => ({raw: S(r.raw), name: S(r.name)})).filter(r => r.raw);
   }catch(e){ /* 못 받으면 예전대로 후보에서 고른다 — 발주는 막지 않는다 */ }
 }
 window.loadVAlias = loadVAlias;
@@ -1020,8 +1022,75 @@ function forCard(){
               : (S(f.addr) ? esc(f.addr) : '<span style="color:var(--muted);font-weight:600">안 씀</span>')) + '</b></div>'
           + '</div>'
           + (manual ? '' : fixCard(f))
+          + (manual ? '' : aliasCard(f))
         : '')
     + '</div>';
+}
+
+/* 🏷 이 업체 상품명 매칭 고치기 (홍팀장 2026-09-17 — "매칭되어 있는 거 수정할 수 있는 창을 만들어 주든지").
+   한 번 고른 이름은 vendor_aliases 에 남아 다음부터 저절로 붙는다([[발주 별칭 학습]]). 편한 만큼,
+   **잘못 배운 한 줄이 조용히 계속 따라다닌다** — 「임금님 5-6미 → …2kg」 처럼 이름 조각만 배운 것도 쌓인다.
+   그래서 배운 것을 눈으로 보고 그 자리에서 고치거나 뗄 수 있어야 한다.
+   ⚠️ 오른쪽은 **카탈로그 이름과 완전일치**만 저장한다(§3-3 추측 매칭 금지). 한 글자만 달라도 거절한다.
+   ⚠️ 여기서 고쳐도 **이미 표에 들어온 줄은 안 바뀐다** — 파일을 다시 넣어야 새 매칭으로 읽는다. */
+function aliasCard(f){
+  if(!aliasReady()) return '';
+  const rows = VALIAS_ROWS.slice().sort((a, b) => a.raw.localeCompare(b.raw));
+  const dl = '<datalist id="alprods">'
+    + (typeof ALL !== 'undefined' ? ALL : []).map(p => '<option value="' + esc(p.name) + '">').join('') + '</datalist>';
+  return '<details class="ordfix" id="for_alias">'
+    + '<summary>🏷 이 업체 상품명 매칭 ' + rows.length + '건 — 잘못 배운 것 고치기</summary>'
+    + '<div class="hint">업체가 보낸 이름(왼쪽)을 우리 상품(오른쪽)으로 바꿔 읽습니다. '
+    + '오른쪽을 고쳐 <b>[💾]</b>, 아예 안 쓰려면 <b>[🗑]</b>. 카탈로그 이름과 <b>한 글자라도 다르면</b> 저장되지 않습니다.<br>'
+    + '고친 것은 <b>다음에 파일을 넣을 때부터</b> 적용됩니다 — 지금 표에 들어와 있는 줄은 그대로입니다.</div>'
+    + (rows.length
+      ? dl + rows.map(r =>
+          '<div class="alrow" data-alraw="' + esc(r.raw) + '" style="display:flex;gap:6px;align-items:center;margin-top:7px;flex-wrap:wrap">'
+          + '<span style="flex:1 1 200px;min-width:0;font-size:12.5px;word-break:break-all">' + esc(r.raw) + '</span>'
+          + '<span style="color:var(--muted)">→</span>'
+          + '<input class="ordin alnm" list="alprods" value="' + esc(r.name) + '" style="flex:1 1 230px;margin:0">'
+          + '<button class="ordb2 alsave" type="button" title="이 매칭 저장">💾</button>'
+          + '<button class="ordb2 warn aldel" type="button" title="이 매칭 지우기">🗑</button>'
+          + '<span class="almsg" style="font-size:11.5px;color:var(--muted)"></span>'
+          + '</div>').join('')
+      : '<div class="hint" style="margin-top:6px">아직 배운 매칭이 없습니다.</div>')
+    + '</details>';
+}
+function bindAlias(){
+  const box = document.getElementById('for_alias'); if(!box) return;
+  const who = () => S((FOR || {}).id || '');
+  box.querySelectorAll('.alrow').forEach(row => {
+    const raw = row.getAttribute('data-alraw');
+    const inp = row.querySelector('.alnm'), msg = row.querySelector('.almsg');
+    const save = row.querySelector('.alsave'), del = row.querySelector('.aldel');
+    save.onclick = async () => {
+      const nm = S(inp.value);
+      if(!nm){ msg.textContent = '⚠️ 상품명을 넣어주세요'; return; }
+      // 🔴 카탈로그에 그 이름이 실제로 있어야 저장한다 — 없는 이름을 배워두면 그 업체 발주가 계속 빨갛게 뜬다
+      const f = findProd(nm);
+      if(!f.p || pkey(f.p.name) !== pkey(nm)){ msg.textContent = '⚠️ 카탈로그에 그 이름이 없습니다'; inp.style.borderColor = '#dc2626'; return; }
+      inp.style.borderColor = ''; save.disabled = true; msg.textContent = '저장 중…';
+      try{
+        await api('valiasset', { token: ME.token, accountId: amMaster() ? who() : '', raw, name: nm });
+        VALIAS[pkey(raw)] = nm;
+        const hit = VALIAS_ROWS.find(x => x.raw === raw); if(hit) hit.name = nm;
+        msg.textContent = '✅ 저장했습니다';
+      }catch(e){ msg.textContent = '⚠️ ' + e.message; }
+      save.disabled = false;
+    };
+    del.onclick = async () => {
+      if(!confirm('이 매칭을 지울까요?\n\n「' + raw + '」 는 다음부터 그대로 들어와 후보에서 다시 고르시게 됩니다.')) return;
+      del.disabled = true; msg.textContent = '지우는 중…';
+      try{
+        await api('valiasset', { token: ME.token, accountId: amMaster() ? who() : '', raw, del: true });
+        delete VALIAS[pkey(raw)];
+        VALIAS_ROWS = VALIAS_ROWS.filter(x => x.raw !== raw);
+        row.remove();
+        const sm = box.querySelector('summary');
+        if(sm) sm.textContent = '🏷 이 업체 상품명 매칭 ' + VALIAS_ROWS.length + '건 — 잘못 배운 것 고치기';
+      }catch(e){ msg.textContent = '⚠️ ' + e.message; del.disabled = false; }
+    };
+  });
 }
 
 /* 📇 고른 업체의 연락처·출고지를 그 자리에서 채워 넣는 칸 (홍팀장 2026-08-25)
@@ -3037,6 +3106,7 @@ async function saveMeInfo(phone, addr){
 function bindFor(){
   const $$ = id => document.getElementById(id);
   const redraw = () => { const b = $$('ordfor'); if(b){ b.outerHTML = forCard(); bindFor(); } paint(); };
+  bindAlias();   // 🏷 상품명 매칭 고치기 — 업체 카드가 다시 그려질 때마다 같이 묶는다
   /* 🔎 쳐서 찾기 — 업체명·아이디 어느 쪽으로 쳐도 걸리게. 공백은 무시한다(업체명 띄어쓰기가 제각각이라).
      ⚠️ 입력칸 자체는 다시 그리지 않는다(그리면 글자 칠 때마다 커서가 튄다) — 후보 목록만 갈아끼운다. */
   const q = $$('for_q'), list = $$('for_list');
@@ -3073,7 +3143,12 @@ function bindFor(){
       // 🔒 명부에 주소가 남아 있어도 "주소 안 씀" 업체면 안 들고 온다 — 여기서 막아야 다음 발주에도 안 따라온다
       FOR = {id:c.id, name:c.name, addr:outAddr(c.name, c.addr), phone:c.phone};
       // 🏷 업체가 바뀌면 그 업체 규칙·별칭을 다시 받는다 — 앞 업체 것으로 읽으면 엉뚱한 상품이 된다
-      saveFor(); loadVRules(); loadVAlias(); redraw();
+      saveFor(); loadVRules();
+      /* 🏷 별칭은 서버에서 받아온 **뒤에야** 매칭 목록을 그릴 수 있다 — 받고 나면 업체 카드를 한 번 더 그린다.
+         (예전엔 redraw 를 먼저 해서 [🏷 상품명 매칭] 칸이 업체를 고른 직후엔 안 보였다.) */
+      const done = loadVAlias();
+      redraw();
+      if(done && done.then) done.then(() => { const b = $$('ordfor'); if(b){ b.outerHTML = forCard(); bindFor(); } });
     };
     q.oninput = draw;
     q.onfocus = draw;
