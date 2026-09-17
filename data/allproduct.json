@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-17 13:30",
+ "updatedAt": "2026-09-17 14:20",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -164,6 +164,22 @@
    "shelfLife": "",
    "image": "https://masterc.co.kr/files/attach/images/8333658/190/018/025/0677b61dff50a2f34dfe252acaa94ece.jpg",
    "note": "맛있는 속초 홍게 4kg > A급 정품 홍게 4kg"
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "디디",
+   "category": "",
+   "name": "A급 러시아 대게 3kg",
+   "spec": [],
+   "supplyPrice": 66000,
+   "previousPrice": 51000,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "",
+   "note": ""
   },
   {
    "warehouse": "당일생물",
@@ -1067,6 +1083,29 @@
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/269/367/025/97275f531f053d6d50a543a6863fc552.jpg",
    "note": "창고명 변동 : 인지 > 동해"
+  },
+  {
+   "warehouse": "동해",
+   "sourceWarehouse": "동해",
+   "category": "가공식품",
+   "name": "맛도리 쭈삼새 한팩",
+   "spec": [
+    "※ 원산지 : 성분표시참조",
+    "※ 구성 : 쭈꾸미 1팩, 삼겹살 1팩, 탈각새우 1팩, 소스 1팩",
+    "※ 중량/ 사이즈 : 쭈꾸미 200g, 삼겹살 200g, 탈각새우 100g, 소스 70g",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 쭈꾸미(베트남), 새우(베트남), 삼겹살(네덜란드)",
+    "※ 포장방식 : 비닐실링"
+   ],
+   "supplyPrice": 8500,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/397/286/025/2a78a67fefdfbe97e2e789923be9a8dc.jpg",
+   "note": ""
   },
   {
    "warehouse": "동해",
@@ -12098,6 +12137,29 @@
   },
   {
    "warehouse": "단독(선물)",
+   "sourceWarehouse": "디디",
+   "category": "수산",
+   "name": "S급 러시아 박달대게 3kg 선물세트",
+   "spec": [
+    "※ 원산지 : 러시아",
+    "※ 구성 :  S급 러시아 박달대게 2~4마리",
+    "※ 중량/사이즈 :  3kg급 (자숙 전 원물 기준) 자숙시 중량감소 20~30%, 자숙 후 수율 8~90%",
+    "※ 생물여부 : 자숙(완조리 후 신선 배송)",
+    "※ 성분표시 :  대게 100%",
+    "※ 포장방식 :  고급 선물용 전용 박스 + 부직포 + 아이스팩 + 게포크 2개"
+   ],
+   "supplyPrice": 89000,
+   "previousPrice": 99000,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/688/409/025/35c1599c33cec58a4dbb1b6dbad480f8.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(선물)",
    "sourceWarehouse": "영광",
    "category": "수산",
    "name": "VIP 굴비 선물세트",
@@ -12400,29 +12462,6 @@
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/125/711/023/855dc95b6594e961dce133e4b9220e1a.jpg",
    "note": ""
-  },
-  {
-   "warehouse": "단독(선물)",
-   "sourceWarehouse": "디디",
-   "category": "수산",
-   "name": "S급 러시아 박달대게 3kg 선물세트",
-   "spec": [
-    "※ 원산지 : 러시아",
-    "※ 구성 :  S급 러시아 박달대게 2~4마리",
-    "※ 중량/사이즈 :  3kg급 (자숙 전 원물 기준) 자숙시 중량감소 20~30%, 자숙 후 수율 8~90%",
-    "※ 생물여부 : 자숙(완조리 후 신선 배송)",
-    "※ 성분표시 :  대게 100%",
-    "※ 포장방식 :  고급 선물용 전용 박스 + 부직포 + 아이스팩 + 게포크 2개"
-   ],
-   "supplyPrice": 99000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 14시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/688/409/025/35c1599c33cec58a4dbb1b6dbad480f8.jpg",
-   "note": "-마감시간 : 16시 > 14시"
   },
   {
    "warehouse": "단독(선물)",
