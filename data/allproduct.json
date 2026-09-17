@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-17 14:20",
+ "updatedAt": "2026-09-17 15:23",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -170,7 +170,16 @@
    "sourceWarehouse": "디디",
    "category": "",
    "name": "A급 러시아 대게 3kg",
-   "spec": [],
+   "spec": [
+    "※ 원산지 : 러시아",
+    "※ 구성 : 대게",
+    "※ 중량/사이즈 : 원물 3kg 2~4미",
+    "※자숙시 중량감소 20~30%, 자숙 후 수율 70%",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 대게 100%",
+    "※ 포장방식 : 비닐포장",
+    "※특이사항 : 다리는 새끼다리 2개제외 1~3개까지 떨어져 있을 수 있음."
+   ],
    "supplyPrice": 66000,
    "previousPrice": 51000,
    "tax": "면세",
@@ -178,7 +187,7 @@
    "shipFee": 0,
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
-   "image": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/813/741/023/7bd2d9711130f8076b68545563a0e159.jpg",
    "note": ""
   },
   {
@@ -3213,6 +3222,29 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.co.kr/files/attach/images/8333658/268/407/025/faa77b5e6467827f5074fed0c798c66c.png",
+   "note": ""
+  },
+  {
+   "warehouse": "군산",
+   "sourceWarehouse": "군산",
+   "category": "수산",
+   "name": "해녀 거북손 500g",
+   "spec": [
+    "※ 원산지 : 국내산(서해,남해)",
+    "※ 구성 :거북손",
+    "※ 중량/ 사이즈 : 500g 15-30개 내외",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 거북손 100%",
+    "※ 포장방식 : 비닐실링"
+   ],
+   "supplyPrice": 7000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/199/392/025/ca8b44e14d0679c8ac93c1deac1efc5e.png",
    "note": ""
   },
   {
