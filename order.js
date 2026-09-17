@@ -201,7 +201,21 @@ function applyAlias(rows){
     /* 🐟 삭힘정도·🦴 뼈머리는 업체가 적어 온 것을 살린다 — 후보를 손으로 고를 때와 같은 규칙 */
     r.name = withBone(withAge(hit, needAge(hit) ? ageOf(raw) : ''), canBone(hit) && hasBone(raw));
     r._raw = raw;                  // 원문을 들고 있는다 — 다시 고치면 이 이름의 별칭을 갱신해야 한다
-    done.push(raw + ' → ' + r.name);
+    /* ⚖️ 원문 무게 ÷ 붙인 상품 규격 = 수량 (홍팀장 2026-09-17 — 「. 비만 바다 장어 2k」가 「비만 바다장어 1kg」 1개로 들어갔다).
+       후보를 손으로 고를 때는 이 셈을 하는데 **별칭으로 저절로 붙는 길에는 없었다** — 별칭을 넣을수록 수량이 조용히 반이 된다.
+       🔴 나눠 떨어질 때만 바꾼다. 규격이 안 적힌 상품(「…선물세트」)은 unit=0 이라 건드리지 않는다.
+       예) 2k→1kg = 2개 / 2k→선물세트 2kg = 1개(같은 무게) / 7k→7kg = 1개. */
+    let qmsg = '';
+    const unit = kgOf(r.name), src = kgOf(raw);
+    if(unit > 0 && src > unit){
+      const n = Math.round(src / unit);
+      if(n > 1 && Math.abs(src / unit - n) < 0.001){
+        const base = parseInt(S(r.qty), 10);
+        r.qty = String((base > 0 ? base : 1) * n);
+        qmsg = ' (' + src + 'kg ÷ ' + unit + 'kg = x ' + r.qty + ')';
+      }
+    }
+    done.push(raw + ' → ' + r.name + qmsg);
   });
   return done;
 }
@@ -1258,6 +1272,14 @@ function clearFind(){ Object.keys(FIND).forEach(k => { delete FIND[k]; }); }
 // 표 안에 같은 상품명이 몇 줄인가 — 일괄 수정 안내·적용이 같은 셈을 쓴다
 // ⚖️ 무게(2k·1.5kg·500g)를 뺀 이름 — 무게만 다른 줄을 한 묶음으로 보려고 (2026-09-15 대상수산)
 function nameNoKg(s){ return pkey(String(s || '').replace(/(\d+(?:\.\d+)?)\s*(kg|k|g)(?![a-z])/gi, '')); }
+/* ⚖️ 이름 끝에 적힌 무게(kg) — 「… 2k」·「… 1.5kg」·「… 500g」. 없으면 0.
+   후보를 고를 때 쓰던 것을 밖으로 뺐다 — 별칭으로 붙는 줄도 같은 셈을 써야 한다(2026-09-17). */
+function kgOf(s){
+  const all = [...String(s || '').matchAll(/(\d+(?:\.\d+)?)\s*(kg|k|g)(?![a-z])/gi)];
+  if(!all.length) return 0;
+  const m = all[all.length - 1], v = parseFloat(m[1]);
+  return /^g$/i.test(m[2]) ? v / 1000 : v;
+}
 function sameName(name){
   const k = pkey(name);
   if(!k) return 0;
@@ -3463,13 +3485,7 @@ document.addEventListener('click', e => {
          대상수산 파일은 수량 칸이 없고 「. 연안 활 大숫꽃게 3k」「. 프리미엄 초벌 고창 풍천장어 3k」처럼 **무게로** 적어 온다.
          고른 게 「연안 활 대숫게 1kg」이면 3개, 「프리미엄 초벌 풍천장어 1.5kg」이면 2개다.
          🔴 나눠 떨어질 때만 바꾼다(2k → 1.5kg 처럼 안 떨어지면 수량은 그대로 두고 알린다). 원문이 규격보다 작거나 같으면 안 건드린다. */
-      const kgOf = s => {
-        const all = [...String(s || '').matchAll(/(\d+(?:\.\d+)?)\s*(kg|k|g)(?![a-z])/gi)];
-        if(!all.length) return 0;
-        const m = all[all.length - 1], v = parseFloat(m[1]);
-        return /^g$/i.test(m[2]) ? v / 1000 : v;
-      };
-      const unit = kgOf(nm), qtyMsg = [];
+      const unit = kgOf(nm), qtyMsg = [];   // ⚖️ kgOf 는 위(nameNoKg 옆)에 있다 — 별칭 경로와 같은 셈을 쓴다
       hit.forEach(j => {
         const src = kgOf(S(ROWS[j].name));
         if(!(unit > 0 && src > unit)) return;
