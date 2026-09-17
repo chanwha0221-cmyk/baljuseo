@@ -1489,11 +1489,16 @@ async function submit(){
   if(!o) return;
   const sb = document.getElementById('ord_submit'), msg = document.getElementById('ord_smsg');
   const items = [];
+  /* ☎ 2026-09-17 홍팀장 — "변환은 잘 하는데 발주 시트로 들어올 때 저걸 그냥 티알에스큐 번호로 또 바꾸네".
+     미리보기(복사해서 붙여넣기)에는 줄마다 제 번호가 찍혔는데, [📤 발주 넣고 당일 시트로 바로 보내기]로
+     보내면 전부 계정 번호로 바뀌었다. 여기서 **otel 칸을 안 실어 보냈기 때문**이다 —
+     웹앱은 받은 게 없으니 계정 연락처(on.phone)로 전 줄을 채웠다.
+     → 줄마다 정해진 주문처 연락처를 같이 보낸다. 웹앱이 이 값이 있으면 그대로 쓰고, 없을 때만 계정 번호를 쓴다. */
   const push = (biz, cells, ten) => {
     // 9칸: [정산][주소][연락처][창고][상품][성함][주소][연락처][메시지]
     // 10칸:[정산][송장][주소][연락처][창고][상품][성함][주소][연락처][메시지]
     const k = ten ? 4 : 3;
-    items.push({biz:biz, wh:cells[k], prod:cells[k+1], rcv:cells[k+2], addr:cells[k+3], tel:cells[k+4], msg:cells[k+5]});
+    items.push({biz:biz, otel:cells[k-1], wh:cells[k], prod:cells[k+1], rcv:cells[k+2], addr:cells[k+3], tel:cells[k+4], msg:cells[k+5]});
   };
   o.nine.forEach(c => push('', c, false));
   o.ten.forEach(c => push(c[1], c, true));
@@ -1796,6 +1801,7 @@ function takeDupOk(list){
 // 이 건이 지금 이 화면에서 접혀야 하나 — 업체는 자기가 확인한 것도 접힌다
 function dupHidden(k, master){ return DUPOK.has(k) || (!master && DUPVOK.has(k)); }
 let DUPSHOWALL = false;          // '숨긴 것 다시 보기'를 눌렀나
+let DUPALLKEYS = [];             // ☑ 지금 배너에 걸린 중복 건 전체의 키 — [전체 선택]이 이걸 집는다
 function dupGroups(list){
   const m = new Map();
   const td = todayKST();
@@ -1825,6 +1831,10 @@ function dupRow(inner, q, k, master){
       + 'border-radius:6px;padding:3px 8px">✅ 업체 확인</span>' : '';
   return '<div style="margin-top:8px;padding:8px 10px;border:1px solid #f0d4d4;border-radius:8px;'
     + 'background:#fff;display:flex;gap:8px;align-items:center">'
+    /* ☑ 여러 건을 한 번에 지우려고 고르는 칸 (홍팀장 2026-09-17 — "하나씩 지우기만 가능한데
+       전체 선택해서 한번에 지우기 가능하게"). 마스터만 — 지우는 버튼 자체가 마스터 전용이다. */
+    + (master ? ('<input type="checkbox" class="dupck" data-dupk="' + esc(k) + '"'
+        + ' style="flex:none;width:16px;height:16px;margin:0" title="이 건 선택">') : '')
     + '<div class="dupit" data-dupq="' + esc(q) + '" style="flex:1;min-width:0;cursor:pointer">' + inner + '</div>'
     + vtag
     + '<button class="ordb2" data-dupok="' + esc(k) + '" data-dupon="' + (off ? '0' : '1') + '"'
@@ -1857,7 +1867,16 @@ function dupBanner(master){
   if(!gs.length && !ss.length) return '<div class="hint" style="margin:6px 2px">'
     + '🔁 확인 끝낸 ' + hidden + '건이 숨겨져 있습니다. ' + showAgain + '</div>';
 
+  /* ☑ 한 번에 지우기 (홍팀장 2026-09-17) — 화면엔 종류별로 8건까지만 그리지만,
+     [전체 선택]은 **안 보이는 나머지까지** 다 집는다(여기 담아둔 키 전체). 안 그러면 8건씩 몇 번을 눌러야 한다. */
+  DUPALLKEYS = gs.map(rows => dupKeyOf(rows[0])).concat(ss.map(it => sameKeyOf(it)));
+
   let h = '<div class="ordbox" style="border-color:#e8b4b4;background:#fff7f7">';
+  if(master && DUPALLKEYS.length) h += '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
+    + '<label style="display:inline-flex;gap:5px;align-items:center;font-size:12.5px;font-weight:700;cursor:pointer">'
+    + '<input type="checkbox" id="dupall" style="width:16px;height:16px;margin:0"> 전체 선택 (' + DUPALLKEYS.length + '건)</label>'
+    + '<button class="ordb2 warn" id="dupdelsel" disabled style="white-space:nowrap">🗑 선택한 건 지우기</button>'
+    + '<span id="dupselmsg" style="font-size:11.5px;color:var(--muted)"></span></div>';
   /* 🔴 2026-08-31 홍팀장 "접기가 너무 작게 있잖아" — 펼치는 건 링크 한 번인데 접으려면
      배너 맨 아래 잔글씨를 찾아야 했다. 접기는 **맨 위에 버튼으로** 둔다(스크롤 없이 닫히게). */
   if(hidden && DUPSHOWALL) h += '<div style="display:flex;justify-content:flex-end;margin-bottom:8px">'
@@ -1946,6 +1965,50 @@ function bindPager(){
       }catch(err){ alert(err.message); btn.disabled = false; btn.textContent = old; }
     };
   });
+  /* ☑ 여러 건 한 번에 지우기 (홍팀장 2026-09-17 — "이 발주 다시 넣어야 하는데 하나씩 지우기만 가능하다").
+     [전체 선택]을 켜면 화면 밖 나머지까지(DUPALLKEYS) 대상이고, 아니면 체크한 줄만 지운다.
+     ⚠️ 서버는 키를 하나씩만 받는다 → 순서대로 보낸다. 몇 건째인지 화면에 적어 멈춘 것처럼 보이지 않게 한다. */
+  {
+    const allBox = document.getElementById('dupall'), delBtn = document.getElementById('dupdelsel'),
+          selMsg = document.getElementById('dupselmsg');
+    if(delBtn){
+      const boxes = () => [...document.querySelectorAll('.dupck')];
+      const picked = () => (allBox && allBox.checked)
+        ? DUPALLKEYS.slice()
+        : boxes().filter(b => b.checked).map(b => b.getAttribute('data-dupk'));
+      const sync = () => {
+        const n = picked().length;
+        delBtn.disabled = !n;
+        delBtn.textContent = n ? ('🗑 선택한 ' + n + '건 지우기') : '🗑 선택한 건 지우기';
+        if(selMsg) selMsg.textContent = (allBox && allBox.checked && DUPALLKEYS.length > boxes().length)
+          ? ('화면에 안 보이는 ' + (DUPALLKEYS.length - boxes().length) + '건도 같이 지웁니다') : '';
+      };
+      if(allBox) allBox.onchange = () => { boxes().forEach(b => { b.checked = allBox.checked; }); sync(); };
+      boxes().forEach(b => { b.onclick = e => e.stopPropagation(); b.onchange = () => {
+        if(allBox && allBox.checked && !b.checked) allBox.checked = false;   // 하나라도 풀면 '전체'가 아니다
+        sync();
+      }; });
+      delBtn.onclick = async e => {
+        e.stopPropagation();
+        const keys = picked(); if(!keys.length) return;
+        if(!confirm(keys.length + '건을 목록에서 아주 지울까요?\n\n다 처리하신 건만 지우세요. [다시 보기]를 눌러도 나오지 않습니다.')) return;
+        delBtn.disabled = true;
+        let j = null, done = 0, failed = [];
+        for(const k of keys){
+          delBtn.textContent = '지우는 중… ' + (done + 1) + '/' + keys.length;
+          try{
+            j = await api('dupok', { token: ME.token, key: '!' + k, on: true });
+            if(DUPOK.has(k)) j = await api('dupok', { token: ME.token, key: k, on: false });
+            done++;
+          }catch(err){ failed.push(k); }
+        }
+        if(j) takeDupOk(j.dupok);
+        ordersPaint();
+        if(failed.length) alert(done + '건 지웠습니다. ' + failed.length + '건은 실패했습니다 — 다시 눌러주세요.');
+      };
+      sync();
+    }
+  }
   const sa = document.getElementById('dupshowall');
   if(sa) sa.onclick = e => { e.preventDefault(); DUPSHOWALL = true; ordersPaint(); };
   const fo = document.getElementById('dupfold');
