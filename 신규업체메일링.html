@@ -196,7 +196,9 @@
   <!-- 📋 전체 업체 — 메일 작성 바로 밑 (홍팀장 2026-09-11). 예전엔 «펼치기» 안에 접혀 있어서
        [기록]을 눌러도 어디로 갔는지 안 보였다. 한 줄에 한 업체, 보낸날짜·마지막연락 머리글을 누르면 정렬. -->
   <div class="card">
-    <h2>전체 업체 <span class="badge green" id="total-count">0</span> <span class="muted" style="font-weight:400;font-size:12px">— 지난 담당자 발송분까지 합친 전체 목록 (내 것만 수정·삭제 가능)</span></h2>
+    <h2>전체 업체 <span class="badge green" id="total-count">0</span> <span class="muted" style="font-weight:400;font-size:12px">— 지난 담당자 발송분까지 합친 전체 목록 (어느 줄이든 수정·삭제 가능)</span>
+      <!-- 👤 퇴사자 담당 승계 (2026-09-21) — 담당 칸이 지금 담당자 목록(PEOPLE)에 없는 줄을 내 담당으로 넘긴다. 넘길 게 없으면 버튼 자체가 안 뜬다. -->
+      <button class="btn sm" id="takeover-btn" style="display:none;margin-left:8px" onclick="takeoverOrphans()"></button></h2>
     <div style="overflow-x:auto">
     <table id="all-table">
       <thead><tr>
@@ -1162,6 +1164,7 @@ function render(){
     tb.appendChild(tr);
   });
   $('empty').style.display=DATA.length?'none':'block';
+  renderTakeover();
   const byWho={}; DATA.forEach(r=>{ const w=r[8]||'—'; byWho[w]=(byWho[w]||0)+1; });
   $('total-count').textContent=DATA.length+' ('+Object.entries(byWho).map(([k,v])=>k+' '+v).join(' · ')+')';
   // 📮 20일+ 추가연락 대상 — 채널별 그룹
@@ -1216,6 +1219,27 @@ async function fuDelete(chan){
   render(); setStatus('저장 중…'); await save({drop:idx.length}); setStatus('저장됨'); toast(idx.length+'곳 삭제됨');
 }
 async function delRow(i){ if(!confirm(`'${DATA[i][0]||DATA[i][2]}' 삭제할까요?`))return; DATA.splice(i,1); render(); setStatus('저장 중…'); await save({drop:1}); setStatus('저장됨'); toast('삭제됨'); }
+/* 👤 퇴사자 담당 승계 (2026-09-21 홍팀장 "내 걸로 넘겨받게 해줘")
+   담당 칸이 지금 담당자 목록(PEOPLE)에 없는 줄 = 퇴사자가 남긴 줄. 담당만 나로 바꾼다.
+   🔴 줄을 지우거나 더하지 않는다 — 발송 기록(업체·날짜·상태)은 그대로 두고 담당 칸만 바뀐다. */
+function orphanRows(){ return DATA.map((r,i)=>({r,i})).filter(({r})=>{ const w=String(r[8]||'').trim(); return w && PEOPLE.indexOf(w)<0; }); }
+function renderTakeover(){
+  const b=$('takeover-btn'); if(!b) return;
+  const n=orphanRows().length;
+  b.style.display = n ? '' : 'none';
+  if(n) b.textContent = `👤 지난 담당자 ${n}건 → 내 담당으로 넘기기`;
+}
+async function takeoverOrphans(){
+  const rows=orphanRows(); if(!rows.length) return;
+  const whos=[...new Set(rows.map(({r})=>String(r[8]).trim()))].join(', ');
+  if(!confirm(`${whos} 담당으로 돼 있는 ${rows.length}건을 ${ME} 담당으로 넘길까요?\n\n업체·날짜·상태는 그대로이고 담당 칸만 바뀝니다.`)) return;
+  const before=rows.map(({r,i})=>({i, who:r[8]}));
+  rows.forEach(({i})=>{ DATA[i][8]=ME; });
+  render(); setStatus('저장 중…');
+  try{ await save(); }
+  catch(e){ before.forEach(b=>{ DATA[b.i][8]=b.who; }); render(); return; }   // 저장이 막히면 화면도 되돌린다 (save 가 이미 안내 토스트를 띄운다)
+  setStatus('저장됨'); toast(rows.length+'건 담당 승계 완료');
+}
 function editRow(i){
   const r=DATA[i]; editIdx=i;
   $('e-name').value=r[0]||''; $('e-chan').value=r[1]||'이메일'; $('e-contact').value=r[2]||'';
