@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.117</title>
+<title>마스터 유통 카탈로그 v23.118</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -809,7 +809,6 @@ h1{letter-spacing:-.6px}
         업체 확인이 끝나야 정상 이용이 가능합니다.
         <div class="gtel">
           <a href="tel:01024554156">📞 홍찬화 팀장 010-2455-4156</a>
-          <a href="tel:01023265911">📞 박원비 팀장 010-2326-5911</a>
         </div>
       </div>
       <button class="gbtn" id="hi_btn">확인했습니다 · 카탈로그 보기</button>
@@ -825,7 +824,7 @@ h1{letter-spacing:-.6px}
       <button class="gbtn ghost" id="pw_cancel">취소</button>
     </div>
 
-    <div class="ghelp" id="ghelp"><b>업체명·아이디·비밀번호</b>만 등록하시면 바로 사용 가능합니다.<br>아이디·비밀번호 문의<br><b>010-2455-4156 홍찬화 팀장</b> · <b>010-2326-5911 박원비 팀장</b></div>
+    <div class="ghelp" id="ghelp"><b>업체명·아이디·비밀번호</b>만 등록하시면 바로 사용 가능합니다.<br>아이디·비밀번호 문의<br><b>010-2455-4156 홍찬화 팀장</b></div>
   </div>
 </div>
 <script>window.SHEETS_PROXY_PUBLIC=true;</script>
@@ -3099,7 +3098,7 @@ async function doLogin(id,pw){
   if(a.pw!==norm(pw))throw new Error('비밀번호가 맞지 않습니다.');
   // 권한 칸에 '차단'이라고 적으면 행을 지우지 않고도 그 업체만 막을 수 있다 (사장님 킬스위치)
   // 문구는 서버(index.ts 차단문구)와 같은 말로 맞춘다 — 홍팀장 2026-08-28 지시 원문
-  if(a.role.indexOf('차단')>=0)throw new Error('업체 확인이 되지 않아 접근이 보류 되었습니다. 담당자에게 연락 주시면 접근을 허가해 드리겠습니다. 010-2455-4156 홍찬화 팀장 / 010-2326-5911 박원비 팀장');
+  if(a.role.indexOf('차단')>=0)throw new Error('업체 확인이 되지 않아 접근이 보류 되었습니다. 담당자에게 연락 주시면 접근을 허가해 드리겠습니다. 010-2455-4156 홍찬화 팀장');
   saveMe(a);stampLogin(a);
   return a;
 }
@@ -3155,7 +3154,6 @@ function pendNudge(){
     +'<div class="pw2">담당자 확인이 끝나면 상품과 단가가 바로 열립니다.<br>아래 번호로 연락 주시면 바로 승인해 드려요!</div>'
     +'<div class="tels">'
       +'<a class="tel" href="tel:01024554156">📞 홍찬화 팀장 010-2455-4156</a>'
-      +'<a class="tel" href="tel:01023265911">📞 박원비 팀장 010-2326-5911</a>'
     +'</div>'
     +'<div class="pw3">업체명과 사업자등록증을 확인한 뒤 승인해 드립니다.<br>승인 후 새로고침하시면 바로 이용하실 수 있습니다.</div>'
     +'</div>';
@@ -3300,7 +3298,7 @@ $('sg_btn').onclick=async()=>{
     if(findAcc(list,id))throw new Error('이미 사용 중인 아이디입니다. 다른 아이디로 해주세요.');
     const flat=s=>String(s).replace(/\s+/g,'');
     if(list.some(a=>flat(a.name)===flat(nm))&&
-       !confirm('"'+nm+'" 은(는) 이미 가입된 업체명입니다.\n\n지점이 달라 새로 만드시는 거면 [확인],\n아이디를 잊으신 거면 [취소] 후\n010-2455-4156 홍찬화 팀장 / 010-2326-5911 박원비 팀장으로 문의해 주세요.'))
+       !confirm('"'+nm+'" 은(는) 이미 가입된 업체명입니다.\n\n지점이 달라 새로 만드시는 거면 [확인],\n아이디를 잊으신 거면 [취소] 후\n010-2455-4156 홍찬화 팀장으로 문의해 주세요.'))
       throw new Error('가입을 취소했습니다.');
     const token=await getAccessToken();
     const d=new Date(),p=n=>String(n).padStart(2,'0');

@@ -31,7 +31,7 @@
 
 const NS = window.ORDER_NS || '';           // localStorage 접두어 (테스트본 = 'TEST_')
 const DK = NS + 'order_draft_v1';
-const TEL_HELP = '010-2455-4156 홍찬화 팀장 · 010-2326-5911 박원비 팀장';
+const TEL_HELP = '010-2455-4156 홍찬화 팀장';
 
 // 웹앱(Apps Script)이 붙어 있는지 — 발주 제출·내역은 웹앱이 있어야 열린다.
 // api·API는 catalog 쪽에 선언돼 있다(같은 문서의 다른 script 태그라 그대로 보인다).
