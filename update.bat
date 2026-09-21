@@ -22,7 +22,7 @@ if %errorlevel% neq 0 (
 )
 
 rem 🔴 예전 update.bat 은 여기서 `git config --global user.name hongchanwha` 를 박았다.
-rem    박원비 팀장 PC 에서 그대로 돌면 원비씨 커밋이 전부 홍찬화 이름으로 올라간다.
+rem    다른 사람 PC 에서 그대로 돌면 그 사람 커밋이 전부 홍찬화 이름으로 올라간다.
 rem    그래서 뺐다 (2026-08-28). 각자 PC 의 git 계정을 그대로 쓴다.
 
 powershell -ExecutionPolicy Bypass -NoProfile -File "%~dp0_deploy_menu.ps1"
