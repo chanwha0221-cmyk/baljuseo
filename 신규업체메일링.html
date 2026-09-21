@@ -196,7 +196,7 @@
   <!-- 📋 전체 업체 — 메일 작성 바로 밑 (홍팀장 2026-09-11). 예전엔 «펼치기» 안에 접혀 있어서
        [기록]을 눌러도 어디로 갔는지 안 보였다. 한 줄에 한 업체, 보낸날짜·마지막연락 머리글을 누르면 정렬. -->
   <div class="card">
-    <h2>전체 업체 <span class="badge green" id="total-count">0</span> <span class="muted" style="font-weight:400;font-size:12px">— 찬화·원비 합친 목록 (내 것만 수정·삭제 가능)</span></h2>
+    <h2>전체 업체 <span class="badge green" id="total-count">0</span> <span class="muted" style="font-weight:400;font-size:12px">— 지난 담당자 발송분까지 합친 전체 목록 (내 것만 수정·삭제 가능)</span></h2>
     <div style="overflow-x:auto">
     <table id="all-table">
       <thead><tr>
@@ -275,8 +275,8 @@ const OAUTH_SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.goog
 // 🔗 2026-08-11 사장님 지시: **URL 하나로 통합, 데이터도 한 탭으로 합침** (중복 거르는 게 유일한 목적).
 //    옛 원비 탭은 지우지 않고 남겨두되, 통합 탭에 없는 건만 담당='박원비'로 끌어와 합친다(1회, 이후 자동 스킵).
 const DATA_TAB='신규업체메일링';
-const LEGACY_WONBI_TAB='신규업체메일링_원비';
-const PEOPLE=['홍찬화','박원비'];
+const LEGACY_WONBI_TAB='신규업체메일링_원비';   // 옛 백업 탭 이름 (흡수 기능은 2026-09-15에 껐다 — 참조만 남음)
+const PEOPLE=['홍찬화'];   // 2026-09-21 박원비 퇴사로 제외 (옛 발송 기록의 담당='박원비' 행은 중복발송 방지용으로 그대로 둔다)
 // 서명·명함용 '지금 쓰는 사람' — 화면 토글로 고르고 이 기기에 기억 (URL 파라미터 없음)
 let PERSON=localStorage.getItem('mailing_person')||'홍찬화';
 if(PEOPLE.indexOf(PERSON)<0)PERSON='홍찬화';
@@ -459,7 +459,7 @@ function checkDuplicate(){
   let list=all.filter(x=> norm(x.r[2])===nq || norm(x.r[0])===nq);
   if(!list.length && nq.length>=3) list=all.filter(x=> norm(x.r[2]).includes(nq) || norm(x.r[0]).includes(nq));
   if(!list.length){
-    out.innerHTML='✅ <b>처음 보는 곳</b> — 찬화·원비 둘 다 보낸 기록 없음 <b>(발송 OK)</b>'; out.style.color='var(--green)'; return;
+    out.innerHTML='✅ <b>처음 보는 곳</b> — 보낸 기록 없음 <b>(발송 OK)</b>'; out.style.color='var(--green)'; return;
   }
   // 가장 최근 연락순
   list.sort((a,b)=>{ const da=daysSince(a.r[4]), db=daysSince(b.r[4]); if(da==null)return 1; if(db==null)return -1; return da-db; });
@@ -1347,7 +1347,7 @@ function copyText(id){ navigator.clipboard.writeText($(id).value).then(()=>toast
    기본 이미지는 레포에 같이 있다(assets/card-<사람>.png). [바꾸기]로 고른 파일은
    **그 브라우저에만** 저장한다(localStorage) — 시트·드라이브에 올리지 않는다.
    ⚠️ 클립보드에 그림을 넣는 건 PNG 만 된다. 무엇을 고르든 캔버스로 PNG 로 바꿔 넣는다. */
-const CARD_SRC={'홍찬화':'assets/card-hong.png','박원비':'assets/card-wonbi.png'};
+const CARD_SRC={'홍찬화':'assets/card-hong.png'};
 function cardKey(){ return 'mailing_card_'+ME; }
 function loadCard(){
   const img=$('card-img'); if(!img) return;
