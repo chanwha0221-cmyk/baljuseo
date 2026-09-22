@@ -2155,6 +2155,7 @@ function orderCard(no, list, master){
       +       (st === '완료' ? (master ? '✅ 당일 시트 전송됨' : '✅ 발주 확인됨') : (st === '취소' ? '취소됨' : '접수'))
       +     '</span>'
       +     (master && NEWNOS.has(S(no)) ? '<span class="onewb">NEW</span>' : '')
+      +     (master && NO_TAKE.test(S(f.cname)) ? '<span class="ordst no" style="background:#c0392b;color:#fff">⛔ 발주 안 받는 업체</span>' : '')
       +     (master && ACKON && st === '접수' && ackMissing(no).length
               ? '<span class="ordst wait">👀 ' + ackMissing(no).map(m => esc(nick(m.name))).join('·') + ' 미확인</span>' : '')
       +   '</div>'
@@ -2385,12 +2386,16 @@ function badgeOrders(n){
   b.style.display = n ? '' : 'none';
 }
 function popHide(){ const p = document.getElementById('ordpop'); if(p) p.remove(); }
+/* ⛔ 발주 안 받는 업체(빅피쉬마켓, 홍팀장 2026-09-22) — 업체 화면엔 아무 티도 안 낸다. 마스터 화면에만 빨간 딱지,
+   당일 시트로 보내면 서버(index.ts NO_TAKE)가 그 줄을 빨갛게 칠한다. 두 곳 같이 고칠 것. */
+const NO_TAKE = /빅피쉬/;
 function popShow(groups, total){
   css();                                   // 발주 화면을 안 거쳐도 스타일이 있어야 한다
   popHide();
   const d = document.createElement('div');
   d.className = 'ordpop'; d.id = 'ordpop';
-  const names = groups.slice(0, 3).map(g => '<b>' + esc(g.name || '이름없음') + '</b> ' + g.cnt + '건').join(' · ')
+  const names = groups.slice(0, 3).map(g => '<b>' + esc(g.name || '이름없음') + '</b> ' + g.cnt + '건'
+      + (NO_TAKE.test(S(g.name)) ? ' <b style="color:#c0392b">⛔ 발주 안 받음</b>' : '')).join(' · ')
     + (groups.length > 3 ? ' 외 ' + (groups.length - 3) + '곳' : '');
   d.innerHTML = '<button class="opx" title="닫기">✕</button>'
     + '<div class="opt">' + (ACKON ? '👀 확인 안 한 발주 ' + total + '건' : '🔔 새 발주 ' + total + '건이 들어왔습니다') + '</div>'
