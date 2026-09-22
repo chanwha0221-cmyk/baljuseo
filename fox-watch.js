@@ -18,7 +18,7 @@
   var FOXID = '1gBH1yXReSLdIrI2tR2Z-sIAbSyQIWCe1-s1Hc-0wbsk';
   var URL = 'https://script.google.com/macros/s/AKfycbyOPSk6qoVVD2eZxEVkk81YNDouH3Qgw9Ba9DTVuKr2vK8oU5Lqf2HNUIQxkvxRkXjxSQ/exec';
   var TOKEN = 'fox-2026-hcw';
-  var VER = '0922';   // 배지에 찍힌다 — 옛 북마크가 남아 있는지 한눈에 알기 위해
+  var VER = '0922b';   // 배지에 찍힌다 — 옛 북마크가 남아 있는지 한눈에 알기 위해
   /* ⚙ 이 값들은 스크립트가 시트 U1 에 올려준다 — 숫자를 바꾸려고 북마크를 다시 등록하지 않기 위해서다 */
   var CFG = { max: 60, ms: 90000, batch: 4, tick: 8000, days: 4 };
 
@@ -236,22 +236,34 @@
     return 0;
   }
 
+  async function fetchPend() {
+    var t = await csv(FOXID, '_여우로그', 'T1:U1');
+    var pend = JSON.parse((t[0] && t[0][0]) || '[]');
+    if (t[0] && t[0][1]) { var c = JSON.parse(t[0][1]); for (var kk in c) CFG[kk] = c[kk]; }
+    return pend;
+  }
+  /* 🔴 일이 남아 있는 동안엔 절대 쉬지 않는다 (2026-09-22 홍팀장 "8칸에 10분이면 누가 쓰냐").
+     예전엔 한 바퀴에 4칸 읽고 8초 쉬었는데, 숨은 탭에선 크롬이 그 8초를 1분으로 늘려 8칸에 10분이 걸렸다.
+     이제 한 칸 읽을 때마다 대기열(T1)을 다시 받아 «아직 안 읽은 첫 칸» 을 바로 잇는다 — 새로 잡힌 칸도 다음 차례에 바로 낀다.
+     쉬는 건 대기열이 비었을 때뿐이고, 그땐 1분 늦어도 상관없다. */
   async function once() {
     var pend = [];
-    try {
-      var t = await csv(FOXID, '_여우로그', 'T1:U1');
-      pend = JSON.parse((t[0] && t[0][0]) || '[]');
-      if (t[0] && t[0][1]) { var c = JSON.parse(t[0][1]); for (var kk in c) CFG[kk] = c[kk]; }
-    } catch (e) { return; }
+    try { pend = await fetchPend(); } catch (e) { return; }
     if (!pend.length) { say('대기 중 — 새로 잡히면 바로 채웁니다', '#137333'); return; }
 
-    say('읽는 중 ' + pend.length + '건', '#1a73e8');
     var got = 0, tried = 0;
-    for (var i = 0; i < pend.length && tried < CFG.batch; i++) {
+    for (var guard = 0; guard < 60; guard++) {
       if (stopped) return;
+      if (guard) { try { pend = await fetchPend(); } catch (e) { break; } }
+      var i = -1;
+      for (var j = 0; j < pend.length; j++) {
+        var kj = String(pend[j].k || '');
+        /* 🔁 5분 안에 읽은 칸은 건너뛴다 — 합이 영영 안 맞는 칸을 계속 붙잡지 않게 */
+        if (recent[kj] && Date.now() - recent[kj] < 300000) continue;
+        i = j; break;
+      }
+      if (i < 0) break;                                    // 남은 건 전부 방금 읽은 것 — 서버가 지우길 기다린다
       var k = String(pend[i].k || ''), tab = String(pend[i].tab || '');
-      /* 🔁 5분 안에 읽은 칸은 건너뛴다 — 쉬지 않고 도는 대신, 합이 영영 안 맞는 칸을 계속 붙잡지 않게 */
-      if (recent[k] && Date.now() - recent[k] < 300000) continue;
       recent[k] = Date.now();
       tried++;
       var p = k.split('|'), wh = p[0], nm = p.slice(1).join('|');
@@ -270,7 +282,7 @@
         if (!row) continue;
       }
       if (!(await openTab(tab))) continue;
-      say('읽는 중 ' + (i + 1) + '/' + Math.min(pend.length, CFG.batch) + ' ' + nm, '#1a73e8');
+      say('읽는 중 (남은 ' + pend.length + '건) ' + nm, '#1a73e8');
       var r = await readCell(colName(col) + row);
       if (r.err || !r.list.length) continue;
       var rows = r.list.slice().reverse().map(function (x, j) {
