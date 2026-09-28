@@ -447,7 +447,8 @@
       (j.cos || []).forEach(function (c) { if (c.me == 1 || c.co === row.co) mine = num(c.val); });
       (j.waits || []).forEach(function (w) { if (w.mine == 1 || w.co === row.co) wq += num(w.qty); });
       (j.mores || []).forEach(function (m) { if (m.mine == 1 || m.co === row.co) mq += (num(m.qty) || 1); });
-      return { mine: mine, left: Math.max(0, num(j.remain)), wait: wq, more: mq };
+      var used = (j.used && row.co && j.used[row.co] != null) ? num(j.used[row.co]) : 0;
+      return { mine: mine, left: Math.max(0, num(j.remain)), wait: wq, more: mq, used: used };
     });
   }
 
@@ -462,6 +463,19 @@
         .then(function () { return { done: goal, was: f.mine }; });
     });
   }
+  /* 사용 — 잡았으면 «쓴 수량»도 같이 적어 둔다 (홍팀장 2026-09-28 :
+     「잡고 썼으면 쓴 수량으로 되어 있어야지, 여기 수량 파악 안 해 놓으면 잡고 안 썼다고 경고 뜰 거 아녀」).
+     잡은 것보다 많이 쓸 수는 없으니 min(필요수량, 지금 잡은 것). 이미 그 값이면 안 보낸다. */
+  function actUsed(x) {
+    return freshRow(x.row).then(function (f) {
+      var v = Math.min(x.need, f.mine);
+      if (v <= 0) return { skip: '잡은 것이 없음' };
+      if (v === f.used) return { skip: '이미 ' + v + '개로 적혀 있음' };
+      return qpost({ do: 'used', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, val: v })
+        .then(function () { return { done: v, was: f.used }; });
+    });
+  }
+
   /* 대기 — 이미 걸어 둔 것이 있으면 또 걸지 않는다(줄이 두 개 서면 남의 몫까지 먹는다) */
   function actWait(x) {
     return freshRow(x.row).then(function (f) {
@@ -911,11 +925,12 @@
     var nSet = hits.filter(function (x) { return x.set; }).length;
     var nWait = hits.filter(function (x) { return x.wait; }).length;
     var nMore = hits.filter(function (x) { return x.more; }).length;
-    if (nSet || nWait || nMore) {
+    var nUse = hits.filter(function (x) { return x.need > 0 && (x.mine + (x.set || 0)) > 0; }).length;
+    if (nSet || nWait || nMore || nUse) {
       h += '<div style="background:#eef4ff;border:1px solid #c7d9f5;border-radius:9px;padding:9px 11px;margin:8px 0">'
         + '<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">'
         +   '<button class="pri" id="qtyb-run">🚀 판정대로 실행</button>'
-        +   '<span style="font-size:12.5px">잡기 <b>' + nSet + '</b> · 대기 <b>' + nWait + '</b> · 증량요청 <b>' + nMore + '</b></span>'
+        +   '<span style="font-size:12.5px">잡기 <b>' + nSet + '</b> · 사용 <b>' + nUse + '</b> · 대기 <b>' + nWait + '</b> · 증량요청 <b>' + nMore + '</b></span>'
         + '</div>'
         + '<div style="margin-top:6px"><span class="mut">증량요청 사유</span> '
         +   '<input id="qtyb-why" value="' + esc(WHY_DEFAULT) + '" style="width:calc(100% - 80px);border:1px solid #cfd6e0;border-radius:6px;padding:5px 8px;font:12.5px Pretendard,sans-serif"></div>'
@@ -971,6 +986,9 @@
          「잡을 수 있었는데 대기를 건」 일이 안 생긴다. */
       var jobs = [];
       hits.forEach(function (x) { if (x.set)  jobs.push({ t: '잡기',   x: x, n: x.mine + x.set, f: function () { return actSet(x); } }); });
+      /* 잡은 뒤 «사용» 을 채운다 — 잡아만 두고 안 썼다고 잡히면 마감 때 풀라는 경고가 뜬다.
+         잡기가 없던 줄(이미 넉넉히 잡아 둔 것)도 채워야 하므로 필요수량이 있는 줄 전부를 본다. */
+      hits.forEach(function (x) { if (x.need > 0) jobs.push({ t: '사용', x: x, n: Math.min(x.need, x.mine + (x.set || 0)), f: function () { return actUsed(x); } }); });
       hits.forEach(function (x) { if (x.wait) jobs.push({ t: '대기',   x: x, n: x.wait,        f: function () { return actWait(x); } }); });
       var why = (el('qtyb-why') && el('qtyb-why').value.trim()) || WHY_DEFAULT;
       hits.forEach(function (x) { if (x.more) jobs.push({ t: '증량요청', x: x, n: x.more,      f: function () { return actMore(x, why); } }); });
