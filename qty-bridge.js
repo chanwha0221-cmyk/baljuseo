@@ -845,7 +845,13 @@
       keys.forEach(function (k) {
         var row = IDX[k];
         if (!row) { miss.push(parsed.map['#raw:' + k] || k); return; }
-        hits.push(judge(row, parsed.map[k]));
+        var j = judge(row, parsed.map[k]);
+        /* 🔴 붙여넣은 «원래 이름»을 들고 다닌다 (2026-09-28 사고).
+           수량 웹 상품명에는 창고가 덧붙인 꼬리말이 있다 — 「… 500g급 품절 안 풀림」.
+           그 이름으로 못 채운 목록을 내보냈더니 시트 J열과 안 맞아 한 줄도 못 내렸다.
+           시트에서 줄을 찾을 때는 «시트에 적힌 이름», 즉 붙여넣은 원래 이름을 써야 한다. */
+        j.raw = parsed.map['#raw:' + k] || row.name;
+        hits.push(j);
       });
       draw(hits, miss, parsed.bad, notes);
     });
@@ -1035,7 +1041,8 @@
       copy(col.join('\n'), this, note);
     };
     el('qtyb-cpno').onclick = function () {
-      copy(holes.map(function (x) { return x.row.wh + '\t' + x.row.name + '\t' + x.hole; }).join('\n'),
+      // 시트에 적힌 이름(붙여넣은 원래 이름)으로 낸다 — 수량 웹 꼬리말이 붙으면 시트에서 못 찾는다
+      copy(holes.map(function (x) { return x.row.wh + '\t' + (x.raw || x.row.name) + '\t' + x.hole; }).join('\n'),
            this, holes.length + '건');
     };
     el('qtyb-cpw').onclick = function () {
