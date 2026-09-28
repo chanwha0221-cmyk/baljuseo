@@ -437,15 +437,51 @@
         return j || {};
       });
   }
+  /* 🔎 실행 직전에 그 줄을 다시 읽는다 — 중복으로 잡거나 두 번 거는 것을 막는 장치.
+     do=row 가 그 줄의 «지금» 상태를 준다 : cos(회사별 잡은 값) · waits(대기) · mores(답 안 온 증량요청).
+     ⚠️ 긁은 때와 누르는 때 사이에 값이 바뀔 수 있다 — 홍팀장이 손으로 잡았거나, 다른 회사가 가져갔거나.
+        그때 옛 숫자로 덮어쓰면 남이 잡은 걸 깎거나 우리 것을 두 번 잡는다. */
+  function freshRow(row) {
+    return qpost({ do: 'row', tab: whTab(row), nkey: row.key }).then(function (j) {
+      var mine = 0, wq = 0, mq = 0;
+      (j.cos || []).forEach(function (c) { if (c.me == 1 || c.co === row.co) mine = num(c.val); });
+      (j.waits || []).forEach(function (w) { if (w.mine == 1 || w.co === row.co) wq += num(w.qty); });
+      (j.mores || []).forEach(function (m) { if (m.mine == 1 || m.co === row.co) mq += (num(m.qty) || 1); });
+      return { mine: mine, left: Math.max(0, num(j.remain)), wait: wq, more: mq };
+    });
+  }
+
+  /* 잡기 — «그 칸의 총량»을 보낸다. 목표는 필요수량, 다만 잔여를 넘을 수는 없다.
+     이미 목표만큼 잡혀 있으면 아무것도 보내지 않는다(두 번 눌러도 안전). */
   function actSet(x) {
-    return qpost({ do: 'set', tab: whTab(x.row), nkey: x.row.key, co: x.row.co,
-                   val: x.mine + x.set, name: x.row.name, how: 'pop' });
+    return freshRow(x.row).then(function (f) {
+      var goal = Math.min(x.need, f.mine + f.left);
+      if (goal <= f.mine) return { skip: '이미 ' + f.mine + '개 잡혀 있음' };
+      return qpost({ do: 'set', tab: whTab(x.row), nkey: x.row.key, co: x.row.co,
+                     val: goal, name: x.row.name, how: 'pop' })
+        .then(function () { return { done: goal, was: f.mine }; });
+    });
   }
+  /* 대기 — 이미 걸어 둔 것이 있으면 또 걸지 않는다(줄이 두 개 서면 남의 몫까지 먹는다) */
   function actWait(x) {
-    return qpost({ do: 'wait', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: x.wait });
+    return freshRow(x.row).then(function (f) {
+      if (f.wait > 0) return { skip: '이미 대기 ' + f.wait + '개 걸려 있음' };
+      var q = Math.max(0, x.need - f.mine - f.left);
+      if (!q) return { skip: '더 필요 없음(잔여로 채워짐)' };
+      return qpost({ do: 'wait', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: q })
+        .then(function () { return { done: q }; });
+    });
   }
+  /* 증량요청 — 답 기다리는 요청이 이미 있으면 또 보내지 않는다(관리팀에 같은 건이 두 번 간다) */
   function actMore(x, why) {
-    return qpost({ do: 'more', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: x.more, why: why || WHY_DEFAULT });
+    return freshRow(x.row).then(function (f) {
+      if (f.more > 0) return { skip: '이미 증량요청 ' + f.more + '건이 답을 기다리는 중' };
+      var q = Math.max(0, x.need - f.mine - f.left);
+      if (!q) return { skip: '더 필요 없음(잔여로 채워짐)' };
+      return qpost({ do: 'more', tab: whTab(x.row), nkey: x.row.key, co: x.row.co,
+                     qty: q, why: why || WHY_DEFAULT })
+        .then(function () { return { done: q }; });
+    });
   }
   /* 창고 코드는 줄 키 앞머리에 있다 — data-k = 「경기28\t양평해장국600G」 */
   function whTab(row) { return (row.k || '').split('\t')[0] || row.wh; }
@@ -938,22 +974,33 @@
           + (jobs.length > 15 ? '\n…' : '')
           + '\n\n증량요청 사유 : ' + why)) return;
 
-      var btn = this, ok = 0, bad = [];
+      var btn = this, ok = 0, bad = [], skip = [];
       btn.disabled = true;
       var log = el('qtyb-runlog');
       (function step(i) {
         if (i >= jobs.length) {
-          btn.disabled = false;
-          btn.textContent = bad.length ? ('⚠️ ' + ok + '건 완료 · ' + bad.length + '건 실패') : ('✅ ' + ok + '건 완료');
-          log.innerHTML = bad.length
-            ? ('<b style="color:#b91c1c">안 된 것</b><br>' + bad.map(esc).join('<br>'))
-            : '다 걸었습니다. [🔄 창고 전부 긁기] 로 다시 보시면 반영된 것이 보입니다.';
+          btn.textContent = (bad.length ? '⚠️ ' : '✅ ') + ok + '건 완료'
+            + (skip.length ? ' · ' + skip.length + '건 건너뜀' : '')
+            + (bad.length ? ' · ' + bad.length + '건 실패' : '');
+          var h2 = '';
+          if (bad.length)  h2 += '<b style="color:#b91c1c">안 된 것</b><br>' + bad.map(esc).join('<br>');
+          if (skip.length) h2 += (h2 ? '<br><br>' : '') + '<b>건너뛴 것</b> — 이미 되어 있어 다시 걸지 않았습니다<br>' + skip.map(esc).join('<br>');
+          log.innerHTML = h2 || '다 걸었습니다. 다시 세는 중…';
+          /* 끝나면 바로 다시 긁어 판정을 새로 낸다 — 방금 건 것이 반영된 화면을 보여 주고,
+             두 번 눌러도 «할 일 없음» 이 되게 한다. */
+          scanAll().then(function () { return loadMy(); }).then(function () {
+            btn.disabled = false;
+            run();
+          });
           return;
         }
         var j = jobs[i];
         btn.textContent = '거는 중 ' + (i + 1) + '/' + jobs.length;
         log.textContent = '[' + j.t + '] ' + j.x.row.name + ' ' + j.n;
-        j.f().then(function () { ok++; }, function (e) {
+        j.f().then(function (r) {
+          if (r && r.skip) skip.push('· [' + j.t + '] ' + j.x.row.name + ' — ' + r.skip);
+          else ok++;
+        }, function (e) {
           bad.push('· [' + j.t + '] ' + j.x.row.name + ' — ' + (e.message || e));
         }).then(function () { setTimeout(function () { step(i + 1); }, 320); });
       })(0);
