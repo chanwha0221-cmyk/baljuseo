@@ -450,6 +450,10 @@
         (여우 칸에 덮어쓰기로 9+5=14 를 4 로 엎은 사고가 있었다) */
   var WHY_DEFAULT = '실제 발주 들어온 수량입니다.';
 
+  /* 수량 웹의 밑동 주소 — /qty/my.php 든 /qty/notice.php 든 «/qty/» 로 맞춘다.
+     잡기·사용·대기·증량은 전부 이 주소로 POST 한다(마이페이지가 아니다 — 2026-09-28 실측). */
+  function useUrl() { return location.pathname.replace(/[^/]*$/, ''); }
+
   function qpost(fields) {
     var fd = new FormData();
     Object.keys(fields).forEach(function (k) { fd.append(k, String(fields[k])); });
