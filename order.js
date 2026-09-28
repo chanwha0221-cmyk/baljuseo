@@ -1736,10 +1736,83 @@ async function ordersView(){
     +        (s === '' ? '전체' : (s === '완료' ? (master ? '전송됨' : '확인됨') : s)) + '</button>').join('')
     +   '</div>'
     +   dayPicker()          // 📅 날짜로 골라 보기 (홍팀장 2026-09-07)
+    /* 📊 수량 점검용 뽑기 (홍팀장 2026-09-28) — 수량 웹(service.masterc.co.kr/qty)에 붙일 «필요수량».
+       수량 웹은 CORS 를 안 열어 줘 우리 화면에서 직접 읽고 쓸 수가 없다(실측) → 우리는 필요수량만 뽑고,
+       대조·판정은 수량 웹 위에 얹는 qty-bridge.js 패널이 한다. 마스터만 — 수량은 우리가 잡는다. */
+    +   (master ? ('<div class="ordbar" style="margin:8px 0 0;align-items:center">'
+    +     '<button class="ordb2 pri" data-qneed="1">📊 수량 점검용 뽑기</button>'
+    +     '<span style="font-size:11.5px;color:var(--muted)">고른 날짜(없으면 오늘) 발주를 상품별로 합쳐 수량 웹 패널에 붙일 형식으로 냅니다</span>'
+    +   '</div>') : '')
     + '</div>'
+    + (master ? '<div id="qneedbox"></div>' : '')
     + '<div id="ordlist"></div>';
   return h + '</div>';
 }
+/* 📊 수량 점검용 뽑기 — 그날 발주를 상품별로 합쳐 «필요수량»을 낸다 (홍팀장 2026-09-28).
+   ─ 왜 합치나 : 발주는 받는분마다 쪼개져 들어온다. 수량은 상품 단위로 잡으니 상품별 합이 필요하다.
+   ─ 취소는 뺀다 : 취소된 줄까지 세면 안 팔 물량을 잡아 두게 된다.
+   ─ 상품명은 발주에 적힌 이름 그대로 낸다. 수량 웹도 이름으로 맞추니 손대면 안 맞는다
+     (창고명 접두어 떼기 같은 정리는 findProd 안에서만 쓰고, 내보내는 이름은 원본). */
+function needAgg(day){
+  const m = new Map();
+  (LIST || []).forEach(r => {
+    if(S(r.state) === '취소') return;
+    if(dayOf(r) !== day) return;
+    splitProds(r.prod).forEach(it => {
+      const k = pkey(it.name);
+      if(!k) return;
+      if(!m.has(k)) m.set(k, {name: it.name, qty: 0, cnt: 0, wh: ''});
+      const v = m.get(k);
+      v.qty += (it.qty || 1);
+      v.cnt++;                                  // 몇 줄에서 나왔나 — 합이 이상할 때 되짚어 볼 수 있게
+    });
+  });
+  const out = [];
+  m.forEach(v => {
+    const f = findProd(v.name);
+    v.wh = (f && f.p) ? whOf(f.p) : '';         // 못 찾으면 빈칸 — 추측해서 창고를 붙이지 않는다
+    out.push(v);
+  });
+  out.sort((a, b) => S(a.wh).localeCompare(S(b.wh)) || b.qty - a.qty);
+  return out;
+}
+function qneedPaint(){
+  const box = document.getElementById('qneedbox');
+  if(!box) return;
+  const day = OD || todayKST();
+  const rows = needAgg(day);
+  box.__need = rows;
+  if(!rows.length){
+    box.innerHTML = '<div class="ordbox" style="margin-top:10px">' + esc(dayLabel(day))
+      + ' 발주가 없습니다. (날짜를 골라 보세요)</div>';
+    return;
+  }
+  const noWh = rows.filter(r => !r.wh).length;
+  box.innerHTML = '<div class="ordbox" style="margin-top:10px">'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+    +   '<b>📊 ' + esc(dayLabel(day)) + ' 필요수량 · ' + rows.length + '개 상품</b>'
+    +   '<span style="flex:1"></span>'
+    +   '<button class="ordb2 pri" data-qncp="1">📋 상품명+수량 복사</button>'
+    +   '<button class="ordb2" data-qncp="2">📋 창고까지</button>'
+    + '</div>'
+    + '<div style="font-size:11.5px;color:var(--muted);margin-top:5px">'
+    +   '수량 웹에서 북마크릿(수량대조) → [🔄 창고 전부 긁기] → 아래 칸에 붙여넣고 [⚖️ 대조]'
+    +   (noWh ? (' · ⚠️ 창고를 못 찾은 상품 ' + noWh + '건(이름이 카탈로그와 다릅니다)') : '')
+    + '</div>'
+    + '<table style="border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px">'
+    + '<thead><tr>'
+    +   ['창고', '상품명', '필요수량', '줄'].map(t => '<th style="background:#eef2f7;border:1px solid #dde3ea;padding:4px 6px">'
+    +     t + '</th>').join('')
+    + '</tr></thead><tbody>'
+    + rows.map(r => '<tr>'
+    +   '<td style="border:1px solid #e6eaef;padding:3px 6px;text-align:center">' + esc(r.wh || '—') + '</td>'
+    +   '<td style="border:1px solid #e6eaef;padding:3px 6px">' + esc(r.name) + '</td>'
+    +   '<td style="border:1px solid #e6eaef;padding:3px 6px;text-align:center"><b>' + r.qty + '</b></td>'
+    +   '<td style="border:1px solid #e6eaef;padding:3px 6px;text-align:center;color:#6b7280">' + r.cnt + '</td>'
+    + '</tr>').join('')
+    + '</tbody></table></div>';
+}
+
 /* 📅 날짜 고르기 — 받아온 목록에 실제로 있는 날만 세워 준다(없는 날을 고를 일이 없게).
    묶음 수를 같이 적어 그날 발주가 몇 건이었는지 목록을 열기 전에 보이게 한다. */
 function dayPicker(){
@@ -3537,6 +3610,23 @@ document.addEventListener('click', e => {
         paint();
       })
       .catch(err => { alert(err.message || '지정하지 못했습니다'); nh.disabled = false; nh.textContent = old; });
+    return;
+  }
+  // 📊 수량 점검용 뽑기 · 그 결과 복사 (홍팀장 2026-09-28)
+  const qn = e.target.closest && e.target.closest('[data-qneed]');
+  if(qn){ qneedPaint(); return; }
+  const qnc = e.target.closest && e.target.closest('[data-qncp]');
+  if(qnc){
+    const box = document.getElementById('qneedbox');
+    const rows = box && box.__need;
+    if(!rows || !rows.length) return;
+    /* 「상품명 <탭> 수량」 — 수량 웹 패널이 읽는 형식. [창고까지] 는 「창고 · 상품명 · 수량」 3칸으로,
+       패널이 «끝에서 두 번째 칸»을 상품명으로 읽게 맞춰 두었다(qty-bridge.js parseNeed). */
+    const t = qnc.getAttribute('data-qncp') === '2'
+      ? rows.map(r => (r.wh || '') + '\t' + r.name + '\t' + r.qty).join('\n')
+      : rows.map(r => r.name + '\t' + r.qty).join('\n');
+    navigator.clipboard.writeText(t).then(() => toast('복사했습니다 — 수량 웹 패널에 붙여넣으세요'),
+                                         () => toast('복사하지 못했습니다'));
     return;
   }
   const cpx = e.target.closest && e.target.closest('[data-cpx]');

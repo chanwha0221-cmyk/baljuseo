@@ -156,9 +156,14 @@
       if (!s) return;
       var parts = s.split('\t');
       var nm, q;
-      if (parts.length >= 2) {
-        nm = parts[0];
+      if (parts.length >= 3) {
+        /* 「창고 · 상품명 · 수량」 — 발주 도구의 [📋 창고까지] 가 이 꼴로 낸다.
+           🔴 맨 앞을 상품명으로 잡으면 창고 이름을 찾게 되니 반드시 끝에서 두 번째를 쓴다. */
+        nm = parts[parts.length - 2];
         q = num(parts[parts.length - 1]);
+      } else if (parts.length === 2) {
+        nm = parts[0];
+        q = num(parts[1]);
       } else {
         var m = s.match(/^(.*?)[\s·|]+(\d+)\s*(?:개|EA)?$/i);
         if (!m) { bad.push(s); return; }
