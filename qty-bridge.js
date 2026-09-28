@@ -352,8 +352,17 @@
   /* ── 판정 ───────────────────────────────────────────────────────── */
   function judge(row, need) {
     var mine = row.mine || 0;
-    var short = need - mine;
-    var r = { row: row, need: need, mine: mine, set: 0, wait: 0, more: 0, over: 0, act: 'ok', why: '' };
+    /* 🔴 «잡은 수량» 을 그대로 쓸 수 있는 몫으로 보면 안 된다 (2026-09-28 갑오징어) :
+       ① 이미 «사용» 으로 적어 둔 몫은 다른 발주로 나갔다 → 빼야 한다.
+       ② 품절 안 풀림이거나 총수량 0인데 잔여가 «음수» 인 줄은 창고에 물건이 없다.
+          숫자만 30 잡혀 있을 뿐 실제로는 못 받는다 → 잡은 것을 0 으로 본다.
+          (홍팀장 : 「초대왕 반건조 갑오징어 500g급 4개 있냐?」 — 없다. 재고 없음으로 빠져야 한다) */
+    var mineUsed = (OURS[row.key] && OURS[row.key].used) || 0;
+    var ghost = row.stuck || (row.closed && row.left < 0);
+    var avail = ghost ? 0 : Math.max(0, mine - mineUsed);
+    var short = need - avail;
+    var r = { row: row, need: need, mine: mine, used: mineUsed, avail: avail, ghost: ghost,
+              set: 0, wait: 0, more: 0, over: 0, act: 'ok', why: '' };
 
     /* 「넉넉」 — 수량을 안 잡고 써도 되는 상품. 손댈 일이 없다. */
     if (row.free) {
@@ -363,7 +372,7 @@
     }
 
     if (short <= 0) {
-      r.over = mine - need;
+      r.over = avail - need;          // 남는 몫은 «쓸 수 있는 것» 기준으로 센다(이미 쓴 몫 제외)
       // 마감이 가까운데 잡아만 두고 안 나간 몫 → 풀어야 한다
       var ml = minsLeft(dlHour(row.dlRaw));
       if (r.over > 0 && ml != null && ml <= 60) {
@@ -380,8 +389,8 @@
 
     /* 🔴 잔여는 음수로 나올 수 있다 — 총수량보다 많이 잡힌 줄(품절 안 풀림 등)에서 -30 을 봤다.
        그대로 Math.min 에 넣으면 «-30개 잡기» 가 나온다. 0 으로 바닥을 깐다. */
-    var avail = Math.max(0, row.left);
-    var canSet = Math.min(short, avail);
+    var leftAvail = Math.max(0, row.left);      // ⚠️ 위의 avail(우리가 쓸 수 있는 몫)과 다른 것 — 창고 잔여다
+    var canSet = Math.min(short, leftAvail);
     if (canSet > 0) r.set = canSet;
     var rest = short - canSet;                 // 잔여로 못 채우는 몫
     if (rest <= 0) {
@@ -400,9 +409,12 @@
     r.hole = hole;
     /* 총수량 0 인 줄(오늘 안 올라온 상품)도 여기로 온다 — 증량요청·대기 현황을 봐야 하기 때문이다.
        예전에는 이 줄을 먼저 잘라 증량요청으로 보냈다가, 이미 «거부» 맞은 갑오징어를 또 증량으로 냈다. */
-    var base = row.closed
-      ? ('총수량 0 — 오늘 안 올라온 상품' + (row.left < 0 ? ' (잔여 ' + row.left + ')' : ''))
-      : ('잔여 ' + row.left + '개로 ' + rest + '개 부족');
+    var base = ghost
+      ? ('창고에 물건이 없는 줄 — 잡아 둔 ' + mine + '개는 못 받습니다'
+         + (row.left < 0 ? ' (총수량 0 · 잔여 ' + row.left + ')' : '') )
+      : (row.closed
+          ? ('총수량 0 — 오늘 안 올라온 상품' + (row.left < 0 ? ' (잔여 ' + row.left + ')' : ''))
+          : ('잔여 ' + row.left + '개로 ' + rest + '개 부족'));
 
     if (mo && mo.no && wa && wa.pend) {
       // 갓성비 암게 꼴 — 증량은 까였고 대기는 걸어 뒀지만 아직 못 받았다
@@ -831,7 +843,7 @@
         '<td><b>' + x.need + '</b></td>' +
         '<td>' + x.mine + '</td>' +
         '<td>' + x.row.left + '</td>' +
-        '<td>' + (x.set ? '<b>' + (x.mine + x.set) + '</b>' : '') + '</td>' +
+        '<td>' + (x.set ? '<b>' + ((x.ghost ? 0 : x.mine) + x.set) + '</b>' : '') + '</td>' +
         '<td>' + (x.wait || '') + '</td>' +
         '<td>' + (x.more || '') + '</td>' +
         '<td class="mut">' + esc(x.row.dlRaw.replace(/^.*?:\s*/, '')) + (ml != null && ml <= 120 ? ' <b>' + ml + '분</b>' : '') + '</td>' +
