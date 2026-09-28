@@ -30,6 +30,65 @@
      그 화면에 서 있을 필요가 없다. */
   var NKEY = 'qtybNeed';            // 발주 필요수량 — 화면이 바뀌어도 이어 쓴다(같은 오리진)
 
+  /* ══ 📄 마찬 월 시트 직접 읽기 ═══════════════════════════════════════
+     홍팀장 2026-09-28 : 「내 시트와 저 웹이 지금 하나도 유기적으로 안 돌아가잖아.
+                          나 지금 솔직히 오늘 발주를 어떻게 했는지도 모르겠다」
+     → 복사·붙여넣기 왕복을 없앤다. 패널이 시트를 직접 읽는다.
+       수량 웹은 남의 서버라 구글 토큰을 실을 수 없다 → 우리 sheets-proxy 를 경유한다
+       (2026-09-28 실측 : 수량 웹에서 CORS 통과, path 는 «시트ID/values/탭!범위»).
+     🔴 여기서는 «읽기만» 한다. 시트를 고치는 것은 시트 메뉴가 한다. */
+  var SHEET_ID = '1w5HYxmaovLADK23OhBAubxzbVJjHeTYJt24jPyzgOTw';     // 마찬 9월
+  var SHEET_DONE = '';              // 오늘 날짜 탭에서 읽은 «이미 나간 수량» (점검이 쓴다)
+  var PROXY = 'https://script.google.com/macros/s/AKfycbx46saILixJ387TxLbfnsBwjdc5K93j-cqUFjHxQU8xPGL7DJ9S-YjUvw7kvHmGPe7mmg/exec';
+
+  function sheetRead(tabRange) {
+    var path = SHEET_ID + '/values/' + encodeURIComponent(tabRange);
+    return fetch(PROXY, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'public', path: path, method: 'GET' })
+    }).then(function (r) { return r.text(); }).then(function (t) {
+      var j = null;
+      try { j = JSON.parse(t); } catch (e) { throw new Error('시트를 읽지 못했습니다'); }
+      if (!j || j.status !== 200) throw new Error('시트를 읽지 못했습니다 (' + (j && j.status) + ')');
+      var b = null;
+      try { b = JSON.parse(j.body); } catch (e) { throw new Error('시트 응답을 읽지 못했습니다'); }
+      return b.values || [];
+    });
+  }
+
+  /* 시트 한 탭을 상품별 합계로 — 당일 탭도 날짜 탭도 같은 자다.
+     8행부터 · J열(10번째) 상품명 · 합포장 " / " · 「x N」 · 성함(K)·주소(L) 없는 메모 줄과 머리글 줄 제외. */
+  function tallyTab(tab) {
+    return sheetRead(tab + '!A8:N600').then(function (v) {
+      var map = {}, lines = 0;
+      v.forEach(function (row) {
+        var prod = S(row[9]);
+        if (!prod) return;
+        var nm = S(row[10]), ad = S(row[11]);
+        if (!nm && !ad) return;
+        if (prod === '상품명' || nm === '성함') return;
+        lines++;
+        prod.split(' / ').forEach(function (part) {
+          var t = S(part);
+          if (!t) return;
+          var m = t.match(/^(.*?)\s*[xX×]\s*(\d+)\s*$/);
+          var name = m ? S(m[1]) : t;
+          var q = m ? parseInt(m[2], 10) : 1;
+          if (!name) return;
+          var k = nk(name);
+          if (!map[k]) map[k] = { name: name, qty: 0 };
+          map[k].qty += q;
+        });
+      });
+      return { map: map, lines: lines, tab: tab };
+    });
+  }
+  function todayTab() {
+    var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit' })
+      .format(new Date()).split('/');
+    return p[1] + p[0];                       // dd/mm → mmdd
+  }
+
   /* ── 상품명 정규화 ────────────────────────────────────────────────
      수량 웹이 줄마다 박아 둔 data-k 가 "창고코드\t공백제거·대문자 상품명" 이다.
      우리 발주 상품명도 같은 자로 재야 맞는다.
@@ -641,6 +700,7 @@
       '  <div class="mut" style="margin:8px 0 4px">필요수량 — 상품명 + 수량 (탭 또는 띄어쓰기). 같은 상품 여러 줄이면 합칩니다.</div>' +
       '  <textarea id="qtyb-in" placeholder="연안 활 숫게 1kg&#9;30&#10;맛상 닭목살 1kg&#9;12"></textarea>' +
       '  <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
+      '    <button class="pri" id="qtyb-sheet">📄 시트에서 가져오기</button>' +
       '    <button class="pri" id="qtyb-go">⚖️ 대조</button>' +
       '    <button id="qtyb-check">🧾 수량 점검</button>' +
       '    <button id="qtyb-clr">비우기</button>' +
@@ -658,6 +718,31 @@
     el('qtyb-scan').onclick = function () { scanAll(); };
     el('qtyb-scan1').onclick = function () { scanHere(); };
     el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
+    /* 📄 시트에서 가져오기 — 당일 탭(=넣을 발주)과 오늘 날짜 탭(=이미 나간 것)을 한 번에 읽는다.
+       붙여넣기를 시키지 않는다(홍팀장 2026-09-28 「시트와 웹이 유기적으로 안 돌아간다」). */
+    el('qtyb-sheet').onclick = function () {
+      var b = this, old = b.textContent;
+      b.disabled = true; b.textContent = '시트 읽는 중…';
+      var day = todayTab();
+      Promise.all([tallyTab('당일'), tallyTab(day).catch(function () { return { map: {}, lines: 0, tab: day }; })])
+        .then(function (r) {
+          var need = r[0], done = r[1];
+          var toText = function (m) {
+            return Object.keys(m).map(function (k) { return m[k].name + '\t' + m[k].qty; }).join('\n');
+          };
+          el('qtyb-in').value = toText(need.map);
+          needSave(el('qtyb-in').value);
+          SHEET_DONE = toText(done.map);
+          var d = el('qtyb-done'); if (d) d.value = SHEET_DONE;
+          stat('당일 ' + need.lines + '줄 · ' + day + ' ' + done.lines + '줄');
+          b.disabled = false; b.textContent = old;
+          run();                                  // 바로 대조까지 간다
+        }, function (e) {
+          b.disabled = false; b.textContent = old;
+          stat('시트를 못 읽음');
+          alert(e.message || e);
+        });
+    };
     el('qtyb-go').onclick = function () { run(); };
     /* 🧾 점검 — 잡은 것 대비 쓴 것을 훑는다. 창고를 안 긁었으면 긁고 나서 센다. */
     el('qtyb-check').onclick = function () {
@@ -691,7 +776,7 @@
     /* 🔴 «실제로 몇 개 나갔나» 는 오늘 날짜 시트가 정본이다 (홍팀장 2026-09-28).
        수량 웹의 «사용» 칸은 사람이 손으로 적은 숫자라 실제와 다를 수 있다.
        시트 「🌐 수량 웹 정리」 의 [📋 오늘 나간 수량 복사] 를 이 칸에 붙여넣으면 그걸로 센다. */
-    var doneParsed = parseNeed((el('qtyb-done') || { value: '' }).value);
+    var doneParsed = parseNeed((el('qtyb-done') || { value: SHEET_DONE }).value || SHEET_DONE);
     foldAlias(doneParsed.map);
     var hasDone = Object.keys(doneParsed.map).some(function (k) { return k.indexOf('#raw:') !== 0; });
 
@@ -733,9 +818,9 @@
       + '<div class="mut" style="margin-top:3px">' + (hasDone
           ? '«나간 것» 은 오늘 날짜 시트 기준입니다.'
           : '⚠️ 지금은 수량 웹 «사용» 칸(손으로 적은 값)으로 세고 있습니다 — 아래 칸에 오늘 날짜 시트에서 뽑은 것을 붙여넣으면 실제로 나간 수량으로 셉니다.') + '</div></div>'
-      + '<div class="mut" style="margin:6px 0 3px">📤 오늘 나간 수량 <span style="opacity:.8">(시트 「🌐 수량 웹 정리」 → [📋 오늘 나간 수량 복사])</span></div>'
-      + '<textarea id="qtyb-done" style="height:70px" placeholder="군산&#9;초대왕 반건조 갑오징어 500g급&#9;11">'
-      + esc((el('qtyb-done') || { value: '' }).value) + '</textarea>'
+      + '<div class="mut" style="margin:6px 0 3px">📤 오늘 나간 수량 <span style="opacity:.8">(오늘 날짜 시트 — [📄 시트에서 가져오기] 로 자동)</span></div>'
+      + '<textarea id="qtyb-done" style="height:70px" placeholder="[📄 시트에서 가져오기] 를 누르면 저절로 채워집니다">'
+      + esc((el('qtyb-done') || { value: SHEET_DONE }).value || SHEET_DONE) + '</textarea>'
       + '<div style="margin:5px 0 0"><button class="pri" id="qtyb-recheck">🔁 이 값으로 다시 세기</button></div>';
 
     if (over.length) {
