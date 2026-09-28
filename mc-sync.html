@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>마찬 → 카탈로그 딸깍 v1.3</title>
+<title>마찬 → 카탈로그 딸깍 v1.4</title>
 <style>
 :root{--bg:#f6f8f7;--card:#fff;--ink:#16211c;--muted:#6b7a72;--line:#e3e9e5;--accent:#2d6a4f;--accent-d:#1f4d39;--warn:#c0392b}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#5fa583;--accent-d:#8fd0ae}}
@@ -15,7 +15,8 @@ h1{font-size:23px;margin:0 0 6px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 20px 22px;margin-bottom:16px}
 .card h2{font-size:16px;margin:0 0 4px}
 .card .d{color:var(--muted);font-size:13.5px;margin-bottom:14px}
-.bm{display:inline-block;padding:13px 22px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:15px;text-decoration:none;cursor:grab}
+.bm{display:inline-block;padding:13px 22px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:15px;text-decoration:none;cursor:grab;margin-right:8px}
+.bm.bmd{background:#1a6fb5}
 .bm:active{cursor:grabbing}
 .steps{margin:14px 0 0;padding-left:20px;font-size:14px}
 .steps li{margin:5px 0}
@@ -35,12 +36,17 @@ pre{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:
   <div class="card">
     <h2>① 북마크로 쓰기 (추천)</h2>
     <div class="d">아래 초록 버튼을 <b>북마크바로 끌어다 놓으세요.</b> 그다음부터는 masterc 아무 화면에서나 북마크를 누르면 끝입니다.</div>
-    <a class="bm" id="bm" href="#">📤 카탈로그로 보내기</a>
+    <a class="bm" id="bm" href="#">📤 상시 보내기</a>
+    <a class="bm bmd" id="bmday" href="#">🐟 당일 보내기</a>
     <ol class="steps">
-      <li>이 버튼을 브라우저 <b>북마크바</b>에 드래그 (북마크바가 없으면 <b>Ctrl+Shift+B</b>)</li>
+      <li>두 버튼을 브라우저 <b>북마크바</b>에 각각 드래그 (북마크바가 없으면 <b>Ctrl+Shift+B</b>)</li>
       <li><b>masterc.kr</b> 에 로그인된 탭으로 이동</li>
-      <li>북마크 <b>[📤 카탈로그로 보내기]</b> 클릭 → 결과 알림창 확인</li>
+      <li>필요한 쪽 북마크를 클릭 → 결과 알림창 확인</li>
     </ol>
+    <div class="note"><b>📤 상시</b> — 상품리스트 + 원가표. 상시 상품의 단가·택배·마감·유통기한·사진을 맞춘다.<br>
+      <b>🐟 당일</b> — 관리화면 <b>#daily</b> 에서 손본 그대로를 카탈로그 「당일생물」로 옮긴다.
+      <b>단가를 먼저 손본 뒤에 누르세요.</b> 수량웹에 수량이 없는 것은 자동으로 감춰진다(수량 들어오면 다음 동기화에 복귀).<br>
+      🔴 두 버튼은 <b>자리가 달라서</b> 한쪽을 눌러도 다른 쪽이 지워지지 않는다.</div>
     <div class="note">보내는 것 — 상품리스트(사진·단가·택배·마감·유통기한·합배송)와 관리 원가표(원가·마진·잔여)입니다.
       카탈로그는 <b>단가·택배비·택배사·면과세·마감시간·유통기한·사진</b>을 이 값으로 덮어씁니다.
       <span class="warn">원가·마진은 마스터 로그인에만 내려가고 업체 화면엔 안 실립니다.</span></div>
@@ -86,6 +92,30 @@ var CODE=[
 "})()"
 ].join('');
 document.getElementById('bm').href='javascript:'+encodeURIComponent(CODE);
+
+/* 🐟 당일 동기화 — 관리화면(#daily) 에서 손본 그대로를 카탈로그 「당일생물」로 옮긴다.
+   상시와 **자리가 다르다** — 이걸 눌러도 상시 상품은 안 건드린다.
+   보내는 것: 그 화면 후보 중 당일(k='day') 전부. 수량 없는 것은 서버가 «감춤»으로 표시한다. */
+var DAYCODE=[
+"(async function(){",
+" if(location.host.indexOf('masterc')<0){alert('masterc.kr 에 로그인된 창에서 눌러주세요.');return;}",
+" try{",
+"  var Q=await (await fetch('/xd/api.php?mid=machan_admin&a=daily_cand')).json();",
+"  if(!Q.ok){alert('당일 자료를 읽지 못했습니다 — masterc 로그인을 확인해주세요.');return;}",
+"  var L=null; try{L=await (await fetch('/xd/api.php?mid=machan_list&a=list')).json();}catch(e){}",
+"  var im={}; if(L&&L.items)L.items.forEach(function(p){im[String(p.n).replace(/\\s+/g,'').toLowerCase()]={img:p.img,srl:p.srl,ship_n:p.ship_n};});",
+"  var day=(Q.cands||[]).filter(function(r){return r.k==='day';});",
+"  var items=day.map(function(r){var x=im[String(r.n).replace(/\\s+/g,'').toLowerCase()]||{};",
+"    return{n:r.n,wh:r.wh,qid:r.qid,sell:r.sell,sug:r.sug,base:r.base,cost:r.cost,ship:r.ship,ship_n:x.ship_n,tax:r.tax,courier:r.courier,cut:r.cut,exp:r.exp,img:x.img,srl:x.srl,total:r.total,sold:r.sold,remain:r.remain,reg:r.reg};});",
+"  var open=items.filter(function(r){return r.remain>0;}).length;",
+"  if(!confirm('당일 '+items.length+'개를 카탈로그로 보냅니다.\\n수량 있는 것 '+open+'개 · 수량 없는 것 '+(items.length-open)+'개(감춰짐)\\n\\n보낼까요?'))return;",
+"  var r=await fetch('"+API+"',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'mcday',key:'"+KEY+"',day:Q.day,items:items})});",
+"  var j=await r.json();",
+"  alert(j.ok?('당일을 카탈로그로 보냈습니다\\n\\n전체 '+j.count+'개 · 파는 것 '+j.open+'개\\n나머지는 수량이 없어 감춰집니다.\\n카탈로그를 새로고침하면 반영됩니다.'):('보내지 못했습니다\\n'+(j.error||'')));",
+" }catch(e){alert('보내지 못했습니다 — '+(e&&e.message?e.message:e));}",
+"})()"
+].join('');
+document.getElementById('bmday').href='javascript:'+encodeURIComponent(DAYCODE);
 var SNIP='<script>(function(){if(location.pathname.indexOf("machan_admin")<0)return;var b=document.createElement("button");b.textContent="\u{1F4E4} 카탈로그로 보내기";b.style.cssText="position:fixed;right:18px;bottom:18px;z-index:99999;padding:12px 18px;border-radius:10px;border:0;background:#1a73e8;color:#fff;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)";b.onclick=function(){var o=b.textContent;b.disabled=true;b.textContent="보내는 중…";Promise.resolve().then(function(){return '+JSON.stringify(CODE)+'}).then(function(c){return eval(c)}).catch(function(e){alert(e.message)}).then(function(){b.disabled=false;b.textContent=o});};document.body.appendChild(b);})();<\/script>';
 document.getElementById('snip').textContent=SNIP;
 document.getElementById('cp').addEventListener('click',function(){

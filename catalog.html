@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.129</title>
+<title>마스터 유통 카탈로그 v23.130</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -919,23 +919,46 @@ async function loadCatalog(){
    🔴 원가·마진은 `mcAdm` 으로 따로 오고 **마스터에게만** 내려온다(서버 catBody 가 거른다).
    🔴 masterc 에 없는 상품은 손대지 않는다 — 유통시트 값 그대로 둔다.
    끄려면 app_config `MC_ON` = '0' (서버에서 통째로 빠진다). */
+/* 🐟 당일생물 그룹을 masterc 관리화면 자료(mcDay)로 만든다 (2026-09-28 홍팀장)
+   ▸ 원본은 `machan_admin#daily` — 거기 열려 있는 그대로가 카탈로그가 된다.
+   ▸ 수량웹에 수량이 없는 상품(zero)은 **예외로 감춘다** — 업체 화면에서 사라지고
+     마스터 화면에는 「🚫 예외」로 모여 보인다. 수량이 들어오면 다음 동기화에 저절로 돌아온다.
+   ▸ 어제 것이 남아 있으면 쓰지 않는다 — 날짜가 오늘이 아니면 통째로 버린다(옛 단가 사고 방지). */
+function todayYmd(){
+  const d=new Date(Date.now()+9*3600*1000);   // 서울 기준
+  return d.toISOString().slice(0,10).replace(/-/g,'');
+}
+function buildDayGroup(){
+  const rows=(SNAP&&SNAP.mcDay)||[];
+  if(!rows.length)return null;
+  const day=String((SNAP&&SNAP.mcDayDay)||'');
+  if(day&&day!==todayYmd())return null;        // 지난 날 자료는 안 쓴다
+  const products=[];
+  rows.forEach(r=>{
+    if(!r||!r.n)return;
+    if(r.zero)MCEXC.set(pkey(r.n),'수량없음');  // 오늘 수량 없는 것은 감춘다
+    products.push({
+      name:r.n,
+      url:'',
+      price:{old:null,cur:(r.price!=null?r.price:null),dir:''},
+      ship:(typeof r.ship_n==='number'?r.ship_n:0),
+      courier:r.courier||'',
+      tax:r.tax||'',
+      cut:r.cut||'',
+      ref:'',
+      exp:r.exp||'',
+      srcWh:r.wh||''
+    });
+  });
+  if(!products.length)return null;
+  const mixed=new Set(products.map(p=>p.srcWh).filter(Boolean)).size>1;
+  return {wh:'당일생물',products,mixed};
+}
 function applyMc(groups){
   const mc=(SNAP&&SNAP.mc)||null;
   if(!mc||!mc.length)return groups;
   const m={};mc.forEach(p=>{if(p&&p.n)m[pkey(p.n)]=p;});
-  /* 📦 수량 없으면 숨긴다 — **당일 상품만** (2026-09-28 홍팀장 "예외는 당일 다 숨겨라 / 상시는 없다").
-     상시는 품절·재입고가 공지로 도니까 손대지 않는다. 당일 생물은 그게 안 돼서
-     수량웹에 수량이 없어도 카탈로그에 살아 있었다.
-     수량이 다시 들어오면 다음 딸깍에 저절로 돌아온다 — 손으로 등록하는 예외와 달리 목록에 안 쌓인다.
-     🔴 수량 미관리 상품(qmg=0)은 서버가 zero 를 안 매긴다. 0 으로 읽으면 멀쩡한 물건이 사라진다. */
-  MCEXC=new Map();
-  groups.forEach(g=>{
-    if(!/당일/.test(g.wh))return;                      // 상시 창고는 통째로 건너뛴다
-    (g.products||[]).forEach(p=>{
-      const r=m[pkey(p.name)];
-      if(r&&r.zero)MCEXC.set(pkey(p.name),'수량없음');
-    });
-  });
+  MCEXC=new Map();   // 당일 쪽에서 채운다 (buildDayGroup) — 상시는 손대지 않는다
   let hit=0;
   groups.forEach(g=>(g.products||[]).forEach(p=>{
     const r=m[pkey(p.name)];if(!r)return;hit++;
@@ -1015,12 +1038,12 @@ function parseGrid(grid){
     if(products.length)groups.push({wh:(RENAME[name]||name),products,mixed});
   }
   applyMc(groups);
-  /* 🚫 당일생물 내리기 (2026-09-28 홍팀장 "당일은 지금 일단 다 내려")
-     masterc 상품리스트에 당일상품이 안 올라와서(오늘 기준 0건) 이 탭만 백데이터를 못 받는다.
-     단가·마감이 낡은 채로 업체에 보이면 그게 사고라 아예 안 보이게 한다.
-     되돌리려면 DAY_OFF 를 false 로. */
-  const DAY_OFF=true;
-  const out=DAY_OFF?groups.filter(g=>!/당일/.test(g.wh)):groups;
+  /* 🐟 당일생물은 유통시트가 아니라 **masterc 관리화면(#daily)** 이 원본이다 (2026-09-28 홍팀장).
+     홍팀장이 그 화면에서 단가를 손보고 열어둔 뒤 [당일 동기화]를 누르면 그 상태가 그대로 여기 온다.
+     그래서 유통시트 당일생물 탭은 통째로 버리고 mcDay 로 새로 만든다. */
+  const out=groups.filter(g=>!/당일/.test(g.wh));
+  const day=buildDayGroup();
+  if(day)out.unshift(day);
   // 당일생물을 맨 앞으로
   out.sort((a,b)=>(a.wh==='당일생물'?-1:0)-(b.wh==='당일생물'?-1:0));
   return out;
