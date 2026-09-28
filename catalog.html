@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.136</title>
+<title>마스터 유통 카탈로그 v23.137</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -187,7 +187,8 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 .ntcmore>summary::-webkit-details-marker{display:none}
 .ntcmore>summary:hover{color:var(--accent);background:var(--soft)}
 /* 유통시트에서 살구색으로 칠해둔 상품 = 조업은 되는데 입고가 일정치 않은 것 (사장님 2026-08-12) */
-.card.hot{background:color-mix(in srgb,#fce5cd 55%,var(--card));border-color:color-mix(in srgb,var(--gold) 45%,var(--line))}
+/* 🟡 소량 — masterc 의 「소량」·「조기소진」 (2026-09-28 홍팀장 "노랑색 테두리로 소량이라고 표시") */
+.card.hot{background:color-mix(in srgb,#fff3c4 45%,var(--card));border:2px solid var(--gold)}
 @media(prefers-color-scheme:dark){.card.hot{background:color-mix(in srgb,#7a4a1c 30%,var(--card))}}
 .hotb{font-size:10px;font-weight:800;color:var(--gold);background:color-mix(in srgb,var(--gold) 18%,transparent);padding:2px 7px;border-radius:5px;align-self:flex-start}
 .hotnote{margin-top:11px;background:color-mix(in srgb,#fce5cd 55%,var(--card));border:1px solid color-mix(in srgb,var(--gold) 45%,var(--line));border-radius:11px;padding:9px 12px;font-size:11.5px;line-height:1.6;color:var(--ink)}
@@ -1645,7 +1646,7 @@ function card(p,extra,top,foot){
     /* 🔔 예외로 감출 때 그 시점 단가를 같이 보내려고 카드에 지금 단가를 달아둔다 (2026-09-09) */
     +' data-price="'+((p.price&&p.price.cur!=null)?p.price.cur:'')+'">'+thumb+'<div class="bd">'
     +(top||'')+recBadge
-    +(hot?'<span class="hotb">⚠️ 입고 불안정</span>':'')
+    +(hot?'<span class="hotb">🟡 소량</span>':'')
     +(bt?'<button class="whb" data-wh="'+esc(p.effWh||'')+'" title="이 창고 상품만 보기">📦 '+esc(bt)+'</button>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
     +tagRow(p,taxc)
@@ -2631,7 +2632,7 @@ function chgCard(it){
   const line=[it.courier,it.tax,it.freq].filter(x=>x&&x!=='-').map(esc).join(' · ');
   return '<div class="card'+(it.hot?' hot':'')+'">'+thumb+'<div class="bd">'
     +'<span class="chg '+chgCls(it.kind)+'">'+esc(it.kind||'변동')+'</span>'
-    +(it.hot?'<span class="hotb">⚠️ 입고 불안정</span>':'')
+    +(it.hot?'<span class="hotb">🟡 소량</span>':'')
     +(it.wh?'<button class="whb" data-wh="'+esc(it.wh)+'" title="이 창고 상품 보기">📦 '+esc(it.wh)+'</button>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(it.name)+'" title="상품명 복사">📋</button></div>'
     +(line?'<div class="rf">'+line+'</div>':'')
