@@ -142,7 +142,8 @@
     var p = new URLSearchParams();
     p.set('tab', tab);
     p.set('sec', '*');
-    return fetch(location.pathname + '?' + p.toString(), { credentials: 'same-origin' })
+    // 🔴 useUrl() 이다 — location.pathname 을 쓰면 마이페이지에 tab 을 붙여 빈 표를 받는다(2026-09-28)
+    return fetch(useUrl() + '?' + p.toString(), { credentials: 'same-origin' })
       .then(function (r) { return r.text(); })
       .then(function (html) {
         var doc = new DOMParser().parseFromString(html, 'text/html');
@@ -178,7 +179,13 @@
         var th = [].map.call(d.querySelectorAll('thead th'), function (e) { return (e.textContent || '').trim(); });
         var out = [];
         siteRows(d).forEach(function (tr) {
-          var c = [].map.call(tr.children, function (e) { return (e.textContent || '').replace(/\s+/g, ' ').trim(); });
+          var c = [].map.call(tr.children, function (e) {
+            /* 「사용」 칸은 <input> 이라 글자가 없다 — 적어 둔 값은 value 속성에 있다.
+               이걸 안 보면 사용량이 전부 0 으로 읽혀 «잡고 안 썼다» 는 헛경고가 뜬다(2026-09-28). */
+            var inp = e.querySelector && e.querySelector('input');
+            if (inp) return (inp.getAttribute('value') || '').trim();
+            return (e.textContent || '').replace(/\s+/g, ' ').trim();
+          });
           if (!c.length) return;
           out.push({ th: th, c: c });
         });
@@ -769,7 +776,9 @@
        홍팀장 2026-09-28 : 「잡은 수량 대비 사용한 상품 없는 것도 실시간으로 취합하여 알려줌」 */
     var idle = Object.keys(OURS).map(function (k) {
       var o = OURS[k];
-      return { key: k, wh: o.wh, got: o.got, used: o.used, left: o.got - o.used,
+      // 「안 쓴 것」 칸이 있으면 그 값을 믿는다(수량 웹이 직접 센 값) — 없으면 잡은 것에서 사용을 뺀다
+      var left = (o.unused != null && o.unused !== 0) ? o.unused : (o.got - o.used);
+      return { key: k, wh: o.wh, got: o.got, used: o.used, left: left,
                name: (IDX && IDX[k]) ? IDX[k].name : k };
     }).filter(function (o) { return o.left > 0; }).sort(function (a, b) { return b.left - a.left; });
     if (idle.length) {
