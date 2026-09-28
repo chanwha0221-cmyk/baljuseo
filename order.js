@@ -2480,8 +2480,8 @@ function badNow(prod) {
       const nm = String(part).replace(/\s*[xX×]\s*\d+\s*$/, '').trim();
       if (!nm) return;
       const w = why ? why(nm) : '';
-      if (w === '수량적음') tags.push('📦 소량');
-      else if (w === '품절') tags.push('🚫 품절');
+      if (typeof isLowQ === 'function' && isLowQ(nm)) tags.push('🟡 소량');
+      if (w === '품절') tags.push('🚫 품절');
       else if (w === '꺼둠') tags.push('🔌 꺼둠');
       else if (isX && isX(nm)) tags.push('🚫 예외');
     });

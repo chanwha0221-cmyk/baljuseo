@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.138</title>
+<title>마스터 유통 카탈로그 v23.139</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -189,6 +189,10 @@ footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-si
 /* 유통시트에서 살구색으로 칠해둔 상품 = 조업은 되는데 입고가 일정치 않은 것 (사장님 2026-08-12) */
 /* 🟡 소량 — masterc 의 「소량」·「조기소진」 (2026-09-28 홍팀장 "노랑색 테두리로 소량이라고 표시") */
 .card.hot{background:color-mix(in srgb,#fff3c4 45%,var(--card));border:2px solid var(--gold)}
+/* 🟡 소량 상품은 발주담기 대신 문의로 보낸다 — 받아놓고 «못 보낸다» 하지 않으려고 */
+.lowq{margin-top:9px;background:color-mix(in srgb,#fff3c4 55%,var(--card));border:1.5px solid var(--gold);border-radius:9px;padding:9px 11px;font-size:11.5px;line-height:1.6;color:var(--ink)}
+.lowqb{display:block;margin-top:7px;text-align:center;padding:8px;border-radius:8px;background:var(--gold);color:#fff;font-weight:800;font-size:12.5px;text-decoration:none}
+@media(hover:hover){.lowqb:hover{filter:brightness(.93);text-decoration:none}}
 @media(prefers-color-scheme:dark){.card.hot{background:color-mix(in srgb,#7a4a1c 30%,var(--card))}}
 .hotb{font-size:10px;font-weight:800;color:var(--gold);background:color-mix(in srgb,var(--gold) 18%,transparent);padding:2px 7px;border-radius:5px;align-self:flex-start}
 .hotnote{margin-top:11px;background:color-mix(in srgb,#fce5cd 55%,var(--card));border:1px solid color-mix(in srgb,var(--gold) 45%,var(--line));border-radius:11px;padding:9px 12px;font-size:11.5px;line-height:1.6;color:var(--ink)}
@@ -959,11 +963,13 @@ function applyMc(groups){
   const mc=(SNAP&&SNAP.mc)||null;
   if(!mc||!mc.length)return groups;
   const m={};mc.forEach(p=>{if(p&&p.n)m[pkey(p.n)]=p;});
-  /* 📦 상시 상품은 **잔여 10개 미만이면 뺀다** (2026-09-28 홍팀장) — 업체가 발주 넣고 못 받는 일을 막는다.
-     수량 미관리 상품은 서버가 low 를 안 매긴다. 수량이 다시 차면 다음 딸깍에 저절로 돌아오고,
-     그때 딸깍 알림창이 «수량 늘었다»고 알려준다. 당일은 buildDayGroup 이 따로 채운다(등록 토글 기준). */
-  MCEXC=new Map();
-  mc.forEach(p=>{if(p&&p.n&&p.low)MCEXC.set(pkey(p.n),'수량적음');});
+  /* 🟡 소량은 **감추지 않는다** (2026-09-28 홍팀장 "애매한 건 문의를 하게끔 하는 게 맞아 —
+     애들이 짜증나는 게 발주 되길래 넣었는데 안 된다고 하는 거"). 감춰버리면 물어볼 길도 없고,
+     발주를 받아놓고 나중에 «못 보낸다»고 하는 것이 제일 나쁘다. 두 번 일이 된다.
+     → 업체 화면에 그대로 두되 **발주담기 대신 「문의」** 로 보낸다(MCLOW).
+     확실히 못 파는 것(품절·당일 꺼둠)만 감춘다(MCEXC). */
+  MCEXC=new Map(); MCLOW=new Map();
+  mc.forEach(p=>{if(p&&p.n&&p.low)MCLOW.set(pkey(p.n),1);});
   /* 🚫 품절은 품절로 떨군다 — **마스터에게만 보인다** (2026-09-28 홍팀장).
      변동사항이 최신순이라 상품마다 처음 만나는 것이 가장 최근 변동이다.
      그게 품절류면 지금 품절, 재입고·출시면 다시 살아난 것이니 건드리지 않는다. */
@@ -1244,7 +1250,10 @@ let EXC=new Map();               // pkey(상품명) → {name,wh,by,at}
       (손으로 등록하는 EXC 와 달리 목록에 남지 않는다). 수량 미관리 상품(qmg=0)은 건드리지 않는다.
    ② 같은 물건이 여럿일 때 주력으로 안 고른 쌍둥이 → 업체가 헷갈리지 않게 가린다(서버 mcHide).
    둘 다 업체 화면에서만 사라지고, 마스터 화면에서는 「🚫 예외」 자리에 모여 보인다. */
-let MCEXC=new Map();             // pkey(상품명) → 가리는 이유('수량없음' | '주력아님')
+let MCEXC=new Map();             // pkey(상품명) → 감추는 이유('품절' | '꺼둠')
+/* 🟡 소량 — 감추지 않고 「문의」로 보내는 상품. 발주담기만 막는다(2026-09-28 홍팀장). */
+let MCLOW=new Map();
+const isLowQ=n=>MCLOW.has(pkey(n));
 const isExc=n=>EXC.has(pkey(n))||MCEXC.has(pkey(n));
 const mcExcWhy=n=>MCEXC.get(pkey(n))||'';
 const amMasterC=()=>!!(ME&&ME.master);
@@ -1638,7 +1647,8 @@ function card(p,extra,top,foot){
   const spec=(m&&m.spec&&m.spec.length)?('<div class="spec">'+m.spec.map(s=>'<div>'+esc(s)+'</div>').join('')+'</div>'):'';
   // 당일생물 상품엔 '입고 불안정'을 붙이지 않는다 — 그날 들어온 것만 파는 자리라
   // 입고가 일정치 않다는 표시 자체가 모순이다 (사장님 2026-08-18)
-  const hot=!!TINT[pkey(p.name)]&&p.group!=='당일생물'&&p.effWh!=='당일생물';
+  // 🟡 소량 = 변동사항에서 온 표시(TINT) 또는 지금 잔여가 적은 것(MCLOW) — 상품 카드에도 노란 테두리
+  const hot=(!!TINT[pkey(p.name)]||isLowQ(p.name))&&p.group!=='당일생물'&&p.effWh!=='당일생물';
   // ⭐추천상품은 목록에서도 배지를 단다. 추천 화면에서 넘어온 배지(top)가 있으면 그걸 쓴다(중복 방지).
   const rc=RECMAP[pkey(p.name)];
   const recBadge=(top!=null&&top!=='')?'' : (rc?('<span class="recb '+(rc.news?'news">📰 소식글':'rec">⭐ 추천상품')+'</span>'):'');
@@ -1657,7 +1667,6 @@ function card(p,extra,top,foot){
     // 🧾 발주담기 — 업체가 상품명을 타이핑하지 않게 하는 것이 이 버튼의 존재 이유다 (2026-08-20)
     // 🚫 예외로 뺀 상품은 담을 수 없다 — 대신 발주로도 못 나가게 (홍팀장 2026-08-28)
     +(p.exc?'<div class="excnote">'+(mcExcWhy(p.name)==='꺼둠'?'🔌 꺼둠 — 관리화면(#daily)에서 꺼져 있어 업체 화면에 안 나갑니다 (켜고 다시 동기화하면 나갑니다)'
-                                    :mcExcWhy(p.name)==='수량적음'?'📦 수량 적음 — 잔여 10개 미만이라 감춰져 있습니다 (수량이 차면 다음 동기화에 저절로 돌아옵니다)'
                                     :mcExcWhy(p.name)==='품절'?'🚫 품절 — 변동사항에 품절로 올라와 감춰져 있습니다 (재입고되면 저절로 돌아옵니다)'
                                     :'🚫 예외 — 업체 화면에서 감춰져 있습니다')+'</div>'
              /* 🔔 감춰둔 사이에 시트가 움직였으면 마스터에게 알린다 — 계속 감출지 여기서 정한다 */
@@ -1665,7 +1674,11 @@ function card(p,extra,top,foot){
                  ? '<div class="excmv">'+esc(excMoved(p).txt)
                    +'<button class="excack" data-ack="'+esc(p.name)+'" data-ackp="'+((p.price&&p.price.cur!=null)?p.price.cur:'')
                    +'">계속 감추기</button></div>' : '')
-           :'<button class="ordb" data-ord="'+esc(p.name)+'">+ 발주담기</button>')
+           /* 🟡 소량 — 담기 대신 문의로 보낸다. 받아놓고 «못 보낸다» 하는 것이 제일 나쁘다(2026-09-28 홍팀장). */
+           :isLowQ(p.name)
+             ?'<div class="lowq">🟡 <b>수량이 얼마 안 남았습니다</b><br>발주 전에 수량 먼저 확인해 주세요 — <b>010-2455-4156 홍찬화 팀장</b>'
+              +'<a class="lowqb" href="tel:01024554156">📞 수량 문의</a></div>'
+             :'<button class="ordb" data-ord="'+esc(p.name)+'">+ 발주담기</button>')
     /* 🖼 상세페이지 만들기 — 발주담기 바로 밑, **상품마다** (홍팀장 2026-09-03)
        "각 상품별로 넣어두고 그걸 누르면 그 상품껄 가져가면 헷갈리지가 않잖아."
        처음엔 위 메뉴에 하나만 뒀는데, 그러면 상세메이커에서 상품을 또 골라야 했다.
@@ -1679,8 +1692,10 @@ function card(p,extra,top,foot){
     /* 🛰 masterc 가 자동으로 가린 것은 이 버튼으로 못 되돌린다(수량이 차면 저절로 풀린다).
        단 «소량» 으로 가린 것은 [↩ 그래도 판매] 로 풀어둔다 — 왕 바지락처럼 총량은 많은데 많이 잡혀서
        잔여만 적은 물건이 있다(증량될 수도 있다). 풀어두면 다음 상시 딸깍이 한 번 물어본다. */
-    +(amMasterC()&&mcExcWhy(p.name)==='수량적음'
-        ?'<button class="excb" data-keep="'+esc(p.name)+'">↩ 그래도 판매</button>':'')
+    /* ↩ 소량 딱지를 떼고 그냥 팔게 한다 — 왕 바지락처럼 총량은 많은데 많이 잡혀서 잔여만 적은 물건.
+       풀어두면 다음 상시 딸깍이 «아직 소량인데 계속 열어둘까요» 하고 한 번 묻는다. */
+    +(amMasterC()&&isLowQ(p.name)
+        ?'<button class="excb" data-keep="'+esc(p.name)+'">↩ 소량 딱지 떼기</button>':'')
     +(amMasterC()&&!mcExcWhy(p.name)
         ?'<button class="excb'+(p.exc?' off':'')+'" data-exc="'+esc(p.name)+'" data-excon="'+(p.exc?'0':'1')
           +'" data-excwh="'+esc(p.effWh||p.group||'')+'">'+(p.exc?'↩ 판매 재개':'🚫 예외 등록')+'</button>':'')
@@ -1890,8 +1905,8 @@ document.addEventListener('click',e=>{
     kp.disabled=true;const o=kp.textContent;kp.textContent='…';
     api('mckeep',{token:ME.token,add:nm})
       .then(()=>{
-        MCEXC.delete(pkey(nm));                 // 이 화면에서 바로 풀어준다
-        toast(nm+' — 소량이어도 계속 팝니다');
+        MCLOW.delete(pkey(nm));                 // 이 화면에서 바로 풀어준다
+        toast(nm+' — 소량 딱지를 뗐습니다 (바로 발주 가능)');
         buildAll();buildWhChips();render();
       })
       .catch(err=>{alert(err.message||'처리하지 못했습니다');kp.disabled=false;kp.textContent=o;});
