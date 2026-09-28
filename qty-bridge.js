@@ -133,6 +133,95 @@
       });
   }
 
+  /* ── 마이페이지 — 증량요청 · 내가 건 대기 · 사다리 ─────────────────
+     홍팀장 2026-09-28 : 「증량관리 · 사다리타기 · 내가 건 대기 를 전체적으로 다 보면 됨.
+       갓성비 암게는 증량 요청했는데 까였고 대기까지 걸었잖아. 저게 몇 개라도 들어온다면 더 되겠지만
+       오늘은 안 된다고 봐야겠지」
+     → 부족분을 어떻게 메울지는 이 셋을 같이 봐야 정해진다. 이미 «거부» 맞은 것에 증량을 또 걸면 안 되고,
+       이미 대기 걸어 둔 것에 대기를 또 걸 일도 없다. 둘 다 막힌 것이 「따로 구해야 할 수량」이다.
+     🔴 이 표들엔 data-k · data-c 가 없다 — 머리글 이름으로 칸을 찾는다(번호로 세면 칸 하나 늘 때 밀린다). */
+  var MORE = {}, WAIT = {}, OURS = {}, DRAW = {};
+
+  function colOf(th, re) {
+    for (var i = 0; i < th.length; i++) if (re.test(th[i])) return i;
+    return -1;
+  }
+  function fetchMy(v) {
+    var p = new URLSearchParams();
+    p.set('v', v);
+    return fetch('my.php?' + p.toString(), { credentials: 'same-origin' })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var d = new DOMParser().parseFromString(html, 'text/html');
+        var th = [].map.call(d.querySelectorAll('thead th'), function (e) { return (e.textContent || '').trim(); });
+        var out = [];
+        siteRows(d).forEach(function (tr) {
+          var c = [].map.call(tr.children, function (e) { return (e.textContent || '').replace(/\s+/g, ' ').trim(); });
+          if (!c.length) return;
+          out.push({ th: th, c: c });
+        });
+        return { th: th, rows: out };
+      })
+      .catch(function () { return { th: [], rows: [] }; });
+  }
+
+  function loadMy() {
+    MORE = {}; WAIT = {}; OURS = {}; DRAW = {};
+    return Promise.all([fetchMy('more'), fetchMy('wait'), fetchMy('ours'), fetchMy('draw')])
+      .then(function (r) {
+        var more = r[0], wait = r[1], ours = r[2], draw = r[3];
+
+        // 증량요청 — 「더 필요」 개수와 「상태」(거부 · 승인 · 빈값=답 기다림)
+        var iN = colOf(more.th, /상품명/), iQ = colOf(more.th, /더 필요/), iS = more.th.length - 1,
+            iA = colOf(more.th, /사유|답/), iW = colOf(more.th, /^창고/);
+        more.rows.forEach(function (x) {
+          var k = nk(x.c[iN]); if (!k) return;
+          var st = S(x.c[iS]);
+          var o = MORE[k] || { qty: 0, no: 0, ok: 0, pend: 0, wh: '', ans: '' };
+          o.qty += num(x.c[iQ]);
+          o.wh = o.wh || (iW >= 0 ? x.c[iW] : '');
+          if (/거부|반려|안 ?됨/.test(st)) o.no++;
+          else if (/승인|완료|늘림/.test(st)) o.ok++;
+          else o.pend++;                                  // 답을 아직 안 준 것
+          if (iA >= 0 && !o.ans) o.ans = x.c[iA].slice(0, 60);
+          MORE[k] = o;
+        });
+
+        // 내가 건 대기 — 「기다리는 수량」과 「받은 수량」
+        var jN = colOf(wait.th, /상품명/), jQ = colOf(wait.th, /기다리는/), jG = colOf(wait.th, /받은/),
+            jS = wait.th.length - 1;
+        wait.rows.forEach(function (x) {
+          var k = nk(x.c[jN]); if (!k) return;
+          var o = WAIT[k] || { qty: 0, got: 0, pend: 0, done: 0 };
+          o.qty += num(x.c[jQ]);
+          o.got += num(x.c[jG]);                          // '—' 은 0 으로 읽힌다
+          if (/기다리는/.test(S(x.c[jS]))) o.pend++; else o.done++;
+          WAIT[k] = o;
+        });
+
+        // 우리가 잡은 것 — 「사용」과 「안 쓴 것」. 2·3단계(실발주·안 쓴 것 감시)가 이걸 쓴다.
+        var oN = colOf(ours.th, /상품명/), oG = colOf(ours.th, /잡은/), oU = colOf(ours.th, /^사용/),
+            oL = colOf(ours.th, /안 쓴/), oW = colOf(ours.th, /^창고/);
+        ours.rows.forEach(function (x) {
+          var k = nk(x.c[oN]); if (!k) return;
+          OURS[k] = {
+            wh: oW >= 0 ? x.c[oW] : '',
+            got: num(x.c[oG]),
+            used: oU >= 0 ? num(x.c[oU]) : 0,
+            unused: oL >= 0 ? num(x.c[oL]) : 0
+          };
+        });
+
+        // 사다리 — 당첨 줄만 쓸모가 있다(참가 중은 결과가 없다)
+        var dN = colOf(draw.th, /상품명/), dS = draw.th.length - 1;
+        draw.rows.forEach(function (x) {
+          var k = nk(x.c[dN]); if (!k) return;
+          DRAW[k] = { state: S(x.c[dS]) };
+        });
+      });
+  }
+  function S(v) { return String(v == null ? '' : v).trim(); }
+
   /* ── 마감시각 ───────────────────────────────────────────────────
      "연장마감 : 16시" · "오후마감 : 14시" → 16 / 14. 남은 시간은 한국시간으로 센다. */
   function dlHour(s) {
@@ -222,13 +311,46 @@
     var canSet = Math.min(short, row.left);
     if (canSet > 0) r.set = canSet;
     var rest = short - canSet;                 // 잔여로 못 채우는 몫
-    if (rest > 0) {
-      if (rest <= WAIT_MAX) { r.wait = rest; r.act = r.set ? 'set+wait' : 'wait'; }
-      else { r.more = rest; r.act = r.set ? 'set+more' : 'more'; }
-      r.why = '잔여 ' + row.left + '개로 ' + rest + '개 부족';
-    } else {
+    if (rest <= 0) {
       r.act = 'set';
       r.why = '잔여 ' + row.left + '개 안에서 해결';
+      return r;
+    }
+
+    /* 부족분을 어떻게 메우나 — 증량요청·대기 현황을 먼저 본다(홍팀장 2026-09-28).
+       🔴 이미 «거부» 맞은 것에 증량을 또 걸지 않는다. 이미 걸어 둔 대기도 또 걸지 않는다.
+          둘 다 막혔으면 그 수량은 «따로 구해야 할 것»이다 — 그게 오늘 못 파는 몫이다. */
+    var mo = MORE[row.key], wa = WAIT[row.key], dr = DRAW[row.key];
+    var got = wa ? wa.got : 0;                 // 대기로 이미 받은 것
+    var hole = Math.max(0, rest - got);        // 아직 못 메운 몫
+    r.rest = rest;
+    r.hole = hole;
+    var base = '잔여 ' + row.left + '개로 ' + rest + '개 부족';
+
+    if (mo && mo.no && wa && wa.pend) {
+      // 갓성비 암게 꼴 — 증량은 까였고 대기는 걸어 뒀지만 아직 못 받았다
+      r.hunt = hole;
+      r.act = 'hunt';
+      r.why = base + ' · 증량 거부 + 대기 ' + wa.qty + '개 걸어 둠(아직 못 받음)'
+        + (mo.ans ? ' · 「' + mo.ans + '」' : '');
+    } else if (mo && mo.no) {
+      // 증량은 막혔다 → 소량이면 대기로 돌리고, 많으면 따로 구해야 한다
+      if (hole <= WAIT_MAX) { r.wait = hole; r.act = 'wait'; r.why = base + ' · 증량 거부됨 → 대기로'; }
+      else { r.hunt = hole; r.act = 'hunt'; r.why = base + ' · 증량 거부됨' + (mo.ans ? ' 「' + mo.ans + '」' : ''); }
+    } else if (mo && mo.pend) {
+      r.act = 'moreP';
+      r.why = base + ' · 증량 ' + mo.qty + '개 요청해 두고 답 기다림';
+    } else if (wa && wa.pend) {
+      r.act = 'waitP';
+      r.why = base + ' · 대기 ' + wa.qty + '개 걸어 둠' + (got ? (' · ' + got + '개 받음') : '');
+    } else if (dr && /당첨/.test(dr.state)) {
+      r.act = 'waitP';
+      r.why = base + ' · 사다리 당첨 — 들어온 수량 확인';
+    } else {
+      // 아직 아무것도 안 걸었다 → 원래 규칙 (5개까지는 대기, 넘으면 증량요청)
+      if (hole <= WAIT_MAX) { r.wait = hole; r.act = r.set ? 'set+wait' : 'wait'; }
+      else { r.more = hole; r.act = r.set ? 'set+more' : 'more'; }
+      r.why = base;
     }
     return r;
   }
@@ -267,6 +389,9 @@
       '#' + PANEL_ID + ' .t-more{background:#fee2e2;color:#b91c1c}',
       '#' + PANEL_ID + ' .t-ok{background:#e8f5e9;color:#1b7a3d}',
       '#' + PANEL_ID + ' .t-free{background:#eef2f7;color:#475569}',
+      '#' + PANEL_ID + ' .t-hunt{background:#111827;color:#fff}',
+      '#' + PANEL_ID + ' .hunt{background:#111827;color:#fff;border-radius:9px;padding:9px 11px;margin:8px 0}',
+      '#' + PANEL_ID + ' .hunt b{color:#fde68a}',
       '#' + PANEL_ID + ' .t-rel{background:#ede9fe;color:#6d28d9}',
       '#' + PANEL_ID + ' .warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;',
       '  padding:7px 9px;margin:8px 0;font-size:12px}',
@@ -304,6 +429,7 @@
       '    <button class="pri" id="qtyb-go">⚖️ 대조</button>' +
       '    <button id="qtyb-clr">비우기</button>' +
       '  </div>' +
+      '  <div id="qtyb-hunt"></div>' +
       '  <div id="qtyb-out"></div>' +
       '</div>';
     document.body.appendChild(p);
@@ -317,6 +443,7 @@
     el('qtyb-scan1').onclick = function () { scanHere(); };
     el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
     el('qtyb-go').onclick = function () { run(); };
+    huntPaint();               // 아침에 담아 둔 «구해야 할 것» 을 열 때마다 다시 보여 준다
     return p;
   }
 
@@ -390,7 +517,7 @@
     if (!keys.length) { el('qtyb-out').innerHTML = '<div class="warn">필요수량을 붙여넣어 주세요.</div>'; return; }
 
     var go = IDX ? Promise.resolve() : scanAll();
-    go.then(function () {
+    go.then(function () { return loadMy(); }).then(function () {
       var hits = [], miss = [];
       keys.forEach(function (k) {
         var row = IDX[k];
@@ -415,15 +542,24 @@
     set: ['t-set', '잡기'], 'set+wait': ['t-wait', '잡기+대기'], 'set+more': ['t-more', '잡기+증량'],
     wait: ['t-wait', '대기'], more: ['t-more', '증량요청'],
     ok: ['t-ok', '그대로'], over: ['t-ok', '여유'], release: ['t-rel', '풀어야'],
-    free: ['t-free', '넉넉']
+    free: ['t-free', '넉넉'],
+    hunt: ['t-hunt', '🎯 구해야'], moreP: ['t-wait', '증량 답 기다림'], waitP: ['t-wait', '대기 중']
   };
 
   function draw(hits, miss, bad) {
     // 손봐야 할 것 먼저 : 증량 → 대기 → 잡기 → 풀어야 → 그대로
-    var ord = { more: 0, 'set+more': 0, wait: 1, 'set+wait': 1, set: 2, release: 3, over: 4, ok: 5, free: 6 };
+    var ord = { hunt: 0, more: 1, 'set+more': 1, wait: 2, 'set+wait': 2, moreP: 3, waitP: 3,
+                set: 4, release: 5, over: 6, ok: 7, free: 8 };
     hits.sort(function (a, b) { return (ord[a.act] - ord[b.act]) || (b.need - a.need); });
 
     var h = '';
+
+    /* 🎯 따로 구해야 할 수량 — 대기·증량 둘 다 막힌 몫. 오늘 못 파는 물량이라 제일 위에 둔다.
+       홍팀장 2026-09-28 : 「대기 및 수량 요청 한번에 안될 경우 따로 구해야 할 수량 저장하여 노출」
+       → 이 브라우저에 날짜와 함께 담아 두고, 패널을 다시 열어도 그대로 보인다. */
+    huntSave(hits.filter(function (x) { return x.act === 'hunt'; }));
+    huntPaint();               // 화면 표시는 한 곳에서만 — 담아 둔 것과 방금 나온 것이 갈리지 않게
+
     var rel = hits.filter(function (x) { return x.act === 'release'; });
     if (rel.length) {
       h += '<div class="warn">⏰ 마감 1시간 안 · 안 나간 몫 ' + rel.length + '건 — 풀지 않으면 그대로 우리 몫으로 남습니다.<br>' +
@@ -508,6 +644,44 @@
       copy(hits.filter(function (x) { return x.more; })
         .map(function (x) { return x.row.wh + '\t' + x.row.name + '\t증량 ' + x.more; }).join('\n'), this);
     };
+  }
+
+  /* 🎯 구해야 할 수량 담아 두기 — 브라우저에 오늘 날짜로만 남긴다(어제 것이 섞이면 헷갈린다).
+     🔴 사생활 보호 창 등에서 localStorage 가 막히면 던진다 → 통째로 감싼다. 담지 못해도 화면은 돌아야 한다. */
+  var HKEY = 'qtybHunt';
+  function today() {
+    return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
+  }
+  function huntSave(list) {
+    try {
+      localStorage.setItem(HKEY, JSON.stringify({
+        date: today(), at: hhmm(),
+        items: list.map(function (x) {
+          return { wh: x.row.wh, name: x.row.name, qty: x.hunt || x.hole || 0, why: x.why };
+        })
+      }));
+    } catch (e) {}
+  }
+  function huntLoad() {
+    try {
+      var o = JSON.parse(localStorage.getItem(HKEY) || 'null');
+      if (o && o.date === today() && o.items && o.items.length) return o;
+    } catch (e) {}
+    return null;
+  }
+  function huntPaint() {
+    var box = el('qtyb-hunt');
+    if (!box) return;
+    var o = huntLoad();
+    if (!o) { box.innerHTML = ''; return; }
+    box.innerHTML = '<div class="hunt">🎯 오늘 따로 구해야 할 수량 ' + o.items.length + '건 <span style="opacity:.7;font-size:11.5px">('
+      + esc(o.at) + ' 대조)</span><br>'
+      + o.items.map(function (i) {
+          return '· ' + esc(i.wh) + ' / ' + esc(i.name) + ' <b>' + i.qty + '개</b>';
+        }).join('<br>')
+      + '<div style="margin-top:6px"><button id="qtyb-hclr" style="background:#374151;color:#fff;border-color:#4b5563">구한 것 지우기</button></div></div>';
+    var b = el('qtyb-hclr');
+    if (b) b.onclick = function () { try { localStorage.removeItem(HKEY); } catch (e) {} huntPaint(); };
   }
 
   function copy(text, btn, extra) {
