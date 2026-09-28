@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>마찬 → 카탈로그 딸깍 v1.7</title>
+<title>마찬 → 카탈로그 딸깍 v1.8</title>
 <style>
 :root{--bg:#f6f8f7;--card:#fff;--ink:#16211c;--muted:#6b7a72;--line:#e3e9e5;--accent:#2d6a4f;--accent-d:#1f4d39;--warn:#c0392b}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#5fa583;--accent-d:#8fd0ae}}
@@ -95,6 +95,15 @@ var CODE=[
 "  var bk=(j.back||[]);",
 "  var msg=j.ok?('카탈로그로 보냈습니다\\n\\n상품 '+j.count+'개 · 원가 '+(j.costs||0)+'개 · 변동사항 '+(j.chg||0)+'건\\n수량 적어 뺀 상품 '+(j.low||0)+'개(잔여 10개 미만)\\n카탈로그를 새로고침하면 반영됩니다.'):('보내지 못했습니다\\n'+(j.error||''));",
 "  if(j.ok&&bk.length)msg='🔔 수량이 다시 찼습니다 — '+bk.length+'개\\n'+bk.slice(0,15).map(function(x){return '· '+x.n+' (잔여 '+x.remain+')';}).join('\\n')+(bk.length>15?'\\n…':'')+'\\n\\n'+msg;",
+/* ❓ 풀어둔 상품이 아직도 소량이면 한 번 묻는다 — 아니오면 다시 예외로 내린다 (홍팀장 2026-09-28) */
+"  var ak=(j.ask||[]);",
+"  if(j.ok&&ak.length){",
+"   var keep=confirm('풀어두신 상품이 아직 소량입니다 — '+ak.length+'개\\n'+ak.slice(0,12).map(function(x){return '· '+x.n+' (잔여 '+x.remain+(x.stock==='early'?' · 조기소진':x.stock==='low'?' · 소량':'')+')';}).join('\\n')+(ak.length>12?'\\n…':'')+'\\n\\n[확인] 그대로 계속 판다   [취소] 다시 예외로 내린다');",
+"   if(!keep){",
+"    for(var i2=0;i2<ak.length;i2++){ await fetch('"+API+"',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'mckeep',key:'"+KEY+"',del:ak[i2].n})}); }",
+"    msg='다시 예외로 내렸습니다 — '+ak.length+'개\\n\\n'+msg;",
+"   }",
+"  }",
 "  alert(msg);",
 " }catch(e){alert('보내지 못했습니다 — '+(e&&e.message?e.message:e));}",
 "})()"

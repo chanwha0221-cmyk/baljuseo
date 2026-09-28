@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.135</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.136</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1682,8 +1682,11 @@ function card(p,extra,top,foot){
        처음엔 당일생물 탭에만 달았는데 생물이 거기에만 있는 게 아니었다 —
        「활 새우 500g」은 단독(유)·이성 창고인데 그날 입고를 못 믿는 건 똑같다(홍팀장 2026-08-28).
        → 창고를 가리지 않는다. 안 쓸 상품엔 안 누르면 되고, 되돌리기가 한 번이라 위험이 없다. */
-    /* 🛰 masterc 가 자동으로 가린 것(수량없음·주력아님)은 이 버튼으로 못 되돌린다 —
-       수량이 들어오면 저절로 풀리고, 주력은 딸깍 화면에서 고른다. 헛누름을 막으려 버튼을 안 띄운다. */
+    /* 🛰 masterc 가 자동으로 가린 것은 이 버튼으로 못 되돌린다(수량이 차면 저절로 풀린다).
+       단 «소량» 으로 가린 것은 [↩ 그래도 판매] 로 풀어둔다 — 왕 바지락처럼 총량은 많은데 많이 잡혀서
+       잔여만 적은 물건이 있다(증량될 수도 있다). 풀어두면 다음 상시 딸깍이 한 번 물어본다. */
+    +(amMasterC()&&mcExcWhy(p.name)==='수량적음'
+        ?'<button class="excb" data-keep="'+esc(p.name)+'">↩ 그래도 판매</button>':'')
     +(amMasterC()&&!mcExcWhy(p.name)
         ?'<button class="excb'+(p.exc?' off':'')+'" data-exc="'+esc(p.name)+'" data-excon="'+(p.exc?'0':'1')
           +'" data-excwh="'+esc(p.effWh||p.group||'')+'">'+(p.exc?'↩ 판매 재개':'🚫 예외 등록')+'</button>':'')
@@ -1883,6 +1886,21 @@ document.addEventListener('click',e=>{
     ak.disabled=true;ak.textContent='…';
     excAck(nm, pv===''?null:Number(pv))
       .catch(err=>{alert(err.message||'처리하지 못했습니다');ak.disabled=false;ak.textContent='계속 감추기';});
+    return;
+  }
+  /* ↩ 그래도 판매 — 소량으로 가린 것을 풀어둔다 (2026-09-28 홍팀장 왕 바지락 건).
+     서버 MC_KEEP 에 쌓이고, 다음 상시 딸깍이 «아직 소량인데 계속 열어둘까요» 하고 한 번 묻는다. */
+  const kp=e.target.closest('[data-keep]');
+  if(kp){
+    const nm=kp.getAttribute('data-keep');
+    kp.disabled=true;const o=kp.textContent;kp.textContent='…';
+    api('mckeep',{token:ME.token,add:nm})
+      .then(()=>{
+        MCEXC.delete(pkey(nm));                 // 이 화면에서 바로 풀어준다
+        toast(nm+' — 소량이어도 계속 팝니다');
+        buildAll();buildWhChips();render();
+      })
+      .catch(err=>{alert(err.message||'처리하지 못했습니다');kp.disabled=false;kp.textContent=o;});
     return;
   }
   const ex=e.target.closest('[data-exc]');
