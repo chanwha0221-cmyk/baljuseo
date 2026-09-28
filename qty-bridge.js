@@ -633,6 +633,7 @@
       '  <textarea id="qtyb-in" placeholder="연안 활 숫게 1kg&#9;30&#10;맛상 닭목살 1kg&#9;12"></textarea>' +
       '  <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
       '    <button class="pri" id="qtyb-go">⚖️ 대조</button>' +
+      '    <button id="qtyb-check">🧾 수량 점검</button>' +
       '    <button id="qtyb-clr">비우기</button>' +
       '  </div>' +
       '  <div id="qtyb-hunt"></div>' +
@@ -649,6 +650,16 @@
     el('qtyb-scan1').onclick = function () { scanHere(); };
     el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
     el('qtyb-go').onclick = function () { run(); };
+    /* 🧾 점검 — 잡은 것 대비 쓴 것을 훑는다. 창고를 안 긁었으면 긁고 나서 센다. */
+    el('qtyb-check').onclick = function () {
+      var b = this, old = b.textContent;
+      b.disabled = true; b.textContent = '세는 중…';
+      var go = IDX ? Promise.resolve() : scanAll();
+      go.then(function () { return loadMy(); }).then(function () {
+        checkPaint();
+      }).then(function () { b.disabled = false; b.textContent = old; },
+              function (e) { b.disabled = false; b.textContent = old; alert(e.message || e); });
+    };
     huntPaint();               // 아침에 담아 둔 «구해야 할 것» 을 열 때마다 다시 보여 준다
     var kept = needLoad();     // 아까 붙여넣은 필요수량이 있으면 다시 채워 둔다
     if (kept) el('qtyb-in').value = kept.text;
@@ -657,6 +668,87 @@
 
 
   function stat(t) { var s = el('qtyb-stat'); if (s) s.textContent = t; }
+
+  /* ══ 🧾 수량 점검 — 잡은 것 · 쓴 것 · 실제로 남은 것 ═══════════════════
+     홍팀장 2026-09-28 : 「수량이 내가 얼마나 썼고 실질적으로 얼마나 남았는지를 검토해야겠다.
+                          지금 나 잡은거보다 많이 쓴거 많다」
+     → 우리가 잡아 둔 줄 전체를 훑어 «초과 사용»(쓴 것 > 잡은 것)을 제일 위로 올린다.
+       필요수량을 붙여넣어 두었으면 발주까지 넣어 세 값을 나란히 본다. */
+  function checkPaint() {
+    var box = el('qtyb-out');
+    if (!box) return;
+    var parsed = parseNeed(el('qtyb-in').value);
+    foldAlias(parsed.map);
+
+    var rows = Object.keys(OURS).map(function (k) {
+      var o = OURS[k];
+      var idx = IDX && IDX[k];
+      var need = parsed.map[k];
+      return {
+        key: k,
+        wh: o.wh || (idx ? idx.wh : ''),
+        name: idx ? idx.name : k,
+        got: o.got, used: o.used,
+        rest: o.got - o.used,                       // 잡아 두고 아직 안 쓴 몫
+        over: Math.max(0, o.used - o.got),          // 잡은 것보다 더 쓴 몫
+        need: (need == null ? null : need),
+        total: idx ? idx.total : null,
+        left: idx ? idx.left : null,
+        ghost: idx ? (idx.stuck || (idx.closed && idx.left < 0)) : false
+      };
+    });
+    if (!rows.length) { box.innerHTML = '<div class="warn">잡아 둔 수량이 없습니다. [🔄 창고 전부 긁기] 를 먼저 눌러 보세요.</div>'; return; }
+
+    var over = rows.filter(function (r) { return r.over > 0; });
+    var gap  = rows.filter(function (r) { return r.need != null && r.need !== r.used; });   // 발주와 사용이 다른 것
+    rows.sort(function (a, b) { return (b.over - a.over) || (b.rest - a.rest); });
+
+    var sumGot = rows.reduce(function (n, r) { return n + r.got; }, 0);
+    var sumUse = rows.reduce(function (n, r) { return n + r.used; }, 0);
+    var sumRest = rows.reduce(function (n, r) { return n + Math.max(0, r.rest); }, 0);
+
+    var h = '<div style="background:#eef4ff;border:1px solid #c7d9f5;border-radius:9px;padding:9px 11px;margin:8px 0;font-size:13px">'
+      + '🧾 <b>' + rows.length + '개 상품</b> · 잡음 <b>' + sumGot + '</b> · 쓴 것 <b>' + sumUse + '</b> · 안 쓴 것 <b>' + sumRest + '</b></div>';
+
+    if (over.length) {
+      h += '<div class="hunt">🚨 잡은 것보다 많이 쓴 것 ' + over.length + '건 — 그만큼은 잡지 않고 나간 수량입니다<br>'
+        + over.map(function (r) {
+            return '· ' + esc(r.wh) + ' / ' + esc(r.name) + ' 잡음 ' + r.got + ' · 사용 ' + r.used + ' → <b>' + r.over + '개 초과</b>';
+          }).join('<br>') + '</div>';
+    }
+    if (gap.length) {
+      h += '<div class="warn">📋 발주와 사용이 다른 것 ' + gap.length + '건 — 사용 칸을 발주에 맞춰야 합니다<br>'
+        + gap.slice(0, 15).map(function (r) {
+            return '· ' + esc(r.name) + ' 발주 ' + r.need + ' · 사용 ' + r.used + ' (차이 ' + (r.need - r.used) + ')';
+          }).join('<br>') + (gap.length > 15 ? '<br>…' : '') + '</div>';
+    }
+
+    h += '<table><thead><tr><th>창고</th><th>상품명</th><th>잡음</th><th>사용</th><th>안 쓴 것</th><th>발주</th><th>창고 잔여</th></tr></thead><tbody>'
+      + rows.map(function (r) {
+          return '<tr' + (r.over ? ' style="background:#fff1f2"' : '') + '>'
+            + '<td>' + esc(r.wh) + '</td>'
+            + '<td class="nm">' + esc(r.name) + (r.ghost ? ' <span class="tag t-hunt">물건없음</span>' : '') + '</td>'
+            + '<td>' + r.got + '</td>'
+            + '<td' + (r.over ? ' style="color:#b91c1c;font-weight:800"' : '') + '>' + r.used + '</td>'
+            + '<td' + (r.rest > 0 ? ' style="font-weight:700"' : '') + '>' + r.rest + '</td>'
+            + '<td>' + (r.need == null ? '<span class="mut">—</span>' : r.need) + '</td>'
+            + '<td class="mut">' + (r.left == null ? '' : r.left) + '</td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table>'
+      + '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">'
+      +   '<button id="qtyb-cpover">📋 초과 사용 목록</button>'
+      +   '<button id="qtyb-cprest">📋 안 쓴 것 목록</button></div>';
+
+    box.innerHTML = h;
+    el('qtyb-cpover').onclick = function () {
+      copy(over.map(function (r) { return r.wh + '\t' + r.name + '\t잡음 ' + r.got + '\t사용 ' + r.used + '\t초과 ' + r.over; }).join('\n'), this);
+    };
+    el('qtyb-cprest').onclick = function () {
+      copy(rows.filter(function (r) { return r.rest > 0; })
+        .map(function (r) { return r.wh + '\t' + r.name + '\t' + r.rest; }).join('\n'), this);
+    };
+  }
 
   function scanHere() {
     var rows = [];
