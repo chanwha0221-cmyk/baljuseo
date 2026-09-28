@@ -57,10 +57,12 @@
      반드시 «줄 수» 로 볼 것. */
   function haveIdx() { return !!(IDX && Object.keys(IDX).length); }
 
-  function sheetPost(action, rows) {
+  function sheetPost(action, rows, extra) {
+    var body = { token: SHEET_TOKEN, action: action, rows: rows || [] };
+    if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
     return fetch(SHEET_API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ token: SHEET_TOKEN, action: action, rows: rows || [] })
+      body: JSON.stringify(body)
     }).then(function (r) { return r.text(); }).then(function (t) {
       var j = null;
       try { j = JSON.parse(t); } catch (e) { throw new Error('시트가 응답하지 않습니다'); }
@@ -86,7 +88,20 @@
 
   /* 시트 한 탭을 상품별 합계로 — 당일 탭도 날짜 탭도 같은 자다.
      8행부터 · J열(10번째) 상품명 · 합포장 " / " · 「x N」 · 성함(K)·주소(L) 없는 메모 줄과 머리글 줄 제외. */
+  /* 탭 하나를 상품별 합계로.
+     🔴 2026-09-28 : 공용 sheets-proxy 가 45초 넘게 안 오는 일이 있다(구글 대기줄, 낮엔 1초).
+        그래서 «우리 전용 웹앱» 을 먼저 부르고, 그게 안 되면 프록시로 되돌아간다. */
   function tallyTab(tab, startRow) {
+    return sheetPost('tally', [], { tab: tab }).then(function (j) {
+      var map = {};
+      (j.rows || []).forEach(function (r) { map[nk(r.name)] = { name: r.name, qty: r.qty }; });
+      return { map: map, lines: j.lines || 0, tab: j.tab || tab };
+    }, function () {
+      return tallyTabViaProxy(tab, startRow);       // 전용 입구가 막히면 예전 길로
+    });
+  }
+
+  function tallyTabViaProxy(tab, startRow) {
     var from = startRow || 8;
     return sheetRead(tab + '!A' + from + ':N600').then(function (v) {
       var map = {}, lines = 0;
