@@ -19,7 +19,17 @@
  */
 (function () {
   'use strict';
-  if (window.__QTYB) { window.__QTYB.open(); return; }
+  /* 🔴 북마크릿을 다시 누르면 «언제나 새 코드» 로 갈아 끼운다 (2026-09-28 사고).
+     예전엔 `if (window.__QTYB) { open(); return; }` 이라 패널을 한 번 띄운 탭에서는
+     북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
+     계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
+     붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
+  var QTYB_VER = '2026-09-28d';
+  try {
+    var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
+    var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
+  } catch (e) {}
+  window.__QTYB = null;
 
   var WAIT_MAX = 5;                 // 이 개수까지는 증량요청 대신 대기 (패널에서 바꿀 수 있다)
   /* 총수량에서 못 채운 몫이 이 비율을 넘으면 개수가 적어도 증량요청으로 간다.
@@ -815,7 +825,8 @@
     var p = document.createElement('div');
     p.id = PANEL_ID;
     p.innerHTML =
-      '<div class="hd"><b>📊 발주 대조</b><span class="sp"></span>' +
+      '<div class="hd"><b>📊 발주 대조</b>' +
+      '<span class="mut" style="font-size:11px">' + QTYB_VER + '</span><span class="sp"></span>' +
       '<span class="mut" id="qtyb-stat">준비</span>' +
       '<button id="qtyb-min">—</button><button id="qtyb-x">✕</button></div>' +
       '<div class="bd">' +
