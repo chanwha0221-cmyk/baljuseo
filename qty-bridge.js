@@ -22,6 +22,9 @@
   if (window.__QTYB) { window.__QTYB.open(); return; }
 
   var WAIT_MAX = 5;                 // 이 개수까지는 증량요청 대신 대기 (패널에서 바꿀 수 있다)
+  /* 총수량에서 못 채운 몫이 이 비율을 넘으면 개수가 적어도 증량요청으로 간다.
+     10개짜리에서 5개(50%)가 비면 대기로는 안 메워진다 — 풀 물건이 없다(2026-09-28 홍팀장). */
+  var WAIT_SHARE = 0.2;
   var PANEL_ID = 'qtyb-panel';
 
   /* 🔴 화면을 가리지 않는다 (홍팀장 2026-09-28 : 「그냥 수량 사이트 어디서나 나오게 해야지」).
@@ -515,10 +518,25 @@
       r.act = 'waitP';
       r.why = base + ' · 사다리 당첨 — 들어온 수량 확인';
     } else {
-      // 아직 아무것도 안 걸었다 → 원래 규칙 (5개까지는 대기, 넘으면 증량요청)
-      if (hole <= WAIT_MAX) { r.wait = hole; r.act = r.set ? 'set+wait' : 'wait'; }
-      else { r.more = hole; r.act = r.set ? 'set+more' : 'more'; }
-      r.why = base;
+      /* 대기를 걸까, 증량요청을 할까 (홍팀장 2026-09-28 예시로 확정) :
+           「A가 10개 나왔는데 누가 9개를 썼다. 1개 잡고 5개를 대기 거는 건 미련한 거잖아.
+            이런 건 빨리 증량요청을 해보고 안 되면 없다고 업체에 안내를 해야지」
+         ─ 대기는 «남이 잡아 둔 것을 풀 때» 받는 것이다. 이미 다 팔려 나간 상품은 풀 사람이 없다.
+         ─ 그러니 개수가 아니라 «총수량에서 못 채운 몫이 차지하는 비중» 으로 가른다.
+           10개 중 5개 부족(50%)은 대기로 못 메운다 → 증량요청.
+           50개 중 2개 부족(4%)은 누가 조금만 풀어도 받는다 → 대기.
+         ─ 총수량을 모르면(0) 대기가 의미 없으니 증량요청. */
+      var share = row.total > 0 ? (hole / row.total) : 1;
+      var smallEnough = (hole <= WAIT_MAX) && (share <= WAIT_SHARE);
+      if (smallEnough) {
+        r.wait = hole; r.act = r.set ? 'set+wait' : 'wait';
+        r.why = base + ' · 총 ' + row.total + '개 중 ' + hole + '개라 누가 풀면 받을 만함';
+      } else {
+        r.more = hole; r.act = r.set ? 'set+more' : 'more';
+        r.why = base + (row.total > 0
+          ? (' · 총 ' + row.total + '개 중 ' + hole + '개(' + Math.round(share * 100) + '%) — 대기로는 못 메움')
+          : ' · 총수량을 몰라 대기가 의미 없음');
+      }
     }
     return r;
   }
