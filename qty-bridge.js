@@ -44,6 +44,26 @@
   var SHEET_DONE = '';              // 오늘 날짜 탭에서 읽은 «이미 나간 수량» (점검이 쓴다)
   var PROXY = 'https://script.google.com/macros/s/AKfycbx46saILixJ387TxLbfnsBwjdc5K93j-cqUFjHxQU8xPGL7DJ9S-YjUvw7kvHmGPe7mmg/exec';
 
+  /* ✍️ 시트를 «고치는» 입구 — 마찬발주관리 스크립트의 웹앱 (2026-09-28 홍팀장 「이것까지 한번에」).
+     읽기는 프록시로 되지만 줄 옮기기는 읽고·지우고·붙이는 일이라 시트 스크립트가 해야 한다.
+     패널이 여기로 바로 보내므로 «복사해서 시트 창에 옮겨 붙이는» 왕복이 없다.
+       out  = 못 나가는 것 → 「재고 없음」
+       back = 구해진 것 → 「당일」 */
+  var SHEET_API = 'https://script.google.com/macros/s/AKfycbwD0AdIFedunOCz39nmkQhAde26WNNkkRK7Mc-t4XKRW5kW9ORE6HvNk_fdXRZzyI50/exec';
+  var SHEET_TOKEN = 'qtyb-2026-hcw';
+
+  function sheetPost(action, rows) {
+    return fetch(SHEET_API, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ token: SHEET_TOKEN, action: action, rows: rows || [] })
+    }).then(function (r) { return r.text(); }).then(function (t) {
+      var j = null;
+      try { j = JSON.parse(t); } catch (e) { throw new Error('시트가 응답하지 않습니다'); }
+      if (!j.ok) throw new Error(j.error || '시트가 거절했습니다');
+      return j;
+    });
+  }
+
   function sheetRead(tabRange) {
     var path = SHEET_ID + '/values/' + encodeURIComponent(tabRange);
     return fetch(PROXY, {
@@ -1090,8 +1110,9 @@
        (2026-09-28 : 셋 다 막았더니 증량요청이 남아 목록을 영영 못 뽑았다) */
     var pending = nSet;
     h += '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">' +
-      '<button class="pri" id="qtyb-cpno" title="' + (pending ? '아직 잡을 수 있는 것이 ' + pending + '건 남아 있습니다' : '') + '">' +
-        (pending ? '⚠️ 못 채운 목록 (안 잡은 것 ' + pending + '건 남음)' : ('📋 못 채운 목록 ' + (holes.length ? '(' + holes.length + ')' : ''))) + '</button>' +
+      '<button class="pri" id="qtyb-send">🚫 못 나가는 것 시트에서 내리기' + (holes.length ? ' (' + holes.length + ')' : '') + '</button>' +
+      '<button id="qtyb-cpno" title="' + (pending ? '아직 잡을 수 있는 것이 ' + pending + '건 남아 있습니다' : '') + '">' +
+        (pending ? '⚠️ 목록만 복사 (안 잡은 것 ' + pending + '건)' : '📋 목록만 복사') + '</button>' +
       '<button id="qtyb-cp">📋 이 화면 순서로 숫자열</button>' +
       '<button id="qtyb-cpw">📋 대기</button>' +
       '<button id="qtyb-cpm">📋 증량요청</button></div>' +
@@ -1184,6 +1205,31 @@
           + (missing.length > 12 ? '\n…' : ''));
       }
       copy(col.join('\n'), this, note);
+    };
+    /* 🚫 시트에 바로 보내기 — 복사·붙여넣기 없이 「재고 없음」 으로 내린다 */
+    el('qtyb-send').onclick = function () {
+      if (!holes.length) { alert('못 채운 것이 없습니다 — 내릴 줄이 없습니다.'); return; }
+      if (pending && !confirm('아직 «잡을 수 있는데 안 잡은 것» 이 ' + pending + '건 남아 있습니다.\n'
+          + '이대로 내리면 그만큼도 「재고 없음」 으로 갑니다.\n\n그래도 내릴까요?')) return;
+      var list = holes.map(function (x) { return { name: (x.raw || x.row.name), qty: x.hole }; });
+      if (!confirm('「재고 없음」 으로 내립니다 — ' + list.length + '건\n\n'
+          + list.slice(0, 15).map(function (r) { return '· ' + r.name + ' ' + r.qty + '개'; }).join('\n')
+          + (list.length > 15 ? '\n…' : ''))) return;
+      var btn = this, old = btn.textContent;
+      btn.disabled = true; btn.textContent = '시트에 보내는 중…';
+      sheetPost('out', list).then(function (j) {
+        btn.disabled = false;
+        btn.textContent = '✅ ' + j.done.length + '건 내림';
+        var m = '🚫 재고 없음으로 내렸습니다\n\n'
+          + (j.done.length ? j.done.map(function (d) { return '· ' + d.name + ' — ' + d.moved + '줄 (' + d.units + '개)'; }).join('\n') : '(없음)')
+          + (j.miss.length ? ('\n\n못 내린 것(당일에 그 상품 줄이 없음)\n' + j.miss.map(function (d) { return '· ' + d.name + ' ' + d.want + '개'; }).join('\n')) : '')
+          + (j.errs.length ? ('\n\n오류\n' + j.errs.join('\n')) : '')
+          + '\n\n당일에 남은 주문 ' + j.left + '줄';
+        alert(m);
+      }, function (e) {
+        btn.disabled = false; btn.textContent = old;
+        alert('시트에 보내지 못했습니다 — ' + (e.message || e));
+      });
     };
     el('qtyb-cpno').onclick = function () {
       if (!holes.length) { alert('못 채운 것이 없습니다 — 내릴 줄이 없습니다.'); return; }
