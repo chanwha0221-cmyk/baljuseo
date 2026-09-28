@@ -530,9 +530,29 @@
         r.hunt = hole; r.act = 'hunt';
         r.why = base + ' · 증량 거부됨' + (row.stuck ? ' · 오늘 안 나오는 줄' : '') + (mo.ans ? ' 「' + mo.ans + '」' : '');
       }
-    } else if (mo && mo.pend) {
+    } else if (mo && mo.pend && mo.qty >= hole) {
+      // 걸어 둔 증량요청이 지금 부족분을 이미 덮는다 → 그대로 기다린다
       r.act = 'moreP';
       r.why = base + ' · 증량 ' + mo.qty + '개 요청해 두고 답 기다림';
+    } else if ((mo && mo.pend) || (wa && wa.pend)) {
+      /* 이미 걸어 둔 대기·증량이 있는데 발주가 «더» 들어왔다 → 차액만큼만 «추가» 로 건다
+         (홍팀장 2026-09-28 : 「처음에 10개가 필요했는데 12개로 늘어났으면
+          대기 2개 추가하고 증량 2개를 추가하는 형태로」).
+         🔴 걸어 둔 것을 무시하고 새로 부족분 전체를 거는 것도, 걸려 있다고 아무것도 안 하는 것도 틀렸다. */
+      var haveW = (wa && wa.pend) ? wa.qty : 0;
+      var haveM = (mo && mo.pend) ? mo.qty : 0;
+      var addW = (wa && wa.pend) ? Math.max(0, hole - haveW) : 0;
+      var addM = (mo && mo.pend) ? Math.max(0, hole - haveM) : 0;
+      if (!addW && !addM) {
+        r.act = (haveM ? 'moreP' : 'waitP');
+        r.why = base + ' · 이미 걸어 둔 것으로 덮힘(대기 ' + haveW + ' · 증량 ' + haveM + ')';
+      } else {
+        r.wait = addW; r.more = addM;
+        r.haveW = haveW; r.haveM = haveM;        // 실행할 때 «그 사이 남이 더 걸었나» 를 보려고 들고 간다
+        r.act = addM ? (addW ? 'set+more' : (r.set ? 'set+more' : 'more')) : (r.set ? 'set+wait' : 'wait');
+        r.why = base + ' · 걸어 둔 것(대기 ' + haveW + ' · 증량 ' + haveM + ')보다 늘어 '
+          + (addW ? ('대기 ' + addW + '개') : '') + (addW && addM ? ' · ' : '') + (addM ? ('증량 ' + addM + '개') : '') + ' 추가';
+      }
     } else if (row.stuck) {
       /* 🔴 「품절 안 풀림」 은 대기보다 먼저 본다 — 대기를 이미 걸어 뒀어도 기다릴 물건이 없다.
          증량요청으로 빨리 물어보는 것이 맞다(홍팀장 2026-09-28). */
@@ -639,25 +659,31 @@
     });
   }
 
-  /* 대기 — 이미 걸어 둔 것이 있으면 또 걸지 않는다(줄이 두 개 서면 남의 몫까지 먹는다) */
+  /* 대기 — judge 가 «이번에 걸 양» 을 계산해 준다(이미 걸어 둔 것이 있으면 차액만).
+     🔴 무조건 건너뛰지 않는다 — 발주가 늘면 그만큼 «추가» 로 걸어야 한다(2026-09-28 홍팀장).
+        다만 긁은 뒤 남이 더 걸었으면 그만큼 뺀다. */
   function actWait(x) {
     return freshRow(x.row).then(function (f) {
-      if (f.wait > 0) return { skip: '이미 대기 ' + f.wait + '개 걸려 있음' };
-      var q = Math.max(0, x.need - f.mine - f.left);
-      if (!q) return { skip: '더 필요 없음(잔여로 채워짐)' };
+      var q = x.wait || 0;
+      if (!q) return { skip: '걸 것 없음' };
+      var expect = x.haveW || 0;
+      if (f.wait > expect) q -= (f.wait - expect);           // 그 사이 늘어난 만큼 뺀다
+      if (q <= 0) return { skip: '이미 대기 ' + f.wait + '개 걸려 있음' };
       return qpost({ do: 'wait', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: q })
-        .then(function () { return { done: q }; });
+        .then(function () { return { done: q, was: f.wait }; });
     });
   }
-  /* 증량요청 — 답 기다리는 요청이 이미 있으면 또 보내지 않는다(관리팀에 같은 건이 두 번 간다) */
+  /* 증량요청 — 같은 규칙. 답 기다리는 요청이 이미 부족분을 덮으면 judge 가 아예 안 보낸다. */
   function actMore(x, why) {
     return freshRow(x.row).then(function (f) {
-      if (f.more > 0) return { skip: '이미 증량요청 ' + f.more + '건이 답을 기다리는 중' };
-      var q = Math.max(0, x.need - f.mine - f.left);
-      if (!q) return { skip: '더 필요 없음(잔여로 채워짐)' };
+      var q = x.more || 0;
+      if (!q) return { skip: '걸 것 없음' };
+      var expect = x.haveM || 0;
+      if (f.more > expect) q -= (f.more - expect);
+      if (q <= 0) return { skip: '이미 증량요청 ' + f.more + '개가 답을 기다리는 중' };
       return qpost({ do: 'more', tab: whTab(x.row), nkey: x.row.key, co: x.row.co,
                      qty: q, why: why || WHY_DEFAULT })
-        .then(function () { return { done: q }; });
+        .then(function () { return { done: q, was: f.more }; });
     });
   }
   /* 창고 코드는 줄 키 앞머리에 있다 — data-k = 「경기28\t양평해장국600G」 */
@@ -755,7 +781,8 @@
       '  <div class="mut" style="margin:8px 0 4px">필요수량 — 상품명 + 수량 (탭 또는 띄어쓰기). 같은 상품 여러 줄이면 합칩니다.</div>' +
       '  <textarea id="qtyb-in" placeholder="연안 활 숫게 1kg&#9;30&#10;맛상 닭목살 1kg&#9;12"></textarea>' +
       '  <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
-      '    <button class="pri" id="qtyb-sheet">📄 시트에서 가져오기</button>' +
+      '    <button class="pri" id="qtyb-sheet">📄 가져오기_당일</button>' +
+      '    <button class="pri" id="qtyb-none">📦 가져오기_재고없음</button>' +
       '    <button id="qtyb-check">🧾 수량 점검</button>' +
       '    <button id="qtyb-back">↩️ 구해진 것 당일로</button>' +
       '    <button id="qtyb-clr">비우기</button>' +
@@ -774,23 +801,88 @@
     el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
     /* 📄 시트에서 가져오기 — 당일 탭(=넣을 발주)과 오늘 날짜 탭(=이미 나간 것)을 한 번에 읽는다.
        붙여넣기를 시키지 않는다(홍팀장 2026-09-28 「시트와 웹이 유기적으로 안 돌아간다」). */
+    /* 📄 가져오기_당일 — 「당일」 탭만 읽는다. 나간 수량은 안 가져온다
+       (홍팀장 2026-09-28 「가져오기_당일 시에 나간 수량 가지고 오지마, 의미없어」).
+       나간 수량은 [🧾 수량 점검] 이 그때 제 손으로 읽는다. */
     el('qtyb-sheet').onclick = function () {
       var b = this, old = b.textContent;
-      b.disabled = true; b.textContent = '시트 읽는 중…';
-      var day = todayTab();
-      Promise.all([tallyTab('당일'), tallyTab(day).catch(function () { return { map: {}, lines: 0, tab: day }; })])
-        .then(function (r) {
-          var need = r[0], done = r[1];
-          var toText = function (m) {
-            return Object.keys(m).map(function (k) { return m[k].name + '\t' + m[k].qty; }).join('\n');
-          };
-          el('qtyb-in').value = toText(need.map);
-          needSave(el('qtyb-in').value);
-          SHEET_DONE = toText(done.map);
-          var d = el('qtyb-done'); if (d) d.value = SHEET_DONE;
-          stat('당일 ' + need.lines + '줄 · ' + day + ' ' + done.lines + '줄');
+      b.disabled = true; b.textContent = '당일 읽는 중…';
+      tallyTab('당일').then(function (need) {
+        el('qtyb-in').value = Object.keys(need.map)
+          .map(function (k) { return need.map[k].name + '\t' + need.map[k].qty; }).join('\n');
+        needSave(el('qtyb-in').value);
+        stat('당일 ' + need.lines + '줄 · 상품 ' + Object.keys(need.map).length + '개');
+        b.disabled = false; b.textContent = old;
+        run();                                  // 바로 대조까지 간다
+      }, function (e) {
+        b.disabled = false; b.textContent = old;
+        stat('시트를 못 읽음');
+        alert(e.message || e);
+      });
+    };
+
+    /* 📦 가져오기_재고없음 — 「재고 없음」 탭을 읽어, 지금 여유가 있는 것을 당일로 올린다.
+       홍팀장 2026-09-28 : 「이유가 어찌 됐건 아직 여유분이 있다면 … 여유분 당일로 옮겨」
+       여유 = 잡아 두고 안 쓴 몫(잡음 − 나감) + 창고 잔여. 「물건없음」 줄은 뺀다. */
+    el('qtyb-none').onclick = function () {
+      var b = this, old = b.textContent;
+      b.disabled = true; b.textContent = '재고 없음 읽는 중…';
+      var go = haveIdx() ? Promise.resolve() : scanAll();
+      go.then(function () { return loadMy(); })
+        .then(function () { return tallyTab('재고 없음', 2); })
+        .then(function (no) {
+          var keys = Object.keys(no.map);
+          if (!keys.length) { stat('재고 없음 비어 있음'); el('qtyb-out').innerHTML = '<div class="warn">「재고 없음」 탭이 비어 있습니다.</div>'; b.disabled = false; b.textContent = old; return; }
+          var rows = keys.map(function (k) {
+            var want = no.map[k].qty;
+            var idx = IDX && IDX[k], o = OURS[k];
+            var ghost = idx ? (idx.stuck || (idx.closed && idx.left < 0)) : false;
+            var spare = o ? Math.max(0, o.got - o.used) : 0;
+            var left = idx ? Math.max(0, idx.left) : 0;
+            return { key: k, name: no.map[k].name, wh: idx ? idx.wh : (o ? o.wh : ''),
+                     want: want, spare: spare, left: left, ghost: ghost,
+                     can: ghost ? 0 : Math.min(want, spare + left) };
+          }).sort(function (a, c) { return c.can - a.can; });
+          var ok = rows.filter(function (r) { return r.can > 0; });
+          stat('재고 없음 ' + rows.length + '개 · 올릴 수 있는 것 ' + ok.length + '개');
+
+          var h = '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:9px;padding:9px 11px;margin:8px 0;font-size:13px">'
+            + '📦 재고 없음 <b>' + rows.length + '개 상품</b> · 지금 여유가 있어 올릴 수 있는 것 <b>' + ok.length + '</b>개</div>'
+            + '<div class="tw"><table><thead><tr><th>창고</th><th>상품명</th><th>재고없음</th><th>잡아둔 여유</th><th>창고 잔여</th><th>올릴 수</th></tr></thead><tbody>'
+            + rows.map(function (r) {
+                return '<tr' + (r.can > 0 ? ' style="background:#f0fdf4"' : '') + '>'
+                  + '<td>' + esc(r.wh) + '</td>'
+                  + '<td class="nm">' + esc(r.name) + (r.ghost ? ' <span class="tag t-hunt">물건없음</span>' : '') + '</td>'
+                  + '<td>' + r.want + '</td><td>' + r.spare + '</td><td>' + r.left + '</td>'
+                  + '<td' + (r.can > 0 ? ' style="font-weight:800;color:#065f46"' : ' class="mut"') + '>' + r.can + '</td></tr>';
+              }).join('')
+            + '</tbody></table></div>';
+          if (ok.length) {
+            h += '<div style="margin-top:9px"><button class="pri" id="qtyb-upgo">↩️ 여유분 ' + ok.length + '건 당일로 올리기</button></div>'
+              + '<div class="mut" id="qtyb-uplog" style="margin-top:6px"></div>';
+          }
+          el('qtyb-out').innerHTML = h;
           b.disabled = false; b.textContent = old;
-          run();                                  // 바로 대조까지 간다
+
+          var up = el('qtyb-upgo');
+          if (up) up.onclick = function () {
+            var list = ok.map(function (r) { return { name: r.name, qty: r.can }; });
+            if (!confirm('「재고 없음」 에서 「당일」 로 올립니다 — ' + list.length + '건\n\n'
+                + list.slice(0, 15).map(function (r) { return '· ' + r.name + ' ' + r.qty + '개'; }).join('\n')
+                + (list.length > 15 ? '\n…' : ''))) return;
+            var bb = this, o2 = bb.textContent;
+            bb.disabled = true; bb.textContent = '올리는 중…';
+            sheetPost('back', list).then(function (j) {
+              bb.disabled = false; bb.textContent = o2;
+              el('qtyb-uplog').innerHTML = '<b>올린 것</b><br>'
+                + (j.done.length ? j.done.map(function (d) { return '· ' + esc(d.name) + ' — ' + d.moved + '줄 (' + d.units + '개)'; }).join('<br>') : '없음')
+                + (j.miss.length ? ('<br><br><b style="color:#b91c1c">못 올린 것</b><br>' + j.miss.map(function (d) { return '· ' + esc(d.name) + ' ' + d.want + '개'; }).join('<br>')) : '')
+                + '<br><br>당일에 있는 주문 <b>' + j.left + '줄</b>';
+            }, function (e) {
+              bb.disabled = false; bb.textContent = o2;
+              el('qtyb-uplog').innerHTML = '<span style="color:#b91c1c">' + esc(e.message || e) + '</span>';
+            });
+          };
         }, function (e) {
           b.disabled = false; b.textContent = old;
           stat('시트를 못 읽음');
@@ -798,13 +890,22 @@
         });
     };
     /* 🧾 점검 — 잡은 것 대비 쓴 것을 훑는다. 창고를 안 긁었으면 긁고 나서 센다. */
+    /* 🧾 수량 점검 — «오늘 날짜 시트에 실제로 나간 수량» 을 제 손으로 읽어
+       잡은 수량을 넘치지 않는지 본다(홍팀장 2026-09-28). 가져오기와 엮지 않는다. */
     el('qtyb-check').onclick = function () {
       var b = this, old = b.textContent;
       b.disabled = true; b.textContent = '세는 중…';
+      var day = todayTab();
       var go = haveIdx() ? Promise.resolve() : scanAll();
-      go.then(function () { return loadMy(); }).then(function () {
-        checkPaint();
-      }).then(function () { b.disabled = false; b.textContent = old; },
+      go.then(function () { return loadMy(); })
+        .then(function () { return tallyTab(day).catch(function () { return { map: {}, lines: 0, tab: day }; }); })
+        .then(function (done) {
+          SHEET_DONE = Object.keys(done.map)
+            .map(function (k) { return done.map[k].name + '\t' + done.map[k].qty; }).join('\n');
+          stat(day + ' 시트 ' + done.lines + '줄 · 상품 ' + Object.keys(done.map).length + '개');
+          checkPaint();
+        })
+        .then(function () { b.disabled = false; b.textContent = old; },
               function (e) { b.disabled = false; b.textContent = old; alert(e.message || e); });
     };
     /* ↩️ 구해진 것 당일로 — 대기를 받았거나 증량이 됐을 때. 상품명·수량만 적으면
