@@ -43,59 +43,69 @@
   }
 
   /* ── 한 줄(tr) 읽기 ──────────────────────────────────────────────
-     칸 차례 : 0 당일/상시 · 1 유통기한 · 2 창고명 · 3 상품명 · 4 공급가 · 5 택배사 ·
-               6 택배비 · 7 면과세 · 8 총수량 · 9 판매 · 10 잔여 · 11 발주마감 ·
-               12 잡힘(전체) · 13 우리 잡음 · 14 대기 · 15 마찬(우리 편집칸)
-     ⚠️ 차례로 세지 말고 클래스로 집는다 — 칸이 늘면 번호가 밀린다.
-        (.rm 잔여 · .hs 잡힘 · .ours 우리잡음 · .wt 대기 · .mine 마찬) */
+     🟢 칸마다 data-c 이름이 박혀 있다(2026-09-28 실측) — 번호로 세지 말고 이름으로 집는다.
+        gubun · exp · wh · name · price · courier · ship · tax · total · sold ·
+        remain · cut(발주마감) · sum(잡힘 전체) · ours(우리 잡음) · wait · mine(마찬 편집칸)
+        번호로 세면 칸 하나 늘 때 값이 통째로 밀린다. */
+  function cell(tr, c) { return tr.querySelector('[data-c="' + c + '"]'); }
+  function ctext(tr, c) { var e = cell(tr, c); return e ? (e.textContent || '').trim() : ''; }
+
   function readRow(tr, whFallback) {
-    var c = tr.children;
-    var nmCell = tr.querySelector('.nm');
+    var nmCell = cell(tr, 'name');
     if (!nmCell) return null;
     var k = tr.getAttribute('data-k') || '';
-    var wh = (c[2] ? c[2].textContent : '').trim() || whFallback || '';
     var name = (nmCell.textContent || '').replace(/ⓘ/g, '').trim();
-    var mineCell = tr.querySelector('.mine');
+    var mineCell = cell(tr, 'mine');
+    var leftRaw = ctext(tr, 'remain');
+    var total = num(ctext(tr, 'total'));
     return {
       k: k,
       key: k ? k.split('\t')[1] || nk(name) : nk(name),
-      wh: wh,
-      kind: (c[0] ? c[0].textContent : '').trim(),      // 당일 / 상시
+      wh: ctext(tr, 'wh') || whFallback || '',
+      kind: ctext(tr, 'gubun'),                 // 당일 / 상시
       name: name,
-      price: num(c[4] ? c[4].textContent : ''),
-      total: num(c[8] ? c[8].textContent : ''),
-      sold: num(c[9] ? c[9].textContent : ''),
-      left: num((tr.querySelector('.rm') || {}).textContent),
-      dlRaw: (c[11] ? c[11].textContent : '').trim(),
-      held: num((tr.querySelector('.hs') || {}).textContent),
-      ours: num((tr.querySelector('.ours') || {}).textContent),
-      waiting: num((tr.querySelector('.wt') || {}).textContent),
+      price: num(ctext(tr, 'price')),
+      total: total,
+      sold: num(ctext(tr, 'sold')),
+      left: num(leftRaw),
+      leftRaw: leftRaw,
+      dlRaw: ctext(tr, 'cut'),
+      held: num(ctext(tr, 'sum')),
+      ours: num(ctext(tr, 'ours')),
+      waiting: num(ctext(tr, 'wait')),
       mine: num(mineCell ? mineCell.textContent : ''),
-      editable: !!mineCell
+      editable: !!mineCell,
+      /* 총수량 0 인 줄은 오늘 못 파는 줄이다 — 수량 웹도 [한꺼번에]에서 건너뛴다.
+         잔여가 '넉넉' 처럼 글자로 나오는 것도 여기 걸린다. */
+      closed: total <= 0
     };
   }
 
   /* ── 창고 칩 모으기 ──────────────────────────────────────────────
      전체 창고 탭은 200줄에서 끊긴다(2026-09-28 실측 : 1,778건 중 200줄만 렌더).
-     그래서 창고 칩을 하나씩 돌아 긁는다. 칩 주소의 sec 값이 창고 코드다. */
+     창고별로는 안 끊긴다(단독(유) 291줄 확인) → 창고 칩을 하나씩 돌아 긁는다.
+     🔴 창고 코드는 tab 파라미터다(경기28 · 단독(유)28 …). sec 은 당일/상시 구분이고
+        sec=* 가 «전부»다 — 여기를 바꿔 잡으면 빈 표가 온다(첫 판에 한 번 틀렸다). */
   function chips() {
     var out = [], seen = {};
     [].forEach.call(document.querySelectorAll('a[href]'), function (a) {
       var u;
       try { u = new URL(a.getAttribute('href'), location.href); } catch (e) { return; }
       if (u.pathname !== location.pathname) return;
-      var sec = u.searchParams.get('sec');
-      if (!sec || sec === '*' || seen[sec]) return;
-      seen[sec] = 1;
-      out.push({ sec: sec, label: (a.textContent || '').replace(/[\d,]+\s*$/, '').trim() });
+      var tab = u.searchParams.get('tab');
+      if (!tab || tab === '*' || seen[tab]) return;
+      seen[tab] = 1;
+      out.push({ tab: tab, label: (a.textContent || '').replace(/[\d,]+\s*$/, '').trim() });
     });
     return out;
   }
 
   /* 창고 한 곳 긁기 — 같은 오리진이라 쿠키가 실려 간다(로그인 세션 그대로). */
-  function fetchSec(sec) {
-    var url = location.pathname + '?tab=' + encodeURIComponent(sec) + '&sec=' + encodeURIComponent(sec);
-    return fetch(url, { credentials: 'same-origin' })
+  function fetchSec(tab) {
+    var p = new URLSearchParams();
+    p.set('tab', tab);
+    p.set('sec', '*');
+    return fetch(location.pathname + '?' + p.toString(), { credentials: 'same-origin' })
       .then(function (r) { return r.text(); })
       .then(function (html) {
         var doc = new DOMParser().parseFromString(html, 'text/html');
@@ -156,6 +166,15 @@
     var mine = row.mine || 0;
     var short = need - mine;
     var r = { row: row, need: need, mine: mine, set: 0, wait: 0, more: 0, over: 0, act: 'ok', why: '' };
+
+    /* 총수량이 0인 줄 — 오늘 안 올라온 상품이다. 잡을 칸이 없으니 대기로도 안 되고
+       관리팀이 총수량을 올려 줘야 한다 → 부족분 전부 증량요청. */
+    if (row.closed && short > 0) {
+      r.more = short;
+      r.act = 'more';
+      r.why = '총수량 0 — 오늘 안 올라온 상품' + (row.leftRaw && !/^\d/.test(row.leftRaw) ? ' (잔여 "' + row.leftRaw + '")' : '');
+      return r;
+    }
 
     if (short <= 0) {
       r.over = mine - need;
@@ -296,7 +315,7 @@
     stat('긁는 중 0/' + cs.length);
     return cs.reduce(function (pr, c, i) {
       return pr.then(function () {
-        return fetchSec(c.sec).then(function (rows) {
+        return fetchSec(c.tab).then(function (rows) {
           rows.forEach(function (r) {
             if (IDX[r.key]) { dup++; return; }     // 창고가 달라도 이름이 같으면 첫 것만 (수량 웹도 이름중복은 건너뛴다)
             IDX[r.key] = r; n++;
