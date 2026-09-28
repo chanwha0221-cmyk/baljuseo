@@ -278,6 +278,56 @@
     return { map: map, bad: bad };
   }
 
+  /* ── 예외 상품 — 한 줄에서 여럿을 컨트롤한다 (홍팀장 2026-09-28) ──────
+     ① 연어 : 「연안 몸뱃살연어 1kg」 한 줄이 연어 전체를 쥔다. 생연어 1kg·500g·300g,
+              몸뱃살연어 500g 은 수량 웹에 이름은 있어도 총수량 0·잔여 「넉넉」 — 관리를 안 한다.
+              → 무게를 다 더해 kg 으로 올려서 몸뱃살연어 1kg 에서 잡는다 (2.8kg → 3개).
+              🔴 올림은 «오늘 전체 무게» 로 한 번만 한다. 줄마다 올리면 0.5+0.4 가 2개가 된다.
+              🔴 연어 스테이크 200g · 연어머리 1팩 · 연어배꼽살 1팩 은 «자기 총수량이 있다» → 손대지 않는다.
+     ② 홍어 : 삭힘정도만 다른 「흑산도 전통 홍어 500g(고수/중수/초고수/초수)」 는 총수량이 0이고,
+              실제 수량은 「흑산도 전통 홍어 500g」 한 줄이 쥔다. 개수 그대로 합친다(무게 아님).
+              🔴 「흑산도 전통 홍어 600g」·「연안 대청홍어」 는 다른 상품이다. */
+  var ALIAS = [
+    { name: '연어', to: '연안 몸뱃살연어 1kg', weight: true,
+      hit: function (s) { return /(생연어|몸뱃살연어)/.test(s); } },
+    { name: '홍어', to: '흑산도 전통 홍어 500g', weight: false,
+      hit: function (s) { return /^흑산도\s*전통\s*홍어\s*500\s*g\s*[(（]/i.test(s); } }
+  ];
+
+  /* 이름에서 무게를 kg 으로 — 「500g」 0.5 · 「1kg」 1 · 「1.2kg」 1.2. 없으면 1개로 본다. */
+  function kgOf(name) {
+    var m = String(name).match(/(\d+(?:\.\d+)?)\s*(kg|g)\b/i);
+    if (!m) return 1;
+    var v = parseFloat(m[1]);
+    return /kg/i.test(m[2]) ? v : v / 1000;
+  }
+
+  /* 필요수량 묶음에 예외를 먹인다. 반환 : {map, notes} — notes 는 화면에 뭘 합쳤는지 알리는 줄 */
+  function foldAlias(map) {
+    var notes = [];
+    ALIAS.forEach(function (a) {
+      var toKey = nk(a.to), from = [], sum = 0;
+      Object.keys(map).forEach(function (k) {
+        if (k.indexOf('#raw:') === 0) return;
+        var raw = map['#raw:' + k] || k;
+        if (!a.hit(raw)) return;
+        if (k === toKey && !a.weight) return;              // 대표 줄 자신은 그대로 둔다
+        from.push({ k: k, raw: raw, qty: map[k] });
+        sum += a.weight ? kgOf(raw) * map[k] : map[k];
+      });
+      if (!from.length) return;
+      var want = a.weight ? Math.ceil(sum) : sum;          // 무게는 오늘 전체를 한 번에 올린다
+      from.forEach(function (f) { delete map[f.k]; delete map['#raw:' + f.k]; });
+      map[toKey] = (map[toKey] || 0) + want;
+      map['#raw:' + toKey] = a.to;
+      notes.push('⚖️ ' + a.name + ' ' + from.length + '종'
+        + (a.weight ? (' · ' + (Math.round(sum * 10) / 10) + 'kg') : (' · ' + sum + '개'))
+        + ' → <b>' + esc(a.to) + ' ' + want + '개</b>로 합쳤습니다 ('
+        + from.map(function (f) { return esc(f.raw) + '×' + f.qty; }).join(' · ') + ')');
+    });
+    return notes;
+  }
+
   /* ── 판정 ───────────────────────────────────────────────────────── */
   function judge(row, need) {
     var mine = row.mine || 0;
@@ -521,6 +571,7 @@
     if (!box) return;
     var rows = ursRows();
     var parsed = parseNeed(el('qtyb-in').value);
+    var notes = foldAlias(parsed.map);     // 연어·홍어는 여기서도 대표 줄로 합쳐야 «사용» 칸이 맞는다
     var rest = [];
 
     var list = rows.map(function (r) {
@@ -535,6 +586,10 @@
     // 3단계 — 잡았는데 안 쓴 것. 마감이 가까우면 붉게 올린다(풀어야 할 몫).
     var idle = list.filter(function (r) { return r.unused > 0; });
     var h = '';
+    if (notes.length) {
+      h += '<div style="background:#eef2f7;border:1px solid #dde3ea;border-radius:8px;padding:7px 9px;margin:0 0 8px;font-size:12px">'
+        + notes.join('<br>') + '</div>';
+    }
     if (idle.length) {
       var tot = idle.reduce(function (n, r) { return n + r.unused; }, 0);
       h += '<div class="warn">⚠️ 잡았는데 안 쓴 것 ' + idle.length + '건 · ' + tot + '개 — 마감까지 안 나가면 그대로 우리 몫입니다.<br>'
@@ -743,6 +798,7 @@
     var wm = parseInt(el('qtyb-wm').value, 10);
     WAIT_MAX = isNaN(wm) ? 5 : wm;
     var parsed = parseNeed(el('qtyb-in').value);
+    var notes = foldAlias(parsed.map);                 // 연어·홍어처럼 한 줄에서 잡는 것들을 먼저 합친다
     var keys = Object.keys(parsed.map).filter(function (k) { return k.indexOf('#raw:') !== 0; });
     if (!keys.length) { el('qtyb-out').innerHTML = '<div class="warn">필요수량을 붙여넣어 주세요.</div>'; return; }
     needSave(el('qtyb-in').value);      // 마이페이지에서 그대로 쓰도록 담아 둔다
@@ -755,7 +811,7 @@
         if (!row) { miss.push(parsed.map['#raw:' + k] || k); return; }
         hits.push(judge(row, parsed.map[k]));
       });
-      draw(hits, miss, parsed.bad);
+      draw(hits, miss, parsed.bad, notes);
     });
   }
 
@@ -777,7 +833,7 @@
     hunt: ['t-hunt', '🎯 구해야'], moreP: ['t-wait', '증량 답 기다림'], waitP: ['t-wait', '대기 중']
   };
 
-  function draw(hits, miss, bad) {
+  function draw(hits, miss, bad, notes) {
     // 손봐야 할 것 먼저 : 증량 → 대기 → 잡기 → 풀어야 → 그대로
     var ord = { hunt: 0, more: 1, 'set+more': 1, wait: 2, 'set+wait': 2, moreP: 3, waitP: 3,
                 set: 4, release: 5, over: 6, ok: 7, free: 8 };
@@ -790,6 +846,11 @@
        → 이 브라우저에 날짜와 함께 담아 두고, 패널을 다시 열어도 그대로 보인다. */
     huntSave(hits.filter(function (x) { return x.act === 'hunt'; }));
     huntPaint();               // 화면 표시는 한 곳에서만 — 담아 둔 것과 방금 나온 것이 갈리지 않게
+
+    if (notes && notes.length) {
+      h += '<div style="background:#eef2f7;border:1px solid #dde3ea;border-radius:8px;padding:7px 9px;margin:8px 0;font-size:12px">'
+        + notes.join('<br>') + '</div>';
+    }
 
     var rel = hits.filter(function (x) { return x.act === 'release'; });
     if (rel.length) {
