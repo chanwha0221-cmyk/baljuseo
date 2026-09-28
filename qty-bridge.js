@@ -47,6 +47,17 @@
         gubun · exp · wh · name · price · courier · ship · tax · total · sold ·
         remain · cut(발주마감) · sum(잡힘 전체) · ours(우리 잡음) · wait · mine(마찬 편집칸)
         번호로 세면 칸 하나 늘 때 값이 통째로 밀린다. */
+  /* 🔴 수량 웹의 표만 집는다. 내 패널에도 표가 있어서 'tbody tr' 로 쓸면 내 줄이 섞인다
+     (2026-09-28 첫 판에 섞여서 붙여넣기 숫자열이 3줄 밀렸다 — 그대로 붙였으면 다른 상품이 잡혔다). */
+  function siteRows(root) {
+    var out = [];
+    [].forEach.call((root || document).querySelectorAll('tbody'), function (tb) {
+      if (tb.closest && tb.closest('#' + PANEL_ID)) return;
+      [].forEach.call(tb.children, function (tr) { if (tr.tagName === 'TR') out.push(tr); });
+    });
+    return out;
+  }
+
   function cell(tr, c) { return tr.querySelector('[data-c="' + c + '"]'); }
   function ctext(tr, c) { var e = cell(tr, c); return e ? (e.textContent || '').trim() : ''; }
 
@@ -110,7 +121,7 @@
       .then(function (html) {
         var doc = new DOMParser().parseFromString(html, 'text/html');
         var rows = [];
-        [].forEach.call(doc.querySelectorAll('tbody tr'), function (tr) {
+        siteRows(doc).forEach(function (tr) {
           var o = readRow(tr, '');
           if (o && o.key) rows.push(o);
         });
@@ -296,7 +307,7 @@
 
   function scanHere() {
     var rows = [];
-    [].forEach.call(document.querySelectorAll('tbody tr'), function (tr) {
+    siteRows().forEach(function (tr) {
       var o = readRow(tr, '');
       if (o && o.key) rows.push(o);
     });
@@ -376,7 +387,7 @@
   /* 지금 화면에 창고가 여러 곳 섞여 있나 — 전체 창고 탭은 200줄에서 끊기니 붙여넣기에 못 쓴다. */
   function mixedView() {
     var whs = {}, n = 0;
-    [].forEach.call(document.querySelectorAll('tbody tr'), function (tr) {
+    siteRows().forEach(function (tr) {
       var w = ctext(tr, 'wh');
       if (w && !whs[w]) { whs[w] = 1; n++; }
     });
@@ -450,15 +461,19 @@
           아직 안 잡은 줄(0)만 빈 칸으로 둔다(빈 칸 → 빈 칸이라 변화가 없다). */
     el('qtyb-cp').onclick = function () {
       var col = [], hit = 0, seen = {};
-      [].forEach.call(document.querySelectorAll('tbody tr'), function (tr) {
+      siteRows().forEach(function (tr) {
         var o = readRow(tr, '');
-        if (!o) return;
+        if (!o) { col.push(''); return; }          // 상품 줄이 아니어도 자리는 지킨다(줄이 밀리면 딴 상품이 잡힌다)
         var x = byKey[o.key];
-        if (x) { col.push(String(x.mine + x.set)); hit++; seen[o.key] = 1; }
-        else col.push(o.mine > 0 ? String(o.mine) : '');
+        var v = o.mine > 0 ? String(o.mine) : ''; // 기본은 «지금 값 그대로» — 빈 칸을 넣으면 그 줄이 풀린다
+        if (x) {
+          seen[o.key] = 1;
+          if (x.set) { v = String(x.mine + x.set); hit++; }   // 새로 잡을 줄만 값을 바꾼다
+        }
+        col.push(v);
       });
       var missing = hits.filter(function (x) { return !seen[x.row.key]; });
-      var note = hit + '줄';
+      var note = hit ? hit + '줄 바뀜' : '바뀌는 줄 없음';
       if (missing.length) {
         note += ' · 이 화면에 없는 ' + missing.length + '건은 그 창고 탭에서';
         alert('이 화면에 없는 대상 ' + missing.length + '건은 빠집니다 — 해당 창고 탭을 열고 다시 복사하십시오.\n\n'
