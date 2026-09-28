@@ -41,6 +41,8 @@
      수량 화면이든 마이페이지든 공지든, 북마크릿을 누르면 «같은 패널·같은 기능»이 뜬다.
      잡기·사용·대기·증량은 전부 POST 로 걸고, 잡은 현황·안 쓴 것은 마이페이지를 긁어 오므로
      그 화면에 서 있을 필요가 없다. */
+  var DONE_MAP = {};                // 기준 날짜 시트에서 «이미 나간 수량» (상품키 → 개수)
+  var DROPPED = {};                 // ✕ 로 뺀 줄(중복이라고 판단한 것) — 대조할 때마다 비운다
   var NKEY = 'qtybNeed';            // 발주 필요수량 — 화면이 바뀌어도 이어 쓴다(같은 오리진)
 
   /* ══ 📄 마찬 월 시트 직접 읽기 ═══════════════════════════════════════
@@ -137,6 +139,13 @@
       return { map: map, lines: lines, tab: tab };
     });
   }
+  /* 기준 날짜 — 칸에 적힌 값이 있으면 그것, 없으면 오늘. 칸은 사람이 고칠 수 있다. */
+  function dayTab() {
+    var e = document.getElementById('qtyb-day');
+    var v = e ? String(e.value || '').replace(/[^0-9]/g, '') : '';
+    return (v.length === 4) ? v : todayTab();
+  }
+
   function todayTab() {
     var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit' })
       .format(new Date()).split('/');
@@ -488,7 +497,11 @@
        ② 품절 안 풀림이거나 총수량 0인데 잔여가 «음수» 인 줄은 창고에 물건이 없다.
           숫자만 30 잡혀 있을 뿐 실제로는 못 받는다 → 잡은 것을 0 으로 본다.
           (홍팀장 : 「초대왕 반건조 갑오징어 500g급 4개 있냐?」 — 없다. 재고 없음으로 빠져야 한다) */
-    var mineUsed = (OURS[row.key] && OURS[row.key].used) || 0;
+    /* «이미 쓴 몫» 은 기준 날짜 시트에서 실제로 나간 수량을 먼저 본다 — 그게 정본이다.
+       수량 웹 «사용» 칸은 사람이 손으로 적는 값이라 안 맞을 수 있어 보조로만 쓴다. */
+    var mineUsed = (DONE_MAP[row.key] != null)
+      ? DONE_MAP[row.key]
+      : ((OURS[row.key] && OURS[row.key].used) || 0);
     var ghost = row.stuck || (row.closed && row.left < 0);
     var avail = ghost ? 0 : Math.max(0, mine - mineUsed);
     var short = need - avail;
@@ -816,6 +829,8 @@
       '#' + PANEL_ID + ' .t-rel{background:#ede9fe;color:#6d28d9}',
       '#' + PANEL_ID + ' .warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;',
       '  padding:7px 9px;margin:8px 0;font-size:12px}',
+      '#' + PANEL_ID + ' .drop{border:1px solid #e5e7eb;background:#fff;color:#9ca3af;border-radius:6px;padding:1px 6px;font-size:12px;cursor:pointer}',
+      '#' + PANEL_ID + ' .drop:hover{background:#fee2e2;border-color:#fecaca;color:#b91c1c}',
       '#' + PANEL_ID + ' .mut{color:#6b7280;font-size:11.5px}'
     ].join('');
   }
@@ -855,6 +870,12 @@
       '    <span class="mut">대기 한도</span>' +
       '    <input id="qtyb-wm" value="' + WAIT_MAX + '" style="width:44px;text-align:center;border:1px solid #cfd6e0;border-radius:6px;padding:4px">' +
       '    <span class="mut">개까지는 증량 대신 대기</span>' +
+      /* 📅 기준 날짜 — 이 날짜 시트에서 «이미 나간 수량» 을 읽어, 그만큼은 또 안 잡는다.
+         밤에 내일 것을 미리 잡는 일이 있어 오늘 날짜로 굳히지 않는다(홍팀장 2026-09-28).
+         한 번 고쳐 놓으면 고칠 때까지 그 값으로 간다. */
+      '    <span class="mut" style="margin-left:10px">📅 날짜 시트</span>' +
+      '    <input id="qtyb-day" value="' + esc(dayTab()) + '" placeholder="0929" style="width:58px;text-align:center;border:1px solid #cfd6e0;border-radius:6px;padding:4px">' +
+      '    <span class="mut">여기 나간 건 또 안 잡음</span>' +
       '  </div>' +
       '  <div class="mut" style="margin:8px 0 4px">필요수량 — 상품명 + 수량 (탭 또는 띄어쓰기). 같은 상품 여러 줄이면 합칩니다.</div>' +
       '  <textarea id="qtyb-in" placeholder="연안 활 숫게 1kg&#9;30&#10;맛상 닭목살 1kg&#9;12"></textarea>' +
@@ -879,17 +900,28 @@
     el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
     /* 📄 시트에서 가져오기 — 당일 탭(=넣을 발주)과 오늘 날짜 탭(=이미 나간 것)을 한 번에 읽는다.
        붙여넣기를 시키지 않는다(홍팀장 2026-09-28 「시트와 웹이 유기적으로 안 돌아간다」). */
-    /* 📄 가져오기_당일 — 「당일」 탭만 읽는다. 나간 수량은 안 가져온다
-       (홍팀장 2026-09-28 「가져오기_당일 시에 나간 수량 가지고 오지마, 의미없어」).
-       나간 수량은 [🧾 수량 점검] 이 그때 제 손으로 읽는다. */
+    /* 📄 가져오기_당일 — 「당일」(넣을 발주) 과 «기준 날짜 시트»(이미 나간 것) 를 같이 읽는다.
+       🔴 나간 만큼은 이미 쓴 몫이라 «또 잡지 않는다» — 같은 발주에 수량을 두 번 잡던 것을 막는다
+          (홍팀장 2026-09-28 : 「오늘 날짜에 저걸 썼는지 확인하면 또 잡아야 되는지 아닌지를 판별할 수 있다」).
+          기준 날짜는 위 칸에서 고른다 — 밤에 내일 것을 미리 잡을 때가 있어서다. */
     el('qtyb-sheet').onclick = function () {
       var b = this, old = b.textContent;
+      var day = dayTab();
       b.disabled = true; b.textContent = '당일 읽는 중…';
-      tallyTab('당일').then(function (need) {
+      Promise.all([
+        tallyTab('당일'),
+        tallyTab(day).catch(function () { return { map: {}, lines: 0, tab: day }; })
+      ]).then(function (r) {
+        var need = r[0], done = r[1];
+        DONE_MAP = {};
+        Object.keys(done.map).forEach(function (k) { DONE_MAP[k] = done.map[k].qty; });
+        SHEET_DONE = Object.keys(done.map)
+          .map(function (k) { return done.map[k].name + '\t' + done.map[k].qty; }).join('\n');
         el('qtyb-in').value = Object.keys(need.map)
           .map(function (k) { return need.map[k].name + '\t' + need.map[k].qty; }).join('\n');
         needSave(el('qtyb-in').value);
-        stat('당일 ' + need.lines + '줄 · 상품 ' + Object.keys(need.map).length + '개');
+        stat('당일 ' + need.lines + '줄 · 상품 ' + Object.keys(need.map).length + '개 · '
+           + day + ' 나간 것 ' + Object.keys(done.map).length + '개');
         b.disabled = false; b.textContent = old;
         run();                                  // 바로 대조까지 간다
       }, function (e) {
@@ -973,7 +1005,7 @@
     el('qtyb-check').onclick = function () {
       var b = this, old = b.textContent;
       b.disabled = true; b.textContent = '세는 중…';
-      var day = todayTab();
+      var day = dayTab();
       var go = haveIdx() ? Promise.resolve() : scanAll();
       go.then(function () { return loadMy(); })
         .then(function () { return tallyTab(day).catch(function () { return { map: {}, lines: 0, tab: day }; }); })
@@ -1210,6 +1242,7 @@
     var keys = Object.keys(parsed.map).filter(function (k) { return k.indexOf('#raw:') !== 0; });
     if (!keys.length) { el('qtyb-out').innerHTML = '<div class="warn">필요수량을 붙여넣어 주세요.</div>'; return; }
     needSave(el('qtyb-in').value);      // 마이페이지에서 그대로 쓰도록 담아 둔다
+    DROPPED = {};                       // 새로 대조하면 ✕ 로 뺐던 것도 다시 살린다
 
     var go = haveIdx() ? Promise.resolve() : scanAll();
     return go.then(function () { return loadMy(); }).then(function () {
@@ -1320,12 +1353,15 @@
         + '<div id="qtyb-runlog" class="mut" style="margin-top:6px"></div></div>';
     }
 
-    h += '<div class="tw"><table><thead><tr><th>판정</th><th>창고</th><th>상품명</th><th>필요</th><th>잡음</th>' +
+    h += '<div class="tw"><table><thead><tr><th>빼기</th><th>판정</th><th>창고</th><th>상품명</th><th>필요</th><th>잡음</th>' +
       '<th>잔여</th><th>잡기</th><th>대기</th><th>증량</th><th>마감</th></tr></thead><tbody>';
     hits.forEach(function (x) {
       var t = TAG[x.act] || TAG.ok;
       var ml = minsLeft(dlHour(x.row.dlRaw));
       h += '<tr>' +
+        /* ✕ 중복이라고 판단한 줄은 실행 전에 뺀다 (홍팀장 2026-09-28 :
+           「내가 중복인 걸 알면 판정대로 실행하기 전에 칸을 삭제할 수 있게 해줘」) */
+        '<td><button class="drop" data-drop="' + esc(x.row.key) + '" title="이 줄 빼기">✕</button></td>' +
         '<td><span class="tag ' + t[0] + '">' + t[1] + '</span></td>' +
         '<td>' + esc(x.row.wh) + '</td>' +
         '<td class="nm">' + esc(x.row.name) + '<div class="mut">' + esc(x.why) + '</div></td>' +
@@ -1362,6 +1398,15 @@
 
     var byKey = {};
     hits.forEach(function (x) { byKey[x.row.key] = x; });
+
+    /* ✕ 줄 빼기 — 중복이라고 판단한 줄을 실행 전에 뺀다. 뺀 줄은 잡기·대기·증량·내리기에서 모두 빠진다. */
+    [].forEach.call(document.querySelectorAll('#' + PANEL_ID + ' [data-drop]'), function (b) {
+      b.onclick = function () {
+        var k = this.getAttribute('data-drop');
+        DROPPED[k] = 1;
+        draw(hits.filter(function (x) { return !DROPPED[x.row.key]; }), miss, bad, notes);
+      };
+    });
 
     var runBtn = el('qtyb-run');
     if (runBtn) runBtn.onclick = function () {
