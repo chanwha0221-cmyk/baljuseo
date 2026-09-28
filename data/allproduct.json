@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-28 08:52",
+ "updatedAt": "2026-09-28 09:19",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -53,7 +53,15 @@
    "sourceWarehouse": "충무",
    "category": "",
    "name": "통통 대왕 문어 1.5kg",
-   "spec": [],
+   "spec": [
+    "※ 원산지 : 국내산(통영)",
+    "※ 구성 : 돌문어",
+    "※ 중량/ 사이즈 : 1.5kg급 1미",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 돌문어 100%",
+    "※ 포장방식 : 아이스팩, 빙장포장, 비닐포장.",
+    "※ 특이사항 : 생물 수분 감량 1-20%"
+   ],
    "supplyPrice": 33000,
    "previousPrice": null,
    "tax": "면세",
@@ -61,7 +69,7 @@
    "shipFee": 4000,
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
-   "image": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/849/748/023/7c042cb94fb6435229a41ee2befe1123.jpg",
    "note": ""
   },
   {
@@ -2394,7 +2402,14 @@
    "sourceWarehouse": "경기",
    "category": "",
    "name": "맛상 양념 LA갈비 500g",
-   "spec": [],
+   "spec": [
+    "※ 원산지 : 성분표시 참조",
+    "※ 구성 : 양념 LA갈비",
+    "※ 중량/ 사이즈 : 500g / 1팩/ 6대 내외",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 소고기[미국산 갈비] 60%, 소스 10%, 정제수 30%",
+    "※ 포장방식 : 트레이"
+   ],
    "supplyPrice": 9400,
    "previousPrice": null,
    "tax": "과세",
@@ -2402,7 +2417,7 @@
    "shipFee": 4000,
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
-   "image": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/988/421/025/48dd9e87f2ce62f75c8d911cd9f6dfda.jpg",
    "note": ""
   },
   {
@@ -4539,29 +4554,6 @@
    "warehouse": "인천",
    "sourceWarehouse": "인천",
    "category": "수산",
-   "name": "연안 대왕가리비 1kg",
-   "spec": [
-    "※ 원산지 : 일본산",
-    "※ 구성 : 참가리비 1kg",
-    "※ 중량/ 사이즈 : 1kg / 7~10미",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 참가리비 100%",
-    "※ 포장방식 : 비닐실링"
-   ],
-   "supplyPrice": 22000,
-   "previousPrice": 24000,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/175/690/006/769d70b06ee742e168b0f0ffb4de7b13.jpg",
-   "note": ""
-  },
-  {
-   "warehouse": "인천",
-   "sourceWarehouse": "인천",
-   "category": "수산",
    "name": "연안 급냉 대암게 1kg",
    "spec": [
     "※ 원산지 : 국내산",
@@ -5022,7 +5014,14 @@
    "sourceWarehouse": "인천",
    "category": "",
    "name": "연안 자연산 깐대하 500g",
-   "spec": [],
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 자연산 깐 대하 500g",
+    "※ 중량/ 사이즈 : 500g/ 30미내외",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 대하 100%",
+    "※ 포장방식 : 비닐실링"
+   ],
    "supplyPrice": 17000,
    "previousPrice": 11000,
    "tax": "면세",
@@ -5030,7 +5029,7 @@
    "shipFee": 4000,
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
-   "image": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/407/808/022/b3af1cd5053303378f7c7e5b95443f2a.jpg",
    "note": ""
   },
   {
@@ -5070,7 +5069,14 @@
    "sourceWarehouse": "인천",
    "category": "",
    "name": "연안 급냉 전어 500g",
-   "spec": [],
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 냉동 전어 500g",
+    "※ 중량/사이즈 : 500g / 15미내외 / 10~15cm쯤",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 전어 100%",
+    "※ 포장방식 : 비닐실링"
+   ],
    "supplyPrice": 2700,
    "previousPrice": null,
    "tax": "면세",
@@ -5078,46 +5084,7 @@
    "shipFee": 4000,
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
-   "image": "",
-   "note": ""
-  },
-  {
-   "warehouse": "인천",
-   "sourceWarehouse": "인천",
-   "category": "",
-   "name": "연안 급냉 주꾸미 1kg",
-   "spec": [],
-   "supplyPrice": 24000,
-   "previousPrice": 19000,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "",
-   "note": ""
-  },
-  {
-   "warehouse": "인천",
-   "sourceWarehouse": "인천",
-   "category": "수산",
-   "name": "연안 대합 1kg",
-   "spec": [
-    "※ 원산지 : 중국산",
-    "※ 구성 : 활 대합",
-    "※ 중량/ 사이즈 : 1kg / 4~6미 내외",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 활 대합 100%",
-    "※ 포장방식 : 비닐실링"
-   ],
-   "supplyPrice": 17000,
-   "previousPrice": 16000,
-   "tax": "면세",
-   "courier": "우체국택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/949/689/006/b2d4172ae8ce70bf72fd8247d4e112f1.jpg",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/229/302/023/fb304235bad260f8dbdb75026c81c4fe.jpg",
    "note": ""
   },
   {
