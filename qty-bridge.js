@@ -688,18 +688,29 @@
     if (!box) return;
     var parsed = parseNeed(el('qtyb-in').value);
     foldAlias(parsed.map);
+    /* 🔴 «실제로 몇 개 나갔나» 는 오늘 날짜 시트가 정본이다 (홍팀장 2026-09-28).
+       수량 웹의 «사용» 칸은 사람이 손으로 적은 숫자라 실제와 다를 수 있다.
+       시트 「🌐 수량 웹 정리」 의 [📋 오늘 나간 수량 복사] 를 이 칸에 붙여넣으면 그걸로 센다. */
+    var doneParsed = parseNeed((el('qtyb-done') || { value: '' }).value);
+    foldAlias(doneParsed.map);
+    var hasDone = Object.keys(doneParsed.map).some(function (k) { return k.indexOf('#raw:') !== 0; });
 
     var rows = Object.keys(OURS).map(function (k) {
       var o = OURS[k];
       var idx = IDX && IDX[k];
       var need = parsed.map[k];
+      var out = doneParsed.map[k];              // 오늘 날짜 시트에서 실제로 나간 수량
       return {
         key: k,
         wh: o.wh || (idx ? idx.wh : ''),
         name: idx ? idx.name : k,
-        got: o.got, used: o.used,
-        rest: o.got - o.used,                       // 잡아 두고 아직 안 쓴 몫
-        over: Math.max(0, o.used - o.got),          // 잡은 것보다 더 쓴 몫
+        got: o.got,
+        used: o.used,                               // 수량 웹 «사용» 칸(손으로 적은 값)
+        out: (out == null ? null : out),            // 오늘 날짜 시트에서 실제로 나간 수량
+        // 실제 나간 수량을 아는 줄은 그것으로 센다 — 모르면 사용 칸으로
+        rest: o.got - (out == null ? o.used : out),
+        over: Math.max(0, (out == null ? o.used : out) - o.got),
+        misfit: (out != null && out !== o.used),    // 사용 칸과 실제가 어긋난 줄
         need: (need == null ? null : need),
         total: idx ? idx.total : null,
         left: idx ? idx.left : null,
@@ -709,36 +720,45 @@
     if (!rows.length) { box.innerHTML = '<div class="warn">잡아 둔 수량이 없습니다. [🔄 창고 전부 긁기] 를 먼저 눌러 보세요.</div>'; return; }
 
     var over = rows.filter(function (r) { return r.over > 0; });
-    var gap  = rows.filter(function (r) { return r.need != null && r.need !== r.used; });   // 발주와 사용이 다른 것
+    var misfit = rows.filter(function (r) { return r.misfit; });
     rows.sort(function (a, b) { return (b.over - a.over) || (b.rest - a.rest); });
 
+    var real = function (r) { return r.out == null ? r.used : r.out; };
     var sumGot = rows.reduce(function (n, r) { return n + r.got; }, 0);
-    var sumUse = rows.reduce(function (n, r) { return n + r.used; }, 0);
+    var sumUse = rows.reduce(function (n, r) { return n + real(r); }, 0);
     var sumRest = rows.reduce(function (n, r) { return n + Math.max(0, r.rest); }, 0);
 
     var h = '<div style="background:#eef4ff;border:1px solid #c7d9f5;border-radius:9px;padding:9px 11px;margin:8px 0;font-size:13px">'
-      + '🧾 <b>' + rows.length + '개 상품</b> · 잡음 <b>' + sumGot + '</b> · 쓴 것 <b>' + sumUse + '</b> · 안 쓴 것 <b>' + sumRest + '</b></div>';
+      + '🧾 <b>' + rows.length + '개 상품</b> · 잡음 <b>' + sumGot + '</b> · 나간 것 <b>' + sumUse + '</b> · 남은 것 <b>' + sumRest + '</b>'
+      + '<div class="mut" style="margin-top:3px">' + (hasDone
+          ? '«나간 것» 은 오늘 날짜 시트 기준입니다.'
+          : '⚠️ 지금은 수량 웹 «사용» 칸(손으로 적은 값)으로 세고 있습니다 — 아래 칸에 오늘 날짜 시트에서 뽑은 것을 붙여넣으면 실제로 나간 수량으로 셉니다.') + '</div></div>'
+      + '<div class="mut" style="margin:6px 0 3px">📤 오늘 나간 수량 <span style="opacity:.8">(시트 「🌐 수량 웹 정리」 → [📋 오늘 나간 수량 복사])</span></div>'
+      + '<textarea id="qtyb-done" style="height:70px" placeholder="군산&#9;초대왕 반건조 갑오징어 500g급&#9;11">'
+      + esc((el('qtyb-done') || { value: '' }).value) + '</textarea>'
+      + '<div style="margin:5px 0 0"><button class="pri" id="qtyb-recheck">🔁 이 값으로 다시 세기</button></div>';
 
     if (over.length) {
-      h += '<div class="hunt">🚨 잡은 것보다 많이 쓴 것 ' + over.length + '건 — 그만큼은 잡지 않고 나간 수량입니다<br>'
+      h += '<div class="hunt">🚨 잡은 것보다 많이 나간 것 ' + over.length + '건 — 그만큼은 잡지 않고 나간 수량입니다<br>'
         + over.map(function (r) {
-            return '· ' + esc(r.wh) + ' / ' + esc(r.name) + ' 잡음 ' + r.got + ' · 사용 ' + r.used + ' → <b>' + r.over + '개 초과</b>';
+            return '· ' + esc(r.wh) + ' / ' + esc(r.name) + ' 잡음 ' + r.got + ' · 나감 ' + real(r) + ' → <b>' + r.over + '개 초과</b>';
           }).join('<br>') + '</div>';
     }
-    if (gap.length) {
-      h += '<div class="warn">📋 발주와 사용이 다른 것 ' + gap.length + '건 — 사용 칸을 발주에 맞춰야 합니다<br>'
-        + gap.slice(0, 15).map(function (r) {
-            return '· ' + esc(r.name) + ' 발주 ' + r.need + ' · 사용 ' + r.used + ' (차이 ' + (r.need - r.used) + ')';
-          }).join('<br>') + (gap.length > 15 ? '<br>…' : '') + '</div>';
+    if (misfit.length) {
+      h += '<div class="warn">📋 수량 웹 «사용» 칸이 실제와 다른 것 ' + misfit.length + '건 — 칸을 실제 나간 수량으로 맞춰야 합니다<br>'
+        + misfit.slice(0, 15).map(function (r) {
+            return '· ' + esc(r.name) + ' 적힌 값 ' + r.used + ' · 실제 ' + r.out + ' (차이 ' + (r.out - r.used) + ')';
+          }).join('<br>') + (misfit.length > 15 ? '<br>…' : '') + '</div>';
     }
 
-    h += '<table><thead><tr><th>창고</th><th>상품명</th><th>잡음</th><th>사용</th><th>안 쓴 것</th><th>발주</th><th>창고 잔여</th></tr></thead><tbody>'
+    h += '<table><thead><tr><th>창고</th><th>상품명</th><th>잡음</th><th>나감</th><th>적힌 사용</th><th>남은 것</th><th>발주</th><th>창고 잔여</th></tr></thead><tbody>'
       + rows.map(function (r) {
           return '<tr' + (r.over ? ' style="background:#fff1f2"' : '') + '>'
             + '<td>' + esc(r.wh) + '</td>'
             + '<td class="nm">' + esc(r.name) + (r.ghost ? ' <span class="tag t-hunt">물건없음</span>' : '') + '</td>'
             + '<td>' + r.got + '</td>'
-            + '<td' + (r.over ? ' style="color:#b91c1c;font-weight:800"' : '') + '>' + r.used + '</td>'
+            + '<td' + (r.over ? ' style="color:#b91c1c;font-weight:800"' : '') + '>' + (r.out == null ? '<span class="mut">' + r.used + '</span>' : '<b>' + r.out + '</b>') + '</td>'
+            + '<td' + (r.misfit ? ' style="color:#b45309;font-weight:700"' : ' class="mut"') + '>' + r.used + '</td>'
             + '<td' + (r.rest > 0 ? ' style="font-weight:700"' : '') + '>' + r.rest + '</td>'
             + '<td>' + (r.need == null ? '<span class="mut">—</span>' : r.need) + '</td>'
             + '<td class="mut">' + (r.left == null ? '' : r.left) + '</td>'
@@ -750,8 +770,9 @@
       +   '<button id="qtyb-cprest">📋 안 쓴 것 목록</button></div>';
 
     box.innerHTML = h;
+    el('qtyb-recheck').onclick = function () { checkPaint(); };
     el('qtyb-cpover').onclick = function () {
-      copy(over.map(function (r) { return r.wh + '\t' + r.name + '\t잡음 ' + r.got + '\t사용 ' + r.used + '\t초과 ' + r.over; }).join('\n'), this);
+      copy(over.map(function (r) { return r.wh + '\t' + r.name + '\t잡음 ' + r.got + '\t나감 ' + real(r) + '\t초과 ' + r.over; }).join('\n'), this);
     };
     el('qtyb-cprest').onclick = function () {
       copy(rows.filter(function (r) { return r.rest > 0; })
