@@ -283,15 +283,6 @@
       return r;
     }
 
-    /* 총수량이 0인 줄 — 오늘 안 올라온 상품이다. 잡을 칸이 없으니 대기로도 안 되고
-       관리팀이 총수량을 올려 줘야 한다 → 부족분 전부 증량요청. */
-    if (row.closed && short > 0) {
-      r.more = short;
-      r.act = 'more';
-      r.why = '총수량 0 — 오늘 안 올라온 상품' + (row.leftRaw && !/^\d/.test(row.leftRaw) ? ' (잔여 "' + row.leftRaw + '")' : '');
-      return r;
-    }
-
     if (short <= 0) {
       r.over = mine - need;
       // 마감이 가까운데 잡아만 두고 안 나간 몫 → 풀어야 한다
@@ -308,7 +299,10 @@
       return r;
     }
 
-    var canSet = Math.min(short, row.left);
+    /* 🔴 잔여는 음수로 나올 수 있다 — 총수량보다 많이 잡힌 줄(품절 안 풀림 등)에서 -30 을 봤다.
+       그대로 Math.min 에 넣으면 «-30개 잡기» 가 나온다. 0 으로 바닥을 깐다. */
+    var avail = Math.max(0, row.left);
+    var canSet = Math.min(short, avail);
     if (canSet > 0) r.set = canSet;
     var rest = short - canSet;                 // 잔여로 못 채우는 몫
     if (rest <= 0) {
@@ -325,7 +319,11 @@
     var hole = Math.max(0, rest - got);        // 아직 못 메운 몫
     r.rest = rest;
     r.hole = hole;
-    var base = '잔여 ' + row.left + '개로 ' + rest + '개 부족';
+    /* 총수량 0 인 줄(오늘 안 올라온 상품)도 여기로 온다 — 증량요청·대기 현황을 봐야 하기 때문이다.
+       예전에는 이 줄을 먼저 잘라 증량요청으로 보냈다가, 이미 «거부» 맞은 갑오징어를 또 증량으로 냈다. */
+    var base = row.closed
+      ? ('총수량 0 — 오늘 안 올라온 상품' + (row.left < 0 ? ' (잔여 ' + row.left + ')' : ''))
+      : ('잔여 ' + row.left + '개로 ' + rest + '개 부족');
 
     if (mo && mo.no && wa && wa.pend) {
       // 갓성비 암게 꼴 — 증량은 까였고 대기는 걸어 뒀지만 아직 못 받았다
