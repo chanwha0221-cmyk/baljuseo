@@ -234,6 +234,9 @@
     return fetch(useUrl() + '?' + p.toString(), { credentials: 'same-origin' })
       .then(function (r) { return r.text(); })
       .then(function (html) {
+        /* 🔴 로그인이 풀리면 창고 대신 «로그인 화면» 이 돌아온다 — 줄이 0개라 조용히 «상품 없음» 이 되고,
+           대조가 전부 «못 찾음» 으로 나온다(2026-09-28 21:18 실측). 그 자리에서 알아채고 알린다. */
+        if (/type="password"/.test(html)) throw new Error('LOGOUT');
         var doc = new DOMParser().parseFromString(html, 'text/html');
         var rows = [];
         siteRows(doc).forEach(function (tr) {
@@ -930,7 +933,7 @@
   function scanChips(cs) {
     if (!cs.length) { stat('창고 칩을 못 찾음'); return Promise.resolve(); }
     IDX = {};
-    var n = 0, dup = 0, done = 0, fail = [];
+    var n = 0, dup = 0, done = 0, fail = [], loggedOut = false;
     var t0 = Date.now();
     stat('긁는 중 0/' + cs.length);
 
@@ -942,7 +945,8 @@
           if (IDX[r.key]) { dup++; return; }   // 이름이 같으면 첫 것만 — 수량 웹도 이름중복은 건너뛴다
           IDX[r.key] = r; n++;
         });
-      }).catch(function () {
+      }).catch(function (e) {
+        if (e && e.message === 'LOGOUT') loggedOut = true;
         fail.push(c.label || c.tab);           // 한 창고가 실패해도 나머지는 긁는다
       }).then(function () {
         done++;
@@ -956,6 +960,11 @@
     for (var i = 0; i < LANES; i++) lanes.push(take(q));
     return Promise.all(lanes).then(function () {
       LASTWH = cs.map(function (c) { return c.label; });
+      if (loggedOut) {
+        stat('🔒 로그인이 풀렸습니다');
+        throw new Error('수량 웹 로그인이 풀렸습니다.\n\n이 화면에서 다시 로그인한 뒤 눌러 주세요.\n'
+          + '(그냥 두면 상품을 하나도 못 찾아 전부 «못 채운 것» 으로 나옵니다)');
+      }
       stat('전체 ' + n + '줄 · ' + hhmm() + ' 기준'
         + (dup ? ' · 이름중복 ' + dup + '건' : '')
         + (fail.length ? ' · ⚠️ 못 읽은 창고 ' + fail.join(',') : '')
@@ -980,6 +989,13 @@
 
     var go = haveIdx() ? Promise.resolve() : scanAll();
     return go.then(function () { return loadMy(); }).then(function () {
+      /* 창고를 하나도 못 읽었으면 대조를 하지 않는다 — 하면 전부 «못 찾음» 으로 나와
+         그 목록이 그대로 「재고 없음」 으로 갈 뻔한다(2026-09-28). */
+      if (!haveIdx()) {
+        el('qtyb-out').innerHTML = '<div class="hunt">🔒 창고를 하나도 못 읽었습니다 — 대조하지 않았습니다.<br>'
+          + '수량 웹 로그인이 풀렸는지 보고, 다시 로그인한 뒤 [🔄 창고 전부 긁기] 를 눌러 주세요.</div>';
+        return;
+      }
       var hits = [], miss = [];
       keys.forEach(function (k) {
         var row = IDX[k];
