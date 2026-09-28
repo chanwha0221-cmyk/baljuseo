@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.134</title>
+<title>마스터 유통 카탈로그 v23.135</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -2629,8 +2629,10 @@ function renderChange(d){
   /* 🟠 살구색 안내는 뺐다 (2026-09-28 홍팀장) — 유통시트 셀 색을 읽던 시절 표시였는데
      이제 변동사항 원본이 masterc 라 그 색 자체가 없다. */
   if(d.notes.length)h+='<div class="note" style="display:block;margin-top:11px">'+d.notes.map(esc).join('<br>')+'</div>';
-  // 🚫 예외 상품은 변동 목록에서도 뺀다 — 업체가 보고 "이거 되나요" 문의가 온다 (홍팀장 2026-08-28)
-  if(!amMasterC())d={notes:d.notes,items:d.items.filter(it=>!isExc(it.name))};
+  /* 🚫 예외 상품은 변동 목록에서도 뺀다 — 업체가 보고 "이거 되나요" 문의가 온다 (홍팀장 2026-08-28)
+     🔴 단 **품절은 남긴다** (2026-09-28 홍팀장 "변동사항에도 품절상품이라고 알려줘야 사람들이 품절처리를 하지").
+        품절은 업체가 보고 자기 몰에서 내려야 하는 정보다. 감추는 건 우리 쪽 사정(수량 적음)뿐이다. */
+  if(!amMasterC())d={notes:d.notes,items:d.items.filter(it=>!isExc(it.name)||mcExcWhy(it.name)==='품절'||/품절|마감/.test(it.kind||''))};
   if(!d.items.length)return h+'<div class="empty">변동사항이 없습니다.</div>';
   const order=[],by={};
   d.items.forEach(it=>{const k=it.day||'날짜 미기재';if(!by[k]){by[k]=[];order.push(k);}by[k].push(it);});
