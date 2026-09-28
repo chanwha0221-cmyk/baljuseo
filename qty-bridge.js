@@ -100,7 +100,12 @@
       editable: !!mineCell,
       free: free,
       // 총수량 0 인 줄은 오늘 못 파는 줄이다(수량 웹도 [한꺼번에]에서 건너뛴다) — 단 「넉넉」은 빼고.
-      closed: total <= 0 && !free
+      closed: total <= 0 && !free,
+      /* 🚫 상품명에 창고가 「품절 안 풀림」 이라 적어 둔 줄 — 오늘은 안 나온다는 뜻이다.
+         대기를 걸어 봐야 남이 풀 물건 자체가 없다 → 증량요청으로 빨리 찔러 보고, 거부되면 포기한다
+         (홍팀장 2026-09-28 : 「안풀림 애들은 오늘 안나온다는 거거든, 증량 요청 올려서 빠르게
+          확인해 보고 안되면 포기하는게 맞아」). */
+      stuck: /안\s*풀림/.test(name)
     };
   }
 
@@ -390,9 +395,13 @@
       r.why = base + ' · 증량 거부 + 대기 ' + wa.qty + '개 걸어 둠(아직 못 받음)'
         + (mo.ans ? ' · 「' + mo.ans + '」' : '');
     } else if (mo && mo.no) {
-      // 증량은 막혔다 → 소량이면 대기로 돌리고, 많으면 따로 구해야 한다
-      if (hole <= WAIT_MAX) { r.wait = hole; r.act = 'wait'; r.why = base + ' · 증량 거부됨 → 대기로'; }
-      else { r.hunt = hole; r.act = 'hunt'; r.why = base + ' · 증량 거부됨' + (mo.ans ? ' 「' + mo.ans + '」' : ''); }
+      /* 증량은 막혔다 → 소량이면 대기로 돌린다. 다만 «안 풀림» 줄은 대기가 무의미하다
+         (남이 풀 물건 자체가 없다) → 바로 포기하고 따로 구한다. */
+      if (!row.stuck && hole <= WAIT_MAX) { r.wait = hole; r.act = 'wait'; r.why = base + ' · 증량 거부됨 → 대기로'; }
+      else {
+        r.hunt = hole; r.act = 'hunt';
+        r.why = base + ' · 증량 거부됨' + (row.stuck ? ' · 오늘 안 나오는 줄' : '') + (mo.ans ? ' 「' + mo.ans + '」' : '');
+      }
     } else if (mo && mo.pend) {
       r.act = 'moreP';
       r.why = base + ' · 증량 ' + mo.qty + '개 요청해 두고 답 기다림';
@@ -402,6 +411,12 @@
     } else if (dr && /당첨/.test(dr.state)) {
       r.act = 'waitP';
       r.why = base + ' · 사다리 당첨 — 들어온 수량 확인';
+    } else if (row.stuck) {
+      /* 「품절 안 풀림」 — 오늘 안 나온다. 대기는 기다릴 물건이 없으니 헛일이다.
+         개수와 상관없이 증량요청으로 빨리 물어보고, 거부되면 그때 포기한다. */
+      r.more = hole;
+      r.act = r.set ? 'set+more' : 'more';
+      r.why = base + ' · 오늘 안 나오는 줄 — 대기 말고 증량요청으로 확인';
     } else {
       // 아직 아무것도 안 걸었다 → 원래 규칙 (5개까지는 대기, 넘으면 증량요청)
       if (hole <= WAIT_MAX) { r.wait = hole; r.act = r.set ? 'set+wait' : 'wait'; }
