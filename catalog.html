@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.133</title>
+<title>마스터 유통 카탈로그 v23.134</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -963,6 +963,16 @@ function applyMc(groups){
      그때 딸깍 알림창이 «수량 늘었다»고 알려준다. 당일은 buildDayGroup 이 따로 채운다(등록 토글 기준). */
   MCEXC=new Map();
   mc.forEach(p=>{if(p&&p.n&&p.low)MCEXC.set(pkey(p.n),'수량적음');});
+  /* 🚫 품절은 품절로 떨군다 — **마스터에게만 보인다** (2026-09-28 홍팀장).
+     변동사항이 최신순이라 상품마다 처음 만나는 것이 가장 최근 변동이다.
+     그게 품절류면 지금 품절, 재입고·출시면 다시 살아난 것이니 건드리지 않는다. */
+  const seen={};
+  ((SNAP&&SNAP.mcChg)||[]).forEach(r=>{
+    if(!r||!r.name)return;
+    const k=pkey(r.name);
+    if(seen[k])return; seen[k]=1;
+    if(/품절|마감/.test(r.kind||''))MCEXC.set(k,'품절');
+  });
   let hit=0;
   groups.forEach(g=>(g.products||[]).forEach(p=>{
     const r=m[pkey(p.name)];if(!r)return;hit++;
@@ -1647,6 +1657,7 @@ function card(p,extra,top,foot){
     // 🚫 예외로 뺀 상품은 담을 수 없다 — 대신 발주로도 못 나가게 (홍팀장 2026-08-28)
     +(p.exc?'<div class="excnote">'+(mcExcWhy(p.name)==='꺼둠'?'🔌 꺼둠 — 관리화면(#daily)에서 꺼져 있어 업체 화면에 안 나갑니다 (켜고 다시 동기화하면 나갑니다)'
                                     :mcExcWhy(p.name)==='수량적음'?'📦 수량 적음 — 잔여 10개 미만이라 감춰져 있습니다 (수량이 차면 다음 동기화에 저절로 돌아옵니다)'
+                                    :mcExcWhy(p.name)==='품절'?'🚫 품절 — 변동사항에 품절로 올라와 감춰져 있습니다 (재입고되면 저절로 돌아옵니다)'
                                     :'🚫 예외 — 업체 화면에서 감춰져 있습니다')+'</div>'
              /* 🔔 감춰둔 사이에 시트가 움직였으면 마스터에게 알린다 — 계속 감출지 여기서 정한다 */
              +(amMasterC()&&excMoved(p)
@@ -2615,8 +2626,8 @@ function chgCard(it){
 const CHG_DAYS=3;
 function renderChange(d){
   let h=subHead('📊 상품변동사항','최근 '+CHG_DAYS+'일 동안의 출시 · 재입고 · 품절 · 가격 변동입니다. 오늘 판매에 참고하세요.');
-  h+='<div class="hotnote">🟠 <b>살구색으로 표시된 상품</b>은 조업은 되고 있지만 <b>입고량이 일정하지 않은 상품</b>입니다.<br>'
-   +'상시 판매(고정 등록)보다는 <b>그날그날 수량을 확인하고 판매</b>해 주세요. 카탈로그에서도 같은 색으로 표시됩니다.</div>';
+  /* 🟠 살구색 안내는 뺐다 (2026-09-28 홍팀장) — 유통시트 셀 색을 읽던 시절 표시였는데
+     이제 변동사항 원본이 masterc 라 그 색 자체가 없다. */
   if(d.notes.length)h+='<div class="note" style="display:block;margin-top:11px">'+d.notes.map(esc).join('<br>')+'</div>';
   // 🚫 예외 상품은 변동 목록에서도 뺀다 — 업체가 보고 "이거 되나요" 문의가 온다 (홍팀장 2026-08-28)
   if(!amMasterC())d={notes:d.notes,items:d.items.filter(it=>!isExc(it.name))};
