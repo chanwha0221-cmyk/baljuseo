@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>마찬 → 카탈로그 딸깍 v1.5</title>
+<title>마찬 → 카탈로그 딸깍 v1.6</title>
 <style>
 :root{--bg:#f6f8f7;--card:#fff;--ink:#16211c;--muted:#6b7a72;--line:#e3e9e5;--accent:#2d6a4f;--accent-d:#1f4d39;--warn:#c0392b}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#5fa583;--accent-d:#8fd0ae}}
@@ -85,9 +85,13 @@ var CODE=[
 "  if(!L.ok){alert('상품리스트를 읽지 못했습니다 — masterc 로그인을 확인해주세요.');return;}",
 "  var items=(L.items||[]).map(function(p){return{n:p.n,nk:p.nk,srl:p.srl,img:p.img,price:p.price,wh:p.wh,grp:p.grp,ship:p.ship,ship_n:p.ship_n,tax:p.tax,courier:p.courier,cut:p.cut,exp:p.exp,stock:p.stock,bund:p.bund,k:p.k};});",
 "  var costs=(C&&C.ok?(C.rows||[]):[]).map(function(r){return{n:r.n,sell:r.sell,cost:r.cost,base:r.base,margin:r.margin,how:r.how,remain:r.remain};});",
-"  var r=await fetch('"+API+"',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'mcpush',key:'"+KEY+"',items:items,costs:costs})});",
+/* 📋 변동사항도 같이 — 우리가 취급하는 것(mine)만 카탈로그에 나간다 */
+"  var G=null; try{G=await (await fetch('/xd/api.php?mid=machan_chg&a=changes&days=14')).json();}catch(e){}",
+"  var chg=(G&&G.ok?(G.rows||[]):[]).filter(function(r){return r.mine;})",
+"    .map(function(r){return{ap:r.ap,d:r.d,raw:r.raw,k:r.k,sale:r.sale,wh:r.wh,n:r.n,p:r.p,cou:r.cou,ship:r.ship,tax:r.tax,spec:r.spec,memo:r.memo,stock:r.stock};});",
+"  var r=await fetch('"+API+"',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'mcpush',key:'"+KEY+"',items:items,costs:costs,chg:chg})});",
 "  var j=await r.json();",
-"  alert(j.ok?('카탈로그로 보냈습니다\\n\\n상품 '+j.count+'개 · 원가 '+(j.costs||0)+'개\\n카탈로그를 새로고침하면 반영됩니다.'):('보내지 못했습니다\\n'+(j.error||'')));",
+"  alert(j.ok?('카탈로그로 보냈습니다\\n\\n상품 '+j.count+'개 · 원가 '+(j.costs||0)+'개 · 변동사항 '+(j.chg||0)+'건\\n카탈로그를 새로고침하면 반영됩니다.'):('보내지 못했습니다\\n'+(j.error||'')));",
 " }catch(e){alert('보내지 못했습니다 — '+(e&&e.message?e.message:e));}",
 "})()"
 ].join('');

@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.131</title>
+<title>마스터 유통 카탈로그 v23.132</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -2101,6 +2101,14 @@ function subHead(t,s){
 // 값뿐 아니라 셀 배경색까지 읽는다 — 살구색(#fce5cd) 칠은 '입고 불안정' 표시라서
 // 화면에도 그대로 옮겨야 한다 (사장님 2026-08-12).
 async function loadChanges(){
+  /* 🛰 masterc 상품변동사항이 원본이다 (2026-09-28 홍팀장 — 상시 딸깍 때 같이 들어온다).
+     서버가 카탈로그 카드 칸 이름에 맞춰 넘겨주므로 그대로 쓴다. 없으면 예전대로 유통시트를 읽는다. */
+  const mcc=(SNAP&&SNAP.mcChg)||null;
+  if(mcc&&mcc.length){
+    return {notes:[],items:mcc.map(r=>({src:'',day:r.day||'',kind:r.kind||'',freq:r.freq||'',wh:r.wh||'',
+      name:r.name||'',price:(r.price==null?'':String(r.price)),courier:r.courier||'',ship:r.ship||'',
+      tax:r.tax||'',memo:r.memo||'',hot:!!r.hot}))};
+  }
   let j=SNAP&&SNAP.chg;
   if(!j){
     const token=await getAccessToken();
