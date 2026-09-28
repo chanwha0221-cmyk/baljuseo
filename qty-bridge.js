@@ -373,6 +373,16 @@
     });
   }
 
+  /* 지금 화면에 창고가 여러 곳 섞여 있나 — 전체 창고 탭은 200줄에서 끊기니 붙여넣기에 못 쓴다. */
+  function mixedView() {
+    var whs = {}, n = 0;
+    [].forEach.call(document.querySelectorAll('tbody tr'), function (tr) {
+      var w = ctext(tr, 'wh');
+      if (w && !whs[w]) { whs[w] = 1; n++; }
+    });
+    return n > 1;
+  }
+
   var TAG = {
     set: ['t-set', '잡기'], 'set+wait': ['t-wait', '잡기+대기'], 'set+more': ['t-more', '잡기+증량'],
     wait: ['t-wait', '대기'], more: ['t-more', '증량요청'],
@@ -424,23 +434,38 @@
       '<button id="qtyb-cpw">📋 대기 목록</button>' +
       '<button id="qtyb-cpm">📋 증량요청 목록</button></div>' +
       '<div class="mut" style="margin-top:5px">숫자열은 <b>지금 보이는 표 순서</b>에 맞춥니다 — 복사한 뒤 정렬·필터·창고를 바꾸지 마시고, ' +
-      '첫 줄 마찬 칸을 누른 다음 Ctrl+V 하십시오.</div>';
+      '첫 줄 마찬 칸을 누른 다음 Ctrl+V 하십시오. 대상이 아닌 줄은 <b>지금 값 그대로</b> 채워 두므로 남의 줄이 풀리지 않습니다.</div>' +
+      (mixedView() ? '<div class="warn">⚠️ 지금은 창고가 섞인 화면입니다 — 전체 창고 탭은 200줄에서 끊깁니다. ' +
+        '붙여넣기는 <b>창고 탭을 하나 열고</b> 하십시오.</div>' : '');
 
     el('qtyb-out').innerHTML = h;
 
     var byKey = {};
     hits.forEach(function (x) { byKey[x.row.key] = x; });
 
+    /* 📋 숫자열 — 지금 화면 줄 순서 그대로 세로 한 줄.
+       🔴 빈 칸을 붙여넣으면 그 줄은 «풀린다»(수량 웹: 비우고 저장하면 풀림).
+          그래서 대조 대상이 아닌 줄은 빈 칸이 아니라 «지금 잡고 있는 값 그대로» 채운다 —
+          그래야 붙여넣기가 남의 줄(내가 이미 잡아 둔 다른 상품)을 풀어 버리지 않는다.
+          아직 안 잡은 줄(0)만 빈 칸으로 둔다(빈 칸 → 빈 칸이라 변화가 없다). */
     el('qtyb-cp').onclick = function () {
-      var col = [], n = 0;
+      var col = [], hit = 0, seen = {};
       [].forEach.call(document.querySelectorAll('tbody tr'), function (tr) {
         var o = readRow(tr, '');
         if (!o) return;
         var x = byKey[o.key];
-        if (x && (x.set || x.need)) { col.push(String(x.mine + x.set)); n++; }
-        else col.push('');
+        if (x) { col.push(String(x.mine + x.set)); hit++; seen[o.key] = 1; }
+        else col.push(o.mine > 0 ? String(o.mine) : '');
       });
-      copy(col.join('\n'), this, n + '줄');
+      var missing = hits.filter(function (x) { return !seen[x.row.key]; });
+      var note = hit + '줄';
+      if (missing.length) {
+        note += ' · 이 화면에 없는 ' + missing.length + '건은 그 창고 탭에서';
+        alert('이 화면에 없는 대상 ' + missing.length + '건은 빠집니다 — 해당 창고 탭을 열고 다시 복사하십시오.\n\n'
+          + missing.slice(0, 12).map(function (x) { return '· ' + x.row.wh + ' / ' + x.row.name; }).join('\n')
+          + (missing.length > 12 ? '\n…' : ''));
+      }
+      copy(col.join('\n'), this, note);
     };
     el('qtyb-cpw').onclick = function () {
       copy(hits.filter(function (x) { return x.wait; })
