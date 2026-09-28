@@ -936,6 +936,7 @@ table.olist td.ad input.ein{min-width:230px}
 .ackline .ackno{color:var(--up);font-weight:800}
 .ordb2.ackb{margin-left:auto;border-color:var(--accent);color:var(--accent-d);font-weight:800}
 .ordb2.ackb:hover{background:var(--accent);color:#fff}
+.badnow{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:800;color:#fff;background:#c0392b;padding:2px 7px;border-radius:5px;white-space:nowrap}
 .ordb2.ocpb{margin-left:auto;padding:6px 12px;font-size:12px}
 .ordb2.ocpb + .ordb2.ackb{margin-left:0}
 `;
@@ -2247,7 +2248,7 @@ function orderCard(no, list, master){
                   ? '<input type="checkbox" class="ordpick" data-no="' + esc(no) + '" data-seq="' + esc(String(r.seq)) + '"' + (ed ? ' checked' : '') + '>'
                   : (done ? '<span class="lock" title="당일 시트로 넘어가 고치거나 취소할 수 없습니다">🔒</span>' : '')) + '</td>'
               + (master ? '<td>' + esc(r.biz) + '</td>' : '')
-              + '<td class="pd">' + (ed ? qtyCells(no, r) : esc(r.prod)) + '</td>'
+              + '<td class="pd">' + (ed ? qtyCells(no, r) : (esc(r.prod) + badNow(r.prod))) + '</td>'
               + cell('rcv') + cell('addr', 'ad') + cell('tel', 'tl') + cell('msg')
               + '</tr>';
           }).join('')
@@ -2461,6 +2462,35 @@ function popHide(){ const p = document.getElementById('ordpop'); if(p) p.remove(
 /* ⛔ 발주 안 받는 업체(빅피쉬마켓, 홍팀장 2026-09-22) — 업체 화면엔 아무 티도 안 낸다. 마스터 화면에만 빨간 딱지,
    당일 시트로 보내면 서버(index.ts NO_TAKE)가 그 줄을 빨갛게 칠한다. 두 곳 같이 고칠 것. */
 const NO_TAKE = /빅피쉬/;
+
+/* 🚨 «지금은 못 파는 상품인데 발주가 넘어온 것» 을 마스터 화면에서 잡는다 (2026-09-28 홍팀장
+   "젤 중요한 건 발주가 안 되어야 하는 상품인데 발주가 넘어온다던지 하는 것들 체크하는 거").
+   카탈로그에서 감추는 것과 발주가 들어오는 것은 **다른 자리**다 — 감추기 전에 담아둔 것,
+   파일·붙여넣기로 이름을 직접 적은 것, 어제부터 열어둔 탭에서 넣은 것은 그대로 들어온다.
+   그래서 «지금 상태»로 다시 보고 딱지를 붙인다. 발주를 막지는 않는다 — 보고 판단하는 건 사람이다.
+   ⚠️ 합포장 줄은 ` / ` 로 여러 상품이 묶여 있어 낱개로 쪼개서 본다. */
+function badNow(prod) {
+  try {
+    if (!ME || !ME.master) return '';                       // 마스터에게만 보인다
+    const why = (typeof mcExcWhy === 'function') ? mcExcWhy : null;
+    const isX = (typeof isExc === 'function') ? isExc : null;
+    if (!why && !isX) return '';
+    const tags = [];
+    String(prod || '').split(' / ').forEach((part) => {
+      const nm = String(part).replace(/\s*[xX×]\s*\d+\s*$/, '').trim();
+      if (!nm) return;
+      const w = why ? why(nm) : '';
+      if (w === '수량적음') tags.push('📦 소량');
+      else if (w === '품절') tags.push('🚫 품절');
+      else if (w === '꺼둠') tags.push('🔌 꺼둠');
+      else if (isX && isX(nm)) tags.push('🚫 예외');
+    });
+    if (!tags.length) return '';
+    const uniq = tags.filter((t, i) => tags.indexOf(t) === i);
+    return ' <span class="badnow" title="지금은 못 파는 상품인데 발주가 들어왔습니다 — 확인이 필요합니다">'
+         + uniq.join(' ') + '</span>';
+  } catch (e) { return ''; }
+}
 function popShow(groups, total){
   css();                                   // 발주 화면을 안 거쳐도 스타일이 있어야 한다
   popHide();
