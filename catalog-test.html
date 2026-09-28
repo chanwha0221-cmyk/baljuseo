@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.125</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.126</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1009,9 +1009,15 @@ function parseGrid(grid){
     if(products.length)groups.push({wh:(RENAME[name]||name),products,mixed});
   }
   applyMc(groups);
+  /* 🚫 당일생물 내리기 (2026-09-28 홍팀장 "당일은 지금 일단 다 내려")
+     masterc 상품리스트에 당일상품이 안 올라와서(오늘 기준 0건) 이 탭만 백데이터를 못 받는다.
+     단가·마감이 낡은 채로 업체에 보이면 그게 사고라 아예 안 보이게 한다.
+     되돌리려면 DAY_OFF 를 false 로. */
+  const DAY_OFF=true;
+  const out=DAY_OFF?groups.filter(g=>!/당일/.test(g.wh)):groups;
   // 당일생물을 맨 앞으로
-  groups.sort((a,b)=>(a.wh==='당일생물'?-1:0)-(b.wh==='당일생물'?-1:0));
-  return groups;
+  out.sort((a,b)=>(a.wh==='당일생물'?-1:0)-(b.wh==='당일생물'?-1:0));
+  return out;
 }
 // 사진·스펙 캐시는 도구시트 '상품이미지_v2' 탭 — media-updater(북마클릿)가 갱신한다.
 // 상품명 기준으로 찾는다(유통시트 하이퍼링크는 낡은 게 섞여 있어 id로 맞추면 어긋남 — 2026-08-07).
