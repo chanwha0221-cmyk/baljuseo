@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>마찬 → 카탈로그 딸깍 v1.6</title>
+<title>마찬 → 카탈로그 딸깍 v1.7</title>
 <style>
 :root{--bg:#f6f8f7;--card:#fff;--ink:#16211c;--muted:#6b7a72;--line:#e3e9e5;--accent:#2d6a4f;--accent-d:#1f4d39;--warn:#c0392b}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#5fa583;--accent-d:#8fd0ae}}
@@ -91,7 +91,11 @@ var CODE=[
 "    .map(function(r){return{ap:r.ap,d:r.d,raw:r.raw,k:r.k,sale:r.sale,wh:r.wh,n:r.n,p:r.p,cou:r.cou,ship:r.ship,tax:r.tax,spec:r.spec,memo:r.memo,stock:r.stock};});",
 "  var r=await fetch('"+API+"',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'mcpush',key:'"+KEY+"',items:items,costs:costs,chg:chg})});",
 "  var j=await r.json();",
-"  alert(j.ok?('카탈로그로 보냈습니다\\n\\n상품 '+j.count+'개 · 원가 '+(j.costs||0)+'개 · 변동사항 '+(j.chg||0)+'건\\n카탈로그를 새로고침하면 반영됩니다.'):('보내지 못했습니다\\n'+(j.error||'')));",
+/* 🔔 «수량 적어서 뺐는데 다시 찼다» 는 맨 앞에 띄운다 — 이걸 보고 다시 민다(홍팀장 2026-09-28) */
+"  var bk=(j.back||[]);",
+"  var msg=j.ok?('카탈로그로 보냈습니다\\n\\n상품 '+j.count+'개 · 원가 '+(j.costs||0)+'개 · 변동사항 '+(j.chg||0)+'건\\n수량 적어 뺀 상품 '+(j.low||0)+'개(잔여 10개 미만)\\n카탈로그를 새로고침하면 반영됩니다.'):('보내지 못했습니다\\n'+(j.error||''));",
+"  if(j.ok&&bk.length)msg='🔔 수량이 다시 찼습니다 — '+bk.length+'개\\n'+bk.slice(0,15).map(function(x){return '· '+x.n+' (잔여 '+x.remain+')';}).join('\\n')+(bk.length>15?'\\n…':'')+'\\n\\n'+msg;",
+"  alert(msg);",
 " }catch(e){alert('보내지 못했습니다 — '+(e&&e.message?e.message:e));}",
 "})()"
 ].join('');
