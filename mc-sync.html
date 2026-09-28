@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>마찬 → 카탈로그 딸깍 v1.1</title>
+<style>
+:root{--bg:#f6f8f7;--card:#fff;--ink:#16211c;--muted:#6b7a72;--line:#e3e9e5;--accent:#2d6a4f;--accent-d:#1f4d39;--warn:#c0392b}
+@media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#5fa583;--accent-d:#8fd0ae}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif;line-height:1.65}
+.wrap{max-width:760px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:23px;margin:0 0 6px}
+.sub{color:var(--muted);font-size:14px;margin-bottom:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 20px 22px;margin-bottom:16px}
+.card h2{font-size:16px;margin:0 0 4px}
+.card .d{color:var(--muted);font-size:13.5px;margin-bottom:14px}
+.bm{display:inline-block;padding:13px 22px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:15px;text-decoration:none;cursor:grab}
+.bm:active{cursor:grabbing}
+.steps{margin:14px 0 0;padding-left:20px;font-size:14px}
+.steps li{margin:5px 0}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:13px;overflow:auto;font-size:12px;margin:10px 0 0;white-space:pre-wrap;word-break:break-all}
+.copy{margin-top:9px;padding:9px 15px;border:1.5px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+.copy:hover{border-color:var(--accent);color:var(--accent)}
+.copy.done{background:var(--accent);border-color:var(--accent);color:#fff}
+.note{font-size:13px;color:var(--muted);margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.warn{color:var(--warn);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>마찬 → 카탈로그 딸깍</h1>
+  <div class="sub">masterc 채널관리의 상품·원가를 카탈로그로 한 번에 보냅니다. <b>masterc에 로그인된 창</b>에서 눌러야 합니다.</div>
+
+  <div class="card">
+    <h2>① 북마크로 쓰기 (추천)</h2>
+    <div class="d">아래 초록 버튼을 <b>북마크바로 끌어다 놓으세요.</b> 그다음부터는 masterc 아무 화면에서나 북마크를 누르면 끝입니다.</div>
+    <a class="bm" id="bm" href="#">📤 카탈로그로 보내기</a>
+    <ol class="steps">
+      <li>이 버튼을 브라우저 <b>북마크바</b>에 드래그 (북마크바가 없으면 <b>Ctrl+Shift+B</b>)</li>
+      <li><b>masterc.kr</b> 에 로그인된 탭으로 이동</li>
+      <li>북마크 <b>[📤 카탈로그로 보내기]</b> 클릭 → 결과 알림창 확인</li>
+    </ol>
+    <div class="note">보내는 것 — 상품리스트(사진·단가·택배·마감·유통기한·합배송)와 관리 원가표(원가·마진·잔여)입니다.
+      카탈로그는 <b>단가·택배비·택배사·면과세·마감시간·유통기한·사진</b>을 이 값으로 덮어씁니다.
+      <span class="warn">원가·마진은 마스터 로그인에만 내려가고 업체 화면엔 안 실립니다.</span></div>
+  </div>
+
+  <div class="card">
+    <h2>② masterc 페이지에 박아두기</h2>
+    <div class="d">아래 한 줄을 <b>machan_admin(관리) 페이지</b>의 「페이지 수정」 본문 맨 아래에 붙이면, 관리 화면 오른쪽 아래에 버튼이 늘 떠 있습니다.
+      <span class="warn">판매사가 보는 machan_list 에는 넣지 마세요</span> — 키가 업체에게 보입니다.</div>
+    <pre id="snip"></pre>
+    <button class="copy" id="cp">📋 복사</button>
+  </div>
+
+  <div class="card">
+    <h2>확인하는 곳</h2>
+    <div class="d">보낸 뒤 카탈로그를 새로고침하면 반영됩니다(서버 사본이 즉시 다시 구워집니다).</div>
+    <ol class="steps">
+      <li><a href="catalog.html" target="_blank">카탈로그 열기</a> — 단가·사진이 masterc 값인지</li>
+      <li>안 맞으면 콘솔에 <code>MCHIT</code> 을 찍어 보세요. 덮어쓴 상품 수입니다.</li>
+      <li>전부 끄려면 서버 설정 <code>MC_ON</code> 을 <code>0</code> 으로 (그러면 예전 유통시트 값으로 돌아갑니다).</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+/* 🛰 masterc 채널관리 → 우리 Supabase 로 상품·원가를 밀어넣는다 (2026-09-28 홍팀장).
+   masterc API 는 로그인 세션이 있어야 읽히고 CORS 도 없다 → 반드시 masterc 창 안에서 돈다. */
+var KEY='mc-zq3px7mypqwbfs3cfkjg';
+var API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
+var CODE=[
+"(async function(){",
+" if(location.host.indexOf('masterc')<0){alert('masterc.kr 에 로그인된 창에서 눌러주세요.');return;}",
+" try{",
+"  var L=await (await fetch('/xd/api.php?mid=machan_list&a=list')).json();",
+"  var C=await (await fetch('/xd/api.php?mid=machan_admin&a=cost')).json();",
+"  if(!L.ok){alert('상품리스트를 읽지 못했습니다 — masterc 로그인을 확인해주세요.');return;}",
+"  var items=(L.items||[]).map(function(p){return{n:p.n,nk:p.nk,srl:p.srl,img:p.img,price:p.price,wh:p.wh,grp:p.grp,ship:p.ship,ship_n:p.ship_n,tax:p.tax,courier:p.courier,cut:p.cut,exp:p.exp,stock:p.stock,bund:p.bund,k:p.k};});",
+"  var costs=(C&&C.ok?(C.rows||[]):[]).map(function(r){return{n:r.n,sell:r.sell,cost:r.cost,base:r.base,margin:r.margin,how:r.how,remain:r.remain};});",
+"  var r=await fetch('"+API+"',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'mcpush',key:'"+KEY+"',items:items,costs:costs})});",
+"  var j=await r.json();",
+"  alert(j.ok?('카탈로그로 보냈습니다\\n\\n상품 '+j.count+'개 · 원가 '+(j.costs||0)+'개\\n카탈로그를 새로고침하면 반영됩니다.'):('보내지 못했습니다\\n'+(j.error||'')));",
+" }catch(e){alert('보내지 못했습니다 — '+(e&&e.message?e.message:e));}",
+"})()"
+].join('');
+document.getElementById('bm').href='javascript:'+encodeURIComponent(CODE);
+var SNIP='<script>(function(){if(location.pathname.indexOf("machan_admin")<0)return;var b=document.createElement("button");b.textContent="\u{1F4E4} 카탈로그로 보내기";b.style.cssText="position:fixed;right:18px;bottom:18px;z-index:99999;padding:12px 18px;border-radius:10px;border:0;background:#1a73e8;color:#fff;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)";b.onclick=function(){var o=b.textContent;b.disabled=true;b.textContent="보내는 중…";Promise.resolve().then(function(){return '+JSON.stringify(CODE)+'}).then(function(c){return eval(c)}).catch(function(e){alert(e.message)}).then(function(){b.disabled=false;b.textContent=o});};document.body.appendChild(b);})();<\/script>';
+document.getElementById('snip').textContent=SNIP;
+document.getElementById('cp').addEventListener('click',function(){
+  var b=this;
+  navigator.clipboard.writeText(SNIP).then(function(){b.textContent='✓ 복사됨';b.classList.add('done');setTimeout(function(){b.textContent='📋 복사';b.classList.remove('done');},1600);},
+    function(){b.textContent='복사 실패';});
+});
+</script>
+</body>
+</html>
