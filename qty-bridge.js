@@ -405,18 +405,19 @@
     } else if (mo && mo.pend) {
       r.act = 'moreP';
       r.why = base + ' · 증량 ' + mo.qty + '개 요청해 두고 답 기다림';
+    } else if (row.stuck) {
+      /* 🔴 「품절 안 풀림」 은 대기보다 먼저 본다 — 대기를 이미 걸어 뒀어도 기다릴 물건이 없다.
+         증량요청으로 빨리 물어보는 것이 맞다(홍팀장 2026-09-28). */
+      r.more = hole;
+      r.act = r.set ? 'set+more' : 'more';
+      r.why = base + ' · 오늘 안 나오는 줄 — 대기 말고 증량요청으로 확인'
+        + (wa && wa.pend ? (' (대기 ' + wa.qty + '개는 걸려 있음)') : '');
     } else if (wa && wa.pend) {
       r.act = 'waitP';
       r.why = base + ' · 대기 ' + wa.qty + '개 걸어 둠' + (got ? (' · ' + got + '개 받음') : '');
     } else if (dr && /당첨/.test(dr.state)) {
       r.act = 'waitP';
       r.why = base + ' · 사다리 당첨 — 들어온 수량 확인';
-    } else if (row.stuck) {
-      /* 「품절 안 풀림」 — 오늘 안 나온다. 대기는 기다릴 물건이 없으니 헛일이다.
-         개수와 상관없이 증량요청으로 빨리 물어보고, 거부되면 그때 포기한다. */
-      r.more = hole;
-      r.act = r.set ? 'set+more' : 'more';
-      r.why = base + ' · 오늘 안 나오는 줄 — 대기 말고 증량요청으로 확인';
     } else {
       // 아직 아무것도 안 걸었다 → 원래 규칙 (5개까지는 대기, 넘으면 증량요청)
       if (hole <= WAIT_MAX) { r.wait = hole; r.act = r.set ? 'set+wait' : 'wait'; }
