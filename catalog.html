@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.124</title>
+<title>마스터 유통 카탈로그 v23.125</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -912,6 +912,35 @@ async function loadCatalog(){
   return parseGrid(grid);
 }
 /* 시트에서 온 셀 덩어리를 창고별 상품 목록으로. 스냅샷이든 시트 직접 읽기든 **여기 하나만** 쓴다. */
+/* ══ 🛰 masterc 채널관리가 백데이터 (2026-09-28 홍팀장) ═════════════════════
+   masterc.kr 이 자동화되면서 상품 값이 거기서 자동으로 갱신된다. 서버(Edge)가 그걸 받아
+   스냅샷에 `mc` 로 실어 보내고, 여기서 유통시트 값 위에 덮는다.
+   덮는 것: 단가(웹 판매가) · 택배비 · 택배사 · 면과세 · 마감시간 · 유통기한.
+   🔴 원가·마진은 `mcAdm` 으로 따로 오고 **마스터에게만** 내려온다(서버 catBody 가 거른다).
+   🔴 masterc 에 없는 상품은 손대지 않는다 — 유통시트 값 그대로 둔다.
+   끄려면 app_config `MC_ON` = '0' (서버에서 통째로 빠진다). */
+function applyMc(groups){
+  const mc=(SNAP&&SNAP.mc)||null;
+  if(!mc||!mc.length)return groups;
+  const m={};mc.forEach(p=>{if(p&&p.n)m[pkey(p.n)]=p;});
+  let hit=0;
+  groups.forEach(g=>(g.products||[]).forEach(p=>{
+    const r=m[pkey(p.name)];if(!r)return;hit++;
+    if(r.price>0&&p.price){
+      p.price.cur=r.price;
+      // 이전가가 있으면 방향(인상/인하 표시)을 새 값 기준으로 다시 잡는다
+      p.price.dir=(p.price.old!=null)?(r.price>p.price.old?'up':(r.price<p.price.old?'down':'')):'';
+    }
+    if(typeof r.ship_n==='number')p.ship=r.ship_n;
+    if(r.courier)p.courier=r.courier;
+    if(r.tax)p.tax=r.tax;
+    if(r.cut)p.cut=r.cut;
+    if(r.exp)p.exp=r.exp;
+  }));
+  MCHIT=hit;
+  return groups;
+}
+let MCHIT=0;
 function parseGrid(grid){
   const groups=[];
   for(const sh of (grid.sheets||[])){
@@ -972,6 +1001,7 @@ function parseGrid(grid){
     const mixed=new Set(products.map(p=>p.srcWh).filter(Boolean)).size>1;
     if(products.length)groups.push({wh:(RENAME[name]||name),products,mixed});
   }
+  applyMc(groups);
   // 당일생물을 맨 앞으로
   groups.sort((a,b)=>(a.wh==='당일생물'?-1:0)-(b.wh==='당일생물'?-1:0));
   return groups;

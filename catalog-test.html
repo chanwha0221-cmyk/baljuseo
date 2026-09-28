@@ -15,7 +15,7 @@
     (2026-08-20 사장님 지적) -> 잠그는 방식도 영구 폐기.
 
  그래서 크롬 자동완성이 손댈 수 없는 contenteditable 로 바꿨다 (2026-08-20).
- ※ 여기에 버전(v2.x)을 적지 말 것 — deploy.ps1 이 배포마다 <title>🧪 [테스트본]  버전을 파일 전체에서
+ ※ 여기에 버전(v2.x)을 적지 말 것 — deploy.ps1 이 배포마다 <title> 버전을 파일 전체에서
     치환해서, 적어두면 그 숫자가 매번 따라 올라가 언제 고친 건지 알 수 없게 된다.
  다른 코드가 쓰는 q.value / q.value='' 는 스크립트의 value 어댑터
  (Object.defineProperty)가 그대로 받아준다 - 호출부는 예전 그대로 두면 된다.
@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.124</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.125</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -431,8 +431,7 @@ body.pending .noteTg,body.pending .note,body.pending #sub,body.pending .acct{dis
   .ubtn{font-size:10.5px;padding:4px 8px}
 }
 
-
-/* 🧪 테스트본 표시 — 실사이트(catalog.html)와 절대 혜갈리면 안 된다 */
+/* 🧪 테스트본 표시 — 실사이트(catalog.html)와 절대 헷갈리면 안 된다 */
 body{border:5px solid #d64545 !important;box-sizing:border-box;min-height:100vh}
 .testbadge{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:#d64545;
   padding:3px 9px;border-radius:6px;margin-left:8px;vertical-align:middle;letter-spacing:0}
@@ -920,6 +919,35 @@ async function loadCatalog(){
   return parseGrid(grid);
 }
 /* 시트에서 온 셀 덩어리를 창고별 상품 목록으로. 스냅샷이든 시트 직접 읽기든 **여기 하나만** 쓴다. */
+/* ══ 🛰 masterc 채널관리가 백데이터 (2026-09-28 홍팀장) ═════════════════════
+   masterc.kr 이 자동화되면서 상품 값이 거기서 자동으로 갱신된다. 서버(Edge)가 그걸 받아
+   스냅샷에 `mc` 로 실어 보내고, 여기서 유통시트 값 위에 덮는다.
+   덮는 것: 단가(웹 판매가) · 택배비 · 택배사 · 면과세 · 마감시간 · 유통기한.
+   🔴 원가·마진은 `mcAdm` 으로 따로 오고 **마스터에게만** 내려온다(서버 catBody 가 거른다).
+   🔴 masterc 에 없는 상품은 손대지 않는다 — 유통시트 값 그대로 둔다.
+   끄려면 app_config `MC_ON` = '0' (서버에서 통째로 빠진다). */
+function applyMc(groups){
+  const mc=(SNAP&&SNAP.mc)||null;
+  if(!mc||!mc.length)return groups;
+  const m={};mc.forEach(p=>{if(p&&p.n)m[pkey(p.n)]=p;});
+  let hit=0;
+  groups.forEach(g=>(g.products||[]).forEach(p=>{
+    const r=m[pkey(p.name)];if(!r)return;hit++;
+    if(r.price>0&&p.price){
+      p.price.cur=r.price;
+      // 이전가가 있으면 방향(인상/인하 표시)을 새 값 기준으로 다시 잡는다
+      p.price.dir=(p.price.old!=null)?(r.price>p.price.old?'up':(r.price<p.price.old?'down':'')):'';
+    }
+    if(typeof r.ship_n==='number')p.ship=r.ship_n;
+    if(r.courier)p.courier=r.courier;
+    if(r.tax)p.tax=r.tax;
+    if(r.cut)p.cut=r.cut;
+    if(r.exp)p.exp=r.exp;
+  }));
+  MCHIT=hit;
+  return groups;
+}
+let MCHIT=0;
 function parseGrid(grid){
   const groups=[];
   for(const sh of (grid.sheets||[])){
@@ -980,6 +1008,7 @@ function parseGrid(grid){
     const mixed=new Set(products.map(p=>p.srcWh).filter(Boolean)).size>1;
     if(products.length)groups.push({wh:(RENAME[name]||name),products,mixed});
   }
+  applyMc(groups);
   // 당일생물을 맨 앞으로
   groups.sort((a,b)=>(a.wh==='당일생물'?-1:0)-(b.wh==='당일생물'?-1:0));
   return groups;
@@ -2346,7 +2375,7 @@ function ntcPopOn(n){ return NTC_POP_RE.test(String((n&&n.title)||'')); }
 function ntcPopStrip(t){ return String(t||'').replace(NTC_POP_RE,'').trim(); }
 function ntcPopSum(s){ let h=0; s=String(s||''); for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0; return h.toString(36); }
 function ntcPopKey(n){ return ntcKey(n)+'|'+ntcPopSum(n.body); }     // 본문이 바뀌면 다른 글로 친다
-function ntcPopStore(){ return 'TEST_catalog_ntcpop_'+((ME&&ME.id)?ME.id:'guest'); }
+function ntcPopStore(){ return 'catalog_ntcpop_'+((ME&&ME.id)?ME.id:'guest'); }
 function ntcPopDay(){ const d=new Date(),p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
 function ntcPopSkipped(k){
   try{ return (JSON.parse(localStorage.getItem(ntcPopStore())||'{}'))[k]===ntcPopDay(); }catch(e){ return false; }
@@ -3037,7 +3066,7 @@ const API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
         서버에도 같은 발주를 막는 장치가 있지만, 여기서 안 보내는 것이 먼저다. */
 const API_READONLY={list:1,clients:1,me:1,getcfg:1,catalog:1};
 async function api(action,payload){
-  if(!API)throw new Error('서버 주소가 설정되지 않았습니다.');
+  if(!API)throw new Error('발주 서버 주소가 아직 설정되지 않았습니다.');
   const body=JSON.stringify(Object.assign({action},payload||{}));
   const tries=API_READONLY[action]?2:1;
   let lastErr=null;
