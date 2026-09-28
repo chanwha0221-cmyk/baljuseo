@@ -52,6 +52,11 @@
   var SHEET_API = 'https://script.google.com/macros/s/AKfycbwD0AdIFedunOCz39nmkQhAde26WNNkkRK7Mc-t4XKRW5kW9ORE6HvNk_fdXRZzyI50/exec';
   var SHEET_TOKEN = 'qtyb-2026-hcw';
 
+  /* 🔴 IDX 는 긁기를 시작할 때 {} 로 비운다 — 그래서 «있다/없다» 로 보면 빈 것도 «있다» 가 된다.
+     한 번 0줄로 끝나면 영영 다시 안 긁어, 대조가 전부 «못 찾음» 으로 나왔다(2026-09-28 21:18 실측).
+     반드시 «줄 수» 로 볼 것. */
+  function haveIdx() { return !!(IDX && Object.keys(IDX).length); }
+
   function sheetPost(action, rows) {
     return fetch(SHEET_API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -785,7 +790,7 @@
     el('qtyb-check').onclick = function () {
       var b = this, old = b.textContent;
       b.disabled = true; b.textContent = '세는 중…';
-      var go = IDX ? Promise.resolve() : scanAll();
+      var go = haveIdx() ? Promise.resolve() : scanAll();
       go.then(function () { return loadMy(); }).then(function () {
         checkPaint();
       }).then(function () { b.disabled = false; b.textContent = old; },
@@ -973,7 +978,7 @@
     if (!keys.length) { el('qtyb-out').innerHTML = '<div class="warn">필요수량을 붙여넣어 주세요.</div>'; return; }
     needSave(el('qtyb-in').value);      // 마이페이지에서 그대로 쓰도록 담아 둔다
 
-    var go = IDX ? Promise.resolve() : scanAll();
+    var go = haveIdx() ? Promise.resolve() : scanAll();
     return go.then(function () { return loadMy(); }).then(function () {
       var hits = [], miss = [];
       keys.forEach(function (k) {
