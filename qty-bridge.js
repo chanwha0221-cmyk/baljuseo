@@ -69,6 +69,10 @@
     var mineCell = cell(tr, 'mine');
     var leftRaw = ctext(tr, 'remain');
     var total = num(ctext(tr, 'total'));
+    /* 🟢 잔여가 「넉넉」 — 수량을 안 잡고 써도 되는 상품이다 (홍팀장 2026-09-28).
+       총수량이 0으로 보이지만 품절이 아니다 → 증량요청도, 대기도 걸 일이 없다.
+       숫자가 아닌 표시는 전부 여기로 본다(잔여를 0으로 읽어 증량요청을 내던 오판을 막는다). */
+    var free = !!leftRaw && !/\d/.test(leftRaw);
     return {
       k: k,
       key: k ? k.split('\t')[1] || nk(name) : nk(name),
@@ -86,9 +90,9 @@
       waiting: num(ctext(tr, 'wait')),
       mine: num(mineCell ? mineCell.textContent : ''),
       editable: !!mineCell,
-      /* 총수량 0 인 줄은 오늘 못 파는 줄이다 — 수량 웹도 [한꺼번에]에서 건너뛴다.
-         잔여가 '넉넉' 처럼 글자로 나오는 것도 여기 걸린다. */
-      closed: total <= 0
+      free: free,
+      // 총수량 0 인 줄은 오늘 못 파는 줄이다(수량 웹도 [한꺼번에]에서 건너뛴다) — 단 「넉넉」은 빼고.
+      closed: total <= 0 && !free
     };
   }
 
@@ -183,6 +187,13 @@
     var short = need - mine;
     var r = { row: row, need: need, mine: mine, set: 0, wait: 0, more: 0, over: 0, act: 'ok', why: '' };
 
+    /* 「넉넉」 — 수량을 안 잡고 써도 되는 상품. 손댈 일이 없다. */
+    if (row.free) {
+      r.act = 'free';
+      r.why = '넉넉 — 수량 안 잡고 써도 되는 상품';
+      return r;
+    }
+
     /* 총수량이 0인 줄 — 오늘 안 올라온 상품이다. 잡을 칸이 없으니 대기로도 안 되고
        관리팀이 총수량을 올려 줘야 한다 → 부족분 전부 증량요청. */
     if (row.closed && short > 0) {
@@ -255,6 +266,7 @@
       '#' + PANEL_ID + ' .t-wait{background:#fff3cd;color:#92400e}',
       '#' + PANEL_ID + ' .t-more{background:#fee2e2;color:#b91c1c}',
       '#' + PANEL_ID + ' .t-ok{background:#e8f5e9;color:#1b7a3d}',
+      '#' + PANEL_ID + ' .t-free{background:#eef2f7;color:#475569}',
       '#' + PANEL_ID + ' .t-rel{background:#ede9fe;color:#6d28d9}',
       '#' + PANEL_ID + ' .warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;',
       '  padding:7px 9px;margin:8px 0;font-size:12px}',
@@ -402,12 +414,13 @@
   var TAG = {
     set: ['t-set', '잡기'], 'set+wait': ['t-wait', '잡기+대기'], 'set+more': ['t-more', '잡기+증량'],
     wait: ['t-wait', '대기'], more: ['t-more', '증량요청'],
-    ok: ['t-ok', '그대로'], over: ['t-ok', '여유'], release: ['t-rel', '풀어야']
+    ok: ['t-ok', '그대로'], over: ['t-ok', '여유'], release: ['t-rel', '풀어야'],
+    free: ['t-free', '넉넉']
   };
 
   function draw(hits, miss, bad) {
     // 손봐야 할 것 먼저 : 증량 → 대기 → 잡기 → 풀어야 → 그대로
-    var ord = { more: 0, 'set+more': 0, wait: 1, 'set+wait': 1, set: 2, release: 3, over: 4, ok: 5 };
+    var ord = { more: 0, 'set+more': 0, wait: 1, 'set+wait': 1, set: 2, release: 3, over: 4, ok: 5, free: 6 };
     hits.sort(function (a, b) { return (ord[a.act] - ord[b.act]) || (b.need - a.need); });
 
     var h = '';
