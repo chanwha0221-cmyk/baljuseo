@@ -757,6 +757,7 @@
       '  <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
       '    <button class="pri" id="qtyb-sheet">📄 시트에서 가져오기</button>' +
       '    <button id="qtyb-check">🧾 수량 점검</button>' +
+      '    <button id="qtyb-back">↩️ 구해진 것 당일로</button>' +
       '    <button id="qtyb-clr">비우기</button>' +
       '  </div>' +
       '  <div id="qtyb-hunt"></div>' +
@@ -805,6 +806,43 @@
         checkPaint();
       }).then(function () { b.disabled = false; b.textContent = old; },
               function (e) { b.disabled = false; b.textContent = old; alert(e.message || e); });
+    };
+    /* ↩️ 구해진 것 당일로 — 대기를 받았거나 증량이 됐을 때. 상품명·수량만 적으면
+       「재고 없음」 에서 그 수량만큼 위에서부터 「당일」 로 올라간다(줄은 안 쪼갠다).
+       시트 창을 열 일이 없게 여기서 바로 보낸다(홍팀장 2026-09-28). */
+    el('qtyb-back').onclick = function () {
+      var box = el('qtyb-out');
+      box.innerHTML = '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:9px;padding:10px 12px;margin:8px 0">'
+        + '<b>↩️ 구해진 것 당일로</b>'
+        + '<div class="mut" style="margin:3px 0 6px">상품명과 수량을 적으세요 — 「재고 없음」 에서 그 수량만큼 「당일」 로 올라갑니다. '
+        + '창고를 앞에 붙여도 되고 안 붙여도 됩니다.</div>'
+        + '<textarea id="qtyb-backin" style="height:96px" placeholder="연안 급냉 갓성비 암게 1kg&#9;20&#10;초대왕 반건조 갑오징어 500g급&#9;5"></textarea>'
+        + '<div style="margin-top:7px"><button class="pri" id="qtyb-backgo">↩️ 당일로 되돌리기</button></div>'
+        + '<div class="mut" id="qtyb-backlog" style="margin-top:6px"></div></div>';
+      el('qtyb-backgo').onclick = function () {
+        var parsed = parseNeed(el('qtyb-backin').value);
+        var list = Object.keys(parsed.map).filter(function (k) { return k.indexOf('#raw:') !== 0; })
+          .map(function (k) { return { name: parsed.map['#raw:' + k] || k, qty: parsed.map[k] }; });
+        if (!list.length) { alert('읽을 줄이 없습니다. 「상품명 <탭> 수량」 으로 적어 주세요.'); return; }
+        if (!confirm('「재고 없음」 에서 「당일」 로 되돌립니다 — ' + list.length + '건\n\n'
+            + list.slice(0, 15).map(function (r) { return '· ' + r.name + ' ' + r.qty + '개'; }).join('\n'))) return;
+        var btn = this, old = btn.textContent;
+        btn.disabled = true; btn.textContent = '되돌리는 중…';
+        sheetPost('back', list).then(function (j) {
+          btn.disabled = false; btn.textContent = old;
+          el('qtyb-backlog').innerHTML =
+            '<b>올린 것</b><br>' + (j.done.length
+              ? j.done.map(function (d) { return '· ' + esc(d.name) + ' — ' + d.moved + '줄 (' + d.units + '개)'; }).join('<br>')
+              : '없음')
+            + (j.miss.length ? ('<br><br><b style="color:#b91c1c">못 올린 것</b> — 재고 없음에 그 수량으로 맞는 줄이 없습니다<br>'
+                + j.miss.map(function (d) { return '· ' + esc(d.name) + ' ' + d.want + '개'; }).join('<br>')) : '')
+            + (j.errs.length ? ('<br><br><b style="color:#b91c1c">오류</b><br>' + j.errs.map(esc).join('<br>')) : '')
+            + '<br><br>당일에 있는 주문 <b>' + j.left + '줄</b>';
+        }, function (e) {
+          btn.disabled = false; btn.textContent = old;
+          el('qtyb-backlog').innerHTML = '<span style="color:#b91c1c">시트에 보내지 못했습니다 — ' + esc(e.message || e) + '</span>';
+        });
+      };
     };
     huntPaint();               // 아침에 담아 둔 «구해야 할 것» 을 열 때마다 다시 보여 준다
     var kept = needLoad();     // 아까 붙여넣은 필요수량이 있으면 다시 채워 둔다
