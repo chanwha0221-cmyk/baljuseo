@@ -28,6 +28,12 @@
   var SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets/';
   var STORE_KEY = 'mc_sheets_session';
 
+  /* 🔓 팀 비밀번호 게이트 끄기 (2026-09-28 홍팀장 지시)
+     true 면 비밀번호 창을 아예 띄우지 않고 토큰 없이 그대로 보낸다.
+     서버(apps-script/sheets-proxy/Code.gs)의 AUTH_OFF 와 **쌍이다** —
+     한쪽만 바꾸면 도구가 전부 멈춘다. 되돌릴 땐 둘 다 false + 서버 재배포. */
+  var AUTH_OFF = true;
+
   // ── 세션 보관 ───────────────────────────────────────────────────────
   function loadToken() {
     try {
@@ -230,6 +236,7 @@
   // 동시에 여러 요청이 만료를 만나도 입력창은 하나만 뜨게 한다
   var pendingAuth = null;
   function ensureSession(message) {
+    if (AUTH_OFF) return Promise.resolve('');   // 🔓 게이트 꺼짐 — 묻지 않고 빈 토큰으로 보낸다
     var t = loadToken();
     if (t) return Promise.resolve(t);
     /* 🔒 거래처 화면에서는 팀 비밀번호를 **묻지 않는다** (2026-09-02).

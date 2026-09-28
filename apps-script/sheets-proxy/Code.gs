@@ -27,8 +27,16 @@
  *                     도구가 있어서 기본은 비워둔다
  */
 
-var SESSION_DAYS = 30;
+var SESSION_DAYS = 365;
 var SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets/';
+
+/* 🔓 팀 비밀번호 게이트 끄기 (2026-09-28 홍팀장 지시 — 위험을 알린 뒤 "완전 제거" 선택)
+   true 면 토큰 검사와 허용목록 검사를 모두 건너뛴다. 즉 이 웹앱 주소를 아는 사람은
+   **누구나** 시트를 읽고 쓸 수 있다(유통시트 단가 전체·도구시트·카탈로그_계정 포함).
+   되돌리기 = 이 값을 false 로 바꾸고 같은 배포 ID 로 재배포 + 클라이언트
+   `sheets-proxy.js` 의 AUTH_OFF 도 false 로. 🚨 둘은 반드시 같이 바꾼다 —
+   서버만 켜면 도구들이 session-expired 를 받고 비번 창도 못 띄워 통째로 멈춘다. */
+var AUTH_OFF = true;
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -58,6 +66,7 @@ function issueToken_() {
 }
 
 function checkToken_(token) {
+  if (AUTH_OFF) return true;
   if (!token || token.indexOf('.') < 0) return false;
   var parts = token.split('.');
   var payloadB64 = parts[0], sig = parts[1];
@@ -267,6 +276,7 @@ function tabsInPath_(path) {
 function publicAllowed_(req) {
   var path = String(req.path || '');
   if (!path) return { ok: false, why: 'path 없음' };
+  if (AUTH_OFF) return { ok: true };   // 🔓 게이트 꺼짐 — 허용목록을 따지지 않는다
 
   var method = (req.method || 'GET').toUpperCase();
   var writing = (method !== 'GET');
