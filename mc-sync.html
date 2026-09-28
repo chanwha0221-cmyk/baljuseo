@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>마찬 → 카탈로그 딸깍 v1.1</title>
+<title>마찬 → 카탈로그 딸깍 v1.2</title>
 <style>
 :root{--bg:#f6f8f7;--card:#fff;--ink:#16211c;--muted:#6b7a72;--line:#e3e9e5;--accent:#2d6a4f;--accent-d:#1f4d39;--warn:#c0392b}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#5fa583;--accent-d:#8fd0ae}}
@@ -54,6 +54,16 @@ pre{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:
     <button class="copy" id="cp">📋 복사</button>
   </div>
 
+  <div class="card" id="pickcard">
+    <h2>③ 같은 물건 — 주력 고르기</h2>
+    <div class="d">스펙이 비슷하고 <b>단가가 같은</b> 상품끼리 묶었습니다. 각 묶음에서 <b>업체에 보여줄 하나</b>만 고르세요.
+      나머지는 카탈로그에서 감춰집니다(업체 화면에서만 사라지고 마스터 화면엔 남습니다).</div>
+    <div id="picks">불러오는 중…</div>
+    <button class="copy" id="savepick" style="display:none">💾 이대로 적용</button>
+    <div class="note">고른 결과는 서버에 저장되고 다음 카탈로그 새로고침부터 바로 먹습니다.
+      묶음은 <b>창고가 다른데 단가가 같고 이름이 닮은 것</b>을 찾습니다 — 아니라고 보이면 그 묶음은 건드리지 마세요.</div>
+  </div>
+
   <div class="card">
     <h2>확인하는 곳</h2>
     <div class="d">보낸 뒤 카탈로그를 새로고침하면 반영됩니다(서버 사본이 즉시 다시 구워집니다).</div>
@@ -76,18 +86,104 @@ var CODE=[
 " try{",
 "  var L=await (await fetch('/xd/api.php?mid=machan_list&a=list')).json();",
 "  var C=await (await fetch('/xd/api.php?mid=machan_admin&a=cost')).json();",
+"  var Q=await (await fetch('/xd/api.php?mid=machan_admin&a=daily_cand')).json();",
 "  if(!L.ok){alert('상품리스트를 읽지 못했습니다 — masterc 로그인을 확인해주세요.');return;}",
 "  var items=(L.items||[]).map(function(p){return{n:p.n,nk:p.nk,srl:p.srl,img:p.img,price:p.price,wh:p.wh,grp:p.grp,ship:p.ship,ship_n:p.ship_n,tax:p.tax,courier:p.courier,cut:p.cut,exp:p.exp,stock:p.stock,bund:p.bund,k:p.k};});",
 "  var costs=(C&&C.ok?(C.rows||[]):[]).map(function(r){return{n:r.n,sell:r.sell,cost:r.cost,base:r.base,margin:r.margin,how:r.how,remain:r.remain};});",
-"  var r=await fetch('"+API+"',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'mcpush',key:'"+KEY+"',items:items,costs:costs})});",
+"  var qty=(Q&&Q.ok?(Q.cands||[]):[]).map(function(r){return{n:r.n,qid:r.qid,total:r.total,sold:r.sold,remain:r.remain};});",
+"  var r=await fetch('"+API+"',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'mcpush',key:'"+KEY+"',items:items,costs:costs,qty:qty})});",
 "  var j=await r.json();",
-"  alert(j.ok?('카탈로그로 보냈습니다\\n\\n상품 '+j.count+'개 · 원가 '+(j.costs||0)+'개\\n카탈로그를 새로고침하면 반영됩니다.'):('보내지 못했습니다\\n'+(j.error||'')));",
+"  alert(j.ok?('카탈로그로 보냈습니다\\n\\n상품 '+j.count+'개 · 원가 '+(j.costs||0)+'개 · 수량 '+(j.qty||0)+'개\\n카탈로그를 새로고침하면 반영됩니다.'):('보내지 못했습니다\\n'+(j.error||'')));",
 " }catch(e){alert('보내지 못했습니다 — '+(e&&e.message?e.message:e));}",
 "})()"
 ].join('');
 document.getElementById('bm').href='javascript:'+encodeURIComponent(CODE);
 var SNIP='<script>(function(){if(location.pathname.indexOf("machan_admin")<0)return;var b=document.createElement("button");b.textContent="\u{1F4E4} 카탈로그로 보내기";b.style.cssText="position:fixed;right:18px;bottom:18px;z-index:99999;padding:12px 18px;border-radius:10px;border:0;background:#1a73e8;color:#fff;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)";b.onclick=function(){var o=b.textContent;b.disabled=true;b.textContent="보내는 중…";Promise.resolve().then(function(){return '+JSON.stringify(CODE)+'}).then(function(c){return eval(c)}).catch(function(e){alert(e.message)}).then(function(){b.disabled=false;b.textContent=o});};document.body.appendChild(b);})();<\/script>';
 document.getElementById('snip').textContent=SNIP;
+/* ══ 🎯 같은 물건 묶어서 주력 고르기 ══════════════════════════════════════
+   묶는 기준: 단가가 같고 + 이름의 «핵심 낱말»이 겹치고 + 창고가 다르다.
+   이름은 규격(4kg·500g)·수식어가 붙어 조금씩 다르므로 낱말 단위로 본다. */
+var TOKEN_SKIP=/^(국내산|국내|자연산|급냉|선동|활|생물|손질|대용량|프리미엄|초특대|특대|대짜|가성비|갓성비|직발송|동해|정품|찐|통통|연안|맛상|세트|선물세트|1팩|1박스)$/;
+function tokens(n){
+  return String(n||'').replace(/[()\[\]]/g,' ').split(/\s+/)
+    .map(function(s){return s.trim();})
+    .filter(function(s){return s&&!TOKEN_SKIP.test(s);});
+}
+function core(n){
+  // 규격(숫자+단위)을 뺀 낱말들 — 「박달홍게 4kg」과 「박달홍게 3kg」의 공통분모를 잡는다
+  return tokens(n).filter(function(s){return !/^[\d.]+\s*(kg|g|미|개|장|구|팩|박스|인분|마리|통|세트)$/i.test(s);});
+}
+function groupTwins(rows){
+  var byPrice={};
+  rows.forEach(function(p){ if(!p.price)return; (byPrice[p.price]=byPrice[p.price]||[]).push(p); });
+  var out=[];
+  Object.keys(byPrice).forEach(function(pr){
+    var list=byPrice[pr]; if(list.length<2)return;
+    var used={};
+    list.forEach(function(a,i){
+      if(used[i])return;
+      var grp=[a]; used[i]=1;
+      var ca=core(a.n);
+      list.forEach(function(b,k){
+        if(k<=i||used[k])return;
+        var cb=core(b.n);
+        var both=ca.filter(function(t){return cb.indexOf(t)>=0;});
+        // 핵심 낱말이 하나라도 겹치고, 창고가 다르면 같은 물건으로 본다
+        if(both.length>=1&&String(a.wh||'')!==String(b.wh||'')){grp.push(b);used[k]=1;}
+      });
+      if(grp.length>1)out.push({price:Number(pr),items:grp});
+    });
+  });
+  return out.sort(function(x,y){return y.items.length-x.items.length;});
+}
+var HIDE={};
+async function loadPicks(){
+  var box=document.getElementById('picks');
+  var a={};try{a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'{}');}catch(e){}
+  if(!a.token){box.innerHTML='<b>카탈로그에 먼저 로그인해 주세요.</b> <a href="catalog.html" target="_blank">카탈로그 열기</a> → 로그인 후 이 화면 새로고침.';return;}
+  var post=function(b){return fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)}).then(function(r){return r.json();});};
+  var j=await post({action:'mcget',token:a.token,full:1});
+  if(!j.ok){box.innerHTML='읽지 못했습니다 — '+(j.error||'');return;}
+  var h=await post({action:'mchide',token:a.token});
+  var hidden={};((h&&h.names)||[]).forEach(function(n){hidden[n]=1;});
+  var rows=(j.rows||[]).map(function(p){return{n:p.n,wh:p.wh,price:(p.sell||p.price||0)};});
+  var gs=groupTwins(rows);
+  if(!gs.length){box.innerHTML='<b>지금은 묶일 상품이 없습니다.</b> (단가가 같고 이름이 닮은 상품이 두 개 이상일 때 여기 뜹니다)';return;}
+  var html='';
+  gs.forEach(function(g,gi){
+    html+='<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">'
+        + '<div style="font-size:12.5px;color:var(--muted);margin-bottom:7px">단가 '+g.price.toLocaleString()+'원 · '+g.items.length+'개</div>';
+    g.items.forEach(function(p,pi){
+      var on=!hidden[p.n];
+      html+='<label style="display:block;padding:5px 0;font-size:14px;cursor:pointer">'
+          + '<input type="radio" name="g'+gi+'" value="'+encodeURIComponent(p.n)+'"'+(on&&!g.__done?' checked':'')+'> '
+          + '<b>'+p.n+'</b> <span style="color:var(--muted)">['+(p.wh||'')+']</span></label>';
+      if(on)g.__done=1;
+    });
+    html+='</div>';
+  });
+  box.innerHTML=html;
+  document.getElementById('savepick').style.display='';
+  window.__GS=gs;
+}
+document.getElementById('savepick').addEventListener('click',async function(){
+  var b=this;b.disabled=true;var o=b.textContent;b.textContent='저장 중…';
+  try{
+    var a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'{}');
+    var hide=[];
+    (window.__GS||[]).forEach(function(g,gi){
+      var sel=document.querySelector('input[name="g'+gi+'"]:checked');
+      var keep=sel?decodeURIComponent(sel.value):null;
+      g.items.forEach(function(p){ if(keep&&p.n!==keep)hide.push(p.n); });
+    });
+    var r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'mchide',token:a.token,names:hide})});
+    var j=await r.json();
+    alert(j.ok?('적용했습니다 — 감출 상품 '+j.count+'개\n카탈로그를 새로고침하면 반영됩니다.'):('실패: '+(j.error||'')));
+  }catch(e){alert('실패: '+e.message);}
+  b.disabled=false;b.textContent=o;
+});
+loadPicks();
+
 document.getElementById('cp').addEventListener('click',function(){
   var b=this;
   navigator.clipboard.writeText(SNIP).then(function(){b.textContent='✓ 복사됨';b.classList.add('done');setTimeout(function(){b.textContent='📋 복사';b.classList.remove('done');},1600);},
