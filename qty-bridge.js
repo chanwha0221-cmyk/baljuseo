@@ -24,12 +24,11 @@
   var WAIT_MAX = 5;                 // 이 개수까지는 증량요청 대신 대기 (패널에서 바꿀 수 있다)
   var PANEL_ID = 'qtyb-panel';
 
-  /* 어느 화면에 얹혔나 —
-       qty  : 수량 화면(잡는 곳)          → 1단계 수량잡기
-       ours : 마이페이지 «우리가 잡은 것» → 2·3단계 실발주(사용 칸)·안 쓴 것 감시
-     같은 파일 하나로 둔다. 북마크릿을 두 개 만들게 하지 않는다. */
-  var MODE = (/my\.php/.test(location.pathname) && /(^|[?&])v=ours(&|$)/.test(location.search)) ? 'ours' : 'qty';
-  var NKEY = 'qtybNeed';            // 발주 필요수량 — 두 화면이 나눠 쓴다(같은 오리진이라 통한다)
+  /* 🔴 화면을 가리지 않는다 (홍팀장 2026-09-28 : 「그냥 수량 사이트 어디서나 나오게 해야지」).
+     수량 화면이든 마이페이지든 공지든, 북마크릿을 누르면 «같은 패널·같은 기능»이 뜬다.
+     잡기·사용·대기·증량은 전부 POST 로 걸고, 잡은 현황·안 쓴 것은 마이페이지를 긁어 오므로
+     그 화면에 서 있을 필요가 없다. */
+  var NKEY = 'qtybNeed';            // 발주 필요수량 — 화면이 바뀌어도 이어 쓴다(같은 오리진)
 
   /* ── 상품명 정규화 ────────────────────────────────────────────────
      수량 웹이 줄마다 박아 둔 data-k 가 "창고코드\t공백제거·대문자 상품명" 이다.
@@ -114,18 +113,28 @@
      창고별로는 안 끊긴다(단독(유) 291줄 확인) → 창고 칩을 하나씩 돌아 긁는다.
      🔴 창고 코드는 tab 파라미터다(경기28 · 단독(유)28 …). sec 은 당일/상시 구분이고
         sec=* 가 «전부»다 — 여기를 바꿔 잡으면 빈 표가 온다(첫 판에 한 번 틀렸다). */
-  function chips() {
+  function chipsFrom(doc) {
     var out = [], seen = {};
-    [].forEach.call(document.querySelectorAll('a[href]'), function (a) {
+    [].forEach.call(doc.querySelectorAll('a[href]'), function (a) {
       var u;
-      try { u = new URL(a.getAttribute('href'), location.href); } catch (e) { return; }
-      if (u.pathname !== location.pathname) return;
+      try { u = new URL(a.getAttribute('href'), location.origin + useUrl()); } catch (e) { return; }
+      if (u.pathname !== useUrl()) return;
       var tab = u.searchParams.get('tab');
       if (!tab || tab === '*' || seen[tab]) return;
       seen[tab] = 1;
       out.push({ tab: tab, label: (a.textContent || '').replace(/[\d,]+\s*$/, '').trim() });
     });
     return out;
+  }
+  /* 마이페이지에는 창고 칩이 없다 — 그럴 때는 수량 화면을 한 번 불러와 칩을 가져온다.
+     (홍팀장이 마이페이지에서 부족분을 잡으려 할 때 「창고 칩을 못 찾음」 으로 멈추던 것) */
+  function getChips() {
+    var c = chipsFrom(document);
+    if (c.length) return Promise.resolve(c);
+    return fetch(useUrl(), { credentials: 'same-origin' })
+      .then(function (r) { return r.text(); })
+      .then(function (html) { return chipsFrom(new DOMParser().parseFromString(html, 'text/html')); })
+      .catch(function () { return []; });
   }
 
   /* 창고 한 곳 긁기 — 같은 오리진이라 쿠키가 실려 간다(로그인 세션 그대로). */
@@ -580,154 +589,9 @@
     return null;
   }
 
-  /* ══ 2·3단계 — 마이페이지 «우리가 잡은 것» 화면 ══════════════════════
-     홍팀장 2026-09-28 :
-       2. 실 발주 : 수량 잡은 것들 my.php?v=ours 여기에 «사용»에 입력하고 28일 날짜로 옮김 → 리모콘에 실발주
-       3. 잡은 수량 대비 사용한 상품 없는 것도 실시간으로 취합하여 알려줌
-     🔴 저장은 페이지 «자기 입력칸»에 값을 넣고 Enter 를 주는 방식이다 — 사람이 치는 것과 똑같다.
-        저장 주소를 우리가 추측해 부르지 않는다(남의 서버이고, 바뀌면 조용히 틀린 값이 들어간다). */
-  function ursRows() {
-    var out = [];
-    [].forEach.call(document.querySelectorAll('input'), function (i) {
-      var k = i.getAttribute('data-nkey');
-      if (!k) return;
-      var tr = i.closest ? i.closest('tr') : null;
-      var nmCell = tr ? tr.querySelector('.nm') : null;
-      out.push({
-        key: k,                                     // 「연안급냉갓성비암게1KG」 — 우리 nk() 와 같은 자다
-        wh: (i.getAttribute('data-tab') || '').replace(/\d+$/, ''),
-        tab: i.getAttribute('data-tab') || '',
-        co: i.getAttribute('data-co') || '',
-        name: nmCell ? (nmCell.textContent || '').trim() : k,
-        got: num(i.getAttribute('data-got')),
-        used: num(i.value || i.getAttribute('data-was')),
-        inp: i
-      });
-    });
-    return out;
-  }
-
-  /* 사용 칸 저장 — 수량 웹이 실제로 보내는 그대로 보낸다.
-     🔴 2026-09-28 실측으로 잡은 것 : POST «/qty/» (마이페이지가 아니다!) · FormData
-        do=used · tab=창고코드(data-tab) · nkey=상품키(data-nkey) · co=회사(data-co) · val=수량
-     ⚠️ 처음엔 칸에 값을 넣고 Enter 이벤트를 «흉내내» 봤는데 화면만 바뀌고 서버에는 안 갔다
-        (새로고침하니 전부 0). 페이지가 만든 이벤트가 아니면 핸들러가 안 도는 것이다.
-        → 흉내내지 말고 같은 요청을 직접 보낸다. */
-  function useUrl() { return location.pathname.replace(/[^/]*$/, ''); }   // /qty/my.php → /qty/
-  function saveUse(r, v) {
-    var fd = new FormData();
-    fd.append('do', 'used');
-    fd.append('tab', r.tab);
-    fd.append('nkey', r.key);
-    fd.append('co', r.co);
-    fd.append('val', String(v));
-    return fetch(useUrl(), { method: 'POST', body: fd, credentials: 'same-origin' })
-      .then(function (res) { return res.text(); })
-      .then(function (t) {
-        var j = null;
-        try { j = JSON.parse(t); } catch (e) {}
-        if (j && j.ok === false) throw new Error(j.msg || '서버가 거절했습니다');
-        r.inp.value = String(v);                 // 화면도 맞춰 둔다
-        return true;
-      });
-  }
-
-  function oursPaint() {
-    var box = el('qtyb-out');
-    if (!box) return;
-    var rows = ursRows();
-    var parsed = parseNeed(el('qtyb-in').value);
-    var notes = foldAlias(parsed.map);     // 연어·홍어는 여기서도 대표 줄로 합쳐야 «사용» 칸이 맞는다
-    var rest = [];
-
-    var list = rows.map(function (r) {
-      var need = parsed.map[r.key];
-      r.need = (need == null) ? null : need;
-      r.plan = (need == null) ? null : Math.min(need, r.got);   // 사용 칸에 넣을 값 — 잡은 것보다 많이 쓸 수는 없다
-      r.unused = r.got - (r.plan == null ? r.used : r.plan);
-      if (need != null && need > r.got) rest.push(r);           // 잡은 것으로 못 채우는 발주
-      return r;
-    });
-
-    // 3단계 — 잡았는데 안 쓴 것. 마감이 가까우면 붉게 올린다(풀어야 할 몫).
-    var idle = list.filter(function (r) { return r.unused > 0; });
-    var h = '';
-    if (notes.length) {
-      h += '<div style="background:#eef2f7;border:1px solid #dde3ea;border-radius:8px;padding:7px 9px;margin:0 0 8px;font-size:12px">'
-        + notes.join('<br>') + '</div>';
-    }
-    if (idle.length) {
-      var tot = idle.reduce(function (n, r) { return n + r.unused; }, 0);
-      h += '<div class="warn">⚠️ 잡았는데 안 쓴 것 ' + idle.length + '건 · ' + tot + '개 — 마감까지 안 나가면 그대로 우리 몫입니다.<br>'
-        + idle.map(function (r) {
-            return '· ' + esc(r.wh) + ' / ' + esc(r.name) + ' 잡음 ' + r.got
-              + (r.need == null ? ' · <b>발주 없음</b>' : (' · 발주 ' + r.need)) + ' → 남음 <b>' + r.unused + '</b>';
-          }).join('<br>') + '</div>';
-    }
-    if (rest.length) {
-      h += '<div class="hunt">🎯 잡은 것으로 못 채우는 발주 ' + rest.length + '건 — 수량 화면에서 더 잡거나 따로 구해야 합니다<br>'
-        + rest.map(function (r) { return '· ' + esc(r.name) + ' 발주 ' + r.need + ' / 잡음 ' + r.got + ' → <b>' + (r.need - r.got) + '개 모자람</b>'; }).join('<br>')
-        + '</div>';
-    }
-
-    h += '<table><thead><tr><th>창고</th><th>상품명</th><th>잡음</th><th>발주</th><th>사용 칸에 넣을 값</th><th>남음</th></tr></thead><tbody>'
-      + list.map(function (r) {
-          return '<tr>'
-            + '<td>' + esc(r.wh) + '</td>'
-            + '<td class="nm">' + esc(r.name) + '</td>'
-            + '<td>' + r.got + '</td>'
-            + '<td>' + (r.need == null ? '<span class="mut">—</span>' : '<b>' + r.need + '</b>') + '</td>'
-            + '<td>' + (r.plan == null ? '<span class="mut">그대로</span>' : '<b>' + r.plan + '</b>') + '</td>'
-            + '<td' + (r.unused > 0 ? ' style="color:#b91c1c;font-weight:700"' : '') + '>' + r.unused + '</td>'
-            + '</tr>';
-        }).join('')
-      + '</tbody></table>'
-      + '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">'
-      +   '<button class="pri" id="qtyb-fill">📤 사용 칸 채우기</button>'
-      +   '<button id="qtyb-cpok">📋 발주 가능 목록</button>'
-      +   '<button id="qtyb-cpno">📋 못 채운 목록</button>'
-      + '</div>'
-      + '<div class="mut" style="margin-top:5px">[사용 칸 채우기] 는 이 화면 칸에 값을 넣고 Enter 를 눌러 줍니다 — 실제로 저장됩니다. '
-      + '잡은 수량은 안 바뀝니다. 채운 뒤 월 시트에서 <b>당일 → 오늘 날짜 시트</b>로 옮기고 🚚 발주영역 복사로 리모컨에 넣으십시오.</div>';
-
-    box.innerHTML = h;
-
-    el('qtyb-fill').onclick = function () {
-      var todo = list.filter(function (r) { return r.plan != null && r.plan !== r.used; });
-      if (!todo.length) { this.textContent = '채울 것 없음'; return; }
-      if (!confirm('사용 칸 ' + todo.length + '건을 채웁니다 — 실제로 저장됩니다.\n\n'
-          + todo.slice(0, 12).map(function (r) { return '· ' + r.name + ' : ' + (r.used || 0) + ' → ' + r.plan; }).join('\n')
-          + (todo.length > 12 ? '\n…' : ''))) return;
-      var btn = this, n = 0, bad = [];
-      btn.disabled = true;
-      (function step(i) {
-        if (i >= todo.length) {
-          btn.disabled = false;
-          btn.textContent = bad.length
-            ? ('⚠️ ' + n + '건 저장 · ' + bad.length + '건 실패')
-            : ('✅ ' + n + '건 저장됨');
-          if (bad.length) alert('저장하지 못한 것:\n' + bad.join('\n'));
-          oursPaint();                                   // 저장 뒤 «안 쓴 것» 을 다시 센다
-          return;
-        }
-        btn.textContent = '저장 중 ' + (i + 1) + '/' + todo.length;
-        saveUse(todo[i], todo[i].plan)
-          .then(function () { n++; }, function (e) { bad.push('· ' + todo[i].name + ' — ' + (e.message || e)); })
-          .then(function () { setTimeout(function () { step(i + 1); }, 320); });  // 한 건씩 — 남의 서버에 몰아 보내지 않는다
-      })(0);
-    };
-    el('qtyb-cpok').onclick = function () {
-      copy(list.filter(function (r) { return r.plan; })
-        .map(function (r) { return r.name + '\t' + r.plan; }).join('\n'), this);
-    };
-    el('qtyb-cpno').onclick = function () {
-      copy(rest.map(function (r) { return r.wh + '\t' + r.name + '\t' + (r.need - r.got) + '개 모자람'; }).join('\n'), this);
-    };
-  }
 
   function build() {
     css();
-    if (MODE === 'ours') return buildOurs();
     var p = document.createElement('div');
     p.id = PANEL_ID;
     p.innerHTML =
@@ -768,35 +632,6 @@
     return p;
   }
 
-  /* 2·3단계 패널 — 마이페이지 «우리가 잡은 것» 화면용 */
-  function buildOurs() {
-    var p = document.createElement('div');
-    p.id = PANEL_ID;
-    var kept = needLoad();
-    p.innerHTML =
-      '<div class="hd"><b>📤 실발주 · 안 쓴 것</b><span class="sp"></span>' +
-      '<span class="mut" id="qtyb-stat">' + (kept ? ('필요수량 ' + esc(kept.at) + ' 것') : '필요수량을 붙여넣으세요') + '</span>' +
-      '<button id="qtyb-min">—</button><button id="qtyb-x">✕</button></div>' +
-      '<div class="bd">' +
-      '  <div class="mut" style="margin:0 0 4px">발주 도구 [📊 수량 점검용 뽑기] 에서 복사한 것을 붙여넣으세요 — 수량 화면에서 이미 넣었으면 그대로 있습니다.</div>' +
-      '  <textarea id="qtyb-in" placeholder="연안 급냉 갓성비 암게 1kg&#9;96">' + esc(kept ? kept.text : '') + '</textarea>' +
-      '  <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
-      '    <button class="pri" id="qtyb-go">⚖️ 맞춰 보기</button>' +
-      '    <button id="qtyb-clr">비우기</button>' +
-      '  </div>' +
-      '  <div id="qtyb-out"></div>' +
-      '</div>';
-    document.body.appendChild(p);
-    el('qtyb-x').onclick = function () { p.remove(); };
-    el('qtyb-min').onclick = function () {
-      var b = p.querySelector('.bd');
-      b.style.display = b.style.display === 'none' ? '' : 'none';
-    };
-    el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
-    el('qtyb-go').onclick = function () { needSave(el('qtyb-in').value); oursPaint(); };
-    oursPaint();               // 필요수량이 없어도 «안 쓴 것» 은 바로 보여 준다(3단계)
-    return p;
-  }
 
   function stat(t) { var s = el('qtyb-stat'); if (s) s.textContent = t; }
 
@@ -818,7 +653,9 @@
   var LANES = 4;
 
   function scanAll() {
-    var cs = chips();
+    return getChips().then(function (cs) { return scanChips(cs); });
+  }
+  function scanChips(cs) {
     if (!cs.length) { stat('창고 칩을 못 찾음'); return Promise.resolve(); }
     IDX = {};
     var n = 0, dup = 0, done = 0, fail = [];
@@ -870,7 +707,7 @@
     needSave(el('qtyb-in').value);      // 마이페이지에서 그대로 쓰도록 담아 둔다
 
     var go = IDX ? Promise.resolve() : scanAll();
-    go.then(function () { return loadMy(); }).then(function () {
+    return go.then(function () { return loadMy(); }).then(function () {
       var hits = [], miss = [];
       keys.forEach(function (k) {
         var row = IDX[k];
@@ -922,6 +759,22 @@
     if (notes && notes.length) {
       h += '<div style="background:#eef2f7;border:1px solid #dde3ea;border-radius:8px;padding:7px 9px;margin:8px 0;font-size:12px">'
         + notes.join('<br>') + '</div>';
+    }
+
+    /* ⚠️ 잡았는데 안 쓴 것 — 마이페이지(우리가 잡은 것)를 긁어 만든다. 그래서 어느 화면에서도 보인다.
+       홍팀장 2026-09-28 : 「잡은 수량 대비 사용한 상품 없는 것도 실시간으로 취합하여 알려줌」 */
+    var idle = Object.keys(OURS).map(function (k) {
+      var o = OURS[k];
+      return { key: k, wh: o.wh, got: o.got, used: o.used, left: o.got - o.used,
+               name: (IDX && IDX[k]) ? IDX[k].name : k };
+    }).filter(function (o) { return o.left > 0; }).sort(function (a, b) { return b.left - a.left; });
+    if (idle.length) {
+      var tot = idle.reduce(function (n, o) { return n + o.left; }, 0);
+      h += '<div class="warn">⚠️ 잡았는데 안 쓴 것 ' + idle.length + '건 · ' + tot + '개 — 마감까지 안 나가면 그대로 우리 몫입니다.<br>'
+        + idle.slice(0, 12).map(function (o) {
+            return '· ' + esc(o.wh) + ' / ' + esc(o.name) + ' 잡음 ' + o.got + ' · 사용 ' + o.used + ' → 남음 <b>' + o.left + '</b>';
+          }).join('<br>')
+        + (idle.length > 12 ? '<br>…' : '') + '</div>';
     }
 
     var rel = hits.filter(function (x) { return x.act === 'release'; });
