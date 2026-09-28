@@ -441,6 +441,7 @@
         key: k,                                     // 「연안급냉갓성비암게1KG」 — 우리 nk() 와 같은 자다
         wh: (i.getAttribute('data-tab') || '').replace(/\d+$/, ''),
         tab: i.getAttribute('data-tab') || '',
+        co: i.getAttribute('data-co') || '',
         name: nmCell ? (nmCell.textContent || '').trim() : k,
         got: num(i.getAttribute('data-got')),
         used: num(i.value || i.getAttribute('data-was')),
@@ -450,15 +451,29 @@
     return out;
   }
 
-  /* 사용 칸 한 칸 채우기 — 페이지 핸들러가 무엇에 걸렸는지 모르니 input·change·Enter·blur 를 다 준다. */
-  function setUse(inp, v) {
-    inp.focus();
-    inp.value = String(v);
-    ['input', 'change'].forEach(function (t) { inp.dispatchEvent(new Event(t, { bubbles: true })); });
-    ['keydown', 'keyup'].forEach(function (t) {
-      inp.dispatchEvent(new KeyboardEvent(t, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
-    });
-    inp.blur();
+  /* 사용 칸 저장 — 수량 웹이 실제로 보내는 그대로 보낸다.
+     🔴 2026-09-28 실측으로 잡은 것 : POST «/qty/» (마이페이지가 아니다!) · FormData
+        do=used · tab=창고코드(data-tab) · nkey=상품키(data-nkey) · co=회사(data-co) · val=수량
+     ⚠️ 처음엔 칸에 값을 넣고 Enter 이벤트를 «흉내내» 봤는데 화면만 바뀌고 서버에는 안 갔다
+        (새로고침하니 전부 0). 페이지가 만든 이벤트가 아니면 핸들러가 안 도는 것이다.
+        → 흉내내지 말고 같은 요청을 직접 보낸다. */
+  function useUrl() { return location.pathname.replace(/[^/]*$/, ''); }   // /qty/my.php → /qty/
+  function saveUse(r, v) {
+    var fd = new FormData();
+    fd.append('do', 'used');
+    fd.append('tab', r.tab);
+    fd.append('nkey', r.key);
+    fd.append('co', r.co);
+    fd.append('val', String(v));
+    return fetch(useUrl(), { method: 'POST', body: fd, credentials: 'same-origin' })
+      .then(function (res) { return res.text(); })
+      .then(function (t) {
+        var j = null;
+        try { j = JSON.parse(t); } catch (e) {}
+        if (j && j.ok === false) throw new Error(j.msg || '서버가 거절했습니다');
+        r.inp.value = String(v);                 // 화면도 맞춰 둔다
+        return true;
+      });
   }
 
   function oursPaint() {
@@ -522,18 +537,22 @@
       if (!confirm('사용 칸 ' + todo.length + '건을 채웁니다 — 실제로 저장됩니다.\n\n'
           + todo.slice(0, 12).map(function (r) { return '· ' + r.name + ' : ' + (r.used || 0) + ' → ' + r.plan; }).join('\n')
           + (todo.length > 12 ? '\n…' : ''))) return;
-      var btn = this, n = 0;
+      var btn = this, n = 0, bad = [];
       btn.disabled = true;
       (function step(i) {
         if (i >= todo.length) {
           btn.disabled = false;
-          btn.textContent = '✅ ' + n + '건 채움 — 새로고침하면 확인됩니다';
+          btn.textContent = bad.length
+            ? ('⚠️ ' + n + '건 저장 · ' + bad.length + '건 실패')
+            : ('✅ ' + n + '건 저장됨');
+          if (bad.length) alert('저장하지 못한 것:\n' + bad.join('\n'));
+          oursPaint();                                   // 저장 뒤 «안 쓴 것» 을 다시 센다
           return;
         }
-        setUse(todo[i].inp, todo[i].plan);
-        n++;
-        btn.textContent = '채우는 중 ' + n + '/' + todo.length;
-        setTimeout(function () { step(i + 1); }, 420);   // 한 칸씩 — 남의 서버에 몰아 보내지 않는다
+        btn.textContent = '저장 중 ' + (i + 1) + '/' + todo.length;
+        saveUse(todo[i], todo[i].plan)
+          .then(function () { n++; }, function (e) { bad.push('· ' + todo[i].name + ' — ' + (e.message || e)); })
+          .then(function () { setTimeout(function () { step(i + 1); }, 320); });  // 한 건씩 — 남의 서버에 몰아 보내지 않는다
       })(0);
     };
     el('qtyb-cpok').onclick = function () {
