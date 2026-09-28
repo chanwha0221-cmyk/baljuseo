@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-28d';
+  var QTYB_VER = '2026-09-28e';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -217,7 +217,13 @@
          대기를 걸어 봐야 남이 풀 물건 자체가 없다 → 증량요청으로 빨리 찔러 보고, 거부되면 포기한다
          (홍팀장 2026-09-28 : 「안풀림 애들은 오늘 안나온다는 거거든, 증량 요청 올려서 빠르게
           확인해 보고 안되면 포기하는게 맞아」). */
-      stuck: /안\s*풀림/.test(name)
+      stuck: /안\s*풀림/.test(name),
+      /* 🔒 잠긴 줄 — 상품명 옆에 「품절」·「안 풀림」·「수량최신화 전」 배지가 붙은 것.
+         🔴 잔여가 31개 남아 있어도 «잡기가 열려 있지 않다» — 눌러도 안 잡힌다(2026-09-28 실측:
+            자반고등어 10미 대, 총31·잔여31인데 우리 잡음 0, 대기만 15가 걸려 있었다).
+            잔여를 믿고 «잡기» 로 판정하면 «잡았다» 고 해 놓고 하나도 안 잡힌다.
+            → 잔여를 «없는 것» 으로 치고 대기를 건다 (홍팀장 : 「중요한 건 대기를 거는 거라고」). */
+      locked: /품절|안\s*풀림|수량최신화/.test(name)
     };
   }
 
@@ -514,7 +520,9 @@
 
     /* 🔴 잔여는 음수로 나올 수 있다 — 총수량보다 많이 잡힌 줄(품절 안 풀림 등)에서 -30 을 봤다.
        그대로 Math.min 에 넣으면 «-30개 잡기» 가 나온다. 0 으로 바닥을 깐다. */
-    var leftAvail = Math.max(0, row.left);      // ⚠️ 위의 avail(우리가 쓸 수 있는 몫)과 다른 것 — 창고 잔여다
+    /* ⚠️ 위의 avail(우리가 쓸 수 있는 몫)과 다른 것 — 창고 잔여다.
+       🔒 잠긴 줄은 잔여가 남아 있어도 잡기가 안 열려 있다 → 0 으로 보고 대기로 돌린다. */
+    var leftAvail = row.locked ? 0 : Math.max(0, row.left);
     var canSet = Math.min(short, leftAvail);
     if (canSet > 0) r.set = canSet;
     var rest = short - canSet;                 // 잔여로 못 채우는 몫
@@ -534,12 +542,14 @@
     r.hole = hole;
     /* 총수량 0 인 줄(오늘 안 올라온 상품)도 여기로 온다 — 증량요청·대기 현황을 봐야 하기 때문이다.
        예전에는 이 줄을 먼저 잘라 증량요청으로 보냈다가, 이미 «거부» 맞은 갑오징어를 또 증량으로 냈다. */
-    var base = ghost
-      ? ('창고에 물건이 없는 줄 — 잡아 둔 ' + mine + '개는 못 받습니다'
-         + (row.left < 0 ? ' (총수량 0 · 잔여 ' + row.left + ')' : '') )
-      : (row.closed
-          ? ('총수량 0 — 오늘 안 올라온 상품' + (row.left < 0 ? ' (잔여 ' + row.left + ')' : ''))
-          : ('잔여 ' + row.left + '개로 ' + rest + '개 부족'));
+    var base = (row.locked && row.left > 0)
+      ? ('🔒 잠긴 줄 — 잔여 ' + row.left + '개가 남아 있어도 잡기가 안 열려 있습니다')
+      : (ghost
+          ? ('창고에 물건이 없는 줄 — 잡아 둔 ' + mine + '개는 못 받습니다'
+             + (row.left < 0 ? ' (총수량 0 · 잔여 ' + row.left + ')' : '') )
+          : (row.closed
+              ? ('총수량 0 — 오늘 안 올라온 상품' + (row.left < 0 ? ' (잔여 ' + row.left + ')' : ''))
+              : ('잔여 ' + row.left + '개로 ' + rest + '개 부족')));
 
     /* ⏰ 마감이 지났으면 무조건 «대기» 다 (홍팀장 2026-09-28 22시) :
          「수량은 오전 9시 전후해서 풀린다. 지금 저녁 10시잖아.
@@ -601,13 +611,23 @@
         r.why = base + ' · 걸어 둔 것(대기 ' + haveW + ' · 증량 ' + haveM + ')보다 늘어 '
           + (addW ? ('대기 ' + addW + '개') : '') + (addW && addM ? ' · ' : '') + (addM ? ('증량 ' + addM + '개') : '') + ' 추가';
       }
-    } else if (row.stuck) {
-      /* 🔴 「품절 안 풀림」 은 대기보다 먼저 본다 — 대기를 이미 걸어 뒀어도 기다릴 물건이 없다.
-         증량요청으로 빨리 물어보는 것이 맞다(홍팀장 2026-09-28). */
-      r.more = hole;
-      r.act = r.set ? 'set+more' : 'more';
-      r.why = base + ' · 오늘 안 나오는 줄 — 대기 말고 증량요청으로 확인'
-        + (wa && wa.pend ? (' (대기 ' + wa.qty + '개는 걸려 있음)') : '');
+    } else if (row.locked) {
+      /* 🔒 잠긴 줄(품절·안 풀림·수량최신화 전) — 잔여가 있든 없든 잡기가 안 열려 있다.
+         🔴 여기서 할 일은 «대기를 거는 것» 이다 (홍팀장 2026-09-28 : 「없는 걸로 치고
+            내가 대기 걸라고 했잖아, 중요한 건 대기를 거는 거라고」).
+            증량요청으로 보내던 것을 대기로 바꿨다 — 열리는 순간 줄 서 있어야 받는다.
+         이미 걸어 둔 대기가 있으면 차액만 추가한다. */
+      var hadL = (wa && wa.pend) ? wa.qty : 0;
+      var addL = Math.max(0, hole - hadL);
+      if (!addL) {
+        r.act = 'waitP';
+        r.why = base + ' · 이미 대기 ' + hadL + '개 걸어 둠';
+      } else {
+        r.wait = addL; r.haveW = hadL;
+        r.act = r.set ? 'set+wait' : 'wait';
+        r.why = base + ' · 열릴 때 받게 대기'
+          + (hadL ? (' · 걸어 둔 ' + hadL + '개 빼고 ' + addL + '개 추가') : '');
+      }
     } else if (wa && wa.pend) {
       r.act = 'waitP';
       r.why = base + ' · 대기 ' + wa.qty + '개 걸어 둠' + (got ? (' · ' + got + '개 받음') : '');
