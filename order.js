@@ -936,6 +936,8 @@ table.olist td.ad input.ein{min-width:230px}
 .ackline .ackno{color:var(--up);font-weight:800}
 .ordb2.ackb{margin-left:auto;border-color:var(--accent);color:var(--accent-d);font-weight:800}
 .ordb2.ackb:hover{background:var(--accent);color:#fff}
+.ordb2.ocpb{margin-left:auto;padding:6px 12px;font-size:12px}
+.ordb2.ocpb + .ordb2.ackb{margin-left:0}
 `;
   document.head.appendChild(s);
 }
@@ -2326,9 +2328,10 @@ function short(s){
   const m = t.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2})/);
   return m ? (m[2] + '-' + m[3] + ' ' + m[4]) : t;
 }
-/* 발주묶음을 우리 양식(9칸/10칸) 텍스트로. 지금 화면엔 복사 버튼이 없다 —
-   당일 시트로 보내는 건 웹앱이 하고, 사람 손이 끼면 "복사만 하고 완료를 안 눌러" 중복이 나기 때문(사장님).
-   시트가 막혔을 때 손으로 넣어야 하는 비상용으로만 남겨둔다. */
+/* 발주묶음을 우리 양식(9칸/10칸) 텍스트로.
+   평소 당일 시트로 보내는 건 웹앱이 한다 — 사람 손이 끼면 "복사만 하고 완료를 안 눌러" 중복이 나기 때문(사장님).
+   🔴 2026-09-28 홍팀장 요청으로 카드에 [📋 주문 복사] 를 달았다: 취소가 들어와 시트에서 지운 뒤
+      "다시 보내달라"는 경우에 쓴다. 그 버튼은 **복사만** 하고 전송 상태는 건드리지 않는다. */
 function ordersTsv(rows){
   const nine = [], ten = [];
   rows.forEach(r => {
@@ -2435,6 +2438,7 @@ function ackLine(no){
                : '<span class="ackno">⬜ ' + esc(nick(m.name)) + ' 미확인</span>';
   }).join('');
   return '<div class="ackline">' + chips
+    + '<button class="ordb2 ocpb" data-ocp="' + esc(no) + '" title="이 발주를 시트 붙여넣기용으로 복사합니다 (9칸/10칸 자동)">📋 주문 복사</button>'
     + (ackedMe(no) ? '' : '<button class="ordb2 ackb" data-oack="' + esc(no) + '">👀 확인했습니다</button>')
     + '</div>';
 }
@@ -3631,6 +3635,27 @@ document.addEventListener('click', e => {
     if(!o) return;
     const t = tsv(cpx.getAttribute('data-cpx') === '9' ? o.nine : o.ten);
     navigator.clipboard.writeText(t).then(() => toast('복사했습니다'), () => toast('복사하지 못했습니다'));
+    return;
+  }
+  /* 📋 주문 복사 (홍팀장 2026-09-28) — 취소로 시트에서 지운 발주를 "다시 보내달라"고 할 때 쓴다.
+     카드에 보이는 그 묶음을 시트 붙여넣기용 줄로 복사한다. 칸 수는 ordersTsv 가 알아서 9칸/10칸으로 나눈다.
+     🔴 복사만 한다 — [📤 당일 시트로 보내기] 와 달리 전송 상태를 건드리지 않는다(중복 전송 방지). */
+  const ocp = e.target.closest && e.target.closest('[data-ocp]');
+  if(ocp){
+    const no = ocp.getAttribute('data-ocp');
+    const all = (LIST || []).filter(r => S(r.no) === S(no));
+    const live = all.filter(r => S(r.state) !== '취소');
+    const rows = live.length ? live : all;      // 전부 취소된 묶음이면 그대로 복사(되살리는 경우)
+    if(!rows.length){ toast('복사할 줄이 없습니다'); return; }
+    const t = ordersTsv(rows);
+    if(!t){ toast('복사할 줄이 없습니다'); return; }
+    const ten = rows.filter(r => r.biz).length, nine = rows.length - ten;
+    navigator.clipboard.writeText(t).then(() => {
+      // 한 묶음에 칸 수가 다른 줄이 섞이면 통째로 붙여넣을 때 시트가 밀린다 — 그때만 크게 알린다
+      if(nine && ten) alert('복사했습니다 — 다만 9칸 ' + nine + '줄, 10칸 ' + ten + '줄이 섞여 있습니다.\n칸 수가 달라 통째로 붙여넣으면 밀립니다. 9칸 줄 먼저, 10칸 줄은 따로 넣어주세요.');
+      else toast(no + ' ' + rows.length + '줄 복사 — ' + (ten ? '10칸' : '9칸') + ', 시트에 붙여넣으세요'
+                 + (live.length < all.length ? ' (취소 ' + (all.length - live.length) + '줄 제외)' : ''));
+    }, () => toast('복사하지 못했습니다'));
     return;
   }
   // 상태 필터 · 페이지 이동
