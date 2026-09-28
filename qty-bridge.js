@@ -96,6 +96,7 @@
       ours: num(ctext(tr, 'ours')),
       waiting: num(ctext(tr, 'wait')),
       mine: num(mineCell ? mineCell.textContent : ''),
+      co: mineCell ? (mineCell.getAttribute('data-co') || '') : '',   // 우리 회사 이름(마찬) — 잡을 때 같이 보낸다
       editable: !!mineCell,
       free: free,
       // 총수량 0 인 줄은 오늘 못 파는 줄이다(수량 웹도 [한꺼번에]에서 건너뛴다) — 단 「넉넉」은 빼고.
@@ -359,6 +360,45 @@
     }
     return r;
   }
+
+  /* ══ 실제로 잡기·대기·증량요청 ═══════════════════════════════════════
+     홍팀장 2026-09-28 : 「안 잡아 놨으니까 수량에서 찾아서 니가 잡아 줘야지, 필요하면 구하고」
+                        「증량요청이 어디 있는데, 전혀 안 되어 있잖아」
+     → 판정만 내고 손 떼면 안 된다. 판정대로 수량 웹에 실제로 건다.
+     🔴 요청 형식은 수량 웹이 쓰는 그대로다(2026-09-28 페이지 코드에서 확인) :
+        POST /qty/  ·  FormData
+          잡기   do=set   · tab · nkey · co · val(잡을 총량) · name(상품명) · how=pop
+          대기   do=wait  · tab · nkey · co · qty(기다릴 개수)
+          증량   do=more  · tab · nkey · co · qty(더 필요한 개수) · why(사유)
+          사용   do=used  · tab · nkey · co · val
+     ⚠️ val 은 «더할 값»이 아니라 «그 칸의 총량»이다 — 이미 잡은 것에 더해 보내야 한다.
+        (여우 칸에 덮어쓰기로 9+5=14 를 4 로 엎은 사고가 있었다) */
+  var WHY_DEFAULT = '실제 발주 들어온 수량입니다.';
+
+  function qpost(fields) {
+    var fd = new FormData();
+    Object.keys(fields).forEach(function (k) { fd.append(k, String(fields[k])); });
+    return fetch(useUrl(), { method: 'POST', body: fd, credentials: 'same-origin' })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var j = null;
+        try { j = JSON.parse(t); } catch (e) {}
+        if (j && j.ok === false) throw new Error(j.msg || j.error || '서버가 거절했습니다');
+        return j || {};
+      });
+  }
+  function actSet(x) {
+    return qpost({ do: 'set', tab: whTab(x.row), nkey: x.row.key, co: x.row.co,
+                   val: x.mine + x.set, name: x.row.name, how: 'pop' });
+  }
+  function actWait(x) {
+    return qpost({ do: 'wait', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: x.wait });
+  }
+  function actMore(x, why) {
+    return qpost({ do: 'more', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: x.more, why: why || WHY_DEFAULT });
+  }
+  /* 창고 코드는 줄 키 앞머리에 있다 — data-k = 「경기28\t양평해장국600G」 */
+  function whTab(row) { return (row.k || '').split('\t')[0] || row.wh; }
 
   /* ── 패널 ───────────────────────────────────────────────────────── */
   var IDX = null;          // key → row (전체 창고 인덱스)
@@ -764,6 +804,21 @@
       h += '<div class="warn">✂️ 수량을 못 읽은 줄 ' + bad.length + '건 : ' + bad.slice(0, 8).map(esc).join(' · ') + '</div>';
     }
 
+    /* 🚀 판정대로 실제로 걸기 — 잡기 · 대기 · 증량요청 */
+    var nSet = hits.filter(function (x) { return x.set; }).length;
+    var nWait = hits.filter(function (x) { return x.wait; }).length;
+    var nMore = hits.filter(function (x) { return x.more; }).length;
+    if (nSet || nWait || nMore) {
+      h += '<div style="background:#eef4ff;border:1px solid #c7d9f5;border-radius:9px;padding:9px 11px;margin:8px 0">'
+        + '<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">'
+        +   '<button class="pri" id="qtyb-run">🚀 판정대로 실행</button>'
+        +   '<span style="font-size:12.5px">잡기 <b>' + nSet + '</b> · 대기 <b>' + nWait + '</b> · 증량요청 <b>' + nMore + '</b></span>'
+        + '</div>'
+        + '<div style="margin-top:6px"><span class="mut">증량요청 사유</span> '
+        +   '<input id="qtyb-why" value="' + esc(WHY_DEFAULT) + '" style="width:calc(100% - 80px);border:1px solid #cfd6e0;border-radius:6px;padding:5px 8px;font:12.5px Pretendard,sans-serif"></div>'
+        + '<div id="qtyb-runlog" class="mut" style="margin-top:6px"></div></div>';
+    }
+
     h += '<table><thead><tr><th>판정</th><th>창고</th><th>상품명</th><th>필요</th><th>잡음</th>' +
       '<th>잔여</th><th>잡기</th><th>대기</th><th>증량</th><th>마감</th></tr></thead><tbody>';
     hits.forEach(function (x) {
@@ -798,6 +853,42 @@
 
     var byKey = {};
     hits.forEach(function (x) { byKey[x.row.key] = x; });
+
+    var runBtn = el('qtyb-run');
+    if (runBtn) runBtn.onclick = function () {
+      /* 할 일을 한 줄로 늘어놓는다 — 잡기부터. 잔여를 먼저 먹고 나서 대기·증량을 걸어야
+         「잡을 수 있었는데 대기를 건」 일이 안 생긴다. */
+      var jobs = [];
+      hits.forEach(function (x) { if (x.set)  jobs.push({ t: '잡기',   x: x, n: x.mine + x.set, f: function () { return actSet(x); } }); });
+      hits.forEach(function (x) { if (x.wait) jobs.push({ t: '대기',   x: x, n: x.wait,        f: function () { return actWait(x); } }); });
+      var why = (el('qtyb-why') && el('qtyb-why').value.trim()) || WHY_DEFAULT;
+      hits.forEach(function (x) { if (x.more) jobs.push({ t: '증량요청', x: x, n: x.more,      f: function () { return actMore(x, why); } }); });
+      if (!jobs.length) return;
+      if (!confirm('수량 웹에 실제로 겁니다 — ' + jobs.length + '건\n\n'
+          + jobs.slice(0, 15).map(function (j) { return '· [' + j.t + '] ' + j.x.row.name + ' ' + j.n; }).join('\n')
+          + (jobs.length > 15 ? '\n…' : '')
+          + '\n\n증량요청 사유 : ' + why)) return;
+
+      var btn = this, ok = 0, bad = [];
+      btn.disabled = true;
+      var log = el('qtyb-runlog');
+      (function step(i) {
+        if (i >= jobs.length) {
+          btn.disabled = false;
+          btn.textContent = bad.length ? ('⚠️ ' + ok + '건 완료 · ' + bad.length + '건 실패') : ('✅ ' + ok + '건 완료');
+          log.innerHTML = bad.length
+            ? ('<b style="color:#b91c1c">안 된 것</b><br>' + bad.map(esc).join('<br>'))
+            : '다 걸었습니다. [🔄 창고 전부 긁기] 로 다시 보시면 반영된 것이 보입니다.';
+          return;
+        }
+        var j = jobs[i];
+        btn.textContent = '거는 중 ' + (i + 1) + '/' + jobs.length;
+        log.textContent = '[' + j.t + '] ' + j.x.row.name + ' ' + j.n;
+        j.f().then(function () { ok++; }, function (e) {
+          bad.push('· [' + j.t + '] ' + j.x.row.name + ' — ' + (e.message || e));
+        }).then(function () { setTimeout(function () { step(i + 1); }, 320); });
+      })(0);
+    };
 
     /* 📋 숫자열 — 지금 화면 줄 순서 그대로 세로 한 줄.
        🔴 빈 칸을 붙여넣으면 그 줄은 «풀린다»(수량 웹: 비우고 저장하면 풀림).
