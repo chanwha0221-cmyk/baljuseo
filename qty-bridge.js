@@ -176,9 +176,18 @@
       .then(function (r) { return r.text(); })
       .then(function (html) {
         var d = new DOMParser().parseFromString(html, 'text/html');
-        var th = [].map.call(d.querySelectorAll('thead th'), function (e) { return (e.textContent || '').trim(); });
+        /* 🔴 마이페이지에는 표가 여럿이다(알림 팝업 등). 머리글만 첫 표에서 읽고 줄은 전부 긁으면
+           엉뚱한 표의 줄이 같은 칸 이름으로 해석된다 — 57개 상품·사용 0 이 그렇게 나왔다(2026-09-28).
+           → «상품명 칸이 있는 표» 하나만 골라 그 표의 머리글과 그 표의 줄만 쓴다. */
+        var tbl = null, th = [];
+        [].forEach.call(d.querySelectorAll('table'), function (t) {
+          if (tbl) return;
+          var hs = [].map.call(t.querySelectorAll('thead th'), function (e) { return (e.textContent || '').trim(); });
+          if (hs.length && colOf(hs, /상품명/) >= 0) { tbl = t; th = hs; }
+        });
         var out = [];
-        siteRows(d).forEach(function (tr) {
+        if (!tbl) return { th: [], rows: [] };
+        siteRows(tbl).forEach(function (tr) {
           var c = [].map.call(tr.children, function (e) {
             /* 「사용」 칸은 <input> 이라 글자가 없다 — 적어 둔 값은 value 속성에 있다.
                이걸 안 보면 사용량이 전부 0 으로 읽혀 «잡고 안 썼다» 는 헛경고가 뜬다(2026-09-28). */
