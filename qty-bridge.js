@@ -672,7 +672,9 @@
     var s = document.createElement('style');
     s.id = 'qtyb-css';
     s.textContent = [
-      '#' + PANEL_ID + '{position:fixed;right:14px;bottom:14px;width:520px;max-width:calc(100vw - 28px);',
+      /* 상품명이 길어 세로로 접히면 표가 통째로 깨진다 — 폭을 넓게 잡고, 모자라면 가로로 민다
+         (홍팀장 2026-09-28 「가로로 더 길어져도 되니까」) */
+      '#' + PANEL_ID + '{position:fixed;right:14px;bottom:14px;width:980px;max-width:calc(100vw - 28px);',
       '  max-height:82vh;display:flex;flex-direction:column;background:#fff;border:1px solid #d6dbe3;',
       '  border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18);z-index:99999;font:13px/1.55 Pretendard,',
       '  -apple-system,"Malgun Gothic",sans-serif;color:#1f2530}',
@@ -687,10 +689,13 @@
       '#' + PANEL_ID + ' button:hover{filter:brightness(.96)}',
       '#' + PANEL_ID + ' textarea{width:100%;height:96px;border:1px solid #cfd6e0;border-radius:8px;padding:8px;',
       '  font:12.5px/1.5 Pretendard,sans-serif;resize:vertical}',
-      '#' + PANEL_ID + ' table{border-collapse:collapse;width:100%;font-size:12px;margin-top:8px}',
+      '#' + PANEL_ID + ' table{border-collapse:collapse;width:100%;font-size:12px;margin-top:8px;table-layout:auto}',
+      '#' + PANEL_ID + ' .tw{overflow-x:auto}',          // 표가 넘치면 가로로 민다(줄바꿈 대신)
+      '#' + PANEL_ID + ' table th,#' + PANEL_ID + ' table td{white-space:nowrap}',
       '#' + PANEL_ID + ' th{background:#eef2f7;padding:5px 6px;border:1px solid #dde3ea;white-space:nowrap}',
       '#' + PANEL_ID + ' td{padding:4px 6px;border:1px solid #e6eaef;text-align:center}',
-      '#' + PANEL_ID + ' td.nm{text-align:left}',
+      '#' + PANEL_ID + ' td.nm{text-align:left;max-width:none}',
+      '#' + PANEL_ID + ' td.nm .mut{white-space:normal}',   // 판정 이유만 접히게 둔다
       '#' + PANEL_ID + ' .tag{display:inline-block;padding:1px 6px;border-radius:9px;font-size:11px;font-weight:700}',
       '#' + PANEL_ID + ' .t-set{background:#e0ecff;color:#1d4ed8}',
       '#' + PANEL_ID + ' .t-wait{background:#fff3cd;color:#92400e}',
@@ -747,7 +752,6 @@
       '  <textarea id="qtyb-in" placeholder="연안 활 숫게 1kg&#9;30&#10;맛상 닭목살 1kg&#9;12"></textarea>' +
       '  <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
       '    <button class="pri" id="qtyb-sheet">📄 시트에서 가져오기</button>' +
-      '    <button class="pri" id="qtyb-go">⚖️ 대조</button>' +
       '    <button id="qtyb-check">🧾 수량 점검</button>' +
       '    <button id="qtyb-clr">비우기</button>' +
       '  </div>' +
@@ -788,7 +792,6 @@
           alert(e.message || e);
         });
     };
-    el('qtyb-go').onclick = function () { run(); };
     /* 🧾 점검 — 잡은 것 대비 쓴 것을 훑는다. 창고를 안 긁었으면 긁고 나서 센다. */
     el('qtyb-check').onclick = function () {
       var b = this, old = b.textContent;
@@ -881,7 +884,7 @@
           }).join('<br>') + (misfit.length > 15 ? '<br>…' : '') + '</div>';
     }
 
-    h += '<table><thead><tr><th>창고</th><th>상품명</th><th>잡음</th><th>나감</th><th>적힌 사용</th><th>남은 것</th><th>발주</th><th>창고 잔여</th></tr></thead><tbody>'
+    h += '<div class="tw"><table><thead><tr><th>창고</th><th>상품명</th><th>잡음</th><th>나감</th><th>적힌 사용</th><th>남은 것</th><th>발주</th><th>창고 잔여</th></tr></thead><tbody>'
       + rows.map(function (r) {
           return '<tr' + (r.over ? ' style="background:#fff1f2"' : '') + '>'
             + '<td>' + esc(r.wh) + '</td>'
@@ -894,7 +897,7 @@
             + '<td class="mut">' + (r.left == null ? '' : r.left) + '</td>'
             + '</tr>';
         }).join('')
-      + '</tbody></table>'
+      + '</tbody></table></div>'
       + '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">'
       +   '<button id="qtyb-cpover">📋 초과 사용 목록</button>'
       +   '<button id="qtyb-cprest">📋 안 쓴 것 목록</button></div>';
@@ -1096,7 +1099,7 @@
         + '<div id="qtyb-runlog" class="mut" style="margin-top:6px"></div></div>';
     }
 
-    h += '<table><thead><tr><th>판정</th><th>창고</th><th>상품명</th><th>필요</th><th>잡음</th>' +
+    h += '<div class="tw"><table><thead><tr><th>판정</th><th>창고</th><th>상품명</th><th>필요</th><th>잡음</th>' +
       '<th>잔여</th><th>잡기</th><th>대기</th><th>증량</th><th>마감</th></tr></thead><tbody>';
     hits.forEach(function (x) {
       var t = TAG[x.act] || TAG.ok;
@@ -1114,7 +1117,7 @@
         '<td class="mut">' + esc(x.row.dlRaw.replace(/^.*?:\s*/, '')) + (ml != null && ml <= 120 ? ' <b>' + ml + '분</b>' : '') + '</td>' +
         '</tr>';
     });
-    h += '</tbody></table>';
+    h += '</tbody></table></div>';
 
     // 붙여넣기용 — 지금 화면 표 순서 그대로 세로 한 줄
     /* 📋 못 채운 목록 — 시트에서 「재고 없음」 으로 내릴 몫.
@@ -1131,18 +1134,8 @@
        (2026-09-28 : 셋 다 막았더니 증량요청이 남아 목록을 영영 못 뽑았다) */
     var pending = nSet;
     h += '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">' +
-      '<button class="pri" id="qtyb-send">🚫 못 나가는 것 시트에서 내리기' + (holes.length ? ' (' + holes.length + ')' : '') + '</button>' +
-      '<button id="qtyb-cpno" title="' + (pending ? '아직 잡을 수 있는 것이 ' + pending + '건 남아 있습니다' : '') + '">' +
-        (pending ? '⚠️ 목록만 복사 (안 잡은 것 ' + pending + '건)' : '📋 목록만 복사') + '</button>' +
-      '<button id="qtyb-cp">📋 이 화면 순서로 숫자열</button>' +
-      '<button id="qtyb-cpw">📋 대기</button>' +
-      '<button id="qtyb-cpm">📋 증량요청</button></div>' +
-      '<div class="mut" style="margin-top:5px">[못 채운 목록] 은 시트 「🌐 수량 웹 정리」 의 ③ 칸에 붙여넣는 것입니다 — ' +
-      '잡고 남은 몫 전부(대기·증량 걸어 둔 것 포함)라 그만큼이 「재고 없음」 으로 내려갑니다.</div>' +
-      '<div class="mut" style="margin-top:5px">숫자열은 <b>지금 보이는 표 순서</b>에 맞춥니다 — 복사한 뒤 정렬·필터·창고를 바꾸지 마시고, ' +
-      '첫 줄 마찬 칸을 누른 다음 Ctrl+V 하십시오. 대상이 아닌 줄은 <b>지금 값 그대로</b> 채워 두므로 남의 줄이 풀리지 않습니다.</div>' +
-      (mixedView() ? '<div class="warn">⚠️ 지금은 창고가 섞인 화면입니다 — 전체 창고 탭은 200줄에서 끊깁니다. ' +
-        '붙여넣기는 <b>창고 탭을 하나 열고</b> 하십시오.</div>' : '');
+      '<button class="pri" id="qtyb-send">🚫 재고 없음으로 이동' + (holes.length ? ' (' + holes.length + ')' : '') + '</button></div>' +
+      '<div class="mut" style="margin-top:5px">잡고도 남은 몫 전부(대기·증량 걸어 둔 것 포함)가 시트 「당일」 에서 「재고 없음」 으로 내려갑니다.</div>';
 
     el('qtyb-out').innerHTML = h;
 
@@ -1199,34 +1192,6 @@
       })(0);
     };
 
-    /* 📋 숫자열 — 지금 화면 줄 순서 그대로 세로 한 줄.
-       🔴 빈 칸을 붙여넣으면 그 줄은 «풀린다»(수량 웹: 비우고 저장하면 풀림).
-          그래서 대조 대상이 아닌 줄은 빈 칸이 아니라 «지금 잡고 있는 값 그대로» 채운다 —
-          그래야 붙여넣기가 남의 줄(내가 이미 잡아 둔 다른 상품)을 풀어 버리지 않는다.
-          아직 안 잡은 줄(0)만 빈 칸으로 둔다(빈 칸 → 빈 칸이라 변화가 없다). */
-    el('qtyb-cp').onclick = function () {
-      var col = [], hit = 0, seen = {};
-      siteRows().forEach(function (tr) {
-        var o = readRow(tr, '');
-        if (!o) { col.push(''); return; }          // 상품 줄이 아니어도 자리는 지킨다(줄이 밀리면 딴 상품이 잡힌다)
-        var x = byKey[o.key];
-        var v = o.mine > 0 ? String(o.mine) : ''; // 기본은 «지금 값 그대로» — 빈 칸을 넣으면 그 줄이 풀린다
-        if (x) {
-          seen[o.key] = 1;
-          if (x.set) { v = String(x.mine + x.set); hit++; }   // 새로 잡을 줄만 값을 바꾼다
-        }
-        col.push(v);
-      });
-      var missing = hits.filter(function (x) { return !seen[x.row.key]; });
-      var note = hit ? hit + '줄 바뀜' : '바뀌는 줄 없음';
-      if (missing.length) {
-        note += ' · 이 화면에 없는 ' + missing.length + '건은 그 창고 탭에서';
-        alert('이 화면에 없는 대상 ' + missing.length + '건은 빠집니다 — 해당 창고 탭을 열고 다시 복사하십시오.\n\n'
-          + missing.slice(0, 12).map(function (x) { return '· ' + x.row.wh + ' / ' + x.row.name; }).join('\n')
-          + (missing.length > 12 ? '\n…' : ''));
-      }
-      copy(col.join('\n'), this, note);
-    };
     /* 🚫 시트에 바로 보내기 — 복사·붙여넣기 없이 「재고 없음」 으로 내린다 */
     el('qtyb-send').onclick = function () {
       if (!holes.length) { alert('못 채운 것이 없습니다 — 내릴 줄이 없습니다.'); return; }
@@ -1251,22 +1216,6 @@
         btn.disabled = false; btn.textContent = old;
         alert('시트에 보내지 못했습니다 — ' + (e.message || e));
       });
-    };
-    el('qtyb-cpno').onclick = function () {
-      if (!holes.length) { alert('못 채운 것이 없습니다 — 내릴 줄이 없습니다.'); return; }
-      if (pending && !confirm('아직 «잡을 수 있는데 안 잡은 것» 이 ' + pending + '건 남아 있습니다.\n'
-          + '이대로 뽑아 시트에 넣으면 그만큼도 「재고 없음」 으로 내려갑니다.\n\n그래도 뽑을까요?')) return;
-      // 시트에 적힌 이름(붙여넣은 원래 이름)으로 낸다 — 수량 웹 꼬리말이 붙으면 시트에서 못 찾는다
-      copy(holes.map(function (x) { return x.row.wh + '\t' + (x.raw || x.row.name) + '\t' + x.hole; }).join('\n'),
-           this, holes.length + '건');
-    };
-    el('qtyb-cpw').onclick = function () {
-      copy(hits.filter(function (x) { return x.wait; })
-        .map(function (x) { return x.row.wh + '\t' + x.row.name + '\t대기 ' + x.wait; }).join('\n'), this);
-    };
-    el('qtyb-cpm').onclick = function () {
-      copy(hits.filter(function (x) { return x.more; })
-        .map(function (x) { return x.row.wh + '\t' + x.row.name + '\t증량 ' + x.more; }).join('\n'), this);
     };
   }
 
