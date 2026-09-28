@@ -307,26 +307,51 @@
     return Promise.resolve();
   }
 
+  /* 창고 18곳 × 250KB = 순차로 돌면 45초가 넘는다(2026-09-28 실측).
+     4줄로 나눠 동시에 긁는다 — 남의 서버라 4줄까지만. 1,778줄이 10초 안에 들어온다. */
+  var LANES = 4;
+
   function scanAll() {
     var cs = chips();
     if (!cs.length) { stat('창고 칩을 못 찾음'); return Promise.resolve(); }
     IDX = {};
-    var n = 0, dup = 0;
+    var n = 0, dup = 0, done = 0, fail = [];
+    var t0 = Date.now();
     stat('긁는 중 0/' + cs.length);
-    return cs.reduce(function (pr, c, i) {
-      return pr.then(function () {
-        return fetchSec(c.tab).then(function (rows) {
-          rows.forEach(function (r) {
-            if (IDX[r.key]) { dup++; return; }     // 창고가 달라도 이름이 같으면 첫 것만 (수량 웹도 이름중복은 건너뛴다)
-            IDX[r.key] = r; n++;
-          });
-          stat('긁는 중 ' + (i + 1) + '/' + cs.length + ' · ' + n + '줄');
-        }).catch(function () { /* 한 창고 실패는 건너뛴다 */ });
-      }).then(function () { return new Promise(function (r) { setTimeout(r, 180); }); });
-    }, Promise.resolve()).then(function () {
+
+    function take(queue) {
+      if (!queue.length) return Promise.resolve();
+      var c = queue.shift();
+      return fetchSec(c.tab).then(function (rows) {
+        rows.forEach(function (r) {
+          if (IDX[r.key]) { dup++; return; }   // 이름이 같으면 첫 것만 — 수량 웹도 이름중복은 건너뛴다
+          IDX[r.key] = r; n++;
+        });
+      }).catch(function () {
+        fail.push(c.label || c.tab);           // 한 창고가 실패해도 나머지는 긁는다
+      }).then(function () {
+        done++;
+        stat('긁는 중 ' + done + '/' + cs.length + ' · ' + n + '줄');
+        return take(queue);
+      });
+    }
+
+    var q = cs.slice();
+    var lanes = [];
+    for (var i = 0; i < LANES; i++) lanes.push(take(q));
+    return Promise.all(lanes).then(function () {
       LASTWH = cs.map(function (c) { return c.label; });
-      stat('전체 ' + n + '줄' + (dup ? ' · 이름중복 ' + dup + '건 건너뜀' : ''));
+      stat('전체 ' + n + '줄 · ' + hhmm() + ' 기준'
+        + (dup ? ' · 이름중복 ' + dup + '건' : '')
+        + (fail.length ? ' · ⚠️ 못 읽은 창고 ' + fail.join(',') : '')
+        + ' (' + ((Date.now() - t0) / 1000).toFixed(1) + '초)');
     });
+  }
+
+  function hhmm() {
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false
+    }).format(new Date());
   }
 
   function run() {
