@@ -840,10 +840,18 @@
     h += '</tbody></table>';
 
     // 붙여넣기용 — 지금 화면 표 순서 그대로 세로 한 줄
+    /* 📋 못 채운 목록 — 시트에서 「재고 없음」 으로 내릴 몫.
+       🔴 증량요청 건 것만 뽑으면 안 된다(홍팀장 2026-09-28) : 꽃게처럼 290개 필요한데 잔여가 모자라
+          130개만 잡은 줄은 증량·대기 어디에도 안 걸려 있어도 «160개는 못 채운 것»이다.
+          → 판정이 무엇이든 «못 메운 몫(hole)» 이 있으면 전부 여기 담는다. */
+    var holes = hits.filter(function (x) { return (x.hole || 0) > 0; });
     h += '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">' +
-      '<button class="pri" id="qtyb-cp">📋 이 화면 순서로 숫자열 복사</button>' +
-      '<button id="qtyb-cpw">📋 대기 목록</button>' +
-      '<button id="qtyb-cpm">📋 증량요청 목록</button></div>' +
+      '<button class="pri" id="qtyb-cpno">📋 못 채운 목록 ' + (holes.length ? '(' + holes.length + ')' : '') + '</button>' +
+      '<button id="qtyb-cp">📋 이 화면 순서로 숫자열</button>' +
+      '<button id="qtyb-cpw">📋 대기</button>' +
+      '<button id="qtyb-cpm">📋 증량요청</button></div>' +
+      '<div class="mut" style="margin-top:5px">[못 채운 목록] 은 시트 「🌐 수량 웹 정리」 의 ③ 칸에 붙여넣는 것입니다 — ' +
+      '잡고 남은 몫 전부(대기·증량 걸어 둔 것 포함)라 그만큼이 「재고 없음」 으로 내려갑니다.</div>' +
       '<div class="mut" style="margin-top:5px">숫자열은 <b>지금 보이는 표 순서</b>에 맞춥니다 — 복사한 뒤 정렬·필터·창고를 바꾸지 마시고, ' +
       '첫 줄 마찬 칸을 누른 다음 Ctrl+V 하십시오. 대상이 아닌 줄은 <b>지금 값 그대로</b> 채워 두므로 남의 줄이 풀리지 않습니다.</div>' +
       (mixedView() ? '<div class="warn">⚠️ 지금은 창고가 섞인 화면입니다 — 전체 창고 탭은 200줄에서 끊깁니다. ' +
@@ -917,6 +925,10 @@
           + (missing.length > 12 ? '\n…' : ''));
       }
       copy(col.join('\n'), this, note);
+    };
+    el('qtyb-cpno').onclick = function () {
+      copy(holes.map(function (x) { return x.row.wh + '\t' + x.row.name + '\t' + x.hole; }).join('\n'),
+           this, holes.length + '건');
     };
     el('qtyb-cpw').onclick = function () {
       copy(hits.filter(function (x) { return x.wait; })
