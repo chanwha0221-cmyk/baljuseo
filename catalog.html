@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.127</title>
+<title>마스터 유통 카탈로그 v23.128</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -923,10 +923,15 @@ function applyMc(groups){
   const mc=(SNAP&&SNAP.mc)||null;
   if(!mc||!mc.length)return groups;
   const m={};mc.forEach(p=>{if(p&&p.n)m[pkey(p.n)]=p;});
-  // 📦 수량 0 · 🎯 주력 아닌 쌍둥이를 가릴 목록으로 모은다 (그릴 때마다 새로 만든다)
+  /* 📦🎯 자동으로 감추는 것은 **꺼져 있다** (2026-09-28 홍팀장 "다 풀어라 / 상시는 없다").
+     수량 0 자동 예외도, 주력 아닌 쌍둥이 감추기도 **상시 상품에는 걸지 않는다.**
+     당일 상품에만 거는 조건을 홍팀장에게 받은 뒤에 켤 것. 켜는 스위치는 이 한 줄이다. */
+  const MC_HIDE_ON=false;
   MCEXC=new Map();
-  mc.forEach(p=>{if(p&&p.n&&p.zero)MCEXC.set(pkey(p.n),'수량없음');});
-  ((SNAP&&SNAP.mcHide)||[]).forEach(n=>{if(n)MCEXC.set(pkey(n),'주력아님');});
+  if(MC_HIDE_ON){
+    mc.forEach(p=>{if(p&&p.n&&p.zero)MCEXC.set(pkey(p.n),'수량없음');});
+    ((SNAP&&SNAP.mcHide)||[]).forEach(n=>{if(n)MCEXC.set(pkey(n),'주력아님');});
+  }
   let hit=0;
   groups.forEach(g=>(g.products||[]).forEach(p=>{
     const r=m[pkey(p.name)];if(!r)return;hit++;
