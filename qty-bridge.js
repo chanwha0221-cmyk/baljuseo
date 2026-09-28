@@ -668,9 +668,14 @@
   var LASTWH = null;       // 마지막으로 긁은 창고 목록
 
   function css() {
-    if (document.getElementById('qtyb-css')) return;
-    var s = document.createElement('style');
-    s.id = 'qtyb-css';
+    /* 🔴 이미 있으면 «그냥 두지» 말고 내용을 갈아 끼운다 — 북마크릿을 다시 눌러도
+       옛 스타일이 남아 새 레이아웃이 안 먹었다(2026-09-28 폭이 520px 그대로). */
+    var s = document.getElementById('qtyb-css');
+    if (!s) {
+      s = document.createElement('style');
+      s.id = 'qtyb-css';
+      document.head.appendChild(s);
+    }
     s.textContent = [
       /* 상품명이 길어 세로로 접히면 표가 통째로 깨진다 — 폭을 넓게 잡고, 모자라면 가로로 민다
          (홍팀장 2026-09-28 「가로로 더 길어져도 되니까」) */
@@ -710,7 +715,6 @@
       '  padding:7px 9px;margin:8px 0;font-size:12px}',
       '#' + PANEL_ID + ' .mut{color:#6b7280;font-size:11.5px}'
     ].join('');
-    document.head.appendChild(s);
   }
 
   function el(id) { return document.getElementById(id); }
