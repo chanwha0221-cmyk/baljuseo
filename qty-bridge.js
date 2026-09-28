@@ -845,8 +845,14 @@
           130개만 잡은 줄은 증량·대기 어디에도 안 걸려 있어도 «160개는 못 채운 것»이다.
           → 판정이 무엇이든 «못 메운 몫(hole)» 이 있으면 전부 여기 담는다. */
     var holes = hits.filter(function (x) { return (x.hole || 0) > 0; });
+    /* 🔴 아직 «잡지 않은 것»이 남아 있으면 못 채운 목록을 못 뽑게 막는다 (2026-09-28 사고).
+       잡기 전에 뽑으면 전 품목이 부족분으로 나온다 — 그 목록을 시트에 넣어 당일 271줄이
+       통째로 「재고 없음」 으로 내려갔다. 잡을 수 있었던 것까지 빠졌다.
+       먼저 [🚀 판정대로 실행] 으로 잡고, 그러고도 남는 몫만 내려야 한다. */
+    var pending = nSet + nWait + nMore;
     h += '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">' +
-      '<button class="pri" id="qtyb-cpno">📋 못 채운 목록 ' + (holes.length ? '(' + holes.length + ')' : '') + '</button>' +
+      '<button class="pri" id="qtyb-cpno"' + (pending ? ' disabled title="먼저 [🚀 판정대로 실행] 을 누르십시오"' : '') + '>' +
+        (pending ? '🔒 못 채운 목록 — 먼저 실행하세요' : ('📋 못 채운 목록 ' + (holes.length ? '(' + holes.length + ')' : ''))) + '</button>' +
       '<button id="qtyb-cp">📋 이 화면 순서로 숫자열</button>' +
       '<button id="qtyb-cpw">📋 대기</button>' +
       '<button id="qtyb-cpm">📋 증량요청</button></div>' +
@@ -941,6 +947,12 @@
       copy(col.join('\n'), this, note);
     };
     el('qtyb-cpno').onclick = function () {
+      if (pending) {
+        alert('아직 잡지 않은 것이 ' + pending + '건 있습니다.\n\n먼저 [🚀 판정대로 실행] 을 눌러 잡을 것을 잡으십시오.\n'
+          + '지금 뽑으면 잡을 수 있는 것까지 「재고 없음」 으로 내려갑니다.');
+        return;
+      }
+      if (!holes.length) { alert('못 채운 것이 없습니다 — 내릴 줄이 없습니다.'); return; }
       // 시트에 적힌 이름(붙여넣은 원래 이름)으로 낸다 — 수량 웹 꼬리말이 붙으면 시트에서 못 찾는다
       copy(holes.map(function (x) { return x.row.wh + '\t' + (x.raw || x.row.name) + '\t' + x.hole; }).join('\n'),
            this, holes.length + '건');
