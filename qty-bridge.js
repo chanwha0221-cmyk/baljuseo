@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29g';
+  var QTYB_VER = '2026-09-29h';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1076,7 +1076,7 @@
             + rows.map(function (r) {
                 return '<tr' + (r.can > 0 ? ' style="background:#f0fdf4"' : (r.bad ? ' style="background:#fff1f2"' : '')) + '>'
                   + '<td>' + esc(r.wh) + '</td>'
-                  + '<td class="nm">' + esc(r.name) + (r.ghost ? ' <span class="tag t-hunt">물건없음</span>' : '') + (r.free ? ' <span class="tag t-free">넉넉</span>' : '') + '</td>'
+                  + '<td class="nm">' + esc(r.name) + cpName(r.name) + (r.ghost ? ' <span class="tag t-hunt">물건없음</span>' : '') + (r.free ? ' <span class="tag t-free">넉넉</span>' : '') + '</td>'
                   + '<td>' + r.want + '</td><td>' + r.spare + '</td><td>' + r.left + '</td>'
                   + '<td' + (r.can > 0 ? ' style="font-weight:800;color:#065f46"' : ' class="mut"') + '>' + r.can + '</td>'
                   + '<td' + (r.late ? ' style="color:#b91c1c;font-weight:700"' : ' class="mut"') + '>' + esc(r.cut) + '</td>'
@@ -1345,7 +1345,7 @@
       + rows.map(function (r) {
           return '<tr' + (r.over ? ' style="background:#fff1f2"' : '') + '>'
             + '<td>' + esc(r.wh) + '</td>'
-            + '<td class="nm">' + esc(r.name) + (r.ghost ? ' <span class="tag t-hunt">물건없음</span>' : '') + '</td>'
+            + '<td class="nm">' + esc(r.name) + cpName(r.name) + (r.ghost ? ' <span class="tag t-hunt">물건없음</span>' : '') + '</td>'
             + '<td>' + r.got + '</td>'
             + '<td' + (r.over ? ' style="color:#b91c1c;font-weight:800"' : '') + '>' + (r.out == null ? '<span class="mut">' + r.used + '</span>' : '<b>' + r.out + '</b>') + '</td>'
             + '<td' + (r.misfit ? ' style="color:#b45309;font-weight:700"' : ' class="mut"') + '>' + r.used + '</td>'
@@ -1689,7 +1689,7 @@
         '<td><button class="drop" data-drop="' + esc(x.row.key) + '" title="이 줄 빼기">✕</button></td>' +
         '<td><span class="tag ' + t[0] + '">' + t[1] + '</span></td>' +
         '<td>' + esc(x.row.wh) + '</td>' +
-        '<td class="nm">' + esc(x.row.name) + '<div class="mut">' + esc(x.why) + '</div></td>' +
+        '<td class="nm">' + esc(x.row.name) + cpName(x.raw || x.row.name) + '<div class="mut">' + esc(x.why) + '</div></td>' +
         '<td><b>' + x.need + '</b></td>' +
         '<td>' + x.mine + '</td>' +
         '<td>' + x.row.left + '</td>' +
@@ -1846,6 +1846,26 @@
       + '<div style="margin-top:6px"><button id="qtyb-hclr" style="background:#374151;color:#fff;border-color:#4b5563">구한 것 지우기</button></div></div>';
     var b = el('qtyb-hclr');
     if (b) b.onclick = function () { try { localStorage.removeItem(HKEY); } catch (e) {} huntPaint(); };
+  }
+
+  /* 📋 상품명 옆 복사 버튼 (2026-09-29 홍팀장) — 시트·수량 웹에서 찾을 때 쓴다.
+     수량 웹 상품명에 붙는 「품절 안 풀림」·「수량최신화 전」 꼬리말은 떼고 복사한다(그대로면 검색이 안 걸린다). */
+  function cpName(name) {
+    var n = String(name || '').replace(/(\s*(품절|안\s*풀림|수량최신화\s*전))+\s*$/, '').trim();
+    return ' <button type="button" class="qtyb-cp" data-cp="' + esc(n) + '" title="상품명 복사"'
+      + ' style="border:1px solid #cfd6e0;background:#fff;border-radius:5px;padding:0 5px;font-size:11px;cursor:pointer;vertical-align:1px">📋</button>';
+  }
+  if (!window.__QTYB_CPBOUND) {
+    window.__QTYB_CPBOUND = true;
+    document.addEventListener('click', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('.qtyb-cp') : null;
+      if (!b) return;
+      e.preventDefault(); e.stopPropagation();
+      var t = b.getAttribute('data-cp') || '';
+      var fin = function (ok) { b.textContent = ok ? '✅' : '❌'; setTimeout(function () { b.textContent = '📋'; }, 1200); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { fin(true); }, function () { fin(false); });
+      else fin(false);
+    }, true);
   }
 
   function copy(text, btn, extra) {
