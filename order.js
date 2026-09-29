@@ -533,6 +533,21 @@ function cutHour(p){
   const m = S(p && p.cut).match(/(\d{1,2})\s*시/);
   return m ? parseInt(m[1], 10) : null;
 }
+/* ⏰ 마감 임박 — 그 상품 마감까지 NEAR_CUT_MIN 분 이하 남았다 (2026-09-29 홍팀장
+   「2시 마감건 2시 다 돼서 발주하면, 이거 2시 마감건이라고 발주하고 담당한테 말하라고 알려줘」).
+   막지 않는다 — 알리기만 한다. 넣은 뒤 담당자가 창고에 바로 챙겨야 들어간다. 한국 시간으로 센다. */
+const NEAR_CUT_MIN = 30;
+function minsToCut(p){
+  const h = cutHour(p);
+  if(h == null) return null;
+  const k = new Date(Date.now() + 9 * 3600 * 1000);
+  return h * 60 - (k.getUTCHours() * 60 + k.getUTCMinutes());
+}
+function nearCut(p){ const m = minsToCut(p); return m != null && m > 0 && m <= NEAR_CUT_MIN; }
+function nearCutMsg(p){
+  return '⏰ ' + cutHour(p) + '시 마감 상품입니다 (마감 ' + minsToCut(p) + '분 전) — 발주 넣으신 뒤 담당자에게 '
+    + '「' + cutHour(p) + '시 마감건 발주했다」고 꼭 말씀해 주세요. ' + TEL_HELP;
+}
 function isLate(p){
   const h = cutHour(p);
   if(h == null) return false;
@@ -606,6 +621,7 @@ function checkRow(r){
 
   if(p){
     if(isLate(p)) warns.push('⏰ ' + (whOf(p) || '이 창고') + ' 마감(' + S(p.cut) + ')이 지났습니다 — 내일 출고됩니다.');
+    else if(nearCut(p)) warns.push(nearCutMsg(p));
     /* 📦 한 상자에 담기는 개수를 넘겼다 — **어떻게 나눠 넣는지까지** 말해준다 (홍팀장 2026-09-10).
        예전엔 "박스가 나뉩니다"까지만 알리고 발주서는 「x 26」 한 줄로 나갔다. */
     const lim = hapLimit(p.name);
@@ -1604,6 +1620,13 @@ async function submit(){
   o.ten.forEach(c => push(c[1], c, true));
   if(!items.length) return;
   const master = amMaster();
+  /* ⏰ 마감 임박 상품 — 제출 전에 모아 둔다(제출 뒤엔 화면이 비워진다). 합포장 줄은 ` / ` 로 쪼개 본다. */
+  const nearList = [];
+  items.forEach(it => S(it.prod).split(' / ').forEach(part => {
+    const nm = S(part).replace(/\s*[xX×]\s*\d+.*$/, '');
+    const p = nm ? findProd(nm).p : null;
+    if(p && nearCut(p) && !nearList.some(x => x.name === p.name)) nearList.push({name: p.name, h: cutHour(p), m: minsToCut(p)});
+  }));
   if(master && !(FOR && S(FOR.name))){ if(msg) msg.textContent = '어느 업체 발주인지 먼저 골라주세요.'; return; }
   /* 업체 본인 발주도 주문처 연락처는 필수다 (사장님 2026-08-25) — 웹앱도 같은 검사를 한다.
      여기까지 온 건 버튼 잠금을 빠져나온 경우(저장 직후 등)라 한 번 더 붙잡는다. */
@@ -1692,6 +1715,13 @@ async function submit(){
       }
     } else {
       toast('발주 ' + j.orderNo + ' 접수되었습니다');
+      /* ⏰ 마감 임박 상품이 들어 있으면 넣은 직후에 한 번 더 — 담당자에게 알려야 창고에 들어간다 (2026-09-29 홍팀장) */
+      if(nearList.length){
+        alert('발주 ' + j.orderNo + ' 접수되었습니다.\n\n⏰ 마감이 임박한 상품이 있습니다\n'
+          + nearList.map(x => '· ' + x.name + ' — ' + x.h + '시 마감 (' + x.m + '분 전)').join('\n')
+          + '\n\n담당자에게 「' + nearList.map(x => x.h + '시').filter((v, i, a) => a.indexOf(v) === i).join('·')
+          + ' 마감건 발주했다」고 꼭 말씀해 주세요.\n' + TEL_HELP);
+      }
     }
     location.hash = 'orders';
   }catch(e){
