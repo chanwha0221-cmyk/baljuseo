@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29h';
+  var QTYB_VER = '2026-09-29i';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -624,7 +624,10 @@
           나오면 받고 안 나오면 그냥 포기 해야지」
        ─ 10시 전엔 아직 열릴 수 있으니 예전처럼 대기(잠긴 줄 규칙).
        ─ 증량이 거부됐으면 포기(🎯 구해야 → 업체에 없다고 안내). 걸어 둔 대기는 세지 않는다. */
-    if (row.stuck && kstNow() >= OPEN_HOUR) {
+    /* 🔴 단, 잔여가 남아 있는 줄은 증량요청을 걸 수 없다 — 수량 웹 규칙(「잔여가 남아 있으면 증량요청을 못 건다」,
+          서버 morelib.php 도 거절). 2026-09-29 급냉 갑오징어 1kg : 총 50 · 잔여 50 인데 「품절 안 풀림」 이라
+          잡기도 안 열리고 증량도 거절됐다. 이런 줄은 아래 잠긴 줄 규칙(대기)으로 간다. */
+    if (row.stuck && kstNow() >= OPEN_HOUR && !(row.left > 0)) {
       var mFree = (mo && mo.pend) ? freeOf(mo.qty) : 0;
       if (mo && mo.no && !mo.pend) {
         r.hunt = hole; r.act = 'hunt';
@@ -830,6 +833,8 @@
     return freshRow(x.row).then(function (f) {
       var q = x.more || 0;
       if (!q) return { skip: '걸 것 없음' };
+      // 수량 웹 규칙 : 잔여가 남아 있으면 증량요청을 못 건다(서버도 거절) — 보내지 않고 이유를 남긴다
+      if (f.left > 0) return { skip: '잔여 ' + f.left + '개 남아 있어 증량요청 불가(수량 웹 규칙) — 대기로' };
       var expect = x.haveM || 0;
       if (f.more > expect) q -= (f.more - expect);
       if (q <= 0) return { skip: '이미 증량요청 ' + f.more + '개가 답을 기다리는 중' };
@@ -1041,19 +1046,22 @@
             if (late) chk = '⏰ 마감(' + cut + '시) 지남 — 오늘 못 나감';
             else if (gap <= 0) chk = '올리면 끝';
             else if (!idx) { chk = '수량 웹에서 못 찾음 — 이름 확인'; bad = true; }
-            else if ((idx.stuck && nowH >= OPEN_HOUR) || soon) {
+            /* 🔴 잔여가 남은 줄은 수량 웹이 증량요청을 거절한다(「잔여가 남아 있으면 증량요청을 못 건다」 — 급냉 갑오징어
+                  총 50·잔여 50·품절 안 풀림). 그런 줄은 대기만 걸 수 있다 → 아래 대기 판정으로 보낸다. */
+            else if (((idx.stuck && nowH >= OPEN_HOUR) || soon) && !(idx.left > 0)) {
               /* 대기로는 안 올 물건 — 증량요청이 걸려 있어야 한다. 걸어 둔 대기는 세지 않는다. */
               var why0 = idx.stuck && nowH >= OPEN_HOUR ? OPEN_HOUR + '시 지나도 안 풀림' : '마감(' + cut + '시) 1시간 안';
               if (refused) chk = '증량 거부 — 업체 안내';
               else if (mq >= gap) chk = '증량 ' + mq + ' 걸림';
               else { act = { t: 'more', n: gap - mq }; chk = '🔴 증량요청 ' + act.n + '개 필요 (' + why0 + (wq ? ' · 대기 ' + wq + '만 걸림' : '') + ')'; bad = true; }
-            } else if (wq + mq >= gap) chk = (wq ? '대기 ' + wq : '') + (wq && mq ? ' · ' : '') + (mq ? '증량 ' + mq : '') + ' 걸림';
+            } else if (wq + mq >= gap) chk = (wq ? '대기 ' + wq : '') + (wq && mq ? ' · ' : '') + (mq ? '증량 ' + mq : '') + ' 걸림'
+                + (idx.locked && idx.left > 0 ? ' (잔여 ' + idx.left + ' 남아 증량 불가 — 안 풀리면 관리팀 문의)' : '');
             else {
               var n0 = gap - wq - mq;
               /* 무엇을 걸까 — 당일 대조(judge)와 같은 기준 : 잠긴 줄·아직 안 열린 줄은 대기,
                  그 밖엔 총수량 대비 비중이 작으면 대기, 크면 증량요청. 증량이 거부된 상품은 대기로. */
               var share = idx.total > 0 ? (n0 / idx.total) : 1;
-              var useWait = refused || idx.locked || (idx.closed && !idx.stuck) || (n0 <= WAIT_MAX && share <= WAIT_SHARE);
+              var useWait = refused || idx.locked || idx.left > 0 || (idx.closed && !idx.stuck) || (n0 <= WAIT_MAX && share <= WAIT_SHARE);
               act = { t: useWait ? 'wait' : 'more', n: n0 };
               chk = '🔴 ' + (wq + mq ? '대기·증량 ' + (wq + mq) + '개뿐 — ' : '안 걸림 — ') + (useWait ? '대기 ' : '증량요청 ') + n0 + '개 필요';
               bad = true;
