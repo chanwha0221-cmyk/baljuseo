@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.139</title>
+<title>마스터 유통 카탈로그 v23.140</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -968,8 +968,11 @@ function applyMc(groups){
      발주를 받아놓고 나중에 «못 보낸다»고 하는 것이 제일 나쁘다. 두 번 일이 된다.
      → 업체 화면에 그대로 두되 **발주담기 대신 「문의」** 로 보낸다(MCLOW).
      확실히 못 파는 것(품절·당일 꺼둠)만 감춘다(MCEXC). */
-  MCEXC=new Map(); MCLOW=new Map();
-  mc.forEach(p=>{if(p&&p.n&&p.low)MCLOW.set(pkey(p.n),1);});
+  /* 📦 2026-09-29 홍팀장 — 수량 웹 잔여로 다시 나눈다:
+     🟡 소량(MCLOW) = 20개 미만 · masterc 소량/조기소진 → 딱지만, **발주는 된다**
+     🚫 재고 없음(MCZERO) = 잔여 0 → 카드는 남기고 「문의」, 발주는 막는다(서버 doSubmit 도 막는다) */
+  MCEXC=new Map(); MCLOW=new Map(); MCZERO=new Map();
+  mc.forEach(p=>{if(!p||!p.n)return; if(p.zero)MCZERO.set(pkey(p.n),1); else if(p.low)MCLOW.set(pkey(p.n),1);});
   /* 🚫 품절은 품절로 떨군다 — **마스터에게만 보인다** (2026-09-28 홍팀장).
      변동사항이 최신순이라 상품마다 처음 만나는 것이 가장 최근 변동이다.
      그게 품절류면 지금 품절, 재입고·출시면 다시 살아난 것이니 건드리지 않는다. */
@@ -1251,9 +1254,12 @@ let EXC=new Map();               // pkey(상품명) → {name,wh,by,at}
    ② 같은 물건이 여럿일 때 주력으로 안 고른 쌍둥이 → 업체가 헷갈리지 않게 가린다(서버 mcHide).
    둘 다 업체 화면에서만 사라지고, 마스터 화면에서는 「🚫 예외」 자리에 모여 보인다. */
 let MCEXC=new Map();             // pkey(상품명) → 감추는 이유('품절' | '꺼둠')
-/* 🟡 소량 — 감추지 않고 「문의」로 보내는 상품. 발주담기만 막는다(2026-09-28 홍팀장). */
+/* 🟡 소량 — 딱지만 붙이고 발주는 된다 (2026-09-29 홍팀장 "20개 미만은 소량 발주 가능"). */
 let MCLOW=new Map();
 const isLowQ=n=>MCLOW.has(pkey(n));
+/* 🚫 재고 없음 — 수량 웹 잔여 0. 감추지 않고 「문의」로 보내고 발주담기·발주를 막는다 (2026-09-29 홍팀장). */
+let MCZERO=new Map();
+const isZeroQ=n=>MCZERO.has(pkey(n));
 const isExc=n=>EXC.has(pkey(n))||MCEXC.has(pkey(n));
 const mcExcWhy=n=>MCEXC.get(pkey(n))||'';
 const amMasterC=()=>!!(ME&&ME.master);
@@ -1648,7 +1654,9 @@ function card(p,extra,top,foot){
   // 당일생물 상품엔 '입고 불안정'을 붙이지 않는다 — 그날 들어온 것만 파는 자리라
   // 입고가 일정치 않다는 표시 자체가 모순이다 (사장님 2026-08-18)
   // 🟡 소량 = 변동사항에서 온 표시(TINT) 또는 지금 잔여가 적은 것(MCLOW) — 상품 카드에도 노란 테두리
-  const hot=(!!TINT[pkey(p.name)]||isLowQ(p.name))&&p.group!=='당일생물'&&p.effWh!=='당일생물';
+  const day=p.group==='당일생물'||p.effWh==='당일생물';
+  const zq=!day&&isZeroQ(p.name);          // 🚫 재고 없음 — 당일생물은 등록 토글이 기준이라 수량으로 안 막는다
+  const hot=(!!TINT[pkey(p.name)]||isLowQ(p.name)||zq)&&!day;
   // ⭐추천상품은 목록에서도 배지를 단다. 추천 화면에서 넘어온 배지(top)가 있으면 그걸 쓴다(중복 방지).
   const rc=RECMAP[pkey(p.name)];
   const recBadge=(top!=null&&top!=='')?'' : (rc?('<span class="recb '+(rc.news?'news">📰 소식글':'rec">⭐ 추천상품')+'</span>'):'');
@@ -1656,7 +1664,7 @@ function card(p,extra,top,foot){
     /* 🔔 예외로 감출 때 그 시점 단가를 같이 보내려고 카드에 지금 단가를 달아둔다 (2026-09-09) */
     +' data-price="'+((p.price&&p.price.cur!=null)?p.price.cur:'')+'">'+thumb+'<div class="bd">'
     +(top||'')+recBadge
-    +(hot?'<span class="hotb">🟡 소량</span>':'')
+    +(zq?'<span class="hotb">🚫 재고 없음</span>':hot?'<span class="hotb">🟡 소량</span>':'')
     +(bt?'<button class="whb" data-wh="'+esc(p.effWh||'')+'" title="이 창고 상품만 보기">📦 '+esc(bt)+'</button>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
     +tagRow(p,taxc)
@@ -1674,9 +1682,10 @@ function card(p,extra,top,foot){
                  ? '<div class="excmv">'+esc(excMoved(p).txt)
                    +'<button class="excack" data-ack="'+esc(p.name)+'" data-ackp="'+((p.price&&p.price.cur!=null)?p.price.cur:'')
                    +'">계속 감추기</button></div>' : '')
-           /* 🟡 소량 — 담기 대신 문의로 보낸다. 받아놓고 «못 보낸다» 하는 것이 제일 나쁘다(2026-09-28 홍팀장). */
-           :isLowQ(p.name)
-             ?'<div class="lowq">🟡 <b>수량이 얼마 안 남았습니다</b><br>발주 전에 수량 먼저 확인해 주세요 — <b>010-2455-4156 홍찬화 팀장</b>'
+           /* 🚫 재고 없음 — 담기 대신 문의로 보낸다. 받아놓고 «못 보낸다» 하는 것이 제일 나쁘다(2026-09-29 홍팀장).
+              🟡 소량(20개 미만)은 2026-09-29부터 그냥 담긴다 — 딱지만 붙는다. */
+           :zq
+             ?'<div class="lowq">🚫 <b>재고 없음</b><br>수량은 문의해 주세요 — <b>010-2455-4156 홍찬화 팀장</b>'
               +'<a class="lowqb" href="tel:01024554156">📞 수량 문의</a></div>'
              :'<button class="ordb" data-ord="'+esc(p.name)+'">+ 발주담기</button>')
     /* 🖼 상세페이지 만들기 — 발주담기 바로 밑, **상품마다** (홍팀장 2026-09-03)
@@ -1694,8 +1703,8 @@ function card(p,extra,top,foot){
        잔여만 적은 물건이 있다(증량될 수도 있다). 풀어두면 다음 상시 딸깍이 한 번 물어본다. */
     /* ↩ 소량 딱지를 떼고 그냥 팔게 한다 — 왕 바지락처럼 총량은 많은데 많이 잡혀서 잔여만 적은 물건.
        풀어두면 다음 상시 딸깍이 «아직 소량인데 계속 열어둘까요» 하고 한 번 묻는다. */
-    +(amMasterC()&&isLowQ(p.name)
-        ?'<button class="excb" data-keep="'+esc(p.name)+'">↩ 소량 딱지 떼기</button>':'')
+    +(amMasterC()&&(isLowQ(p.name)||zq)
+        ?'<button class="excb" data-keep="'+esc(p.name)+'">↩ '+(zq?'재고 없음':'소량')+' 딱지 떼기</button>':'')
     +(amMasterC()&&!mcExcWhy(p.name)
         ?'<button class="excb'+(p.exc?' off':'')+'" data-exc="'+esc(p.name)+'" data-excon="'+(p.exc?'0':'1')
           +'" data-excwh="'+esc(p.effWh||p.group||'')+'">'+(p.exc?'↩ 판매 재개':'🚫 예외 등록')+'</button>':'')
@@ -1905,8 +1914,8 @@ document.addEventListener('click',e=>{
     kp.disabled=true;const o=kp.textContent;kp.textContent='…';
     api('mckeep',{token:ME.token,add:nm})
       .then(()=>{
-        MCLOW.delete(pkey(nm));                 // 이 화면에서 바로 풀어준다
-        toast(nm+' — 소량 딱지를 뗐습니다 (바로 발주 가능)');
+        MCLOW.delete(pkey(nm)); MCZERO.delete(pkey(nm));   // 이 화면에서 바로 풀어준다
+        toast(nm+' — 딱지를 뗐습니다 (바로 발주 가능)');
         buildAll();buildWhChips();render();
       })
       .catch(err=>{alert(err.message||'처리하지 못했습니다');kp.disabled=false;kp.textContent=o;});
@@ -3032,7 +3041,7 @@ window.addEventListener('hashchange',renderRoute);
       누를지 말지는 쓰는 사람이 정한다. (임시저장이 있어도 믿고 날릴 일은 아니다)
    🔴 실패하면 조용히 넘어간다 — 버전 확인이 안 된다고 카탈로그를 못 쓰게 하면 안 된다. */
 const MYVER=(document.title.match(/v[\d.]+/)||['v0'])[0];
-const FORCEVER='20260916-2';   // ⚠️ force.txt 와 같은 값 — 발주 읽는 법을 바꿔 배포할 때 둘 다 올린다
+const FORCEVER='20260929-1';   // ⚠️ force.txt 와 같은 값 — 발주 읽는 법을 바꿔 배포할 때 둘 다 올린다
 let VERBAR=false;
 function showVerBar(live){
   if(VERBAR)return; VERBAR=true;

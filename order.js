@@ -446,7 +446,10 @@ function findProd(raw){
       그 길은 건드리지 않는다. 여기서 거르는 건 "골라 담으라고 내미는 목록"뿐이다. */
 /* 🔐 도구로 열어준 상품은 예외에 걸려 있어도 보여준다 (홍팀장 2026-09-10) —
    카탈로그에서 내리려고 예외로 빼둔 물건을 [🔐 업체 전용 상품]으로 다시 연 경우다. */
-const sellable = p => !(p && typeof isExc === 'function' && isExc(p.name)) || vonlyOpen(p && p.name);
+/* 🚫 재고 없음(수량 웹 잔여 0) — 카탈로그가 매긴다(isZeroQ). 당일생물은 등록 토글이 기준이라 제외 (2026-09-29 홍팀장). */
+const zeroNow = p => !!p && typeof isZeroQ === 'function' && isZeroQ(p.name)
+  && S(p.group) !== '당일생물' && S(p.effWh) !== '당일생물' && !vonlyOpen(p.name);
+const sellable = p => (!(p && typeof isExc === 'function' && isExc(p.name)) || vonlyOpen(p && p.name)) && !zeroNow(p);
 
 /* 후보: 참고용일 뿐이다. 점수로 자동 선택하지 않는다. */
 function candidates(raw){
@@ -553,6 +556,9 @@ function checkRow(r){
      여기서 막으면 **열어준 의미가 없다.** 업체 화면엔 아래 ℹ️ 안내가 대신 뜬다. */
   else if(typeof isExc === 'function' && isExc(p.name) && !vonlyOpen(p.name))
     errs.push('🚫 예외로 빼놓은 상품입니다 — 오늘 판매하지 않습니다. 판매하려면 카탈로그에서 [↩ 판매 재개]를 먼저 누르세요.');
+  /* 🚫 재고 없음 — 발주도 막는다 (2026-09-29 홍팀장 "0개는 발주도 막는다"). 서버(doSubmit)도 한 번 더 막는다. */
+  else if(zeroNow(p))
+    errs.push('🚫 재고 없음 — 지금 수량이 없는 상품입니다. 수량 문의: 010-2455-4156 홍찬화 팀장');
   /* 🐟 홍어는 삭힘정도가 없으면 창고가 출고를 못 한다 (홍팀장 2026-09-02).
      경고로 두면 그냥 지나쳐 발주가 나가버린다 — 막는다. */
   else if(needAge(p.name) && !ageOf(r.name))
@@ -2480,7 +2486,7 @@ function badNow(prod) {
       const nm = String(part).replace(/\s*[xX×]\s*\d+\s*$/, '').trim();
       if (!nm) return;
       const w = why ? why(nm) : '';
-      if (typeof isLowQ === 'function' && isLowQ(nm)) tags.push('🟡 소량');
+      if (typeof isZeroQ === 'function' && isZeroQ(nm)) tags.push('🚫 재고 없음');   // 소량은 2026-09-29부터 발주 가능 — 딱지 안 붙인다
       if (w === '품절') tags.push('🚫 품절');
       else if (w === '꺼둠') tags.push('🔌 꺼둠');
       else if (isX && isX(nm)) tags.push('🚫 예외');

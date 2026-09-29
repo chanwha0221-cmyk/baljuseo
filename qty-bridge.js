@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-28e';
+  var QTYB_VER = '2026-09-29a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -886,6 +886,11 @@
       '    <button id="qtyb-back">↩️ 구해진 것 당일로</button>' +
       '    <button id="qtyb-clr">비우기</button>' +
       '  </div>' +
+      /* 📤 카탈로그 재고 — 누르면 한 번, 이 탭이 켜져 있으면 09~16시 30분마다 알아서 */
+      '  <div style="display:flex;gap:6px;align-items:center;margin-top:7px;flex-wrap:wrap">' +
+      '    <button class="pri" id="qtyb-stockgo">📤 카탈로그 재고 보내기</button>' +
+      '    <span class="mut" id="qtyb-stock">09~16시 30분마다 자동 (이 탭이 켜져 있을 때)</span>' +
+      '  </div>' +
       '  <div id="qtyb-hunt"></div>' +
       '  <div id="qtyb-out"></div>' +
       '</div>';
@@ -898,6 +903,7 @@
     };
     el('qtyb-scan').onclick = function () { scanAll(); };
     el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
+    el('qtyb-stockgo').onclick = function () { stockPush(false); };
     /* 📄 시트에서 가져오기 — 당일 탭(=넣을 발주)과 오늘 날짜 탭(=이미 나간 것)을 한 번에 읽는다.
        붙여넣기를 시키지 않는다(홍팀장 2026-09-28 「시트와 웹이 유기적으로 안 돌아간다」). */
     /* 📄 가져오기_당일 — 「당일」(넣을 발주) 과 «기준 날짜 시트»(이미 나간 것) 를 같이 읽는다.
@@ -1228,6 +1234,110 @@
     });
   }
 
+  /* ══ 📤 카탈로그 재고 보내기 (2026-09-29 홍팀장) ══════════════════════════
+     「20개 미만은 소량 발주 가능, 완전히 0은 문의·재고 없음으로 노출하고 0개는 발주도 막는다.
+       30분에 한 번씩 9시부터 4시까지」
+     수량 웹 잔여를 창고 전부 긁어 우리 서버(Supabase)로 보낸다 → 카탈로그가 다음 굽기에 반영.
+     🔴 masterc 원가표의 잔여(remain)는 못 쓴다 — 쫄깃 창고 9종을 0 으로, 연어(예외)·쭈꾸미(빈칸)도
+        0 으로 준다(09-29 실측). 그대로 막으면 멀쩡한 물건이 발주가 막힌다. 그래서 여기서 보낸다.
+     🔴 대조용 IDX 는 건드리지 않는다 — 홍팀장이 대조하는 도중에 30분 타이머가 돌아도 판이 안 바뀐다.
+     보내는 것 : 상시 상품만(당일은 등록 토글이 기준이라 수량으로 막지 않는다).
+       · 잠긴 줄(품절·안 풀림·수량최신화 전) → 0
+       · 잔여 숫자 → 그 숫자
+       · 넉넉·예외·빈칸 → 안 보냄(수량 미관리 — 막지도, 소량 딱지도 안 붙인다)
+       · 홍어 삭힘정도 4종 → 「흑산도 전통 홍어 500g」 잔여 그대로
+       · 연어(생연어·몸뱃살연어) → 「연안 몸뱃살연어 1kg」 잔여(kg) ÷ 그 상품 무게 */
+  var QTY_API = 'https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
+  var QTY_KEY = 'qty-mupztjvw4lefx7hsorc6';
+  var STOCK_LAST = 'qtybStockLast';        // 마지막으로 보낸 시각(ms) — 탭을 새로 띄워도 이어 센다
+
+  function stockRows() {
+    return getChips().then(function (cs) {
+      if (!cs.length) throw new Error('창고 칩을 못 찾음');
+      var all = {}, fail = [], loggedOut = false, q = cs.slice();
+      function take() {
+        if (!q.length) return Promise.resolve();
+        var c = q.shift();
+        return fetchSec(c.tab).then(function (rows) {
+          rows.forEach(function (r) { if (!all[r.key]) all[r.key] = r; });
+        }).catch(function (e) {
+          if (e && e.message === 'LOGOUT') loggedOut = true;
+          fail.push(c.label || c.tab);
+        }).then(take);
+      }
+      var lanes = [];
+      for (var i = 0; i < LANES; i++) lanes.push(take());
+      return Promise.all(lanes).then(function () {
+        if (loggedOut) throw new Error('수량 웹 로그인이 풀렸습니다');
+        /* 🔴 창고를 하나라도 못 읽었으면 보내지 않는다 — 그 창고 물건이 전부 «모름»으로 빠진다. */
+        if (fail.length) throw new Error('못 읽은 창고: ' + fail.join(','));
+        return all;
+      });
+    }).then(function (all) {
+      var m = {};
+      Object.keys(all).forEach(function (k) {
+        var r = all[k];
+        if (r.kind !== '상시') return;
+        if (r.locked) { m[k] = 0; return; }
+        if (!r.leftRaw || r.free) return;
+        m[k] = Math.max(0, r.left);
+      });
+      ALIAS.forEach(function (a) {
+        var base = m[nk(a.to)];
+        if (base === undefined) return;
+        Object.keys(all).forEach(function (k) {
+          var r = all[k];
+          if (r.kind !== '상시' || !a.hit(r.name)) return;
+          m[k] = a.weight ? Math.floor(base / kgOf(r.name)) : base;
+        });
+      });
+      return m;
+    });
+  }
+
+  function stockPush(auto) {
+    if (window.__QTYB_PUSHING) return Promise.resolve(false);
+    window.__QTYB_PUSHING = true;
+    var sEl = el('qtyb-stock');
+    if (sEl) sEl.textContent = '📤 보내는 중…';
+    return stockRows().then(function (m) {
+      var rows = Object.keys(m).map(function (k) { return [k, m[k]]; });
+      return fetch(QTY_API, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'qtypush', key: QTY_KEY, rows: rows })
+      }).then(function (r) { return r.json(); });
+    }).then(function (j) {
+      window.__QTYB_PUSHING = false;
+      if (!j || !j.ok) throw new Error((j && j.error) || '서버가 거절했습니다');
+      try { localStorage.setItem(STOCK_LAST, String(Date.now())); } catch (e) {}
+      if (sEl) sEl.textContent = '📤 ' + hhmm() + ' 보냄 · ' + j.count + '개 (재고없음 ' + j.zero + ' · 소량 ' + j.low + ')'
+        + (auto ? ' · 자동' : '');
+      return true;
+    }).catch(function (e) {
+      window.__QTYB_PUSHING = false;
+      if (sEl) sEl.textContent = '⚠️ ' + hhmm() + ' 재고 못 보냄 — ' + (e.message || e);
+      if (!auto) alert('카탈로그 재고를 못 보냈습니다.\n\n' + (e.message || e));
+      return false;
+    });
+  }
+
+  /* ⏰ 30분마다 — 09:00~16:00 (KST). 이 탭이 켜져 있어야 돈다(서버가 수량 웹을 못 읽는다).
+     숨은 탭은 크롬이 타이머를 1분에 한 번으로 묶지만 30분 간격이라 상관없다.
+     실패하면 다음 1분에 다시 한다(같은 30분 칸 안에서). */
+  function stockTimer() {
+    if (window.__QTYB_TIMER) clearInterval(window.__QTYB_TIMER);
+    function tick() {
+      var mins = Math.round(kstNow() * 60);          // kstNow() = 시(소수) — 14.5 = 14:30
+      if (mins < 9 * 60 || mins > 16 * 60) return;
+      var last = 0;
+      try { last = parseInt(localStorage.getItem(STOCK_LAST) || '0', 10) || 0; } catch (e) {}
+      if (Date.now() - last < 29 * 60 * 1000) return;
+      stockPush(true);
+    }
+    window.__QTYB_TIMER = setInterval(tick, 60 * 1000);
+    tick();
+  }
+
   function hhmm() {
     return new Intl.DateTimeFormat('en-GB', {
       timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false
@@ -1546,7 +1656,9 @@
   window.__QTYB = {
     open: function () { if (!el(PANEL_ID)) build(); },
     scanAll: scanAll, scanHere: scanHere, judge: judge, nk: nk,
-    idx: function () { return IDX; }
+    idx: function () { return IDX; },
+    stockPush: stockPush, stockRows: stockRows
   };
   build();
+  stockTimer();
 })();
