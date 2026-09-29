@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29a';
+  var QTYB_VER = '2026-09-29b';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -42,6 +42,10 @@
      잡기·사용·대기·증량은 전부 POST 로 걸고, 잡은 현황·안 쓴 것은 마이페이지를 긁어 오므로
      그 화면에 서 있을 필요가 없다. */
   var DONE_MAP = {};                // 기준 날짜 시트에서 «이미 나간 수량» (상품키 → 개수)
+  /* 「재고 없음」 탭에 내려가 대기·증량을 기다리는 주문 수량 (상품키 → 개수) — 대조할 때마다 새로 읽는다.
+     걸어 둔 대기는 이 주문들 몫이 먼저다(2026-09-29 알도루묵). */
+  var NONE_MAP = {};
+  function parkedTxt(n) { return ' (그중 ' + n + '개는 재고 없음에 있는 주문 몫)'; }
   var DROPPED = {};                 // ✕ 로 뺀 줄(중복이라고 판단한 것) — 대조할 때마다 비운다
   var NKEY = 'qtybNeed';            // 발주 필요수량 — 화면이 바뀌어도 이어 쓴다(같은 오리진)
 
@@ -549,6 +553,12 @@
        🔴 이미 «거부» 맞은 것에 증량을 또 걸지 않는다. 이미 걸어 둔 대기도 또 걸지 않는다.
           둘 다 막혔으면 그 수량은 «따로 구해야 할 것»이다 — 그게 오늘 못 파는 몫이다. */
     var mo = MORE[row.key], wa = WAIT[row.key], dr = DRAW[row.key];
+    /* 🔴 걸어 둔 대기·증량은 «이미 재고 없음에 내려가 있는 주문» 몫이 먼저다 (2026-09-29 홍팀장 알도루묵).
+       「3개 기다리는 중에 2개가 더 들어왔으면 대기를 5개로 늘려야지」 — 예전엔 걸어 둔 3개로
+       새 2개를 «덮힘» 처리했다. 그 3개는 재고 없음 탭의 주문 3개를 위해 건 것이다.
+       → 걸어 둔 수에서 재고 없음 탭 수량을 빼고 남는 것만 지금 발주에 쓴다. */
+    var parked = NONE_MAP[row.key] || 0;
+    function freeOf(have) { return Math.max(0, have - parked); }
     var got = wa ? wa.got : 0;                 // 대기로 이미 받은 것
     var hole = Math.max(0, rest - got);        // 아직 못 메운 몫
     r.rest = rest;
@@ -573,16 +583,17 @@
        🔴 수량 웹이 대기를 못 받는 때가 있을 수 있다 — 그때는 실행이 서버 메시지를 그대로 보여 준다. */
     var ml0 = minsLeft(dlHour(row.dlRaw));
     if (kstNow() >= 16 || (ml0 != null && ml0 < 0)) {
-      var hadW = (wa && wa.pend) ? wa.qty : 0;
+      var hadW = (wa && wa.pend) ? freeOf(wa.qty) : 0;
       var addW0 = Math.max(0, hole - hadW);
       if (!addW0) {
         r.act = 'waitP';
-        r.why = base + ' · 마감 뒤 — 이미 대기 ' + hadW + '개 걸어 둠';
+        r.why = base + ' · 마감 뒤 — 이미 대기 ' + wa.qty + '개 걸어 둠' + (parked ? parkedTxt(parked) : '');
       } else {
-        r.wait = addW0; r.haveW = hadW;
+        r.wait = addW0; r.haveW = (wa && wa.pend) ? wa.qty : 0;   // 실행 때 비교용 = 수량 웹에 걸린 실제 개수
         r.act = r.set ? 'set+wait' : 'wait';
         r.why = base + ' · 마감(' + (dlHour(row.dlRaw) || 16) + '시) 뒤라 내일 몫으로 대기'
-          + (hadW ? (' · 걸어 둔 ' + hadW + '개 빼고 ' + addW0 + '개 추가') : '');
+          + (hadW ? (' · 걸어 둔 ' + hadW + '개 빼고 ' + addW0 + '개 추가') : '')
+          + (parked && wa && wa.pend ? parkedTxt(parked) : '');
       }
       return r;
     }
@@ -601,7 +612,7 @@
         r.hunt = hole; r.act = 'hunt';
         r.why = base + ' · 증량 거부됨' + (row.stuck ? ' · 오늘 안 나오는 줄' : '') + (mo.ans ? ' 「' + mo.ans + '」' : '');
       }
-    } else if (mo && mo.pend && mo.qty >= hole) {
+    } else if (mo && mo.pend && freeOf(mo.qty) >= hole) {
       // 걸어 둔 증량요청이 지금 부족분을 이미 덮는다 → 그대로 기다린다
       r.act = 'moreP';
       r.why = base + ' · 증량 ' + mo.qty + '개 요청해 두고 답 기다림';
@@ -610,18 +621,21 @@
          (홍팀장 2026-09-28 : 「처음에 10개가 필요했는데 12개로 늘어났으면
           대기 2개 추가하고 증량 2개를 추가하는 형태로」).
          🔴 걸어 둔 것을 무시하고 새로 부족분 전체를 거는 것도, 걸려 있다고 아무것도 안 하는 것도 틀렸다. */
-      var haveW = (wa && wa.pend) ? wa.qty : 0;
-      var haveM = (mo && mo.pend) ? mo.qty : 0;
+      var haveW = (wa && wa.pend) ? freeOf(wa.qty) : 0;
+      var haveM = (mo && mo.pend) ? freeOf(mo.qty) : 0;
       var addW = (wa && wa.pend) ? Math.max(0, hole - haveW) : 0;
       var addM = (mo && mo.pend) ? Math.max(0, hole - haveM) : 0;
       if (!addW && !addM) {
         r.act = (haveM ? 'moreP' : 'waitP');
-        r.why = base + ' · 이미 걸어 둔 것으로 덮힘(대기 ' + haveW + ' · 증량 ' + haveM + ')';
+        r.why = base + ' · 이미 걸어 둔 것으로 덮힘(대기 ' + haveW + ' · 증량 ' + haveM + ')' + (parked ? parkedTxt(parked) : '');
       } else {
         r.wait = addW; r.more = addM;
-        r.haveW = haveW; r.haveM = haveM;        // 실행할 때 «그 사이 남이 더 걸었나» 를 보려고 들고 간다
+        /* 실행할 때 «그 사이 남이 더 걸었나» 를 보려고 들고 간다 — 🔴 이건 수량 웹에 걸린 «실제» 개수다.
+           재고 없음 몫을 뺀 값을 넘기면 실행이 «그 사이 늘었다» 로 오판해 추가분을 깎는다. */
+        r.haveW = (wa && wa.pend) ? wa.qty : 0; r.haveM = (mo && mo.pend) ? mo.qty : 0;
         r.act = addM ? (addW ? 'set+more' : (r.set ? 'set+more' : 'more')) : (r.set ? 'set+wait' : 'wait');
-        r.why = base + ' · 걸어 둔 것(대기 ' + haveW + ' · 증량 ' + haveM + ')보다 늘어 '
+        r.why = base + ' · 걸어 둔 것(대기 ' + r.haveW + ' · 증량 ' + r.haveM + ')'
+          + (parked ? parkedTxt(parked) : '') + '보다 늘어 '
           + (addW ? ('대기 ' + addW + '개') : '') + (addW && addM ? ' · ' : '') + (addM ? ('증량 ' + addM + '개') : '') + ' 추가';
       }
     } else if (row.locked) {
@@ -630,16 +644,17 @@
             내가 대기 걸라고 했잖아, 중요한 건 대기를 거는 거라고」).
             증량요청으로 보내던 것을 대기로 바꿨다 — 열리는 순간 줄 서 있어야 받는다.
          이미 걸어 둔 대기가 있으면 차액만 추가한다. */
-      var hadL = (wa && wa.pend) ? wa.qty : 0;
+      var hadL = (wa && wa.pend) ? freeOf(wa.qty) : 0;
       var addL = Math.max(0, hole - hadL);
       if (!addL) {
         r.act = 'waitP';
-        r.why = base + ' · 이미 대기 ' + hadL + '개 걸어 둠';
+        r.why = base + ' · 이미 대기 ' + wa.qty + '개 걸어 둠' + (parked ? parkedTxt(parked) : '');
       } else {
-        r.wait = addL; r.haveW = hadL;
+        r.wait = addL; r.haveW = (wa && wa.pend) ? wa.qty : 0;
         r.act = r.set ? 'set+wait' : 'wait';
         r.why = base + ' · 열릴 때 받게 대기'
-          + (hadL ? (' · 걸어 둔 ' + hadL + '개 빼고 ' + addL + '개 추가') : '');
+          + (hadL ? (' · 걸어 둔 ' + hadL + '개 빼고 ' + addL + '개 추가') : '')
+          + (parked && wa && wa.pend ? parkedTxt(parked) : '');
       }
     } else if (wa && wa.pend) {
       r.act = 'waitP';
@@ -1355,7 +1370,17 @@
     DROPPED = {};                       // 새로 대조하면 ✕ 로 뺐던 것도 다시 살린다
 
     var go = haveIdx() ? Promise.resolve() : scanAll();
+    var noneWarn = '';
     return go.then(function () { return loadMy(); }).then(function () {
+      /* 재고 없음 탭 — 걸어 둔 대기가 누구 몫인지 가르는 데 쓴다. 못 읽으면 예전처럼(0) 가고 화면에 알린다. */
+      return tallyTab('재고 없음', 2).then(function (no) {
+        NONE_MAP = {};
+        Object.keys(no.map).forEach(function (k) { NONE_MAP[k] = no.map[k].qty; });
+      }, function () {
+        NONE_MAP = {};
+        noneWarn = '⚠️ 「재고 없음」 탭을 못 읽었습니다 — 걸어 둔 대기가 전부 이번 발주 몫으로 계산됐습니다(실제보다 적게 걸 수 있음).';
+      });
+    }).then(function () {
       /* 창고를 하나도 못 읽었으면 대조를 하지 않는다 — 하면 전부 «못 찾음» 으로 나와
          그 목록이 그대로 「재고 없음」 으로 갈 뻔한다(2026-09-28). */
       if (!haveIdx()) {
@@ -1375,6 +1400,7 @@
         j.raw = parsed.map['#raw:' + k] || row.name;
         hits.push(j);
       });
+      if (noneWarn) notes.push(noneWarn);
       draw(hits, miss, parsed.bad, notes);
     });
   }
