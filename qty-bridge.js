@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29i';
+  var QTYB_VER = '2026-09-29j';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -790,7 +790,9 @@
      이미 목표만큼 잡혀 있으면 아무것도 보내지 않는다(두 번 눌러도 안전). */
   function actSet(x) {
     return freshRow(x.row).then(function (f) {
-      var goal = Math.min(x.need, f.mine + f.left);
+      /* 🔴 목표 = 이미 나간 것(x.used) + 이번 필요 (2026-09-29 알도루묵 : 잡음 5 · 이미 나감 5 · 추가 필요 4 → 9).
+            예전엔 필요수량만 목표로 잡아서 «이미 5개 잡혀 있음» 으로 건너뛰었다 — 화면엔 잡기 9 라고 해 놓고. */
+      var goal = Math.min((x.used || 0) + x.need, f.mine + f.left);
       if (goal <= f.mine) return { skip: '이미 ' + f.mine + '개 잡혀 있음' };
       return qpost({ do: 'set', tab: whTab(x.row), nkey: x.row.key, co: x.row.co,
                      val: goal, name: x.row.name, how: 'pop' })
@@ -802,9 +804,11 @@
      잡은 것보다 많이 쓸 수는 없으니 min(필요수량, 지금 잡은 것). 이미 그 값이면 안 보낸다. */
   function actUsed(x) {
     return freshRow(x.row).then(function (f) {
-      var v = Math.min(x.need, f.mine);
+      /* 🔴 사용 = 이미 나간 것 + 이번 필요 (잡은 것까지). 예전엔 이번 필요(4)만 적어서 이미 5 나간 알도루묵의
+            사용 칸을 4 로 줄여 놨다(2026-09-29). 사용 칸은 줄이지 않는다 — 더 크게 적혀 있으면 그대로 둔다. */
+      var v = Math.min((x.used || 0) + x.need, f.mine);
       if (v <= 0) return { skip: '잡은 것이 없음' };
-      if (v === f.used) return { skip: '이미 ' + v + '개로 적혀 있음' };
+      if (v <= f.used) return { skip: '이미 ' + f.used + '개로 적혀 있음' };
       return qpost({ do: 'used', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, val: v })
         .then(function () { return { done: v, was: f.used }; });
     });
@@ -1641,18 +1645,23 @@
 
     /* ⚠️ 잡았는데 안 쓴 것 — 마이페이지(우리가 잡은 것)를 긁어 만든다. 그래서 어느 화면에서도 보인다.
        홍팀장 2026-09-28 : 「잡은 수량 대비 사용한 상품 없는 것도 실시간으로 취합하여 알려줌」 */
+    /* 🔴 2026-09-29 알도루묵 : 「사용」 칸(4)만 믿어서 «남음 1» 이라 했는데 날짜 시트엔 이미 5 가 나갔고
+          이번 당일에 4 가 더 필요했다(아래 표는 잡기 9). 위아래가 딴소리를 했다.
+          → 쓴 것 = max(사용 칸, 날짜 시트에 나간 것 + 이번 당일 필요). 같은 자로 센다. */
+    var needBy = {};
+    hits.forEach(function (x) { needBy[x.row.key] = (needBy[x.row.key] || 0) + (x.need || 0); });
     var idle = Object.keys(OURS).map(function (k) {
       var o = OURS[k];
-      // 「안 쓴 것」 칸이 있으면 그 값을 믿는다(수량 웹이 직접 센 값) — 없으면 잡은 것에서 사용을 뺀다
-      var left = (o.unused != null && o.unused !== 0) ? o.unused : (o.got - o.used);
-      return { key: k, wh: o.wh, got: o.got, used: o.used, left: left,
+      var out = (DONE_MAP[k] != null ? DONE_MAP[k] : 0) + (needBy[k] || 0);
+      var spent = Math.max(o.used, out);
+      return { key: k, wh: o.wh, got: o.got, used: spent, left: o.got - spent,
                name: (IDX && IDX[k]) ? IDX[k].name : k };
     }).filter(function (o) { return o.left > 0; }).sort(function (a, b) { return b.left - a.left; });
     if (idle.length) {
       var tot = idle.reduce(function (n, o) { return n + o.left; }, 0);
       h += '<div class="warn">⚠️ 잡았는데 안 쓴 것 ' + idle.length + '건 · ' + tot + '개 — 마감까지 안 나가면 그대로 우리 몫입니다.<br>'
         + idle.slice(0, 12).map(function (o) {
-            return '· ' + esc(o.wh) + ' / ' + esc(o.name) + ' 잡음 ' + o.got + ' · 사용 ' + o.used + ' → 남음 <b>' + o.left + '</b>';
+            return '· ' + esc(o.wh) + ' / ' + esc(o.name) + ' 잡음 ' + o.got + ' · 쓴 것(나감+이번 발주) ' + o.used + ' → 남음 <b>' + o.left + '</b>';
           }).join('<br>')
         + (idle.length > 12 ? '<br>…' : '') + '</div>';
     }
@@ -1749,7 +1758,7 @@
       hits.forEach(function (x) { if (x.set)  jobs.push({ t: '잡기',   x: x, n: x.mine + x.set, f: function () { return actSet(x); } }); });
       /* 잡은 뒤 «사용» 을 채운다 — 잡아만 두고 안 썼다고 잡히면 마감 때 풀라는 경고가 뜬다.
          잡기가 없던 줄(이미 넉넉히 잡아 둔 것)도 채워야 하므로 필요수량이 있는 줄 전부를 본다. */
-      hits.forEach(function (x) { if (x.need > 0) jobs.push({ t: '사용', x: x, n: Math.min(x.need, x.mine + (x.set || 0)), f: function () { return actUsed(x); } }); });
+      hits.forEach(function (x) { if (x.need > 0) jobs.push({ t: '사용', x: x, n: Math.min((x.used || 0) + x.need, x.mine + (x.set || 0)), f: function () { return actUsed(x); } }); });
       hits.forEach(function (x) { if (x.wait) jobs.push({ t: '대기',   x: x, n: x.wait,        f: function () { return actWait(x); } }); });
       var why = (el('qtyb-why') && el('qtyb-why').value.trim()) || WHY_DEFAULT;
       hits.forEach(function (x) { if (x.more) jobs.push({ t: '증량요청', x: x, n: x.more,      f: function () { return actMore(x, why); } }); });
