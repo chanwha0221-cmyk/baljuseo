@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29j';
+  var QTYB_VER = '2026-09-29k';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -137,7 +137,7 @@
         prod.split(' / ').forEach(function (part) {
           var t = S(part);
           if (!t) return;
-          var m = t.match(/^(.*?)\s*[xX×]\s*(\d+)\s*$/);
+          var m = t.match(/^(.*?)\s*[xX×]\s*(\d+)\s*(?:[(（][^)）]*[)）]?\s*)*$/);
           var name = m ? S(m[1]) : t;
           var q = m ? parseInt(m[2], 10) : 1;
           if (!name) return;
