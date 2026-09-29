@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29f';
+  var QTYB_VER = '2026-09-29g';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -945,7 +945,8 @@
       '    <button class="pri" id="qtyb-sheet">📄 가져오기_당일</button>' +
       '    <button class="pri" id="qtyb-none">📦 가져오기_재고없음</button>' +
       '    <button id="qtyb-check">🧾 수량 점검</button>' +
-      '    <button id="qtyb-back">↩️ 구해진 것 당일로</button>' +
+      /* 「↩️ 구해진 것 당일로」 는 뺐다 (2026-09-29 홍팀장 「이거 2개 같은 기능」) — 📦 가져오기_재고없음 이
+         잔여·잡아 둔 여유를 보고 [↩️ 여유분 당일로 올리기] 로 같은 일을 한다. 함수는 남겨 둠(qtyb-back). */
       '    <button id="qtyb-clr">비우기</button>' +
       '  </div>' +
       /* 📤 카탈로그 재고 — 누르면 한 번, 이 탭이 켜져 있으면 09~16시 30분마다 알아서 */
@@ -1008,8 +1009,8 @@
     el('qtyb-none').onclick = function () {
       var b = this, old = b.textContent;
       b.disabled = true; b.textContent = '재고 없음 읽는 중…';
-      var go = haveIdx() ? Promise.resolve() : scanAll();
-      go.then(function () { return loadMy(); })
+      // 검토는 언제나 새로 긁는다 — 대기·증량을 건 직후 다시 볼 때 옛 잔여로 판정하면 안 된다
+      scanAll().then(function () { return loadMy(); })
         .then(function () { return tallyTab('재고 없음', 2); })
         .then(function (no) {
           var keys = Object.keys(no.map);
@@ -1033,18 +1034,34 @@
             var can = (ghost || late) ? 0 : Math.min(want, spare + left);
             var w = WAIT[k], m = MORE[k];
             var wq = (w && w.pend) ? w.qty : 0, mq = (m && m.pend) ? m.qty : 0;
-            var gap = want - can, chk = '', bad = false;
+            var gap = want - can, chk = '', bad = false, act = null;
+            /* 마감까지 1시간도 안 남았으면 대기로는 못 받는다고 본다 → 증량요청 (홍팀장 2026-09-29 뒷고기모듬 12시 마감) */
+            var soon = cut != null && !late && (cut - nowH) <= 1;
+            var refused = !!(m && m.no && !m.pend);
             if (late) chk = '⏰ 마감(' + cut + '시) 지남 — 오늘 못 나감';
             else if (gap <= 0) chk = '올리면 끝';
-            else if (idx && idx.stuck && nowH >= OPEN_HOUR) {
-              if (m && m.no && !m.pend) chk = '증량 거부 — 업체 안내';
+            else if (!idx) { chk = '수량 웹에서 못 찾음 — 이름 확인'; bad = true; }
+            else if ((idx.stuck && nowH >= OPEN_HOUR) || soon) {
+              /* 대기로는 안 올 물건 — 증량요청이 걸려 있어야 한다. 걸어 둔 대기는 세지 않는다. */
+              var why0 = idx.stuck && nowH >= OPEN_HOUR ? OPEN_HOUR + '시 지나도 안 풀림' : '마감(' + cut + '시) 1시간 안';
+              if (refused) chk = '증량 거부 — 업체 안내';
               else if (mq >= gap) chk = '증량 ' + mq + ' 걸림';
-              else { chk = '🔴 증량요청 필요 ' + (gap - mq) + '개 (' + OPEN_HOUR + '시 지나도 안 풀림' + (wq ? ' · 대기 ' + wq + '만 걸림' : '') + ')'; bad = true; }
+              else { act = { t: 'more', n: gap - mq }; chk = '🔴 증량요청 ' + act.n + '개 필요 (' + why0 + (wq ? ' · 대기 ' + wq + '만 걸림' : '') + ')'; bad = true; }
             } else if (wq + mq >= gap) chk = (wq ? '대기 ' + wq : '') + (wq && mq ? ' · ' : '') + (mq ? '증량 ' + mq : '') + ' 걸림';
-            else { chk = '🔴 ' + (wq + mq ? '대기·증량 ' + (wq + mq) + '개뿐 — ' + (gap - wq - mq) + '개 더' : '대기·증량 안 걸림 ' + gap + '개'); bad = true; }
+            else {
+              var n0 = gap - wq - mq;
+              /* 무엇을 걸까 — 당일 대조(judge)와 같은 기준 : 잠긴 줄·아직 안 열린 줄은 대기,
+                 그 밖엔 총수량 대비 비중이 작으면 대기, 크면 증량요청. 증량이 거부된 상품은 대기로. */
+              var share = idx.total > 0 ? (n0 / idx.total) : 1;
+              var useWait = refused || idx.locked || (idx.closed && !idx.stuck) || (n0 <= WAIT_MAX && share <= WAIT_SHARE);
+              act = { t: useWait ? 'wait' : 'more', n: n0 };
+              chk = '🔴 ' + (wq + mq ? '대기·증량 ' + (wq + mq) + '개뿐 — ' : '안 걸림 — ') + (useWait ? '대기 ' : '증량요청 ') + n0 + '개 필요';
+              bad = true;
+            }
             return { key: k, name: no.map[k].name, wh: idx ? idx.wh : (o ? o.wh : ''),
                      want: want, spare: spare, left: free ? '넉넉' : left, ghost: ghost, free: free,
-                     cut: idx ? (idx.dlRaw || '') : '', late: late, chk: chk, bad: bad, can: can };
+                     cut: idx ? (idx.dlRaw || '') : '', late: late, chk: chk, bad: bad, can: can,
+                     act: act, idx: idx, wq: wq, mq: mq };
           }).sort(function (a, c) { return (c.can - a.can) || ((c.bad ? 1 : 0) - (a.bad ? 1 : 0)); });
           var ok = rows.filter(function (r) { return r.can > 0; });
           var bads = rows.filter(function (r) { return r.bad; });
@@ -1066,12 +1083,46 @@
                   + '<td' + (r.bad ? ' style="color:#b91c1c;font-weight:700"' : '') + '>' + esc(r.chk) + '</td></tr>';
               }).join('')
             + '</tbody></table></div>';
-          if (ok.length) {
-            h += '<div style="margin-top:9px"><button class="pri" id="qtyb-upgo">↩️ 여유분 ' + ok.length + '건 당일로 올리기</button></div>'
-              + '<div class="mut" id="qtyb-uplog" style="margin-top:6px"></div>';
+          var acts = rows.filter(function (r) { return r.act && r.act.n > 0 && r.idx && r.idx.co; });
+          if (ok.length || acts.length) {
+            h += '<div style="margin-top:9px;display:flex;gap:6px;flex-wrap:wrap">'
+              + (ok.length ? '<button class="pri" id="qtyb-upgo">↩️ 여유분 ' + ok.length + '건 당일로 올리기</button>' : '')
+              + (acts.length ? '<button class="pri" id="qtyb-actgo" style="background:#b91c1c;border-color:#b91c1c">🚀 빠진 대기·증량 ' + acts.length + '건 걸기</button>' : '')
+              + '</div><div class="mut" id="qtyb-uplog" style="margin-top:6px"></div>';
           }
           el('qtyb-out').innerHTML = h;
           b.disabled = false; b.textContent = old;
+
+          /* 🚀 빠진 대기·증량 걸기 (2026-09-29 홍팀장 「물건 없는 상품들이 증량 요청은 들어가 있는지 대기수량은 걸려 있는지
+             체크해 줘야 해, 안 되어 있다면 그것도 진행해야겠지」). 당일 대조의 실행과 같은 함수(actWait·actMore)를 쓴다 —
+             걸기 직전에 그 줄을 다시 읽어 그 사이 누가 더 걸었으면 그만큼 뺀다. 대기는 총량으로 보낸다. */
+          var ag = el('qtyb-actgo');
+          if (ag) ag.onclick = function () {
+            if (!confirm('수량 웹에 실제로 겁니다 — ' + acts.length + '건\n\n'
+                + acts.map(function (r) { return '· [' + (r.act.t === 'more' ? '증량요청' : '대기') + '] ' + r.name + ' ' + r.act.n + '개'; }).join('\n')
+                + '\n\n증량요청 사유 : ' + WHY_DEFAULT)) return;
+            var bb = this; bb.disabled = true;
+            var done = [], fail = [];
+            (function step(i) {
+              if (i >= acts.length) {
+                el('qtyb-uplog').innerHTML = '<b>건 것</b><br>' + (done.length ? done.join('<br>') : '없음')
+                  + (fail.length ? '<br><br><b style="color:#b91c1c">안 된 것</b><br>' + fail.join('<br>') : '')
+                  + '<br><br>다시 읽는 중…';
+                setTimeout(function () { el('qtyb-none').click(); }, 900);     // 걸린 상태로 다시 검토
+                return;
+              }
+              var r = acts[i];
+              bb.textContent = '거는 중 ' + (i + 1) + '/' + acts.length;
+              var x = { row: r.idx, wait: r.act.t === 'wait' ? r.act.n : 0, more: r.act.t === 'more' ? r.act.n : 0, haveW: r.wq, haveM: r.mq };
+              (r.act.t === 'more' ? actMore(x, WHY_DEFAULT) : actWait(x)).then(function (res) {
+                if (res && res.skip) done.push('· ' + esc(r.name) + ' — 건너뜀: ' + esc(res.skip));
+                else done.push('· ' + esc(r.name) + ' — ' + (r.act.t === 'more' ? '증량요청 ' : '대기 ') + r.act.n + '개'
+                  + (res && res.now != null ? ' (대기 합계 ' + res.now + ')' : ''));
+              }, function (e) {
+                fail.push('· ' + esc(r.name) + ' — ' + esc(e && e.message ? e.message : e));
+              }).then(function () { setTimeout(function () { step(i + 1); }, 320); });
+            })(0);
+          };
 
           var up = el('qtyb-upgo');
           if (up) up.onclick = function () {
@@ -1124,7 +1175,7 @@
     /* ↩️ 구해진 것 당일로 — 대기를 받았거나 증량이 됐을 때. 상품명·수량만 적으면
        「재고 없음」 에서 그 수량만큼 위에서부터 「당일」 로 올라간다(줄은 안 쪼갠다).
        시트 창을 열 일이 없게 여기서 바로 보낸다(홍팀장 2026-09-28). */
-    el('qtyb-back').onclick = function () {
+    if (el('qtyb-back')) el('qtyb-back').onclick = function () {
       var box = el('qtyb-out');
       box.innerHTML = '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:9px;padding:10px 12px;margin:8px 0">'
         + '<b>↩️ 구해진 것 당일로</b>'
