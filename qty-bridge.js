@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29b';
+  var QTYB_VER = '2026-09-29c';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -45,6 +45,10 @@
   /* 「재고 없음」 탭에 내려가 대기·증량을 기다리는 주문 수량 (상품키 → 개수) — 대조할 때마다 새로 읽는다.
      걸어 둔 대기는 이 주문들 몫이 먼저다(2026-09-29 알도루묵). */
   var NONE_MAP = {};
+  /* 🧾 수량 점검의 «나간 것» 은 날짜 시트에 실제로 들어간 발주만 센다 (2026-09-29 홍팀장 전어 90개).
+     시트를 제대로 읽었으면 시트에 없는 상품 = 0 개 나감. 수량 웹 «사용» 칸으로 메우지 않는다
+     (대조 실행이 잡으면서 사용 칸을 같이 적어서, 시트로 안 넘긴 전어가 90개 나간 걸로 떴다). */
+  var DONE_OK = false, DONE_TAB = '', DONE_LINES = 0;
   function parkedTxt(n) { return ' (그중 ' + n + '개는 재고 없음에 있는 주문 몫)'; }
   var DROPPED = {};                 // ✕ 로 뺀 줄(중복이라고 판단한 것) — 대조할 때마다 비운다
   var NKEY = 'qtybNeed';            // 발주 필요수량 — 화면이 바뀌어도 이어 쓴다(같은 오리진)
@@ -503,9 +507,11 @@
           (홍팀장 : 「초대왕 반건조 갑오징어 500g급 4개 있냐?」 — 없다. 재고 없음으로 빠져야 한다) */
     /* «이미 쓴 몫» 은 기준 날짜 시트에서 실제로 나간 수량을 먼저 본다 — 그게 정본이다.
        수량 웹 «사용» 칸은 사람이 손으로 적는 값이라 안 맞을 수 있어 보조로만 쓴다. */
+    /* 🔴 날짜 시트를 읽었으면 거기 없는 상품은 0 개 나감이다 (2026-09-29 전어 90개).
+       사용 칸으로 메우면, 잡으면서 적어 둔 사용 90 때문에 «이미 다 썼다» 가 되어 또 90 을 잡으려 든다. */
     var mineUsed = (DONE_MAP[row.key] != null)
       ? DONE_MAP[row.key]
-      : ((OURS[row.key] && OURS[row.key].used) || 0);
+      : (DONE_OK ? 0 : ((OURS[row.key] && OURS[row.key].used) || 0));
     var ghost = row.stuck || (row.closed && row.left < 0);
     var avail = ghost ? 0 : Math.max(0, mine - mineUsed);
     var short = need - avail;
@@ -931,18 +937,21 @@
       b.disabled = true; b.textContent = '당일 읽는 중…';
       Promise.all([
         tallyTab('당일'),
-        tallyTab(day).catch(function () { return { map: {}, lines: 0, tab: day }; })
+        tallyTab(day).catch(function () { return null; })
       ]).then(function (r) {
         var need = r[0], done = r[1];
+        DONE_OK = !!done; DONE_TAB = day; DONE_LINES = done ? done.lines : 0;
+        done = done || { map: {}, lines: 0, tab: day };
         DONE_MAP = {};
         Object.keys(done.map).forEach(function (k) { DONE_MAP[k] = done.map[k].qty; });
         SHEET_DONE = Object.keys(done.map)
           .map(function (k) { return done.map[k].name + '\t' + done.map[k].qty; }).join('\n');
+        var dEl = el('qtyb-done'); if (dEl) dEl.value = SHEET_DONE;
         el('qtyb-in').value = Object.keys(need.map)
           .map(function (k) { return need.map[k].name + '\t' + need.map[k].qty; }).join('\n');
         needSave(el('qtyb-in').value);
         stat('당일 ' + need.lines + '줄 · 상품 ' + Object.keys(need.map).length + '개 · '
-           + day + ' 나간 것 ' + Object.keys(done.map).length + '개');
+           + (DONE_OK ? (day + ' 나간 것 ' + Object.keys(done.map).length + '개') : ('⚠️ ' + day + ' 시트 못 읽음')));
         b.disabled = false; b.textContent = old;
         run();                                  // 바로 대조까지 간다
       }, function (e) {
@@ -1029,11 +1038,15 @@
       var day = dayTab();
       var go = haveIdx() ? Promise.resolve() : scanAll();
       go.then(function () { return loadMy(); })
-        .then(function () { return tallyTab(day).catch(function () { return { map: {}, lines: 0, tab: day }; }); })
+        .then(function () { return tallyTab(day).catch(function () { return null; }); })
         .then(function (done) {
+          DONE_OK = !!done; DONE_TAB = day; DONE_LINES = done ? done.lines : 0;
+          done = done || { map: {}, lines: 0 };
           SHEET_DONE = Object.keys(done.map)
             .map(function (k) { return done.map[k].name + '\t' + done.map[k].qty; }).join('\n');
-          stat(day + ' 시트 ' + done.lines + '줄 · 상품 ' + Object.keys(done.map).length + '개');
+          var dEl = el('qtyb-done'); if (dEl) dEl.value = SHEET_DONE;   // 🔴 전에 채워진 칸이 남아 옛 값으로 세던 것
+          stat(DONE_OK ? (day + ' 시트 ' + done.lines + '줄 · 상품 ' + Object.keys(done.map).length + '개')
+                       : ('⚠️ ' + day + ' 시트를 못 읽음'));
           checkPaint();
         })
         .then(function () { b.disabled = false; b.textContent = old; },
@@ -1101,12 +1114,14 @@
     var doneParsed = parseNeed((el('qtyb-done') || { value: SHEET_DONE }).value || SHEET_DONE);
     foldAlias(doneParsed.map);
     var hasDone = Object.keys(doneParsed.map).some(function (k) { return k.indexOf('#raw:') !== 0; });
+    var sheetBased = DONE_OK || hasDone;        // 시트를 읽었으면(0줄이어도) 시트가 정본
 
     var rows = Object.keys(OURS).map(function (k) {
       var o = OURS[k];
       var idx = IDX && IDX[k];
       var need = parsed.map[k];
       var out = doneParsed.map[k];              // 오늘 날짜 시트에서 실제로 나간 수량
+      if (out == null && sheetBased) out = 0;   // 시트를 읽었는데 없으면 «안 나감» 이다 — 사용 칸으로 메우지 않는다
       return {
         key: k,
         wh: o.wh || (idx ? idx.wh : ''),
@@ -1137,9 +1152,10 @@
 
     var h = '<div style="background:#eef4ff;border:1px solid #c7d9f5;border-radius:9px;padding:9px 11px;margin:8px 0;font-size:13px">'
       + '🧾 <b>' + rows.length + '개 상품</b> · 잡음 <b>' + sumGot + '</b> · 나간 것 <b>' + sumUse + '</b> · 남은 것 <b>' + sumRest + '</b>'
-      + '<div class="mut" style="margin-top:3px">' + (hasDone
-          ? '«나간 것» 은 오늘 날짜 시트 기준입니다.'
-          : '⚠️ 지금은 수량 웹 «사용» 칸(손으로 적은 값)으로 세고 있습니다 — 아래 칸에 오늘 날짜 시트에서 뽑은 것을 붙여넣으면 실제로 나간 수량으로 셉니다.') + '</div></div>'
+      + '<div class="mut" style="margin-top:3px">' + (sheetBased
+          ? ('«나간 것» = <b>' + esc(DONE_TAB || dayTab()) + ' 시트</b>에 실제로 들어간 발주' + (DONE_OK ? ' (' + DONE_LINES + '줄)' : '')
+             + ' — 시트에 없는 상품은 0 개로 셉니다. 기준 날짜는 위 📅 칸.')
+          : '⚠️ 날짜 시트를 못 읽어 수량 웹 «사용» 칸(손으로 적은 값)으로 세고 있습니다 — 믿지 마세요. [🧾 수량 점검] 을 다시 누르세요.') + '</div></div>'
       + '<div class="mut" style="margin:6px 0 3px">📤 오늘 나간 수량 <span style="opacity:.8">(오늘 날짜 시트 — [📄 시트에서 가져오기] 로 자동)</span></div>'
       + '<textarea id="qtyb-done" style="height:70px" placeholder="[📄 시트에서 가져오기] 를 누르면 저절로 채워집니다">'
       + esc((el('qtyb-done') || { value: SHEET_DONE }).value || SHEET_DONE) + '</textarea>'
