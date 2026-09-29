@@ -80,11 +80,13 @@
     if (ok.length) Q = await cand();
     if (!Q.ok) { alert('등록은 ' + ok.length + '개 했는데, 다시 읽지 못해 카탈로그로는 못 보냈습니다. 한 번 더 눌러주세요.'); return; }
     var L = null; try { L = await (await fetch('/xd/api.php?mid=machan_list&a=list', { credentials: 'same-origin' })).json(); } catch (e) {}
-    var im = {}; if (L && L.items) L.items.forEach(function (p) { im[String(p.n).replace(/\s+/g, '').toLowerCase()] = { img: p.img, srl: p.srl, ship_n: p.ship_n }; });
+    var im = {}; if (L && L.items) L.items.forEach(function (p) { im[String(p.n).replace(/\s+/g, '').toLowerCase()] = { img: p.img, srl: p.srl, ship_n: p.ship_n, courier: p.courier }; });
     var items = (Q.cands || []).filter(function (r) { return r.k === 'day'; }).map(function (r) {
       var m = im[String(r.n).replace(/\s+/g, '').toLowerCase()] || {};
+      /* 🚚 택배사 (2026-09-29 홍팀장 「택배사 문의 많다, 노출할 수 있게」) — 당일 자료(daily_cand)에 택배사가
+         들어오면 그걸, 아직 없으면 상품리스트에 같은 이름이 있을 때 그 택배사를 쓴다. */
       return { n: r.n, wh: r.wh, qid: r.qid, sell: r.sell, sug: r.sug, base: r.base, cost: r.cost, ship: r.ship, ship_n: m.ship_n,
-               tax: r.tax, courier: r.courier, cut: r.cut, exp: r.exp, img: m.img, srl: m.srl,
+               tax: r.tax, courier: r.courier || r.cou || m.courier || '', cut: r.cut, exp: r.exp, img: m.img, srl: m.srl,
                total: r.total, sold: r.sold, remain: r.remain, reg: r.reg };
     });
     var r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
