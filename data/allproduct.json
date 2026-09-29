@@ -1,7 +1,30 @@
 {
- "updatedAt": "2026-09-29 09:08",
+ "updatedAt": "2026-09-29 09:12",
  "supplier": "마스터 유통",
  "products": [
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "동해",
+   "category": "수산",
+   "name": "동해 활 골뱅이 1kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 생물 골뱅이",
+    "※ 중량/사이즈 : 1kg / 70미 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 흑고동 100%",
+    "※ 포장방식 : 비닐포장"
+   ],
+   "supplyPrice": 4500,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/651/724/024/8a2d463fa6bf45ae511849fc8dd21390.jpg",
+   "note": ""
+  },
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "디디",
@@ -49,6 +72,31 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "동해",
+   "category": "수산",
+   "name": "마가단 박달대게 한마리",
+   "spec": [
+    "※ 원산지 : 러시아",
+    "※ 구성 : 대게 한마리",
+    "※ 중량/사이즈 : 원물 0.8~1.2kg 1미",
+    "※자숙시 중량감소 20~30%, 자숙 후 수율 8~90%",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 대게 100%",
+    "※ 포장방식 : 비닐, 아이스팩",
+    "※특이사항"
+   ],
+   "supplyPrice": 28000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/518/705/023/84cd059f2278d9076dfa038e730024bb.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "디디",
    "category": "",
    "name": "대용량 가성비 홍게 8kg",
@@ -60,6 +108,22 @@
    "shipFee": 0,
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
+   "image": "",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "인천",
+   "category": "",
+   "name": "연안 생물 대왕갈치 1미",
+   "spec": [],
+   "supplyPrice": 12000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
    "image": "",
    "note": ""
   },
