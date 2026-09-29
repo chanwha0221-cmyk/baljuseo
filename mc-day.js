@@ -47,12 +47,19 @@
     var go = fresh.filter(function (r) { return r.remain > 0 && +r.sug > 0 && !(r.cost != null && +r.sug < +r.cost); });
     var low = go.filter(function (r) { return r.remain < DAY_LOW_N; });
 
-    var ask = '당일 보내기\n\n'
+    /* ⚠️ 수량은 있는데 마진 마이너스라 안 올린 것 — 맨 위에 이름까지 띄운다 (2026-09-29 홍팀장
+       「이런 건 확인해서 확인하라고 알림 줘라」). 끝에 묻어 두면 안 보고 넘어간다. */
+    var lossTxt = loss.length
+      ? ('⚠️ 확인하세요 — 수량은 있는데 마진 마이너스라 안 올린 것 ' + loss.length + '개\n'
+         + loss.map(function (c) { return '· ' + c.n + ' (잔여 ' + c.remain + ' · 규칙가 ' + won(c.sug) + ' / 원가 ' + won(c.cost) + ' → 마진 ' + won(c.sug - c.cost) + ')'; }).join('\n')
+         + '\n→ 가격 정해서 손으로 등록하세요.\n\n')
+      : '';
+    var ask = lossTxt + '당일 보내기\n\n'
       + (go.length
           ? ('① 새로 등록 ' + go.length + '개 (규칙가 · 오늘만)' + (low.length ? ' — 그중 소량(잔여 ' + DAY_LOW_N + '개 미만) ' + low.length + '개' : '') + '\n')
           : '① 새로 등록할 것 없음\n')
       + (zero.length ? '   · 잔여 0 이라 안 올림 ' + zero.length + '개\n' : '')
-      + (loss.length ? '   · 규칙가가 원가보다 낮아 안 올림 ' + loss.length + '개 (끝나고 목록 보여드림)\n' : '')
+      + (loss.length ? '   · 마진 마이너스라 안 올림 ' + loss.length + '개 (위 목록)\n' : '')
       + (noPrice.length ? '   · 규칙가가 없어 안 올림 ' + noPrice.length + '개\n' : '')
       + '② 그다음 당일 전체를 카탈로그로 보냅니다.\n\n진행할까요?';
     if (!confirm(ask)) return;
@@ -80,13 +87,11 @@
       body: JSON.stringify({ action: 'mcday', key: KEY, day: Q.day, items: items }) });
     var j = await r.json();
 
-    var msg = (j.ok
+    var msg = lossTxt + (j.ok
         ? ('당일을 카탈로그로 보냈습니다\n\n전체 ' + j.count + '개 · 파는 것 ' + j.open + '개')
         : ('카탈로그로 보내지 못했습니다\n' + (j.error || '')))
       + '\n새로 등록 ' + ok.length + '개' + (low.length ? ' (소량 딱지 붙는 것 ' + low.filter(function (c) { return ok.indexOf(c) >= 0; }).length + '개)' : '')
       + (fail.length ? '\n\n⚠️ 등록 실패 ' + fail.length + '개\n' + fail.slice(0, 10).join('\n') : '')
-      + (loss.length ? '\n\n💸 원가보다 낮아 안 올린 것 — 가격 정해서 손으로 등록하세요\n'
-          + loss.map(function (c) { return '· ' + c.n + ' (규칙가 ' + won(c.sug) + ' < 원가 ' + won(c.cost) + ')'; }).join('\n') : '')
       + '\n\n카탈로그를 새로고침하면 반영됩니다.';
     alert(msg);
     if (ok.length && typeof window.loadDaily === 'function') { try { window.loadDaily(); } catch (e) {} }
