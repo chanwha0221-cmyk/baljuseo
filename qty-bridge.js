@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29k';
+  var QTYB_VER = '2026-09-29l';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -937,7 +937,8 @@
       '<button id="qtyb-min">—</button><button id="qtyb-x">✕</button></div>' +
       '<div class="bd">' +
       '  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">' +
-      '    <button class="pri" id="qtyb-scan">🔄 창고 전부 긁기</button>' +
+      /* 「🔄 창고 전부 긁기」 버튼은 뺐다 (2026-09-29 홍팀장 「버튼 최대한 줄이자」) —
+         가져오기_당일·가져오기_재고없음 이 누를 때마다 새로 긁고, 카탈로그 재고도 그 판으로 같이 보낸다. */
       '    <span class="mut">대기 한도</span>' +
       '    <input id="qtyb-wm" value="' + WAIT_MAX + '" style="width:44px;text-align:center;border:1px solid #cfd6e0;border-radius:6px;padding:4px">' +
       '    <span class="mut">개까지는 증량 대신 대기</span>' +
@@ -973,7 +974,6 @@
       var b = p.querySelector('.bd');
       b.style.display = b.style.display === 'none' ? '' : 'none';
     };
-    el('qtyb-scan').onclick = function () { scanAll(); };
     el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
     el('qtyb-stockgo').onclick = function () { stockPush(false); };
     /* 📄 시트에서 가져오기 — 당일 탭(=넣을 발주)과 오늘 날짜 탭(=이미 나간 것)을 한 번에 읽는다.
@@ -985,10 +985,13 @@
     el('qtyb-sheet').onclick = function () {
       var b = this, old = b.textContent;
       var day = dayTab();
-      b.disabled = true; b.textContent = '당일 읽는 중…';
+      b.disabled = true; b.textContent = '창고 긁고 당일 읽는 중…';
+      /* 🔄 누를 때마다 창고를 새로 긁는다 — 예전엔 한 번 긁은 판을 계속 써서 [창고 전부 긁기] 를 따로 눌러야 했다.
+         긁은 판으로 카탈로그 재고도 같이 보낸다(뒤에서, 실패해도 대조는 그대로 간다). */
       Promise.all([
         tallyTab('당일'),
-        tallyTab(day).catch(function () { return null; })
+        tallyTab(day).catch(function () { return null; }),
+        scanAll().then(function () { if (haveIdx()) stockPush(true, IDX); }).catch(function (e) { alert(e.message || e); })
       ]).then(function (r) {
         var need = r[0], done = r[1];
         DONE_OK = !!done; DONE_TAB = day; DONE_LINES = done ? done.lines : 0;
@@ -1019,7 +1022,10 @@
       var b = this, old = b.textContent;
       b.disabled = true; b.textContent = '재고 없음 읽는 중…';
       // 검토는 언제나 새로 긁는다 — 대기·증량을 건 직후 다시 볼 때 옛 잔여로 판정하면 안 된다
-      scanAll().then(function () { return loadMy(); })
+      scanAll().then(function () {
+          if (haveIdx()) stockPush(true, IDX);      // 긁은 판으로 카탈로그 재고도 같이 (뒤에서)
+          return loadMy();
+        })
         .then(function () { return tallyTab('재고 없음', 2); })
         .then(function (no) {
           var keys = Object.keys(no.map);
@@ -1400,6 +1406,7 @@
   /* 창고 18곳 × 250KB = 순차로 돌면 45초가 넘는다(2026-09-28 실측).
      4줄로 나눠 동시에 긁는다 — 남의 서버라 4줄까지만. 1,778줄이 10초 안에 들어온다. */
   var LANES = 4;
+  var SCAN_FAIL = [];      // 마지막 긁기에서 못 읽은 창고 — 있으면 그 판으로 카탈로그 재고를 보내지 않는다
 
   function scanAll() {
     return getChips().then(function (cs) { return scanChips(cs); });
@@ -1434,6 +1441,7 @@
     for (var i = 0; i < LANES; i++) lanes.push(take(q));
     return Promise.all(lanes).then(function () {
       LASTWH = cs.map(function (c) { return c.label; });
+      SCAN_FAIL = loggedOut ? ['(로그인 풀림)'] : fail.slice();
       if (loggedOut) {
         stat('🔒 로그인이 풀렸습니다');
         throw new Error('수량 웹 로그인이 풀렸습니다.\n\n이 화면에서 다시 로그인한 뒤 눌러 주세요.\n'
@@ -1485,7 +1493,10 @@
         if (fail.length) throw new Error('못 읽은 창고: ' + fail.join(','));
         return all;
       });
-    }).then(function (all) {
+    }).then(stockMap);
+  }
+  /* 긁은 줄 묶음(상품키 → 줄) → 보낼 재고. 따로 긁은 것(stockRows)이든 가져오기가 긁은 IDX 든 같은 규칙. */
+  function stockMap(all) {
       var m = {};
       Object.keys(all).forEach(function (k) {
         var r = all[k];
@@ -1507,15 +1518,19 @@
         });
       });
       return m;
-    });
   }
 
-  function stockPush(auto) {
+  /* preset = 방금 가져오기가 긁어 둔 IDX (2026-09-29 홍팀장 「카탈로그 재고 보내기도 가져오기 누를 때 같이」).
+     그걸 그대로 쓰면 창고를 두 번 긁지 않는다. 🔴 창고를 하나라도 못 읽은 판이면 보내지 않는다. */
+  function stockPush(auto, preset) {
     if (window.__QTYB_PUSHING) return Promise.resolve(false);
     window.__QTYB_PUSHING = true;
     var sEl = el('qtyb-stock');
     if (sEl) sEl.textContent = '📤 보내는 중…';
-    return stockRows().then(function (m) {
+    var src = preset
+      ? (SCAN_FAIL.length ? Promise.reject(new Error('못 읽은 창고: ' + SCAN_FAIL.join(','))) : Promise.resolve(stockMap(preset)))
+      : stockRows();
+    return src.then(function (m) {
       var rows = Object.keys(m).map(function (k) { return [k, m[k]]; });
       return fetch(QTY_API, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
