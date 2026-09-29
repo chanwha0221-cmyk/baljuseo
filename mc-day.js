@@ -42,16 +42,20 @@
     /* ① 자동 등록할 것 고르기 */
     var fresh = day.filter(function (r) { return !r.reg; });
     var zero = fresh.filter(function (r) { return !(r.remain > 0); });
-    var loss = fresh.filter(function (r) { return r.remain > 0 && r.cost != null && +r.sug < +r.cost; });
+    /* 💸 역마진 판정은 «공급가(base)» 로 한다 — 원가(cost) 칸이 아니다 (2026-09-29 홍팀장
+       「저거 버그래, 앞에 공급가가 맞대」). 알배기암게 공급가 12,000 인데 원가 칸이 14,000(마스터 기준)으로
+       잘못 떠서 마진 -1,000 으로 보였다. 규칙가도 공급가에서 계산된다. */
+    function under(r) { var b = +(r.base || 0); return b > 0 && +r.sug < b; }
+    var loss = fresh.filter(function (r) { return r.remain > 0 && under(r); });
     var noPrice = fresh.filter(function (r) { return r.remain > 0 && !(+r.sug > 0); });
-    var go = fresh.filter(function (r) { return r.remain > 0 && +r.sug > 0 && !(r.cost != null && +r.sug < +r.cost); });
+    var go = fresh.filter(function (r) { return r.remain > 0 && +r.sug > 0 && !under(r); });
     var low = go.filter(function (r) { return r.remain < DAY_LOW_N; });
 
     /* ⚠️ 수량은 있는데 마진 마이너스라 안 올린 것 — 맨 위에 이름까지 띄운다 (2026-09-29 홍팀장
        「이런 건 확인해서 확인하라고 알림 줘라」). 끝에 묻어 두면 안 보고 넘어간다. */
     var lossTxt = loss.length
       ? ('⚠️ 확인하세요 — 수량은 있는데 마진 마이너스라 안 올린 것 ' + loss.length + '개\n'
-         + loss.map(function (c) { return '· ' + c.n + ' (잔여 ' + c.remain + ' · 규칙가 ' + won(c.sug) + ' / 원가 ' + won(c.cost) + ' → 마진 ' + won(c.sug - c.cost) + ')'; }).join('\n')
+         + loss.map(function (c) { return '· ' + c.n + ' (잔여 ' + c.remain + ' · 규칙가 ' + won(c.sug) + ' / 공급가 ' + won(c.base) + ' → 마진 ' + won(c.sug - c.base) + ')'; }).join('\n')
          + '\n→ 가격 정해서 손으로 등록하세요.\n\n')
       : '';
     var ask = lossTxt + '당일 보내기\n\n'
