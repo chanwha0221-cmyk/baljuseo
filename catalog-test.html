@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.146</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.147</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1013,8 +1013,13 @@ function applyMc(groups){
     if(/품절|마감/.test(r.kind||''))MCEXC.set(k,'품절');
   });
   let hit=0;
+  /* 🚚 masterc 상시 목록에 없는 카드(유통시트에서 온 것)인데 같은 이름이 당일 자료에 있으면 그 배송비를 쓴다
+     (2026-09-29 「1등급 한상모듬 1kg」 — 당일 카드는 4,000원인데 유통시트 북구 탭 카드가 무료배송으로 나갔다). */
+  const dayBy={};((SNAP&&SNAP.mcDay)||[]).forEach(d=>{if(d&&d.n)dayBy[pkey(d.n)]=d;});
   groups.forEach(g=>(g.products||[]).forEach(p=>{
-    const r=m[pkey(p.name)];if(!r)return;hit++;
+    const r=m[pkey(p.name)];
+    if(!r){const d=dayBy[pkey(p.name)];if(d){const s=dayShip(d);if(s>=0)p.ship=s;}return;}
+    hit++;
     if(r.price>0&&p.price){
       p.price.cur=r.price;
       // 이전가가 있으면 방향(인상/인하 표시)을 새 값 기준으로 다시 잡는다
