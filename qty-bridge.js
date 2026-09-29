@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29d';
+  var QTYB_VER = '2026-09-29e';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -35,6 +35,8 @@
   /* 총수량에서 못 채운 몫이 이 비율을 넘으면 개수가 적어도 증량요청으로 간다.
      10개짜리에서 5개(50%)가 비면 대기로는 안 메워진다 — 풀 물건이 없다(2026-09-28 홍팀장). */
   var WAIT_SHARE = 0.2;
+  /* 수량이 풀리는 시각(KST). 이 시각이 지나도 「품절 안 풀림」 이면 대기가 아니라 증량요청으로 간다(2026-09-29). */
+  var OPEN_HOUR = 10;
   var PANEL_ID = 'qtyb-panel';
 
   /* 🔴 화면을 가리지 않는다 (홍팀장 2026-09-28 : 「그냥 수량 사이트 어디서나 나오게 해야지」).
@@ -367,12 +369,15 @@
         // 내가 건 대기 — 「기다리는 수량」과 「받은 수량」
         var jN = colOf(wait.th, /상품명/), jQ = colOf(wait.th, /기다리는/), jG = colOf(wait.th, /받은/),
             jS = wait.th.length - 1;
+        /* 🔴 2026-09-29 등갈비 : «기다리는 중» 줄의 수량만 센다. 끝난 대기(어제 것 등)까지 더하면
+           걸어 둔 대기가 부풀어 «덮힘» 이 된다. «받은 수량» 도 부족분에서 빼지 않는다 — 받은 건 이미
+           우리 잡음에 들어갔거나 어제 발주로 나간 것이다(등갈비: 어제 받은 2 를 빼서 4 필요가 2 로 줄었다). */
         wait.rows.forEach(function (x) {
           var k = nk(x.c[jN]); if (!k) return;
           var o = WAIT[k] || { qty: 0, got: 0, pend: 0, done: 0 };
-          o.qty += num(x.c[jQ]);
-          o.got += num(x.c[jG]);                          // '—' 은 0 으로 읽힌다
-          if (/기다리는/.test(S(x.c[jS]))) o.pend++; else o.done++;
+          var live = /기다리는/.test(S(x.c[jS]));
+          if (live) { o.qty += num(x.c[jQ]); o.pend++; } else o.done++;
+          o.got += num(x.c[jG]);                          // '—' 은 0 으로 읽힌다 — 화면 안내용
           WAIT[k] = o;
         });
 
@@ -565,8 +570,8 @@
        → 걸어 둔 수에서 재고 없음 탭 수량을 빼고 남는 것만 지금 발주에 쓴다. */
     var parked = NONE_MAP[row.key] || 0;
     function freeOf(have) { return Math.max(0, have - parked); }
-    var got = wa ? wa.got : 0;                 // 대기로 이미 받은 것
-    var hole = Math.max(0, rest - got);        // 아직 못 메운 몫
+    var got = wa ? wa.got : 0;                 // 대기로 받은 것 — 안내용(부족분에서 빼지 않는다, loadMy 참고)
+    var hole = rest;                           // 아직 못 메운 몫
     r.rest = rest;
     r.hole = hole;
     /* 총수량 0 인 줄(오늘 안 올라온 상품)도 여기로 온다 — 증량요청·대기 현황을 봐야 하기 때문이다.
@@ -600,6 +605,28 @@
         r.why = base + ' · 마감(' + (dlHour(row.dlRaw) || 16) + '시) 뒤라 내일 몫으로 대기'
           + (hadW ? (' · 걸어 둔 ' + hadW + '개 빼고 ' + addW0 + '개 추가') : '')
           + (parked && wa && wa.pend ? parkedTxt(parked) : '');
+      }
+      return r;
+    }
+
+    /* ⏰ 「품절 안 풀림」 인데 이미 풀릴 시간(10시)이 지났다 → 대기가 아니라 «증량요청» (2026-09-29 홍팀장 급냉 갑오징어) :
+         「지금 10시 52분이잖아. 이미 열릴 건 다 열린 상황인데 이건 오히려 증량 요청 빨리 해서
+          나오면 받고 안 나오면 그냥 포기 해야지」
+       ─ 10시 전엔 아직 열릴 수 있으니 예전처럼 대기(잠긴 줄 규칙).
+       ─ 증량이 거부됐으면 포기(🎯 구해야 → 업체에 없다고 안내). 걸어 둔 대기는 세지 않는다. */
+    if (row.stuck && kstNow() >= OPEN_HOUR) {
+      var mFree = (mo && mo.pend) ? freeOf(mo.qty) : 0;
+      if (mo && mo.no && !mo.pend) {
+        r.hunt = hole; r.act = 'hunt';
+        r.why = base + ' · ' + OPEN_HOUR + '시 지나도 안 풀림 · 증량 거부됨 → 포기(업체 안내)' + (mo.ans ? ' 「' + mo.ans + '」' : '');
+      } else if (mFree >= hole) {
+        r.act = 'moreP';
+        r.why = base + ' · ' + OPEN_HOUR + '시 지나도 안 풀림 · 증량 ' + mo.qty + '개 요청해 두고 답 기다림';
+      } else {
+        r.more = hole - mFree; r.haveM = (mo && mo.pend) ? mo.qty : 0;
+        r.act = 'more';
+        r.why = base + ' · ' + OPEN_HOUR + '시 지나도 안 풀림 → 대기 말고 증량요청으로 빨리 확인'
+          + (mFree ? (' · 걸어 둔 증량 ' + mFree + '개 빼고 ' + r.more + '개 추가') : '');
       }
       return r;
     }
@@ -780,8 +807,12 @@
       var expect = x.haveW || 0;
       if (f.wait > expect) q -= (f.wait - expect);           // 그 사이 늘어난 만큼 뺀다
       if (q <= 0) return { skip: '이미 대기 ' + f.wait + '개 걸려 있음' };
-      return qpost({ do: 'wait', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: q })
-        .then(function () { return { done: q, was: f.wait }; });
+      /* 🔴 do=wait 의 qty 는 «더할 값» 이 아니라 «그 회사 대기 총량» 이다 (2026-09-29 자반 고등어 :
+            대기 1 에 «1개 추가» 를 qty=1 로 보내서 1 로 덮였다). 수량 웹 자기 버튼도
+            「이미 건 대기가 있으면 적은 수를 더해 보낸다」 — 똑같이 지금 걸린 수에 더해서 보낸다. */
+      var total = f.wait + q;
+      return qpost({ do: 'wait', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: total })
+        .then(function () { return { done: q, was: f.wait, now: total }; });
     });
   }
   /* 증량요청 — 같은 규칙. 답 기다리는 요청이 이미 부족분을 덮으면 judge 가 아예 안 보낸다. */
