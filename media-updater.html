@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.52</title>
+<title>마스터 유통 상품 도구 v1.53</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -264,6 +264,7 @@ a{color:var(--accent)}
   </div>
   <div id="ncImgPrev" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
   <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;margin-top:7px"><input type="checkbox" id="ncI"> 중요 공지 (맨 위로 · 빨간 줄 표시)</label>
+  <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;margin-top:7px;margin-left:14px"><input type="checkbox" id="ncP"> 📌 팝업으로 띄우기 (업체가 들어오는 즉시 창으로)</label>
   <div><button class="cp" id="ncAdd">＋ 공지 등록</button></div>
   <div id="ncRows" style="margin-top:12px"></div>
   <button class="cp" id="ncSave">💾 저장</button>
@@ -1752,6 +1753,7 @@ function notDraw(){
     +'<span style="font-size:11px;color:var(--muted)">'+esc(n.at)+'</span>'
     +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-nc="imp" data-i="'+i+'"'+(n.imp?' checked':'')+'>중요</label>'
     +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-nc="show" data-i="'+i+'"'+(n.show?' checked':'')+'>노출</label>'
+    +'<label style="font-size:11.5px;display:inline-flex;gap:4px;align-items:center" title="체크하면 제목 앞에 📌 가 붙어 업체 화면에 팝업으로 뜹니다"><input type="checkbox" data-nc="pop" data-i="'+i+'"'+(ncPopIs(n.title)?' checked':'')+'>📌 팝업</label>'
     +'<button class="fxg" data-nc="edit" data-i="'+i+'" title="제목·내용을 고칩니다">✏️ 수정</button>'
     +'<button class="fxg" data-nc="img" data-i="'+i+'" title="사진을 고르거나 내용 칸에 끌어다 놓으세요">🖼 이미지</button>'
     +'<button class="fxg del" data-nc="del" data-i="'+i+'">🗑</button>'
@@ -1798,13 +1800,18 @@ $p('ncRows').addEventListener('change',function(ev){
   const k=b.getAttribute('data-nc'),i=+b.getAttribute('data-i');
   if(k==='imp'){NOT[i].imp=b.checked;notDraw();}
   else if(k==='show')NOT[i].show=b.checked;
+  else if(k==='pop'){NOT[i].title=ncPopTitle(NOT[i].title,b.checked);notDraw();}
 });
+/* 📌 팝업 스위치 (홍팀장 2026-09-29 "배너형 공지도 버튼으로") — 카탈로그 ✏️ 공지 고치기의 [📌 팝업으로 띄우기]와 같은 규칙.
+   제목 맨 앞 📌 한 글자가 팝업 표시라(catalog NTC_POP_RE), 체크하면 붙이고 풀면 뗀다. 두 번 붙지 않는다. */
+function ncPopIs(title){ return /^\s*📌/.test(String(title||'')); }
+function ncPopTitle(title,on){ const bare=String(title||'').replace(/^\s*📌\s*/,'').trim(); return (on?'📌 ':'')+bare; }
 $p('ncAdd').onclick=function(){
   const ti=t($p('ncT').value),bo=$p('ncB').value.trim();
   if(!ti)return alert('공지 제목을 적어주세요.');
-  NOT.unshift({title:ti,body:bo,show:true,imp:$p('ncI').checked,at:day()});
+  NOT.unshift({title:ncPopTitle(ti,$p('ncP').checked),body:bo,show:true,imp:$p('ncI').checked,at:day()});
   NC_PAGE=1;   // 새 공지는 맨 위에 쌓인다 — 1쪽으로 돌아가야 방금 넣은 게 보인다
-  $p('ncT').value='';$p('ncB').value='';$p('ncI').checked=false;
+  $p('ncT').value='';$p('ncB').value='';$p('ncI').checked=false;$p('ncP').checked=false;
   notDraw();$p('ncLog').textContent='등록했습니다 — 저장을 눌러야 반영됩니다.';
 };
 /* 🖼 공지 이미지 (홍팀장 2026-09-11 "카탈로그 공지에 이미지 넣을 수 있게").
