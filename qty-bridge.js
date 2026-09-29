@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29c';
+  var QTYB_VER = '2026-09-29d';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1098,6 +1098,53 @@
 
   function stat(t) { var s = el('qtyb-stat'); if (s) s.textContent = t; }
 
+  /* ✍️ 적힌 사용 맞추기 (2026-09-29 홍팀장) :
+     「실제로 3개를 잡았고 3개가 정상적으로 나갔는데 순서가 꼬였든 뭐가 잘못돼서 적힌 사용에 기재만
+       안 된 거라 볼 수 있잖아. 저런 건 니가 그냥 적힌 사용도 수정해 줘」
+     조건 — 전부 맞아야 고친다:
+       · 날짜 시트를 제대로 읽었다(DONE_OK) — 붙여넣은 칸이나 못 읽은 날엔 안 한다
+       · 시트에 나간 수량 > 적힌 사용  (적힌 게 모자란 쪽만. 전어처럼 «적힌 90 · 나감 0» 은 안 건드린다
+                                        — 아직 날짜 시트로 안 넘긴 것이다)
+       · 나간 수량 ≤ 잡은 수량          (잡은 것보다 많이 나간 건 기재 누락이 아니라 초과 사용 — 사람이 본다)
+     쓰기 직전에 그 줄을 다시 읽어(freshRow) 그 사이 값이 바뀌었으면 건너뛴다.
+     같은 줄·같은 값은 한 번만 시도한다(건너뛴 줄 때문에 점검이 계속 다시 도는 것을 막는다). */
+  var USEDFIX_BUSY = false, USEDFIX_LOG = '', USEDFIX_TRIED = {};
+  function usedFix(rows) {
+    if (USEDFIX_BUSY || !DONE_OK) return;
+    var todo = rows.filter(function (r) {
+      return r.out != null && r.out > r.used && r.out <= r.got && !r.ghost
+        && IDX && IDX[r.key] && IDX[r.key].co && !USEDFIX_TRIED[r.key + '#' + r.out];
+    });
+    if (!todo.length) return;
+    todo.forEach(function (r) { USEDFIX_TRIED[r.key + '#' + r.out] = 1; });
+    USEDFIX_BUSY = true;
+    stat('✍️ 적힌 사용 ' + todo.length + '건 맞추는 중…');
+    var done = [], skip = [];
+    (function step(i) {
+      if (i >= todo.length) {
+        USEDFIX_BUSY = false;
+        USEDFIX_LOG = '✍️ <b>적힌 사용을 시트에 나간 수량으로 맞췄습니다 — ' + done.length + '건</b>'
+          + (done.length ? '<br>' + done.map(function (d) { return '· ' + esc(d.name) + ' ' + d.was + ' → ' + d.to; }).join('<br>') : '')
+          + (skip.length ? '<br><span class="mut">건너뜀 ' + skip.length + '건 — ' + skip.map(esc).join(' · ') + '</span>' : '');
+        stat('✍️ 적힌 사용 ' + done.length + '건 맞춤');
+        checkPaint();
+        USEDFIX_LOG = '';
+        return;
+      }
+      var r = todo[i], row = IDX[r.key];
+      freshRow(row).then(function (f) {
+        if (f.used >= r.out) { skip.push(r.name + '(이미 ' + f.used + ')'); return; }
+        if (f.mine < r.out) { skip.push(r.name + '(잡은 것 ' + f.mine + ' < 나감 ' + r.out + ')'); return; }
+        return qpost({ do: 'used', tab: whTab(row), nkey: row.key, co: row.co, val: r.out }).then(function () {
+          if (OURS[r.key]) OURS[r.key].used = r.out;
+          done.push({ name: r.name, was: f.used, to: r.out });
+        });
+      }).catch(function (e) {
+        skip.push(r.name + '(' + (e && e.message ? e.message : '실패') + ')');
+      }).then(function () { step(i + 1); });
+    })(0);
+  }
+
   /* ══ 🧾 수량 점검 — 잡은 것 · 쓴 것 · 실제로 남은 것 ═══════════════════
      홍팀장 2026-09-28 : 「수량이 내가 얼마나 썼고 실질적으로 얼마나 남았는지를 검토해야겠다.
                           지금 나 잡은거보다 많이 쓴거 많다」
@@ -1192,8 +1239,10 @@
       +   '<button id="qtyb-cpover">📋 초과 사용 목록</button>'
       +   '<button id="qtyb-cprest">📋 안 쓴 것 목록</button></div>';
 
+    if (USEDFIX_LOG) h = '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:9px;padding:8px 11px;margin:8px 0;font-size:13px">' + USEDFIX_LOG + '</div>' + h;
     box.innerHTML = h;
     el('qtyb-recheck').onclick = function () { checkPaint(); };
+    usedFix(rows);
     el('qtyb-cpover').onclick = function () {
       copy(over.map(function (r) { return r.wh + '\t' + r.name + '\t잡음 ' + r.got + '\t나감 ' + real(r) + '\t초과 ' + r.over; }).join('\n'), this);
     };
