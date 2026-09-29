@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29e';
+  var QTYB_VER = '2026-09-29f';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -593,6 +593,16 @@
        ─ 기준은 한국 시간. 그 상품 마감시각이 지났거나, 16시를 넘겼으면 마감 뒤로 본다.
        🔴 수량 웹이 대기를 못 받는 때가 있을 수 있다 — 그때는 실행이 서버 메시지를 그대로 보여 준다. */
     var ml0 = minsLeft(dlHour(row.dlRaw));
+    /* ⏰ 그 상품 발주마감이 지났다(16시 전) → 대기도 증량도 걸지 않고 «재고 없음» 으로 (2026-09-29 홍팀장 :
+         「동물복지 난각 2번 유정란 40구는 10시 마감 상품이잖아, 이런 건 그냥 재고 없음으로 넘기고
+          마감시간 걸렸다고 해줘」). hole 은 그대로라 [🚫 재고 없음으로 이동] 에 같이 실린다.
+       16시가 넘으면 아래 규칙(내일 몫으로 대기)이 그대로 산다. */
+    if (kstNow() < 16 && ml0 != null && ml0 < 0) {
+      r.set = 0; r.hole = short;               // 마감 지난 물건은 잔여가 있어도 잡지 않는다 — 모자란 몫 전부 내린다
+      r.act = 'late';
+      r.why = base + ' · ⏰ 발주마감(' + dlHour(row.dlRaw) + '시) 지남 — 오늘 못 나감, 재고 없음으로';
+      return r;
+    }
     if (kstNow() >= 16 || (ml0 != null && ml0 < 0)) {
       var hadW = (wa && wa.pend) ? freeOf(wa.qty) : 0;
       var addW0 = Math.max(0, hole - hadW);
@@ -1004,28 +1014,56 @@
         .then(function (no) {
           var keys = Object.keys(no.map);
           if (!keys.length) { stat('재고 없음 비어 있음'); el('qtyb-out').innerHTML = '<div class="warn">「재고 없음」 탭이 비어 있습니다.</div>'; b.disabled = false; b.textContent = old; return; }
+          /* 2026-09-29 홍팀장 보강 — 이 검토는 «① 올릴 게 있나 ② 대기·증량이 제대로 걸렸나» 두 가지를 본다.
+             · 🟢 넉넉 : 수량을 안 잡고 써도 되는 상품 → 원하는 만큼 올릴 수 있는 것으로 본다(잔여 「넉넉」 을 0 으로 읽던 것)
+             · 🔒 잠긴 줄(품절·안 풀림·수량최신화 전) : 잔여가 있어도 잡기가 안 열려 있다 → 창고 잔여 0
+             · ⏰ 그 상품 발주마감이 지났으면(16시 전) 오늘은 못 나간다 → 올리지도, 대기·증량을 요구하지도 않는다
+             · 못 올리는 몫은 걸어 둔 대기+증량(답 기다림)으로 덮였는지 본다.
+               10시가 지난 「품절 안 풀림」 은 대기가 아니라 증량요청이 걸려 있어야 한다. */
+          var nowH = kstNow();
           var rows = keys.map(function (k) {
             var want = no.map[k].qty;
             var idx = IDX && IDX[k], o = OURS[k];
             var ghost = idx ? (idx.stuck || (idx.closed && idx.left < 0)) : false;
             var spare = o ? Math.max(0, o.got - o.used) : 0;
-            var left = idx ? Math.max(0, idx.left) : 0;
+            var free = !!(idx && idx.free);
+            var left = free ? want : ((idx && !idx.locked) ? Math.max(0, idx.left) : 0);
+            var cut = idx ? dlHour(idx.dlRaw) : null;
+            var late = nowH < 16 && cut != null && nowH >= cut;
+            var can = (ghost || late) ? 0 : Math.min(want, spare + left);
+            var w = WAIT[k], m = MORE[k];
+            var wq = (w && w.pend) ? w.qty : 0, mq = (m && m.pend) ? m.qty : 0;
+            var gap = want - can, chk = '', bad = false;
+            if (late) chk = '⏰ 마감(' + cut + '시) 지남 — 오늘 못 나감';
+            else if (gap <= 0) chk = '올리면 끝';
+            else if (idx && idx.stuck && nowH >= OPEN_HOUR) {
+              if (m && m.no && !m.pend) chk = '증량 거부 — 업체 안내';
+              else if (mq >= gap) chk = '증량 ' + mq + ' 걸림';
+              else { chk = '🔴 증량요청 필요 ' + (gap - mq) + '개 (' + OPEN_HOUR + '시 지나도 안 풀림' + (wq ? ' · 대기 ' + wq + '만 걸림' : '') + ')'; bad = true; }
+            } else if (wq + mq >= gap) chk = (wq ? '대기 ' + wq : '') + (wq && mq ? ' · ' : '') + (mq ? '증량 ' + mq : '') + ' 걸림';
+            else { chk = '🔴 ' + (wq + mq ? '대기·증량 ' + (wq + mq) + '개뿐 — ' + (gap - wq - mq) + '개 더' : '대기·증량 안 걸림 ' + gap + '개'); bad = true; }
             return { key: k, name: no.map[k].name, wh: idx ? idx.wh : (o ? o.wh : ''),
-                     want: want, spare: spare, left: left, ghost: ghost,
-                     can: ghost ? 0 : Math.min(want, spare + left) };
-          }).sort(function (a, c) { return c.can - a.can; });
+                     want: want, spare: spare, left: free ? '넉넉' : left, ghost: ghost, free: free,
+                     cut: idx ? (idx.dlRaw || '') : '', late: late, chk: chk, bad: bad, can: can };
+          }).sort(function (a, c) { return (c.can - a.can) || ((c.bad ? 1 : 0) - (a.bad ? 1 : 0)); });
           var ok = rows.filter(function (r) { return r.can > 0; });
+          var bads = rows.filter(function (r) { return r.bad; });
+          var lates = rows.filter(function (r) { return r.late; });
           stat('재고 없음 ' + rows.length + '개 · 올릴 수 있는 것 ' + ok.length + '개');
 
           var h = '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:9px;padding:9px 11px;margin:8px 0;font-size:13px">'
-            + '📦 재고 없음 <b>' + rows.length + '개 상품</b> · 지금 여유가 있어 올릴 수 있는 것 <b>' + ok.length + '</b>개</div>'
-            + '<div class="tw"><table><thead><tr><th>창고</th><th>상품명</th><th>재고없음</th><th>잡아둔 여유</th><th>창고 잔여</th><th>올릴 수</th></tr></thead><tbody>'
+            + '📦 재고 없음 <b>' + rows.length + '개 상품</b> · 지금 여유가 있어 올릴 수 있는 것 <b>' + ok.length + '</b>개'
+            + (lates.length ? ' · ⏰ 마감 지남 <b>' + lates.length + '</b>개' : '')
+            + (bads.length ? ' · <b style="color:#b91c1c">🔴 대기·증량 확인 필요 ' + bads.length + '개</b>' : ' · 대기·증량 빠진 것 없음') + '</div>'
+            + '<div class="tw"><table><thead><tr><th>창고</th><th>상품명</th><th>재고없음</th><th>잡아둔 여유</th><th>창고 잔여</th><th>올릴 수</th><th>발주마감</th><th>대기·증량</th></tr></thead><tbody>'
             + rows.map(function (r) {
-                return '<tr' + (r.can > 0 ? ' style="background:#f0fdf4"' : '') + '>'
+                return '<tr' + (r.can > 0 ? ' style="background:#f0fdf4"' : (r.bad ? ' style="background:#fff1f2"' : '')) + '>'
                   + '<td>' + esc(r.wh) + '</td>'
-                  + '<td class="nm">' + esc(r.name) + (r.ghost ? ' <span class="tag t-hunt">물건없음</span>' : '') + '</td>'
+                  + '<td class="nm">' + esc(r.name) + (r.ghost ? ' <span class="tag t-hunt">물건없음</span>' : '') + (r.free ? ' <span class="tag t-free">넉넉</span>' : '') + '</td>'
                   + '<td>' + r.want + '</td><td>' + r.spare + '</td><td>' + r.left + '</td>'
-                  + '<td' + (r.can > 0 ? ' style="font-weight:800;color:#065f46"' : ' class="mut"') + '>' + r.can + '</td></tr>';
+                  + '<td' + (r.can > 0 ? ' style="font-weight:800;color:#065f46"' : ' class="mut"') + '>' + r.can + '</td>'
+                  + '<td' + (r.late ? ' style="color:#b91c1c;font-weight:700"' : ' class="mut"') + '>' + esc(r.cut) + '</td>'
+                  + '<td' + (r.bad ? ' style="color:#b91c1c;font-weight:700"' : '') + '>' + esc(r.chk) + '</td></tr>';
               }).join('')
             + '</tbody></table></div>';
           if (ok.length) {
@@ -1355,7 +1393,7 @@
      보내는 것 : 상시 상품만(당일은 등록 토글이 기준이라 수량으로 막지 않는다).
        · 잠긴 줄(품절·안 풀림·수량최신화 전) → 0
        · 잔여 숫자 → 그 숫자
-       · 넉넉·예외·빈칸 → 안 보냄(수량 미관리 — 막지도, 소량 딱지도 안 붙인다)
+       · 넉넉 → 9999(충분) · 예외·빈칸 → 안 보냄(수량 미관리 — 막지도, 소량 딱지도 안 붙인다)
        · 홍어 삭힘정도 4종 → 「흑산도 전통 홍어 500g」 잔여 그대로
        · 연어(생연어·몸뱃살연어) → 「연안 몸뱃살연어 1kg」 잔여(kg) ÷ 그 상품 무게 */
   var QTY_API = 'https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
@@ -1390,6 +1428,9 @@
         var r = all[k];
         if (r.kind !== '상시') return;
         if (r.locked) { m[k] = 0; return; }
+        /* 🟢 넉넉도 숫자로 보낸다 (2026-09-29 홍팀장 「넉넉도 혹시 모르니까 수량 넣고 가져와」) —
+           «모름» 이 아니라 «충분» 이라는 게 서버에 남는다. 9999 = 넉넉 (소량·재고 없음 어디에도 안 걸림). */
+        if (r.free && /넉넉/.test(r.leftRaw)) { m[k] = 9999; return; }
         if (!r.leftRaw || r.free) return;
         m[k] = Math.max(0, r.left);
       });
@@ -1516,12 +1557,13 @@
     wait: ['t-wait', '대기'], more: ['t-more', '증량요청'],
     ok: ['t-ok', '그대로'], over: ['t-ok', '여유'], release: ['t-rel', '풀어야'],
     free: ['t-free', '넉넉'],
-    hunt: ['t-hunt', '🎯 구해야'], moreP: ['t-wait', '증량 답 기다림'], waitP: ['t-wait', '대기 중']
+    hunt: ['t-hunt', '🎯 구해야'], moreP: ['t-wait', '증량 답 기다림'], waitP: ['t-wait', '대기 중'],
+    late: ['t-hunt', '⏰ 마감 지남']
   };
 
   function draw(hits, miss, bad, notes) {
     // 손봐야 할 것 먼저 : 증량 → 대기 → 잡기 → 풀어야 → 그대로
-    var ord = { hunt: 0, more: 1, 'set+more': 1, wait: 2, 'set+wait': 2, moreP: 3, waitP: 3,
+    var ord = { late: 0, hunt: 0, more: 1, 'set+more': 1, wait: 2, 'set+wait': 2, moreP: 3, waitP: 3,
                 set: 4, release: 5, over: 6, ok: 7, free: 8 };
     hits.sort(function (a, b) { return (ord[a.act] - ord[b.act]) || (b.need - a.need); });
 
