@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.144</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.145</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -942,6 +942,18 @@ function todayYmd(){
   const d=new Date(Date.now()+9*3600*1000);   // 서울 기준
   return d.toISOString().slice(0,10).replace(/-/g,'');
 }
+/* 🚚 당일 배송비 (2026-09-29 크리티컬 — 통통 홍가리비 1kg 이 「무료배송」 으로 나갔다).
+   숫자 칸(ship_n)은 상품리스트에 같은 이름이 있을 때만 채워진다 — 당일에만 있는 상품은 0 이라 무료로 보였다.
+   masterc 당일 자료의 글자 칸(ship : 「4,000」·「무료배송」)을 1순위로 읽는다.
+   🔴 모르면 무료로 치지 않는다 — 글자도 숫자도 없으면 -1(배송비 칸 비움)로 둔다. */
+function dayShip(r){
+  const t=String((r&&r.ship)||'').trim();
+  if(/무료/.test(t))return 0;
+  const d=t.replace(/[^0-9]/g,'');
+  if(d)return parseInt(d,10);
+  if(typeof r.ship_n==='number'&&r.ship_n>0)return r.ship_n;
+  return -1;
+}
 function buildDayGroup(){
   const rows=(SNAP&&SNAP.mcDay)||[];
   if(!rows.length)return null;
@@ -959,7 +971,7 @@ function buildDayGroup(){
       name:r.n,
       url:'',
       price:{old:null,cur:(r.price!=null?r.price:null),dir:''},
-      ship:(typeof r.ship_n==='number'?r.ship_n:0),
+      ship:dayShip(r),
       courier:r.courier||'',
       tax:r.tax||'',
       cut:r.cut||'',
