@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>마찬 → 카탈로그 딸깍 v1.8</title>
+<title>마찬 → 카탈로그 딸깍 v1.9</title>
 <style>
 :root{--bg:#f6f8f7;--card:#fff;--ink:#16211c;--muted:#6b7a72;--line:#e3e9e5;--accent:#2d6a4f;--accent-d:#1f4d39;--warn:#c0392b}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#5fa583;--accent-d:#8fd0ae}}
@@ -44,8 +44,9 @@ pre{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:
       <li>필요한 쪽 북마크를 클릭 → 결과 알림창 확인</li>
     </ol>
     <div class="note"><b>📤 상시</b> — 상품리스트 + 원가표. 상시 상품의 단가·택배·마감·유통기한·사진을 맞춘다.<br>
-      <b>🐟 당일</b> — 관리화면 <b>#daily</b> 에서 손본 그대로를 카탈로그 「당일생물」로 옮긴다.
-      <b>단가를 먼저 손본 뒤에 누르세요.</b> 수량웹에 수량이 없는 것은 자동으로 감춰진다(수량 들어오면 다음 동기화에 복귀).<br>
+      <b>🐟 당일</b> — 관리화면 <b>#daily</b> 에서 누른다. ① 아직 등록 안 한 당일 상품 중 <b>잔여가 있는 것을 규칙가·오늘만으로 자동 등록</b>
+      (잔여 0 · 규칙가가 원가보다 낮은 것 · 이미 등록/꺼둔 것은 안 건드림) ② 카탈로그 「당일생물」로 보낸다.
+      잔여 30개 미만은 카탈로그에 🟡 소량 딱지. 가격을 바꿀 상품은 <b>먼저 손으로 등록</b>한 뒤 누르세요.<br>
       🔴 두 버튼은 <b>자리가 달라서</b> 한쪽을 눌러도 다른 쪽이 지워지지 않는다.</div>
     <div class="note">보내는 것 — 상품리스트(사진·단가·택배·마감·유통기한·합배송)와 관리 원가표(원가·마진·잔여)입니다.
       카탈로그는 <b>단가·택배비·택배사·면과세·마감시간·유통기한·사진</b>을 이 값으로 덮어씁니다.
@@ -113,26 +114,11 @@ document.getElementById('bm').href='javascript:'+encodeURIComponent(CODE);
 /* 🐟 당일 동기화 — 관리화면(#daily) 에서 손본 그대로를 카탈로그 「당일생물」로 옮긴다.
    상시와 **자리가 다르다** — 이걸 눌러도 상시 상품은 안 건드린다.
    보내는 것: 그 화면 후보 중 당일(k='day') 전부. 수량 없는 것은 서버가 «감춤»으로 표시한다. */
-var DAYCODE=[
-"(async function(){",
-" if(location.host.indexOf('masterc')<0){alert('masterc.kr 에 로그인된 창에서 눌러주세요.');return;}",
-" try{",
-"  var Q=await (await fetch('/xd/api.php?mid=machan_admin&a=daily_cand')).json();",
-"  if(!Q.ok){alert('당일 자료를 읽지 못했습니다 — masterc 로그인을 확인해주세요.');return;}",
-"  var L=null; try{L=await (await fetch('/xd/api.php?mid=machan_list&a=list')).json();}catch(e){}",
-"  var im={}; if(L&&L.items)L.items.forEach(function(p){im[String(p.n).replace(/\\s+/g,'').toLowerCase()]={img:p.img,srl:p.srl,ship_n:p.ship_n};});",
-"  var day=(Q.cands||[]).filter(function(r){return r.k==='day';});",
-"  var items=day.map(function(r){var x=im[String(r.n).replace(/\\s+/g,'').toLowerCase()]||{};",
-"    return{n:r.n,wh:r.wh,qid:r.qid,sell:r.sell,sug:r.sug,base:r.base,cost:r.cost,ship:r.ship,ship_n:x.ship_n,tax:r.tax,courier:r.courier,cut:r.cut,exp:r.exp,img:x.img,srl:x.srl,total:r.total,sold:r.sold,remain:r.remain,reg:r.reg};});",
-/* 🔴 «등록 토글이 켜진 것»이 파는 것이다 — 잔여 수량이 아니다 (홍팀장 2026-09-28). */
-"  var open=items.filter(function(r){return r.reg&&r.reg.on!==false;}).length;",
-"  if(!confirm('당일 '+items.length+'개를 카탈로그로 보냅니다.\\n켜둔 것(판매) '+open+'개 · 꺼둔 것 '+(items.length-open)+'개(안 나감)\\n\\n보낼까요?'))return;",
-"  var r=await fetch('"+API+"',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'mcday',key:'"+KEY+"',day:Q.day,items:items})});",
-"  var j=await r.json();",
-"  alert(j.ok?('당일을 카탈로그로 보냈습니다\\n\\n전체 '+j.count+'개 · 파는 것 '+j.open+'개\\n꺼둔 것은 판매사 화면에 안 나갑니다.\\n카탈로그를 새로고침하면 반영됩니다.'):('보내지 못했습니다\\n'+(j.error||'')));",
-" }catch(e){alert('보내지 못했습니다 — '+(e&&e.message?e.message:e));}",
-"})()"
-].join('');
+/* 2026-09-29 : 당일 딸깍은 본문을 mc-day.js 로 뺐다 — 북마크는 그 파일을 싣기만 한다.
+   (잔여 있는 미등록 당일 상품 자동 등록 → 카탈로그로 보내기. 고칠 때 북마크 재등록이 필요 없다) */
+var DAYCODE="(function(){if(location.host.indexOf('masterc')<0){alert('masterc.kr 에 로그인된 창에서 눌러주세요.');return;}"
+  +"var s=document.createElement('script');s.src='https://chanwha0221-cmyk.github.io/baljuseo/mc-day.js?v='+Date.now();"
+  +"s.onerror=function(){alert('당일 보내기 코드를 못 불러왔습니다 — 인터넷을 확인해주세요.');};document.head.appendChild(s);})()";
 document.getElementById('bmday').href='javascript:'+encodeURIComponent(DAYCODE);
 var SNIP='<script>(function(){if(location.pathname.indexOf("machan_admin")<0)return;var b=document.createElement("button");b.textContent="\u{1F4E4} 카탈로그로 보내기";b.style.cssText="position:fixed;right:18px;bottom:18px;z-index:99999;padding:12px 18px;border-radius:10px;border:0;background:#1a73e8;color:#fff;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)";b.onclick=function(){var o=b.textContent;b.disabled=true;b.textContent="보내는 중…";Promise.resolve().then(function(){return '+JSON.stringify(CODE)+'}).then(function(c){return eval(c)}).catch(function(e){alert(e.message)}).then(function(){b.disabled=false;b.textContent=o});};document.body.appendChild(b);})();<\/script>';
 document.getElementById('snip').textContent=SNIP;
