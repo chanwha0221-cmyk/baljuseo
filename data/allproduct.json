@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-30 14:18",
+ "updatedAt": "2026-09-30 18:25",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -694,7 +694,7 @@
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "통수",
-   "category": "",
+   "category": "수산",
    "name": "수생 홍가리비 1kg",
    "spec": [
     "※ 원산지 : 국내산",
@@ -12141,6 +12141,29 @@
    "orderCutoff": "오후마감 : 14시",
    "shelfLife": "-",
    "image": "https://masterc.kr/xd/thumbs/23711085.jpg?v=1789633870",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(선물)",
+   "sourceWarehouse": "하모",
+   "category": "수산",
+   "name": "프리미엄 반건조 4종 선물세트",
+   "spec": [
+    "※ 원산지 : 참돔(국내산) / 가자미(국내산) / 고등어(국내산) / 박대(세네갈)",
+    "※ 구성 : 참돔 1미 + 가자미 1미 + 고등어 1미 + 박대 2미",
+    "※ 중량/ 사이즈 : 반건조 후 중량",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 참돔(99%, 천일염 1%)",
+    "※ 포장방식 : 실링포장 / 부직포 선물포장"
+   ],
+   "supplyPrice": 29000,
+   "previousPrice": 30000,
+   "tax": "면세",
+   "courier": "로젠택배",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/955/400/025/c973aebc3467f489956bee259f5e1cd0.jpg",
    "note": ""
   },
   {
