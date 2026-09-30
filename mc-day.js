@@ -98,10 +98,19 @@
       body: JSON.stringify({ action: 'mcday', key: KEY, day: Q.day, items: items }) });
     var j = await r.json();
 
+    /* 📋 ※ 스펙도 같이 — 스펙이 아직 없는 상품만 masterc 상세에서 긁어 보낸다(mc-spec.js). 실패해도 보내기는 끝났다. */
+    var specTxt = '';
+    try {
+      if (!window.MCSPEC) await new Promise(function (res, rej) { var s = document.createElement('script'); s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/mc-spec.js?v=' + Date.now(); s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+      var sr = await window.MCSPEC.run(API, KEY);
+      specTxt = sr.need ? ('\n📋 스펙 새로 ' + sr.saved + '개 채움' + (sr.miss ? ' (상세에 스펙 없는 것 ' + sr.miss + '개)' : '')) : '';
+    } catch (e) { specTxt = '\n⚠️ 스펙은 못 채웠습니다 — ' + (e && e.message ? e.message : e); }
+
     var msg = lossTxt + (j.ok
         ? ('당일을 카탈로그로 보냈습니다\n\n전체 ' + j.count + '개 · 파는 것 ' + j.open + '개')
         : ('카탈로그로 보내지 못했습니다\n' + (j.error || '')))
       + '\n새로 등록 ' + ok.length + '개' + (low.length ? ' (소량 딱지 붙는 것 ' + low.filter(function (c) { return ok.indexOf(c) >= 0; }).length + '개)' : '')
+      + specTxt
       + (fail.length ? '\n\n⚠️ 등록 실패 ' + fail.length + '개\n' + fail.slice(0, 10).join('\n') : '')
       + '\n\n카탈로그를 새로고침하면 반영됩니다.';
     alert(msg);
