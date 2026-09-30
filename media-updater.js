@@ -390,7 +390,11 @@ async function scrape(url){
   if(!r.ok) return {img:'',spec:[],backs:[],bad:false,why:'http',detail:'HTTP '+r.status};
   const doc=new DOMParser().parseFromString(h,'text/html');
   const title=(doc.title||'').trim();
-  if(h.indexOf('권한이 없')>=0||h.indexOf('dispMemberLoginForm')>=0)
+  /* 🔴 2026-09-30 : masterc 가 모든 페이지 레이아웃 스크립트에 「권한이 없습니다」 글자를 넣었다(로그인 화면 꾸미는 코드).
+        HTML 통째로 찾으면 멀쩡한 글도 전부 «로그인 풀림» 이 되어 사진·스펙 채우기가 통째로 죽었다(사진 0 · 스펙 0).
+        → 스크립트·스타일을 뺀 «보이는 글자» 와 비밀번호 칸으로만 판정한다. */
+  const vis=(function(){ const b=doc.body?doc.body.cloneNode(true):null; if(!b)return ''; b.querySelectorAll('script,style,noscript,template').forEach(function(x){x.remove();}); return b.textContent||''; })();
+  if(doc.querySelector('input[type=password]')||/권한이 없/.test(vis)||doc.querySelector('a[href*="dispMemberLoginForm"]:not([href*="logout"])')&&!/※/.test(vis))
     return {img:'',spec:[],backs:[],bad:false,why:'login',detail:title};
   // 삭제·이동된 글은 masterc 메인으로 리다이렉트돼 제목이 '(주)마스터'가 된다
   const gone=(!title||/^\(주\)\s*마스터/.test(title));
