@@ -80,7 +80,12 @@
     if (ok.length) Q = await cand();
     if (!Q.ok) { alert('등록은 ' + ok.length + '개 했는데, 다시 읽지 못해 카탈로그로는 못 보냈습니다. 한 번 더 눌러주세요.'); return; }
     var L = null; try { L = await (await fetch('/xd/api.php?mid=machan_list&a=list', { credentials: 'same-origin' })).json(); } catch (e) {}
-    var im = {}; if (L && L.items) L.items.forEach(function (p) { im[String(p.n).replace(/\s+/g, '').toLowerCase()] = { img: p.img, srl: p.srl, ship_n: p.ship_n, courier: p.courier }; });
+    /* 📷 사진·배송비·택배사는 상품리스트 응답에서 — 🔴 당일상품은 `items`(상시)가 아니라 `today` 에 있다
+       (2026-09-30 알배기암게 등 당일 54개가 전부 「사진 준비중」 이었다). today 를 나중에 넣어 당일 값이 이기게 한다. */
+    var im = {};
+    [].concat((L && L.items) || [], (L && L.today) || []).forEach(function (p) {
+      im[String(p.n).replace(/\s+/g, '').toLowerCase()] = { img: p.img, srl: p.srl, ship_n: p.ship_n, courier: p.courier };
+    });
     var items = (Q.cands || []).filter(function (r) { return r.k === 'day'; }).map(function (r) {
       var m = im[String(r.n).replace(/\s+/g, '').toLowerCase()] || {};
       /* 🚚 택배사 (2026-09-29 홍팀장 「택배사 문의 많다, 노출할 수 있게」) — 당일 자료(daily_cand)에 택배사가
