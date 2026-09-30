@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>마스터 유통 · 업체 계정 관리 v1.2</title>
+<title>마스터 유통 · 업체 계정 관리 v1.3</title>
 </head>
 <body>
 <!--
@@ -130,7 +130,7 @@ td.mut{color:var(--muted);font-size:12.5px}
 
 <div class="wrap" id="app" style="display:none">
   <div class="head">
-    <h1>👤 업체 계정 관리</h1><span class="ver" id="ver">v1.2</span>
+    <h1>👤 업체 계정 관리</h1><span class="ver" id="ver">v1.3</span>
     <span class="sp"></span>
     <span class="ver" id="who"></span>
     <button class="btn" id="reload">🔄 새로고침</button>
@@ -185,6 +185,11 @@ td.mut{color:var(--muted);font-size:12.5px}
     <div class="fld"><label>담당 (원비 / 찬화)</label><input id="d_owner"></div>
     <div class="fld"><label>비밀번호 (바꿀 때만 고치세요)</label><input id="d_pw"></div>
     <div class="fld"><label>메모</label><textarea id="d_memo"></textarea></div>
+    <!-- 🏢 추가 사업자 (2026-09-30 홍팀장 — 영성: 사업자 둘로 다 발주). 발주 화면에서 고르면 이 이름이 정산업체로 들어간다. -->
+    <div class="fld"><label>🏢 추가 사업자 (한 줄에 하나 · <code>사업자명 | 연락처 | 주소</code>, 연락처·주소는 생략 가능)</label>
+      <textarea id="d_alts" placeholder="예) 영성수산 | 010-0000-0000"></textarea>
+      <div class="hint">여기 적힌 사업자는 그 업체 발주 화면 「발주 사업자」에서 고를 수 있고, 고르면 <b>정산업체명</b>이 이 이름으로 들어갑니다. 업체가 [➕ 사업자 추가]로 넣은 것도 여기 뜹니다 — 틀리면 고치거나 지우세요.</div>
+    </div>
     <div class="msg" id="d_msg"></div>
     <div class="meta" id="d_meta"></div>
   </div>
@@ -214,7 +219,10 @@ const $=id=>document.getElementById(id);
 const T=s=>String(s==null?'':s).trim();
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let TOKEN=null,ROWS=[],FILTER='임시',SORT='name',DESC=false,CUR=null;
+let TOKEN=null,ROWS=[],FILTER='임시',SORT='name',DESC=false,CUR=null,ALTMAP={},ALTTXT='';
+const altKey=id=>T(id).toLowerCase();
+const altText=l=>(l||[]).map(a=>[a.name,a.phone,a.addr].map(T).join(' | ').replace(/( \| )+$/,'')).join('\n');
+const altParse=s=>String(s||'').split('\n').map(l=>l.split('|').map(T)).filter(p=>p[0]).map(p=>({name:p[0],phone:p[1]||'',addr:p[2]||''}));
 
 async function api(action,payload){
   const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -246,6 +254,7 @@ const roleClass=r=>['업체','임시','차단','마스터'].find(k=>T(r).indexOf
 async function load(){
   const j=await api('accounts',{token:TOKEN});
   ROWS=j.rows||[];
+  try{ALTMAP=(await api('altbiz',{token:TOKEN,all:1})).map||{};}catch(e){ALTMAP={};}
   $('who').textContent=j.me?('로그인: '+j.me):'';
   render();
 }
@@ -274,7 +283,7 @@ function render(){
   let list=ROWS.filter(a=>{
     if(FILTER!=='전체'&&roleClass(a.role)!==FILTER)return false;
     if(!q)return true;
-    return [a.name,a.id,a.phone,a.memo,a.owner,a.addr].some(v=>String(v||'').toLowerCase().indexOf(q)>=0);
+    return [a.name,a.id,a.phone,a.memo,a.owner,a.addr,altText(ALTMAP[altKey(a.id)])].some(v=>String(v||'').toLowerCase().indexOf(q)>=0);
   });
   const val=a=>{
     const v=a[SORT];
@@ -286,7 +295,8 @@ function render(){
   $('rows').innerHTML=list.map(a=>{
     const rc=roleClass(a.role);
     return '<tr data-id="'+esc(a.id)+'">'
-      +'<td class="nm">'+esc(a.name||'—')+' <button class="cp" data-cp="'+esc(a.name)+'" title="업체명 복사">📋</button></td>'
+      +'<td class="nm">'+esc(a.name||'—')+' <button class="cp" data-cp="'+esc(a.name)+'" title="업체명 복사">📋</button>'
+        +((ALTMAP[altKey(a.id)]||[]).length?' <span class="mut" title="'+esc((ALTMAP[altKey(a.id)]||[]).map(x=>x.name).join(', '))+'">🏢+'+ALTMAP[altKey(a.id)].length+'</span>':'')+'</td>'
       +'<td class="id">'+esc(a.id)+' <button class="cp" data-cp="'+esc(a.id)+'" title="아이디 복사">📋</button></td>'
       +'<td><span class="rl '+rc+'">'+esc(T(a.role)||'—')+'</span></td>'
       +'<td class="id">'+esc(a.phone||'—')+'</td>'
@@ -332,6 +342,7 @@ function openDrawer(a){
   $('d_name').value=a.name||'';$('d_phone').value=a.phone||'';$('d_addr').value=a.addr||'';
   $('d_owner').value=a.owner||'';$('d_pw').value=a.pw||'';$('d_memo').value=a.memo||'';
   $('d_msg').textContent='';$('d_msg').className='msg';
+  ALTTXT=altText(ALTMAP[altKey(a.id)]);$('d_alts').value=ALTTXT;
   setRole(T(a.role));
   $('d_meta').innerHTML='아이디 <b>'+esc(a.id)+'</b> (바꿀 수 없음)<br>'
     +'가입 '+ago(a.joined_at)+' · 접속 '+(a.login_count||0)+'회 · 마지막 '+ago(a.last_login)+'<br>'
@@ -358,6 +369,11 @@ $('d_save').onclick=async()=>{
   $('d_save').disabled=true;
   try{
     await api('accsave',patch);
+    // 🏢 추가 사업자 — 칸을 건드렸을 때만 보낸다(안 건드리면 업체가 방금 넣은 것을 덮지 않게)
+    if(T($('d_alts').value)!==T(ALTTXT)){
+      const r=await api('altbizset',{token:TOKEN,accountId:CUR.id,list:altParse($('d_alts').value)});
+      ALTMAP[altKey(CUR.id)]=r.list||[];
+    }
     Object.assign(CUR,{name:patch.name,role:patch.role,phone:patch.phone,addr:patch.addr,owner:patch.owner,memo:patch.memo});
     if(patch.pw)CUR.pw=patch.pw;
     m.className='msg ok';m.textContent='저장했습니다.';

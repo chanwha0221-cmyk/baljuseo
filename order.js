@@ -644,8 +644,10 @@ function checkRow(r){
 /* 지금 이 발주의 '주문처' — 마스터면 고른 업체, 업체면 자기 계정.
    발주서에 박히는 주문처이자 [받는분 = 주문 업체와 동일] 버튼이 퍼 오는 곳이다. */
 function orderer(){
-  return amMaster() ? (FOR || {name:'', addr:'', phone:''})
-                    : ((typeof ME !== 'undefined' && ME) ? ME : {name:'', addr:'', phone:''});
+  if(amMaster()) return (FOR || {name:'', addr:'', phone:''});
+  const me = (typeof ME !== 'undefined' && ME) ? ME : {name:'', addr:'', phone:''};
+  const alt = altOf();   // 🏢 추가 사업자를 골랐으면 그 이름이 주문처(정산업체)
+  return alt ? Object.assign({}, me, {name: alt.name, phone: alt.phone || me.phone, addr: alt.addr || me.addr}) : me;
 }
 function buildOut(){
   // 대신 발주(마스터)면 발주서에 박히는 주문처는 **고른 업체**다 — 마스터 계정이 아니라.
@@ -970,9 +972,43 @@ table.olist td.ad input.ein{min-width:230px}
 }
 
 let EDIT = false;   // 주문처 정보 수정 중인가
+/* 🏢 추가 사업자 (2026-09-30 홍팀장 — 영성: 사업자 둘로 다 발주한다, 아이디를 하나 더 만들라 할 순 없다).
+   고르면 그 사업자가 **정산업체**로 들어간다(송장명 칸과 다르다). 목록은 서버 ALT_BIZ, 마스터가 계정관리에서 고친다.
+   🔴 발주를 넣으면 기본(로그인 업체)으로 되돌린다 — 다음 발주가 엉뚱한 사업자로 정산되지 않게(대신 발주의 FOR 와 같은 규칙). */
+let ALTS = [], ASBIZ = '';
+const ALT_NOTICE = '이 기능은 추가로 사업자 등록을 하신 업체만 사용할 수 있습니다.\n사용 전에 담당자에게 먼저 문의 주세요. (010-2455-4156 홍찬화 팀장)';
+async function loadAlts(){
+  try{
+    const j = await api('altbiz', {token: ME.token});
+    ALTS = (j && j.list) || [];
+    if(ASBIZ && !ALTS.some(a => pkey(a.name) === pkey(ASBIZ))) ASBIZ = '';
+    const box = document.getElementById('ordme');
+    if(box && !EDIT){ box.outerHTML = meCard(); if(window.__bindMe) window.__bindMe(); }
+  }catch(e){}
+}
+function altOf(){ return ASBIZ ? ALTS.find(a => pkey(a.name) === pkey(ASBIZ)) || null : null; }
+function altRow(){
+  const base = (typeof ME !== 'undefined' && ME) ? ME.name : '';
+  return '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line,#e5e2dc)">'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+    + (ALTS.length
+        ? '<span class="k" style="font-size:11.5px;color:var(--muted)">발주 사업자</span>'
+          + '<select class="ordin" id="ord_asbiz" style="width:auto;min-width:160px">'
+          + '<option value="">' + esc(base) + ' (기본)</option>'
+          + ALTS.map(a => '<option value="' + esc(a.name) + '"' + (pkey(a.name) === pkey(ASBIZ) ? ' selected' : '') + '>' + esc(a.name) + '</option>').join('')
+          + '</select>'
+        : '')
+    + '<button class="ordb2" id="ord_altadd" style="padding:4px 10px;font-size:12px">➕ 사업자 추가</button>'
+    + '</div>'
+    + '<div class="hint" style="margin-top:6px">⚠️ <b>추가로 사업자 등록을 하신 업체만</b> 사용할 수 있습니다. 사용 전에 <b>담당자에게 먼저 문의</b> 주세요. (010-2455-4156 홍찬화 팀장)<br>'
+    + '송장에 다른 이름을 찍는 기능이 아닙니다 — 그건 아래 발주서 맨 앞 <b>업체명</b> 칸에 적으세요.</div>'
+    + '</div>';
+}
 function meCard(){
-  const me = (typeof ME !== 'undefined' && ME) ? ME : null;
-  if(!me) return '';
+  const me0 = (typeof ME !== 'undefined' && ME) ? ME : null;
+  if(!me0) return '';
+  const alt = (!EDIT && altOf()) || null;
+  const me = alt ? {name: alt.name, phone: alt.phone || me0.phone, addr: alt.addr || me0.addr} : me0;
   // 출고지(주문처 주소)는 안 쓰는 업체가 있다 → 연락처만 필수 (사장님 2026-08-20)
   const need = EDIT || !S(me.phone);
   // 🔒 거래처 표에 "주소 안 씀"으로 약속된 업체 — 칸을 아예 잠근다. 채워도 발주서엔 안 실린다.
@@ -1007,7 +1043,10 @@ function meCard(){
     + '<div><span class="k">출고지</span><b>' + (lock
         ? '<span style="color:var(--muted);font-weight:600">🔒 안 씀 (주소를 쓰지 않는 업체)</span>'
         : (S(me.addr) ? esc(me.addr) : '<span style="color:var(--muted);font-weight:600">안 씀 (비워두셔도 발주됩니다)</span>')) + '</b></div>'
-    + '</div></div>';
+    + '</div>'
+    + (alt ? '<div class="hint" style="margin-top:6px;color:var(--up)">🏢 지금 <b>' + esc(alt.name) + '</b>(추가 사업자)로 발주합니다 — 정산업체명이 이 이름으로 들어갑니다.</div>' : '')
+    + altRow()
+    + '</div>';
 }
 
 /* 👥 어느 업체 발주인가 — 마스터 대신 발주 화면의 첫 칸.
@@ -1199,7 +1238,7 @@ function view(){
   if(master) loadFor();
   // 📑 발주 화면을 열 때마다 업체 규칙·합포장 불가·🏷 별칭을 새로 받는다 — 낮에 바뀌어도 새로고침 없이 먹게
   // (별칭은 loadFor() 뒤에 받는다 — 마스터는 «고른 업체» 것이라 FOR 가 정해져야 누구 것인지 안다)
-  if(hasApi() && ME && ME.token){ loadVRules(); loadNoHap(); loadVAlias(); }
+  if(hasApi() && ME && ME.token){ loadVRules(); loadNoHap(); loadVAlias(); if(!master) loadAlts(); }
   return subHead(master ? '🧾 대신 발주' : '🧾 발주하기',
                  master ? '카톡·엑셀로 받은 발주를 넣고 바로 당일 시트로 보냅니다'
                         : '카탈로그 상품을 담거나, 엑셀에서 복사해 붙여넣으세요')
@@ -1676,7 +1715,7 @@ async function submit(){
       // 🔒 미리보기만 막으면 소용없다 — 시트로 실제로 나가는 값에도 같은 규칙을 건다
       req.forName = FOR.name; req.forAddr = outAddr(FOR.name, FOR.addr); req.forPhone = FOR.phone || '';
       req.andPush = true;
-    }
+    } else if(altOf()) req.asBiz = altOf().name;   // 🏢 추가 사업자로 넣기
     /* 🔴 같은 발주가 두 번 들어가는 것을 서버가 막으면 `dup` 으로 돌아온다 (2026-08-26).
        조용히 넘어가지도, 조용히 또 넣지도 않는다 — 이미 접수된 발주번호를 보여주고 사람이 정한다. */
     let j;
@@ -1707,6 +1746,10 @@ async function submit(){
       FOR = null; saveFor();
       const fb = document.getElementById('ordfor');
       if(fb){ fb.outerHTML = forCard(); bindFor(); }
+    } else if(ASBIZ){
+      ASBIZ = '';                                   // 🏢 다음 발주는 기본 사업자로
+      const mb = document.getElementById('ordme');
+      if(mb && window.__bindMe){ mb.outerHTML = meCard(); window.__bindMe(); }
     }
     paint();
     if(master){
@@ -3516,6 +3559,23 @@ function bind(){
 
   function redrawMe(){ const box = $$('ordme'); if(box){ box.outerHTML = meCard(); bindMe(); } }
   function bindMe(){
+    window.__bindMe = bindMe;
+    const sel = $$('ord_asbiz');
+    if(sel) sel.onchange = () => { ASBIZ = sel.value; redrawMe(); paint(); };
+    const ad = $$('ord_altadd');
+    if(ad) ad.onclick = async () => {
+      if(!confirm(ALT_NOTICE + '\n\n담당자와 이야기가 되셨으면 [확인]을 눌러 사업자를 추가하세요.')) return;
+      const nm = S(prompt('추가할 사업자명 (사업자등록증의 상호 그대로)') || '');
+      if(!nm) return;
+      const ph = S(prompt('이 사업자의 주문처 연락처 (비우면 지금 연락처를 씁니다)') || '');
+      try{
+        const j = await api('altbizadd', {token: ME.token, name: nm, phone: ph});
+        ALTS = (j && j.list) || ALTS;
+        if(ALTS.some(a => pkey(a.name) === pkey(nm))) ASBIZ = nm;
+        redrawMe(); paint();
+        toast('사업자를 추가했습니다 — 지금 ' + nm + ' 로 발주합니다');
+      }catch(e){ alert(e.message || '추가하지 못했습니다'); }
+    };
     const ed = $$('ord_edit');
     if(ed) ed.onclick = () => { EDIT = true; redrawMe(); };
     const cc = $$('ord_cancel');
