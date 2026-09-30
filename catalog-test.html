@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.149</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.150</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1373,10 +1373,15 @@ async function downloadPriceXlsx(){
   }finally{ if(b){b.disabled=false;b.textContent=old;} }
 }
 const EXCWH='🚫 예외';
+/* 🙈 창고째 숨김 (2026-09-30 홍팀장 — 선물세트 시즌 끝. 리모컨 설정값을 바꾸면서 선물세트에 붙여 둔 마진이
+      초기화된 단가로 노출되고 있다 → 「그냥 못 보게」). 마스터 화면에서도 안 보인다.
+   목록·검색·발주 후보·이름 발주(카탈로그에 없는 상품명) 전부 막힌다. 다시 열려면 여기서 이름을 빼면 된다.
+   [🔐 업체 전용 상품]으로 따로 열어 준 것은 그대로 발주된다. */
+const HIDE_WH=new Set(['단독(선물)']);
 function buildAll(){
   ALL=[];
   const master=amMasterC(),excCards=[];
-  GROUPS=GROUPS.filter(g=>!g.virtual);       // 다시 그릴 때 가상 그룹이 겹쳐 쌓이지 않게
+  GROUPS=GROUPS.filter(g=>!g.virtual&&!HIDE_WH.has(g.wh));   // 다시 그릴 때 가상 그룹이 겹쳐 쌓이지 않게 · 🙈 숨긴 창고는 탭째로
   GROUPS.forEach(g=>{
     /* 🔴 2026-09-01 판매 재개 사고 — 예전엔 아래에서 g.products 를 걸러낸 결과로 **덮어썼다.**
        그래서 buildAll 이 두 번째로 돌 때는 창고에 예외 상품이 이미 없었다. 결과:
@@ -1389,6 +1394,7 @@ function buildAll(){
     g.src.forEach(p=>{
       p.group=g.wh;
       p.effWh=p.srcWh||g.wh;   // 배지 클릭 기준: 창고명 칸이 있으면 그 창고, 없으면 탭 이름
+      if(HIDE_WH.has(p.effWh))return;   // 🙈 다른 탭에 섞여 있어도 창고가 숨김이면 뺀다
       p.qty=SALES[pkey(p.name)]||0;
       p.exc=isExc(p.name);
       // 예외는 어느 목록에도 남기지 않는다 — '다른 카테고리에 살아있는' 구멍을 구조로 막는다
