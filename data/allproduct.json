@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-09-30 14:10",
+ "updatedAt": "2026-09-30 14:15",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -147,6 +147,29 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "군산",
+   "category": "수산",
+   "name": "활 광어 필렛 500g",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 활 광어 필렛 1팩",
+    "※ 중량/사이즈 : 1팩 500g, 원물 3-5kg급",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 광어 100%",
+    "※ 포장방식 : 트레이포장"
+   ],
+   "supplyPrice": 16000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/21955665.jpg?v=1789633870",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "여수",
    "category": "수산",
    "name": "국내산 랜덤 돌문어 1kg",
@@ -266,6 +289,31 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "디디",
+   "category": "수산",
+   "name": "S급 러시아 박달대게 3kg",
+   "spec": [
+    "※ 원산지 : 러시아",
+    "※ 구성 : 대게",
+    "※ 중량/사이즈 : 원물 3kg 2~4미",
+    "※자숙시 중량감소 20~30%, 자숙 후 수율 7~80%",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 대게 100%",
+    "※ 포장방식 : 비닐포장",
+    "※특이사항 : 다리는 새끼다리 2개제외 1~2개까지 떨어져 있을 수 있음."
+   ],
+   "supplyPrice": 88000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/12220089.jpg?v=1789633871",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "인천",
    "category": "수산",
    "name": "연안 연평참소라 1kg",
@@ -307,6 +355,30 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.kr/xd/thumbs/25401003.jpg?v=1789633852",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "군산",
+   "category": "",
+   "name": "생물 손질 물메기 3kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 물메기 3kg",
+    "※ 중량/ 사이즈 : 3kg내외(2-4미내외)",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 물메기 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 기타 : 암수랜덤, 손질은 내장만 제거합니다."
+   ],
+   "supplyPrice": 17000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/24917715.jpg?v=1790731801",
    "note": ""
   },
   {
@@ -835,55 +907,6 @@
   },
   {
    "warehouse": "당일생물",
-   "sourceWarehouse": "디디",
-   "category": "수산",
-   "name": "S급 러시아 박달대게 3kg",
-   "spec": [
-    "※ 원산지 : 러시아",
-    "※ 구성 : 대게",
-    "※ 중량/사이즈 : 원물 3kg 2~4미",
-    "※자숙시 중량감소 20~30%, 자숙 후 수율 7~80%",
-    "※ 생물여부 : 냉장",
-    "※ 성분표시 : 대게 100%",
-    "※ 포장방식 : 비닐포장",
-    "※특이사항 : 다리는 새끼다리 2개제외 1~2개까지 떨어져 있을 수 있음."
-   ],
-   "supplyPrice": 88000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "씨제이대한통운",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.kr/xd/thumbs/12220089.jpg?v=1789633871",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "군산",
-   "category": "",
-   "name": "생물 손질 물메기 3kg",
-   "spec": [
-    "※ 원산지 : 국내산",
-    "※ 구성 : 물메기 3kg",
-    "※ 중량/ 사이즈 : 3kg내외(2-4미내외)",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 물메기 100%",
-    "※ 포장방식 : 비닐포장",
-    "※ 기타 : 암수랜덤, 손질은 내장만 제거합니다."
-   ],
-   "supplyPrice": 17000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.kr/xd/thumbs/24917715.jpg?v=1790731801",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
    "sourceWarehouse": "동해",
    "category": "",
    "name": "생물 한치 500g",
@@ -974,6 +997,29 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.kr/xd/thumbs/12360697.jpg?v=1789633871",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "알가",
+   "category": "",
+   "name": "지리멸치밥새우 1박스",
+   "spec": [
+    "※ 원산지 : 국내산(서해안)",
+    "※ 구성 : 지리멸치밥새우 1박스",
+    "※ 중량/ 사이즈 : 1.8kg(박스 포함) / 미수많음",
+    "※ 생물여부 : 상온 또는 냉동(수령 시 냉동 보관)",
+    "※ 성분표시 : 밥새우 50%, 지리멸치 40%, 잡어 10% 혼합",
+    "※ 포장방식 : 박스 벌크포장"
+   ],
+   "supplyPrice": 12500,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/25425975.jpg?v=1790667901",
    "note": ""
   },
   {
