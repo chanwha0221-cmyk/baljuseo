@@ -240,6 +240,17 @@ async function loadProducts(){
                 tab:tabName,gid:gid,cell:colLetter(ci)+(i+1)});
     }
   }
+  /* 🐟 masterc 「오늘 당일상품」도 대상에 넣는다 (2026-09-30 홍팀장 — 알배기암게 등 당일 카드에 게시글·스펙이 없었다).
+     당일생물은 이제 유통시트가 아니라 masterc(상품리스트 응답의 today)가 원본이라, 유통시트만 보면 영영 안 채워진다.
+     여기는 masterc.kr 위라 같은 출처로 바로 읽힌다. 게시글 링크는 아래 자동 찾기(제목 검색·완전일치)가 붙인다. */
+  try{
+    const L=await (await fetch('/xd/api.php?mid=machan_list&a=list',{credentials:'same-origin',cache:'no-store'})).json();
+    (L&&L.today||[]).forEach(function(p){
+      const nm=String(p&&p.n||'').trim();
+      if(!nm||seen[pkey(nm)])return; seen[pkey(nm)]=1;
+      out.push({name:nm,wh:String(p.wh||'').trim()||'당일',sheetUrl:'',tab:'당일(masterc)',gid:null,cell:''});
+    });
+  }catch(e){ /* 못 읽으면 유통시트 상품만 */ }
   return out;
 }
 async function loadCache(){
@@ -281,6 +292,8 @@ async function loadQueue(){
 /* 🗑 직접 삭제 — 2026-08-10부터 서비스계정이 유통시트 편집자라 대기 큐 없이 바로 지운다.
    지우기 전에 그 셀의 상품명을 재확인하고(그 사이 시트가 바뀌었으면 중단), 삭제 후 같은 탭 아래 행 번호를 당긴다. */
 async function delProduct(p){
+  // 🐟 masterc 당일상품은 유통시트에 줄이 없다 — 여기서 지울 수 없다(당일 등록 해제는 masterc 관리화면에서)
+  if(p.gid==null||!p.cell)return{error:{message:'masterc 당일상품이라 유통시트에서 지울 줄이 없습니다 — masterc 관리화면 #daily 에서 끄세요.'}};
   const rowIdx=parseInt(String(p.cell).replace(/\D/g,''),10);
   const chk=await api(YUTONG,'/values/'+q("'"+p.tab.replace(/'/g,"''")+"'!"+p.cell));
   const got=(chk.values&&chk.values[0]&&chk.values[0][0])?String(chk.values[0][0]).trim():'';
