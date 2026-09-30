@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-29l';
+  var QTYB_VER = '2026-09-30a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1026,8 +1026,18 @@
           if (haveIdx()) stockPush(true, IDX);      // 긁은 판으로 카탈로그 재고도 같이 (뒤에서)
           return loadMy();
         })
-        .then(function () { return tallyTab('재고 없음', 2); })
-        .then(function (no) {
+        /* 🔴 «잡아둔 여유» 는 시트 기준으로 센다 (2026-09-30 홍팀장 전어 11개) — 수량 웹 «사용» 칸이 아니라
+              당일 탭에 남은 그 상품 + 기준 날짜 시트에 나간 것. 아침에 1개 잡으며 사용 1 을 적었는데 그 주문까지
+              재고 없음으로 내려가서, 여유를 11−1=10 으로 보고 1개를 남겼다. 시트를 못 읽으면 예전처럼 사용 칸. */
+        .then(function () {
+          return Promise.all([tallyTab('재고 없음', 2),
+                              tallyTab('당일').catch(function () { return null; }),
+                              tallyTab(dayTab()).catch(function () { return null; })]);
+        })
+        .then(function (rr) {
+          var no = rr[0], dg = rr[1], dn = rr[2];
+          var sheetOk = !!(dg && dn);
+          function sheetUsed(k) { return ((dg.map[k] && dg.map[k].qty) || 0) + ((dn.map[k] && dn.map[k].qty) || 0); }
           var keys = Object.keys(no.map);
           if (!keys.length) { stat('재고 없음 비어 있음'); el('qtyb-out').innerHTML = '<div class="warn">「재고 없음」 탭이 비어 있습니다.</div>'; b.disabled = false; b.textContent = old; return; }
           /* 2026-09-29 홍팀장 보강 — 이 검토는 «① 올릴 게 있나 ② 대기·증량이 제대로 걸렸나» 두 가지를 본다.
@@ -1041,7 +1051,7 @@
             var want = no.map[k].qty;
             var idx = IDX && IDX[k], o = OURS[k];
             var ghost = idx ? (idx.stuck || (idx.closed && idx.left < 0)) : false;
-            var spare = o ? Math.max(0, o.got - o.used) : 0;
+            var spare = o ? Math.max(0, o.got - (sheetOk ? sheetUsed(k) : o.used)) : 0;
             var free = !!(idx && idx.free);
             var left = free ? want : ((idx && !idx.locked) ? Math.max(0, idx.left) : 0);
             var cut = idx ? dlHour(idx.dlRaw) : null;
@@ -1493,20 +1503,26 @@
         if (fail.length) throw new Error('못 읽은 창고: ' + fail.join(','));
         return all;
       });
-    }).then(stockMap);
+    });   // 줄 묶음 그대로 — stockPush 가 시트 집계와 같이 stockMap 에 넘긴다
   }
   /* 긁은 줄 묶음(상품키 → 줄) → 보낼 재고. 따로 긁은 것(stockRows)이든 가져오기가 긁은 IDX 든 같은 규칙. */
-  function stockMap(all) {
+  /* 🟢 우리 몫도 재고다 (2026-09-30 홍팀장 활 새우 — 증량 20개를 받았는데 잔여 0 이라 카탈로그가 막았다).
+       재고 = 창고 잔여(잠긴 줄은 0) + 마찬 칸 중 시트에 아직 안 쓰인 것.
+       «시트에 쓰인 것» = 당일 + 재고 없음 + 기준 날짜 시트의 그 상품 주문 (수량 웹 «사용» 칸은 안 본다 — 전어 사고).
+       used 가 없으면(시트를 못 읽음) 예전처럼 잔여만 본다 — 모르는 몫으로 발주를 열지 않는다. */
+  function stockMap(all, used) {
       var m = {};
       Object.keys(all).forEach(function (k) {
         var r = all[k];
         if (r.kind !== '상시') return;
-        if (r.locked) { m[k] = 0; return; }
+        var ghost = r.stuck || (r.closed && r.left < 0);
+        var spare = (used && !ghost) ? Math.max(0, (r.mine || 0) - (used[k] || 0)) : 0;
+        if (r.locked) { m[k] = spare; return; }
         /* 🟢 넉넉도 숫자로 보낸다 (2026-09-29 홍팀장 「넉넉도 혹시 모르니까 수량 넣고 가져와」) —
            «모름» 이 아니라 «충분» 이라는 게 서버에 남는다. 9999 = 넉넉 (소량·재고 없음 어디에도 안 걸림). */
         if (r.free && /넉넉/.test(r.leftRaw)) { m[k] = 9999; return; }
         if (!r.leftRaw || r.free) return;
-        m[k] = Math.max(0, r.left);
+        m[k] = Math.max(0, r.left) + spare;
       });
       ALIAS.forEach(function (a) {
         var base = m[nk(a.to)];
@@ -1527,10 +1543,16 @@
     window.__QTYB_PUSHING = true;
     var sEl = el('qtyb-stock');
     if (sEl) sEl.textContent = '📤 보내는 중…';
+    // 시트에 쓰인 주문 — 셋 중 하나라도 못 읽으면 null(우리 몫은 안 더한다)
+    var usedP = Promise.all([tallyTab('당일'), tallyTab('재고 없음', 2), tallyTab(dayTab())]).then(function (ts) {
+      var u = {};
+      ts.forEach(function (t) { Object.keys(t.map).forEach(function (k) { u[k] = (u[k] || 0) + (t.map[k].qty || 0); }); });
+      return u;
+    }, function () { return null; });
     var src = preset
-      ? (SCAN_FAIL.length ? Promise.reject(new Error('못 읽은 창고: ' + SCAN_FAIL.join(','))) : Promise.resolve(stockMap(preset)))
+      ? (SCAN_FAIL.length ? Promise.reject(new Error('못 읽은 창고: ' + SCAN_FAIL.join(','))) : Promise.resolve(preset))
       : stockRows();
-    return src.then(function (m) {
+    return Promise.all([src, usedP]).then(function (x) { return stockMap(x[0], x[1]); }).then(function (m) {
       var rows = Object.keys(m).map(function (k) { return [k, m[k]]; });
       return fetch(QTY_API, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
