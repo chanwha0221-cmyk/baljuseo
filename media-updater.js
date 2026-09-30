@@ -248,7 +248,7 @@ async function loadProducts(){
     (L&&L.today||[]).forEach(function(p){
       const nm=String(p&&p.n||'').trim();
       if(!nm||seen[pkey(nm)])return; seen[pkey(nm)]=1;
-      out.push({name:nm,wh:String(p.wh||'').trim()||'당일',sheetUrl:'',tab:'당일(masterc)',gid:null,cell:''});
+      out.push({name:nm,wh:String(p.wh||'').trim()||'당일',sheetUrl:'',tab:'당일(masterc)',gid:null,cell:'',xdSrl:p.srl||''});
     });
   }catch(e){ /* 못 읽으면 유통시트 상품만 */ }
   return out;
@@ -434,6 +434,29 @@ async function scrape(url){
   }
   const why=img?'':(gone?'gone':(cands.length?'':'noimg'));
   return {img:img,spec:spec,backs:backs,bad:bad,why:why,detail:title};
+}
+
+/* 🆕 masterc 새 상세(`board_eJGl96?p=번호`)에서 사진·스펙 받기 (2026-09-30 알배기암게).
+   옛 게시판에 글이 없고 새 시스템에만 상품정보가 있는 상품이 생겼다 — 제목 검색으로는 안 나온다.
+   상세는 `/xd/api.php?a=doc&srl=` 가 html 로 준다(로그인 필요 → 업체에 링크로 줄 수는 없다, 링크는 비워 둔다).
+   사진 파일(`/xd/i/images/…`)은 로그인 없이 열린다 → 카탈로그에 그대로 쓸 수 있다. */
+async function scrapeXd(srl){
+  let j;
+  try{ j=await (await fetch('/xd/api.php?mid=board_eJGl96&a=doc&srl='+encodeURIComponent(srl),{credentials:'include',cache:'no-store'})).json(); }
+  catch(e){ return {img:'',spec:[],backs:[],bad:false,why:'cross',detail:e.message}; }
+  if(!j||!j.ok){ return {img:'',spec:[],backs:[],bad:false,why:(j&&j.login===false)?'login':'http',detail:(j&&j.msg)||''}; }
+  const html=String((j.doc&&j.doc.html)||'');
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  const cands=[].map.call(doc.querySelectorAll('img'),function(im){return im.getAttribute('src')||'';})
+    .filter(function(s){return /\/xd\/i\//.test(s)||/\/files\/attach\//.test(s);})
+    .map(function(s){return s.indexOf('http')===0?s:('https://masterc.kr'+(s.charAt(0)==='/'?'':'/')+s);});
+  let img='';
+  for(let i=0;i<Math.min(5,cands.length);i++){ if(await imgLoads(cands[i])){img=cands[i];break;} }
+  const txt=html.replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|div|li|h\d)>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&');
+  const si=txt.indexOf('상품 스펙');
+  let spec=(si>=0?txt.slice(si,si+900):txt).split('\n').map(function(s){return s.trim().replace(/\s+/g,' ');}).filter(function(s){return s.indexOf('※')===0&&s.length>4;}).slice(0,7);
+  if(!spec.some(function(s){return s.indexOf('원산지')>=0;})){ const org=originOf(txt); if(org)spec.unshift('※ 원산지 : '+org); }
+  return {img:img,spec:spec,backs:cands.slice(0,6),bad:false,why:img?'':(cands.length?'':'noimg'),detail:(j.doc&&j.doc.title)||''};
 }
 
 /* ── 화면 ── */
@@ -783,7 +806,7 @@ async function runSelected(){
   const bar=$('mu-bar').firstElementChild;
   const targets=keys.map(function(k){
     const p=PRODUCTS.filter(function(x){return pkey(x.name)===k;})[0];
-    return p?{key:k,name:p.name,wh:p.wh,url:linkOf(p),sheet:sheetLink(p),tab:p.tab,cell:p.cell}:null;
+    return p?{key:k,name:p.name,wh:p.wh,url:linkOf(p),sheet:sheetLink(p),tab:p.tab,cell:p.cell,xdSrl:p.xdSrl||''}:null;
   }).filter(Boolean);
   /* 🔎 링크 없는 상품은 게시판 제목 검색으로 먼저 찾는다 (masterc 위에서만 가능).
      찾은 링크는 링크 정본 시트에 바로 등록하고, 이어서 사진·스펙까지 받는다. */
@@ -819,6 +842,7 @@ async function runSelected(){
       const t=targets[i++];
       let r={img:'',spec:[]};
       if(t.url){r=await scrape(t.url);}   // scrape가 사유(why)를 담아 돌려준다 — 여기서 삼키지 않는다
+      else if(t.xdSrl){r=await scrapeXd(t.xdSrl);}   // 옛 게시판 글이 없으면 masterc 새 상세에서 사진·스펙만
       done0.push({t:t,r:r});
       done++;
       bar.style.width=Math.round(done/targets.length*100)+'%';
