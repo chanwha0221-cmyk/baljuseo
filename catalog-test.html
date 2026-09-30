@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.150</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.151</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1374,14 +1374,32 @@ async function downloadPriceXlsx(){
 }
 const EXCWH='🚫 예외';
 /* 🙈 창고째 숨김 (2026-09-30 홍팀장 — 선물세트 시즌 끝. 리모컨 설정값을 바꾸면서 선물세트에 붙여 둔 마진이
-      초기화된 단가로 노출되고 있다 → 「그냥 못 보게」). 마스터 화면에서도 안 보인다.
-   목록·검색·발주 후보·이름 발주(카탈로그에 없는 상품명) 전부 막힌다. 다시 열려면 여기서 이름을 빼면 된다.
+      초기화된 단가로 노출되고 있다 → 「못 보게」, 코드에 박지 말고 버튼으로).
+   마스터가 창고 배너의 [🙈 업체 화면에서 숨기기]를 누르면 서버(app_config HIDE_WH)에 저장된다.
+   업체 화면: 그 창고가 통째로 빠진다 — 목록·검색·발주 후보·이름 발주(카탈로그에 없는 상품명) 전부.
+   마스터 화면: 창고 칩에 🙈 가 붙은 채로 남아 [👁 다시 보이기]로 되돌린다.
    [🔐 업체 전용 상품]으로 따로 열어 준 것은 그대로 발주된다. */
-const HIDE_WH=new Set(['단독(선물)']);
+let HIDE_WH=new Set();
+const HIDE_KEY='catalog_hidewh_v1';
+try{HIDE_WH=new Set(JSON.parse(localStorage.getItem(HIDE_KEY)||'[]'));}catch(e){}   // 서버 응답 전 첫 화면용
+function setHideWh(list){
+  HIDE_WH=new Set((list||[]).map(x=>String(x||'').trim()).filter(Boolean));
+  try{localStorage.setItem(HIDE_KEY,JSON.stringify([...HIDE_WH]));}catch(e){}
+}
+async function toggleHideWh(wh,hide){
+  if(hide&&!confirm('「'+wh+'」 창고를 업체 화면에서 숨길까요?\n\n업체는 이 창고 상품을 보지도, 발주하지도 못합니다.\n마스터 화면에는 🙈 표시로 남아 [👁 다시 보이기]로 되돌릴 수 있습니다.'))return;
+  try{
+    const j=await api('hidewhset',{token:ME.token,wh,hide:!!hide});
+    setHideWh(j.list||[]);
+    buildAll();buildWhChips();render();
+    toast(hide?('「'+wh+'」 업체 화면에서 숨겼습니다'):('「'+wh+'」 다시 보입니다'));
+  }catch(e){alert(e.message||'저장하지 못했습니다');}
+}
 function buildAll(){
   ALL=[];
   const master=amMasterC(),excCards=[];
-  GROUPS=GROUPS.filter(g=>!g.virtual&&!HIDE_WH.has(g.wh));   // 다시 그릴 때 가상 그룹이 겹쳐 쌓이지 않게 · 🙈 숨긴 창고는 탭째로
+  if(!master)GROUPS=GROUPS.filter(g=>!HIDE_WH.has(g.wh));   // 🙈 업체 화면은 숨긴 창고를 탭째로 뺀다
+  GROUPS=GROUPS.filter(g=>!g.virtual);       // 다시 그릴 때 가상 그룹이 겹쳐 쌓이지 않게
   GROUPS.forEach(g=>{
     /* 🔴 2026-09-01 판매 재개 사고 — 예전엔 아래에서 g.products 를 걸러낸 결과로 **덮어썼다.**
        그래서 buildAll 이 두 번째로 돌 때는 창고에 예외 상품이 이미 없었다. 결과:
@@ -1394,7 +1412,7 @@ function buildAll(){
     g.src.forEach(p=>{
       p.group=g.wh;
       p.effWh=p.srcWh||g.wh;   // 배지 클릭 기준: 창고명 칸이 있으면 그 창고, 없으면 탭 이름
-      if(HIDE_WH.has(p.effWh))return;   // 🙈 다른 탭에 섞여 있어도 창고가 숨김이면 뺀다
+      if(HIDE_WH.has(g.wh)&&master){ keep.push(p); return; }   // 🙈 숨긴 창고 상품은 마스터 창고 탭에서만 — 전체 목록·검색·발주 후보(ALL)엔 안 넣는다
       p.qty=SALES[pkey(p.name)]||0;
       p.exc=isExc(p.name);
       // 예외는 어느 목록에도 남기지 않는다 — '다른 카테고리에 살아있는' 구멍을 구조로 막는다
@@ -1788,7 +1806,7 @@ function buildWhChips(){
   // 창고를 바꾸면 카테고리 필터는 초기화 (창고 안에서는 배너 아래 창고 내 카테고리 버튼을 쓴다)
   GROUPS.forEach(g=>{
     const on=st.mode==='group'&&st.wh===g.wh;
-    mk(g.wh+' '+g.products.length,on,()=>{if(on){st.wh='전체';}else{st.wh=g.wh;}st.mode='group';st.cat='전체';buildWhChips();render();});
+    mk((HIDE_WH.has(g.wh)?'🙈 ':'')+g.wh+' '+g.products.length,on,()=>{if(on){st.wh='전체';}else{st.wh=g.wh;}st.mode='group';st.cat='전체';buildWhChips();render();});
   });
   if(st.mode==='src')mk('📦 '+st.wh+' ✕',true,()=>{st.wh='전체';st.mode='group';st.cat='전체';buildWhChips();render();});
 }
@@ -1889,7 +1907,14 @@ function render(){
       const ships={};items.forEach(p=>{ships[p.ship]=(ships[p.ship]||0)+1;});
       let sh=Object.keys(ships).sort((a,b)=>ships[b]-ships[a])[0];sh=parseInt(sh,10)||0;
       const sht=sh>0?('기본 배송비 <b>'+won(sh)+'원</b>'):'<b class="free">무료배송</b>';
-      bannerHtml='<div class="banner"><span class="wn">📦 '+esc(g.wh)+(g.mixed?'':' 창고')+'</span><span class="pk">'+(g.mixed?'상품마다 창고가 달라요 — 합포장은 같은 창고끼리만':'이 창고 상품끼리만 합포장')+'</span><span class="sp">'+sht+'</span></div>';
+      const hid=HIDE_WH.has(g.wh);
+      // 🙈 창고째 숨김 버튼 — 마스터만 (2026-09-30 홍팀장 「여기에 숨김 버튼」: 배너 오른쪽 빈자리)
+      const hb=amMasterC()
+        ?('<button class="ordb2" id="whhide" style="margin-left:auto;padding:4px 12px;font-size:12px'+(hid?';background:#fef3c7;border-color:#f59e0b':'')+'">'
+          +(hid?'👁 다시 보이기':'🙈 업체 화면에서 숨기기')+'</button>')
+        :'';
+      bannerHtml='<div class="banner"><span class="wn">📦 '+esc(g.wh)+(g.mixed?'':' 창고')+'</span><span class="pk">'+(g.mixed?'상품마다 창고가 달라요 — 합포장은 같은 창고끼리만':'이 창고 상품끼리만 합포장')+'</span><span class="sp">'+sht+'</span>'+hb+'</div>'
+        +(hid?'<div class="excbar" style="margin-top:8px">🙈 이 창고는 <b>업체 화면에서 숨겨져 있습니다</b> — 업체는 보지도 발주하지도 못합니다. 마스터 화면에만 보입니다.</div>':'');
     }
   }
   const list=items.filter(p=>st.cat==='전체'||(st.cat==='미분류'?(!p.cat||p.cat==='미분류'):p.cat===st.cat));
@@ -1907,6 +1932,8 @@ function render(){
   }
   view.innerHTML=bannerHtml+headHtml
     +'<div class="grid">'+list.map(function(p){return card(p);}).join('')+'</div>';
+  const whb=$('whhide');
+  if(whb)whb.onclick=()=>toggleHideWh(st.wh,!HIDE_WH.has(st.wh));
   const sy=$('excsync');
   if(sy)sy.onclick=async()=>{
     const msg=$('excsyncmsg');
@@ -2097,6 +2124,9 @@ async function startCatalog(){
     /* 📦 먼저 스냅샷을 받아본다 — 성공하면 아래 loadXxx 들이 전부 이 덩어리에서 꺼내 쓴다(요청 0건).
        실패하면 SNAP 이 null 로 남고, 예전처럼 시트 프록시로 하나씩 읽는다. */
     SNAP=await loadSnap();
+    // 🙈 숨긴 창고 — 스냅샷에 실려 온다. 스냅샷을 못 받았으면 따로 묻는다(못 물으면 마지막에 받아 둔 목록)
+    if(SNAP&&Array.isArray(SNAP.hideWh))setHideWh(SNAP.hideWh);
+    else if(ME&&ME.token){try{setHideWh((await api('hidewh',{token:ME.token})).list||[]);}catch(e){}}
     /* 🔐 이 업체에게만 열어준 상품 (2026-09-09) — 서버가 내 계정 것만 걸러서 보낸다.
        카탈로그 상품 목록에는 안 올라가고, 발주 화면(order.js)의 검색·후보에서만 쓴다. */
     window.VONLY=(SNAP&&SNAP.vonly)?SNAP.vonly.map(r=>({name:String(r[1]||'').trim(),wh:String(r[2]||'').trim(),note:String(r[3]||'').trim()})).filter(x=>x.name):[];
