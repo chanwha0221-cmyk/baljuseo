@@ -3962,4 +3962,6 @@ window.ORDER = {view, bind, add, orders: ordersView, ordersBind, rows: () => ROW
                 _cells: rowsFromCells, _foreign: foreign, _header: headerItems, _fileRaw: fileToRaw,
                 _find: findHits, _row: rowHtml, _setFind: (i, kw) => { FIND[i] = kw; },
                 _alias: applyAlias, _learn: saveVAlias};
+// 카탈로그 카드(catalog.html card())가 업체 전용 상품의 재고0 차단을 풀 때 쓴다 — IIFE 안이라 밖에서 안 보여서 꺼내 둠(2026-10-01 참조은수산)
+window.vonlyOpen = vonlyOpen;
 })();
