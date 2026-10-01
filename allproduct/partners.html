@@ -595,6 +595,44 @@ async function checkForUpdate(){
 setInterval(checkForUpdate, AUTO_REFRESH_MS);
 document.addEventListener('visibilitychange', function(){ if (!document.hidden) checkForUpdate(); });
 
+/* 🔄 최신화 — 마스터 전용 (2026-10-01 홍팀장 「이것두 최신화 버튼, 나만 볼 수 있게」).
+   데이터(data/allproduct.json)를 만드는 규칙은 카탈로그 안에만 있다(두 벌로 짜면 숫자가 갈라진다).
+   그래서 이 버튼은 카탈로그를 ?sync=proposal 로 열어 [🔄 제안서 업데이트]를 대신 돌리고,
+   여기서는 새 파일이 올라올 때까지(1~3분) 기다렸다가 다시 그린다.
+   마스터 판정 = 같은 도메인 카탈로그 로그인(catalog_auth_v1)의 master. 업체·일반 방문자에겐 버튼이 아예 없다. */
+(function(){
+  var me=null; try{ me=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null'); }catch(e){}
+  if(!(me&&me.master)) return;
+  var b=document.createElement('button');
+  b.id='syncBtn'; b.textContent='🔄 최신화';
+  b.title='카탈로그 지금 상품으로 이 페이지 데이터를 올립니다 (마스터만 보임)';
+  b.style.cssText='position:fixed;top:12px;right:12px;z-index:9999;padding:8px 14px;border-radius:9px;border:1.5px solid #b5720a;background:#fff7e6;color:#7a4b00;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)';
+  document.body.appendChild(b);
+  var busy=false;
+  b.onclick=function(){
+    if(busy) return;
+    var before=LAST_STAMP;
+    window.open('../catalog.html?sync=proposal','_blank');
+    busy=true; b.textContent='⏳ 최신화 중… (1~3분)';
+    var tries=0;
+    var t=setInterval(async function(){
+      tries++;
+      try{
+        var groups=await loadCatalog();
+        var stamp=DOC_META.updatedAt||'';
+        if(stamp && stamp!==before){
+          clearInterval(t); LAST_STAMP=stamp; applyLoadedCatalog(groups);
+          busy=false; b.textContent='✅ 최신화 완료 ('+stamp+')';
+          toast('최신 상품 정보로 바꿨습니다 ('+stamp+')');
+          setTimeout(function(){ b.textContent='🔄 최신화'; },8000);
+          return;
+        }
+      }catch(e){}
+      if(tries>=16){ clearInterval(t); busy=false; b.textContent='⚠️ 아직 안 바뀜 — 카탈로그 창 확인'; setTimeout(function(){ b.textContent='🔄 최신화'; },10000); }
+    },15000);
+  };
+})();
+
 </script><script>
 /* 📇 카톡 아이디는 링크로 못 연다 — 복사해 주는 게 제일 빠르다 */
 (function(){

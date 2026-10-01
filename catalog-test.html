@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.151</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.152</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -2185,7 +2185,10 @@ async function startCatalog(){
     /* 📤 제안서 데이터 자동 맞춤 — 🚫예외 목록까지 도착한 뒤에 해야 한다.
        먼저 하면 못 파는 상품이 제안서에 실린다. */
     try{ await excDone; }catch(e){}
-    autoSyncProposal();
+    /* 🔄 거래처용 카탈로그(allproduct/partners.html) [🔄 최신화] 가 ?sync=proposal 로 이 창을 연다 (2026-10-01 홍팀장).
+       자동 맞추기 대신 손 버튼과 똑같이 올린다(토큰이 없으면 여기서 묻는다). */
+    if(/[?&]sync=proposal/.test(location.search)&&ME&&ME.master){ try{ await updateProposal(); }catch(e){} }
+    else autoSyncProposal();
   }catch(e){
     if(!usedCache)$('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<br><span style="font-size:12px">'+esc(e.message||String(e))+'</span><br><br><button class="chip" onclick="location.reload()">다시 시도</button>';
     /* 🔴 캐시로 화면은 채워졌는데 최신을 못 받은 경우 — **여기가 제일 위험하다.**
