@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-09-30a';
+  var QTYB_VER = '2026-10-01a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1160,7 +1160,10 @@
                 + (list.length > 15 ? '\n…' : ''))) return;
             var bb = this, o2 = bb.textContent;
             bb.disabled = true; bb.textContent = '올리는 중…';
-            sheetPost('back', list).then(function (j) {
+            /* 🔴 합포장 줄 짝 맞추기 (2026-10-01 「사각어묵 2kg x 1 / 봉어묵 2kg x 1」) — 다 못 올리는 상품(대기·증량 중)을
+                  deny 로 같이 보낸다. 시트는 그 상품이 섞인 합포장 줄을 다른 상품 몫으로 올리지 않는다. */
+            var deny = rows.filter(function (r) { return r.can < r.want; }).map(function (r) { return r.name; });
+            sheetPost('back', list, { deny: deny }).then(function (j) {
               bb.disabled = false; bb.textContent = o2;
               el('qtyb-uplog').innerHTML = '<b>올린 것</b><br>'
                 + (j.done.length ? j.done.map(function (d) { return '· ' + esc(d.name) + ' — ' + d.moved + '줄 (' + d.units + '개)'; }).join('<br>') : '없음')
