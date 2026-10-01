@@ -522,6 +522,7 @@ W.innerHTML='<div id="mu-hd"><b>📸 상품 사진·스펙 업데이트</b><butt
 +'<button class="mu-btn" data-pick="none">선택 해제</button>'
 +'</div>'
 +'<div class="mu-row"><button class="mu-btn" id="mu-link">🔗 링크 업데이트</button><span style="font-size:11px;color:#8a9a92;align-self:center">상품정보 업데이트 시트에서 최신 링크 가져오기</span></div>'
++'<div class="mu-row"><button class="mu-btn" id="mu-spec">📝 스펙 최신화</button><span style="font-size:11px;color:#8a9a92;align-self:center">masterc 상세에서 고친 스펙(미수·구성 등)을 카드에 맞추기</span></div>'
 +'<input id="mu-q" placeholder="상품명·창고 검색 (카탈로그에서 📋 복사한 이름 붙여넣기)">'
 +'<div id="mu-list"></div>'
 +'<div class="mu-row" style="margin-top:10px"><button class="mu-btn go" id="mu-run">선택 0건 업데이트</button></div>'
@@ -801,6 +802,67 @@ $('mu-link').onclick=async function(){
     }
   }catch(e){log('❌ '+(e.message||e));}
   BUSY=false;$('mu-link').disabled=false;renderRun();
+};
+
+/* 📝 스펙 최신화 (2026-10-01 홍팀장 — 생물 갑오징어 카드 「4-6미」, 상세는 「13미」로 고쳐져 있었다).
+   스펙 사본(상품이미지_v2 D열)은 사진 채울 때만 읽어서, masterc 상세를 나중에 고치면 안 따라간다.
+   이 버튼 = 사본이 있는 상품 전부를 masterc 새 상세(xd)와 대조해 **다른 것만** D열 한 칸씩 고친다.
+   비교는 ※·공백·원산지 줄을 빼고 한다(원산지는 새 상세에 없으면 기존 줄을 남긴다). 사진·링크는 손대지 않는다. */
+async function specOnly(srl){
+  const j=await (await fetch('/xd/api.php?mid=board_eJGl96&a=doc&srl='+encodeURIComponent(srl),{credentials:'include',cache:'no-store'})).json();
+  if(!j||!j.ok) return null;
+  const t=String((j.doc&&j.doc.html)||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|div|li|h\d)>/gi,'\n').replace(/<[^>]+>/g,'')
+    .replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&plusmn;/g,'±').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+  const si=t.indexOf('상품 스펙');
+  return (si>=0?t.slice(si,si+900):t).split('\n').map(function(s){return s.trim().replace(/\s+/g,' ');})
+    .filter(function(s){return s.indexOf('※')===0&&s.length>4;}).slice(0,7);
+}
+$('mu-spec').onclick=async function(){
+  if(BUSY)return;
+  if(!/masterc\.kr$/.test(location.hostname)){ log('⚠️ masterc.kr 페이지 위에서 눌러주세요.'); return; }
+  BUSY=true; const btn=$('mu-spec'); btn.disabled=true;
+  try{
+    log('📝 masterc 상세 목록 읽는 중…',true);
+    const B=await (await fetch('/xd/api.php?mid=board_eJGl96&a=list',{credentials:'same-origin',cache:'no-store'})).json();
+    const sm={}; (B&&B.items||[]).concat(B&&B.today||[]).forEach(function(p){ if(p&&p.n&&p.srl) sm[pkey(p.n)]=p.srl; });
+    if(!Object.keys(sm).length) throw new Error('masterc 상세 목록을 못 읽었습니다 (로그인 확인)');
+    const v=await api(DOGU,'/values/'+q("'"+TAB+"'!A1:D3000"));
+    if(v.error) throw new Error('스펙 사본을 못 읽었습니다: '+(v.error.message||v.error));
+    const rows=v.values||[];
+    const work=[]; for(let i=1;i<rows.length;i++){ const r=rows[i]||[]; if(r[0]&&r[3]&&sm[pkey(r[0])]) work.push({row:i+1,name:String(r[0]).trim(),old:String(r[3]),srl:sm[pkey(r[0])]}); }
+    const norm=function(s){return String(s||'').replace(/^※\s*/,'').replace(/\s+/g,'');};
+    const strip=function(a){return a.filter(function(s){return !/원산지/.test(s);}).map(norm).join('|');};
+    let i=0,done=0; const fixed=[],fail=[];
+    async function w(){
+      while(i<work.length){
+        const x=work[i++];
+        try{
+          const sp=await specOnly(x.srl);
+          if(sp&&sp.length){
+            const oldL=x.old.split('\n');
+            if(strip(oldL)!==strip(sp)){
+              const org=oldL.find(function(s){return /원산지/.test(s);});
+              const neu=(org&&!sp.some(function(s){return /원산지/.test(s);}))?[org].concat(sp):sp;
+              const j=await api(DOGU,'/values/'+q("'"+TAB+"'!D"+x.row)+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[[neu.join('\n')]]})});
+              if(j&&j.error) fail.push(x.name);
+              else{
+                const c=CACHE[pkey(x.name)]; if(c) c.spec=neu;   // 🔴 메모리도 맞춘다 — 안 그러면 다음 저장(saveCache)이 옛 스펙으로 되돌린다
+                const ch=[]; const a=oldL.filter(function(s){return !/원산지/.test(s);}), b=sp.filter(function(s){return !/원산지/.test(s);});
+                for(let k=0;k<Math.max(a.length,b.length);k++){ if(norm(a[k])!==norm(b[k])) ch.push((a[k]||'∅').replace(/^※\s*/,'')+' → '+(b[k]||'∅').replace(/^※\s*/,'')); }
+                fixed.push(x.name+'\n   '+ch.join('\n   '));
+              }
+            }
+          }
+        }catch(e){ fail.push(x.name); }
+        done++; if(done%40===0) log('📝 대조 중 '+done+'/'+work.length+' — 고침 '+fixed.length+'건',true);
+      }
+    }
+    await Promise.all([0,1,2,3,4,5].map(w));
+    log('✅ 스펙 최신화 — '+work.length+'건 대조, '+fixed.length+'건 고침'+(fail.length?(' · 실패 '+fail.length+'건: '+fail.join(', ')):'')
+      +(fixed.length?('\n\n■ '+fixed.join('\n■ ')+'\n\n카탈로그는 3분 안에 반영됩니다(급하면 카탈로그 🔄 새로고침).'):''),true);
+    renderList();
+  }catch(e){ log('❌ '+(e.message||e),true); }
+  BUSY=false; btn.disabled=false; renderRun();
 };
 
 /* 선택분만 수집 → 캐시 병합 저장 → 대기 목록에서 성공분 제거 → 실패 목록 표시 */
