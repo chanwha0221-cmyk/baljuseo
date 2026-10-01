@@ -198,6 +198,10 @@ function applyAlias(rows){
     const raw = S(r.name); if(!raw) return;
     const hit = VALIAS[pkey(raw)];
     if(!hit || pkey(hit) === pkey(raw)) return;
+    /* 🙈 숨긴 창고(HIDALL) 상품으로는 별칭이 저절로 붙지 않는다 (2026-10-01 대상수산 6만원 사고 —
+       선물세트 시즌에 배운 「임금님 5~6미 전복 1k → …선물세트」 가 숨김 뒤 마스터 발주에서 되살아나 2kg 선물세트로 나갔다).
+       숨긴 상품은 마스터가 이름을 직접 적었을 때만 잡힌다. */
+    if(Array.isArray(window.HIDALL) && window.HIDALL.some(p => pkey(p.name) === pkey(hit))) return;
     /* 🐟 삭힘정도·🦴 뼈머리는 업체가 적어 온 것을 살린다 — 후보를 손으로 고를 때와 같은 규칙 */
     r.name = withBone(withAge(hit, needAge(hit) ? ageOf(raw) : ''), canBone(hit) && hasBone(raw));
     r._raw = raw;                  // 원문을 들고 있는다 — 다시 고치면 이 이름의 별칭을 갱신해야 한다
