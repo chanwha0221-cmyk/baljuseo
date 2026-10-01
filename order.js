@@ -202,6 +202,8 @@ function applyAlias(rows){
        선물세트 시즌에 배운 「임금님 5~6미 전복 1k → …선물세트」 가 숨김 뒤 마스터 발주에서 되살아나 2kg 선물세트로 나갔다).
        숨긴 상품은 마스터가 이름을 직접 적었을 때만 잡힌다. */
     if(Array.isArray(window.HIDALL) && window.HIDALL.some(p => pkey(p.name) === pkey(hit))) return;
+    // ⚖️ 원문 무게와 안 맞는 별칭은 안 붙인다 — 1k 원문이 2kg 상품으로 가는 일을 구조로 막는다(kgClash 참고)
+    if(kgClash(raw, hit)) return;
     /* 🐟 삭힘정도·🦴 뼈머리는 업체가 적어 온 것을 살린다 — 후보를 손으로 고를 때와 같은 규칙 */
     r.name = withBone(withAge(hit, needAge(hit) ? ageOf(raw) : ''), canBone(hit) && hasBone(raw));
     r._raw = raw;                  // 원문을 들고 있는다 — 다시 고치면 이 이름의 별칭을 갱신해야 한다
@@ -223,6 +225,15 @@ function applyAlias(rows){
   });
   return done;
 }
+/* ⚖️ 원문 무게 vs 상품 규격이 어긋나나 (2026-10-01 대상수산 — 09-17에 이어 두 번째 「임금님 전복」 사고).
+   둘 다 무게가 적혀 있는데 원문이 규격보다 작거나(1k → 2kg), 나눠 떨어지지 않으면(2k → 1.5kg) 어긋난 것이다.
+   어긋난 별칭은 붙이지도(applyAlias) 배우지도(saveVAlias) 않는다 — 화면에서 사람이 직접 고르게 둔다. */
+function kgClash(raw, name){
+  const src = kgOf(raw), unit = kgOf(name);
+  if(!(src > 0 && unit > 0)) return false;
+  const n = Math.round(src / unit);
+  return n < 1 || Math.abs(src / unit - n) > 0.001;
+}
 /* 후보를 고른 순간 그 선택을 남긴다 — 이것이 유일한 학습 경로다 */
 function saveVAlias(raw, name){
   try{
@@ -230,6 +241,13 @@ function saveVAlias(raw, name){
     const id = aliasWho(); if(!id) return;
     const a = S(raw), b = S(name);
     if(!a || !b || pkey(a) === pkey(b)) return;
+    /* 🚫 배우면 안 되는 것 (2026-10-01 — 같은 사고 두 번째):
+       ① 숨긴 창고 상품 — 시즌 끝난 선물세트로 배워 두면 숨김을 풀거나 마스터가 발주할 때 되살아난다
+       ② 원문 무게와 안 맞는 상품 — 「1k → 2kg」
+       ③ 무게도 규격도 없는 이름 조각(「임금님」·「임금님 5-6미」) — 원문이 상품 이름보다 한참 짧으면 조각이다 */
+    if(Array.isArray(window.HIDALL) && window.HIDALL.some(p => pkey(p.name) === pkey(b))) return;
+    if(kgClash(a, b)) return;
+    if(!kgOf(a) && kgOf(b) && pkey(a).length * 1.5 < pkey(b).length) return;
     VALIAS[pkey(a)] = b; VALIAS_FOR = id;      // 이번 화면에서 바로 먹게(서버 응답을 기다리지 않는다)
     api('valiasset', { token: ME.token, accountId: amMaster() ? id : '', raw: a, name: b })
       .catch(() => {});                        // 저장이 실패해도 발주는 그대로 나간다
