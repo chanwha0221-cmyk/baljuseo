@@ -251,6 +251,14 @@ async function loadProducts(){
       out.push({name:nm,wh:String(p.wh||'').trim()||'당일',sheetUrl:'',tab:'당일(masterc)',gid:null,cell:'',xdSrl:p.srl||''});
     });
   }catch(e){ /* 못 읽으면 유통시트 상품만 */ }
+  /* 📝 상시 상품에도 masterc 새 상세 번호(srl)를 붙인다 (2026-10-01 홍팀장 — 생물 갑오징어 1kg 카드가 「4-6미」).
+     상세는 이제 masterc 새 시스템에서 고친다(9/30 「13미 내외」로 수정). 옛 게시판 글(masterc.kr/590464)은
+     그대로 남아 있어서, 옛 글을 읽으면 고치기 전 스펙이 카탈로그에 실린다. → srl 이 있으면 새 상세를 먼저 읽는다. */
+  try{
+    const B=await (await fetch('/xd/api.php?mid=board_eJGl96&a=list',{credentials:'same-origin',cache:'no-store'})).json();
+    const sm={}; (B&&B.items||[]).concat(B&&B.today||[]).forEach(function(p){ if(p&&p.n&&p.srl) sm[pkey(p.n)]=p.srl; });
+    out.forEach(function(p){ if(!p.xdSrl&&sm[pkey(p.name)]) p.xdSrl=sm[pkey(p.name)]; });
+  }catch(e){ /* 못 읽으면 예전처럼 옛 글 */ }
   return out;
 }
 async function loadCache(){
@@ -841,8 +849,13 @@ async function runSelected(){
     while(i<targets.length){
       const t=targets[i++];
       let r={img:'',spec:[]};
-      if(t.url){r=await scrape(t.url);}   // scrape가 사유(why)를 담아 돌려준다 — 여기서 삼키지 않는다
-      else if(t.xdSrl){r=await scrapeXd(t.xdSrl);}   // 옛 게시판 글이 없으면 masterc 새 상세에서 사진·스펙만
+      /* 📝 masterc 새 상세가 정본 — 거기서 먼저 읽고(스펙이 최신), 못 읽은 것만 옛 게시판 글로 채운다 (2026-10-01) */
+      if(t.xdSrl){r=await scrapeXd(t.xdSrl);}
+      if(t.url&&(!r.img||!r.spec.length)){
+        const r2=await scrape(t.url);   // scrape가 사유(why)를 담아 돌려준다 — 여기서 삼키지 않는다
+        r={img:r.img||r2.img,spec:r.spec.length?r.spec:r2.spec,backs:(r.backs&&r.backs.length)?r.backs:r2.backs,
+           bad:r.img?r.bad:r2.bad,why:(r.img||r2.img)?'':(r2.why||r.why),detail:r.detail||r2.detail};
+      }
       done0.push({t:t,r:r});
       done++;
       bar.style.width=Math.round(done/targets.length*100)+'%';
