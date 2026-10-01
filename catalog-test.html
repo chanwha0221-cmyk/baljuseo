@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.154</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.155</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1398,6 +1398,9 @@ async function toggleHideWh(wh,hide){
 function buildAll(){
   ALL=[];
   const master=amMasterC(),excCards=[];
+  /* 🙈 숨긴 창고 상품도 마스터는 발주할 수 있어야 한다(2026-10-01 홍팀장 「내가 마스터인데 원하면 발주」 — 대상수산 임금님 전복).
+     목록·검색(ALL)엔 그대로 안 넣고, 발주 상품명 확인(order.js prodIndex)만 이 목록을 같이 본다. */
+  window.HIDALL=[];
   if(!master)GROUPS=GROUPS.filter(g=>!HIDE_WH.has(g.wh));   // 🙈 업체 화면은 숨긴 창고를 탭째로 뺀다
   GROUPS=GROUPS.filter(g=>!g.virtual);       // 다시 그릴 때 가상 그룹이 겹쳐 쌓이지 않게
   GROUPS.forEach(g=>{
@@ -1412,7 +1415,7 @@ function buildAll(){
     g.src.forEach(p=>{
       p.group=g.wh;
       p.effWh=p.srcWh||g.wh;   // 배지 클릭 기준: 창고명 칸이 있으면 그 창고, 없으면 탭 이름
-      if(HIDE_WH.has(g.wh)&&master){ keep.push(p); return; }   // 🙈 숨긴 창고 상품은 마스터 창고 탭에서만 — 전체 목록·검색·발주 후보(ALL)엔 안 넣는다
+      if(HIDE_WH.has(g.wh)&&master){ keep.push(p); window.HIDALL.push(p); return; }   // 🙈 숨긴 창고 상품은 마스터 창고 탭에서만 — 전체 목록·검색·발주 후보(ALL)엔 안 넣는다
       p.qty=SALES[pkey(p.name)]||0;
       p.exc=isExc(p.name);
       // 예외는 어느 목록에도 남기지 않는다 — '다른 카테고리에 살아있는' 구멍을 구조로 막는다

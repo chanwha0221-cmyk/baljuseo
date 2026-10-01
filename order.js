@@ -316,10 +316,12 @@ function multCell(cells, at){
       혹시 그 호출이 빠진 경로가 있어도 개수가 달라지면 여기서 스스로 다시 만든다. */
 let PIDX = null, WHS = null, PIDX_N = -1;
 function prodIndex(){
-  const n = (typeof ALL !== 'undefined' && ALL) ? ALL.length : 0;
+  // 🙈 HIDALL = 숨긴 창고 상품(마스터 화면에만 채워짐) — 목록엔 없어도 마스터 발주는 이름으로 잡는다(2026-10-01)
+  const hid = Array.isArray(window.HIDALL) ? window.HIDALL : [];
+  const n = ((typeof ALL !== 'undefined' && ALL) ? ALL.length : 0) + hid.length;
   if(PIDX && n === PIDX_N) return PIDX;
   PIDX = new Map(); PIDX_N = n;
-  (typeof ALL !== 'undefined' ? ALL : []).forEach(p => { const k = pkey(p.name); if(!PIDX.has(k)) PIDX.set(k, p); });
+  (typeof ALL !== 'undefined' ? ALL : []).concat(hid).forEach(p => { const k = pkey(p.name); if(!PIDX.has(k)) PIDX.set(k, p); });
   WHS = Array.from(new Set((typeof ALL !== 'undefined' ? ALL : []).map(p => p.effWh || p.group).filter(Boolean)));
   return PIDX;
 }
