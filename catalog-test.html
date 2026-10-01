@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.155</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.156</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1638,6 +1638,31 @@ async function autoSyncProposal(){
     await ghPutProposal(token,doc,'카탈로그 열 때 자동');
     toast('📤 제안서 데이터도 최신으로 맞췄습니다 ('+doc.products.length+'개)');
   }catch(e){ /* 곁다리다 — 조용히 넘긴다 */ }
+}
+/* 📝 스펙 최신화 (홍팀장 2026-10-01 — 생물 갑오징어 1kg 카드 「4-6미」, 상세는 「13미」).
+   카드 스펙은 도구시트 상품이미지_v2 사본이라 masterc 상세를 고쳐도 안 따라간다. 대조는 masterc 상세를 읽어야 해서
+   여기(github)서는 못 한다(CORS) → masterc 게시판을 #specsync 로 열면 거기 심어 둔 dm-bridge.js 가 spec-sync.js 를 돌린다.
+   결과는 postMessage 로 돌아오고, 고친 게 있으면 캐시를 다시 굽는다. */
+function specSync(){
+  const btn=$('ub_spec');
+  const w=window.open('https://masterc.kr/board_eJGl96#specsync','specsync');
+  if(!w){ toast('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요'); return; }
+  if(btn){btn.disabled=true;btn.textContent='📝 대조 중…';}
+  const done=()=>{ if(btn){btn.disabled=false;btn.textContent='📝 스펙 최신화';} window.removeEventListener('message',onMsg); };
+  const t=setTimeout(()=>{ done(); toast('스펙 최신화 응답이 없습니다 — 열린 masterc 창을 확인하세요(로그인 풀림 등)'); },180000);
+  function onMsg(ev){
+    if(ev.origin!=='https://masterc.kr'||!ev.data||ev.data.type!=='specsync')return;
+    clearTimeout(t); done();
+    const d=ev.data;
+    if(!d.ok){ alert('스펙 최신화 실패: '+(d.error||'알 수 없음')); return; }
+    const n=(d.fixed||[]).length;
+    if(n){
+      try{ api('catalog',{token:ME.token,fresh:1}).catch(()=>{}); }catch(e){}
+      alert('📝 스펙 최신화 — '+d.total+'건 대조, '+n+'건 고침\n\n'+d.fixed.map(f=>'■ '+f.name+'\n   '+f.ch.join('\n   ')).join('\n').slice(0,3000)
+        +'\n\n새로고침하면 카드에 반영됩니다.');
+    } else toast('📝 스펙 최신화 — '+d.total+'건 대조, 바뀐 스펙 없음');
+  }
+  window.addEventListener('message',onMsg);
 }
 async function updateProposal(){
   const btn=$('ub_exp');
@@ -3418,6 +3443,7 @@ function renderUser(){
     +(ME.master?'<a class="ubtn" href="계정관리.html" target="_blank" rel="noopener" title="업체 권한(업체·단가숨김·임시·차단) 승인·수정">👤 계정관리</a>':'')
     /* 📤 제안서 데이터 — 마스터에게만. 원비씨 제안서 사이트에 넣을 products.json 을 내려받는다. */
     +(ME.master?'<button class="ubtn" id="ub_exp" title="원비 팀장 제안서 사이트(allproduct)가 읽는 데이터를 지금 카탈로그와 같은 시점으로 올립니다. 1~2분 뒤 그쪽 사이트를 새로고침하면 반영됩니다">🔄 제안서 업데이트</button>':'')
+    +(ME.master?'<button class="ubtn" id="ub_spec" title="masterc 상세에서 고친 스펙(미수·구성 등)을 카드에 맞춥니다. masterc 창이 잠깐 열립니다(로그인 필요)">📝 스펙 최신화</button>':'')
     /* 📥 상품·단가 파일 — 달라고 한 업체와 마스터에게만 (XLSX_OK 참조) */
     +(canXlsx()?'<button class="ubtn" id="ub_xls" title="지금 화면의 상품명과 공급가 전체를 엑셀로 여는 파일(CSV)로 내려받습니다">📥 상품·단가 엑셀</button>':'')
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
@@ -3426,6 +3452,7 @@ function renderUser(){
   $('ub_pw').onclick=showPwForm;
   $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
   { const e=$('ub_exp'); if(e)e.onclick=updateProposal; }   // 🔄 제안서 업데이트 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
+  { const e=$('ub_spec'); if(e)e.onclick=specSync; }        // 📝 스펙 최신화 — 마스터 전용
   { const e=$('ub_xls'); if(e)e.onclick=downloadPriceXlsx; } // 📥 상품·단가 엑셀 — 허용된 업체에게만 있는 버튼
   // 거래처가 보고 있는 게 최신인지 확신할 수 있게 — 저장본을 버리고 시트에서 새로 받는다 (사장님 2026-08-18)
   $('ub_reload').onclick=()=>{

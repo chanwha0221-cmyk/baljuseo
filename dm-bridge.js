@@ -23,6 +23,14 @@
      · 보내는 곳을 **우리 카탈로그 주소로 못 박았다.** 다른 사이트로는 나가지 않는다.
      · 읽기만 한다. 게시판에 아무것도 쓰지 않고 화면도 건드리지 않는다.
    ════════════════════════════════════════════════════════════════ */
+/* 📝 #specsync — 카탈로그 [📝 스펙 최신화] 가 이 게시판을 새 창으로 연다 (2026-10-01 홍팀장).
+   스펙 대조는 masterc 상세를 읽어야 해서 이 사이트 안에서만 된다 → spec-sync.js 를 불러 돌린다. 다른 방문엔 아무 일 없음. */
+(function () {
+  if (String(location.hash || '').indexOf('specsync') < 0) return;
+  var s = document.createElement('script');
+  s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/spec-sync.js?v=' + Date.now();
+  document.head.appendChild(s);
+})();
 (function () {
   'use strict';
   if (String(location.hash || '').indexOf('dmgrab') < 0) return;   // 우리가 부른 경우만
