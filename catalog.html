@@ -2264,11 +2264,19 @@ function subHead(t,s){
 // ── 1) 상품변동사항 — 유통시트 '상품변동사항' 탭 (카탈로그와 같은 카드로) ──
 // 값뿐 아니라 셀 배경색까지 읽는다 — 살구색(#fce5cd) 칠은 '입고 불안정' 표시라서
 // 화면에도 그대로 옮겨야 한다 (사장님 2026-08-12).
-/* 🧹 같은 상품이 여러 줄이면 맨 위 줄 하나만 남긴다 (2026-10-02 홍팀장 — 동해 활 골뱅이 1kg 이 인하·인상·인하 3줄로 떠
-   «단가가 얼마인지 알 수가 없다»). 목록은 최신이 위라서 맨 위 줄이 지금 상태다. 같은 이름이라도 창고가 다르면 따로 둔다. */
+/* 🧹 같은 상품이 여러 줄이면 한 줄만 남긴다 (2026-10-02 홍팀장 — 동해 활 골뱅이 1kg 이 인하·인상·인하 3줄로 떠
+   «단가가 얼마인지 알 수가 없다»).
+   🔴 홍팀장 규칙: 날짜는 위(최신 날짜)가 이기고, **같은 날짜 안에서는 아래 줄이 최신**이다 —
+      1번째 줄과 3번째 줄이 같은 상품이면 3번째 줄로 바꾼다(자리는 1번째 줄 자리).
+      «같은 날짜에선 위가 최신» 으로 처음 만들었다가 뒤집혔다. 같은 이름이라도 창고가 다르면 따로 둔다. */
 function chgDedup(d){
-  const seen={};
-  d.items=d.items.filter(it=>{const q=pkey(it.name)+"|"+(it.wh||"");if(seen[q])return false;seen[q]=1;return true;});
+  const at={},out=[];
+  d.items.forEach(it=>{
+    const q=pkey(it.name)+"|"+(it.wh||"");
+    if(at[q]==null){at[q]=out.length;out.push(it);return;}
+    if(out[at[q]].day===it.day)out[at[q]]=it;   // 같은 날짜 → 아래 줄로 갈아끼움, 다른(더 옛) 날짜 → 버림
+  });
+  d.items=out;
   return d;
 }
 async function loadChanges(){
