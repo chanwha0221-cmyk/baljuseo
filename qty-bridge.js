@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-02a';
+  var QTYB_VER = '2026-10-02b';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -66,7 +66,7 @@
      패널 [📄 발주 시트] 칸에 주소를 붙여넣으면 이 브라우저에 기억하고, 읽기·옮기기 전부 그 시트로 간다.
      시트를 고치는 웹앱은 9월 시트에 붙어 있지만 요청마다 sheet 를 받아 그 시트를 연다. */
   var SKEY = 'qtybSheetId';
-  var SHEET_ID_DEFAULT = '1w5HYxmaovLADK23OhBAubxzbVJjHeTYJt24jPyzgOTw';     // 마찬 9월
+  var SHEET_ID_DEFAULT = '10ySIJhiz8_H9f8oVFLikpyW1WcSWSW4os8dOtroALYU';     // 마찬 10월 (9월 = 1w5HYxmaovLADK23OhBAubxzbVJjHeTYJt24jPyzgOTw)
   var SHEET_ID = SHEET_ID_DEFAULT;
   try { SHEET_ID = localStorage.getItem(SKEY) || SHEET_ID_DEFAULT; } catch (e) {}
   function sheetIdFrom(v) {
