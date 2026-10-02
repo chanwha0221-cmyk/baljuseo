@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-02b';
+  var QTYB_VER = '2026-10-02c';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -83,7 +83,7 @@
      패널이 여기로 바로 보내므로 «복사해서 시트 창에 옮겨 붙이는» 왕복이 없다.
        out  = 못 나가는 것 → 「재고 없음」
        back = 구해진 것 → 「당일」 */
-  var SHEET_API = 'https://script.google.com/macros/s/AKfycbwD0AdIFedunOCz39nmkQhAde26WNNkkRK7Mc-t4XKRW5kW9ORE6HvNk_fdXRZzyI50/exec';
+  var SHEET_API = 'https://script.google.com/macros/s/AKfycbwHyApkPVLIg4AoSpuTOBXYve7n6rBGbZdnJJt-QNWtQ5Cvbz7wVjKOnuLT2Ri3_Tlikw/exec';   // 10월 시트에 붙은 웹앱 (2026-10-02 — 9월 시트가 관리팀 소유로 넘어가 옛 웹앱이 죽음)
   var SHEET_TOKEN = 'qtyb-2026-hcw';
 
   /* 🔴 IDX 는 긁기를 시작할 때 {} 로 비운다 — 그래서 «있다/없다» 로 보면 빈 것도 «있다» 가 된다.
@@ -997,7 +997,7 @@
       var s = el('qtyb-sname'); if (!s) return;
       s.textContent = '확인 중…'; s.style.color = '';
       sheetPost('ping').then(function (j) {
-        if (!j.name) { s.textContent = '⚠️ 시트 웹앱이 옛 버전 — 아직 9월 시트만 만집니다'; s.style.color = '#c62828'; return; }
+        if (!j.name) { s.textContent = '⚠️ 시트 웹앱이 옛 버전 — 옛 버전입니다'; s.style.color = '#c62828'; return; }
         s.textContent = '✅ ' + j.name; s.style.color = '#1a7f37';
       }, function (e) {
         s.textContent = '⚠️ ' + e.message; s.style.color = '#c62828';
