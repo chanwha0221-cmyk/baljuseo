@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-01a';
+  var QTYB_VER = '2026-10-02a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -62,7 +62,19 @@
        수량 웹은 남의 서버라 구글 토큰을 실을 수 없다 → 우리 sheets-proxy 를 경유한다
        (2026-09-28 실측 : 수량 웹에서 CORS 통과, path 는 «시트ID/values/탭!범위»).
      🔴 여기서는 «읽기만» 한다. 시트를 고치는 것은 시트 메뉴가 한다. */
-  var SHEET_ID = '1w5HYxmaovLADK23OhBAubxzbVJjHeTYJt24jPyzgOTw';     // 마찬 9월
+  /* 📄 발주 시트는 달마다 바뀐다 (2026-10-02 홍팀장 「10월로 업데이트 됐거든 주소 변경하는 거 넣어줘」).
+     패널 [📄 발주 시트] 칸에 주소를 붙여넣으면 이 브라우저에 기억하고, 읽기·옮기기 전부 그 시트로 간다.
+     시트를 고치는 웹앱은 9월 시트에 붙어 있지만 요청마다 sheet 를 받아 그 시트를 연다. */
+  var SKEY = 'qtybSheetId';
+  var SHEET_ID_DEFAULT = '1w5HYxmaovLADK23OhBAubxzbVJjHeTYJt24jPyzgOTw';     // 마찬 9월
+  var SHEET_ID = SHEET_ID_DEFAULT;
+  try { SHEET_ID = localStorage.getItem(SKEY) || SHEET_ID_DEFAULT; } catch (e) {}
+  function sheetIdFrom(v) {
+    var s = String(v || '').trim();
+    var m = s.match(/\/d\/([A-Za-z0-9_-]{20,})/);
+    if (m) return m[1];
+    return /^[A-Za-z0-9_-]{20,}$/.test(s) ? s : '';
+  }
   var SHEET_DONE = '';              // 오늘 날짜 탭에서 읽은 «이미 나간 수량» (점검이 쓴다)
   var PROXY = 'https://script.google.com/macros/s/AKfycbx46saILixJ387TxLbfnsBwjdc5K93j-cqUFjHxQU8xPGL7DJ9S-YjUvw7kvHmGPe7mmg/exec';
 
@@ -80,7 +92,7 @@
   function haveIdx() { return !!(IDX && Object.keys(IDX).length); }
 
   function sheetPost(action, rows, extra) {
-    var body = { token: SHEET_TOKEN, action: action, rows: rows || [] };
+    var body = { token: SHEET_TOKEN, action: action, rows: rows || [], sheet: SHEET_ID };
     if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
     return fetch(SHEET_API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -949,6 +961,11 @@
       '    <input id="qtyb-day" value="' + esc(dayTab()) + '" placeholder="0929" style="width:58px;text-align:center;border:1px solid #cfd6e0;border-radius:6px;padding:4px">' +
       '    <span class="mut">여기 나간 건 또 안 잡음</span>' +
       '  </div>' +
+      '  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px">' +
+      '    <span class="mut">📄 발주 시트</span>' +
+      '    <input id="qtyb-sid" value="' + esc(SHEET_ID) + '" placeholder="월 시트 주소 붙여넣기" style="flex:1;min-width:180px;border:1px solid #cfd6e0;border-radius:6px;padding:4px;font-size:11px">' +
+      '    <span class="mut" id="qtyb-sname"></span>' +
+      '  </div>' +
       '  <div class="mut" style="margin:8px 0 4px">필요수량 — 상품명 + 수량 (탭 또는 띄어쓰기). 같은 상품 여러 줄이면 합칩니다.</div>' +
       '  <textarea id="qtyb-in" placeholder="연안 활 숫게 1kg&#9;30&#10;맛상 닭목살 1kg&#9;12"></textarea>' +
       '  <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
@@ -976,6 +993,26 @@
     };
     el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
     el('qtyb-stockgo').onclick = function () { stockPush(false); };
+    function sheetName() {
+      var s = el('qtyb-sname'); if (!s) return;
+      s.textContent = '확인 중…'; s.style.color = '';
+      sheetPost('ping').then(function (j) {
+        if (!j.name) { s.textContent = '⚠️ 시트 웹앱이 옛 버전 — 아직 9월 시트만 만집니다'; s.style.color = '#c62828'; return; }
+        s.textContent = '✅ ' + j.name; s.style.color = '#1a7f37';
+      }, function (e) {
+        s.textContent = '⚠️ ' + e.message; s.style.color = '#c62828';
+      });
+    }
+    el('qtyb-sid').onchange = function () {
+      var id = sheetIdFrom(this.value);
+      if (!id) { el('qtyb-sname').textContent = '⚠️ 시트 주소가 아닙니다'; el('qtyb-sname').style.color = '#c62828'; return; }
+      this.value = id;
+      SHEET_ID = id;
+      try { localStorage.setItem(SKEY, id); } catch (e) {}
+      DONE_MAP = {}; NONE_MAP = {}; DONE_OK = false;
+      sheetName();
+    };
+    sheetName();
     /* 📄 시트에서 가져오기 — 당일 탭(=넣을 발주)과 오늘 날짜 탭(=이미 나간 것)을 한 번에 읽는다.
        붙여넣기를 시키지 않는다(홍팀장 2026-09-28 「시트와 웹이 유기적으로 안 돌아간다」). */
     /* 📄 가져오기_당일 — 「당일」(넣을 발주) 과 «기준 날짜 시트»(이미 나간 것) 를 같이 읽는다.
