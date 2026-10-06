@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06k';
+  var QTYB_VER = '2026-10-06l';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -137,7 +137,7 @@
     function viaApi() {
       return once().then(function (j) {
         var map = {};
-        (j.rows || []).forEach(function (r) { map[nk(r.name)] = { name: r.name, qty: r.qty }; });
+        (j.rows || []).forEach(function (r) { map[nk(r.name)] = { name: r.name, qty: r.qty, each: r.each || null }; });
         return { map: map, lines: j.lines || 0, tab: j.tab || tab };
       });
     }
@@ -1161,6 +1161,15 @@
             var cut = idx ? dlHour(idx.dlRaw) : null;
             var late = nowH < 16 && cut != null && nowH >= cut;
             var can = (ghost || late) ? 0 : Math.min(want, spare + left);
+            /* 📦 주문은 쪼갤 수 없다 (2026-10-06 홍팀장 멍게 : 「1개 부족하니까 x3 짜리 하나를 빼야지, 안 빼면 1개가 넘치는 거잖아」).
+                  시트 back 은 위에서부터 «남은 수 안에 드는 줄» 만 올린다 — 올릴 수를 같은 셈(줄 단위)으로 맞춘다.
+                  예전엔 낱개로 세서, 못 올라가는 줄 몫까지 창고 잔여를 잡았다. each = 웹앱 tally 의 주문별 개수. */
+            var each = no.map[k].each;
+            if (each && each.length && can > 0 && can < want) {
+              var rem = can, fit = 0;
+              each.forEach(function (q) { if (q <= rem) { rem -= q; fit += q; } });
+              can = fit;
+            }
             var w = WAIT[k], m = MORE[k];
             var wq = (w && w.pend) ? w.qty : 0, mq = (m && m.pend) ? m.qty : 0;
             var gap = want - can, chk = '', bad = false, act = null;
