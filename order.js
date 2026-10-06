@@ -2762,6 +2762,45 @@ function knownClient(n){
     const k = pkey(n); return Object.keys(cc).some(x => pkey(x) === k);
   }catch(e){ return false; }
 }
+/* 📮 블록 양식 (2026-10-06 홍팀장 대상수산) — 한 주문이 여러 줄로 온다:
+     임옥희(임옥희)                          ← 받는분 (괄호 앞)
+     (임옥희-군자작은예수의집) 010-9449-4476   ← 연락처는 이 머리 줄들 어딘가
+     . 생물 풍천 민물 장어 5K                 ← 「. 」 으로 시작하는 줄 = 상품 (여러 줄 가능)
+     04993                                   ← 우편번호 다섯 자리
+     서울 광진구 자양로35길 7-7               ← 그 아래 붙은 줄 = 주소 (빈 줄에서 끝)
+     (구의동, 군자작은예수의집)
+   변환기는 이걸 이름을 송장명으로, 우편번호를 받는분으로 읽었다. 「. 상품」 줄과 우편번호 줄이 다 있을 때만 이쪽으로 읽는다. */
+function blockItems(raw){
+  const lines = String(raw || '').split(/\r?\n/).map(s => S(s));
+  if(!lines.some(l => /^\.\s*\S/.test(l)) || !lines.some(l => /^\d{5}$/.test(l))) return [];
+  const TEL = /(0\d{1,3})[-\s.]?(\d{3,4})[-\s.]?(\d{4})/;
+  const out = [];
+  let head = [], prods = [], zip = '', addr = [], st = 'head';
+  const flush = () => {
+    if(prods.length && addr.length){
+      const nm = S((head[0] || '').replace(/[\(（].*$/, ''));
+      const tm = head.join(' ').match(TEL);
+      prods.forEach(p => out.push({ biz: '', name: p, qty: '1', rcv: nm,
+        addr: (zip ? '(' + zip + ') ' : '') + addr.join(' '), tel: tm ? tm[1] + '-' + tm[2] + '-' + tm[3] : '', msg: '', otel: '' }));
+    }
+    head = []; prods = []; zip = ''; addr = []; st = 'head';
+  };
+  lines.forEach(l => {
+    if(st === 'addr'){
+      if(!l){ flush(); return; }
+      addr.push(l); return;
+    }
+    if(!l) return;
+    // 「. 」 은 떼지 않는다 — 이 업체 별칭(vendor_aliases)이 「. 생물 풍천 민물 장어 6k」 꼴 원문 그대로 배워져 있다
+    if(/^\.\s*\S/.test(l)){ prods.push(l); st = 'prod'; return; }
+    if(/^\d{5}$/.test(l) && prods.length){ zip = l; st = 'addr'; return; }
+    if(st === 'prod'){ flush(); }                   // 상품 뒤에 우편번호 없이 다른 글이 오면 버리고 새 주문
+    head.push(l);
+  });
+  if(st === 'addr') flush();
+  return out;
+}
+
 function rowsFromConverted(cols){
   const out = [], bizes = [];
   const who = S(orderer().name);
@@ -3086,7 +3125,9 @@ function runConvert(append){
         머리글이 있으면 이름으로 찾는 쪽이 언제나 정확하다 → 그쪽을 먼저 본다. */
   let r = null, got = null, simple = false, byHead = null, hdUsed = null;
   const hd = headerItems(raw);
+  const bk = hd.length ? [] : blockItems(raw);
   if(hd.length){ got = {rows: hd, bizes: []}; byHead = hd.skipped || []; hdUsed = hd.used || {}; }
+  else if(bk.length){ got = {rows: bk, bizes: []}; }  // 📮 블록 양식(대상수산) — 변환기보다 먼저
   else{
     r = window.CONVERT.convert(raw);
     if(r.error){ logEl.innerHTML = '<div class="ordwarn">변환 중 오류 — ' + esc(r.error) + '</div>'; return; }
