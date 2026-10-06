@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06b';
+  var QTYB_VER = '2026-10-06c';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -858,9 +858,13 @@
       var expect = x.haveM || 0;
       if (f.more > expect) q -= (f.more - expect);
       if (q <= 0) return { skip: '이미 증량요청 ' + f.more + '개가 답을 기다리는 중' };
+      /* 🔴 do=more 의 qty 도 «더할 값» 이 아니라 «그 회사 증량요청 총량» 이다 (2026-10-06 홍팀장 활 주꾸미 :
+            증량 20 걸어 둔 데 주문 9 가 더 들어와 9 를 보냈더니 20 이 9 로 줄었다). 대기와 똑같이
+            지금 답을 기다리는 내 증량에 더해서 보낸다 → 20 + 9 = 29. */
+      var total = f.more + q;
       return qpost({ do: 'more', tab: whTab(x.row), nkey: x.row.key, co: x.row.co,
-                     qty: q, why: why || WHY_DEFAULT })
-        .then(function () { return { done: q, was: f.more }; });
+                     qty: total, why: why || WHY_DEFAULT })
+        .then(function () { return { done: total, was: f.more }; });
     });
   }
   /* 창고 코드는 줄 키 앞머리에 있다 — data-k = 「경기28\t양평해장국600G」 */
