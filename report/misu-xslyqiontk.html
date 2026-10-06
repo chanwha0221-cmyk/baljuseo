@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>미수 업체 보고</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#16181d;--sub:#5d6470;--line:#e3e6eb;--red:#c62828;--redbg:#fdecea;--amb:#b26a00;--ambbg:#fff4e0;--ok:#2e7d32;--accent:#1f3a5f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Pretendard","Malgun Gothic","Apple SD Gothic Neo",sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:960px;margin:0 auto;padding:24px 16px 48px}
+header h1{margin:0;font-size:22px;color:var(--accent)}
+header p{margin:4px 0 0;color:var(--sub);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.kpi .l{font-size:12px;color:var(--sub)}
+.kpi .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .s{font-size:12px;color:var(--sub)}
+.kpi.red .v{color:var(--red)}
+.kpi.amb .v{color:var(--amb)}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:14px}
+section h2{margin:0 0 4px;font-size:16px}
+section .d{margin:0 0 10px;font-size:12.5px;color:var(--sub)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:12px;color:var(--sub);font-weight:600;background:#fafbfc}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.sum td{font-weight:700;border-top:2px solid var(--ink);border-bottom:none}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;margin-left:4px;vertical-align:1px}
+.tag.law{background:var(--redbg);color:var(--red)}
+.days.r{color:var(--red);font-weight:700}
+.days.a{color:var(--amb);font-weight:600}
+.g{display:inline-block;min-width:20px;text-align:center;font-size:12px;font-weight:700;border-radius:4px;padding:0 4px}
+.gA{background:#e8f5e9;color:var(--ok)}.gB{background:#e3f2fd;color:#1565c0}.gC{background:var(--ambbg);color:var(--amb)}.gD{background:var(--redbg);color:var(--red)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:6px 0 4px}
+.bar i{display:block}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--sub)}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+footer{margin-top:18px;font-size:11.5px;color:var(--sub)}
+@media (max-width:640px){.kpis{grid-template-columns:1fr}.kpi .v{font-size:20px}th,td{padding:6px}}
+@media print{body{background:#fff}.wrap{padding:0}section,.kpi{break-inside:avoid;border-color:#ccc}#all{break-inside:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>미수 업체 보고 · 마찬 담당</h1>
+  <p>(주)마스터 · 기준 2026-10-06(화) 09:05 · 외부거래처 · 출처: 미수관리보드</p>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">총 미수액</div><div class="v" id="k1"></div><div class="s" id="k1s"></div></div>
+  <div class="kpi red"><div class="l">40일 이상 장기 연체 (전부 소송중)</div><div class="v" id="k2"></div><div class="s" id="k2s"></div></div>
+  <div class="kpi amb"><div class="l">20~39일 연체 (주의)</div><div class="v" id="k3"></div><div class="s" id="k3s"></div></div>
+</div>
+
+<section>
+  <h2>연체 구간별 비중</h2>
+  <div class="bar" id="bar"></div>
+  <div class="legend" id="legend"></div>
+</section>
+
+<section>
+  <h2>① 장기 연체 · 소송 진행 4곳</h2>
+  <p class="d">40일 이상 연체 전부 내용증명 발송 후 법무 진행 중</p>
+  <div class="scroll"><table id="t1"></table></div>
+</section>
+
+<section>
+  <h2>② 20~39일 연체 · 주의 관찰</h2>
+  <p class="d">아직 장기 기준(40일) 전 · 독촉 대상</p>
+  <div class="scroll"><table id="t2"></table></div>
+</section>
+
+<section id="all">
+  <h2>③ 미수 업체 전체</h2>
+  <p class="d">미수가 있는 외부거래처 전부 · 금액 큰 순 · 대부분 정산주기 안의 정상 미수(19일 이하)</p>
+  <div class="scroll"><table id="t3"></table></div>
+</section>
+
+<footer>
+  밀린 날 = 오래된 건부터 입금된 것으로 치고 남은 미수의 경과일 · 등급은 미수관리보드 거래 등급(A 양호 → D 위험) · 10,000,000원 초과 단일 업체 없음 · 오늘(10-06) 미수 업체 입금 없음
+</footer>
+</div>
+
+<script>
+// 업체 | 미수액 | 밀린 날 | 가장 오래된 미수 | 정산주기 | 마지막 발주 | 등급 | 법무
+const D=`다파농|5349600|78|2026-07-20|일정산|2026-08-19|D|진행중
+메이크머닛|3679700|98|2026-06-30|일정산|2026-07-31|D|회수중
+착한한끼|2232500|7|2026-09-29|일정산|2026-10-01|B|
+아이원|1669700|8|2026-09-28|기타정산|2026-10-01|A|
+순영농원|1564000|6|2026-09-30|일정산|2026-10-01|C|
+두름|1357500|15|2026-09-21|주정산|2026-09-30|A|
+킹콩에프앤비|1167500|18|2026-09-18|기타정산|2026-10-01|C|
+빅피쉬마켓|1080000|28|2026-09-08|주정산|2026-09-18|D|
+류정푸드|972100|36|2026-08-31|일정산|2026-10-02|C|
+에스에이치리테일|925300|8|2026-09-28|기타정산|2026-10-01|A|
+감탄상회|865800|15|2026-09-21|일정산|2026-09-28|C|
+참조은수산|785000|8|2026-09-28|일정산|2026-10-01|A|
+우디디자인랩|753000|6|2026-09-30|주정산|2026-10-01|A|
+마우셀|558800|20|2026-09-16|주정산|2026-09-28|A|
+계절상회|503000|200|2026-03-20|일정산|2026-03-20|D|진행중
+썬푸드마켓|492300|7|2026-09-29|기타정산|2026-10-01|A|
+명안|476700|7|2026-09-29|주정산|2026-09-30|A|
+시엘리마켓|468700|14|2026-09-22|일정산|2026-10-01|A|
+동글지구|415900|8|2026-09-28|기타정산|2026-09-30|A|
+대상수산|412500|8|2026-09-28|기타정산|2026-10-01|A|
+럭키우먼|406200|238|2026-02-10|주정산|2026-02-20|D|회수중
+서율컴퍼니|319100|22|2026-09-14|주정산|2026-10-01|B|
+다정한공간|312000|7|2026-09-29|주정산|2026-10-01|A|
+에버몰|254600|8|2026-09-28|주정산|2026-10-01|A|
+명여사명품과일|253500|8|2026-09-28|일정산|2026-09-30|C|
+블레스드잇샤|187000|8|2026-09-28|일정산|2026-10-01|A|
+나행상회|179000|19|2026-09-17|일정산|2026-10-01|A|
+아크미소프트|169600|5|2026-10-01|기타정산|2026-10-01|A|
+지투지샵|162600|15|2026-09-21|일정산|2026-09-29|A|
+더유|149000|19|2026-09-17|일정산|2026-10-01|A|
+팡베베|142400|8|2026-09-28|일정산|2026-10-01|A|
+영성|102200|19|2026-09-17|주정산|2026-09-29|A|
+아이노커머스|73000|5|2026-10-01|일정산|2026-10-01|C|
+케이스타일|71200|8|2026-09-28|주정산|2026-09-29|A|
+티알에스큐|52000|5|2026-10-01|일정산|2026-10-01|C|
+어쩌다상회|40000|6|2026-09-30|주정산|2026-09-30|A|
+예스올픽|37500|7|2026-09-29|일정산|2026-09-29|C|
+엉클농수산|22900|5|2026-10-01|기타정산|2026-10-01|A|
+좋은친구들|20500|5|2026-10-01|일정산|2026-10-01|C|
+제이푸드션|20000|6|2026-09-30|주정산|2026-09-30|A|
+발볼|20000|7|2026-09-29|일정산|2026-09-29|A|
+자은엔앤피|13500|20|2026-09-16|일정산|2026-09-16|D|
+팍스리테일|13200|5|2026-10-01|기타정산|2026-10-01|A|
+두바이건어물|6500|29|2026-09-07|일정산|2026-09-07|D|`;
+const R=D.trim().split('\n').map(l=>{const c=l.split('|');return{n:c[0],a:+c[1],d:+c[2],o:c[3],p:c[4],last:c[5],g:c[6],law:c[7]}}).sort((x,y)=>y.a-x.a);
+const won=v=>v.toLocaleString('ko-KR')+'원';
+const sum=a=>a.reduce((s,r)=>s+r.a,0);
+const L=R.filter(r=>r.d>=40), M=R.filter(r=>r.d>=20&&r.d<40), S=R.filter(r=>r.d<20);
+const T=sum(R);
+k1.textContent=won(T);k1s.textContent=R.length+'곳';
+k2.textContent=won(sum(L));k2s.textContent=L.length+'곳 · 전체의 '+(sum(L)/T*100).toFixed(1)+'%';
+k3.textContent=won(sum(M));k3s.textContent=M.length+'곳 · 전체의 '+(sum(M)/T*100).toFixed(1)+'%';
+const segs=[['40일 이상',L,'#c62828'],['20~39일',M,'#e0a030'],['19일 이하',S,'#9aa5b4']];
+bar.innerHTML=segs.map(s=>`<i style="width:${sum(s[1])/T*100}%;background:${s[2]}"></i>`).join('');
+legend.innerHTML=segs.map(s=>`<span><b style="background:${s[2]}"></b>${s[0]} ${won(sum(s[1]))} (${s[1].length}곳)</span>`).join('');
+const dcls=d=>d>=40?'r':d>=20?'a':'';
+function table(el,rows,cols){
+  const H={n:'업체',a:'미수액',d:'밀린 날',o:'가장 오래된 미수',last:'마지막 발주',p:'정산주기',g:'등급',law:'법무'};
+  const num=['a','d'];
+  let h='<tr>'+cols.map(c=>`<th class="${num.includes(c)?'n':''}">${H[c]}</th>`).join('')+'</tr>';
+  h+=rows.map(r=>'<tr>'+cols.map(c=>{
+    if(c==='n')return `<td>${r.n}${r.law?'<span class="tag law">소송중</span>':''}</td>`;
+    if(c==='a')return `<td class="n">${r.a.toLocaleString('ko-KR')}</td>`;
+    if(c==='d')return `<td class="n days ${dcls(r.d)}">${r.d}일</td>`;
+    if(c==='g')return `<td><span class="g g${r.g}">${r.g}</span></td>`;
+    if(c==='law')return `<td>${r.law?'내용증명 → 법무 '+r.law:''}</td>`;
+    return `<td>${r[c]}</td>`}).join('')+'</tr>').join('');
+  h+=`<tr class="sum"><td>합계 ${rows.length}곳</td><td class="n">${sum(rows).toLocaleString('ko-KR')}</td>`+cols.slice(2).map(()=>'<td></td>').join('')+'</tr>';
+  el.innerHTML=h;
+}
+table(t1,L,['n','a','d','o','last','law']);
+table(t2,M,['n','a','d','o','last','p','g']);
+table(t3,R,['n','a','d','o','last','p','g']);
+</script>
+</body>
+</html>
