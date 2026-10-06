@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.11</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.12</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -440,7 +440,7 @@ const DM=(function(){
   function parse(src){
     let m=src.match(/class="[^"]*xe_content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<!--AfterDocument/);
     let content=m?m[1]:(src.match(/class="[^"]*xe_content[^"]*"[^>]*>([\s\S]*)/)||[,src])[1];
-    let images=[...content.matchAll(/<img[^>]+src="([^"]+)"/g)].map(x=>x[1].replace('/./','/')).filter(u=>/attach\/images/.test(u));
+    let images=[...content.matchAll(/<img[^>]+src="([^"]+)"/g)].map(x=>x[1].replace('/./','/')).filter(u=>/attach\/images|\/xd\/i\/images\//.test(u));   // 🆕 새 상세 사진 주소(/xd/i/images/…) 2026-10-06
     images=[...new Set(images)];
     let txt=content.replace(/<img[^>]*>/g,'').replace(/<\/p>|<br\s*\/?>|<\/div>|<hr[^>]*>/gi,'\n').replace(/<[^>]+>/g,'');
     txt=decodeEnt(txt);

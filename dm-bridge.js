@@ -62,6 +62,23 @@
     // 상세메이커를 거치지 않고 직접 들어온 경우 — 조용히 아무것도 하지 않는다
   }
 
+  /* 🆕 새 상세(2026-10-06 홍팀장 「시스템 바뀌면서 로직 바뀐 듯, 지금 시스템에 맞게」) — `board_eJGl96?p=<srl>` 은
+     화면을 스크립트로 그려서 페이지 소스엔 본문이 없다. 본문은 `/xd/api.php?mid=board_eJGl96&a=doc&srl=` 이 준다.
+     → 그 html 을 옛 모양(xe_content)으로 감싸 넘긴다. 사진 주소는 /xd/i/images/… 라 masterc 절대 주소로 바꾼다. */
+  var srl = (location.search.match(/[?&]p=(\d+)/) || [])[1];
+  if (srl) {
+    fetch('/xd/api.php?mid=board_eJGl96&a=doc&srl=' + srl, { credentials: 'include' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var d = j && j.doc;
+        if (!d || !d.html) { say('⚠️ 상세를 읽지 못했습니다 — masterc 에 로그인돼 있는지 확인해 주세요'); return; }
+        var html = String(d.html).replace(/src="\//g, 'src="' + location.origin + '/');
+        send('<html><head><title>' + String(d.title || d.n || '').replace(/</g, '') + '</title></head><body>'
+          + '<div class="xe_content">' + html + '</div><!--AfterDocument--></body></html>');
+      })
+      .catch(function () { say('⚠️ 상세를 읽지 못했습니다 — masterc 에 로그인돼 있는지 확인해 주세요'); });
+    return;
+  }
   // 자기 소스를 로그인된 채로 다시 받아온다. 실패하면 지금 화면의 DOM 이라도 넘긴다.
   try {
     fetch(location.href.split('#')[0], { credentials: 'include' })

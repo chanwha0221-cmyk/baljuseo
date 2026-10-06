@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.166</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.167</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1035,6 +1035,7 @@ function applyMc(groups){
   return groups;
 }
 let MCHIT=0;
+let MKSRL=new Map();
 function parseGrid(grid){
   const groups=[];
   for(const sh of (grid.sheets||[])){
@@ -1111,6 +1112,8 @@ function parseGrid(grid){
   }
   /* 🏷 특별단가 «전체» (2026-10-06 홍팀장) — masterc #special 에서 업체 지정 없이 켜둔 것. 상시·당일 딸깍이 같이 보낸다.
      카드 가격을 이 값으로 덮고 🏷 딱지를 단다(tagRow). 월 시트 원가표(mccost)·저마진도 같은 값을 쓴다. */
+  MKSRL=new Map();   // 🖼 상품명 → masterc 새 상세 srl (상세페이지 만들기가 연다)
+  ((SNAP&&SNAP.mc)||[]).concat((SNAP&&SNAP.mcDay)||[]).forEach(r=>{if(r&&r.n&&+r.srl>0)MKSRL.set(pkey(r.n),+r.srl);});
   const spc=new Map(((SNAP&&SNAP.mcSpc)||[]).map(r=>[pkey(r.n),+r.price||0]));
   if(spc.size)out.forEach(g=>g.products.forEach(p=>{const s=spc.get(pkey(p.name));if(s>0){p.price={old:null,cur:s,dir:''};p.spc=1;}}));
   // 당일생물을 맨 앞으로
@@ -1801,7 +1804,9 @@ function card(p,extra,top,foot){
        "각 상품별로 넣어두고 그걸 누르면 그 상품껄 가져가면 헷갈리지가 않잖아."
        처음엔 위 메뉴에 하나만 뒀는데, 그러면 상세메이커에서 상품을 또 골라야 했다.
        여기서 누르면 그 상품 하나만 들고 간다 — 고를 일이 없다. */
-    +(p.exc?'':'<button class="mkb" data-mk="'+esc(p.name)+'" data-mku="'+esc(p.url||'')+'"'
+    /* 🆕 상세는 새 상세(board_eJGl96?p=srl)로 연다 (2026-10-06 에이치엔 「상세페이지 생성 안 됨」) — 옛 글 주소(masterc.kr/번호)는
+       업체 계정으로 열면 「권한이 없습니다」다. srl 은 masterc 딸깍 자료(상시·당일)에서. 없으면 예전 주소. */
+    +(p.exc?'':'<button class="mkb" data-mk="'+esc(p.name)+'" data-mku="'+esc(MKSRL.get(pkey(p.name))?('https://masterc.kr/board_eJGl96?p='+MKSRL.get(pkey(p.name))):(p.url||''))+'"'
            +' title="이 상품으로 쇼핑몰 상세페이지를 만듭니다 (새 창)">🖼 상세페이지 만들기</button>')
     /* 예외 등록/해제는 **마스터에게만** 보인다.
        처음엔 당일생물 탭에만 달았는데 생물이 거기에만 있는 게 아니었다 —
