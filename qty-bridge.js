@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06a';
+  var QTYB_VER = '2026-10-06b';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1934,11 +1934,45 @@
           + (j.errs.length ? ('\n\n오류\n' + j.errs.join('\n')) : '')
           + '\n\n당일에 남은 주문 ' + j.left + '줄';
         alert(m);
+        if (j.done.length) usedAfterOut(j.done);
       }, function (e) {
         btn.disabled = false; btn.textContent = old;
         alert('시트에 보내지 못했습니다 — ' + (e.message || e));
       });
     };
+  }
+
+  /* ✍️ 재고 없음으로 내린 뒤 «사용» 을 실제로 나가는 수량으로 내린다 (2026-10-06 홍팀장 다슬기 :
+     잡음 3 · 필요 4(2개짜리 주문 2건) → 실행이 사용 3 을 적고, 주문 1건(2개)이 재고 없음으로 내려가
+     실제로 나가는 건 2개뿐인데 사용은 3 으로 남았다. 주문은 쪼갤 수 없어 남는 1개는 아직 우리 몫이다).
+     사용 = 날짜 시트에 나간 것 + 당일에 남은 것 (잡은 것까지). 적힌 게 그보다 크면 그 값으로 내린다.
+     연어·홍어처럼 여러 이름을 한 줄로 합치는 상품은 시트 이름과 줄이 달라 건드리지 않는다. */
+  function usedAfterOut(done) {
+    tallyTab('당일').then(function (dg) {
+      var todo = [];
+      done.forEach(function (d) {
+        var k = nk(d.name), row = IDX && IDX[k];
+        if (!row || !row.co) return;
+        if (ALIAS.some(function (a) { return a.hit(d.name) || nk(a.to) === k; })) return;
+        var target = (DONE_MAP[k] || 0) + ((dg.map[k] && dg.map[k].qty) || 0);
+        todo.push({ name: d.name, row: row, target: target });
+      });
+      var log = [];
+      return todo.reduce(function (p, t) {
+        return p.then(function () {
+          return freshRow(t.row).then(function (f) {
+            var v = Math.min(t.target, f.mine);
+            if (f.used <= v) return;
+            return qpost({ do: 'used', tab: whTab(t.row), nkey: t.row.key, co: t.row.co, val: v })
+              .then(function () { log.push(t.name + ' ' + f.used + ' → ' + v); });
+          }).catch(function (e) { log.push(t.name + ' — 사용 못 고침(' + (e.message || e) + ')'); });
+        });
+      }, Promise.resolve()).then(function () {
+        if (log.length) alert('✍️ 사용 수량을 실제로 나가는 만큼으로 고쳤습니다\n\n' + log.join('\n'));
+      });
+    }).catch(function (e) {
+      alert('✍️ 사용 수량 맞추기 실패 — 당일 탭을 못 읽었습니다(' + (e.message || e) + '). 사용 칸은 손으로 확인해 주세요.');
+    });
   }
 
   /* 🎯 구해야 할 수량 담아 두기 — 브라우저에 오늘 날짜로만 남긴다(어제 것이 섞이면 헷갈린다).
