@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06l';
+  var QTYB_VER = '2026-10-06m';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -102,7 +102,9 @@
       body: JSON.stringify(body), signal: ac ? ac.signal : undefined
     }).then(function (r) { if (tm) clearTimeout(tm); return r.text(); }, function (e) { if (tm) clearTimeout(tm); throw e; }).then(function (t) {
       var j = null;
-      try { j = JSON.parse(t); } catch (e) { throw new Error('시트가 응답하지 않습니다'); }
+      /* 🔴 2026-10-06 실측: 웹앱이 가끔 JSON 대신 구글 오류 화면(HTML)을 준다 — 일은 이미 끝났는데 답만 깨진 경우가 있다
+            (멍게·자반 당일로 올리기: 시트엔 옮겨졌는데 「응답하지 않습니다」). 옮기기는 다시 누르면 두 번 옮겨지므로 다시 누르지 말게 알린다. */
+      try { j = JSON.parse(t); } catch (e) { var er = new Error('시트 답을 못 받았습니다(구글 쪽 오류) — 시트엔 이미 반영됐을 수 있으니 다시 누르지 말고, 다시 불러와서 확인하세요'); er.broken = true; throw er; }
       if (!j.ok) throw new Error(j.error || '시트가 거절했습니다');
       return j;
     });
@@ -1308,7 +1310,9 @@
                 + (grabLog.length ? '<br><br><b>창고 잔여에서 잡은 것</b><br>' + grabLog.map(esc).join('<br>') : '');
             }, function (e) {
               bb.disabled = false; bb.textContent = o2;
-              el('qtyb-uplog').innerHTML = '<span style="color:#b91c1c">' + esc(e.message || e) + '</span>';
+              el('qtyb-uplog').innerHTML = '<span style="color:#b91c1c">' + esc(e.message || e) + '</span>'
+                + (e.broken ? '<br>🔄 3초 뒤 재고 없음을 다시 읽어 실제로 옮겨졌는지 보여 드립니다…' : '');
+              if (e.broken) { bb.disabled = true; window.__QTYB_NOAUTO = true; setTimeout(function () { el('qtyb-none').click(); }, 3000); }
             });
           };
         }, function (e) {
