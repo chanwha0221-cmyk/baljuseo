@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.160</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.161</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -763,8 +763,6 @@ h1{letter-spacing:-.6px}
 <details class="mvbox" id="mvbox"></details>
 <!-- 메뉴 = 게시판 입구. 눌러도 페이지를 새로 받지 않고 화면만 바뀌며, 뒤로가기로 카탈로그 복귀 -->
 <div class="menu" id="menu">
-  <!-- 💸 저마진 — 마스터만 (renderUser 가 연다). 원가는 업체에 나가면 안 되는 값이라 서버 lowmargin 으로 따로 받는다 -->
-  <button class="mbtn" data-go="lowm" id="mbLowm" style="display:none">💸 저마진 상품<span class="nbadge" id="lowmBadge" style="display:none"></span></button>
   <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
   <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="news">📰 소식글<span class="tapb">눌러서 확인</span><span class="nbadge" id="newsBadge" style="display:none"></span></button>
@@ -3481,9 +3479,9 @@ function renderLowm(j){
 }
 function renderUser(){
   if(!ME)return;
-  /* 💸 저마진 — 마스터만. 개수는 뒤에서 받아 배지로 (실패해도 화면은 그대로) */
-  const lm=$('mbLowm');
-  if(lm){lm.style.display=ME.master?'':'none';if(ME.master&&ME.token)api('lowmargin',{token:ME.token,max:LOWM_MAX}).then(j=>{const go=()=>{if(typeof ALL!=='undefined'&&ALL.length)lowmBadge(lowmVisible(j.rows).length);else setTimeout(go,1500);};go();}).catch(()=>{});}
+  /* 💸 저마진 — 마스터만, 위쪽 작은 버튼(아래 userbar). 개수는 뒤에서 받아 버튼 옆 숫자로 (실패해도 화면은 그대로)
+     🔴 메뉴 큰 칸에 두지 말 것 (2026-10-06 홍팀장 「나만 볼 건데 대문짝만하게 올렸냐」) */
+  {if(ME.master&&ME.token)api('lowmargin',{token:ME.token,max:LOWM_MAX}).then(j=>{const go=()=>{if(typeof ALL!=='undefined'&&ALL.length)lowmBadge(lowmVisible(j.rows).length);else setTimeout(go,1500);};go();}).catch(()=>{});}
   // 발주 내역은 웹앱이 붙어 있을 때만
   const mo=$('mbOrders');
   if(mo)mo.style.display=(API&&ME.token)?'':'none';
@@ -3505,6 +3503,7 @@ function renderUser(){
     /* 📤 제안서 데이터 — 마스터에게만. 원비씨 제안서 사이트에 넣을 products.json 을 내려받는다. */
     +(ME.master?'<button class="ubtn" id="ub_exp" title="원비 팀장 제안서 사이트(allproduct)가 읽는 데이터를 지금 카탈로그와 같은 시점으로 올립니다. 1~2분 뒤 그쪽 사이트를 새로고침하면 반영됩니다">🔄 제안서 업데이트</button>':'')
     +(ME.master?'<button class="ubtn" id="ub_spec" title="masterc 상세에서 고친 스펙(미수·구성 등)을 카드에 맞춥니다. masterc 창이 잠깐 열립니다(로그인 필요)">📝 스펙 최신화</button>':'')
+    +(ME.master?'<button class="ubtn" id="ub_lowm" title="마진율 8% 이하로 카탈로그에 떠 있는 상품 (마스터만)">💸 저마진 <b id="lowmBadge" style="display:none;color:#b91c1c"></b></button>':'')
     /* 📥 상품·단가 파일 — 달라고 한 업체와 마스터에게만 (XLSX_OK 참조) */
     +(canXlsx()?'<button class="ubtn" id="ub_xls" title="지금 화면의 상품명과 공급가 전체를 엑셀로 여는 파일(CSV)로 내려받습니다">📥 상품·단가 엑셀</button>':'')
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
@@ -3514,6 +3513,7 @@ function renderUser(){
   $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
   { const e=$('ub_exp'); if(e)e.onclick=updateProposal; }   // 🔄 제안서 업데이트 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
   { const e=$('ub_spec'); if(e)e.onclick=specSync; }        // 📝 스펙 최신화 — 마스터 전용
+  { const e=$('ub_lowm'); if(e)e.onclick=()=>{const cur=location.hash.replace(/^#/,'');if(cur==='lowm')renderRoute();else if(cur){history.replaceState(null,'','#lowm');renderRoute();}else location.hash='lowm';}; }   // 💸 저마진 — 마스터 전용
   { const e=$('ub_xls'); if(e)e.onclick=downloadPriceXlsx; } // 📥 상품·단가 엑셀 — 허용된 업체에게만 있는 버튼
   // 거래처가 보고 있는 게 최신인지 확신할 수 있게 — 저장본을 버리고 시트에서 새로 받는다 (사장님 2026-08-18)
   $('ub_reload').onclick=()=>{
