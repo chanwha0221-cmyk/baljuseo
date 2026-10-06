@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06f';
+  var QTYB_VER = '2026-10-06g';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -547,6 +547,7 @@
     var mineUsed = (DONE_MAP[row.key] != null)
       ? DONE_MAP[row.key]
       : (DONE_OK ? 0 : ((OURS[row.key] && OURS[row.key].used) || 0));
+    if (outFix(row.key) != null) mineUsed = outFix(row.key);   // ✏️ 나감 손보정(수량 점검에서 저장)이 있으면 그 값
     var ghost = row.stuck || (row.closed && row.left < 0);
     var avail = ghost ? 0 : Math.max(0, mine - mineUsed);
     var short = need - avail;
@@ -1130,7 +1131,7 @@
         .then(function (rr) {
           var no = rr[0], dg = rr[1], dn = rr[2];
           var sheetOk = !!(dg && dn);
-          function sheetUsed(k) { return ((dg.map[k] && dg.map[k].qty) || 0) + ((dn.map[k] && dn.map[k].qty) || 0); }
+          function sheetUsed(k) { var fx = outFix(k); return ((dg.map[k] && dg.map[k].qty) || 0) + (fx != null ? fx : ((dn.map[k] && dn.map[k].qty) || 0)); }
           var keys = Object.keys(no.map);
           if (!keys.length) { stat('재고 없음 비어 있음'); el('qtyb-out').innerHTML = '<div class="warn">「재고 없음」 탭이 비어 있습니다.</div>'; b.disabled = false; b.textContent = old; return; }
           /* 2026-09-29 홍팀장 보강 — 이 검토는 «① 올릴 게 있나 ② 대기·증량이 제대로 걸렸나» 두 가지를 본다.
@@ -1394,6 +1395,19 @@
                           지금 나 잡은거보다 많이 쓴거 많다」
      → 우리가 잡아 둔 줄 전체를 훑어 «초과 사용»(쓴 것 > 잡은 것)을 제일 위로 올린다.
        필요수량을 붙여넣어 두었으면 발주까지 넣어 세 값을 나란히 본다. */
+  /* ✏️ 나감 손보정 (2026-10-06 홍팀장 「우족사골 12kg 나가느라 6kg 2개 더 잡은 거, 이것도 쓴 수량 — 고쳐서 저장되게」).
+     시트엔 «12kg» 로 적혀 6kg 줄 나감에 안 잡히는 경우처럼, 시트로는 못 세는 «실제로 쓴 수량» 을 사람이 적는다.
+     기준 날짜 탭(📅)마다 따로 이 브라우저에 저장 — 수량 점검·당일 대조(judge)·재고 없음 검토가 전부 이 값을 «나감» 으로 쓴다. */
+  var OFKEY = 'qtybOutFix';
+  function outFixAll() { try { return JSON.parse(localStorage.getItem(OFKEY) || '{}') || {}; } catch (e) { return {}; } }
+  function outFix(k) { var a = outFixAll()[dayTab()] || {}; return (a[k] == null) ? null : +a[k]; }
+  function outFixSet(k, n) {
+    var a = outFixAll(), d = dayTab();
+    a[d] = a[d] || {};
+    if (n == null) delete a[d][k]; else a[d][k] = n;
+    Object.keys(a).forEach(function (t) { if (t !== d && t < d && Object.keys(a).length > 7) delete a[t]; });   // 오래된 날짜는 정리
+    try { localStorage.setItem(OFKEY, JSON.stringify(a)); } catch (e) {}
+  }
   function checkPaint() {
     var box = el('qtyb-out');
     if (!box) return;
@@ -1413,7 +1427,10 @@
       var need = parsed.map[k];
       var out = doneParsed.map[k];              // 오늘 날짜 시트에서 실제로 나간 수량
       if (out == null && sheetBased) out = 0;   // 시트를 읽었는데 없으면 «안 나감» 이다 — 사용 칸으로 메우지 않는다
+      var fx = outFix(k), sheetOut = out;
+      if (fx != null) out = fx;                 // ✏️ 손보정이 있으면 그 값이 나감
       return {
+        fixed: fx != null, sheetOut: sheetOut,
         key: k,
         wh: o.wh || (idx ? idx.wh : ''),
         name: idx ? idx.name : k,
@@ -1471,7 +1488,13 @@
             + '<td>' + esc(r.wh) + '</td>'
             + '<td class="nm">' + esc(r.name) + cpName(r.name) + (r.ghost ? ' <span class="tag t-hunt">물건없음</span>' : '') + '</td>'
             + '<td>' + r.got + '</td>'
-            + '<td' + (r.over ? ' style="color:#b91c1c;font-weight:800"' : '') + '>' + (r.out == null ? '<span class="mut">' + r.used + '</span>' : '<b>' + r.out + '</b>') + '</td>'
+            + '<td style="white-space:nowrap' + (r.over ? ';color:#b91c1c;font-weight:800' : '') + '">'
+            +   '<input class="ofx" data-k="' + esc(r.key) + '" type="number" min="0" value="' + (r.out == null ? r.used : r.out) + '" '
+            +   'style="width:46px;border:1px solid ' + (r.fixed ? '#f59e0b;background:#fffbeb' : '#cfd6e0') + ';border-radius:5px;padding:2px 4px;font:700 12px Pretendard,sans-serif" '
+            +   'title="' + (r.fixed ? '✏️ 손으로 고친 값 (시트 ' + (r.sheetOut == null ? '-' : r.sheetOut) + ')' : '시트에 나간 수량 — 고치고 💾') + '">'
+            +   ' <button class="ofs" data-k="' + esc(r.key) + '" style="font-size:11px;padding:1px 5px" title="이 값을 쓴 수량으로 저장">💾</button>'
+            +   (r.fixed ? ' <button class="ofr" data-k="' + esc(r.key) + '" style="font-size:11px;padding:1px 5px" title="손보정 지우고 시트 값으로">↺</button><div class="mut" style="font-size:10.5px">✏️ 시트 ' + (r.sheetOut == null ? '-' : r.sheetOut) + '</div>' : '')
+            + '</td>'
             + '<td' + (r.misfit ? ' style="color:#b45309;font-weight:700"' : ' class="mut"') + '>' + r.used + '</td>'
             + '<td' + (r.rest > 0 ? ' style="font-weight:700"' : '') + '>' + r.rest + '</td>'
             + '<td>' + (r.need == null ? '<span class="mut">—</span>' : r.need) + '</td>'
@@ -1486,6 +1509,18 @@
     if (USEDFIX_LOG) h = '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:9px;padding:8px 11px;margin:8px 0;font-size:13px">' + USEDFIX_LOG + '</div>' + h;
     box.innerHTML = h;
     el('qtyb-recheck').onclick = function () { checkPaint(); };
+    [].forEach.call(box.querySelectorAll('.ofs'), function (b) {
+      b.onclick = function () {
+        var k = this.getAttribute('data-k');
+        var inp = box.querySelector('.ofx[data-k="' + k.replace(/"/g, '\\"') + '"]');
+        var n = parseInt(inp && inp.value, 10);
+        if (isNaN(n) || n < 0) { alert('숫자로 넣어 주세요.'); return; }
+        outFixSet(k, n); checkPaint();
+      };
+    });
+    [].forEach.call(box.querySelectorAll('.ofr'), function (b) {
+      b.onclick = function () { outFixSet(this.getAttribute('data-k'), null); checkPaint(); };
+    });
     usedFix(rows);
     el('qtyb-cpover').onclick = function () {
       copy(over.map(function (r) { return r.wh + '\t' + r.name + '\t잡음 ' + r.got + '\t나감 ' + real(r) + '\t초과 ' + r.over; }).join('\n'), this);
