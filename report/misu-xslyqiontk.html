@@ -9,7 +9,7 @@
 :root{--bg:#f6f7f9;--card:#fff;--ink:#16181d;--sub:#5d6470;--line:#e3e6eb;--red:#c62828;--redbg:#fdecea;--amb:#b26a00;--ambbg:#fff4e0;--ok:#2e7d32;--accent:#1f3a5f}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Pretendard","Malgun Gothic","Apple SD Gothic Neo",sans-serif;-webkit-text-size-adjust:100%}
-.wrap{max-width:960px;margin:0 auto;padding:24px 16px 48px}
+.wrap{max-width:1280px;margin:0 auto;padding:24px 16px 48px}
 header h1{margin:0;font-size:22px;color:var(--accent)}
 header p{margin:4px 0 0;color:var(--sub);font-size:13px}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
@@ -38,6 +38,13 @@ tr.sum td{font-weight:700;border-top:2px solid var(--ink);border-bottom:none}
 .bar i{display:block}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--sub)}
 .legend b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+td.memo{white-space:normal;min-width:260px;width:34%;vertical-align:top}
+td.memo textarea{width:100%;min-height:34px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:13px/1.45 inherit;resize:vertical;background:#fffef5}
+td.memo textarea:focus{outline:2px solid #1f3a5f33;border-color:var(--accent)}
+td.memo .mt{white-space:pre-wrap;font-size:13px;line-height:1.45}
+td.memo .ma{font-size:11px;color:var(--sub);margin-top:2px}
+td.memo .ma.saving{color:var(--amb)}td.memo .ma.err{color:var(--red)}
+.mbar{font-size:12px;color:var(--sub);margin-top:8px}
 footer{margin-top:18px;font-size:11.5px;color:var(--sub)}
 @media (max-width:640px){.kpis{grid-template-columns:1fr}.kpi .v{font-size:20px}th,td{padding:6px}}
 @media print{body{background:#fff}.wrap{padding:0}section,.kpi{break-inside:avoid;border-color:#ccc}#all{break-inside:auto}}
@@ -48,6 +55,7 @@ footer{margin-top:18px;font-size:11.5px;color:var(--sub)}
 <header>
   <h1>미수 업체 보고 · 마찬 담당</h1>
   <p>(주)마스터 · 기준 2026-10-06(화) 09:05 · 외부거래처 · 출처: 미수관리보드</p>
+  <p class="mbar" id="mbar">📝 진행 메모 불러오는 중…</p>
 </header>
 
 <div class="kpis">
@@ -144,7 +152,7 @@ bar.innerHTML=segs.map(s=>`<i style="width:${sum(s[1])/T*100}%;background:${s[2]
 legend.innerHTML=segs.map(s=>`<span><b style="background:${s[2]}"></b>${s[0]} ${won(sum(s[1]))} (${s[1].length}곳)</span>`).join('');
 const dcls=d=>d>=40?'r':d>=20?'a':'';
 function table(el,rows,cols){
-  const H={n:'업체',a:'미수액',d:'밀린 날',o:'가장 오래된 미수',last:'마지막 발주',p:'정산주기',g:'등급',law:'법무'};
+  const H={n:'업체',a:'미수액',d:'밀린 날',o:'가장 오래된 미수',last:'마지막 발주',p:'정산주기',g:'등급',law:'법무',memo:'📝 진행 메모 (통화 내용·현재 상황)'};
   const num=['a','d'];
   let h='<tr>'+cols.map(c=>`<th class="${num.includes(c)?'n':''}">${H[c]}</th>`).join('')+'</tr>';
   h+=rows.map(r=>'<tr>'+cols.map(c=>{
@@ -153,13 +161,57 @@ function table(el,rows,cols){
     if(c==='d')return `<td class="n days ${dcls(r.d)}">${r.d}일</td>`;
     if(c==='g')return `<td><span class="g g${r.g}">${r.g}</span></td>`;
     if(c==='law')return `<td>${r.law?'내용증명 → 법무 '+r.law:''}</td>`;
+    if(c==='memo')return `<td class="memo" data-n="${r.n}"></td>`;
     return `<td>${r[c]}</td>`}).join('')+'</tr>').join('');
   h+=`<tr class="sum"><td>합계 ${rows.length}곳</td><td class="n">${sum(rows).toLocaleString('ko-KR')}</td>`+cols.slice(2).map(()=>'<td></td>').join('')+'</tr>';
   el.innerHTML=h;
 }
-table(t1,L,['n','a','d','o','last','law']);
-table(t2,M,['n','a','d','o','last','p','g']);
-table(t3,R,['n','a','d','o','last','p','g']);
+table(t1,L,['n','a','d','o','last','law','memo']);
+table(t2,M,['n','a','d','o','last','p','g','memo']);
+table(t3,R,['n','a','d','o','last','p','g','memo']);
+
+/* 📝 진행 메모 (2026-10-06 홍팀장 「이사님이랑 통화한 내용·진행 상황을 내가 적는 칸, 전화하면서 같이 보게」)
+   저장처 = Supabase(app_config MISU_NOTE:<페이지id>). 같은 업체는 세 표 어디서 적어도 같은 메모다.
+   ✍️ 쓰기는 카탈로그 마스터 로그인이 있는 브라우저만(같은 주소의 catalog_auth_v1 토큰을 빌린다) — 나머지는 읽기만.
+   👀 보는 쪽은 15초마다 새로 받아 와서 통화 중에 적는 내용이 따라 뜬다. */
+const API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
+const PAGE=(location.pathname.match(/misu-([a-z0-9]+)/i)||[])[1]||'xslyqiontk';
+let TOKEN='';try{const a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null');if(a&&a.token&&(a.master||/마스터|관리/.test(a.role||'')))TOKEN=a.token;}catch(e){}
+let NOTES={},EDIT=null;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const when=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+async function call(b){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:'misunote',id:PAGE},b))});return r.json();}
+function paint(){
+  document.querySelectorAll('td.memo').forEach(td=>{
+    const n=td.dataset.n,o=NOTES[n];
+    if(TOKEN){
+      let ta=td.querySelector('textarea');
+      if(!ta){
+        td.innerHTML='<textarea rows="1" placeholder="통화 내용·진행 상황"></textarea><div class="ma"></div>';
+        ta=td.querySelector('textarea');
+        ta.onfocus=()=>{EDIT=n;};
+        ta.oninput=()=>{fit(ta);syncSame(n,ta);clearTimeout(ta._t);ta._t=setTimeout(()=>save(n,ta.value),900);mark(n,'저장 대기…','saving');};
+        ta.onblur=()=>{EDIT=null;clearTimeout(ta._t);if(ta.value!==((NOTES[n]&&NOTES[n].t)||''))save(n,ta.value);};
+      }
+      if(EDIT!==n&&document.activeElement!==ta){ta.value=o?o.t:'';fit(ta);}
+      const ma=td.querySelector('.ma');if(ma&&!ma.classList.contains('saving'))ma.textContent=o?('✓ '+when(o.at)):'';
+    }else{
+      td.innerHTML=o?('<div class="mt">'+esc(o.t)+'</div><div class="ma">'+when(o.at)+'</div>'):'<span class="ma">—</span>';
+    }
+  });
+}
+function fit(ta){ta.style.height='auto';ta.style.height=Math.max(34,ta.scrollHeight+2)+'px';}
+function syncSame(n,src){document.querySelectorAll('td.memo').forEach(td=>{if(td.dataset.n!==n)return;const t=td.querySelector('textarea');if(t&&t!==src){t.value=src.value;fit(t);}});}
+function mark(n,txt,cls){document.querySelectorAll('td.memo').forEach(td=>{if(td.dataset.n!==n)return;const m=td.querySelector('.ma');if(m){m.textContent=txt;m.className='ma'+(cls?' '+cls:'');}});}
+async function save(n,text){
+  try{const j=await call({token:TOKEN,name:n,text});if(!j.ok)throw new Error(j.error||'저장 실패');NOTES=j.notes||NOTES;mark(n,'✓ 저장됨 '+when(Date.now()),'');}
+  catch(e){mark(n,'⚠️ 저장 못 함 — '+(e.message||e),'err');}
+}
+async function pull(){
+  try{const j=await call({});if(j.ok){NOTES=j.notes||{};paint();mbar.textContent=TOKEN?'📝 진행 메모 — 오른쪽 칸에 적으면 바로 저장됩니다(이 페이지를 보는 사람 화면에 15초 안에 뜸)':'📝 진행 메모는 15초마다 새로 불러옵니다';}}
+  catch(e){mbar.textContent='⚠️ 진행 메모를 불러오지 못했습니다';}
+}
+pull();setInterval(pull,15000);
 </script>
 </body>
 </html>
