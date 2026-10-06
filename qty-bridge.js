@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06j';
+  var QTYB_VER = '2026-10-06k';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1267,12 +1267,29 @@
             /* 🔴 합포장 줄 짝 맞추기 (2026-10-01 「사각어묵 2kg x 1 / 봉어묵 2kg x 1」) — 다 못 올리는 상품(대기·증량 중)을
                   deny 로 같이 보낸다. 시트는 그 상품이 섞인 합포장 줄을 다른 상품 몫으로 올리지 않는다. */
             var deny = rows.filter(function (r) { return r.can < r.want; }).map(function (r) { return r.name; });
-            sheetPost('back', list, { deny: deny }).then(function (j) {
+            /* 🔴 창고 잔여로 올리는 몫은 «먼저 잡고» 올린다 (2026-10-06 홍팀장 「수량이 있었는데 조금씩 덜 잡혔다」 —
+                  골뱅이·알도루묵·대암게가 잡음보다 2개씩 더 나갔다). 올릴 수 = 잡아 둔 여유 + 창고 잔여 인데
+                  잔여 몫을 잡지 않고 당일로만 올려서, 잡지 않은 수량이 그대로 나갔다. */
+            var grab = ok.filter(function (r) { return r.idx && r.can > r.spare; });
+            var grabLog = [];
+            var grabP = grab.reduce(function (pr, r) {
+              return pr.then(function () {
+                return freshRow(r.idx).then(function (f) {
+                  var add = Math.min(r.can - r.spare, f.left);
+                  if (add <= 0) { grabLog.push(r.name + ' — 잔여 없음, 못 잡음'); return; }
+                  return qpost({ do: 'set', tab: whTab(r.idx), nkey: r.idx.key, co: r.idx.co, val: f.mine + add, name: r.idx.name, how: 'pop' })
+                    .then(function () { grabLog.push(r.name + ' 잡기 ' + f.mine + '→' + (f.mine + add)); });
+                }).catch(function (e) { grabLog.push(r.name + ' 잡기 실패 — ' + (e.message || e)); });
+              });
+            }, Promise.resolve());
+            grabP.then(function () { return sheetPost('back', list, { deny: deny }); }).then(function (j) {
+              if (grabLog.length) j.done = j.done || [];
               bb.disabled = false; bb.textContent = o2;
               el('qtyb-uplog').innerHTML = '<b>올린 것</b><br>'
                 + (j.done.length ? j.done.map(function (d) { return '· ' + esc(d.name) + ' — ' + d.moved + '줄 (' + d.units + '개)'; }).join('<br>') : '없음')
                 + (j.miss.length ? ('<br><br><b style="color:#b91c1c">못 올린 것</b><br>' + j.miss.map(function (d) { return '· ' + esc(d.name) + ' ' + d.want + '개'; }).join('<br>')) : '')
-                + '<br><br>당일에 있는 주문 <b>' + j.left + '줄</b>';
+                + '<br><br>당일에 있는 주문 <b>' + j.left + '줄</b>'
+                + (grabLog.length ? '<br><br><b>창고 잔여에서 잡은 것</b><br>' + grabLog.map(esc).join('<br>') : '');
             }, function (e) {
               bb.disabled = false; bb.textContent = o2;
               el('qtyb-uplog').innerHTML = '<span style="color:#b91c1c">' + esc(e.message || e) + '</span>';
