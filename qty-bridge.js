@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06e';
+  var QTYB_VER = '2026-10-06f';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -130,10 +130,10 @@
         그래서 «우리 전용 웹앱» 을 먼저 부르고, 그게 안 되면 프록시로 되돌아간다. */
   /* 🔴 2026-10-06 「재고 없음 읽어오는 게 너무 오래 걸리고 시트를 못 읽었대」 — 실측:
        웹앱을 탭 3개 «동시에» 부르면 구글이 60초 끌다가 끊었다(Failed to fetch). 하나씩 부르면 2~4초(처음 한 번만 15~20초).
-     → 시트 읽기는 한 줄로 세워 «하나씩» 보낸다(SHEETQ). 한 번에 35초까지만 기다리고, 안 되면 한 번 더, 그래도 안 되면 프록시로. */
+     → 시트 읽기는 한 줄로 세워 «하나씩» 보낸다(SHEETQ). 한 번에 20초까지만 기다리고(데운 뒤엔 2~4초), 안 되면 한 번 더, 그래도 안 되면 프록시로. */
   var SHEETQ = Promise.resolve();
   function tallyTab(tab, startRow) {
-    function once() { return sheetPost('tally', [], { tab: tab }, 35000); }
+    function once() { return sheetPost('tally', [], { tab: tab }, 20000); }
     var p = SHEETQ.then(function () {
       return once().catch(function () { return once(); }).then(function (j) {
         var map = {};
