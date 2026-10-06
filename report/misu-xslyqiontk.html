@@ -9,7 +9,7 @@
 :root{--bg:#f6f7f9;--card:#fff;--ink:#16181d;--sub:#5d6470;--line:#e3e6eb;--red:#c62828;--redbg:#fdecea;--amb:#b26a00;--ambbg:#fff4e0;--ok:#2e7d32;--accent:#1f3a5f}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Pretendard","Malgun Gothic","Apple SD Gothic Neo",sans-serif;-webkit-text-size-adjust:100%}
-.wrap{max-width:1280px;margin:0 auto;padding:24px 16px 48px}
+.wrap{max-width:1480px;margin:0 auto;padding:24px 16px 48px}
 header h1{margin:0;font-size:22px;color:var(--accent)}
 header p{margin:4px 0 0;color:var(--sub);font-size:13px}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
@@ -38,11 +38,13 @@ tr.sum td{font-weight:700;border-top:2px solid var(--ink);border-bottom:none}
 .bar i{display:block}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--sub)}
 .legend b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
-td.memo{white-space:normal;min-width:260px;width:34%;vertical-align:top}
-td.memo textarea{width:100%;min-height:34px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:13px/1.45 inherit;resize:vertical;background:#fffef5}
+/* 이사님과 같이 보며 통화하는 칸 — 넓고 크게(2026-10-06 「칸 너무 작다」) */
+td.memo{white-space:normal;min-width:420px;width:48%;vertical-align:top;padding:8px 10px}
+td.memo textarea{display:block;width:100%;min-height:92px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-family:inherit;font-size:15px;line-height:1.6;color:var(--ink);resize:vertical;background:#fffef5}
 td.memo textarea:focus{outline:2px solid #1f3a5f33;border-color:var(--accent)}
-td.memo .mt{white-space:pre-wrap;font-size:13px;line-height:1.45}
-td.memo .ma{font-size:11px;color:var(--sub);margin-top:2px}
+td.memo .mt{white-space:pre-wrap;font-size:15px;line-height:1.6;background:#fffef5;border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-height:92px}
+td.memo .ma{font-size:12px;color:var(--sub);margin-top:4px}
+#t1 td{vertical-align:top}
 td.memo .ma.saving{color:var(--amb)}td.memo .ma.err{color:var(--red)}
 .mbar{font-size:12px;color:var(--sub);margin-top:8px}
 footer{margin-top:18px;font-size:11.5px;color:var(--sub)}
@@ -187,7 +189,7 @@ function paint(){
     if(TOKEN){
       let ta=td.querySelector('textarea');
       if(!ta){
-        td.innerHTML='<textarea rows="1" placeholder="통화 내용·진행 상황"></textarea><div class="ma"></div>';
+        td.innerHTML='<textarea rows="3" placeholder="통화 내용·진행 상황"></textarea><div class="ma"></div>';
         ta=td.querySelector('textarea');
         ta.onfocus=()=>{EDIT=n;};
         ta.oninput=()=>{fit(ta);syncSame(n,ta);clearTimeout(ta._t);ta._t=setTimeout(()=>save(n,ta.value),900);mark(n,'저장 대기…','saving');};
@@ -200,7 +202,7 @@ function paint(){
     }
   });
 }
-function fit(ta){ta.style.height='auto';ta.style.height=Math.max(34,ta.scrollHeight+2)+'px';}
+function fit(ta){ta.style.height='auto';ta.style.height=Math.max(92,ta.scrollHeight+2)+'px';}
 function syncSame(n,src){document.querySelectorAll('td.memo').forEach(td=>{if(td.dataset.n!==n)return;const t=td.querySelector('textarea');if(t&&t!==src){t.value=src.value;fit(t);}});}
 function mark(n,txt,cls){document.querySelectorAll('td.memo').forEach(td=>{if(td.dataset.n!==n)return;const m=td.querySelector('.ma');if(m){m.textContent=txt;m.className='ma'+(cls?' '+cls:'');}});}
 async function save(n,text){
