@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06i';
+  var QTYB_VER = '2026-10-06j';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -143,8 +143,15 @@
     }
     /* 🔴 2026-10-06 14시 마감 직전 「F버전 여전히 응답 없다」 — 시트 웹앱이 계속 먹통이라 읽기는 프록시를 먼저 쓴다(실측 2초).
        프록시가 안 되면 웹앱으로. 쓰기(out/back)는 여전히 웹앱이다. */
+    /* ⚡ 둘 다 동시에 보내 «먼저 온 것» 을 쓴다 — 웹앱·프록시가 번갈아 먹통이 됐다(14시 실측: 프록시도 60초+). */
     var p = SHEETQ.then(function () {
-      return tallyTabViaProxy(tab, startRow).catch(function () { return viaApi(); });
+      return new Promise(function (res, rej) {
+        var fails = 0, done = false;
+        function ok(v) { if (!done) { done = true; res(v); } }
+        function no() { if (++fails === 2 && !done) { done = true; rej(new Error('시트를 읽지 못했습니다')); } }
+        tallyTabViaProxy(tab, startRow).then(ok, no);
+        viaApi().then(ok, function () { viaApi().then(ok, no); });   // 웹앱은 20초 끊고 한 번 더
+      });
     });
     SHEETQ = p.catch(function () {});
     return p;
