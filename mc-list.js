@@ -30,6 +30,18 @@
     });
     var j = await post({ action: 'mcpush', key: KEY, items: items, costs: costs, chg: chg });
 
+    /* 🏷 특별단가 «전체»(업체 지정 없이 켜둔 것) — 카탈로그 가격을 이 값으로 (2026-10-06 홍팀장). 못 읽으면 건드리지 않는다. */
+    var spcTxt = '';
+    try {
+      var S = await (await fetch('/xd/api.php?mid=machan_admin&a=special_list', { credentials: 'same-origin', cache: 'no-store' })).json();
+      if (S && S.ok) {
+        var spc = (S.rows || []).filter(function (r) { return +r.member_srl === 0 && r.active === 'Y' && +r.price > 0; })
+          .map(function (r) { return { n: r.item, wh: r.wh, price: +r.price }; });
+        var sj = await post({ action: 'mcspc', key: KEY, rows: spc });
+        spcTxt = sj && sj.ok ? (spc.length ? '\n🏷 특별단가(전체) ' + spc.length + '개 적용' : '') : '\n⚠️ 특별단가를 못 보냈습니다';
+      }
+    } catch (e) { spcTxt = '\n⚠️ 특별단가를 못 읽었습니다'; }
+
     /* 📋 ※ 스펙 — 아직 없는 상품만 masterc 상세에서 긁어 보낸다. 실패해도 보내기는 이미 끝났다. */
     var specTxt = '';
     if (j.ok) {
@@ -43,7 +55,7 @@
     /* 🔔 «수량 적어서 뺐는데 다시 찼다» 는 맨 앞에 띄운다 — 이걸 보고 다시 민다(홍팀장 2026-09-28) */
     var bk = (j.back || []);
     var msg = j.ok
-      ? ('카탈로그로 보냈습니다\n\n상품 ' + j.count + '개 · 원가 ' + (j.costs || 0) + '개 · 변동사항 ' + (j.chg || 0) + '건' + specTxt + '\n카탈로그를 새로고침하면 반영됩니다.')
+      ? ('카탈로그로 보냈습니다\n\n상품 ' + j.count + '개 · 원가 ' + (j.costs || 0) + '개 · 변동사항 ' + (j.chg || 0) + '건' + specTxt + spcTxt + '\n카탈로그를 새로고침하면 반영됩니다.')
       : ('보내지 못했습니다\n' + (j.error || ''));
     if (j.ok && bk.length) msg = '🔔 수량이 다시 찼습니다 — ' + bk.length + '개\n' + bk.slice(0, 15).map(function (x) { return '· ' + x.n + ' (잔여 ' + x.remain + ')'; }).join('\n') + (bk.length > 15 ? '\n…' : '') + '\n\n' + msg;
     /* ❓ 풀어둔 상품이 아직도 소량이면 한 번 묻는다 — 아니오면 다시 예외로 내린다 (홍팀장 2026-09-28) */

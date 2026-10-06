@@ -98,6 +98,19 @@
       body: JSON.stringify({ action: 'mcday', key: KEY, day: Q.day, items: items }) });
     var j = await r.json();
 
+    /* 🏷 특별단가 «전체»(업체 지정 없이 켜둔 것) — 카탈로그 가격을 이 값으로 (2026-10-06 홍팀장, mc-list.js 와 같은 코드). */
+    var spcTxt = '';
+    try {
+      var S = await (await fetch('/xd/api.php?mid=machan_admin&a=special_list', { credentials: 'same-origin', cache: 'no-store' })).json();
+      if (S && S.ok) {
+        var spc = (S.rows || []).filter(function (x) { return +x.member_srl === 0 && x.active === 'Y' && +x.price > 0; })
+          .map(function (x) { return { n: x.item, wh: x.wh, price: +x.price }; });
+        var sj = await (await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'mcspc', key: KEY, rows: spc }) })).json();
+        spcTxt = sj && sj.ok ? (spc.length ? '\n🏷 특별단가(전체) ' + spc.length + '개 적용' : '') : '\n⚠️ 특별단가를 못 보냈습니다';
+      }
+    } catch (e) { spcTxt = '\n⚠️ 특별단가를 못 읽었습니다'; }
+
     /* 📋 ※ 스펙도 같이 — 스펙이 아직 없는 상품만 masterc 상세에서 긁어 보낸다(mc-spec.js). 실패해도 보내기는 끝났다. */
     var specTxt = '';
     try {
@@ -110,7 +123,7 @@
         ? ('당일을 카탈로그로 보냈습니다\n\n전체 ' + j.count + '개 · 파는 것 ' + j.open + '개')
         : ('카탈로그로 보내지 못했습니다\n' + (j.error || '')))
       + '\n새로 등록 ' + ok.length + '개' + (low.length ? ' (소량 딱지 붙는 것 ' + low.filter(function (c) { return ok.indexOf(c) >= 0; }).length + '개)' : '')
-      + specTxt
+      + specTxt + spcTxt
       + (fail.length ? '\n\n⚠️ 등록 실패 ' + fail.length + '개\n' + fail.slice(0, 10).join('\n') : '')
       + '\n\n카탈로그를 새로고침하면 반영됩니다.';
     alert(msg);
