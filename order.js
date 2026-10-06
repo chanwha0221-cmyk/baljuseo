@@ -365,7 +365,8 @@ function stripWh(raw){
    ⚠️ 괄호를 무시하는 매칭은 이 네 단계에만 연다. 그 밖의 괄호는 여전히 다른 상품이다. */
 const AGE_LEVELS = ['초수','중수','고수','초고수'];
 const AGE_RE = /\s*[\(（]\s*(초고수|초수|중수|고수)\s*[\)）]\s*$/;
-const needAge  = nm => /홍어/.test(S(nm)) && !/홍어애|무침|삼합/.test(S(nm));
+/* 🐟 「연안 대청홍어 200g」 은 삭힘정도 선택이 없는 상품 — 이름 그대로만 나간다 (2026-10-06 홍팀장, (중수)가 붙어 들어옴) */
+const needAge  = nm => /홍어/.test(S(nm)) && !/홍어애|무침|삼합|대청홍어/.test(S(nm));
 const ageOf    = nm => { const m = S(nm).match(AGE_RE); return m ? m[1] : ''; };
 const stripAge = nm => S(nm).replace(AGE_RE, '').trim();
 const withAge  = (nm, age) => age ? (stripAge(nm) + ' (' + age + ')') : stripAge(nm);
@@ -705,7 +706,7 @@ function buildOut(){
     /* 🐟 발주서에 나가는 이름 = 카탈로그 정식 이름 + 고른 삭힘정도.
        합포장 한도·합포장 불가 판정은 괄호 없는 정식 이름(base)으로 봐야 한다 — 괄호가 붙으면 못 찾는다. */
     // 🦴 민장 민물장어는 (뼈,머리 포함)을 골랐으면 그 괄호도 달고 나간다 — 합포장·한도는 여전히 정식 이름(base)으로
-    g.items.push({name:withBone(withAge(c.p.name, ageOf(r.name)), canBone(c.p.name) && hasBone(r.name)), base:c.p.name, qty:c.qty, lim:hapLimit(c.p.name), free:isFreeShip(c.p)});
+    g.items.push({name:withBone(withAge(c.p.name, needAge(c.p.name) ? ageOf(r.name) : ''), canBone(c.p.name) && hasBone(r.name)), base:c.p.name, qty:c.qty, lim:hapLimit(c.p.name), free:isFreeShip(c.p)});
     if(S(r.msg) && !g.msg) g.msg = S(r.msg);
     else if(S(r.msg) && g.msg && g.msg !== S(r.msg)) notes.push((i+1) + '번 행: 같은 배송지에 배송메시지가 둘이라 첫 번째 것만 넣었습니다.');
   });
