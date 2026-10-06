@@ -585,8 +585,12 @@ function isLate(p){
 
 // ── 행 검증 ─────────────────────────────────────────────────────
 /* 통과 못한 행이 하나라도 있으면 발주 버튼이 잠긴다. 이게 이 도구의 핵심이다. */
+/* ✅ 마스터 승인 목록 — 상품키 → 정식 이름. 발주를 넣으면 비운다. */
+let APPROVED = {};
+const apprOk = p => !!(p && amMaster() && APPROVED[pkeyO(p.name)]);
 function checkRow(r){
   const errs = [], warns = [];
+  let apprWhy = '';                                  // 마스터가 승인으로 넘길 수 있는 사유(있으면 버튼)
   const res = findProd(r.name);
   const p = res.p;
   if(!S(r.name)) errs.push('상품명을 넣어주세요.');
@@ -597,15 +601,28 @@ function checkRow(r){
   /* 🔐 단, 도구에서 열어준 상품은 예외에 걸려 있어도 받는다 (홍팀장 2026-09-10).
      카탈로그에 안 올리려고 예외로 뺀 물건을 [🔐 업체 전용 상품]으로 다시 열어준 것이라,
      여기서 막으면 **열어준 의미가 없다.** 업체 화면엔 아래 ℹ️ 안내가 대신 뜬다. */
-  else if(typeof isExc === 'function' && isExc(p.name) && !vonlyOpen(p.name))
-    errs.push('🚫 예외로 빼놓은 상품입니다 — 오늘 판매하지 않습니다. 판매하려면 카탈로그에서 [↩ 판매 재개]를 먼저 누르세요.');
-  /* 🚫 재고 없음 — 발주도 막는다 (2026-09-29 홍팀장 "0개는 발주도 막는다"). 서버(doSubmit)도 한 번 더 막는다. */
-  else if(zeroNow(p))
-    errs.push('🚫 재고 없음 — 지금 수량이 없는 상품입니다. 수량 문의: 010-2455-4156 홍찬화 팀장');
-  /* 🐟 홍어는 삭힘정도가 없으면 창고가 출고를 못 한다 (홍팀장 2026-09-02).
-     경고로 두면 그냥 지나쳐 발주가 나가버린다 — 막는다. */
-  else if(needAge(p.name) && !ageOf(r.name))
-    errs.push('🐟 삭힘정도를 골라주세요 — 삭힘정도가 없으면 출고되지 않습니다.');
+  else {
+    /* ✅ 마스터 승인 (2026-10-06 홍팀장 「사유 알려주고 그래도 불구하고 내가 발주 승인 누르면 발주 가능하게」)
+       예외·재고 없음은 대신 발주(마스터)에서만 [✅ 발주 승인]으로 넘길 수 있다. 업체 화면은 그대로 막는다.
+       승인은 상품 이름 단위로 이 화면에만 남고, 서버(doSubmit)도 마스터가 보낸 승인 목록만 믿는다. */
+    const why = [];
+    if(typeof isExc === 'function' && isExc(p.name) && !vonlyOpen(p.name))
+      why.push(amMaster() ? '🚫 예외로 빼놓은 상품 (오늘 판매 안 함)' : '🚫 예외로 빼놓은 상품입니다 — 오늘 판매하지 않습니다. 판매하려면 카탈로그에서 [↩ 판매 재개]를 먼저 누르세요.');
+    /* 🚫 재고 없음 — 발주도 막는다 (2026-09-29 홍팀장 "0개는 발주도 막는다"). 서버(doSubmit)도 한 번 더 막는다. */
+    else if(zeroNow(p))
+      why.push(amMaster() ? '🚫 재고 없음 (수량 웹 잔여 0)' : '🚫 재고 없음 — 지금 수량이 없는 상품입니다. 수량 문의: 010-2455-4156 홍찬화 팀장');
+    if(why.length){
+      if(apprOk(p)) warns.push('✅ 마스터 승인으로 넣습니다 — ' + why.join(' · '));
+      else errs.push(why.join(' · ') + (amMaster() ? ' — 그래도 넣으려면 [✅ 발주 승인]' : ''));
+    }
+    /* 🐟 홍어는 삭힘정도가 없으면 창고가 출고를 못 한다 (홍팀장 2026-09-02).
+       경고로 두면 그냥 지나쳐 발주가 나가버린다 — 막는다. */
+    if(!why.length || apprOk(p)){
+      if(needAge(p.name) && !ageOf(r.name))
+        errs.push('🐟 삭힘정도를 골라주세요 — 삭힘정도가 없으면 출고되지 않습니다.');
+    }
+    apprWhy = (why.length && amMaster()) ? why.join(' · ') : '';
+  }
 
   /* 🦴 뼈·머리를 적어 왔는데 민장 민물장어 다섯 개가 아니면 — 막지는 않되 그 요청이 빠진다는 걸 말한다.
      조용히 떼어 버리면 업체는 넣어 달라고 한 줄 알고 기다린다. */
@@ -659,7 +676,7 @@ function checkRow(r){
     else if(lim && q > lim) warns.push('📦 ' + p.name + ' 는 한 상자에 ' + lim + '개까지입니다 — '
       + capChunks(q, lim).join('+') + ' 로 나눠 넣습니다.');
   }
-  return {p, errs, warns, cands: res.cands, qty: (q > 0 ? q : 0)};
+  return {p, errs, warns, cands: res.cands, qty: (q > 0 ? q : 0), apprWhy};
 }
 
 // ── 우리 양식으로 변환 ───────────────────────────────────────────
@@ -1425,6 +1442,9 @@ function rowHtml(r, i){
     h += '<tr class="' + (bad ? 'bad' : '') + '"><td></td><td colspan="7" style="padding-top:0">';
     if(c.errs.length) h += '<div class="orderr">⚠️ ' + c.errs.map(esc).join('<br>⚠️ ') + '</div>';
     if(c.warns.length) h += '<div class="ordwarn">' + c.warns.map(esc).join('<br>') + '</div>';
+    /* ✅ 마스터 승인 버튼 — 사유를 확인창으로 한 번 더 보여 주고 누르면 이 상품을 넣을 수 있게 된다 */
+    if(c.apprWhy && c.p) h += '<div class="ordcand"><button class="ordb2' + (apprOk(c.p) ? '' : ' pri') + '" data-appr="' + i
+      + '" style="margin:3px 5px 0 0">' + (apprOk(c.p) ? '↩ 승인 취소' : '✅ 발주 승인') + '</button></div>';
     /* 🐟 삭힘정도 고르기 — 고른 단계는 상품명 뒤에 (중수) 로 붙어 당일 시트까지 그대로 나간다.
        업체가 이미 「홍어 500g (중수)」로 적어 왔으면 그 단계가 눌린 채로 뜬다. */
     if(askAge){
@@ -1739,6 +1759,8 @@ async function submit(){
       // 🔒 미리보기만 막으면 소용없다 — 시트로 실제로 나가는 값에도 같은 규칙을 건다
       req.forName = FOR.name; req.forAddr = outAddr(FOR.name, FOR.addr); req.forPhone = FOR.phone || '';
       req.andPush = true;
+      const ap = Object.keys(APPROVED).map(k => APPROVED[k]);
+      if(ap.length) req.approved = ap;              // ✅ 마스터 승인 — 서버도 이 이름만 재고 없음 검사에서 뺀다
     } else if(altOf()) req.asBiz = altOf().name;   // 🏢 추가 사업자로 넣기
     /* 🔴 같은 발주가 두 번 들어가는 것을 서버가 막으면 `dup` 으로 돌아온다 (2026-08-26).
        조용히 넘어가지도, 조용히 또 넣지도 않는다 — 이미 접수된 발주번호를 보여주고 사람이 정한다. */
@@ -1761,6 +1783,7 @@ async function submit(){
     }
     ROWS = [blank(), blank(), blank()];
     OPEN = -1;
+    APPROVED = {};                                  // ✅ 승인은 이번 발주까지만
     saveDraft();
     /* 🔴 발주가 나갔으면 '어느 업체' 칸은 비운다 (홍팀장 2026-08-26)
        마지막에 고른 업체가 화면에 남아 있으면, 다음 발주 때 그 업체 것으로 착각하고
@@ -3672,6 +3695,18 @@ document.addEventListener('click', e => {
      +'rec:5' 가 NaN 이 되어 splice(NaN,1) → **발주 첫 줄이 조용히 사라진다.** */
   const del = e.target.closest && e.target.closest('button.orddel[data-del]');
   if(del){ ROWS.splice(+del.getAttribute('data-del'), 1); if(!ROWS.length) ROWS = [blank()]; OPEN = -1; clearFind(); paint(); return; }
+  /* ✅ 마스터 발주 승인 — 사유를 보여 주고 확인받는다. 같은 상품이 든 줄은 전부 같이 풀린다 */
+  const ap = e.target.closest && e.target.closest('button[data-appr]');
+  if(ap){
+    const c = ROWS[+ap.getAttribute('data-appr')] ? checkRow(ROWS[+ap.getAttribute('data-appr')]) : null;
+    if(c && c.p && amMaster()){
+      const k = pkeyO(c.p.name);
+      if(APPROVED[k]) delete APPROVED[k];
+      else if(confirm('「' + c.p.name + '」\n\n막힌 사유 : ' + c.apprWhy + '\n\n그래도 이 상품을 발주로 넣을까요?')) APPROVED[k] = c.p.name;
+      paint();
+    }
+    return;
+  }
   /* 🐟 삭힘정도 고르기 — 상품명은 그대로 두고 뒤 괄호만 갈아 끼운다 (홍팀장 2026-09-02) */
   const ag = e.target.closest && e.target.closest('[data-age]');
   if(ag){
