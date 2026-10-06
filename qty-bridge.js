@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06h';
+  var QTYB_VER = '2026-10-06i';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -134,14 +134,17 @@
   var SHEETQ = Promise.resolve();
   function tallyTab(tab, startRow) {
     function once() { return sheetPost('tally', [], { tab: tab }, 20000); }
-    var p = SHEETQ.then(function () {
-      return once().catch(function () { return once(); }).then(function (j) {
+    function viaApi() {
+      return once().then(function (j) {
         var map = {};
         (j.rows || []).forEach(function (r) { map[nk(r.name)] = { name: r.name, qty: r.qty }; });
         return { map: map, lines: j.lines || 0, tab: j.tab || tab };
-      }, function () {
-        return tallyTabViaProxy(tab, startRow);       // 전용 입구가 막히면 예전 길로
       });
+    }
+    /* 🔴 2026-10-06 14시 마감 직전 「F버전 여전히 응답 없다」 — 시트 웹앱이 계속 먹통이라 읽기는 프록시를 먼저 쓴다(실측 2초).
+       프록시가 안 되면 웹앱으로. 쓰기(out/back)는 여전히 웹앱이다. */
+    var p = SHEETQ.then(function () {
+      return tallyTabViaProxy(tab, startRow).catch(function () { return viaApi(); });
     });
     SHEETQ = p.catch(function () {});
     return p;
