@@ -1,4 +1,4 @@
-/* qty-bridge.js — 수량 웹(service.masterc.co.kr/qty) 위에 얹는 발주 대조 패널
+﻿/* qty-bridge.js — 수량 웹(service.masterc.co.kr/qty) 위에 얹는 발주 대조 패널
  * ─────────────────────────────────────────────────────────────────────────
  * 왜 여기(남의 페이지)에서 도느냐 :
  *   수량 웹은 마스터(본사) PHP 시스템이고 CORS 를 안 열어 준다 — 2026-09-28 실측:
@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-02c';
+  var QTYB_VER = '2026-10-06a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -451,6 +451,10 @@
       } else if (parts.length === 2) {
         nm = parts[0];
         q = num(parts[1]);
+      } else if (/[xX×]\s*\d+\s*(?:개|EA)?$/i.test(s)) {
+        /* 「상품명 x 1」 — 카톡·발주서에서 그대로 긁어 온 꼴 (2026-10-06 수동 대조) */
+        var mx = s.match(/^(.*?)\s*[xX×]\s*(\d+)\s*(?:개|EA)?$/i);
+        nm = mx[1]; q = num(mx[2]);
       } else {
         var m = s.match(/^(.*?)[\s·|]+(\d+)\s*(?:개|EA)?$/i);
         if (!m) { bad.push(s); return; }
@@ -970,6 +974,8 @@
       '  <textarea id="qtyb-in" placeholder="연안 활 숫게 1kg&#9;30&#10;맛상 닭목살 1kg&#9;12"></textarea>' +
       '  <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
       '    <button class="pri" id="qtyb-sheet">📄 가져오기_당일</button>' +
+      /* ✍️ 수동 대조 — 위 칸에 직접 붙여넣은 것으로 대조 (2026-10-06 홍팀장, 시트 안 거치는 급한 발주) */
+      '    <button class="pri" id="qtyb-manual">✍️ 수동 대조</button>' +
       '    <button class="pri" id="qtyb-none">📦 가져오기_재고없음</button>' +
       '    <button id="qtyb-check">🧾 수량 점검</button>' +
       /* 「↩️ 구해진 것 당일로」 는 뺐다 (2026-09-29 홍팀장 「이거 2개 같은 기능」) — 📦 가져오기_재고없음 이
@@ -1048,6 +1054,37 @@
       }, function (e) {
         b.disabled = false; b.textContent = old;
         stat('시트를 못 읽음');
+        alert(e.message || e);
+      });
+    };
+
+    /* ✍️ 수동 대조 — 칸에 붙여넣은 「상품명 x 수량」(또는 탭·띄어쓰기) 그대로 대조한다.
+       당일 탭은 안 읽고 칸을 덮어쓰지도 않는다. 창고는 새로 긁고, 기준 날짜 시트(나간 것)는 같이 읽는다. */
+    el('qtyb-manual').onclick = function () {
+      var b = this, old = b.textContent;
+      var day = dayTab();
+      var parsed = parseNeed(el('qtyb-in').value);
+      if (!Object.keys(parsed.map).length) { alert('위 칸에 「상품명 x 수량」 을 한 줄씩 붙여넣어 주세요.'); return; }
+      if (parsed.bad.length) alert('못 읽은 줄 ' + parsed.bad.length + '개 — 빼고 대조합니다:\n' + parsed.bad.join('\n'));
+      b.disabled = true; b.textContent = '창고 긁는 중…';
+      Promise.all([
+        tallyTab(day).catch(function () { return null; }),
+        scanAll()
+      ]).then(function (r) {
+        var done = r[0];
+        DONE_OK = !!done; DONE_TAB = day; DONE_LINES = done ? done.lines : 0;
+        done = done || { map: {}, lines: 0, tab: day };
+        DONE_MAP = {};
+        Object.keys(done.map).forEach(function (k) { DONE_MAP[k] = done.map[k].qty; });
+        SHEET_DONE = Object.keys(done.map)
+          .map(function (k) { return done.map[k].name + '\t' + done.map[k].qty; }).join('\n');
+        stat('수동 ' + Object.keys(parsed.map).filter(function (k) { return k.indexOf('#raw:') !== 0; }).length + '개 · '
+           + (DONE_OK ? (day + ' 나간 것 ' + Object.keys(done.map).length + '개') : ('⚠️ ' + day + ' 시트 못 읽음')));
+        b.disabled = false; b.textContent = old;
+        run();
+      }, function (e) {
+        b.disabled = false; b.textContent = old;
+        stat('창고를 못 읽음');
         alert(e.message || e);
       });
     };
