@@ -1124,6 +1124,11 @@
     el('qtyb-none').onclick = function () {
       var b = this, old = b.textContent;
       b.disabled = true; b.textContent = '재고 없음 읽는 중…';
+      /* 🤖 불러올 때 «걸어 둔 대기·증량보다 더 필요하다» 고 판단되면 자동으로 모자란 만큼 건다 (2026-10-06 홍팀장
+         「대기 걸어 놓은 거·증량 요청한 거보다 더 필요하네 판단되면 수정해 줘야 된다」). 확인창 없이 한 번 걸고 다시 읽는다.
+         다시 읽은 회차에선 또 걸지 않는다(__QTYB_NOAUTO). */
+      var autoAct = !window.__QTYB_NOAUTO;
+      window.__QTYB_NOAUTO = false;
       /* ⚡ 시트 읽기는 누르자마자 시작한다 — 창고 긁기(수량 웹)와 겹쳐 돌게(2026-10-06, 예전엔 긁기가 끝난 뒤에야 시작). */
       var sheetsP = Promise.all([tallyTab('재고 없음', 2),
                                  tallyTab('당일').catch(function () { return null; }),
@@ -1239,7 +1244,7 @@
              걸기 직전에 그 줄을 다시 읽어 그 사이 누가 더 걸었으면 그만큼 뺀다. 대기는 총량으로 보낸다. */
           var ag = el('qtyb-actgo');
           if (ag) ag.onclick = function () {
-            if (!confirm('수량 웹에 실제로 겁니다 — ' + acts.length + '건\n\n'
+            if (!autoAct && !confirm('수량 웹에 실제로 겁니다 — ' + acts.length + '건\n\n'
                 + acts.map(function (r) { return '· [' + (r.act.t === 'more' ? '증량요청' : '대기') + '] ' + r.name + ' ' + r.act.n + '개'; }).join('\n')
                 + '\n\n증량요청 사유 : ' + WHY_DEFAULT)) return;
             var bb = this; bb.disabled = true;
@@ -1249,6 +1254,7 @@
                 el('qtyb-uplog').innerHTML = '<b>건 것</b><br>' + (done.length ? done.join('<br>') : '없음')
                   + (fail.length ? '<br><br><b style="color:#b91c1c">안 된 것</b><br>' + fail.join('<br>') : '')
                   + '<br><br>다시 읽는 중…';
+                window.__QTYB_NOAUTO = true;                                   // 다시 읽을 땐 자동으로 또 걸지 않는다(무한 반복 방지)
                 setTimeout(function () { el('qtyb-none').click(); }, 900);     // 걸린 상태로 다시 검토
                 return;
               }
@@ -1265,6 +1271,7 @@
             })(0);
           };
 
+          if (ag && autoAct) { el('qtyb-uplog').innerHTML = '🤖 모자란 대기·증량 ' + acts.length + '건 자동으로 거는 중…'; ag.onclick.call(ag); }
           var up = el('qtyb-upgo');
           if (up) up.onclick = function () {
             var list = ok.map(function (r) { return { name: r.name, qty: r.can }; });
