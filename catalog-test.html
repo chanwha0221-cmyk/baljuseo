@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.159</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.160</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3443,8 +3443,15 @@ function pendNudge(){
    마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) — 월 시트 Q열과 같은 식. 자료는 마지막 딸깍(상시·당일) 기준.
    masterc 에서 단가를 고치고 다시 보내기를 누른 뒤 이 탭을 다시 열면 빠진다(열 때마다 새로 받는다). */
 const LOWM_MAX=8;
+/* 🔎 지금 카탈로그에 실제로 떠 있는 상품만 (2026-10-06 홍팀장 「품절 상품도 있으니 노출되는 것만 추려서」)
+   = ALL 에 있고(예외·숨긴 창고·품절로 빠진 것 제외) 재고 0(🚫 재고 없음)도 아닌 것. */
+function lowmVisible(rows){
+  const on=new Set((typeof ALL!=='undefined'?ALL:[]).filter(p=>!p.exc).map(p=>pkey(p.name)));
+  return rows.filter(r=>on.has(pkey(r.n))&&!(typeof isZeroQ==='function'&&isZeroQ(r.n)));
+}
 async function loadLowm(){
   const j=await api('lowmargin',{token:ME.token,max:LOWM_MAX});
+  j.all=j.rows.length; j.rows=lowmVisible(j.rows);
   lowmBadge(j.rows.length);
   return j;
 }
@@ -3452,7 +3459,7 @@ function lowmBadge(n){const b=$('lowmBadge');if(b){b.textContent=n;b.style.displ
 function renderLowm(j){
   const won=n=>Math.round(+n||0).toLocaleString();
   const ago=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'없음';
-  let h=subHead('💸 저마진 상품','마진율 '+j.max+'% 이하 '+j.rows.length+'개 · 마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
+  let h=subHead('💸 저마진 상품','마진율 '+j.max+'% 이하 · 카탈로그에 떠 있는 것 '+j.rows.length+'개'+(j.all>j.rows.length?' (품절·재고 없음·예외로 안 보이는 '+(j.all-j.rows.length)+'개 뺌)':'')+' ·마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
     +'<br>masterc에서 단가를 고치고 보내기를 다시 누른 뒤 이 탭을 다시 열면 반영됩니다. 🔒 마스터에게만 보입니다.');
   if(!j.rows.length)return h+'<div class="empty">마진율 '+j.max+'% 이하 상품이 없습니다.</div>';
   const th='padding:7px 8px;border-bottom:2px solid var(--line);text-align:right;white-space:nowrap;font-size:12px;color:var(--muted)';
@@ -3476,7 +3483,7 @@ function renderUser(){
   if(!ME)return;
   /* 💸 저마진 — 마스터만. 개수는 뒤에서 받아 배지로 (실패해도 화면은 그대로) */
   const lm=$('mbLowm');
-  if(lm){lm.style.display=ME.master?'':'none';if(ME.master&&ME.token)api('lowmargin',{token:ME.token,max:LOWM_MAX}).then(j=>lowmBadge(j.rows.length)).catch(()=>{});}
+  if(lm){lm.style.display=ME.master?'':'none';if(ME.master&&ME.token)api('lowmargin',{token:ME.token,max:LOWM_MAX}).then(j=>{const go=()=>{if(typeof ALL!=='undefined'&&ALL.length)lowmBadge(lowmVisible(j.rows).length);else setTimeout(go,1500);};go();}).catch(()=>{});}
   // 발주 내역은 웹앱이 붙어 있을 때만
   const mo=$('mbOrders');
   if(mo)mo.style.display=(API&&ME.token)?'':'none';
