@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06d';
+  var QTYB_VER = '2026-10-06e';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -91,13 +91,16 @@
      반드시 «줄 수» 로 볼 것. */
   function haveIdx() { return !!(IDX && Object.keys(IDX).length); }
 
-  function sheetPost(action, rows, extra) {
+  function sheetPost(action, rows, extra, ms) {
     var body = { token: SHEET_TOKEN, action: action, rows: rows || [], sheet: SHEET_ID };
     if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
+    /* ⏱ 읽기(tally)는 시간 제한을 건다 — 안 오는 요청이 60초씩 버티다 «Failed to fetch» 로 끝났다(2026-10-06). */
+    var ac = (ms && typeof AbortController === 'function') ? new AbortController() : null;
+    var tm = ac ? setTimeout(function () { ac.abort(); }, ms) : null;
     return fetch(SHEET_API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(body)
-    }).then(function (r) { return r.text(); }).then(function (t) {
+      body: JSON.stringify(body), signal: ac ? ac.signal : undefined
+    }).then(function (r) { if (tm) clearTimeout(tm); return r.text(); }, function (e) { if (tm) clearTimeout(tm); throw e; }).then(function (t) {
       var j = null;
       try { j = JSON.parse(t); } catch (e) { throw new Error('시트가 응답하지 않습니다'); }
       if (!j.ok) throw new Error(j.error || '시트가 거절했습니다');
@@ -125,14 +128,23 @@
   /* 탭 하나를 상품별 합계로.
      🔴 2026-09-28 : 공용 sheets-proxy 가 45초 넘게 안 오는 일이 있다(구글 대기줄, 낮엔 1초).
         그래서 «우리 전용 웹앱» 을 먼저 부르고, 그게 안 되면 프록시로 되돌아간다. */
+  /* 🔴 2026-10-06 「재고 없음 읽어오는 게 너무 오래 걸리고 시트를 못 읽었대」 — 실측:
+       웹앱을 탭 3개 «동시에» 부르면 구글이 60초 끌다가 끊었다(Failed to fetch). 하나씩 부르면 2~4초(처음 한 번만 15~20초).
+     → 시트 읽기는 한 줄로 세워 «하나씩» 보낸다(SHEETQ). 한 번에 35초까지만 기다리고, 안 되면 한 번 더, 그래도 안 되면 프록시로. */
+  var SHEETQ = Promise.resolve();
   function tallyTab(tab, startRow) {
-    return sheetPost('tally', [], { tab: tab }).then(function (j) {
-      var map = {};
-      (j.rows || []).forEach(function (r) { map[nk(r.name)] = { name: r.name, qty: r.qty }; });
-      return { map: map, lines: j.lines || 0, tab: j.tab || tab };
-    }, function () {
-      return tallyTabViaProxy(tab, startRow);       // 전용 입구가 막히면 예전 길로
+    function once() { return sheetPost('tally', [], { tab: tab }, 35000); }
+    var p = SHEETQ.then(function () {
+      return once().catch(function () { return once(); }).then(function (j) {
+        var map = {};
+        (j.rows || []).forEach(function (r) { map[nk(r.name)] = { name: r.name, qty: r.qty }; });
+        return { map: map, lines: j.lines || 0, tab: j.tab || tab };
+      }, function () {
+        return tallyTabViaProxy(tab, startRow);       // 전용 입구가 막히면 예전 길로
+      });
     });
+    SHEETQ = p.catch(function () {});
+    return p;
   }
 
   function tallyTabViaProxy(tab, startRow) {
@@ -1101,6 +1113,11 @@
     el('qtyb-none').onclick = function () {
       var b = this, old = b.textContent;
       b.disabled = true; b.textContent = '재고 없음 읽는 중…';
+      /* ⚡ 시트 읽기는 누르자마자 시작한다 — 창고 긁기(수량 웹)와 겹쳐 돌게(2026-10-06, 예전엔 긁기가 끝난 뒤에야 시작). */
+      var sheetsP = Promise.all([tallyTab('재고 없음', 2),
+                                 tallyTab('당일').catch(function () { return null; }),
+                                 tallyTab(dayTab()).catch(function () { return null; })]);
+      sheetsP.catch(function () {});
       // 검토는 언제나 새로 긁는다 — 대기·증량을 건 직후 다시 볼 때 옛 잔여로 판정하면 안 된다
       scanAll().then(function () {
           if (haveIdx()) stockPush(true, IDX);      // 긁은 판으로 카탈로그 재고도 같이 (뒤에서)
@@ -1109,11 +1126,7 @@
         /* 🔴 «잡아둔 여유» 는 시트 기준으로 센다 (2026-09-30 홍팀장 전어 11개) — 수량 웹 «사용» 칸이 아니라
               당일 탭에 남은 그 상품 + 기준 날짜 시트에 나간 것. 아침에 1개 잡으며 사용 1 을 적었는데 그 주문까지
               재고 없음으로 내려가서, 여유를 11−1=10 으로 보고 1개를 남겼다. 시트를 못 읽으면 예전처럼 사용 칸. */
-        .then(function () {
-          return Promise.all([tallyTab('재고 없음', 2),
-                              tallyTab('당일').catch(function () { return null; }),
-                              tallyTab(dayTab()).catch(function () { return null; })]);
-        })
+        .then(function () { return sheetsP; })
         .then(function (rr) {
           var no = rr[0], dg = rr[1], dn = rr[2];
           var sheetOk = !!(dg && dn);
