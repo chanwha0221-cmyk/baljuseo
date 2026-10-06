@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06c';
+  var QTYB_VER = '2026-10-06d';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -356,6 +356,8 @@
       .catch(function () { return { th: [], rows: [] }; });
   }
 
+  // 지금 수량 웹에 «기다리는 중» 으로 걸린 우리 대기 총량 (손으로 거는 칸의 처음 값)
+  function waitNow(k) { var w = WAIT[k]; return (w && w.pend) ? w.qty : 0; }
   function loadMy() {
     MORE = {}; WAIT = {}; OURS = {}; DRAW = {};
     return Promise.all([fetchMy('more'), fetchMy('wait'), fetchMy('ours'), fetchMy('draw')])
@@ -1829,7 +1831,12 @@
         '<td>' + x.mine + '</td>' +
         '<td>' + x.row.left + '</td>' +
         '<td>' + (x.set ? '<b>' + ((x.ghost ? 0 : x.mine) + x.set) + '</b>' : '') + '</td>' +
-        '<td>' + (x.wait || '') + '</td>' +
+        /* ✍️ 대기 총량을 손으로 늘려 바로 거는 칸 (2026-10-06 홍팀장 「대기 7·1 이 다른 발주 때 건 건데 이번에도
+           필요할 수 있잖아 — 여기서 대기 수량 바꾸면 실제로 걸리게」). 칸 값 = 수량 웹에 걸린 우리 대기 «총량». */
+        '<td style="white-space:nowrap">' + (x.wait ? '<b>+' + x.wait + '</b><br>' : '') +
+          '<input class="wq" data-wk="' + esc(x.row.key) + '" type="number" min="0" value="' + waitNow(x.row.key) + '" ' +
+          'style="width:46px;border:1px solid #cfd6e0;border-radius:5px;padding:2px 4px;font:12px Pretendard,sans-serif" title="걸어 둘 대기 총량">' +
+          ' <button class="wgo" data-wk="' + esc(x.row.key) + '" style="font-size:11px;padding:2px 6px">걸기</button></td>' +
         '<td>' + (x.more || '') + '</td>' +
         '<td class="mut">' + esc(x.row.dlRaw.replace(/^.*?:\s*/, '')) + (ml != null && ml <= 120 ? ' <b>' + ml + '분</b>' : '') + '</td>' +
         '</tr>';
@@ -1865,6 +1872,27 @@
         var k = this.getAttribute('data-drop');
         DROPPED[k] = 1;
         draw(hits.filter(function (x) { return !DROPPED[x.row.key]; }), miss, bad, notes);
+      };
+    });
+
+    /* ✍️ 대기 총량 손으로 걸기 — 걸기 직전 그 줄을 다시 읽어(freshRow) 지금 걸린 수보다 «늘릴 때만» 보낸다.
+       do=wait 의 qty 는 우리 회사 대기 총량이다(actWait 주석). 줄이기는 수량 웹 동작을 확인 못 해서 막아 둔다 — 수량 웹에서 직접. */
+    [].forEach.call(document.querySelectorAll('#' + PANEL_ID + ' .wgo'), function (b) {
+      b.onclick = function () {
+        var k = this.getAttribute('data-wk'), x = byKey[k];
+        var inp = document.querySelector('#' + PANEL_ID + ' .wq[data-wk="' + k.replace(/"/g, '\\"') + '"]');
+        var n = parseInt(inp && inp.value, 10);
+        if (!x || isNaN(n) || n < 0) { alert('대기 수량을 숫자로 넣어 주세요.'); return; }
+        var btn = this; btn.disabled = true;
+        freshRow(x.row).then(function (f) {
+          if (n === f.wait) { alert('이미 대기 ' + f.wait + '개가 걸려 있습니다.'); return; }
+          if (n < f.wait) { alert('지금 걸린 대기 ' + f.wait + '개보다 적게는 여기서 못 줄입니다 — 수량 웹에서 직접 줄여 주세요.'); return; }
+          if (!confirm(x.row.name + '\n\n대기 ' + f.wait + '개 → ' + n + '개 (' + (n - f.wait) + '개 추가)\n수량 웹에 실제로 겁니다.')) return;
+          return qpost({ do: 'wait', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: n }).then(function () {
+            return loadMy().then(function () { run(); });
+          });
+        }).catch(function (e) { alert('대기를 못 걸었습니다 — ' + (e.message || e)); })
+          .then(function () { btn.disabled = false; });
       };
     });
 
