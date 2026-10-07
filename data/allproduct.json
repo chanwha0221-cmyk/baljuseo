@@ -1,7 +1,76 @@
 {
- "updatedAt": "2026-10-07 09:46",
+ "updatedAt": "2026-10-07 10:01",
  "supplier": "마스터 유통",
  "products": [
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "충무",
+   "category": "수산",
+   "name": "통통 생물 오징어 1kg",
+   "spec": [
+    "※ 원산지 : 국내산 (통영)",
+    "※ 구성 : 오징어",
+    "※ 중량/ 사이즈 : 2-5미 내외 (생물 수분감량 10%)",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 오징어 100%",
+    "※ 포장방식 : 빙장포장, 실링포장."
+   ],
+   "supplyPrice": 13000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운/롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/22779452.jpg?v=1789633859",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "군산",
+   "category": "",
+   "name": "군산 활 로얄 갑오징어 1kg",
+   "spec": [
+    "※ 원산지 : 국내산(서해안)",
+    "※ 구성 : 갑오징어 1kg",
+    "※ 중량/ 사이즈 : 1kg 내외 / (10-20미 내외)",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 갑오징어 100%",
+    "※ 포장방식 : 비닐실링"
+   ],
+   "supplyPrice": 8000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.kr/xd/thumbs/25401003.jpg?v=1789633852",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "군산",
+   "category": "",
+   "name": "바다삼치 3kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 바다삼치 3kg",
+    "※ 중량/ 사이즈 : 3kg / 7-8미내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 삼치 100%",
+    "※ 포장방식 : 빙장포장"
+   ],
+   "supplyPrice": 19000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/23237594.jpg?v=1791332102",
+   "note": ""
+  },
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "진수",
@@ -216,52 +285,6 @@
    "warehouse": "당일생물",
    "sourceWarehouse": "군산",
    "category": "",
-   "name": "군산 활 로얄 갑오징어 1kg",
-   "spec": [
-    "※ 원산지 : 국내산(서해안)",
-    "※ 구성 : 갑오징어 1kg",
-    "※ 중량/ 사이즈 : 1kg 내외 / (10-20미 내외)",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 갑오징어 100%",
-    "※ 포장방식 : 비닐실링"
-   ],
-   "supplyPrice": 8000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "",
-   "image": "https://masterc.kr/xd/thumbs/25401003.jpg?v=1789633852",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "군산",
-   "category": "",
-   "name": "바다삼치 3kg",
-   "spec": [
-    "※ 원산지 : 국내산",
-    "※ 구성 : 바다삼치 3kg",
-    "※ 중량/ 사이즈 : 3kg / 7-8미내외",
-    "※ 생물여부 : 생물",
-    "※ 성분표시 : 삼치 100%",
-    "※ 포장방식 : 빙장포장"
-   ],
-   "supplyPrice": 19000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "롯데택배",
-   "shipFee": 4000,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.kr/xd/thumbs/23237594.jpg?v=1791332102",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "군산",
-   "category": "",
    "name": "생물 큼직 돌꼬막 3kg",
    "spec": [
     "※ 원산지 : 국내산(서해안)",
@@ -379,6 +402,30 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.kr/xd/thumbs/24913115.jpg?v=1789633867",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "디디",
+   "category": "",
+   "name": "활어 킹크랩 2.5kg급",
+   "spec": [
+    "※ 원산지 : 러시아산",
+    "※ 구성 : 활어 브라운 킹크랩 1마리",
+    "※ 중량/사이즈 : 2.5kg급",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 킹크랩 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 특이사항 : 생물 특성상 배송중 수분 감량 10~20% 있을 수 있음"
+   ],
+   "supplyPrice": 102500,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/25428960.jpg?v=1791275402",
    "note": ""
   },
   {
@@ -796,6 +843,29 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "",
    "image": "https://masterc.kr/xd/thumbs/25426299.jpg?v=1790674202",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "후포디",
+   "category": "수산",
+   "name": "초박달 대왕 홍게 3kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 홍게 3kg",
+    "※ 중량/ 사이즈 : 3kg / 5~6미 내외",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 홍게 100%",
+    "※ 포장방식 : 비닐포장"
+   ],
+   "supplyPrice": 39000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "로젠택배/씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/24848294.jpg?v=1789633851",
    "note": ""
   },
   {
@@ -9578,7 +9648,7 @@
     "※ 성분표시  : 오징어 100%",
     "※ 포장방식  : 비닐실링"
    ],
-   "supplyPrice": 39500,
+   "supplyPrice": 42000,
    "previousPrice": null,
    "tax": "면세",
    "courier": "씨제이대한통운/롯데택배",
@@ -9601,7 +9671,7 @@
     "※ 성분표시  : 오징어 100%",
     "※ 포장방식  : 비닐실링"
    ],
-   "supplyPrice": 42000,
+   "supplyPrice": 44000,
    "previousPrice": null,
    "tax": "면세",
    "courier": "씨제이대한통운/롯데택배",
@@ -11195,7 +11265,7 @@
     "※ 포장방식 : 비닐포장",
     "※ 기타 : 다리 떨어짐으로 인한 클레임은 처리가 어렵습니다."
    ],
-   "supplyPrice": 57000,
+   "supplyPrice": 60000,
    "previousPrice": null,
    "tax": "면세",
    "courier": "우체국택배",
@@ -11219,7 +11289,7 @@
     "※ 포장방식 : 벌크포장",
     "※ 기타 : 다리 떨어짐으로 인한 클레임은 처리가 어렵습니다."
    ],
-   "supplyPrice": 33000,
+   "supplyPrice": 36000,
    "previousPrice": null,
    "tax": "면세",
    "courier": "우체국택배",
