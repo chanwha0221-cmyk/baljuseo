@@ -571,11 +571,11 @@ async function loadAll(){
   try{
     setStatus('동기화 중…');
     // 시트 쪽 준비(탭 확인·머리글·메일설정)는 프록시가 밀려도 목록 읽기를 막지 않는다 — 목록 원본은 Supabase다
-    try{
+    /* 🔴 기다리지 않는다 (2026-10-07) — 프록시가 밀리면 여기서 화면이 「동기화 중」에 멈췄다. 설정·목록 원본은 Supabase다. */
+    (async()=>{ try{
       const tabs=await listTabs();
       if(!tabs.includes(DATA_TAB)) await addTab(DATA_TAB,HEADER); else await sheetPut(DATA_TAB,'A1',[HEADER]);
-      if(!tabs.includes(SET_TAB)) await addTab(SET_TAB,null);
-    }catch(e){ console.warn('시트 탭 확인 건너뜀',e); }
+    }catch(e){ console.warn('시트 탭 확인 건너뜀',e); } })();
     try{ await loadSettings(); }catch(e){ console.warn('메일설정 읽기 실패 — 기본 템플릿으로',e); toast('메일설정을 못 읽었어요 — 템플릿은 새로고침 후 다시 확인해 주세요'); }
     /* 📝 메일 템플릿 (홍팀장 2026-09-11) — 표준·기본 템플릿 없음.
        이 기기에서 마지막으로 쓴 내 템플릿이 뜨고, 없으면 MAIL_START. 링크 자동 보정 없음. */
