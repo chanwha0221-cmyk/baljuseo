@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-07d';
+  var QTYB_VER = '2026-10-07e';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1479,6 +1479,18 @@
     paint('예약했습니다 — 5분마다 확인합니다(내일 ' + PRE_UNTIL_H + '시까지). 이 탭은 켜 두세요.');
   }
 
+  /* 🧮 튀는 날 깎기 (2026-10-07 홍팀장 「새우가 10개씩 나가다가 어떤 업체가 특판을 해서 100개가 나갔어,
+        그렇다고 평균 늘려서 내일 오바해서 잡으면 안 된다」) — 6일 중앙값의 2배를 넘는 날은 «중앙값×2» 로 깎고 평균을 낸다.
+        예) 10·10·10·10·100·10 → 100 을 20 으로 → 평균 12 (그냥 평균이면 25). 깎은 날은 검산 표에 빨갛게 보인다. */
+  function preEstimate(seq) {
+    var s = seq.slice().sort(function (a, b) { return a - b; });
+    var n = s.length, med = n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
+    var cap = Math.max(1, Math.ceil(med * 2));
+    var raw = Math.round(seq.reduce(function (a, b) { return a + b; }, 0) / n);
+    var adj = Math.round(seq.reduce(function (a, b) { return a + Math.min(b, cap); }, 0) / n);
+    return { raw: raw, adj: adj, cap: cap, med: med };
+  }
+
   function preGrab(btn) {
     var old = btn.textContent;
     btn.disabled = true;
@@ -1517,72 +1529,100 @@
         var keys = Object.keys(per[0]).filter(function (k) {
           return k.indexOf('#raw:') !== 0 && per.every(function (m) { return (m[k] || 0) > 0; });
         });
-        var picks = [], skip = [], waits = [];
+        var items = [], skip = [];
         keys.forEach(function (k) {
           var row = IDX[k], nm = per[0]['#raw:' + k] || k;
-          var seq = per.map(function (m) { return m[k]; });
-          var avg = Math.round(seq.reduce(function (a, b) { return a + b; }, 0) / seq.length);
+          var seq = per.map(function (m) { return m[k]; }).reverse();          // 오래된 날 → 최근
+          var est = preEstimate(seq);
           // 오늘 시트로 나간 수 — «이미 쓴 몫» 은 사용 칸보다 시트가 정본이다(CLAUDE.md 재고 규칙)
           var outToday = (days[0].tab === todayTab()) ? (per[0][k] || 0) : 0;
           if (!row) { skip.push(nm + ' (수량 웹에 없음)'); return; }
           if (row.free) { skip.push(nm + ' (넉넉 — 안 잡아도 됨)'); return; }
           if (row.kind && row.kind !== '상시') { skip.push(nm + ' (당일 상품)'); return; }
-          // ⏳ 아직 안 열린 줄(품절·안 풀림·총수량 0) — 열리면 잡도록 예약 목록으로
-          if (row.locked || row.closed || !row.co) { waits.push({ key: k, name: row.name, avg: avg, outToday: outToday, seq: seq.slice().reverse() }); return; }
-          picks.push({ row: row, name: row.name, avg: avg, seq: seq.slice().reverse(), outToday: outToday });
+          items.push({ key: k, row: row, name: row.name, seq: seq, est: est, outToday: outToday,
+                       open: !(row.locked || row.closed || !row.co) });
         });
-        if (!picks.length && !waits.length) { fin('<div class="warn">🌙 6일 매일 나간 상품 중 잡을 게 없습니다.' + (skip.length ? '<br>' + skip.map(esc).join('<br>') : '') + '</div>'); return; }
+        if (!items.length) { fin('<div class="warn">🌙 6일 매일 나간 상품 중 잡을 게 없습니다.' + (skip.length ? '<br>' + skip.map(esc).join('<br>') : '') + '</div>'); return; }
         btn.textContent = '지금 잡힌 수 확인 중…';
-        // 지금 줄 상태(잡음·사용·잔여)를 다시 읽어 «더 잡을 양» 을 정한다
-        return picks.reduce(function (pr, x) {
+        // 열린 줄은 지금 상태(잡음·사용·잔여)를 다시 읽는다
+        return items.reduce(function (pr, x) {
           return pr.then(function () {
+            if (!x.open) return;
             return freshRow(x.row).then(function (f) {
               x.mine = f.mine; x.spare = Math.max(0, f.mine - Math.max(f.used, x.outToday)); x.left = f.left;
-              x.add = Math.min(Math.max(0, x.avg - x.spare), f.left);
-            }, function (e) { x.err = e.message || String(e); x.add = 0; });
+            }, function (e) { x.err = e.message || String(e); });
           });
         }, Promise.resolve()).then(function () {
-          var todo = picks.filter(function (x) { return x.add > 0; });
-          // 열려는 있는데 잔여가 0 이라 지금 못 잡는 것도 예약으로(수량이 풀리면 잡는다)
-          picks.forEach(function (x) {
-            if (!x.err && !x.add && x.left <= 0 && x.avg > x.spare) waits.push({ key: x.row.key, name: x.name, avg: x.avg, outToday: x.outToday, seq: x.seq });
-          });
-          var dayTxt = days.map(function (t) { return t.tab; }).reverse().join('·');
-          var tbl = '<div class="tw"><table><thead><tr><th>상품명</th><th>날짜별(' + esc(dayTxt) + ')</th><th>평균</th><th>안 쓴 여유</th><th>잔여</th><th>더 잡기</th></tr></thead><tbody>'
-            + picks.map(function (x) {
-                return '<tr><td class="nm">' + esc(x.name) + '</td><td class="mut">' + x.seq.join('·') + '</td><td><b>' + x.avg + '</b></td><td>'
-                  + (x.err ? '⚠️' : x.spare) + '</td><td>' + (x.err ? '' : x.left) + '</td><td' + (x.add ? ' style="font-weight:800;color:#065f46"' : ' class="mut"') + '>'
-                  + (x.err ? esc(x.err) : (x.add || (x.avg <= x.spare ? '이미 충분' : '잔여 없음'))) + '</td></tr>';
-              }).join('') + '</tbody></table></div>'
-            + (waits.length ? '<div style="margin-top:6px">⏳ <b>아직 안 열린 것 ' + waits.length + '개</b> — 열리면 평균만큼 잡도록 예약할 수 있습니다: '
-                + waits.map(function (w) { return esc(w.name) + ' (평균 ' + w.avg + ')'; }).join(' · ') + '</div>' : '')
-            + (skip.length ? '<div class="mut" style="margin-top:6px">뺀 것 — ' + skip.map(esc).join(' · ') + '</div>' : '');
-          if (!todo.length && !waits.length) { fin('<div class="warn">🌙 더 잡을 것이 없습니다 — 이미 잡아 둔 여유로 평균이 채워졌습니다.</div>' + tbl); return; }
-          box.innerHTML = '<div style="background:#eef4ff;border:1px solid #c7d9f5;border-radius:9px;padding:9px 11px;margin:8px 0;font-size:13px">🌙 최근 6일 매일 나간 상품 <b>' + (picks.length + waits.length) + '</b>개 · 지금 잡을 것 <b>' + todo.length + '</b>개 · 열리면 잡을 것 <b>' + waits.length + '</b>개</div>' + tbl;
-          if (!confirm('🌙 내일 몫 미리 잡기 (최근 6일 평균만큼)\n\n'
-              + (todo.length ? '【지금 잡기 ' + todo.length + '건】\n' + todo.map(function (x) { return '· ' + x.name + ' +' + x.add + ' (평균 ' + x.avg + ' · 안 쓴 여유 ' + x.spare + ')'; }).join('\n') + '\n\n' : '')
-              + (waits.length ? '【열리면 자동으로 잡기 ' + waits.length + '건 — 5분마다 확인, 내일 ' + PRE_UNTIL_H + '시까지】\n' + waits.map(function (w) { return '· ' + w.name + ' (평균 ' + w.avg + ')'; }).join('\n')
-                + '\n⚠️ 이 수량 웹 탭은 닫지 말고 켜 두세요(최소화는 됩니다).\n\n' : '')
-              + '수량 웹에 실제로 잡습니다.')) { fin(); return; }
-          var log = [];
-          return todo.reduce(function (pr, x, i) {
-            return pr.then(function () {
-              btn.textContent = '잡는 중 ' + (i + 1) + '/' + todo.length;
-              return freshRow(x.row).then(function (f) {
-                var add = Math.min(x.add, f.left);
-                if (add <= 0) { log.push('· ' + x.name + ' — 그 사이 잔여 없어짐'); return; }
-                return qpost({ do: 'set', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, val: f.mine + add, name: x.row.name, how: 'pop' })
-                  .then(function () { log.push('· ' + x.name + ' ' + f.mine + ' → ' + (f.mine + add)); });
-              }).catch(function (e) { log.push('· ' + x.name + ' — 실패: ' + (e.message || e)); });
-            });
-          }, Promise.resolve()).then(function () {
-            stat('🌙 미리 잡기 ' + todo.length + '건' + (waits.length ? ' · 예약 ' + waits.length + '건' : ''));
-            fin(box.innerHTML + (log.length ? '<div class="mut" style="margin-top:6px"><b>잡은 결과</b><br>' + log.map(esc).join('<br>') + '</div>' : ''));
-            if (waits.length) preWatch(waits);
-          });
+          paintPreCheck(items, days, skip);
+          fin();
         });
       });
     }).catch(function (e) { fin('<div class="warn">🌙 실패 — ' + esc(e.message || e) + '</div>'); });
+  }
+
+  /* 🧾 검산 창 — 잡기 전에 숫자를 눈으로 보고 고친다 (2026-10-07 홍팀장 「그걸 검산할 수 있는 창도 제공이 되어야 하고」).
+     날짜별 판매(깎인 날 빨강) · 그냥 평균 · 튀는 날 깎은 평균(제안) · 안 쓴 여유 · 잔여 · «내일 몫» 입력칸 · 체크.
+     «내일 몫» 은 내일 쓸 총수량이다 — 안 쓴 여유는 빼고 모자란 만큼만 더 잡는다. 0 이거나 체크를 풀면 안 잡는다. */
+  function paintPreCheck(items, days, skip) {
+    var box = el('qtyb-out');
+    var dayTxt = days.map(function (t) { return t.tab; }).reverse().join('·');
+    var h = '<div style="background:#eef4ff;border:1px solid #c7d9f5;border-radius:9px;padding:9px 11px;margin:8px 0;font-size:13px">'
+      + '🌙 <b>내일 몫 미리 잡기 — 검산</b> · 최근 6일(' + esc(dayTxt) + ') 매일 나간 상품 ' + items.length + '개<br>'
+      + '<span class="mut">빨간 숫자 = 특판처럼 튄 날(6일 중앙값의 2배 넘음) — 제안 수량에선 중앙값×2 로 깎아 셉니다. «내일 몫» 칸을 고치면 그 수로 잡습니다.</span></div>'
+      + '<div class="tw"><table><thead><tr><th>잡기</th><th>상품명</th><th>날짜별</th><th>그냥 평균</th><th>제안</th><th>안 쓴 여유</th><th>잔여</th><th>내일 몫</th><th>상태</th></tr></thead><tbody>'
+      + items.map(function (x, i) {
+          var seqH = x.seq.map(function (q) { return q > x.est.cap ? '<b style="color:#b91c1c">' + q + '</b>' : String(q); }).join('·');
+          var st = x.err ? '⚠️ ' + esc(x.err) : (x.open ? (x.left > 0 ? '지금 잡기' : '⏳ 잔여 0 — 풀리면 잡기') : '⏳ 안 열림 — 열리면 잡기');
+          return '<tr><td><input type="checkbox" data-pre-on="' + i + '"' + (x.err ? '' : ' checked') + '></td>'
+            + '<td class="nm">' + esc(x.name) + '</td><td class="mut">' + seqH + '</td>'
+            + '<td class="mut">' + x.est.raw + '</td><td><b>' + x.est.adj + '</b></td>'
+            + '<td>' + (x.open && !x.err ? x.spare : '-') + '</td><td>' + (x.open && !x.err ? x.left : '-') + '</td>'
+            + '<td><input data-pre-n="' + i + '" value="' + x.est.adj + '" inputmode="numeric" style="width:46px;text-align:center;border:1px solid #cfd6e0;border-radius:6px;padding:3px"></td>'
+            + '<td class="mut">' + st + '</td></tr>';
+        }).join('') + '</tbody></table></div>'
+      + (skip.length ? '<div class="mut" style="margin-top:6px">뺀 것 — ' + skip.map(esc).join(' · ') + '</div>' : '')
+      + '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'
+      + '<button class="pri" id="qtyb-prego">✅ 체크한 것 잡기 · 안 열린 건 예약</button>'
+      + '<span class="mut" style="align-self:center">예약은 5분마다 확인, 내일 ' + PRE_UNTIL_H + '시까지 · 이 탭은 켜 두세요</span></div>'
+      + '<div id="qtyb-prelog" class="mut" style="margin-top:6px"></div>';
+    box.innerHTML = h;
+    el('qtyb-prego').onclick = function () {
+      var go = this;
+      var pick = [];
+      items.forEach(function (x, i) {
+        var on = document.querySelector('#' + PANEL_ID + ' [data-pre-on="' + i + '"]');
+        var n = parseInt((document.querySelector('#' + PANEL_ID + ' [data-pre-n="' + i + '"]') || {}).value, 10);
+        if (!on || !on.checked || !(n > 0) || x.err) return;
+        x.target = n;
+        pick.push(x);
+      });
+      if (!pick.length) { alert('체크한 상품이 없습니다.'); return; }
+      var now = pick.filter(function (x) { return x.open && x.left > 0; });
+      var later = pick.filter(function (x) { return !(x.open && x.left > 0); });
+      if (!confirm('🌙 내일 몫 미리 잡기\n\n'
+          + (now.length ? '【지금 잡기 ' + now.length + '건】\n' + now.map(function (x) { return '· ' + x.name + ' 내일 몫 ' + x.target + ' (안 쓴 여유 ' + x.spare + ' → +' + Math.min(Math.max(0, x.target - x.spare), x.left) + ')'; }).join('\n') + '\n\n' : '')
+          + (later.length ? '【열리면 잡기 예약 ' + later.length + '건】\n' + later.map(function (x) { return '· ' + x.name + ' 내일 몫 ' + x.target; }).join('\n') + '\n\n' : '')
+          + '수량 웹에 실제로 잡습니다.')) return;
+      go.disabled = true;
+      var log = [];
+      now.reduce(function (pr, x, i) {
+        return pr.then(function () {
+          go.textContent = '잡는 중 ' + (i + 1) + '/' + now.length;
+          return freshRow(x.row).then(function (f) {
+            var spare = Math.max(0, f.mine - Math.max(f.used, x.outToday));
+            var add = Math.min(Math.max(0, x.target - spare), f.left);
+            if (add <= 0) { log.push('· ' + x.name + ' — ' + (x.target <= spare ? '이미 여유 ' + spare + '개, 안 잡음' : '그 사이 잔여 없어짐')); return; }
+            return qpost({ do: 'set', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, val: f.mine + add, name: x.row.name, how: 'pop' })
+              .then(function () { log.push('· ' + x.name + ' ' + f.mine + ' → ' + (f.mine + add)); });
+          }).catch(function (e) { log.push('· ' + x.name + ' — 실패: ' + (e.message || e)); });
+        });
+      }, Promise.resolve()).then(function () {
+        go.textContent = '✅ 끝';
+        el('qtyb-prelog').innerHTML = (log.length ? '<b>지금 잡은 것</b><br>' + log.map(esc).join('<br>') : '');
+        stat('🌙 미리 잡기 ' + now.length + '건' + (later.length ? ' · 예약 ' + later.length + '건' : ''));
+        if (later.length) preWatch(later.map(function (x) { return { key: x.key, name: x.name, avg: x.target, outToday: x.outToday }; }));
+      });
+    };
   }
 
   /* ✍️ 적힌 사용 맞추기 (2026-09-29 홍팀장) :
