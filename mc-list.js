@@ -25,7 +25,7 @@
     /* 📋 변동사항도 같이 — 우리가 취급하는 것(mine)만 카탈로그에 나간다 */
     var G = null; try { G = await (await fetch('/xd/api.php?mid=machan_chg&a=changes&days=14')).json(); } catch (e) {}
     var chg = (G && G.ok ? (G.rows || []) : []).filter(function (r) { return r.mine; }).map(function (r) {
-      return { ap: r.ap, d: r.d, raw: r.raw, k: r.k, sale: r.sale, wh: r.wh, n: r.n, p: r.p, cou: r.cou, ship: r.ship,
+      return { ap: r.ap, d: r.d, raw: r.raw, k: r.k, sale: r.sale, wh: r.wh, n: r.n, p: r.p, p0: r.p0, cou: r.cou, ship: r.ship,
                tax: r.tax, spec: r.spec, memo: r.memo, stock: r.stock };
     });
     var j = await post({ action: 'mcpush', key: KEY, items: items, costs: costs, chg: chg });
