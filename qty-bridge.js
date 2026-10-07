@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-07a';
+  var QTYB_VER = '2026-10-07b';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -170,6 +170,7 @@
         if (!nm && !ad) return;
         if (prod === '상품명' || nm === '성함') return;
         lines++;
+        var inRow = {};
         prod.split(' / ').forEach(function (part) {
           var t = S(part);
           if (!t) return;
@@ -178,9 +179,12 @@
           var q = m ? parseInt(m[2], 10) : 1;
           if (!name) return;
           var k = nk(name);
-          if (!map[k]) map[k] = { name: name, qty: 0 };
+          if (!map[k]) map[k] = { name: name, qty: 0, each: [] };
           map[k].qty += q;
+          inRow[k] = (inRow[k] || 0) + q;
         });
+        // 📦 주문 한 건씩의 개수 — 웹앱 tally 의 each 와 같은 자(재고없음 «올릴 수» 를 줄 단위로 셀 때 쓴다)
+        for (var kk in inRow) map[kk].each.push(inRow[kk]);
       });
       return { map: map, lines: lines, tab: tab };
     });
@@ -1018,6 +1022,7 @@
       '    <button class="pri" id="qtyb-manual">✍️ 수동 대조</button>' +
       '    <button class="pri" id="qtyb-none">📦 가져오기_재고없음</button>' +
       '    <button id="qtyb-check">🧾 수량 점검</button>' +
+      '    <button id="qtyb-pre" title="최근 6일 매일 나간 상품을 6일 평균만큼 미리 잡습니다(안 쓴 여유는 빼고)">🌙 내일 몫 미리 잡기</button>' +
       /* 「↩️ 구해진 것 당일로」 는 뺐다 (2026-09-29 홍팀장 「이거 2개 같은 기능」) — 📦 가져오기_재고없음 이
          잔여·잡아 둔 여유를 보고 [↩️ 여유분 당일로 올리기] 로 같은 일을 한다. 함수는 남겨 둠(qtyb-back). */
       '    <button id="qtyb-clr">비우기</button>' +
@@ -1039,6 +1044,7 @@
     };
     el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
     el('qtyb-stockgo').onclick = function () { stockPush(false); };
+    el('qtyb-pre').onclick = function () { preGrab(this); };
     function sheetName() {
       var s = el('qtyb-sname'); if (!s) return;
       s.textContent = '확인 중…'; s.style.color = '';
@@ -1398,6 +1404,111 @@
 
 
   function stat(t) { var s = el('qtyb-stat'); if (s) s.textContent = t; }
+
+  /* 🌙 내일 몫 미리 잡기 (2026-10-07 홍팀장 「보고서 쓸 때쯤 수량 잡기 오픈될 텐데, 일주일 동안 꾸준히 판매되는 상품은
+        수량을 좀 잡아 볼까」 → 「평균으로 잡아. 못 팔 것 같으면 빨리 풀면 돼」).
+     · 최근 날짜 시트 6곳(주문 30줄 이상인 날만 — 휴일·반쪽 날은 건너뜀)을 읽어, 6일 «매일» 나간 상품만 고른다.
+     · 잡을 양 = 6일 평균(반올림). 이미 잡아 두고 안 쓴 몫(잡음 − 사용)은 빼고 모자란 만큼만 더 잡는다. 잔여를 넘지 않는다.
+     · 연어·홍어는 대조와 같은 규칙으로 대표 줄(몸뱃살연어 1kg 등)에 합쳐서 센다.
+     · 넉넉(안 잡아도 되는 상품)·잠긴 줄(품절·안 풀림)·총수량 0·당일 상품·잡기 칸 없는 줄은 뺀다.
+     잡은 것은 다음 날 대조에서 «잡아 둔 여유» 로 먼저 쓰이고, 안 나가면 마감 1시간 전 「풀어야」 경고가 뜬다. */
+  var PRE_DAYS = 6, PRE_MIN_LINES = 30;
+  function preGrab(btn) {
+    var old = btn.textContent;
+    btn.disabled = true;
+    var box = el('qtyb-out');
+    function fin(h) { btn.disabled = false; btn.textContent = old; if (h != null) box.innerHTML = h; }
+    // 오늘부터 거꾸로 14일 — 날짜 탭 이름(mmdd)
+    var names = [];
+    for (var i = 0; i < 14; i++) {
+      var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit' })
+        .format(new Date(Date.now() - i * 86400000)).split('/');
+      names.push(p[1] + p[0]);
+    }
+    var days = [];
+    btn.textContent = '날짜 시트 읽는 중…';
+    var chain = names.reduce(function (pr, n) {
+      return pr.then(function () {
+        if (days.length >= PRE_DAYS) return;
+        stat('🌙 ' + n + ' 읽는 중 (' + days.length + '/' + PRE_DAYS + ')');
+        return tallyTab(n).then(function (t) {
+          if (t && t.lines >= PRE_MIN_LINES) days.push(t);
+        }, function () { /* 없는 날(주말·휴일) */ });
+      });
+    }, Promise.resolve());
+    chain.then(function () {
+      if (days.length < PRE_DAYS) { fin('<div class="warn">🌙 최근 날짜 시트를 ' + days.length + '곳밖에 못 읽었습니다 — ' + PRE_DAYS + '곳이 있어야 «매일 나간 상품» 을 고릅니다. 잠시 뒤 다시 눌러 주세요.</div>'); return; }
+      btn.textContent = '창고 긁는 중…';
+      return scanAll().then(function () {
+        if (!haveIdx()) { fin('<div class="hunt">🔒 창고를 못 읽었습니다 — 수량 웹 로그인을 확인해 주세요.</div>'); return; }
+        // 날마다 대조와 같은 자로 합친다(연어·홍어 대표 줄)
+        var per = days.map(function (t) {
+          var m = {};
+          Object.keys(t.map).forEach(function (k) { m[k] = t.map[k].qty; m['#raw:' + k] = t.map[k].name; });
+          foldAlias(m);
+          return m;
+        });
+        var keys = Object.keys(per[0]).filter(function (k) {
+          return k.indexOf('#raw:') !== 0 && per.every(function (m) { return (m[k] || 0) > 0; });
+        });
+        var picks = [], skip = [];
+        keys.forEach(function (k) {
+          var row = IDX[k], nm = per[0]['#raw:' + k] || k;
+          var seq = per.map(function (m) { return m[k]; });
+          var avg = Math.round(seq.reduce(function (a, b) { return a + b; }, 0) / seq.length);
+          if (!row) { skip.push(nm + ' (수량 웹에 없음)'); return; }
+          if (row.free) { skip.push(nm + ' (넉넉 — 안 잡아도 됨)'); return; }
+          if (row.locked || row.closed) { skip.push(nm + ' (품절·안 풀림·총수량 0)'); return; }
+          if (row.kind && row.kind !== '상시') { skip.push(nm + ' (당일 상품)'); return; }
+          if (!row.co) { skip.push(nm + ' (잡기 칸 없음)'); return; }
+          // 오늘 시트로 나간 수 — «이미 쓴 몫» 은 사용 칸보다 시트가 정본이다(CLAUDE.md 재고 규칙)
+          var outToday = (days[0].tab === todayTab()) ? (per[0][k] || 0) : 0;
+          picks.push({ row: row, name: row.name, avg: avg, seq: seq.slice().reverse(), outToday: outToday });
+        });
+        if (!picks.length) { fin('<div class="warn">🌙 6일 매일 나간 상품 중 잡을 게 없습니다.' + (skip.length ? '<br>' + skip.map(esc).join('<br>') : '') + '</div>'); return; }
+        btn.textContent = '지금 잡힌 수 확인 중…';
+        // 지금 줄 상태(잡음·사용·잔여)를 다시 읽어 «더 잡을 양» 을 정한다
+        return picks.reduce(function (pr, x) {
+          return pr.then(function () {
+            return freshRow(x.row).then(function (f) {
+              x.mine = f.mine; x.spare = Math.max(0, f.mine - Math.max(f.used, x.outToday)); x.left = f.left;
+              x.add = Math.min(Math.max(0, x.avg - x.spare), f.left);
+            }, function (e) { x.err = e.message || String(e); x.add = 0; });
+          });
+        }, Promise.resolve()).then(function () {
+          var todo = picks.filter(function (x) { return x.add > 0; });
+          var dayTxt = days.map(function (t) { return t.tab; }).reverse().join('·');
+          var tbl = '<div class="tw"><table><thead><tr><th>상품명</th><th>날짜별(' + esc(dayTxt) + ')</th><th>평균</th><th>안 쓴 여유</th><th>잔여</th><th>더 잡기</th></tr></thead><tbody>'
+            + picks.map(function (x) {
+                return '<tr><td class="nm">' + esc(x.name) + '</td><td class="mut">' + x.seq.join('·') + '</td><td><b>' + x.avg + '</b></td><td>'
+                  + (x.err ? '⚠️' : x.spare) + '</td><td>' + (x.err ? '' : x.left) + '</td><td' + (x.add ? ' style="font-weight:800;color:#065f46"' : ' class="mut"') + '>'
+                  + (x.err ? esc(x.err) : (x.add || (x.avg <= x.spare ? '이미 충분' : '잔여 없음'))) + '</td></tr>';
+              }).join('') + '</tbody></table></div>'
+            + (skip.length ? '<div class="mut" style="margin-top:6px">뺀 것 — ' + skip.map(esc).join(' · ') + '</div>' : '');
+          if (!todo.length) { fin('<div class="warn">🌙 더 잡을 것이 없습니다 — 이미 잡아 둔 여유로 평균이 채워졌거나 잔여가 없습니다.</div>' + tbl); return; }
+          box.innerHTML = '<div style="background:#eef4ff;border:1px solid #c7d9f5;border-radius:9px;padding:9px 11px;margin:8px 0;font-size:13px">🌙 최근 6일 매일 나간 상품 <b>' + picks.length + '</b>개 · 평균만큼 더 잡을 것 <b>' + todo.length + '</b>개</div>' + tbl;
+          if (!confirm('🌙 내일 몫 미리 잡기 — ' + todo.length + '건 (최근 6일 평균만큼)\n\n'
+              + todo.map(function (x) { return '· ' + x.name + ' +' + x.add + ' (평균 ' + x.avg + ' · 안 쓴 여유 ' + x.spare + ')'; }).join('\n')
+              + '\n\n수량 웹에 실제로 잡습니다.')) { fin(); return; }
+          var log = [];
+          return todo.reduce(function (pr, x, i) {
+            return pr.then(function () {
+              btn.textContent = '잡는 중 ' + (i + 1) + '/' + todo.length;
+              return freshRow(x.row).then(function (f) {
+                var add = Math.min(x.add, f.left);
+                if (add <= 0) { log.push('· ' + x.name + ' — 그 사이 잔여 없어짐'); return; }
+                return qpost({ do: 'set', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, val: f.mine + add, name: x.row.name, how: 'pop' })
+                  .then(function () { log.push('· ' + x.name + ' ' + f.mine + ' → ' + (f.mine + add)); });
+              }).catch(function (e) { log.push('· ' + x.name + ' — 실패: ' + (e.message || e)); });
+            });
+          }, Promise.resolve()).then(function () {
+            stat('🌙 미리 잡기 ' + todo.length + '건');
+            fin(box.innerHTML + '<div class="mut" style="margin-top:6px"><b>잡은 결과</b><br>' + log.map(esc).join('<br>') + '</div>');
+          });
+        });
+      });
+    }).catch(function (e) { fin('<div class="warn">🌙 실패 — ' + esc(e.message || e) + '</div>'); });
+  }
 
   /* ✍️ 적힌 사용 맞추기 (2026-09-29 홍팀장) :
      「실제로 3개를 잡았고 3개가 정상적으로 나갔는데 순서가 꼬였든 뭐가 잘못돼서 적힌 사용에 기재만
