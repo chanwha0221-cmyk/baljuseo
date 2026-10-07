@@ -173,6 +173,10 @@
         <!-- 🙇 호칭 — 제목 「○○께」·본문 첫 인사 자리 (홍팀장 2026-10-07 「담당자님께 말고 대표님께, 호칭 바꿀 칸」). 기기에 기억 -->
         <div class="img-slot">
           <label style="font-weight:700;font-size:12.5px">🙇 호칭</label>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <button class="btn ghost" type="button" style="flex:1;padding:5px 0" onclick="$('title-name').value='대표님';stampSlots()">대표님</button>
+            <button class="btn ghost" type="button" style="flex:1;padding:5px 0" onclick="$('title-name').value='담당자님';stampSlots()">담당자님</button>
+          </div>
           <input id="title-name" value="대표님" placeholder="예: 대표님 / 팀장님 / 담당자님" style="font-size:13px;width:100%;box-sizing:border-box" oninput="stampSlots()">
           <div class="muted" id="title-hint" style="font-size:11.5px;margin-top:6px;text-align:left">제목 「○○께」와 본문 첫 인사 자리에 들어갑니다.</div>
         </div>
@@ -337,7 +341,8 @@ https://masterc.kr/page_LkOm07
 
 메일도 수시로 확인하고 있지만 가입하시고 카톡이나 유선 연락 주시면 바로 확인해 드리겠습니다.`;
 
-const DEFAULT_SUBJECT=`[주식회사 마스터] 상품 제안 드립니다.`;
+// 🙇 (업체명)·(호칭) 자리는 오른쪽 칸 값으로 채워진다 (2026-10-07 홍팀장 — 메일설정 소실 뒤 이 제목을 기본으로)
+const DEFAULT_SUBJECT=`(업체명) (호칭)께 — 상품 공급 제안 드립니다`;
 
 const DEFAULT_NOTE=`안녕하세요, 대표님.
 주식회사 마스터 ${ME} 팀장입니다.
@@ -420,15 +425,25 @@ function mirrorSheet(rows){
   NVMIRT=setTimeout(async()=>{ try{ await dataReplace(rows); }catch(e){ console.warn('시트 사본 맞추기 실패(원본은 Supabase에 저장됨)',e); } },3000);
 }
 // 설정: 메일설정 탭 A:B key/value
-let SET={};
-async function loadSettings(){ const rows=await sheetGet(SET_TAB,'A1:B100'); SET={}; rows.forEach(r=>{if(r[0])SET[r[0]]=r[1]||'';}); }
+/* ✉️ 메일설정 원본 = Supabase `MAIL_SET` (2026-10-07 홍팀장 「왜 할 때마다 저장해 놓은 템플릿 날아가냐」).
+   예전 저장은 시트 탭을 통째로 지우고(clear) 다시 쓰는 구조였고, 다시 쓰기 실패를 안 봐서 탭이 0줄로 남았다
+   (10-07 실측: 템플릿·제목·안 보낼 곳 전부 소실). → 이제 **키 하나씩** 서버에 올린다. 다른 키는 절대 안 건드린다.
+   🔴 설정을 못 읽었으면(SET_OK=false) 저장 자체를 막는다. 시트 「메일설정」 탭은 이제 안 쓴다(처음 한 번 옮길 때만 읽음). */
+let SET={}, SET_OK=false;
+async function loadSettings(){
+  SET_OK=false;
+  const j=await sb('mailset',{});
+  if(j.has){ SET=j.set||{}; SET_OK=true; return; }
+  // 처음 한 번 — 옛 시트 값이 있으면 옮긴다(없는 키만 채운다)
+  let obj={};
+  try{ const rows=await sheetGet(SET_TAB,'A1:B100'); rows.forEach(r=>{ if(r[0]) obj[r[0]]=r[1]||''; }); }catch(e){ console.warn('옛 메일설정 시트 읽기 실패',e); }
+  const k=await sb('mailset',{init:obj});
+  SET=k.set||{}; SET_OK=true;
+}
 async function setSetting(k,v){
-  SET[k]=v;
-  const rows=Object.entries(SET).map(([a,b])=>[a,b]);
-  if(!rows.length){ console.warn('setSetting: 설정이 0건 — 시트를 건드리지 않습니다'); return; }   // 🛡 빈 설정으로 덮어쓰기 금지
-  const _cr=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SET_TAB)}!A1:B100:clear`,{method:'POST',headers:{Authorization:`Bearer ${await getToken()}`}});
-  if(!_cr.ok) throw new Error('설정 비우기 실패 HTTP '+_cr.status);
-  await sheetPut(SET_TAB,'A1',rows);
+  if(!SET_OK){ toast('메일설정을 아직 못 읽었어요 — 새로고침 후 다시 저장해 주세요'); throw new Error('설정 미로드 — 저장 막음'); }
+  const j=await sb('mailset',{k:k,v:v});
+  SET=j.set||SET;
 }
 
 // 드라이브 (명함 고정 저장용)
