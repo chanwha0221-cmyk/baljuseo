@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-06m';
+  var QTYB_VER = '2026-10-07a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -233,13 +233,22 @@
   }
 
   function cell(tr, c) { return tr.querySelector('[data-c="' + c + '"]'); }
-  function ctext(tr, c) { var e = cell(tr, c); return e ? (e.textContent || '').trim() : ''; }
+  /* 🔴 칸 글자에서 <script>·<style> 은 뺀다 (2026-10-07 — 수량 웹이 창고 칸 안에 스크립트를 심어
+     창고명이 「동해(function(){if(window.__whmc)…」 로 읽혀 대조가 통째로 틀어졌다). */
+  function tx(e) {
+    if (!e) return '';
+    var s = e.textContent || '';
+    var sc = e.querySelectorAll ? e.querySelectorAll('script,style,template') : [];
+    for (var i = 0; i < sc.length; i++) { var t = sc[i].textContent || ''; if (t) s = s.split(t).join(''); }
+    return s;
+  }
+  function ctext(tr, c) { var e = cell(tr, c); return e ? tx(e).trim() : ''; }
 
   function readRow(tr, whFallback) {
     var nmCell = cell(tr, 'name');
     if (!nmCell) return null;
     var k = tr.getAttribute('data-k') || '';
-    var name = (nmCell.textContent || '').replace(/ⓘ/g, '').trim();
+    var name = tx(nmCell).replace(/ⓘ/g, '').trim();
     var mineCell = cell(tr, 'mine');
     var leftRaw = ctext(tr, 'remain');
     var total = num(ctext(tr, 'total'));
@@ -262,7 +271,7 @@
       held: num(ctext(tr, 'sum')),
       ours: num(ctext(tr, 'ours')),
       waiting: num(ctext(tr, 'wait')),
-      mine: num(mineCell ? mineCell.textContent : ''),
+      mine: num(mineCell ? tx(mineCell) : ''),
       co: mineCell ? (mineCell.getAttribute('data-co') || '') : '',   // 우리 회사 이름(마찬) — 잡을 때 같이 보낸다
       editable: !!mineCell,
       free: free,
@@ -370,7 +379,7 @@
                이걸 안 보면 사용량이 전부 0 으로 읽혀 «잡고 안 썼다» 는 헛경고가 뜬다(2026-09-28). */
             var inp = e.querySelector && e.querySelector('input');
             if (inp) return (inp.getAttribute('value') || '').trim();
-            return (e.textContent || '').replace(/\s+/g, ' ').trim();
+            return tx(e).replace(/\s+/g, ' ').trim();
           });
           if (!c.length) return;
           out.push({ th: th, c: c });
