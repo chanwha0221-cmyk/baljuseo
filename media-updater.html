@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.53</title>
+<title>마스터 유통 상품 도구 v1.54</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -2012,24 +2012,55 @@ function voCnt(){ const e=$p('voCnt'); if(e)e.textContent=VO.length?VO.length:''
 function voDraw(){
   voCnt();
   if(!VO.length){$p('voRows').innerHTML='<div class="ci" style="color:var(--muted)">아직 없습니다. 위에 업체명·상품명을 넣고 [＋ 추가]를 누르세요.</div>';return;}
-  $p('voRows').innerHTML=VO.map((v,i)=>
-    '<div class="ci" style="flex-wrap:wrap;row-gap:6px">'
-    +(voIsAll(v.biz)
-      ? '<span style="font-size:11.5px;font-weight:800;color:#c2410c;background:rgba(234,88,12,.14);padding:2px 8px;border-radius:5px;white-space:nowrap">🌐 전체 업체</span>'
-      : '<span style="font-size:11.5px;font-weight:800;color:#1f6fd6;background:rgba(31,111,214,.12);padding:2px 8px;border-radius:5px;white-space:nowrap">'+esc(v.biz)+'</span>')
-    +'<b style="flex:1;min-width:160px;font-size:13px">'+esc(v.name)+'</b>'
-    +'<button class="cpbtn" data-cp="'+esc(v.name)+'" title="상품명 복사">📋</button>'
-    +'<span style="font-size:11px;color:var(--muted)">'+esc(v.at)+'</span>'
-    +'<button class="fxg del" data-vo="del" data-i="'+i+'">🗑</button>'
-    +(v.note?'<div style="flex:1 1 100%;font-size:11.5px;color:var(--muted)">ℹ️ '+esc(v.note)+'</div>':'')
+  /* 🧩 상품 한 줄에 업체 여러 곳 (2026-10-07 홍팀장 「한 상품인데 여러 업체 오픈해 줘야 하는 경우 — 상품명 옆에 업체 추가」).
+     저장 모양(시트·서버)은 그대로 «업체 1곳 = 1줄» 이다 — 화면만 상품별로 묶어 보여 주고, [＋ 업체] 는 같은 상품으로 줄을 하나 더 만든다.
+     그래서 서버 doSubmit·카탈로그 vonly 는 손댈 게 없다. */
+  const groups=[],byK={};
+  VO.forEach((v,i)=>{const k=pkey(v.name);if(!byK[k]){byK[k]={k:k,name:v.name,note:'',at:'',rows:[]};groups.push(byK[k]);}
+    const g=byK[k];g.rows.push(i);if(!g.note&&v.note)g.note=v.note;if(String(v.at)>String(g.at))g.at=v.at;});
+  const chip=(v,i)=>(voIsAll(v.biz)
+      ? '<span style="font-size:11.5px;font-weight:800;color:#c2410c;background:rgba(234,88,12,.14);padding:2px 4px 2px 8px;border-radius:5px;white-space:nowrap">🌐 전체 업체'
+      : '<span style="font-size:11.5px;font-weight:800;color:#1f6fd6;background:rgba(31,111,214,.12);padding:2px 4px 2px 8px;border-radius:5px;white-space:nowrap">'+esc(v.biz))
+    +' <button data-vo="del" data-i="'+i+'" title="이 업체만 빼기" style="border:0;background:none;cursor:pointer;color:inherit;font-weight:800;padding:0 3px">✕</button></span>';
+  $p('voRows').innerHTML=groups.map(g=>
+    '<div class="ci" style="flex-wrap:wrap;row-gap:6px;align-items:center">'
+    +'<b style="min-width:160px;font-size:13px">'+esc(g.name)+'</b>'
+    +'<button class="cpbtn" data-cp="'+esc(g.name)+'" title="상품명 복사">📋</button>'
+    +'<span style="display:flex;flex-wrap:wrap;gap:5px;flex:1;min-width:200px">'+g.rows.map(i=>chip(VO[i],i)).join('')
+    +'<input list="voBizDL" data-voadd="'+esc(g.k)+'" placeholder="＋ 업체 추가" autocomplete="off" style="margin:0;width:130px;padding:2px 6px;font-size:12px">'
+    +'<button class="cp" data-vo="addbiz" data-k="'+esc(g.k)+'" style="margin:0;padding:2px 8px;font-size:12px">추가</button></span>'
+    +'<span style="font-size:11px;color:var(--muted)">'+esc(g.at)+'</span>'
+    +'<button class="fxg del" data-vo="delgrp" data-k="'+esc(g.k)+'" title="이 상품 통째로 지우기">🗑</button>'
+    +(g.note?'<div style="flex:1 1 100%;font-size:11.5px;color:var(--muted)">ℹ️ '+esc(g.note)+'</div>':'')
     +'</div>').join('');
 }
+/* [＋ 업체] — 그 상품에 업체 한 곳 더 연다. 규칙은 위 [＋ 추가] 와 같다(중복·전체 막기). */
+function voAddBiz(k,biz){
+  biz=t(biz); if(!biz)return alert('업체명을 적어주세요 — 계정 이름과 똑같아야 합니다.');
+  const base=VO.find(v=>pkey(v.name)===k); if(!base)return;
+  const all=voIsAll(biz); if(all)biz=VOALL;
+  if(VO.some(v=>pkey(v.biz)===pkey(biz)&&pkey(v.name)===k))return alert('이미 열어둔 업체입니다.');
+  if(!all&&VO.some(v=>voIsAll(v.biz)&&pkey(v.name)===k))return alert('「'+base.name+'」은 이미 🌐 전체 업체에 열려 있습니다.');
+  const note=(VO.find(v=>pkey(v.name)===k&&v.note)||{}).note||'';
+  VO.unshift({biz:biz,name:base.name,note:note,at:day()});
+  voDraw();$p('voLog').textContent='「'+base.name+'」에 '+(all?'전체 업체':biz)+' 추가 — 저장을 눌러야 반영됩니다.';
+}
+$p('voRows').addEventListener('keydown',function(ev){
+  const inp=ev.target.closest&&ev.target.closest('[data-voadd]');
+  if(inp&&ev.key==='Enter'){ev.preventDefault();voAddBiz(inp.getAttribute('data-voadd'),inp.value);}
+});
 $p('voRows').addEventListener('click',function(ev){
   const c=ev.target.closest('[data-cp]');
   if(c){ try{ navigator.clipboard.writeText(c.getAttribute('data-cp')); c.textContent='✅'; setTimeout(()=>c.textContent='📋',900); }catch(e){} return; }
+  const ad=ev.target.closest('[data-vo="addbiz"]');
+  if(ad){const k=ad.getAttribute('data-k');const inp=[].find.call($p('voRows').querySelectorAll('[data-voadd]'),x=>x.getAttribute('data-voadd')===k);voAddBiz(k,inp?inp.value:'');return;}
+  const g=ev.target.closest('[data-vo="delgrp"]');
+  if(g){const k=g.getAttribute('data-k');const n=VO.filter(v=>pkey(v.name)===k);
+    if(n.length&&confirm('「'+n[0].name+'」을 통째로 지울까요? (열어둔 업체 '+n.length+'곳 전부)')){VO=VO.filter(v=>pkey(v.name)!==k);voDraw();$p('voLog').textContent='지웠습니다 — 저장을 눌러야 반영됩니다.';}
+    return;}
   const b=ev.target.closest('[data-vo="del"]'); if(!b)return;
   const i=+b.getAttribute('data-i');
-  if(confirm((voIsAll(VO[i].biz)?'전체 업체에 열어둔 ':VO[i].biz+' 전용 ')+'「'+VO[i].name+'」을 지울까요?')){VO.splice(i,1);voDraw();}
+  if(confirm((voIsAll(VO[i].biz)?'전체 업체에 열어둔 ':VO[i].biz+' 전용 ')+'「'+VO[i].name+'」을 지울까요?')){VO.splice(i,1);voDraw();$p('voLog').textContent='뺐습니다 — 저장을 눌러야 반영됩니다.';}
 });
 $p('voAll').onclick=function(){ $p('voBiz').value=VOALL; $p('voName').focus(); };
 $p('voAdd').onclick=function(){
