@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-07b';
+  var QTYB_VER = '2026-10-07c';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -152,7 +152,11 @@
         function ok(v) { if (!done) { done = true; res(v); } }
         function no() { if (++fails === 2 && !done) { done = true; rej(new Error('시트를 읽지 못했습니다')); } }
         tallyTabViaProxy(tab, startRow).then(ok, no);
-        viaApi().then(ok, function () { viaApi().then(ok, no); });   // 웹앱은 20초 끊고 한 번 더
+        viaApi().then(ok, function (e) {
+          // 🗓 탭이 없다는 답이면 다시 묻지 않고 바로 끝낸다 — 🌙 미리 잡기가 주말·휴일 탭마다 40초씩 기다렸다(2026-10-07)
+          if (e && /찾을 수 없/.test(e.message || '')) { if (!done) { done = true; rej(e); } return; }
+          viaApi().then(ok, no);                                         // 웹앱은 20초 끊고 한 번 더
+        });
       });
     });
     SHEETQ = p.catch(function () {});
