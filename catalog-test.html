@@ -1010,6 +1010,13 @@ function applyMc(groups){
     if(String(r.wh||'').trim()&&String(r.wh).trim()!==wh)g.mixed=true;   // 단독 탭처럼 여러 창고가 섞이면 창고 배지
     have.add(pkey(r.n));
   });
+  /* 🧹 반대로 masterc 상품리스트에 없는 시트 카드는 뺀다 — 목록 = masterc 상품리스트(machan_list) 그대로 (홍팀장 2026-10-12).
+     시트에만 남은 옛 줄(그날 26개)이 계속 떠 있었다. 당일생물은 아래 mcDay 가 원본이라 여기서 손대지 않는다. */
+  for(let i=groups.length-1;i>=0;i--){
+    const g=groups[i]; if(/당일/.test(g.wh))continue;
+    g.products=(g.products||[]).filter(p=>m[pkey(p.name)]);
+    if(!g.products.length)groups.splice(i,1);
+  }
   /* 🟡 소량은 **감추지 않는다** (2026-09-28 홍팀장 "애매한 건 문의를 하게끔 하는 게 맞아 —
      애들이 짜증나는 게 발주 되길래 넣었는데 안 된다고 하는 거"). 감춰버리면 물어볼 길도 없고,
      발주를 받아놓고 나중에 «못 보낸다»고 하는 것이 제일 나쁘다. 두 번 일이 된다.
