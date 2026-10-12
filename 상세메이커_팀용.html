@@ -289,7 +289,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.4</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.5</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -324,6 +324,11 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 
       <div class="dm-h3">⑤ 저장된 HTML <span style="font-weight:400;color:#aaa;font-size:11px">(📋 HTML 복사 누르면 자동 저장 · 상품명 검색해 재사용)</span></div>
       <input id="dm-saved-q" placeholder="🔍 상품명으로 검색" oninput="DM.renderSaved(this.value)" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit;font-size:12px">
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn-sm" style="flex:1" onclick="DM.exportSaved()" title="지금 보이는 목록(검색 중이면 검색 결과만)을 파일로">📤 내보내기 (다른 PC로)</button>
+        <button class="btn-sm" style="flex:1" onclick="document.getElementById('dm-saved-file').click()">📥 가져오기</button>
+        <input type="file" id="dm-saved-file" accept=".json,application/json" style="display:none" onchange="DM.importSaved(this.files[0]); this.value='';">
+      </div>
       <div id="dm-saved-list" style="margin-top:8px"></div>
 
       <div id="dm-notice-editor" style="margin-top:6px"></div>
@@ -797,18 +802,82 @@ const DM=(function(){
   // ===== 📋 HTML 복사 이력 저장 / 상품명 검색 / 재사용 (localStorage, 디바이스 로컬) =====
   const SAVED_KEY='dm_html_saved';
   let savedHtmls=[];
-  function loadSaved(){ try{ savedHtmls=JSON.parse(localStorage.getItem(SAVED_KEY)||'[]'); }catch(e){ savedHtmls=[]; } }
+  /* 💾 영구 보관 (2026-10-12 홍팀장 「HTML 저장 누른 상품들 사용자 PC에서는 영구히」) — localStorage(5MB·40개 컷·꽉 차면 오래된 것부터 지움)
+     → IndexedDB(대용량, 개수 제한 없음) + 브라우저에 «지우지 마라(persist)» 요청. 한 건씩 넣고 지운다(통째 덮어쓰기 없음).
+     예전 localStorage 목록은 처음 열 때 한 번 옮긴다(원본은 남겨 둔다). IndexedDB 를 못 쓰면 예전 방식 그대로. */
+  const IDB_NAME='dm_saved_db', IDB_STORE='items';
+  let IDB=null;
+  function idbOpen(){ return new Promise((res,rej)=>{ try{ const r=indexedDB.open(IDB_NAME,1); r.onupgradeneeded=()=>{ r.result.createObjectStore(IDB_STORE,{keyPath:'id'}); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }catch(e){ rej(e); } }); }
+  function idbTx(mode,fn){ return new Promise((res,rej)=>{ const tx=IDB.transaction(IDB_STORE,mode); const st=tx.objectStore(IDB_STORE); const out=fn(st); tx.oncomplete=()=>res(out&&out.result!==undefined?out.result:out); tx.onerror=()=>rej(tx.error); }); }
+  function idbPut(item){ if(!IDB) return Promise.resolve(); return idbTx('readwrite',st=>st.put(item)).catch(e=>{ alert('저장하지 못했습니다(브라우저 저장소) — '+(e&&e.message||e)); }); }
+  function idbDel(id){ if(!IDB) return Promise.resolve(); return idbTx('readwrite',st=>st.delete(id)).catch(()=>{}); }
+  function sortSaved(){ savedHtmls.sort((a,b)=>String(b.date).localeCompare(String(a.date))); }
+  function loadSaved(){
+    try{ savedHtmls=JSON.parse(localStorage.getItem(SAVED_KEY)||'[]'); }catch(e){ savedHtmls=[]; }   // 우선 옛 목록으로 바로 그린다
+    idbOpen().then(db=>{
+      IDB=db;
+      try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+      return idbTx('readonly',st=>st.getAll());
+    }).then(rows=>{
+      rows=rows||[];
+      const have=new Set(rows.map(r=>r.id));
+      // 옛 목록은 «한 번만» 옮긴다 — 매번 옮기면 IndexedDB 에서 지운 것이 옛 목록에서 되살아난다
+      let moved=false; try{ moved=localStorage.getItem('dm_html_saved_moved')==='1'; }catch(e){}
+      const legacy=moved?[]:savedHtmls.filter(s=>s&&s.id&&!have.has(s.id));
+      return Promise.all(legacy.map(idbPut)).then(()=>{
+        try{ localStorage.setItem('dm_html_saved_moved','1'); }catch(e){}
+        savedHtmls=rows.concat(legacy); sortSaved(); renderSaved($('dm-saved-q')?$('dm-saved-q').value:'');
+      });
+    }).catch(()=>{ IDB=null; });
+  }
   function persistSaved(){
+    if(IDB) return;   // IndexedDB 는 한 건씩 바로 쓴다
     try{ localStorage.setItem(SAVED_KEY, JSON.stringify(savedHtmls)); }
     catch(e){ while(savedHtmls.length>1){ savedHtmls.pop(); try{ localStorage.setItem(SAVED_KEY, JSON.stringify(savedHtmls)); return; }catch(_){} } }
   }
   function saveCurrentHtml(title, html, state){
     title=(title||'제목없음').trim();
+    const old=savedHtmls.filter(s=>s.title===title);
     savedHtmls=savedHtmls.filter(s=>s.title!==title);
-    savedHtmls.unshift({id:Date.now(), title:title, html:html, state:state||null, date:new Date().toISOString()});
-    if(savedHtmls.length>40) savedHtmls=savedHtmls.slice(0,40);
-    persistSaved();
+    const item={id:Date.now(), title:title, html:html, state:state||null, date:new Date().toISOString()};
+    savedHtmls.unshift(item);
+    if(IDB){ idbPut(item); old.forEach(o=>idbDel(o.id)); }
+    else { if(savedHtmls.length>40) savedHtmls=savedHtmls.slice(0,40); persistSaved(); }
     renderSaved($('dm-saved-q')?$('dm-saved-q').value:'');
+  }
+  /* 📤📥 다른 PC로 옮기기 — 지금 보이는 목록(검색 중이면 검색 결과만)을 파일 하나로 받고, 다른 PC에서 가져온다.
+        가져올 때 같은 상품명이 있으면 더 최근 것을 남긴다. 「이어서 수정」 상태까지 같이 옮겨진다. */
+  function exportSaved(){
+    const q=(($('dm-saved-q')||{}).value||'').trim().toLowerCase();
+    const list=savedHtmls.filter(s=>!q||(s.title||'').toLowerCase().includes(q));
+    if(!list.length){ alert('내보낼 저장본이 없습니다.'); return; }
+    const d=new Date(Date.now()+9*3600e3).toISOString().slice(0,16).replace(/[-:T]/g,'');
+    const b=new Blob([JSON.stringify({v:1,kind:'dm_saved',items:list})],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='상세메이커_저장목록_'+d+'_'+list.length+'개.json'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+    if(typeof toast==='function') toast(list.length+'개 내보냄 — 다른 PC 메이커에서 [📥 가져오기]');
+  }
+  function importSaved(file){
+    if(!file) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      let o=null; try{ o=JSON.parse(r.result); }catch(e){}
+      const items=(o&&Array.isArray(o.items))?o.items:(Array.isArray(o)?o:null);
+      if(!items){ alert('상세메이커 저장 목록 파일이 아닙니다.'); return; }
+      let add=0, upd=0, skip=0; const jobs=[];
+      items.forEach(it=>{
+        if(!it||!it.title||!it.html) { skip++; return; }
+        const same=savedHtmls.find(s=>s.title===it.title);
+        if(same && String(same.date)>=String(it.date)) { skip++; return; }
+        if(same){ savedHtmls=savedHtmls.filter(s=>s!==same); jobs.push(idbDel(same.id)); upd++; } else add++;
+        const item=Object.assign({},it,{id:it.id||Date.now()+Math.random()});
+        if(savedHtmls.some(s=>s.id===item.id)) item.id=Date.now()+Math.random();
+        savedHtmls.push(item); jobs.push(idbPut(item));
+      });
+      sortSaved(); if(!IDB) persistSaved();
+      Promise.all(jobs).then(()=>{ renderSaved($('dm-saved-q')?$('dm-saved-q').value:''); alert('📥 가져오기 끝 — 새로 '+add+'개 · 더 최근 것으로 바꿈 '+upd+'개 · 건너뜀 '+skip+'개'); });
+    };
+    r.readAsText(file);
   }
   function renderSaved(filter){
     const box=$('dm-saved-list'); if(!box) return;
@@ -861,12 +930,12 @@ const DM=(function(){
   }
   function delSaved(id){
     if(!confirm('이 저장본을 삭제할까요?')) return;
-    savedHtmls=savedHtmls.filter(x=>x.id!==id); persistSaved();
+    savedHtmls=savedHtmls.filter(x=>x.id!==id); if(IDB) idbDel(id); else persistSaved();
     renderSaved($('dm-saved-q')?$('dm-saved-q').value:'');
   }
   loadSaved(); renderSaved('');
   { const _nc=$('dm-notice-on'); if(_nc) _nc.checked=NOTICE_ON; }
-  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,savePdf,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,editSaved,relayout,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
+  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,savePdf,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,editSaved,relayout,exportSaved,importSaved,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
 })();
 </script>
 <script>
