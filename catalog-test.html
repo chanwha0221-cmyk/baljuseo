@@ -988,6 +988,28 @@ function applyMc(groups){
   const mc=(SNAP&&SNAP.mc)||null;
   if(!mc||!mc.length)return groups;
   const m={};mc.forEach(p=>{if(p&&p.n)m[pkey(p.n)]=p;});
+  /* 🏬 masterc 상품리스트가 카드 원본이다 (2026-10-12 홍팀장 「상시 보내기·당일 보내기 하고 있잖아, 그 시트 안 쓰기로 한 지가 언젠데」).
+     유통시트 탭에 줄이 없는 masterc 상품(그날 97개 — 초대왕 반건조 갑오징어 600g급·700g급 등)이 카드가 없어 카탈로그에서 통째로 빠졌다.
+     → 시트 카드에 없는 masterc 상품은 그 창고(grp→wh) 탭에 카드를 새로 만든다. 탭이 없으면 탭도 만든다.
+     🔴 당일생물은 여기서 안 만든다(아래 mcDay 가 원본). 값(단가·택배·마감)은 아래 덮어쓰기가 그대로 채운다. */
+  const have=new Set();groups.forEach(g=>(g.products||[]).forEach(p=>have.add(pkey(p.name))));
+  const byWh={};groups.forEach(g=>{byWh[g.wh]=g;});
+  mc.forEach(r=>{
+    if(!r||!r.n||have.has(pkey(r.n)))return;
+    const wh=String(r.grp||r.wh||'').trim()||'기타';
+    if(/당일/.test(wh))return;
+    let g=byWh[wh]; if(!g){g={wh,products:[],mixed:false};groups.push(g);byWh[wh]=g;}
+    g.products.push({
+      name:r.n,
+      url:r.srl?('https://masterc.kr/board_eJGl96?p='+r.srl):'',
+      price:{old:null,cur:(r.price>0?r.price:null),dir:''},
+      ship:(/무료/.test(String(r.ship||''))?0:(typeof r.ship_n==='number'?r.ship_n:0)),
+      courier:r.courier||'',tax:r.tax||'',cut:r.cut||'',ref:'',exp:r.exp||'',
+      srcWh:String(r.wh||'').trim()
+    });
+    if(String(r.wh||'').trim()&&String(r.wh).trim()!==wh)g.mixed=true;   // 단독 탭처럼 여러 창고가 섞이면 창고 배지
+    have.add(pkey(r.n));
+  });
   /* 🟡 소량은 **감추지 않는다** (2026-09-28 홍팀장 "애매한 건 문의를 하게끔 하는 게 맞아 —
      애들이 짜증나는 게 발주 되길래 넣었는데 안 된다고 하는 거"). 감춰버리면 물어볼 길도 없고,
      발주를 받아놓고 나중에 «못 보낸다»고 하는 것이 제일 나쁘다. 두 번 일이 된다.
