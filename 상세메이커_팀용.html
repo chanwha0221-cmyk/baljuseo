@@ -7,6 +7,7 @@
 <link rel="icon" href="data:,">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&family=Nanum+Pen+Script&display=swap">
 <style id="dm-style">
 @font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFLight.ttf') format('truetype');font-weight:300;font-display:swap}
 @font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFMedium.ttf') format('truetype');font-weight:500;font-display:swap}
@@ -116,6 +117,33 @@
 #dm-page .go-q{font-size:21px;font-weight:700;color:#E23B2E}
 #dm-page .go-a{font-size:18px;color:#444;line-height:1.7;margin-top:4px}
 #dm-page,#dm-page *{font-family:'Gmarket','Malgun Gothic',sans-serif}
+/* === 🔪 백정닷컴 (2026-10-12 홍팀장 — 알폭탄 알탕 상세 학습) : 레드 타이틀 · 브라운 명조 제목 · 「상품 사진」 탭 · 손글씨 워터마크 · 레드 리본 === */
+#dm-page .bj-banner img{width:100%;display:block}
+#dm-page .bj-title{background:#9b1414;padding:30px}
+#dm-page .bj-frame{position:relative;border:1.5px solid #e6c4a0;padding:40px 24px 46px;text-align:center}
+#dm-page .bj-c{position:absolute;color:#e6c4a0;font-size:24px;line-height:1}
+#dm-page .bj-c.tl{top:6px;left:8px}#dm-page .bj-c.tr{top:6px;right:8px;transform:scaleX(-1)}#dm-page .bj-c.bl{bottom:6px;left:8px;transform:scaleY(-1)}#dm-page .bj-c.br{bottom:6px;right:8px;transform:scale(-1,-1)}
+#dm-page .bj-pill{display:inline-block;border:2px solid #e6c4a0;border-radius:40px;padding:9px 52px;color:#f4dcbc;font-size:22px;font-weight:700;font-family:'Nanum Myeongjo','Gmarket',serif}
+#dm-page .bj-title h1{font-family:'Nanum Myeongjo','Gmarket',serif;font-size:56px;font-weight:800;color:#fff;margin:44px 0 30px;line-height:1.25;letter-spacing:-1px;text-shadow:3px 3px 0 #3a0505;white-space:pre-line}
+#dm-page .bj-deco{width:320px;height:2px;margin:0 auto 24px;background:linear-gradient(90deg,transparent,#e6c4a0,transparent)}
+#dm-page .bj-sub{color:#f4dcbc;font-size:20px;line-height:1.6;white-space:pre-line}
+#dm-page .bj-hero{position:relative;background-size:cover;background-position:center}
+#dm-page .bj-hero::before{content:"";display:block;padding-top:66%}
+#dm-page .bj-sec{padding:64px 46px 40px;text-align:center;background:#fff}
+#dm-page .bj-h{display:inline-block;font-family:'Nanum Myeongjo','Gmarket',serif;font-size:40px;font-weight:800;color:#a8775a;letter-spacing:-1px;border-top:1.5px solid #a8775a;border-bottom:1.5px solid #a8775a;padding:10px 30px;margin-bottom:44px}
+#dm-page .bj-pc{position:relative;width:90%;margin:0 auto 54px}
+#dm-page .bj-ph{position:relative;background-size:cover;background-position:center;box-shadow:16px 16px 0 #f3e3db}
+#dm-page .bj-ph::before{content:"";display:block;padding-top:62%}
+#dm-page .bj-tag{position:absolute;left:-16px;top:-24px;z-index:2;background:#c79f86;color:#fff;font-family:'Nanum Pen Script','Gmarket',cursive;font-size:28px;padding:5px 28px}
+#dm-page .bj-wm{position:absolute;right:28px;bottom:20px;z-index:2;color:#fff;font-family:'Nanum Pen Script','Gmarket',cursive;font-size:48px;line-height:1.05;text-shadow:1px 1px 4px rgba(0,0,0,.35);border-bottom:3px solid rgba(255,255,255,.92);padding:0 4px}
+#dm-page .bj-body{font-size:20px;line-height:1.95;color:#222;white-space:pre-line}
+#dm-page .bj-spec{font-size:20px;line-height:2.05;color:#222}
+#dm-page .bj-pack{padding:56px 46px 50px;text-align:center;background:#fff}
+#dm-page .bj-ribbon{display:flex;align-items:center;margin:0 -46px 40px}
+#dm-page .bj-ribbon::before,#dm-page .bj-ribbon::after{content:"";flex:1;height:2px;background:#8f1212}
+#dm-page .bj-ribbon span{background:#8f1212;color:#fff;font-family:'Nanum Myeongjo','Gmarket',serif;font-weight:800;font-size:28px;padding:10px 48px;border-radius:14px}
+#dm-page .bj-packph{position:relative;width:92%;margin:0 auto 14px;background-size:cover;background-position:center}
+#dm-page .bj-packph::before{content:"";display:block;padding-top:60%}
 #dm-page .hero{position:relative;padding:90px 40px;text-align:center;color:#fff;background-size:cover;background-position:center}
 #dm-page .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(0,0,0,.74),rgba(0,0,0,.45))}
 #dm-page .hero>*{position:relative;z-index:2}
@@ -261,7 +289,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.1</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.2</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -279,6 +307,8 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <input id="dm-prodname" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="소스 생성하면 자동 입력 (직접 수정 가능)" oninput="DM.setProd()">
       <div class="dm-h3">② 브랜드명 <span style="font-weight:400;color:#aaa;font-size:11px">(헤더·푸터 공통)</span></div>
       <input id="dm-brand" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="예: 주식회사 마스터" oninput="DM.render()">
+      <div id="dm-bjwh-row" style="display:none;margin-top:8px"><div class="dm-h3" style="margin-top:6px">🔪 백정닷컴 창고 <span style="font-weight:400;color:#aaa;font-size:11px">(상단 고정 7장이 창고마다 다름)</span></div>
+        <select id="dm-bjwh" onchange="DM.render()" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit"></select></div>
       <div class="dm-h3">③ 사진 선택 <span style="font-weight:400;color:#aaa;font-size:11px">(클릭 on/off · 드래그 순서 · 첫장 히어로)</span></div>
       <button class="dm-mb" style="border-color:#0d6efd;color:#0d6efd;margin-bottom:6px" onclick="document.getElementById('dm-file').click()">＋ 내 사진 추가 (당일·최근 사진)</button>
       <button class="dm-mb" style="border-color:#2C7A4B;color:#2C7A4B;margin-bottom:6px" onclick="DM.dedupCurrent()">🧹 비슷한 사진 자동 거르기</button>
@@ -307,6 +337,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
           <button class="dm-mb" data-m="gsg" onclick="DM.setMode('gsg')">🐟🥩 강수에서 파는 고기</button>
           <button class="dm-mb" data-m="gwa" onclick="DM.setMode('gwa')">🍎 강경준 과일</button>
           <button class="dm-mb" data-m="jh" onclick="DM.setMode('jh')">🔎 정효모드 (글자 120%)</button>
+          <button class="dm-mb" data-m="bj" onclick="DM.setMode('bj')">🔪 백정닷컴</button>
         </div>
         <span class="dm-sp"></span>
         <label style="font-size:12px;color:#444;display:flex;align-items:center;gap:4px;margin-right:6px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="dm-notice-on" onchange="DM.toggleNotice()"> 제품 상세 정보</label>
@@ -356,6 +387,14 @@ const DM=(function(){
   ];
   // 🥩 강경준 고기 모드 고정 아웃트로 배너 (맨 아래)
   const GOGI_OUTRO='https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/014.jpg';
+  /* 🔪 백정닷컴 (2026-10-12 홍팀장) — 상단 고정 7장은 창고마다 다르다 → 창고별 세트. 새 창고는 여기 한 줄 추가
+     (이미지는 baljuseo/assets/bj/<창고>/01~07). 17번(Q/A·카톡 채널)은 공통 아웃트로. */
+  const BJ_BASE='https://chanwha0221-cmyk.github.io/baljuseo/assets/bj/';
+  const BJ_WH={
+    '동해':['donghae/01.png','donghae/02.webp','donghae/03.webp','donghae/04.webp','donghae/05.webp','donghae/06.webp','donghae/07.png']
+  };
+  const BJ_OUTRO='outro.png';
+  const BJ_FONT_LINK='<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&family=Nanum+Pen+Script&display=swap">';
   let MODE='master',DATA=null,PHOTOS=[],dragI=null,editing=false,NOTICE_ON=false;
   try{ NOTICE_ON=(localStorage.getItem('dm_notice_on')==='1'); }catch(e){}
   const $=id=>document.getElementById(id);
@@ -526,8 +565,44 @@ const DM=(function(){
     h+=noticeHtml();
     return h;
   }
+  // ===== 🔪 백정닷컴 빌드 =====
+  function bjCard(u,brand){ if(!u)return ''; return '<div class="bj-pc"><span class="bj-tag">상품 사진</span><div class="bj-ph" style="background-image:url(\''+esc(u)+'\')"></div><span class="bj-wm">'+esc(brand)+'</span></div>'; }
+  function bjSec(title,photo,body,brand){ return '<div class="bj-sec"><div class="bj-h">'+esc(title)+'</div>'+bjCard(photo,brand)+(body||'')+'</div>'; }
+  function bjTitleOf(s){
+    const L=label(s.header||'');
+    if(s.block.type==='spec'||L==='PRODUCT SPEC')return '상품 스펙 설명합니다.';
+    if(L==='WHY')return '왜 여기서 사야 할까요?';
+    return (s.header||'').trim()||'상품 소개';
+  }
+  function buildBj(brand){
+    const wh=($('dm-bjwh')&&$('dm-bjwh').value)||Object.keys(BJ_WH)[0];
+    const ph=selImgs();
+    const pack=ph.length>=4?ph.slice(-2):[];                 // 끝 2장 = 중량·포장 (생성 기본값과 같은 약속)
+    const body=ph.slice(0,ph.length-pack.length);
+    let pi=0; const np=()=>(pi<body.length?body[pi++]:null);
+    let h=(BJ_WH[wh]||[]).map(f=>'<div class="bj-banner"><img src="'+esc(BJ_BASE+f)+'"></div>').join('');
+    h+='<div class="bj-title"><div class="bj-frame"><span class="bj-c tl">❦</span><span class="bj-c tr">❦</span><span class="bj-c bl">❦</span><span class="bj-c br">❦</span>'
+      +'<span class="bj-pill">'+esc(brand)+'</span><h1>'+esc(DATA.title)+'</h1><div class="bj-deco"></div>'
+      +(DATA.subtitle?'<div class="bj-sub">'+esc(DATA.subtitle)+'</div>':'')+'</div></div>';
+    const hero=np(); if(hero)h+='<div class="bj-hero" style="background-image:url(\''+esc(hero)+'\')"></div>';
+    DATA.sections.forEach(s=>{
+      const b=s.block;
+      if(b.type==='qa'){ b.items.forEach(([q,a])=>{ h+=bjSec(q,np(),'<p class="bj-body">'+esc(a).replace(/\n/g,'<br>')+'</p>',brand); }); return; }
+      let inner;
+      if(b.type==='spec') inner='<div class="bj-spec">'+s.items.map(esc).join('<br>')+'</div>';
+      else if(b.type==='steps') inner='<p class="bj-body">'+b.intro.map(esc).concat(b.steps.map((t,n)=>(n+1)+'. '+esc(t))).join('<br>')+'</p>';
+      else inner='<p class="bj-body">'+b.items.map(esc).join('<br>')+'</p>';
+      h+=bjSec(bjTitleOf(s),np(),inner,brand);
+    });
+    if(pi<body.length){ h+='<div class="bj-sec"><div class="bj-h">상품 실제 사진입니다.</div>'+body.slice(pi).map(u=>bjCard(u,brand)).join('')+'</div>'; }
+    if(pack.length){ h+='<div class="bj-pack"><div class="bj-ribbon"><span>포장상태</span></div>'+pack.map(u=>'<div class="bj-packph" style="background-image:url(\''+esc(u)+'\')"></div>').join('')+'</div>'; }
+    h+='<div class="bj-banner"><img src="'+esc(BJ_BASE+BJ_OUTRO)+'"></div>';
+    h+=noticeHtml();
+    return h;
+  }
   function buildHtml(){
     if(!DATA)return'<div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
+    if(MODE==='bj')return buildBj((($('dm-brand')&&$('dm-brand').value.trim())||'백정닷컴'));
     const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':MODE==='gsg'?'강경준 수산물':MODE==='gwa'?'강경준 과일':''));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);if(MODE==='gsg')return buildGkj(brand,GSG_BANNERS);if(MODE==='gwa')return buildGkj(brand,GWA_BANNERS);let h='';
     h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}">${brand?`<div class="brand">${esc(brand)}</div>`:''}<h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
     let badges=[];const sp=DATA.sections.find(s=>s.block.type==='spec');
@@ -589,11 +664,15 @@ const DM=(function(){
     const _pf=$('dm-th-prefix'); if(_pf) _pf.value=(DATA.title||'').replace(/\n/g,' ').slice(0,40);
     drawThumbs(); render(); renderNoticeEditor();
   }
-  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':m==='gsg'?'예: 강경준 수산물':m==='gwa'?'예: 강경준 과일':m==='jh'?'예: 주식회사 마스터':'예: 새벽소리');render();}
+  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':m==='gsg'?'예: 강경준 수산물':m==='gwa'?'예: 강경준 과일':m==='jh'?'예: 주식회사 마스터':m==='bj'?'백정닷컴 (비우면 백정닷컴)':'예: 새벽소리');
+    const wr=$('dm-bjwh-row'),ws=$('dm-bjwh');
+    if(wr)wr.style.display=(m==='bj')?'block':'none';
+    if(ws&&!ws.options.length)ws.innerHTML=Object.keys(BJ_WH).map(w=>'<option>'+esc(w)+'</option>').join('');
+    render();}
   function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
   function drag(i){dragI=i;}
   function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
-  const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv)';
+  const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv,.bj-pill,.bj-title h1,.bj-sub,.bj-h,.bj-body,.bj-spec,.bj-wm)';
   function toggleEdit(){editing=!editing;document.querySelectorAll(EDSEL).forEach(e=>e.contentEditable=editing);$('dm').classList.toggle('editing',editing);$('dm-edb').textContent=editing?'✅ 완료':'✏️ 수정';}
   function toggleNotice(){ NOTICE_ON=$('dm-notice-on')?$('dm-notice-on').checked:!NOTICE_ON; try{localStorage.setItem('dm_notice_on',NOTICE_ON?'1':'0');}catch(e){} render(); renderNoticeEditor(); }
   async function saveJpg(){
@@ -603,7 +682,7 @@ const DM=(function(){
     clone.style.cssText='position:fixed;left:-9999px;top:0;width:860px';
     document.body.appendChild(clone);
     // 모든 배경이미지(.hero + .gimg) — masterc URL만 weserv 경유(CORS), 내 사진(data:)은 그대로
-    clone.querySelectorAll('.hero, .gimg, .gk-photo, .go-photo').forEach(el=>{
+    clone.querySelectorAll('.hero, .gimg, .gk-photo, .go-photo, .bj-hero, .bj-ph, .bj-packph').forEach(el=>{
       const bg=el.style.backgroundImage; if(!bg||bg==='none')return;
       const m=bg.match(/url\(["']?(.*?)["']?\)/); const u=m?m[1]:'';
       if(u && !u.startsWith('data:')) el.style.backgroundImage=`url('${weserv(u)}')`;
@@ -623,7 +702,7 @@ const DM=(function(){
     const dmStyle=document.getElementById('dm-style').textContent;
     const theme=dmStyle.split('/* 상세 테마')[1]||'';
     const css=theme.replace(/#dm-page/g,'#page');
-    const full=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+    const full=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">${MODE==='bj'?BJ_FONT_LINK:''}<style>
 @font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFLight.ttf');font-weight:300}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFMedium.ttf');font-weight:500}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFBold.ttf');font-weight:700}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Gmarket','Malgun Gothic',sans-serif}#page{max-width:860px;margin:0 auto;${vars}}
 /* 상세 테마${css}${extraCss||''}</style></head><body><div id="page" data-mode="${MODE}" spellcheck="false">${$('dm-page').innerHTML}</div></body></html>`;
