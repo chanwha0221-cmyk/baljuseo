@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.0</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.1</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -313,6 +313,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
         <button class="dm-ab" style="background:#555" id="dm-edb" onclick="DM.toggleEdit()">✏️ 수정</button>
         <button class="dm-ab" style="background:#2C7A4B" onclick="DM.copyHtml()">📋 HTML 복사</button>
         <button class="dm-ab" style="background:#C0392B" onclick="DM.saveJpg()">🖼️ JPG 저장</button>
+        <button class="dm-ab" style="background:#7B3FE4" onclick="DM.savePdf()" title="인쇄창에서 대상 = 'PDF로 저장' 선택">📄 미리캔버스 업로드용 PDF</button>
       </div>
       <div class="dm-right"><div class="dm-stage"><div id="dm-page" data-mode="master" spellcheck="false"><div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div></div></div></div>
     </div>
@@ -617,9 +618,7 @@ const DM=(function(){
     }catch(e){alert('JPG 생성 실패: '+e.message);}
     document.body.removeChild(clone);
   }
-  function copyHtml(){
-    if(!DATA){alert('먼저 생성하세요.');return;}
-    if(editing)toggleEdit();
+  function fullHtml(extraCss){
     const vars=(MODE==='master'||MODE==='jh')?'--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C':'--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00';
     const dmStyle=document.getElementById('dm-style').textContent;
     const theme=dmStyle.split('/* 상세 테마')[1]||'';
@@ -627,8 +626,40 @@ const DM=(function(){
     const full=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
 @font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFLight.ttf');font-weight:300}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFMedium.ttf');font-weight:500}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFBold.ttf');font-weight:700}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Gmarket','Malgun Gothic',sans-serif}#page{max-width:860px;margin:0 auto;${vars}}
-/* 상세 테마${css}</style></head><body><div id="page" data-mode="${MODE}" spellcheck="false">${$('dm-page').innerHTML}</div></body></html>`;
+/* 상세 테마${css}${extraCss||''}</style></head><body><div id="page" data-mode="${MODE}" spellcheck="false">${$('dm-page').innerHTML}</div></body></html>`;
+    return full;
+  }
+  function copyHtml(){
+    if(!DATA){alert('먼저 생성하세요.');return;}
+    if(editing)toggleEdit();
+    const full=fullHtml();
     navigator.clipboard.writeText(full).then(()=>{saveCurrentHtml(DATA.title, full);if(typeof toast==='function')toast('HTML 복사+저장됨 — ⑤에서 상품명으로 재사용');},()=>alert('복사 실패'));
+  }
+  // ===== 미리캔버스 업로드용 PDF — 글자가 텍스트로 살아 있어야 미리캔버스가 요소별로 풀어줌(JPG는 사진 한 장) =====
+  function savePdf(){
+    if(!DATA){alert('먼저 생성하세요.');return;}
+    if(editing)toggleEdit();
+    const w=window.open('','_blank');
+    if(!w){alert('팝업이 막혔어요 — 주소창 오른쪽에서 팝업 허용 후 다시');return;}
+    const name=(DATA.title||'상세').replace(/[\\/:*?"<>|\n]/g,' ').trim()+'_미리캔버스';
+    const css='\n*{-webkit-print-color-adjust:exact;print-color-adjust:exact}html,body{background:#fff}#page{margin:0;width:860px;max-width:none}';
+    w.document.open();
+    w.document.write(fullHtml(css).replace('<head>','<head><title>'+esc(name)+'</title>'));
+    w.document.close();
+    const go=async()=>{
+      const d=w.document;
+      // 배경이미지·폰트 다 받을 때까지 대기(안 그러면 빈칸으로 찍힘)
+      const urls=[...d.querySelectorAll('[style*="background-image"]')].map(el=>{const m=(el.style.backgroundImage||'').match(/url\(["']?(.*?)["']?\)/);return m?m[1]:'';}).filter(Boolean);
+      await Promise.all(urls.map(u=>new Promise(r=>{const im=new w.Image();im.onload=im.onerror=r;im.src=u;})).concat([...d.images].map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r;}))));
+      if(d.fonts&&d.fonts.ready)await d.fonts.ready;
+      const H=Math.ceil(d.getElementById('page').scrollHeight);
+      const MAXH=14000; // 크롬 PDF 한 장 높이 한계 안쪽 — 넘으면 여러 장으로
+      const st=d.createElement('style');
+      st.textContent='@page{size:860px '+Math.min(H,MAXH)+'px;margin:0}';
+      d.head.appendChild(st);
+      setTimeout(()=>w.print(),300);
+    };
+    if(w.document.readyState==='complete')go(); else w.addEventListener('load',go);
   }
   // ===== 썸네일 추출 (450x450, weserv 크롭 — 식봄 썸네일용) =====
   let thAll=[], thSel=[];
@@ -710,7 +741,7 @@ const DM=(function(){
   }
   loadSaved(); renderSaved('');
   { const _nc=$('dm-notice-on'); if(_nc) _nc.checked=NOTICE_ON; }
-  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
+  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,savePdf,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
 })();
 </script>
 <script>
