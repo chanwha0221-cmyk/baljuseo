@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-07e';
+  var QTYB_VER = '2026-10-12a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -408,15 +408,18 @@
         // 증량요청 — 「더 필요」 개수와 「상태」(거부 · 승인 · 빈값=답 기다림)
         var iN = colOf(more.th, /상품명/), iQ = colOf(more.th, /더 필요/), iS = more.th.length - 1,
             iA = colOf(more.th, /사유|답/), iW = colOf(more.th, /^창고/);
+        /* 🔴 2026-10-12 숫게 : 상태 「수락」·「무름」 을 «답 기다리는 중» 으로 읽었다. 10/6 에 끝난 증량 1개가 아직 걸린 것으로 세져
+              재고 없음 2개에 증량 +1 만 걸었다. → «기다리는 중»(또는 빈칸)만 걸린 것으로 보고, 수량(qty)도 그 줄만 더한다.
+              대기(아래)와 같은 규칙이다. */
         more.rows.forEach(function (x) {
           var k = nk(x.c[iN]); if (!k) return;
           var st = S(x.c[iS]);
-          var o = MORE[k] || { qty: 0, no: 0, ok: 0, pend: 0, wh: '', ans: '' };
-          o.qty += num(x.c[iQ]);
+          var o = MORE[k] || { qty: 0, no: 0, ok: 0, pend: 0, done: 0, wh: '', ans: '' };
           o.wh = o.wh || (iW >= 0 ? x.c[iW] : '');
           if (/거부|반려|안 ?됨/.test(st)) o.no++;
-          else if (/승인|완료|늘림/.test(st)) o.ok++;
-          else o.pend++;                                  // 답을 아직 안 준 것
+          else if (/승인|수락|완료|늘림|받음/.test(st)) o.ok++;
+          else if (/무름|취소|철회/.test(st)) o.done++;       // 우리가 거둬들인 것 — 걸린 게 아니다
+          else { o.pend++; o.qty += num(x.c[iQ]); }        // 답을 아직 안 준 것 («기다리는 중» · 빈칸)
           if (iA >= 0 && !o.ans) o.ans = x.c[iA].slice(0, 60);
           MORE[k] = o;
         });
