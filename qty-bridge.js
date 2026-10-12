@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-12a';
+  var QTYB_VER = '2026-10-12b';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -404,6 +404,20 @@
     return Promise.all([fetchMy('more'), fetchMy('wait'), fetchMy('ours'), fetchMy('draw')])
       .then(function (r) {
         var more = r[0], wait = r[1], ours = r[2], draw = r[3];
+        /* 🗓 오늘 판정엔 오늘 기록만 (2026-10-12 홍팀장 「오늘이 12일인데 6일 거 보고 그랬다 하면 내가 뭐라고 하냐」).
+              증량·대기·사다리 줄의 첫 시각(MM-DD HH:MM)이 오늘(서울)이거나, 어제 16시(마감) 뒤 «내일 몫» 으로 건 것만 쓴다.
+              10/6 숫게 증량(수락)이 10/12 판정에 끼어 증량 +1 이 걸렸다. 시각을 못 읽는 줄은 버리지 않는다(모르면 예전처럼). */
+        var kd = new Date(Date.now() + 9 * 3600e3), pad = function (n) { return (n < 10 ? '0' : '') + n; };
+        var todayMD = pad(kd.getUTCMonth() + 1) + '-' + pad(kd.getUTCDate());
+        var yd = new Date(kd.getTime() - 86400e3), yestMD = pad(yd.getUTCMonth() + 1) + '-' + pad(yd.getUTCDate());
+        function isToday(x) {
+          var m = String((x.c || []).join(' ')).match(/(\d{2}-\d{2})\s+(\d{1,2}):\d{2}/);
+          if (!m) return true;
+          return m[1] === todayMD || (m[1] === yestMD && parseInt(m[2], 10) >= 16);
+        }
+        more.rows = more.rows.filter(isToday);
+        wait.rows = wait.rows.filter(isToday);
+        draw.rows = draw.rows.filter(isToday);
 
         // 증량요청 — 「더 필요」 개수와 「상태」(거부 · 승인 · 빈값=답 기다림)
         var iN = colOf(more.th, /상품명/), iQ = colOf(more.th, /더 필요/), iS = more.th.length - 1,
