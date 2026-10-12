@@ -289,7 +289,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.2</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.3</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -315,7 +315,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <input type="file" id="dm-file" accept="image/*" multiple style="display:none" onchange="DM.addFiles(this.files); this.value='';">
       <div id="dm-thumbs" class="dm-thumbs"></div>
       <div style="font-size:11px;color:#aaa;margin-top:6px" id="dm-photohint"></div>
-      <div class="dm-h3">④ 썸네일 추출 <span style="font-weight:400;color:#aaa;font-size:11px">(1000×1000 · 어디든 공용)</span></div>
+      <div class="dm-h3">④ 썸네일 추출 <span style="font-weight:400;color:#aaa;font-size:11px">(1000×1000 · 🔪 백정닷컴은 600×600)</span></div>
       <button class="dm-gen" style="background:#0d6efd" onclick="DM.thExtract()">🖼️ 썸네일 추출 (앞2 + 뒤2 자동)</button>
       <input id="dm-th-prefix" placeholder="파일명 접두어 (예: 친친스토어 생합)" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit;margin-top:6px;font-size:12px">
       <div id="dm-th-grid" class="th-grid" style="margin-top:8px"></div>
@@ -387,12 +387,18 @@ const DM=(function(){
   ];
   // 🥩 강경준 고기 모드 고정 아웃트로 배너 (맨 아래)
   const GOGI_OUTRO='https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/014.jpg';
-  /* 🔪 백정닷컴 (2026-10-12 홍팀장) — 상단 고정 7장은 창고마다 다르다 → 창고별 세트. 새 창고는 여기 한 줄 추가
-     (이미지는 baljuseo/assets/bj/<창고>/01~07). 17번(Q/A·카톡 채널)은 공통 아웃트로. */
+  /* 🔪 백정닷컴 (2026-10-12 홍팀장) — 상단 7장 = 공통 6장 + 창고 소개 1장(아래 BJ_WHIMG)
+     (이미지는 baljuseo/assets/bj/common·wh). 17번(Q/A·카톡 채널)은 공통 아웃트로. */
   const BJ_BASE='https://chanwha0221-cmyk.github.io/baljuseo/assets/bj/';
-  const BJ_WH={
-    '동해':['donghae/01.png','donghae/02.webp','donghae/03.webp','donghae/04.webp','donghae/05.webp','donghae/06.webp','donghae/07.png']
+  /* 1~6번은 공통, 7번 = 고른 창고 소개 이미지 (2026-10-12 홍팀장 창고 14곳). 새 창고 = assets/bj/wh/<영문>.png 올리고 여기 한 줄 */
+  const BJ_COMMON=['common/01.png','common/02.webp','common/03.webp','common/04.webp','common/05.webp','common/06.webp'];
+  const BJ_WHIMG={
+    '북구 도축장':'wh/bukgu.png','밀키트 창고':'wh/mealkit.png','대구 작업장':'wh/daegu.png','하남 창고':'wh/hanam.png',
+    '녹돈 종합창고':'wh/nokdon.png','동해 창고':'wh/donghae.png','고령 창고':'wh/goryeong.png','오농 도축장':'wh/onong.png',
+    '단독발송 도축장':'wh/dandok.png','창원 작업장':'wh/changwon.png','백정닷컴 선물세트':'wh/gift.png','김포 종합창고':'wh/gimpo.png',
+    '생고 작업장':'wh/saenggo.png','부산 창고':'wh/busan.png'
   };
+  const BJ_WH={}; Object.keys(BJ_WHIMG).forEach(k=>{ BJ_WH[k]=BJ_COMMON.concat([BJ_WHIMG[k]]); });
   const BJ_OUTRO='outro.png';
   const BJ_FONT_LINK='<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&family=Nanum+Pen+Script&display=swap">';
   let MODE='master',DATA=null,PHOTOS=[],dragI=null,editing=false,NOTICE_ON=false;
@@ -587,6 +593,7 @@ const DM=(function(){
     const hero=np(); if(hero)h+='<div class="bj-hero" style="background-image:url(\''+esc(hero)+'\')"></div>';
     DATA.sections.forEach(s=>{
       const b=s.block;
+      if(label(s.header||'')==='ORIGIN')return;   // 🚫 「원산지 공개 합니다」 섹션은 백정닷컴에선 통째로 뺀다 (2026-10-12 홍팀장)
       if(b.type==='qa'){ b.items.forEach(([q,a])=>{ h+=bjSec(q,np(),'<p class="bj-body">'+esc(a).replace(/\n/g,'<br>')+'</p>',brand); }); return; }
       let inner;
       if(b.type==='spec') inner='<div class="bj-spec">'+s.items.map(esc).join('<br>')+'</div>';
@@ -742,7 +749,8 @@ const DM=(function(){
   }
   // ===== 썸네일 추출 (450x450, weserv 크롭 — 식봄 썸네일용) =====
   let thAll=[], thSel=[];
-  function thW(u,size){ return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w='+(size||1000)+'&h='+(size||1000)+'&fit=cover&a=center&output=jpg&q=90'; }
+  // 🔪 백정닷컴은 600×600 (2026-10-12 홍팀장), 나머지는 1000×1000
+  function thW(u,size){ const s=size||(MODE==='bj'?600:1000); return 'https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w='+s+'&h='+s+'&fit=cover&a=center&output=jpg&q=90'; }
   function thExtract(){
     if(!DATA||!DATA.images.length){ alert('먼저 ⚡ 상세페이지 생성을 눌러주세요 (이미지가 없습니다).'); return; }
     let imgs=DATA.images.slice();
