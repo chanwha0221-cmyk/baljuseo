@@ -1776,9 +1776,12 @@ function tagRow(p,taxc){
 function card(p,extra,top,foot){
   const m=MEDIA['n:'+pkey(p.name)]||(p.url?(MEDIA[(p.url.match(/(\d{5,})/)||[])[1]]||null):null);
   const taxc=(p.tax&&p.tax.indexOf('과세')>=0&&p.tax.indexOf('면')<0)?'tx':'tax';
-  // 링크 우선순위: ①masterc 동기화 목록('상품링크') ②사진 캐시 ③유통시트 하이퍼링크
+  /* 링크 우선순위: ⓪ masterc 새 상세(board_eJGl96?p=srl) ①상품링크 정본 ②사진 캐시 ③유통시트 하이퍼링크
+     🔴 새 상세가 무조건 먼저 (2026-10-12 홍팀장 「상세를 바꾸면 새 주소가 나오는데 이전 주소가 맞다고 하면 업데이트가 안 된다는 얘기」).
+        옛 게시판 글(masterc.kr/498294 같은)은 고쳐도 안 바뀐다 — 생물 손질 물메기 3kg 이 옛 글로 걸려 있었다. */
   const lk=LINKS[pkey(p.name)];
-  const href=(lk&&lk.url)||(m&&m.link)||p.url||'';
+  const srl=MKSRL.get(pkey(p.name));
+  const href=(srl?('https://masterc.kr/board_eJGl96?p='+srl):'')||(lk&&lk.url)||(m&&m.link)||p.url||'';
   const nm=href?('<a href="'+esc(href)+'" target="_blank" rel="noopener">'+esc(p.name)+'</a>'):esc(p.name);
   const cr='';   // 택배사는 위 딱지(🚚)로 옮겼다 — 배송비 줄엔 금액만 (2026-09-29)
   const sh=p.ship<0?'':(p.ship>0?(cr+'<b>'+won(p.ship)+'원</b>'):cr+'<span class="free">무료배송</span>');
@@ -2821,7 +2824,8 @@ function chgPrice(it){
 }
 function chgCard(it){
   const m=MEDIA['n:'+pkey(it.name)]||null;
-  const href=(m&&m.link)||'';
+  const srl=MKSRL.get(pkey(it.name));   // 새 상세가 먼저 (2026-10-12, card 와 같은 규칙)
+  const href=(srl?('https://masterc.kr/board_eJGl96?p='+srl):'')||(m&&m.link)||'';
   const nm=href?('<a href="'+esc(href)+'" target="_blank" rel="noopener">'+esc(it.name)+'</a>'):esc(it.name);
   const thumb=(m&&m.img)?('<img class="thumb" src="'+esc(thumbUrl(m.img))+'" data-full="'+esc(m.img)+'" alt="'+esc(it.name)+'" loading="lazy" onerror="thumbFail(this)">')
                         :'<div class="nothumb">사진 준비중</div>';
