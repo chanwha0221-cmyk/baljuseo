@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-12c';
+  var QTYB_VER = '2026-10-12d';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1326,17 +1326,40 @@
                   잔여 몫을 잡지 않고 당일로만 올려서, 잡지 않은 수량이 그대로 나갔다. */
             var grab = ok.filter(function (r) { return r.idx && r.can > r.spare; });
             var grabLog = [];
+            /* 🔴 잡은 만큼만 올린다 (2026-10-12 홍팀장) — 예전엔 잡기가 «잔여 없음»·«실패» 여도 처음 계산한 수(can)를 그대로 올려
+                  잡지 않은 수량이 당일로 나갔다. → 실제로 잡힌 수(잡기 뒤 다시 읽은 우리 잡음 − 잡기 전)를 세고,
+                  올릴 수 = 잡아 둔 여유 + 실제로 잡힌 수. 주문은 쪼갤 수 없으니 그 수 안에 드는 줄 단위로 다시 맞춘다. */
+            var gotAdd = {};
             var grabP = grab.reduce(function (pr, r) {
               return pr.then(function () {
+                gotAdd[r.key] = 0;
                 return freshRow(r.idx).then(function (f) {
                   var add = Math.min(r.can - r.spare, f.left);
-                  if (add <= 0) { grabLog.push(r.name + ' — 잔여 없음, 못 잡음'); return; }
+                  if (add <= 0) { grabLog.push(r.name + ' — 잔여 없음, 못 잡음 (그만큼 안 올림)'); return; }
                   return qpost({ do: 'set', tab: whTab(r.idx), nkey: r.idx.key, co: r.idx.co, val: f.mine + add, name: r.idx.name, how: 'pop' })
-                    .then(function () { grabLog.push(r.name + ' 잡기 ' + f.mine + '→' + (f.mine + add)); });
-                }).catch(function (e) { grabLog.push(r.name + ' 잡기 실패 — ' + (e.message || e)); });
+                    .then(function () { return freshRow(r.idx); })
+                    .then(function (g) {
+                      var real = Math.max(0, Math.min(add, g.mine - f.mine));
+                      gotAdd[r.key] = real;
+                      grabLog.push(r.name + ' 잡기 ' + f.mine + '→' + g.mine + (real < add ? ' (' + add + '개 중 ' + real + '개만 잡힘)' : ''));
+                    });
+                }).catch(function (e) { grabLog.push(r.name + ' 잡기 실패 — ' + (e.message || e) + ' (그만큼 안 올림)'); });
               });
             }, Promise.resolve());
-            grabP.then(function () { return sheetPost('back', list, { deny: deny }); }).then(function (j) {
+            grabP.then(function () {
+              var trimmed = [];
+              list = ok.map(function (r) {
+                if (!(r.key in gotAdd)) return { name: r.name, qty: r.can };          // 잡을 몫이 없던 상품(여유로만 올림)
+                var cap = r.spare + gotAdd[r.key], q = Math.min(r.can, cap);
+                var each = (no.map[r.key] && no.map[r.key].each) || null;
+                if (each && each.length && q < r.can) { var rem = q, fit = 0; each.forEach(function (n) { if (n <= rem) { rem -= n; fit += n; } }); q = fit; }
+                if (q < r.can) { trimmed.push(r.name + ' ' + r.can + '→' + q); if (deny.indexOf(r.name) < 0) deny.push(r.name); }   // 다 못 올리는 상품 → 합포장 짝 막기
+                return { name: r.name, qty: q };
+              }).filter(function (x) { return x.qty > 0; });
+              if (trimmed.length) grabLog.push('↓ 잡은 만큼만 올림: ' + trimmed.join(', '));
+              if (!list.length) return { done: [], miss: [], left: '-' };
+              return sheetPost('back', list, { deny: deny });
+            }).then(function (j) {
               if (grabLog.length) j.done = j.done || [];
               bb.disabled = false; bb.textContent = o2;
               el('qtyb-uplog').innerHTML = '<b>올린 것</b><br>'
