@@ -289,7 +289,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.5</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.6</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -870,8 +870,8 @@ const DM=(function(){
         const same=savedHtmls.find(s=>s.title===it.title);
         if(same && String(same.date)>=String(it.date)) { skip++; return; }
         if(same){ savedHtmls=savedHtmls.filter(s=>s!==same); jobs.push(idbDel(same.id)); upd++; } else add++;
-        const item=Object.assign({},it,{id:it.id||Date.now()+Math.random()});
-        if(savedHtmls.some(s=>s.id===item.id)) item.id=Date.now()+Math.random();
+        const item=Object.assign({},it,{id:it.id||(Date.now()+jobs.length)});
+        while(savedHtmls.some(s=>s.id===item.id)) item.id=Date.now()+Math.floor(Math.random()*100000);
         savedHtmls.push(item); jobs.push(idbPut(item));
       });
       sortSaved(); if(!IDB) persistSaved();
@@ -885,7 +885,20 @@ const DM=(function(){
     if(!savedHtmls.length){ box.innerHTML='<div style="font-size:11px;color:#bbb;padding:6px 0">아직 저장된 HTML이 없어요. 📋 HTML 복사를 누르면 여기 쌓입니다.</div>'; return; }
     const list=savedHtmls.filter(s=>!q || (s.title||'').toLowerCase().includes(q));
     if(!list.length){ box.innerHTML='<div style="font-size:11px;color:#bbb;padding:6px 0">검색 결과 없음</div>'; return; }
-    box.innerHTML=list.map(s=>{
+    /* 📄 20개씩 페이지 (2026-10-12 홍팀장) — 검색어가 바뀌면 1쪽부터. 아래 [1][2][3] 로 넘긴다. */
+    if(q!==SAVED_Q){ SAVED_Q=q; SAVED_PAGE=1; }
+    const pages=Math.max(1,Math.ceil(list.length/SAVED_PER));
+    if(SAVED_PAGE>pages) SAVED_PAGE=pages;
+    const shown=list.slice((SAVED_PAGE-1)*SAVED_PER, SAVED_PAGE*SAVED_PER);
+    const pbtn=(n,lab,on,dis)=>'<button '+(dis?'disabled ':'')+'onclick="DM.savedPage('+n+')" style="min-width:28px;padding:4px 7px;border-radius:5px;border:1px solid '+(on?'#7B3FE4':'#ccc')+';background:'+(on?'#7B3FE4':'#fff')+';color:'+(on?'#fff':'#444')+';font-size:11px;font-weight:700;cursor:'+(dis?'default':'pointer')+';font-family:inherit;opacity:'+(dis?'.4':'1')+'">'+lab+'</button>';
+    let pager='';
+    if(pages>1){
+      pager='<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin:8px 0 2px">'+pbtn(SAVED_PAGE-1,'‹',false,SAVED_PAGE===1);
+      for(let n=1;n<=pages;n++) pager+=pbtn(n,String(n),n===SAVED_PAGE,false);
+      pager+=pbtn(SAVED_PAGE+1,'›',false,SAVED_PAGE===pages)+'</div>';
+    }
+    const head='<div style="font-size:11px;color:#999;margin:2px 0 5px">'+(q?'검색 결과 ':'전체 ')+list.length+'개 · '+SAVED_PAGE+'/'+pages+'쪽</div>';
+    box.innerHTML=head+shown.map(s=>{
       const d=new Date(s.date); const ds=(d.getMonth()+1)+'/'+d.getDate();
       return '<div style="display:flex;align-items:center;gap:6px;border:1px solid #e3e3e3;border-radius:6px;padding:6px 8px;margin-bottom:5px">'
         +'<div style="flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(s.title)+'">'+esc(s.title)+' <span style="color:#bbb;font-size:10px">'+ds+'</span></div>'
@@ -893,8 +906,11 @@ const DM=(function(){
         +'<button onclick="DM.copySaved('+s.id+')" style="background:#2C7A4B;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:inherit">📋 복사</button>'
         +'<button onclick="DM.delSaved('+s.id+')" style="background:#bbb;color:#fff;border:none;border-radius:4px;padding:4px 7px;font-size:11px;cursor:pointer;font-family:inherit">🗑</button>'
         +'</div>';
-    }).join('');
+    }).join('')+pager;
   }
+  let SAVED_PAGE=1, SAVED_Q='';
+  const SAVED_PER=20;
+  function savedPage(n){ SAVED_PAGE=Math.max(1,n); renderSaved($('dm-saved-q')?$('dm-saved-q').value:''); }
   function copySaved(id){
     const s=savedHtmls.find(x=>x.id===id); if(!s) return;
     navigator.clipboard.writeText(s.html).then(()=>{ if(typeof toast==='function')toast('['+s.title+'] HTML 복사됨'); }, ()=>alert('복사 실패'));
@@ -935,7 +951,7 @@ const DM=(function(){
   }
   loadSaved(); renderSaved('');
   { const _nc=$('dm-notice-on'); if(_nc) _nc.checked=NOTICE_ON; }
-  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,savePdf,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,editSaved,relayout,exportSaved,importSaved,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
+  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,savePdf,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,editSaved,relayout,exportSaved,importSaved,savedPage,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
 })();
 </script>
 <script>
