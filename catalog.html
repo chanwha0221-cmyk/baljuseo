@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.167</title>
+<title>마스터 유통 카탈로그 v23.168</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3468,24 +3468,62 @@ function renderLowm(j){
   const won=n=>Math.round(+n||0).toLocaleString();
   const ago=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'없음';
   let h=subHead('💸 저마진 상품','마진율 '+j.max+'% 이하 · 카탈로그에 떠 있는 것 '+j.rows.length+'개'+(j.all>j.rows.length?' (품절·재고 없음·예외로 안 보이는 '+(j.all-j.rows.length)+'개 뺌)':'')+' ·마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
-    +'<br>masterc에서 단가를 고치고 보내기를 다시 누른 뒤 이 탭을 다시 열면 반영됩니다. 🔒 마스터에게만 보입니다.');
+    +'<br>✏️ «새 판매가» 칸에 넣고 <b>[💾 단가 저장]</b>을 누르면 카탈로그 가격이 바뀌고 상품변동사항에 인상·인하로 뜹니다. masterc에서 그 상품 단가가 바뀌면 이 값은 저절로 꺼집니다. 🔒 마스터에게만 보입니다.');
   if(!j.rows.length)return h+'<div class="empty">마진율 '+j.max+'% 이하 상품이 없습니다.</div>';
   const th='padding:7px 8px;border-bottom:2px solid var(--line);text-align:right;white-space:nowrap;font-size:12px;color:var(--muted)';
   const td='padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:13px';
-  h+='<div style="overflow-x:auto;margin-top:11px;background:var(--card);border:1px solid var(--line);border-radius:11px">'
+  const saveBtn='<button class="ubtn" onclick="lowmSave(this)" style="font-weight:800">💾 단가 저장</button>';
+  h+='<div style="display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap">'+saveBtn+'<span class="lowm-msg" style="font-size:12.5px;color:var(--muted)"></span></div>'
+    +'<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px">'
     +'<table style="border-collapse:collapse;width:100%"><thead><tr>'
-    +['구분','창고','상품명','판매가','원가','택배비','마진','마진율'].map((t,i)=>'<th style="'+th+(i<3?';text-align:left':'')+'">'+t+'</th>').join('')
+    +['구분','창고','상품명','판매가','새 판매가','원가','택배비','마진','마진율'].map((t,i)=>'<th style="'+th+(i<3?';text-align:left':'')+'">'+t+'</th>').join('')
     +'</tr></thead><tbody>'
-    +j.rows.map(r=>'<tr>'
+    +j.rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'">'
       +'<td style="'+td+';text-align:left">'+(r.k==='당일'?'🐟 당일':'상시')+'</td>'
       +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
       +'<td style="'+td+';text-align:left;white-space:normal">'+esc(r.n)+' <button class="cpbtn" data-cp="'+esc(r.n)+'" title="상품명 복사">📋</button></td>'
-      +'<td style="'+td+'">'+won(r.sell)+'</td><td style="'+td+'">'+won(r.cost)+'</td><td style="'+td+'">'+won(r.ship)+'</td>'
-      +'<td style="'+td+(r.margin<0?';color:#b91c1c;font-weight:700':'')+'">'+won(r.margin)+'</td>'
-      +'<td style="'+td+';font-weight:800;color:'+(r.rate<0?'#b91c1c':'#b45309')+'">'+r.rate+'%</td>'
+      +'<td style="'+td+'">'+won(r.sell)+'</td>'
+      +'<td style="'+td+'"><input class="lowm-in" inputmode="numeric" placeholder="'+won(r.sell)+'" oninput="lowmCalc(this)" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit"></td>'
+      +'<td style="'+td+'">'+won(r.cost)+'</td><td style="'+td+'">'+won(r.ship)+'</td>'
+      +'<td class="lowm-mg" style="'+td+(r.margin<0?';color:#b91c1c;font-weight:700':'')+'">'+won(r.margin)+'</td>'
+      +'<td class="lowm-rt" style="'+td+';font-weight:800;color:'+(r.rate<0?'#b91c1c':'#b45309')+'">'+r.rate+'%</td>'
       +'</tr>').join('')
-    +'</tbody></table></div>';
+    +'</tbody></table></div>'
+    +'<div style="margin-top:8px">'+saveBtn+'</div>';
   return h;
+}
+/* ✏️ 새 판매가를 넣으면 그 줄 마진·마진율을 바로 다시 센다 (저장 전 검산용) */
+function lowmCalc(inp){
+  const tr=inp.closest('tr'); if(!tr)return;
+  const v=parseInt(String(inp.value).replace(/[^0-9]/g,''),10);
+  const sell=v>0?v:+tr.dataset.sell, cost=+tr.dataset.cost, ship=+tr.dataset.ship;
+  const mg=sell-cost, rate=Math.round((sell-cost)/(sell+ship)*1000)/10;
+  const a=tr.querySelector('.lowm-mg'), b=tr.querySelector('.lowm-rt');
+  if(a){a.textContent=Math.round(mg).toLocaleString();a.style.color=mg<0?'#b91c1c':'';a.style.fontWeight=mg<0?'700':'';}
+  if(b){b.textContent=rate+'%';b.style.color=rate<0?'#b91c1c':(v>0?'#065f46':'#b45309');}
+}
+/* 💾 단가 저장 — 바꾼 줄만 서버(manprice)에 보내고, 카탈로그 스냅샷을 다시 굽게 한 뒤 이 탭을 새로 읽는다 */
+async function lowmSave(btn){
+  const rows=[...document.querySelectorAll('tr[data-lowm]')].map(tr=>{
+    const inp=tr.querySelector('.lowm-in'); const v=parseInt(String(inp&&inp.value||'').replace(/[^0-9]/g,''),10);
+    return (v>0&&v!==+tr.dataset.sell)?{n:tr.dataset.lowm,price:v,old:+tr.dataset.sell}:null;
+  }).filter(Boolean);
+  const msg=document.querySelector('.lowm-msg');
+  if(!rows.length){if(msg)msg.textContent='바꾼 단가가 없습니다.';return;}
+  if(!confirm('판매가를 바꿉니다 — '+rows.length+'건\n\n'+rows.map(r=>'· '+r.n+'  '+r.old.toLocaleString()+' → '+r.price.toLocaleString()+(r.price>r.old?' (인상)':' (인하)')).join('\n')
+    +'\n\n카탈로그 가격과 상품변동사항에 바로 반영됩니다.'))return;
+  document.querySelectorAll('button[onclick^="lowmSave"]').forEach(b=>b.disabled=true);
+  if(msg)msg.textContent='저장 중…';
+  try{
+    const j=await api('manprice',{token:ME.token,rows:rows.map(r=>({n:r.n,price:r.price}))});
+    if(msg)msg.textContent='✅ '+j.done.length+'건 저장'+(j.miss&&j.miss.length?' · 못 찾은 것: '+j.miss.join(', '):'')+' — 카탈로그 다시 굽는 중…';
+    try{await api('catalog',{token:ME.token,fresh:1});}catch(e){}
+    if(location.hash.replace(/^#/,'')==='lowm')renderRoute();
+    toast('단가 '+j.done.length+'건 저장 — 새로고침하면 카탈로그·변동사항에 보입니다');
+  }catch(e){
+    if(msg)msg.textContent='저장하지 못했습니다 — '+(e.message||e);
+    document.querySelectorAll('button[onclick^="lowmSave"]').forEach(b=>b.disabled=false);
+  }
 }
 function renderUser(){
   if(!ME)return;
