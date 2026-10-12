@@ -289,7 +289,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.3</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.4</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -308,7 +308,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <div class="dm-h3">② 브랜드명 <span style="font-weight:400;color:#aaa;font-size:11px">(헤더·푸터 공통)</span></div>
       <input id="dm-brand" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="예: 주식회사 마스터" oninput="DM.render()">
       <div id="dm-bjwh-row" style="display:none;margin-top:8px"><div class="dm-h3" style="margin-top:6px">🔪 백정닷컴 창고 <span style="font-weight:400;color:#aaa;font-size:11px">(상단 고정 7장이 창고마다 다름)</span></div>
-        <select id="dm-bjwh" onchange="DM.render()" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit"></select></div>
+        <select id="dm-bjwh" onchange="DM.relayout()" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit"></select></div>
       <div class="dm-h3">③ 사진 선택 <span style="font-weight:400;color:#aaa;font-size:11px">(클릭 on/off · 드래그 순서 · 첫장 히어로)</span></div>
       <button class="dm-mb" style="border-color:#0d6efd;color:#0d6efd;margin-bottom:6px" onclick="document.getElementById('dm-file').click()">＋ 내 사진 추가 (당일·최근 사진)</button>
       <button class="dm-mb" style="border-color:#2C7A4B;color:#2C7A4B;margin-bottom:6px" onclick="DM.dedupCurrent()">🧹 비슷한 사진 자동 거르기</button>
@@ -402,6 +402,11 @@ const DM=(function(){
   const BJ_OUTRO='outro.png';
   const BJ_FONT_LINK='<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&family=Nanum+Pen+Script&display=swap">';
   let MODE='master',DATA=null,PHOTOS=[],dragI=null,editing=false,NOTICE_ON=false;
+  /* ✏️ 이어서 수정 (2026-10-12 홍팀장 「HTML 전환 누르기 직전 형태로 다시 불러와서 수정」) — 저장본을 불러오면 그 화면(손으로 고친 글 포함)을
+     그대로 얼려 둔다(FROZEN). 얼린 동안 render() 는 화면을 안 건드린다. 사진·모드·창고처럼 판을 다시 짜는 동작만 묻고 녹인다. */
+  let FROZEN=false;
+  function unfreeze(){ if(!FROZEN) return true; if(!confirm('불러온 뒤 손으로 고친 글은 이 작업을 하면 자동 배치로 다시 짜이면서 원래대로 돌아갑니다.\n계속할까요?')) return false; FROZEN=false; return true; }
+  function relayout(){ if(!unfreeze()) return; render(); }
   try{ NOTICE_ON=(localStorage.getItem('dm_notice_on')==='1'); }catch(e){}
   const $=id=>document.getElementById(id);
   const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -628,7 +633,7 @@ const DM=(function(){
     h+=noticeHtml();
     return h;
   }
-  function render(){const p=$('dm-page');if(!p)return;p.dataset.mode=MODE;p.innerHTML=buildHtml();}
+  function render(){if(FROZEN)return;const p=$('dm-page');if(!p)return;p.dataset.mode=MODE;p.innerHTML=buildHtml();}
   function setProd(){ if(!DATA) return; const v=($('dm-prodname')?$('dm-prodname').value:'').trim(); DATA.title=v; if(DATA.notice&&DATA.notice[0]&&DATA.notice[0][0]==='제품명') DATA.notice[0][1]=v; const pf=$('dm-th-prefix'); if(pf) pf.value=v.replace(/\n/g,' ').slice(0,40); render(); }
   // ===== 비슷한 사진 자동 거르기 (average hash) =====
   function _aHash(u){ return new Promise(function(res){ const img=new Image(); img.crossOrigin='anonymous';
@@ -637,6 +642,7 @@ const DM=(function(){
     img.src='https://images.weserv.nl/?url='+encodeURIComponent(u)+'&w=8&h=8&fit=cover&output=jpg'; }); }
   function _hamming(a,b){ let d=0; for(let i=0;i<a.length;i++) if(a[i]!==b[i]) d++; return d; }
   async function dedupCurrent(){
+    if(!unfreeze()) return;
     if(!PHOTOS.length){ alert('먼저 ⚡ 상세페이지 생성을 눌러 사진을 불러와주세요.'); return; }
     if(PHOTOS.length<20){ PHOTOS.forEach(function(p){ p.on=true; }); drawThumbs(); render(); if(typeof toast==='function') toast('전체 '+PHOTOS.length+'장(20장 미만) — 거르지 않고 전부 사용합니다.'); return; }
     if(typeof toast==='function') toast('비슷한 사진 분석 중…');
@@ -653,6 +659,7 @@ const DM=(function(){
     $('dm-photohint').textContent=`선택 ${onC}장 / 전체 ${PHOTOS.length}장`;
   }
   function generate(){
+    if(!unfreeze()) return;
     const src=$('dm-src').value.trim();
     if(!src){alert('페이지 소스를 붙여넣으세요.');return;}
     DATA=parse(src);
@@ -671,14 +678,14 @@ const DM=(function(){
     const _pf=$('dm-th-prefix'); if(_pf) _pf.value=(DATA.title||'').replace(/\n/g,' ').slice(0,40);
     drawThumbs(); render(); renderNoticeEditor();
   }
-  function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':m==='gsg'?'예: 강경준 수산물':m==='gwa'?'예: 강경준 과일':m==='jh'?'예: 주식회사 마스터':m==='bj'?'백정닷컴 (비우면 백정닷컴)':'예: 새벽소리');
+  function setMode(m){if(!unfreeze())return;MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':m==='gsg'?'예: 강경준 수산물':m==='gwa'?'예: 강경준 과일':m==='jh'?'예: 주식회사 마스터':m==='bj'?'백정닷컴 (비우면 백정닷컴)':'예: 새벽소리');
     const wr=$('dm-bjwh-row'),ws=$('dm-bjwh');
     if(wr)wr.style.display=(m==='bj')?'block':'none';
     if(ws&&!ws.options.length)ws.innerHTML=Object.keys(BJ_WH).map(w=>'<option>'+esc(w)+'</option>').join('');
     render();}
-  function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
+  function toggle(i){if(!unfreeze())return;PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
   function drag(i){dragI=i;}
-  function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
+  function drop(i){if(dragI==null||dragI===i)return;if(!unfreeze()){dragI=null;return;}const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
   const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv,.bj-pill,.bj-title h1,.bj-sub,.bj-h,.bj-body,.bj-spec,.bj-wm)';
   function toggleEdit(){editing=!editing;document.querySelectorAll(EDSEL).forEach(e=>e.contentEditable=editing);$('dm').classList.toggle('editing',editing);$('dm-edb').textContent=editing?'✅ 완료':'✏️ 수정';}
   function toggleNotice(){ NOTICE_ON=$('dm-notice-on')?$('dm-notice-on').checked:!NOTICE_ON; try{localStorage.setItem('dm_notice_on',NOTICE_ON?'1':'0');}catch(e){} render(); renderNoticeEditor(); }
@@ -719,7 +726,7 @@ const DM=(function(){
     if(!DATA){alert('먼저 생성하세요.');return;}
     if(editing)toggleEdit();
     const full=fullHtml();
-    navigator.clipboard.writeText(full).then(()=>{saveCurrentHtml(DATA.title, full);if(typeof toast==='function')toast('HTML 복사+저장됨 — ⑤에서 상품명으로 재사용');},()=>alert('복사 실패'));
+    navigator.clipboard.writeText(full).then(()=>{saveCurrentHtml(DATA.title, full, {mode:MODE, brand:(($('dm-brand')||{}).value||''), bjwh:(($('dm-bjwh')||{}).value||''), noticeOn:NOTICE_ON, data:DATA, photos:PHOTOS, page:$('dm-page').innerHTML});if(typeof toast==='function')toast('HTML 복사+저장됨 — ⑤에서 상품명으로 재사용');},()=>alert('복사 실패'));
   }
   // ===== 미리캔버스 업로드용 PDF — 글자가 텍스트로 살아 있어야 미리캔버스가 요소별로 풀어줌(JPG는 사진 한 장) =====
   function savePdf(){
@@ -780,6 +787,7 @@ const DM=(function(){
   // ===== 내 사진 추가 (당일·최근 사진 업로드 → base64로 사진 선택에 합류) =====
   function addFiles(files){
     if(!files||!files.length)return;
+    if(!unfreeze())return;
     [...files].filter(f=>f.type.startsWith('image/')).forEach(f=>{
       const r=new FileReader();
       r.onload=()=>{ PHOTOS.push({url:r.result, on:true}); drawThumbs(); render(); };
@@ -794,10 +802,10 @@ const DM=(function(){
     try{ localStorage.setItem(SAVED_KEY, JSON.stringify(savedHtmls)); }
     catch(e){ while(savedHtmls.length>1){ savedHtmls.pop(); try{ localStorage.setItem(SAVED_KEY, JSON.stringify(savedHtmls)); return; }catch(_){} } }
   }
-  function saveCurrentHtml(title, html){
+  function saveCurrentHtml(title, html, state){
     title=(title||'제목없음').trim();
     savedHtmls=savedHtmls.filter(s=>s.title!==title);
-    savedHtmls.unshift({id:Date.now(), title:title, html:html, date:new Date().toISOString()});
+    savedHtmls.unshift({id:Date.now(), title:title, html:html, state:state||null, date:new Date().toISOString()});
     if(savedHtmls.length>40) savedHtmls=savedHtmls.slice(0,40);
     persistSaved();
     renderSaved($('dm-saved-q')?$('dm-saved-q').value:'');
@@ -812,6 +820,7 @@ const DM=(function(){
       const d=new Date(s.date); const ds=(d.getMonth()+1)+'/'+d.getDate();
       return '<div style="display:flex;align-items:center;gap:6px;border:1px solid #e3e3e3;border-radius:6px;padding:6px 8px;margin-bottom:5px">'
         +'<div style="flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(s.title)+'">'+esc(s.title)+' <span style="color:#bbb;font-size:10px">'+ds+'</span></div>'
+        +'<button onclick="DM.editSaved('+s.id+')" title="HTML 복사 누르기 직전 화면으로 불러와 이어서 수정" style="background:#7B3FE4;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:inherit">✏️ 이어서 수정</button>'
         +'<button onclick="DM.copySaved('+s.id+')" style="background:#2C7A4B;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:inherit">📋 복사</button>'
         +'<button onclick="DM.delSaved('+s.id+')" style="background:#bbb;color:#fff;border:none;border-radius:4px;padding:4px 7px;font-size:11px;cursor:pointer;font-family:inherit">🗑</button>'
         +'</div>';
@@ -821,6 +830,35 @@ const DM=(function(){
     const s=savedHtmls.find(x=>x.id===id); if(!s) return;
     navigator.clipboard.writeText(s.html).then(()=>{ if(typeof toast==='function')toast('['+s.title+'] HTML 복사됨'); }, ()=>alert('복사 실패'));
   }
+  function editSaved(id){
+    const s=savedHtmls.find(x=>x.id===id); if(!s) return;
+    if(FROZEN&&!confirm('지금 화면을 버리고 「'+s.title+'」 을 불러올까요?')) return;
+    if(editing) toggleEdit();
+    FROZEN=false;
+    let page='', mode='master';
+    if(s.state){
+      const st=s.state; mode=st.mode||'master';
+      DATA=st.data||{title:s.title,subtitle:'',sections:[],images:[],notice:null};
+      PHOTOS=Array.isArray(st.photos)?st.photos:[];
+      if($('dm-brand')) $('dm-brand').value=st.brand||'';
+      NOTICE_ON=!!st.noticeOn; if($('dm-notice-on')) $('dm-notice-on').checked=NOTICE_ON;
+      setMode(mode);
+      if(st.bjwh&&$('dm-bjwh')) $('dm-bjwh').value=st.bjwh;
+      page=st.page||'';
+    }else{
+      /* 예전 저장본 — 편집 상태가 없다. 저장된 HTML 의 본문(#page)만 꺼내 그대로 띄운다(글자 수정·복사·JPG 는 됨, 사진·배치는 다시 짤 수 없음) */
+      const doc=new DOMParser().parseFromString(s.html,'text/html'); const pg=doc.getElementById('page');
+      if(!pg){ alert('이 저장본에서 본문을 못 찾았습니다.'); return; }
+      mode=pg.getAttribute('data-mode')||'master'; page=pg.innerHTML;
+      DATA={title:s.title,subtitle:'',sections:[],images:[],notice:null}; PHOTOS=[];
+      setMode(mode);
+    }
+    if($('dm-prodname')) $('dm-prodname').value=DATA.title||s.title||'';
+    if($('dm-th-prefix')) $('dm-th-prefix').value=(DATA.title||s.title||'').replace(/\n/g,' ').slice(0,40);
+    drawThumbs(); renderNoticeEditor();
+    const p=$('dm-page'); p.dataset.mode=MODE; p.innerHTML=page; FROZEN=true;
+    if(typeof toast==='function') toast('「'+s.title+'」 불러옴 — ✏️ 수정으로 이어서 고치세요'+(s.state?'':' (예전 저장본이라 사진·배치는 못 바꿈)'),3200);
+  }
   function delSaved(id){
     if(!confirm('이 저장본을 삭제할까요?')) return;
     savedHtmls=savedHtmls.filter(x=>x.id!==id); persistSaved();
@@ -828,7 +866,7 @@ const DM=(function(){
   }
   loadSaved(); renderSaved('');
   { const _nc=$('dm-notice-on'); if(_nc) _nc.checked=NOTICE_ON; }
-  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,savePdf,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
+  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,savePdf,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,renderSaved,copySaved,delSaved,editSaved,relayout,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
 })();
 </script>
 <script>
