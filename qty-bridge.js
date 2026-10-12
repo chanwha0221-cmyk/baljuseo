@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-12b';
+  var QTYB_VER = '2026-10-12c';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1781,7 +1781,7 @@
           }).join('<br>') + (misfit.length > 15 ? '<br>…' : '') + '</div>';
     }
 
-    h += '<div class="tw"><table><thead><tr><th>창고</th><th>상품명</th><th>잡음</th><th>나감</th><th>적힌 사용</th><th>남은 것</th><th>발주</th><th>창고 잔여</th></tr></thead><tbody>'
+    h += '<div class="tw"><table><thead><tr><th>창고</th><th>상품명</th><th>잡음</th><th>나감</th><th>적힌 사용</th><th>남은 것</th><th>발주</th><th>창고 잔여</th><th>풀기</th></tr></thead><tbody>'
       + rows.map(function (r) {
           return '<tr' + (r.over ? ' style="background:#fff1f2"' : '') + '>'
             + '<td>' + esc(r.wh) + '</td>'
@@ -1798,6 +1798,10 @@
             + '<td' + (r.rest > 0 ? ' style="font-weight:700"' : '') + '>' + r.rest + '</td>'
             + '<td>' + (r.need == null ? '<span class="mut">—</span>' : r.need) + '</td>'
             + '<td class="mut">' + (r.left == null ? '' : r.left) + '</td>'
+            /* 🔓 풀기 (2026-10-12 홍팀장 햇고바멸치 — 27개 잡았는데 업체가 25개 취소) : 적은 수만큼 수량 웹 «우리 잡음» 을 실제로 줄인다 */
+            + '<td style="white-space:nowrap"><input class="rlq" data-k="' + esc(r.key) + '" type="number" min="1" max="' + r.got + '" '
+            +   'placeholder="' + Math.max(0, r.rest) + '" style="width:46px;border:1px solid #cfd6e0;border-radius:5px;padding:2px 4px;font:700 12px Pretendard,sans-serif">'
+            +   ' <button class="rlg" data-k="' + esc(r.key) + '" style="font-size:11px;padding:1px 6px">풀기</button></td>'
             + '</tr>';
         }).join('')
       + '</tbody></table></div>'
@@ -1819,6 +1823,34 @@
     });
     [].forEach.call(box.querySelectorAll('.ofr'), function (b) {
       b.onclick = function () { outFixSet(this.getAttribute('data-k'), null); checkPaint(); };
+    });
+    /* 🔓 풀기 — 누르기 직전에 그 줄을 다시 읽고(freshRow) «지금 우리 잡음 − 적은 수» 를 잡음 총량으로 보낸다.
+          적힌 사용이 새 잡음보다 크면 사용도 새 잡음으로 내린다(잡은 것보다 많이 썼다고 남지 않게). */
+    [].forEach.call(box.querySelectorAll('.rlg'), function (b) {
+      b.onclick = function () {
+        var k = this.getAttribute('data-k'), btn = this;
+        var inp = box.querySelector('.rlq[data-k="' + k.replace(/"/g, '\\"') + '"]');
+        var n = parseInt(inp && (inp.value || inp.getAttribute('placeholder')), 10);
+        var row = IDX && IDX[k];
+        if (!row || !row.co) { alert('수량 웹에서 이 줄을 못 찾았습니다 — [🔄 창고 전부 긁기] 후 다시 눌러 주세요.'); return; }
+        if (isNaN(n) || n <= 0) { alert('풀 수량을 숫자로 넣어 주세요.'); return; }
+        btn.disabled = true;
+        freshRow(row).then(function (f) {
+          if (n > f.mine) { alert('지금 우리 잡음이 ' + f.mine + '개라 ' + n + '개는 못 풉니다.'); return; }
+          var to = f.mine - n;
+          if (!confirm(row.name + '\n\n우리 잡음 ' + f.mine + '개 → ' + to + '개 (' + n + '개 풀기)'
+              + (f.used > to ? '\n적힌 사용 ' + f.used + ' → ' + to : '') + '\n\n수량 웹에 실제로 반영합니다.')) return;
+          var p = Promise.resolve();
+          if (f.used > to) p = p.then(function () { return qpost({ do: 'used', tab: whTab(row), nkey: row.key, co: row.co, val: to }); });
+          return p.then(function () {
+            return qpost({ do: 'set', tab: whTab(row), nkey: row.key, co: row.co, val: to, name: row.name, how: 'pop' });
+          }).then(function () { return freshRow(row); }).then(function (g) {
+            alert('🔓 ' + row.name + ' — ' + n + '개 풀었습니다 (잡음 ' + f.mine + ' → ' + g.mine + ')');
+            return loadMy().then(function () { checkPaint(); });
+          });
+        }).catch(function (e) { alert('못 풀었습니다 — ' + (e.message || e)); })
+          .then(function () { btn.disabled = false; });
+      };
     });
     usedFix(rows);
     el('qtyb-cpover').onclick = function () {
