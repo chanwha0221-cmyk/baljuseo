@@ -56,13 +56,13 @@ footer{margin-top:18px;font-size:11.5px;color:var(--sub)}
 <div class="wrap">
 <header>
   <h1>미수 업체 보고 · 마찬 담당</h1>
-  <p>(주)마스터 · 기준 2026-10-06(화) 09:05 · 외부거래처 · 출처: 미수관리보드</p>
+  <p>(주)마스터 · <span id="basis">기준 2026-10-06(화) 09:05</span> · 외부거래처 · 출처: masterc 전체 정산현황 <button id="upd" style="display:none;margin-left:6px;padding:4px 12px;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:700 12px inherit;cursor:pointer">🔄 금액 업데이트</button></p>
   <p class="mbar" id="mbar">📝 진행 메모 불러오는 중…</p>
 </header>
 
 <div class="kpis">
   <div class="kpi"><div class="l">총 미수액</div><div class="v" id="k1"></div><div class="s" id="k1s"></div></div>
-  <div class="kpi red"><div class="l">40일 이상 장기 연체 (전부 소송중)</div><div class="v" id="k2"></div><div class="s" id="k2s"></div></div>
+  <div class="kpi red"><div class="l" id="k2l">40일 이상 장기 연체</div><div class="v" id="k2"></div><div class="s" id="k2s"></div></div>
   <div class="kpi amb"><div class="l">20~39일 연체 (주의)</div><div class="v" id="k3"></div><div class="s" id="k3s"></div></div>
 </div>
 
@@ -73,7 +73,7 @@ footer{margin-top:18px;font-size:11.5px;color:var(--sub)}
 </section>
 
 <section>
-  <h2>① 장기 연체 · 소송 진행 4곳</h2>
+  <h2 id="h1t">① 장기 연체 · 소송 진행</h2>
   <p class="d">40일 이상 연체 전부 내용증명 발송 후 법무 진행 중</p>
   <div class="scroll"><table id="t1"></table></div>
 </section>
@@ -85,13 +85,15 @@ footer{margin-top:18px;font-size:11.5px;color:var(--sub)}
 </section>
 
 <section id="all">
-  <h2>③ 미수 업체 전체</h2>
-  <p class="d">미수가 있는 외부거래처 전부 · 금액 큰 순 · 대부분 정산주기 안의 정상 미수(19일 이하)</p>
+  <details>
+  <summary style="cursor:pointer;list-style:revert"><h2 id="h3t" style="display:inline">③ 미수 업체 전체</h2> <span class="d" style="margin-left:6px">— 눌러서 펼치기</span></summary>
+  <p class="d" style="margin-top:8px">미수가 있는 외부거래처 전부 · 금액 큰 순 · 대부분 정산주기 안의 정상 미수(19일 이하)</p>
   <div class="scroll"><table id="t3"></table></div>
+  </details>
 </section>
 
 <footer>
-  밀린 날 = 오래된 건부터 입금된 것으로 치고 남은 미수의 경과일 · 등급은 미수관리보드 거래 등급(A 양호 → D 위험) · 10,000,000원 초과 단일 업체 없음 · 오늘(10-06) 미수 업체 입금 없음
+  밀린 날 = 오래된 건부터 입금된 것으로 치고 남은 미수의 경과일 · 등급은 미수관리보드 거래 등급(A 양호 → D 위험)
 </footer>
 </div>
 
@@ -141,18 +143,12 @@ const D=`다파농|5349600|78|2026-07-20|일정산|2026-08-19|D|진행중
 자은엔앤피|13500|20|2026-09-16|일정산|2026-09-16|D|
 팍스리테일|13200|5|2026-10-01|기타정산|2026-10-01|A|
 두바이건어물|6500|29|2026-09-07|일정산|2026-09-07|D|`;
-const R=D.trim().split('\n').map(l=>{const c=l.split('|');return{n:c[0],a:+c[1],d:+c[2],o:c[3],p:c[4],last:c[5],g:c[6],law:c[7]}}).sort((x,y)=>y.a-x.a);
+/* ⚖️ 법무 진행 — 금액은 masterc 에서 오지만 법무 상태는 여기서 붙인다 */
+const LAW={'다파농':'진행중','메이크머닛':'회수중','계절상회':'진행중','럭키우먼':'회수중'};
 const won=v=>v.toLocaleString('ko-KR')+'원';
 const sum=a=>a.reduce((s,r)=>s+r.a,0);
-const L=R.filter(r=>r.d>=40), M=R.filter(r=>r.d>=20&&r.d<40), S=R.filter(r=>r.d<20);
-const T=sum(R);
-k1.textContent=won(T);k1s.textContent=R.length+'곳';
-k2.textContent=won(sum(L));k2s.textContent=L.length+'곳 · 전체의 '+(sum(L)/T*100).toFixed(1)+'%';
-k3.textContent=won(sum(M));k3s.textContent=M.length+'곳 · 전체의 '+(sum(M)/T*100).toFixed(1)+'%';
-const segs=[['40일 이상',L,'#c62828'],['20~39일',M,'#e0a030'],['19일 이하',S,'#9aa5b4']];
-bar.innerHTML=segs.map(s=>`<i style="width:${sum(s[1])/T*100}%;background:${s[2]}"></i>`).join('');
-legend.innerHTML=segs.map(s=>`<span><b style="background:${s[2]}"></b>${s[0]} ${won(sum(s[1]))} (${s[1].length}곳)</span>`).join('');
 const dcls=d=>d>=40?'r':d>=20?'a':'';
+let R=[];
 function table(el,rows,cols){
   const H={n:'업체',a:'미수액',d:'밀린 날',o:'가장 오래된 미수',last:'마지막 발주',p:'정산주기',g:'등급',law:'법무',memo:'📝 진행 메모 (통화 내용·현재 상황)'};
   const num=['a','d'];
@@ -164,13 +160,30 @@ function table(el,rows,cols){
     if(c==='g')return `<td><span class="g g${r.g}">${r.g}</span></td>`;
     if(c==='law')return `<td>${r.law?'내용증명 → 법무 '+r.law:''}</td>`;
     if(c==='memo')return `<td class="memo" data-n="${r.n}"></td>`;
-    return `<td>${r[c]}</td>`}).join('')+'</tr>').join('');
+    return `<td>${r[c]||''}</td>`}).join('')+'</tr>').join('');
   h+=`<tr class="sum"><td>합계 ${rows.length}곳</td><td class="n">${sum(rows).toLocaleString('ko-KR')}</td>`+cols.slice(2).map(()=>'<td></td>').join('')+'</tr>';
   el.innerHTML=h;
 }
-table(t1,L,['n','a','d','o','last','law','memo']);
-table(t2,M,['n','a','d','o','last','p','g','memo']);
-table(t3,R,['n','a','d','o','last','p','g','memo']);
+function drawAll(rows){
+  R=rows.filter(r=>r.a>0).map(r=>Object.assign({},r,{law:r.law||LAW[r.n]||''})).sort((x,y)=>y.a-x.a);
+  const L=R.filter(r=>r.d>=40), M=R.filter(r=>r.d>=20&&r.d<40), S=R.filter(r=>r.d<20);
+  const T=sum(R)||1;
+  k1.textContent=won(sum(R));k1s.textContent=R.length+'곳';
+  k2.textContent=won(sum(L));k2s.textContent=L.length+'곳 · 전체의 '+(sum(L)/T*100).toFixed(1)+'%';
+  k2l.textContent='40일 이상 장기 연체'+(L.length&&L.every(r=>r.law)?' (전부 소송중)':'');
+  k3.textContent=won(sum(M));k3s.textContent=M.length+'곳 · 전체의 '+(sum(M)/T*100).toFixed(1)+'%';
+  h1t.textContent='① 장기 연체 · 소송 진행 '+L.length+'곳';
+  h3t.textContent='③ 미수 업체 전체 '+R.length+'곳';
+  const segs=[['40일 이상',L,'#c62828'],['20~39일',M,'#e0a030'],['19일 이하',S,'#9aa5b4']];
+  bar.innerHTML=segs.map(s=>`<i style="width:${sum(s[1])/T*100}%;background:${s[2]}"></i>`).join('');
+  legend.innerHTML=segs.map(s=>`<span><b style="background:${s[2]}"></b>${s[0]} ${won(sum(s[1]))} (${s[1].length}곳)</span>`).join('');
+  table(t1,L,['n','a','d','o','last','law','memo']);
+  table(t2,M,['n','a','d','o','last','p','g','memo']);
+  table(t3,R,['n','a','d','o','last','p','g','memo']);
+  try{ paint(); }catch(e){}   // 처음 그릴 땐 메모 쪽이 아직 준비 전이라 건너뛴다(pull 이 다시 칠한다)
+}
+// 처음엔 저장해 둔 값으로 바로 그리고, 서버 최신값이 오면 다시 그린다
+drawAll(D.trim().split('\n').map(l=>{const c=l.split('|');return{n:c[0],a:+c[1],d:+c[2],o:c[3],p:c[4],last:c[5],g:c[6],law:c[7]}}));
 
 /* 📝 진행 메모 (2026-10-06 홍팀장 「이사님이랑 통화한 내용·진행 상황을 내가 적는 칸, 전화하면서 같이 보게」)
    저장처 = Supabase(app_config MISU_NOTE:<페이지id>). 같은 업체는 세 표 어디서 적어도 같은 메모다.
@@ -214,6 +227,33 @@ async function pull(){
   catch(e){mbar.textContent='⚠️ 진행 메모를 불러오지 못했습니다';}
 }
 pull();setInterval(pull,15000);
+/* 💰 금액 = masterc 전체 정산현황 최신값 (2026-10-13 홍팀장 「돈 다 줬는데 왜 그대로냐, 업데이트 버튼도」).
+   서버(misudata)에 저장된 값으로 그린다. [🔄 금액 업데이트](마스터 로그인 브라우저에만 보임) → masterc 창이 열려 정산현황을 읽어 보내고 닫힌다. */
+function kst(t){ return new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false}); }
+async function pullAmt(){
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'misudata'})});
+    const j=await r.json(); const d=j&&j.data;
+    if(!d||!Array.isArray(d.rows)||!d.rows.length) return;
+    drawAll(d.rows);
+    basis.textContent='기준 '+(d.sumAt?d.sumAt.replace(/:\d\d$/,''):kst(d.at));
+  }catch(e){}
+}
+pullAmt();
+if(TOKEN){
+  upd.style.display='inline-block';
+  upd.onclick=function(){
+    upd.disabled=true; upd.textContent='⏳ masterc 에서 읽는 중…';
+    const w=window.open('https://masterc.kr/board_eJGl96#misusync','misusync','width=520,height=320');
+    if(!w){ alert('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러 주세요.'); upd.disabled=false; upd.textContent='🔄 금액 업데이트'; }
+    setTimeout(function(){ if(upd.disabled){ upd.disabled=false; upd.textContent='🔄 금액 업데이트'; } }, 60000);
+  };
+  window.addEventListener('message',function(e){
+    if(e.origin!=='https://masterc.kr'||!e.data||e.data.type!=='misusync')return;
+    upd.disabled=false; upd.textContent='🔄 금액 업데이트';
+    if(e.data.ok){ pullAmt(); } else alert('업데이트 실패 — '+(e.data.error||''));
+  });
+}
 </script>
 </body>
 </html>

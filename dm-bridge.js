@@ -31,6 +31,13 @@
   s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/spec-sync.js?v=' + Date.now();
   document.head.appendChild(s);
 })();
+/* 💰 #misusync — 미수 보고 [🔄 금액 업데이트] 가 이 게시판을 새 창으로 연다 (2026-10-13 홍팀장). misu-sync.js 가 정산현황을 읽어 보낸다. */
+(function () {
+  if (String(location.hash || '').indexOf('misusync') < 0) return;
+  var s = document.createElement('script');
+  s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/misu-sync.js?v=' + Date.now();
+  document.head.appendChild(s);
+})();
 (function () {
   'use strict';
   if (String(location.hash || '').indexOf('dmgrab') < 0) return;   // 우리가 부른 경우만
