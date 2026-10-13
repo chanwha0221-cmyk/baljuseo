@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-12e';
+  var QTYB_VER = '2026-10-13a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -280,6 +280,10 @@
       ours: num(ctext(tr, 'ours')),
       waiting: num(ctext(tr, 'wait')),
       mine: num(mineCell ? tx(mineCell) : ''),
+      // 🚚📦 카탈로그로 보낼 상품 정보 (2026-10-13) — 택배사·배송비 칸, 상품명 옆 「합배송 최대 N개」 태그(data-hb)
+      courier: ctext(tr, 'courier'),
+      shipRaw: ctext(tr, 'ship'),
+      hb: (function () { var e = tr.querySelector('.tag.hb[data-hb]'); return e ? (parseInt(e.getAttribute('data-hb'), 10) || 0) : 0; })(),
       co: mineCell ? (mineCell.getAttribute('data-co') || '') : '',   // 우리 회사 이름(마찬) — 잡을 때 같이 보낸다
       editable: !!mineCell,
       free: free,
@@ -2042,8 +2046,30 @@
 
   /* preset = 방금 가져오기가 긁어 둔 IDX (2026-09-29 홍팀장 「카탈로그 재고 보내기도 가져오기 누를 때 같이」).
      그걸 그대로 쓰면 창고를 두 번 긁지 않는다. 🔴 창고를 하나라도 못 읽은 판이면 보내지 않는다. */
+  /* 🚚📦 수량 웹 상품 정보 → 카탈로그 (2026-10-13 홍팀장 「합포장 정보 다 취합했고 택배사 정보도 여기 다 들어 있잖아, 가져와」).
+        재고 보낼 때 긁은 같은 판에서 줄마다 [상품명, 택배사, 합배송 개수, 배송비] 를 보낸다(상시·당일 모두). */
+  function infoPush(all) {
+    if (!all) return Promise.resolve(false);
+    var rows = [];
+    Object.keys(all).forEach(function (k) {
+      var r = all[k];
+      if (!r || !r.name) return;
+      if (!r.courier && !r.hb && !r.shipRaw) return;
+      rows.push([r.name, r.courier || '', r.hb || 0, r.shipRaw || '']);
+    });
+    if (!rows.length) return Promise.resolve(false);
+    return fetch(QTY_API, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'qtyinfo', key: QTY_KEY, rows: rows })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      var sEl = el('qtyb-stock');
+      if (sEl && j && j.ok) sEl.textContent += ' · 택배사·합배송 ' + j.count + '개';
+      return !!(j && j.ok);
+    }).catch(function () { return false; });
+  }
   function stockPush(auto, preset) {
     if (window.__QTYB_PUSHING) return Promise.resolve(false);
+    var lastAll = null;
     window.__QTYB_PUSHING = true;
     var sEl = el('qtyb-stock');
     if (sEl) sEl.textContent = '📤 보내는 중…';
@@ -2056,7 +2082,7 @@
     var src = preset
       ? (SCAN_FAIL.length ? Promise.reject(new Error('못 읽은 창고: ' + SCAN_FAIL.join(','))) : Promise.resolve(preset))
       : stockRows();
-    return Promise.all([src, usedP]).then(function (x) { return stockMap(x[0], x[1]); }).then(function (m) {
+    return Promise.all([src, usedP]).then(function (x) { lastAll = x[0]; return stockMap(x[0], x[1]); }).then(function (m) {
       var rows = Object.keys(m).map(function (k) { return [k, m[k]]; });
       return fetch(QTY_API, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -2068,6 +2094,7 @@
       try { localStorage.setItem(STOCK_LAST, String(Date.now())); } catch (e) {}
       if (sEl) sEl.textContent = '📤 ' + hhmm() + ' 보냄 · ' + j.count + '개 (재고없음 ' + j.zero + ' · 소량 ' + j.low + ')'
         + (auto ? ' · 자동' : '');
+      infoPush(lastAll);   // 🚚📦 같은 판으로 택배사·합배송도 (뒤에서 — 실패해도 재고 전송은 끝난 것)
       return true;
     }).catch(function (e) {
       window.__QTYB_PUSHING = false;

@@ -947,6 +947,11 @@ function dayShip(r){
   if(typeof r.ship_n==='number'&&r.ship_n>0)return r.ship_n;
   return -1;
 }
+/* 🚚📦 수량 웹 상품 정보 (2026-10-13 홍팀장 「합포장·택배사 수량 웹에 다 들어 있잖아, 가져와」) — 수량 패널이 창고 긁을 때 보낸다.
+   합포장(h)은 이 값이 1순위(옛 합포장 시트보다 위), 택배사(c)·배송비(s)는 비어 있을 때만 채운다. 키 = pkey. */
+let QINFO={};
+function qinfo(n){ return QINFO[pkey(n)]||{}; }
+function mergeQinfoHap(){ if(typeof HAP==='undefined'||!HAP)return; for(const k in QINFO){ const h=+QINFO[k].h||0; if(h>0)HAP[k]=h; } }
 function buildDayGroup(){
   const rows=(SNAP&&SNAP.mcDay)||[];
   if(!rows.length)return null;
@@ -964,7 +969,7 @@ function buildDayGroup(){
       name:r.n,
       url:'',
       price:{old:null,cur:(r.price!=null?r.price:null),dir:''},
-      ship:dayShip(r),
+      ship:(function(){ const s=dayShip(r); if(s>=0)return s; const t=String(qinfo(r.n).s||''); if(/무료/.test(t))return 0; const d=t.replace(/[^0-9]/g,''); return d?parseInt(d,10):-1; })(),
       courier:r.courier||'',
       tax:r.tax||'',
       cut:r.cut||'',
@@ -978,6 +983,7 @@ function buildDayGroup(){
   return {wh:'당일생물',products,mixed};
 }
 function applyMc(groups){
+  QINFO=(SNAP&&SNAP.qtyInfo)||{}; mergeQinfoHap();
   const mc=(SNAP&&SNAP.mc)||null;
   if(!mc||!mc.length)return groups;
   const m={};mc.forEach(p=>{if(p&&p.n)m[pkey(p.n)]=p;});
@@ -1761,7 +1767,7 @@ function tagRow(p,taxc){
   const hb=h?('<span class="tg hap" title="한 박스에 이 수량까지 합포장 가능합니다 (같은 창고 상품끼리)">📦 합포장 '+h+'개</span>'):'';
   /* 🚚 택배사 — 업체 문의가 많아 딱지로 올린다 (홍팀장 2026-09-29). 값은 masterc 상시·당일 딸깍이 넣는다.
      모르면 안 붙인다(「-」 같은 빈 표시도 걸러낸다). */
-  const cv=String(p.courier||'').trim().replace(/^[-–—\s]+$/,'');
+  const cv=String(p.courier||qinfo(p.name).c||'').trim().replace(/^[-–—\s]+$/,'');
   const cb=cv?('<span class="tg crr" title="출고 택배사">🚚 '+esc(cv)+'</span>'):'';
   /* 🚫 특별단가 딱지는 달지 않는다 (2026-10-06 홍팀장 「왜 얘만 특별단가지? 소리 나온다, 딱지는 떼라」) — 가격만 바뀐다. */
   return (t||c||hb||cb)?('<div class="tgrow">'+t+cb+c+hb+'</div>'):'';
@@ -2220,7 +2226,7 @@ async function startCatalog(){
         if(r[3]){CHG=r[3];buildTint();renderMoveBox();}   // 살구색 표시를 카탈로그 카드에도 입히려면 읽어야 한다
         if(r[4]){NOTI=r[4];renderNoticeBox();}
         if(r[5]&&Object.keys(r[5]).length)LINKS=r[5];
-        if(r[6]&&r[6].map&&Object.keys(r[6].map).length){HAP=r[6].map;HAPROWS=r[6].rows||[];}   // 📦 합포장
+        if(r[6]&&r[6].map&&Object.keys(r[6].map).length){HAP=r[6].map;HAPROWS=r[6].rows||[];} mergeQinfoHap();   // 📦 합포장
         if(r[7]){RECS=r[7];buildRecMap();}            // ⭐ 추천상품을 창고 목록 맨 앞에 세우려면 필요
         if(r[8]){NEWS=r[8];renderNewsOne();}          // 📰 최신 소식글 한 줄
         if(Object.keys(sales).length)SALES=sales;
