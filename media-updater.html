@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.54</title>
+<title>마스터 유통 상품 도구 v1.55</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -1709,6 +1709,14 @@ function ngLoadNames(){
       const j=(await sb('tabget',{names:['상품분류']})).tabs['상품분류']||{rows:[]};   // 🗄 정본은 Supabase (2026-09-14)
       const seen={},op=[];
       (j.rows||[]).forEach(r=>{const n=t(r[0]);if(n&&!seen[n]){seen[n]=1;NAMES.add(n);op.push('<option value="'+esc(n)+'">');}});
+      /* 🐟 오늘 열린 당일 상품도 (2026-10-14 홍팀장 「연안 활 주꾸미가 상품 검색에 안 뜬다」) —
+         당일 상품은 masterc 당일 딸깍(MC_DAY)으로만 카탈로그에 올라와 '상품분류' 탭엔 없다.
+         카탈로그 스냅샷의 mcDay 중 «오늘 날짜 + 켜둔 것» 만 정본 목록에 더한다(이름은 그대로, 추측 매칭 없음). */
+      try{
+        const c=await supa('catalog',{});
+        const k=new Date(Date.now()+9*3600000), today=k.toISOString().slice(0,10).replace(/-/g,'');
+        if(String(c.mcDayDay||'')===today)(c.mcDay||[]).forEach(r=>{const n=t(r&&r.n);if(n&&r.on&&!seen[n]){seen[n]=1;NAMES.add(n);op.push('<option value="'+esc(n)+'">');}});
+      }catch(e){}
       $p('rcDL').innerHTML=op.join('');
     }catch(e){}
   })();
