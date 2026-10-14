@@ -529,10 +529,15 @@ async function quickSave(){
   $('q-mail').value=''; quickCheck();
   /* ✉ 처음 보내는 곳이면 그 주소로 썬더버드 메일쓰기 창을 연다 (홍팀장 2026-09-11 —
      "그 메일 주소로 썬더버드 열리게 해라, 밑에 내용까지 들어간 상태로").
-     🔴 이미 보낸 곳은 열지 않는다 — 이 도구의 존재 이유가 중복 발송 거르기다. 기록(마지막연락 갱신)만 한다. */
-  if(isNew && q.indexOf('@')>0){ openCompose(q); return; }
+     🔄 이미 보낸 곳도 연다 (2026-10-14 홍팀장 「메일 안 보낼 거면 갱신을 왜 하냐」) — 마지막연락을 갱신하고 메일창까지.
+        중복 거르기는 [기록] 전 경고 칸(🚨 이미 보냈음)이 한다. 그 경고를 보고도 누른 건 다시 보내겠다는 뜻이다. */
+  if(q.indexOf('@')>0){
+    openCompose(q);
+    if(r.updated) toast('갱신됨 — 마지막연락 '+(r.days==null?r.prev:r.days+'일 전')+' → '+date+' · ✉ 썬더버드 여는 중 — 본문 칸에 Ctrl+V');
+    return;
+  }
   toast(r.updated
-    ? ('갱신됨 — 마지막연락 '+(r.days==null?r.prev:r.days+'일 전')+' → '+date+' (이미 보낸 곳이라 메일창은 안 열었어요)')
+    ? ('갱신됨 — 마지막연락 '+(r.days==null?r.prev:r.days+'일 전')+' → '+date)
     : ('기록됨 — '+date));
 }
 /* 📨 썬더버드 메일쓰기 창 — 이 PC의 메일 기본 앱이 썬더버드라 mailto: 로 연다.
