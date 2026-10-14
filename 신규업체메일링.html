@@ -1362,8 +1362,11 @@ function tplRemember(nm){ try{ localStorage.setItem('mailing_tpl_last', nm||'');
 function renderTplButtons(){
   const box=$('tpl-list'); if(!box) return;
   const list=tplList();
-  if(!list.length){ box.innerHTML='<span class="muted" style="font-size:12px">저장된 템플릿 없음 — [💾 템플릿 저장]을 누르면 이름만 묻고 지금 화면 그대로 저장돼요</span>'; return; }
-  box.innerHTML='<span class="muted" style="font-size:12px">내 템플릿:</span>'+list.map((t,i)=>{
+  /* 📌 기본(원문) 템플릿은 늘 맨 앞에 — 지울 수 없다 (2026-10-14 홍팀장 「본문 수정하고 템플릿 저장했으면 기본 템플릿은 자동으로 있어야지, 원문 살려내」) */
+  const bOn=CUR_TPL==='';
+  const base='<span style="display:inline-flex;align-items:center;border:1px solid '+(bOn?'var(--brand)':'#d7d2c8')+';border-radius:8px;overflow:hidden">'+
+    '<button class="btn ghost" type="button" style="border:none;border-radius:0'+(bOn?';font-weight:800':'')+'" onclick="loadBaseTpl()">📌 기본 (처음 보내는 업체)</button></span>';
+  box.innerHTML='<span class="muted" style="font-size:12px">내 템플릿:</span>'+base+list.map((t,i)=>{
     const on=t.name===CUR_TPL;
     return '<span style="display:inline-flex;align-items:center;border:1px solid '+(on?'var(--brand)':'#d7d2c8')+';border-radius:8px;overflow:hidden">'+
       '<button class="btn ghost" type="button" style="border:none;border-radius:0'+(on?';font-weight:800':'')+'" onclick="loadNamedTpl('+i+')">📄 '+escTpl(t.name)+'</button>'+
@@ -1371,10 +1374,12 @@ function renderTplButtons(){
       '</span>';
   }).join('');
 }
+function loadBaseTpl(){ $('tpl-subject').value=hoSlot(SET.subject||DEFAULT_SUBJECT); $('tpl').value=MAIL_START; CUR_TPL=''; tplRemember(''); restampCompany(); renderTplButtons(); toast('기본 템플릿 불러옴'); }
 function loadNamedTpl(i){ const t=tplList()[i]; if(!t)return; if(t.subject!=null)$('tpl-subject').value=t.subject; $('tpl').value=t.body||''; CUR_TPL=t.name; tplRemember(t.name); restampCompany(); renderTplButtons(); toast('「'+t.name+'」 템플릿 불러옴'); }
 async function saveNamedTemplate(){
   const nm=(prompt('템플릿 이름 (같은 이름이면 덮어씁니다)', CUR_TPL||'')||'').trim();
   if(!nm) return;
+  if(/^기본/.test(nm)){ alert('「기본」은 원문 자리라 이 이름으로는 저장할 수 없어요 — 다른 이름을 넣어 주세요'); return; }
   const list=tplList(), i=list.findIndex(t=>t.name===nm);
   if(i>=0 && nm!==CUR_TPL && !confirm('「'+nm+'」 템플릿이 이미 있어요. 덮어쓸까요?')) return;
   /* 🏢 오른쪽에서 꽂아 넣은 업체명·보고온곳은 태그로 되돌려 저장한다 — 안 그러면 다음 업체에 남의 이름이 나간다 */
