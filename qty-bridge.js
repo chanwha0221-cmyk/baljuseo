@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-13a';
+  var QTYB_VER = '2026-10-14a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -37,6 +37,17 @@
   var WAIT_SHARE = 0.2;
   /* 수량이 풀리는 시각(KST). 이 시각이 지나도 「품절 안 풀림」 이면 대기가 아니라 증량요청으로 간다(2026-09-29). */
   var OPEN_HOUR = 10;
+  /* 🐟 아침 수매 상품 = 대기 우선 (2026-10-14 홍팀장 「아침에 수매 보면 그날 수량이 확정된다, 증량은 어렵다.
+     되도록 대기 걸고 남긴 거에서 출고돼야 한다」 — 숫게 6개 부족이 증량으로 갔다가 「산지 수량 없음」 거부).
+     이름에 「활」·「생물」 이 들어간 상품은 부족분 개수·비율과 상관없이 대기로 간다.
+     예외는 패널 「수매 아님」 칸(쉼표로 상품명 일부) — 이 PC 에 기억. 대기가 너무 많으면 줄의 [⇄ 증량] 으로 돌린다. */
+  var SUMAE_RE = /활|생물/;
+  function sumaeOff() { try { return (localStorage.getItem('qtyb_sumae_off') || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean); } catch (e) { return []; } }
+  function isSumae(row) {
+    var nm = (row && row.name) || '';
+    if (!SUMAE_RE.test(nm)) return false;
+    return !sumaeOff().some(function (w) { return nm.indexOf(w) >= 0; });
+  }
   var PANEL_ID = 'qtyb-panel';
 
   /* 🔴 화면을 가리지 않는다 (홍팀장 2026-09-28 : 「그냥 수량 사이트 어디서나 나오게 해야지」).
@@ -734,7 +745,9 @@
     } else if (mo && mo.no) {
       /* 증량은 막혔다 → 소량이면 대기로 돌린다. 다만 «안 풀림» 줄은 대기가 무의미하다
          (남이 풀 물건 자체가 없다) → 바로 포기하고 따로 구한다. */
-      if (!row.stuck && hole <= WAIT_MAX) { r.wait = hole; r.act = 'wait'; r.why = base + ' · 증량 거부됨 → 대기로'; }
+      /* 🔁 거부되면 개수와 상관없이 대기 (2026-10-14 홍팀장) — 예전엔 5개 넘으면 바로 포기(🎯 구해야)였다.
+         대기까지 걸고도 못 받으면 위 분기(증량 거부 + 대기 걸어 둠)에서 구해야로 간다. */
+      if (!row.stuck) { r.wait = hole; r.act = r.set ? 'set+wait' : 'wait'; r.why = base + ' · 증량 거부됨 → 대기로'; }
       else {
         r.hunt = hole; r.act = 'hunt';
         r.why = base + ' · 증량 거부됨' + (row.stuck ? ' · 오늘 안 나오는 줄' : '') + (mo.ans ? ' 「' + mo.ans + '」' : '');
@@ -809,7 +822,10 @@
          ─ 총수량을 모르면(0) 대기가 의미 없으니 증량요청. */
       var share = row.total > 0 ? (hole / row.total) : 1;
       var smallEnough = (hole <= WAIT_MAX) && (share <= WAIT_SHARE);
-      if (smallEnough) {
+      if (isSumae(row)) {
+        r.wait = hole; r.act = r.set ? 'set+wait' : 'wait';
+        r.why = base + ' · 🐟 아침 수매 상품 — 증량보다 대기(남긴 것에서 받기)';
+      } else if (smallEnough) {
         r.wait = hole; r.act = r.set ? 'set+wait' : 'wait';
         r.why = base + ' · 총 ' + row.total + '개 중 ' + hole + '개라 누가 풀면 받을 만함';
       } else {
@@ -1027,6 +1043,8 @@
       '    <span class="mut">대기 한도</span>' +
       '    <input id="qtyb-wm" value="' + WAIT_MAX + '" style="width:44px;text-align:center;border:1px solid #cfd6e0;border-radius:6px;padding:4px">' +
       '    <span class="mut">개까지는 증량 대신 대기</span>' +
+      '    <span class="mut" style="margin-left:10px" title="이름에 활·생물이 들어간 상품은 개수와 상관없이 대기로 갑니다">🐟 수매 아님</span>' +
+      '    <input id="qtyb-soff" value="' + esc(sumaeOff().join(', ')) + '" placeholder="예: 활전복, 생물 갑오징어" style="width:150px;border:1px solid #cfd6e0;border-radius:6px;padding:4px;font-size:11px">' +
       /* 📅 기준 날짜 — 이 날짜 시트에서 «이미 나간 수량» 을 읽어, 그만큼은 또 안 잡는다.
          밤에 내일 것을 미리 잡는 일이 있어 오늘 날짜로 굳히지 않는다(홍팀장 2026-09-28).
          한 번 고쳐 놓으면 고칠 때까지 그 값으로 간다. */
@@ -1241,7 +1259,7 @@
               /* 무엇을 걸까 — 당일 대조(judge)와 같은 기준 : 잠긴 줄·아직 안 열린 줄은 대기,
                  그 밖엔 총수량 대비 비중이 작으면 대기, 크면 증량요청. 증량이 거부된 상품은 대기로. */
               var share = idx.total > 0 ? (n0 / idx.total) : 1;
-              var useWait = refused || idx.locked || idx.left > 0 || (idx.closed && !idx.stuck) || (n0 <= WAIT_MAX && share <= WAIT_SHARE);
+              var useWait = refused || isSumae(idx) || idx.locked || idx.left > 0 || (idx.closed && !idx.stuck) || (n0 <= WAIT_MAX && share <= WAIT_SHARE);
               act = { t: useWait ? 'wait' : 'more', n: n0 };
               chk = '🔴 ' + (wq + mq ? '대기·증량 ' + (wq + mq) + '개뿐 — ' : '안 걸림 — ') + (useWait ? '대기 ' : '증량요청 ') + n0 + '개 필요';
               bad = true;
@@ -2130,6 +2148,7 @@
   function run() {
     var wm = parseInt(el('qtyb-wm').value, 10);
     WAIT_MAX = isNaN(wm) ? 5 : wm;
+    try { if (el('qtyb-soff')) localStorage.setItem('qtyb_sumae_off', el('qtyb-soff').value || ''); } catch (e) {}
     var parsed = parseNeed(el('qtyb-in').value);
     var notes = foldAlias(parsed.map);                 // 연어·홍어처럼 한 줄에서 잡는 것들을 먼저 합친다
     var keys = Object.keys(parsed.map).filter(function (k) { return k.indexOf('#raw:') !== 0; });
@@ -2284,7 +2303,9 @@
         '<td style="white-space:nowrap">' + (x.wait ? '<b>+' + x.wait + '</b><br>' : '') +
           '<input class="wq" data-wk="' + esc(x.row.key) + '" type="number" min="0" value="' + waitNow(x.row.key) + '" ' +
           'style="width:46px;border:1px solid #cfd6e0;border-radius:5px;padding:2px 4px;font:12px Pretendard,sans-serif" title="걸어 둘 대기 총량">' +
-          ' <button class="wgo" data-wk="' + esc(x.row.key) + '" style="font-size:11px;padding:2px 6px">걸기</button></td>' +
+          ' <button class="wgo" data-wk="' + esc(x.row.key) + '" style="font-size:11px;padding:2px 6px">걸기</button>' +
+          (waitNow(x.row.key) > 0 ? '<br><button class="w2m" data-wk="' + esc(x.row.key) + '" style="font-size:11px;padding:2px 6px;margin-top:3px" title="걸어 둔 대기를 줄이고 그만큼 증량요청으로">⇄ 증량</button>' : '') +
+          '</td>' +
         '<td>' + (x.more || '') + '</td>' +
         '<td class="mut">' + esc(x.row.dlRaw.replace(/^.*?:\s*/, '')) + (ml != null && ml <= 120 ? ' <b>' + ml + '분</b>' : '') + '</td>' +
         '</tr>';
@@ -2340,6 +2361,38 @@
             return loadMy().then(function () { run(); });
           });
         }).catch(function (e) { alert('대기를 못 걸었습니다 — ' + (e.message || e)); })
+          .then(function () { btn.disabled = false; });
+      };
+    });
+
+    /* ⇄ 대기 → 증량 전환 (2026-10-14 홍팀장 「대기가 너무 많은 건 증량으로 전환하는 버튼」).
+       🔴 대기와 증량이 둘 다 살아 있으면 타이밍 따라 두 번 받는 참사가 난다(홍팀장) →
+          ① 잔여가 남아 있으면 증량이 안 걸리니 아무것도 안 한다 ② 대기를 먼저 줄이고 다시 읽어
+          «정말 줄었는지» 확인 ③ 줄었을 때만 그만큼 증량을 건다. 대기가 안 줄었으면 증량은 안 건다. */
+    [].forEach.call(document.querySelectorAll('#' + PANEL_ID + ' .w2m'), function (b) {
+      b.onclick = function () {
+        var k = this.getAttribute('data-wk'), x = byKey[k];
+        if (!x) return;
+        var btn = this; btn.disabled = true;
+        freshRow(x.row).then(function (f) {
+          if (!f.wait) { alert('걸려 있는 대기가 없습니다.'); return; }
+          if (f.left > 0) { alert('잔여 ' + f.left + '개가 남아 있어 증량요청을 걸 수 없습니다(수량 웹 규칙) — 대기를 그대로 둡니다.'); return; }
+          var s = prompt(x.row.name + '\n\n지금 대기 ' + f.wait + '개' + (f.more ? ' · 답 기다리는 증량 ' + f.more + '개' : '')
+            + '\n몇 개를 증량으로 돌릴까요? (그만큼 대기는 줄어듭니다)', String(f.wait));
+          if (s == null) return;
+          var n = parseInt(s, 10);
+          if (isNaN(n) || n <= 0) return;
+          if (n > f.wait) n = f.wait;
+          var why = (el('qtyb-why') && el('qtyb-why').value.trim()) || WHY_DEFAULT;
+          return qpost({ do: 'wait', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: f.wait - n })
+            .then(function () { return freshRow(x.row); })
+            .then(function (g) {
+              if (g.wait !== f.wait - n) throw new Error('대기가 ' + f.wait + ' → ' + g.wait + '개로 남아 있어 증량은 걸지 않았습니다 — 수량 웹에서 대기를 확인해 주세요');
+              return qpost({ do: 'more', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: g.more + n, why: why })
+                .then(function () { alert('대기 ' + f.wait + ' → ' + g.wait + '개, 증량요청 ' + (g.more + n) + '개로 바꿨습니다.'); });
+            })
+            .then(function () { return loadMy().then(function () { run(); }); });
+        }).catch(function (e) { alert('전환 실패 — ' + (e.message || e)); })
           .then(function () { btn.disabled = false; });
       };
     });
