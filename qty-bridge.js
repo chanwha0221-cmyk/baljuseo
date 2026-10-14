@@ -1,4 +1,4 @@
-﻿/* qty-bridge.js — 수량 웹(service.masterc.co.kr/qty) 위에 얹는 발주 대조 패널
+/* qty-bridge.js — 수량 웹(service.masterc.co.kr/qty) 위에 얹는 발주 대조 패널
  * ─────────────────────────────────────────────────────────────────────────
  * 왜 여기(남의 페이지)에서 도느냐 :
  *   수량 웹은 마스터(본사) PHP 시스템이고 CORS 를 안 열어 준다 — 2026-09-28 실측:
@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-14a';
+  var QTYB_VER = '2026-10-14b';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1070,10 +1070,10 @@
          잔여·잡아 둔 여유를 보고 [↩️ 여유분 당일로 올리기] 로 같은 일을 한다. 함수는 남겨 둠(qtyb-back). */
       '    <button id="qtyb-clr">비우기</button>' +
       '  </div>' +
-      /* 📤 카탈로그 재고 — 누르면 한 번, 이 탭이 켜져 있으면 09~16시 30분마다 알아서 */
+      /* 📤 카탈로그 재고 — 누르면 한 번, 이 탭이 켜져 있으면 30분마다 알아서(시간 제한 없음, 2026-10-14) */
       '  <div style="display:flex;gap:6px;align-items:center;margin-top:7px;flex-wrap:wrap">' +
       '    <button class="pri" id="qtyb-stockgo">📤 카탈로그 재고 보내기</button>' +
-      '    <span class="mut" id="qtyb-stock">09~16시 30분마다 자동 (이 탭이 켜져 있을 때)</span>' +
+      '    <span class="mut" id="qtyb-stock">30분마다 자동 (이 탭이 켜져 있을 때 · 시간 제한 없음)</span>' +
       '  </div>' +
       '  <div id="qtyb-hunt"></div>' +
       '  <div id="qtyb-out"></div>' +
@@ -2122,14 +2122,13 @@
     });
   }
 
-  /* ⏰ 30분마다 — 09:00~16:00 (KST). 이 탭이 켜져 있어야 돈다(서버가 수량 웹을 못 읽는다).
-     숨은 탭은 크롬이 타이머를 1분에 한 번으로 묶지만 30분 간격이라 상관없다.
+  /* ⏰ 30분마다 — 시간 제한 없이 (2026-10-14 홍팀장 「자동 보내기는 그냥 계속 켜 놓자, 컴 켜져 있으면」).
+     예전엔 09:00~16:00 만 돌아서, 16시 뒤에 풀린 과메기가 15:54 의 «품절 안 풀림 = 0» 으로 남아 카탈로그에서 재고 없음이 됐다.
+     이 탭이 켜져 있어야 돈다(서버가 수량 웹을 못 읽는다). 숨은 탭은 크롬이 타이머를 1분에 한 번으로 묶지만 30분 간격이라 상관없다.
      실패하면 다음 1분에 다시 한다(같은 30분 칸 안에서). */
   function stockTimer() {
     if (window.__QTYB_TIMER) clearInterval(window.__QTYB_TIMER);
     function tick() {
-      var mins = Math.round(kstNow() * 60);          // kstNow() = 시(소수) — 14.5 = 14:30
-      if (mins < 9 * 60 || mins > 16 * 60) return;
       var last = 0;
       try { last = parseInt(localStorage.getItem(STOCK_LAST) || '0', 10) || 0; } catch (e) {}
       if (Date.now() - last < 29 * 60 * 1000) return;
