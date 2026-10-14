@@ -354,6 +354,28 @@ function listHtml(master){
   return h;
 }
 
+/* ✏️ 클레임 고치기 칸 — [✏️ 수정] 을 누르면 펼쳐진다. 유형·사진은 못 바꾼다(새로 올리는 게 맞다). */
+function editHtml(c){
+  var id = E(S(c.id));
+  var how = HOWS.map(function(x){ return '<option'+(x===S(c.how)?' selected':'')+'>'+E(x)+'</option>'; }).join('');
+  if(S(c.how) && HOWS.indexOf(S(c.how)) < 0) how = '<option selected>'+E(S(c.how))+'</option>' + how;
+  return '<div style="margin-top:9px"><button class="ordb2" type="button" data-edopen="'+id+'">✏️ 수정</button></div>'
+    + '<div id="cledit_'+id+'" style="display:none;margin-top:9px;border:1px dashed var(--line);border-radius:10px;padding:10px">'
+    + '<div style="display:flex;gap:7px;flex-wrap:wrap">'
+    +   '<input data-ed="rcv" class="ordin" style="flex:1;min-width:140px" placeholder="고객 이름" value="'+E(S(c.rcv))+'">'
+    +   '<input data-ed="date" class="ordin" style="flex:0 0 150px" placeholder="발주날짜" value="'+E(S(c.date))+'">'
+    +   '<input data-ed="prod" class="ordin" style="flex:1;min-width:180px" placeholder="상품명" value="'+E(S(c.prod))+'">'
+    + '</div>'
+    + '<textarea data-ed="body" class="ordin" rows="6" style="width:100%;box-sizing:border-box;margin-top:7px;resize:vertical;line-height:1.6">'+E(S(c.body))+'</textarea>'
+    + '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:7px">'
+    +   '<select data-ed="how" class="ordin" style="flex:0 0 170px">'+how+'</select>'
+    +   '<input data-ed="amt" class="ordin" style="flex:0 0 170px" inputmode="numeric" placeholder="환불금액 (숫자만)" value="'+E(S(c.amt).replace(/[^\d]/g,''))+'">'
+    + '</div>'
+    + '<div style="display:flex;gap:7px;margin-top:9px"><button class="ordb2 pri" type="button" data-edsave="'+id+'">💾 수정 저장</button>'
+    +   '<button class="ordb2" type="button" data-edopen="'+id+'">취소</button></div>'
+    + '</div>';
+}
+
 /* 상세 카드 — 예전 목록 한 칸 그대로 */
 function cardHtml(c, master){
   return (function(c){
@@ -387,6 +409,8 @@ function cardHtml(c, master){
       +   (n ? ' — <a href="#" data-see="'+E(S(c.id))+'" style="color:var(--accent)">펼쳐보기</a>'
               + ' · <a href="#" data-dl="'+E(S(c.id))+'" data-dlnm="'+E(S(c.rcv)+'_'+S(c.prod))+'" style="color:var(--accent)">⬇ 사진 전부 저장</a>' : '') + '</div>'
       + '<div id="climg_'+E(S(c.id))+'" style="display:none;margin-top:8px"></div>'
+      /* ✏️ 고치기 (홍팀장 2026-10-14) — 마스터는 언제나, 업체는 확인 전까지만. 서버(claimedit)도 같은 조건으로 막는다 */
+      + ((master || !ok) ? editHtml(c) : '')
       + (master && !ok ? '<div style="margin-top:9px"><button class="ordb2 pri" type="button" data-ack="'+E(S(c.id))+'">✅ 확인</button></div>' : '')
       + (ok ? '<div class="hint" style="margin-top:7px">'+E(S(c.ack_by)||'마스터')+' 확인 · '+E(S(c.ack_at).slice(0,16).replace('T',' '))+'</div>' : '')
       + '</div>';
@@ -546,6 +570,23 @@ var CLAIM = {
           if(typeof toast === 'function') toast('📷 사진 ' + list.length + '장을 저장했습니다');
         }catch(e){ alert(e.message || '사진을 저장하지 못했습니다'); }
         finally{ a.textContent = old; }
+      };
+    });
+    box.querySelectorAll('[data-edopen]').forEach(function(b){
+      b.onclick = function(){ var w = $c('cledit_' + b.getAttribute('data-edopen')); if(w) w.style.display = (w.style.display === 'none') ? '' : 'none'; };
+    });
+    box.querySelectorAll('[data-edsave]').forEach(function(b){
+      b.onclick = async function(){
+        var id = b.getAttribute('data-edsave'), w = $c('cledit_' + id), d = {};
+        w.querySelectorAll('[data-ed]').forEach(function(x){ d[x.getAttribute('data-ed')] = T(x.value); });
+        if(isRefund(d.how) && !d.amt){ alert('환불금액을 적어주세요.'); return; }
+        b.disabled = true; b.textContent = '저장 중…';
+        try{
+          var j = await api('claimedit', { token: ME.token, id: id, claim: d });
+          if(!j || !j.ok) throw new Error((j && j.error) || '고치지 못했습니다');
+          await CLAIM.reload(master);
+          if(typeof toast === 'function') toast('✏️ 클레임을 고쳤습니다');
+        }catch(e){ alert(e.message || '고치지 못했습니다'); b.disabled = false; b.textContent = '💾 수정 저장'; }
       };
     });
     box.querySelectorAll('[data-ack]').forEach(function(b){
