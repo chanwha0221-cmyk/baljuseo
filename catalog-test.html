@@ -1972,13 +1972,7 @@ function render(){
          ?'<div style="margin-top:8px;font-weight:600;font-size:11.5px">기준 단가가 없는 예외가 '+needBase+'건 있습니다 — '
           +'<button class="ordb2" id="excbase">지금 값으로 기준 잡기</button> 를 누르면 다음부터 재입고·단가변동을 알려드립니다.</div>'
          :'')
-      /* 🔄 유통시트 동기화 — 아직 시트를 직접 보는 업체가 있는 과도기라 시트에서도 가려야 한다
-         (홍팀장 2026-08-28). 지우는 게 아니라 **줄을 숨긴다** — 값이 남아 되돌리기가 한 번이고,
-         카탈로그는 이미 숨긴 줄을 안 판다(2026-08-24 규칙)라 양쪽이 한 번에 맞는다. */
-      +'<div style="margin-top:9px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
-      +'<button class="ordb2" id="excsync">🔄 유통시트에서도 숨기기</button>'
-      +'<span style="font-weight:600;font-size:11.5px">시트를 직접 보는 업체가 아직 있어서 그 줄을 숨깁니다. 판매 재개하면 다시 열립니다.</span>'
-      +'</div><div id="excsyncmsg" style="font-weight:600;font-size:12px;margin-top:7px;line-height:1.8"></div>'
+      /* (🔄 유통시트에서도 숨기기 버튼은 2026-10-14 뺐다 — 유통시트를 보는 곳이 없다) */
       +'</div>';
       /* 🔴 2026-09-01 — "시트에서는 이미 빠진 N개" 줄을 없앴다.
          홍팀장: **"활 숫꽃게는 내 시트에도 없어서 여기도 없다는 거잖아. 굳이 저렇게 해놓을 필요가 있냐?"**
@@ -2021,25 +2015,6 @@ function render(){
     +'<div class="grid">'+list.map(function(p){return card(p);}).join('')+'</div>';
   const whb=$('whhide');
   if(whb)whb.onclick=()=>toggleHideWh(st.wh,!HIDE_WH.has(st.wh));
-  const sy=$('excsync');
-  if(sy)sy.onclick=async()=>{
-    const msg=$('excsyncmsg');
-    sy.disabled=true;sy.textContent='시트 확인 중…';msg.textContent='';
-    try{
-      const j=await api('excsync',{token:ME.token});
-      let h='';
-      if(j.hid.length)h+='🔒 시트에서 숨김 '+j.hid.length+'줄<br>'+j.hid.map(esc).join('<br>');
-      if(j.shown.length)h+=(h?'<br><br>':'')+'🔓 다시 열림 '+j.shown.length+'줄<br>'+j.shown.map(esc).join('<br>');
-      // 못 찾은 것은 조용히 넘기지 않는다 — 시트에 없으면 이미 빠진 것이거나 이름이 다른 것이다
-      if(j.missing.length)h+=(h?'<br><br>':'')+'⚠️ 시트에서 못 찾은 '+j.missing.length+'개 (이미 빠졌거나 이름이 다릅니다)<br>'+j.missing.map(esc).join(' · ');
-      // 못 찾았을 때만 어느 탭을 왜 건너뛰었는지 보여준다 — 원인을 눈으로 잡으려고
-      if(j.missing.length&&j.scan&&j.scan.length)
-        h+='<br><br><span style="font-weight:600;font-size:11.5px;opacity:.85">훑은 탭 '+j.tabs+'개 · 건너뛴 탭<br>'+j.scan.map(esc).join('<br>')+'</span>';
-      msg.innerHTML=h||'시트와 이미 맞아 있습니다. 바꿀 것이 없었습니다.';
-      toast('시트 동기화 완료');
-    }catch(e){ msg.innerHTML='<span style="color:#c0392b">'+esc(e.message||'동기화하지 못했습니다')+'</span>'; }
-    finally{ sy.disabled=false;sy.textContent='🔄 유통시트에서도 숨기기'; }
-  };
   /* 🔔 기준 잡기 — 예전에 감춰둔 것들엔 기준 단가가 없다. 지금 시트 값을 기준으로 한 번에 깐다.
      이걸 해둬야 다음부터 재입고·단가변동이 잡힌다. 목록에서 빼는 게 아니라 기준만 적는다. */
   const bs=$('excbase');
