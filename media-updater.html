@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.56</title>
+<title>마스터 유통 상품 도구 v1.57</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -418,6 +418,17 @@ async function loadProducts(){
   let tabs=null,vrs=null;
   try{
     const j=await supa('catalog',{});
+    /* 🏬 목록 = masterc 상품리스트(+당일) — 카탈로그 카드 원본과 같게 (2026-10-14 홍팀장 「카탈로그엔 미분류 64인데 상품도구엔 0건」).
+       카탈로그는 10-12부터 masterc 목록으로 카드를 만드는데 여기는 유통시트 탭을 읽어서, 시트에 없는 masterc 상품이 분류 대상에서 빠졌다. */
+    const mc=(j.mc||[]).concat(j.mcDay||[]);
+    if(mc.length){
+      const out=[],seen={};
+      mc.forEach(function(r){
+        if(!r||!r.n)return; const k=pkey(r.n); if(seen[k])return; seen[k]=1;
+        out.push({name:String(r.n).trim(),wh:String(r.grp||r.wh||'').trim()||'당일생물'});
+      });
+      return out;
+    }
     if(j.grid&&j.grid.sheets){
       tabs=[];vrs=[];
       j.grid.sheets.forEach(function(sh){
