@@ -475,6 +475,14 @@ function findProd(raw){
 const zeroNow = p => !!p && typeof isZeroQ === 'function' && isZeroQ(p.name)
   && S(p.group) !== '당일생물' && S(p.effWh) !== '당일생물' && !vonlyOpen(p.name);
 const sellable = p => (!(p && typeof isExc === 'function' && isExc(p.name)) || vonlyOpen(p && p.name)) && !zeroNow(p);
+/* 🧑‍💼 마스터(대신 발주)는 재고 없음·예외 상품도 후보·직접 찾기에 띄운다 (2026-10-15 홍팀장 「일단 입력 가능하게 —
+   강제로 할지 패스할지 내가 정한다, 수량 구해놓고 직접 발주하는 걸 수도 있잖아」). 고르면 checkRow 가 사유를 띄우고
+   [✅ 발주 승인]을 눌러야 나간다. 업체 화면은 그대로 sellable 만. */
+const pickable = p => amMaster() || sellable(p);
+function blockTag(p){
+  if(!amMaster() || sellable(p)) return '';
+  return (typeof isExc === 'function' && isExc(p.name) && !vonlyOpen(p.name)) ? '🚫 예외' : '🚫 재고 없음';
+}
 
 /* 후보: 참고용일 뿐이다. 점수로 자동 선택하지 않는다. */
 function candidates(raw){
@@ -483,7 +491,7 @@ function candidates(raw){
   const toks = S(raw).split(/[\s,/]+/).filter(x => x.length >= 2).map(x => pkey(x));
   const out = [];
   (typeof ALL !== 'undefined' ? ALL : []).forEach(p => {
-    if(!sellable(p)) return;
+    if(!pickable(p)) return;
     const k = pkey(p.name);
     let sc = 0;
     if(k.indexOf(t) >= 0 || t.indexOf(k) >= 0) sc += 6;
@@ -1364,6 +1372,7 @@ function candBtn(p, i){
     + (im ? '<img src="' + esc(im) + '" alt="">' : '<img src="" alt="" style="visibility:hidden">')
     + '<span><span class="nm">' + esc(nm) + '</span>'
     + '<span class="pz">' + esc(priceText(p)) + '</span>'
+    + (blockTag(p) ? '<span class="wh" style="color:#b91c1c;font-weight:700">' + esc(blockTag(p)) + ' — 고르면 [✅ 발주 승인]</span>' : '')
     + '<span class="wh">📦 ' + esc(whOf(p)) + (p.cut ? ' · ' + esc(p.cut) : '') + '</span></span></button>';
   /* 🦴 민장 민물장어는 「(뼈,머리 포함)」 카드를 바로 옆에 하나 더 붙인다 (홍팀장 2026-09-11 —
      "밑에 선택하는 상품명에 민물장어 (뼈,머리 포함) 이거 딸려 나오게"). 단가·창고는 같은 상품이다. */
@@ -1402,7 +1411,7 @@ function findHits(kw){
   if(k.length < 2) return [];
   const out = [];
   (typeof ALL !== 'undefined' ? ALL : []).forEach(p => {
-    if(!sellable(p)) return;
+    if(!pickable(p)) return;
     // 🔎 별칭 사전(search-syn.js)까지 쳐서 찾는다 — '꽃게'로 쳐도 숫게·대숫게가 나온다
     if(window.SEARCHSYN ? !SEARCHSYN.match(p.name, kw) : pkey(p.name).indexOf(k) < 0) return;
     out.push(p);
