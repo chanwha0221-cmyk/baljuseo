@@ -12,6 +12,7 @@
      · 5분마다 변동사항(machan_chg)·특별단가·당일 등록가를 읽어 지문을 만든다.
      · 지문이 바뀌었거나 마지막으로 보낸 지 30분이 지났으면 → 상시(mcpush+mcspc) + 당일(mcday) 를 조용히 보낸다.
        상시는 mc-list.js, 당일은 mc-day.js ② 와 같은 모양이다. 🔴 당일 «자동 등록»(daily_save)은 하지 않는다 — 읽어서 보내기만.
+     · 🔴 매 확인마다 고정가 역마진(특별단가·당일 등록가 < 공급가)을 찾아 새로 생기면 확인창 (lossCheck).
      · 보낼 때마다 마진율 8% 이하 상품을 세어, 직전에 없던 것이 나오면 알림 + 확인창([확인] = 카탈로그 저마진 화면).
        마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) — 카탈로그 저마진·월 시트 Q열과 같은 식. 원가는 이 창 밖으로 안 나간다.
    🔴 masterc 에 아무것도 쓰지 않는다. 우리 서버로 보내는 저장은 30% 넘게 줄면 서버가 거절한다.
@@ -46,6 +47,7 @@
     stEl.textContent = (S.err ? '⚠️ ' + S.err + '\n\n' : '')
       + '마지막 확인: ' + (S.lastCheck ? hm(new Date(S.lastCheck)) : '아직') + '\n'
       + '마지막 카탈로그 반영: ' + (S.lastPush ? hm(new Date(S.lastPush)) : '아직') + '  (오늘 ' + S.pushes + '번)\n'
+      + (S.loss && S.loss.length ? '🔴 지금 역마진(판매가 < 공급가) ' + S.loss.length + '개: ' + S.loss.slice(0, 6).map(function (x) { return x.n + '(' + x.how + ')'; }).join(', ') + (S.loss.length > 6 ? ' …' : '') + '\n' : '✅ 역마진 없음\n')
       + (S.lastMsg ? '\n' + S.lastMsg : '');
     document.title = (S.err ? '⚠️ ' : '👀 ') + '변동 감시' + (S.lastPush ? ' · ' + hm(new Date(S.lastPush)) + ' 반영' : '');
   }
@@ -75,10 +77,14 @@
     if (needLogin(G)) throw new Error('masterc 로그인이 풀렸습니다 — 이 창에서 다시 로그인하면 이어서 돕니다');
     var Sp = await get('machan_admin', 'special_list');
     var Q = await get('machan_admin', 'daily_cand');
+    var C = await get('machan_admin', 'cost');
     var a = (G.rows || []).map(function (r) { return [r.id, r.k, r.p, r.stock].join('|'); }).join(';');
     var b = (Sp.rows || []).map(function (r) { return [r.id, r.price, r.active, r.upd_dt].join('|'); }).join(';');
-    var c = (Q.cands || []).filter(function (r) { return r.k === 'day' && r.reg; }).map(function (r) { return [r.n, r.reg.price, r.reg.on].join('|'); }).join(';');
-    return { sig: hash(a + '#' + b + '#' + c), chgN: (G.rows || []).length };
+    var c = (Q.cands || []).filter(function (r) { return r.k === 'day' && r.reg; }).map(function (r) { return [r.n, r.reg.price, r.reg.on, r.base].join('|'); }).join(';');
+    // 💰 공급가·판매가가 바뀌어도 다시 보낸다 — 고정가 역마진을 저마진 화면에서도 바로 보게
+    var d = (C && C.ok ? (C.rows || []) : []).map(function (r) { return [r.n, r.sell, r.base].join('|'); }).join(';');
+    lossCheck(C, Q);
+    return { sig: hash(a + '#' + b + '#' + c + '#' + d), chgN: (G.rows || []).length };
   }
 
   /* ── 보내기: 상시(mc-list.js 와 같은 모양) + 당일(mc-day.js ② 와 같은 모양, 등록은 안 함) ── */
@@ -163,6 +169,45 @@
     setTimeout(function () {
       if (confirm('💸 마진율 ' + LOWM_MAX + '% 이하 상품이 새로 생겼습니다 — ' + fresh.length + '개\n\n' + lines
         + '\n\n[확인] 카탈로그 저마진 화면 열기   [취소] 닫기')) window.open(CATALOG, 'catalog_lowm');
+    }, 50);
+  }
+
+  /* ── 🔴 고정가 역마진 (2026-10-15 홍팀장 「고정값을 해놔도 거기서 역마진 날 수 있어 — 고정가도 체크해야 해」) ──
+     연안 오육미전복 1kg: 아침 당일 등록가 39,500(공급가 38,500 기준)으로 고정 → 낮에 공급가 41,500 으로 올랐는데
+     등록가는 그대로라 한 개당 2,000 밑졌다. 특별단가(전체)도 같다 — 규칙을 안 타서 공급가가 올라도 안 따라간다.
+     → 매 확인마다 «판매가 < 공급가»(역마진)를 찾는다. 판정은 공급가(base) — 원가 칸 아님(mc-day.js 주석, 09-29).
+       상시 = a=cost 의 sell(특별단가 반영된 웹 판매가), 당일 = daily_cand 의 켜둔 등록가(reg.price).
+     같은 상품·같은 값이면 한 번만 알린다(공급가가 또 오르면 다시 알린다). */
+  var LOSS_KEY = 'mcw_loss_seen_v1';
+  function lossCheck(C, Q) {
+    var out = [], won = function (n) { return Math.round(n).toLocaleString(); };
+    (C && C.ok ? (C.rows || []) : []).forEach(function (r) {
+      if (r.k === 'day') return;                                   // 당일은 아래 daily_cand 로 본다
+      var sell = +r.sell || 0, base = +r.base || 0;
+      if (sell > 0 && base > 0 && sell < base) out.push({ n: r.n, wh: r.wh, sell: sell, base: base, how: r.how === 'special' ? '특별단가' : '규칙', at: '#special' });
+    });
+    (Q && Q.ok ? (Q.cands || []) : []).forEach(function (r) {
+      if (r.k !== 'day' || !r.reg || !r.reg.on) return;
+      var sell = +r.reg.price || 0, base = +r.base || 0;
+      if (sell > 0 && base > 0 && sell < base) out.push({ n: r.n, wh: r.wh, sell: sell, base: base, how: '당일 등록가', at: '#daily', remain: r.remain });
+    });
+    S.loss = out;
+    var prev = {}; try { prev = JSON.parse(localStorage.getItem(LOSS_KEY) || '{}') || {}; } catch (e) {}
+    var cur = {}; out.forEach(function (x) { cur[x.n + '|' + x.sell + '|' + x.base] = 1; });
+    try { localStorage.setItem(LOSS_KEY, JSON.stringify(cur)); } catch (e) {}
+    var fresh = out.filter(function (x) { return !prev[x.n + '|' + x.sell + '|' + x.base]; });
+    if (!fresh.length) return;
+    var lines = fresh.slice(0, 15).map(function (x) {
+      return '· ' + x.n + ' (' + x.wh + ', ' + x.how + ') 판매가 ' + won(x.sell) + ' < 공급가 ' + won(x.base)
+        + ' → 개당 ' + won(x.base - x.sell) + ' 손해' + (x.remain != null ? ' · 잔여 ' + x.remain : '');
+    }).join('\n') + (fresh.length > 15 ? '\n… 외 ' + (fresh.length - 15) + '개' : '');
+    log('🔴 역마진 ' + fresh.length + '개\n' + lines);
+    notify('🔴 역마진 ' + fresh.length + '개 — 고정가가 공급가보다 낮습니다', fresh.slice(0, 5).map(function (x) { return x.n + ' ' + won(x.sell) + '<' + won(x.base); }).join('\n'));
+    var dayOnly = fresh.every(function (x) { return x.at === '#daily'; });
+    setTimeout(function () {
+      if (confirm('🔴 역마진 — 고정해 둔 판매가가 공급가보다 낮습니다 (' + fresh.length + '개)\n\n' + lines
+        + '\n\n[확인] masterc ' + (dayOnly ? '당일상품' : '특별단가') + ' 화면 열기   [취소] 닫기'))
+        window.open('https://masterc.kr/machan_admin' + (dayOnly ? '#daily' : '#special'), 'mc_admin');
     }, 50);
   }
 
