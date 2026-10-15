@@ -31,6 +31,13 @@
   s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/spec-sync.js?v=' + Date.now();
   document.head.appendChild(s);
 })();
+/* 👀 #mcwatch — 카탈로그 [👀 변동 감시] 가 이 게시판을 새 창으로 연다 (2026-10-15 홍팀장). mc-watch.js 가 5분마다 변동을 보고 카탈로그를 갱신한다. */
+(function () {
+  if (String(location.hash || '').indexOf('mcwatch') < 0) return;
+  var s = document.createElement('script');
+  s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/mc-watch.js?v=' + Date.now();
+  document.head.appendChild(s);
+})();
 /* 🏷 #spcsave — 카탈로그 저마진 [💾 단가 저장] 이 이 게시판을 새 창으로 연다 (2026-10-15 홍팀장). spc-save.js 가 masterc 특별단가(전체)에 저장한다. */
 (function () {
   if (String(location.hash || '').indexOf('spcsave') < 0) return;
