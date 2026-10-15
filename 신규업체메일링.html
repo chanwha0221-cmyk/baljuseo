@@ -209,6 +209,11 @@
     <h2>전체 업체 <span class="badge green" id="total-count">0</span> <span class="muted" style="font-weight:400;font-size:12px">— 지난 담당자 발송분까지 합친 전체 목록 (어느 줄이든 수정·삭제 가능)</span>
       <!-- 👤 퇴사자 담당 승계 (2026-09-21) — 담당 칸이 지금 담당자 목록(PEOPLE)에 없는 줄을 내 담당으로 넘긴다. 넘길 게 없으면 버튼 자체가 안 뜬다. -->
       <button class="btn sm" id="takeover-btn" style="display:none;margin-left:8px" onclick="takeoverOrphans()"></button></h2>
+    <!-- 🔎 업체명 검색 (홍팀장 2026-10-15 「메일 언제 보냈는지 확인할 수 있게 업체명으로 검색」) — 친 글자가 업체명에 들어간 줄만 남긴다. 띄어쓰기·대소문자 무시 -->
+    <div style="display:flex;gap:8px;align-items:center;margin:4px 0 10px;flex-wrap:wrap">
+      <input id="all-q" placeholder="🔎 업체명으로 찾기 (예: 바다마켓)" style="flex:1;min-width:240px;font-size:14px" oninput="render()" onkeydown="if(event.key==='Escape'){this.value='';render()}">
+      <span class="muted" id="all-q-n" style="font-size:12.5px"></span>
+    </div>
     <div style="overflow-x:auto">
     <table id="all-table">
       <thead><tr>
@@ -1162,7 +1167,10 @@ function render(){
   const tb=$('tbody'); tb.innerHTML=''; const overdue=[];
   // 날짜수 적은(최근 연락) 업체부터 위로 — 표시 순서만 정렬, onclick은 원본 DATA 인덱스 유지 (2026-06-09 사장님 지시)
   // 👥 찬화·원비 한 목록 (2026-08-11 — 중복 방지가 유일한 목적). 담당 칼럼으로만 구분하고 편집은 누구나 가능.
-  const _view=DATA.map((r,i)=>({r,i,ds:daysSince(r[4])}));
+  const _qn=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+  const _q=_qn($('all-q')&&$('all-q').value);
+  const _view=DATA.map((r,i)=>({r,i,ds:daysSince(r[4])})).filter(x=>!_q||_qn(x.r[0]).includes(_q));
+  if($('all-q-n')) $('all-q-n').textContent=_q?(_view.length?_view.length+'곳 찾음':'찾은 업체 없음 — 보낸 기록이 없습니다'):'';
   /* 📅 보낸날짜·마지막연락 머리글을 누르면 그 칸으로 정렬, 한 번 더 누르면 뒤집힌다 (홍팀장 2026-09-11).
      날짜 없는 줄은 어느 쪽이든 맨 아래. */
   const col=ALL_SORT.k==='sent'?3:4, dir=ALL_SORT.dir==='asc'?1:-1;
