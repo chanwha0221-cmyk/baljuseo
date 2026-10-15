@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.170</title>
+<title>마스터 유통 카탈로그 v23.171</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3483,11 +3483,34 @@ function renderLowm(j){
   const ago=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'없음';
   let h=subHead('💸 저마진 상품','마진율 '+j.max+'% 이하 · 카탈로그에 떠 있는 것 '+j.rows.length+'개'+(j.all>j.rows.length?' (품절·재고 없음·예외로 안 보이는 '+(j.all-j.rows.length)+'개 뺌)':'')+' ·마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
     +'<br>✏️ «새 판매가» 칸에 넣고 <b>[💾 단가 저장]</b>을 누르면 카탈로그 가격이 바뀌고 상품변동사항에 인상·인하로 뜹니다. masterc에서 그 상품 단가가 바뀌면 이 값은 저절로 꺼집니다. 🔒 마스터에게만 보입니다.');
-  if(!j.rows.length)return h+'<div class="empty">마진율 '+j.max+'% 이하 상품이 없습니다.</div>';
   const th='padding:7px 8px;border-bottom:2px solid var(--line);text-align:right;white-space:nowrap;font-size:12px;color:var(--muted)';
   const td='padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:13px';
   const saveBtn='<button class="ubtn" onclick="lowmSave(this)" style="font-weight:800">💾 단가 저장</button>';
-  h+='<div style="display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap">'+saveBtn+'<span class="lowm-msg" style="font-size:12.5px;color:var(--muted)"></span></div>'
+  /* ✏️ 내가 고친 단가 (2026-10-15 홍팀장 「단가 저장 옆에 수정한 상품 리스트 — 제대로 적용되는지 가끔 보게」)
+     가격 정본은 masterc #cost 노출가다. 여기서 고친 값은 그 위에 잠깐 얹는 덮개라, 지금 나가는 값과 나란히 보여준다. */
+  const man=j.man||[], manOn=man.filter(m=>m.on).length;
+  const manBtn='<button class="ubtn" onclick="var b=document.getElementById(\'lowmMan\');b.style.display=b.style.display===\'none\'?\'\':\'none\'">✏️ 내가 고친 단가 '+man.length+(man.length?' (적용 중 '+manOn+')':'')+'</button>';
+  const manBox='<div id="lowmMan" style="display:none;margin-top:8px;overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:11px">'
+    +(!man.length?'<div class="empty">저마진에서 고친 단가가 없습니다.</div>'
+    :'<table style="border-collapse:collapse;width:100%"><thead><tr>'
+      +['고친 날','구분','창고','상품명','고치기 전','내가 넣은 값','지금 나가는 값','상태'].map((t,i)=>'<th style="'+th+(i<4||i===7?';text-align:left':'')+'">'+t+'</th>').join('')
+      +'</tr></thead><tbody>'
+      +man.map(m=>'<tr>'
+        +'<td style="'+td+';text-align:left">'+esc(String(m.day||'').slice(5))+'</td>'
+        +'<td style="'+td+';text-align:left">'+esc(m.k)+'</td><td style="'+td+';text-align:left">'+esc(m.wh)+'</td>'
+        +'<td style="'+td+';text-align:left;white-space:normal">'+esc(m.n)+' <button class="cpbtn" data-cp="'+esc(m.n)+'" title="상품명 복사">📋</button></td>'
+        +'<td style="'+td+'">'+won(m.prev)+'</td><td style="'+td+';font-weight:800">'+won(m.price)+'</td>'
+        +'<td style="'+td+';font-weight:800'+(m.on||m.cur===m.price?'':';color:#b45309')+'">'+(m.gone?'—':won(m.on?m.price:m.cur))+'</td>'
+        +'<td style="'+td+';text-align:left;white-space:normal;font-size:12px">'
+          +(m.gone?'⚪ 지금 목록에 없음(품절·내림)'
+           :m.on?'🟡 덮개로 적용 중 — masterc 노출가는 아직 '+won(m.prev)
+           :m.cur===m.price?'✅ masterc 노출가에 반영됨'
+           :'⚪ masterc 에서 '+won(m.cur)+'(으)로 바뀌어 꺼짐')
+        +'</td></tr>').join('')
+      +'</tbody></table>')
+    +'</div>';
+  if(!j.rows.length)return h+'<div style="margin-top:11px">'+manBtn+'</div>'+manBox+'<div class="empty">마진율 '+j.max+'% 이하 상품이 없습니다.</div>';
+  h+='<div style="display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap">'+saveBtn+manBtn+'<span class="lowm-msg" style="font-size:12.5px;color:var(--muted)"></span></div>'+manBox
     +'<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px">'
     +'<table style="border-collapse:collapse;width:100%"><thead><tr>'
     +['구분','창고','상품명','판매가','새 판매가','원가','택배비','마진','마진율'].map((t,i)=>'<th style="'+th+(i<3?';text-align:left':'')+'">'+t+'</th>').join('')
