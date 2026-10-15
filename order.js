@@ -1982,9 +1982,18 @@ function ordersPaint(){
   const pages = Math.max(1, Math.ceil(nos.length / PAGE));
   if(OPAGE > pages) OPAGE = pages;
   const page = nos.slice((OPAGE - 1) * PAGE, OPAGE * PAGE);
+  /* 📤 한번에 보내기 (홍팀장 2026-10-15: "하나씩 누르니 의미가 없다") — 지금 보이는(검색·날짜 걸린) 목록에서
+     아직 안 보낸 묶음 전부. 들어온 순서대로 보내야 시트 줄 순서가 발주 순서와 같다. */
+  const pend = master ? nos.filter(n => {
+    const live = byNo.get(n).filter(r => r.state !== '취소');
+    return live.length && !live.every(r => r.state === '완료');
+  }).sort((a, b) => S(byNo.get(a)[0].at).localeCompare(S(byNo.get(b)[0].at))) : [];
+  box.__pend = pend;
 
   let h = dupBanner(master)
     + '<div class="ordsum">발주 <b>' + nos.length + '</b>묶음 · <b>' + hit.length + '</b>건'
+    + (pend.length ? ' <button class="ordb2 pri" data-opushall="1" style="padding:4px 12px;font-size:12px;margin-left:6px">📤 안 보낸 '
+        + pend.length + '묶음 한번에 당일 시트로</button>' : '')
     + (OD ? ' <span style="color:var(--muted)">· 📅 ' + esc(dayLabel(OD)) + '</span>' : '')
     + (OQ || OST || OD ? ' <button class="ordb2" id="oclr" style="padding:2px 9px;font-size:11px">검색 지우기</button>' : '') + '</div>';
   if(!nos.length){ box.innerHTML = h + '<div class="empty">' + (LIST.length ? '찾는 발주가 없습니다.' : '아직 발주 내역이 없습니다.') + '</div>'; bindPager(); return; }
@@ -3917,6 +3926,31 @@ document.addEventListener('click', e => {
     api('push', {token: ME.token, orderNo: no})
       .then(j => { toast(no + ' → 당일 시트 ' + j.col + j.row + '행에 ' + j.count + '줄'); reloadOrders(); })
       .catch(err => { alert(err.message || '보내지 못했습니다'); op.disabled = false; op.textContent = '📤 당일 시트로 보내기'; });
+    return;
+  }
+  /* 📤 한번에 보내기 — 묶음마다 [📤 당일 시트로 보내기]를 누른 것과 똑같이 하나씩 차례로 보낸다.
+     동시에 쏘지 않는다(시트 줄이 엉키지 않게). 보낸 묶음은 서버가 완료로 잠가 업체 화면에도 🔒·발주 확인됨으로 뜬다. */
+  const opa = e.target.closest && e.target.closest('[data-opushall]');
+  if(opa){
+    const box = document.getElementById('ordlist');
+    const nos = ((box && box.__pend) || []).slice();
+    if(!nos.length){ toast('보낼 발주가 없습니다'); return; }
+    if(!confirm('안 보낸 발주 ' + nos.length + '묶음을 들어온 순서대로 당일 시트로 보낼까요?\n\n'
+      + nos.join(', ') + '\n\n보내고 나면 취소할 수 없고, 다시 보내지지도 않습니다.')) return;
+    opa.disabled = true;
+    document.querySelectorAll('[data-opush]').forEach(b => { b.disabled = true; });
+    (async () => {
+      let ok = 0, lines = 0;
+      const fail = [];
+      for(let i = 0; i < nos.length; i++){
+        opa.textContent = '보내는 중… ' + (i + 1) + '/' + nos.length;
+        try{ const j = await api('push', {token: ME.token, orderNo: nos[i]}); ok++; lines += (j.count || 0); }
+        catch(err){ fail.push(nos[i] + ' — ' + (err.message || '오류')); }
+      }
+      if(fail.length) alert(ok + '묶음 보냈습니다. ' + fail.length + '묶음은 못 보냈습니다:\n\n' + fail.join('\n') + '\n\n그 묶음은 카드에서 다시 보내주세요.');
+      else toast(ok + '묶음 ' + lines + '줄 당일 시트로 보냈습니다');
+      reloadOrders();
+    })();
     return;
   }
   /* 👀 확인했습니다 — 내 이름으로 시트에 남는다. 상대가 아직 안 눌렀으면 알림은 그대로 켜져 있다. */
