@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.171</title>
+<title>마스터 유통 카탈로그 v23.172</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3482,40 +3482,19 @@ function renderLowm(j){
   const won=n=>Math.round(+n||0).toLocaleString();
   const ago=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'없음';
   let h=subHead('💸 저마진 상품','마진율 '+j.max+'% 이하 · 카탈로그에 떠 있는 것 '+j.rows.length+'개'+(j.all>j.rows.length?' (품절·재고 없음·예외로 안 보이는 '+(j.all-j.rows.length)+'개 뺌)':'')+' ·마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
-    +'<br>✏️ «새 판매가» 칸에 넣고 <b>[💾 단가 저장]</b>을 누르면 카탈로그 가격이 바뀌고 상품변동사항에 인상·인하로 뜹니다. masterc에서 그 상품 단가가 바뀌면 이 값은 저절로 꺼집니다. 🔒 마스터에게만 보입니다.');
+    +'<br>✏️ «새 판매가» 칸에 넣고 <b>[💾 단가 저장]</b>을 누르면 <b>masterc 특별단가(전체)</b>로 저장됩니다 — 리모컨 가격표에 실려 그 값으로 정산되고, 카탈로그에도 바로 보냅니다. masterc 창이 잠깐 열렸다 닫힙니다. 🔒 마스터에게만 보입니다.');
   const th='padding:7px 8px;border-bottom:2px solid var(--line);text-align:right;white-space:nowrap;font-size:12px;color:var(--muted)';
   const td='padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:13px';
   const saveBtn='<button class="ubtn" onclick="lowmSave(this)" style="font-weight:800">💾 단가 저장</button>';
-  /* ✏️ 내가 고친 단가 (2026-10-15 홍팀장 「단가 저장 옆에 수정한 상품 리스트 — 제대로 적용되는지 가끔 보게」)
-     가격 정본은 masterc #cost 노출가다. 여기서 고친 값은 그 위에 잠깐 얹는 덮개라, 지금 나가는 값과 나란히 보여준다. */
-  const man=j.man||[], manOn=man.filter(m=>m.on).length;
-  const manBtn='<button class="ubtn" onclick="var b=document.getElementById(\'lowmMan\');b.style.display=b.style.display===\'none\'?\'\':\'none\'">✏️ 내가 고친 단가 '+man.length+(man.length?' (적용 중 '+manOn+')':'')+'</button>';
-  const manBox='<div id="lowmMan" style="display:none;margin-top:8px;overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:11px">'
-    +(!man.length?'<div class="empty">저마진에서 고친 단가가 없습니다.</div>'
-    :'<table style="border-collapse:collapse;width:100%"><thead><tr>'
-      +['고친 날','구분','창고','상품명','고치기 전','내가 넣은 값','지금 나가는 값','상태'].map((t,i)=>'<th style="'+th+(i<4||i===7?';text-align:left':'')+'">'+t+'</th>').join('')
-      +'</tr></thead><tbody>'
-      +man.map(m=>'<tr>'
-        +'<td style="'+td+';text-align:left">'+esc(String(m.day||'').slice(5))+'</td>'
-        +'<td style="'+td+';text-align:left">'+esc(m.k)+'</td><td style="'+td+';text-align:left">'+esc(m.wh)+'</td>'
-        +'<td style="'+td+';text-align:left;white-space:normal">'+esc(m.n)+' <button class="cpbtn" data-cp="'+esc(m.n)+'" title="상품명 복사">📋</button></td>'
-        +'<td style="'+td+'">'+won(m.prev)+'</td><td style="'+td+';font-weight:800">'+won(m.price)+'</td>'
-        +'<td style="'+td+';font-weight:800'+(m.on||m.cur===m.price?'':';color:#b45309')+'">'+(m.gone?'—':won(m.on?m.price:m.cur))+'</td>'
-        +'<td style="'+td+';text-align:left;white-space:normal;font-size:12px">'
-          +(m.gone?'⚪ 지금 목록에 없음(품절·내림)'
-           :m.on?'🟡 덮개로 적용 중 — masterc 노출가는 아직 '+won(m.prev)
-           :m.cur===m.price?'✅ masterc 노출가에 반영됨'
-           :'⚪ masterc 에서 '+won(m.cur)+'(으)로 바뀌어 꺼짐')
-        +'</td></tr>').join('')
-      +'</tbody></table>')
-    +'</div>';
-  if(!j.rows.length)return h+'<div style="margin-top:11px">'+manBtn+'</div>'+manBox+'<div class="empty">마진율 '+j.max+'% 이하 상품이 없습니다.</div>';
-  h+='<div style="display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap">'+saveBtn+manBtn+'<span class="lowm-msg" style="font-size:12.5px;color:var(--muted)"></span></div>'+manBox
+  /* 🏷 고친 단가 목록 = masterc #special 그 자체 (2026-10-15 홍팀장 「저기 박았어야 했어」) — 따로 목록을 두지 않는다 */
+  const spcLink='<a class="ubtn" href="https://masterc.kr/machan_admin#special" target="_blank" rel="noopener" style="text-decoration:none">🏷 특별단가 보기 (masterc)</a>';
+  if(!j.rows.length)return h+'<div style="margin-top:11px">'+spcLink+'</div><div class="empty">마진율 '+j.max+'% 이하 상품이 없습니다.</div>';
+  h+='<div style="display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap">'+saveBtn+spcLink+'<span class="lowm-msg" style="font-size:12.5px;color:var(--muted)"></span></div>'
     +'<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px">'
     +'<table style="border-collapse:collapse;width:100%"><thead><tr>'
     +['구분','창고','상품명','판매가','새 판매가','원가','택배비','마진','마진율'].map((t,i)=>'<th style="'+th+(i<3?';text-align:left':'')+'">'+t+'</th>').join('')
     +'</tr></thead><tbody>'
-    +j.rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'">'
+    +j.rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'">'
       +'<td style="'+td+';text-align:left">'+(r.k==='당일'?'🐟 당일':'상시')+'</td>'
       +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
       +'<td style="'+td+';text-align:left;white-space:normal">'+esc(r.n)+' <button class="cpbtn" data-cp="'+esc(r.n)+'" title="상품명 복사">📋</button></td>'
@@ -3539,28 +3518,38 @@ function lowmCalc(inp){
   if(a){a.textContent=Math.round(mg).toLocaleString();a.style.color=mg<0?'#b91c1c':'';a.style.fontWeight=mg<0?'700':'';}
   if(b){b.textContent=rate+'%';b.style.color=rate<0?'#b91c1c':(v>0?'#065f46':'#b45309');}
 }
-/* 💾 단가 저장 — 바꾼 줄만 서버(manprice)에 보내고, 카탈로그 스냅샷을 다시 굽게 한 뒤 이 탭을 새로 읽는다 */
-async function lowmSave(btn){
+/* 💾 단가 저장 — masterc #special 「전체」 특별단가로 저장한다 (2026-10-15 홍팀장 「버튼을 그렇게 수정을 해놔야 할 거 아냐」).
+   예전엔 카탈로그 덮개(manprice)에만 넣어서 리모컨·정산은 옛값이었다(10-14 호래기 8,500 말하고 8,000 정산).
+   masterc API 는 여기서 못 부른다(CORS·로그인) → masterc 게시판을 #spcsave 로 열면 dm-bridge.js 가 spc-save.js 를 돌린다.
+   spc-save.js 가 special_bulk 저장 + 특별단가를 카탈로그로 보내고, 결과를 postMessage 로 돌려준다.
+   🔴 window.open 은 확인창 바로 뒤, await 전에 — 늦으면 팝업이 막힌다. */
+function lowmSave(btn){
   const rows=[...document.querySelectorAll('tr[data-lowm]')].map(tr=>{
     const inp=tr.querySelector('.lowm-in'); const v=parseInt(String(inp&&inp.value||'').replace(/[^0-9]/g,''),10);
-    return (v>0&&v!==+tr.dataset.sell)?{n:tr.dataset.lowm,price:v,old:+tr.dataset.sell}:null;
+    return (v>0&&v!==+tr.dataset.sell)?{n:tr.dataset.lowm,wh:tr.dataset.wh||'',price:v,old:+tr.dataset.sell}:null;
   }).filter(Boolean);
   const msg=document.querySelector('.lowm-msg');
   if(!rows.length){if(msg)msg.textContent='바꾼 단가가 없습니다.';return;}
-  if(!confirm('판매가를 바꿉니다 — '+rows.length+'건\n\n'+rows.map(r=>'· '+r.n+'  '+r.old.toLocaleString()+' → '+r.price.toLocaleString()+(r.price>r.old?' (인상)':' (인하)')).join('\n')
-    +'\n\n카탈로그 가격과 상품변동사항에 바로 반영됩니다.'))return;
-  document.querySelectorAll('button[onclick^="lowmSave"]').forEach(b=>b.disabled=true);
-  if(msg)msg.textContent='저장 중…';
-  try{
-    const j=await api('manprice',{token:ME.token,rows:rows.map(r=>({n:r.n,price:r.price}))});
-    if(msg)msg.textContent='✅ '+j.done.length+'건 저장'+(j.miss&&j.miss.length?' · 못 찾은 것: '+j.miss.join(', '):'')+' — 카탈로그 다시 굽는 중…';
-    try{await api('catalog',{token:ME.token,fresh:1});}catch(e){}
-    if(location.hash.replace(/^#/,'')==='lowm')renderRoute();
-    toast('단가 '+j.done.length+'건 저장 — 새로고침하면 카탈로그·변동사항에 보입니다');
-  }catch(e){
-    if(msg)msg.textContent='저장하지 못했습니다 — '+(e.message||e);
-    document.querySelectorAll('button[onclick^="lowmSave"]').forEach(b=>b.disabled=false);
+  if(!confirm('masterc 특별단가(전체 업체)로 저장합니다 — '+rows.length+'건\n\n'+rows.map(r=>'· '+r.n+'  '+r.old.toLocaleString()+' → '+r.price.toLocaleString()+(r.price>r.old?' (인상)':' (인하)')).join('\n')
+    +'\n\n리모컨 가격표에 실려 이 값으로 정산되고, 카탈로그에도 바로 반영됩니다.'))return;
+  const w=window.open('https://masterc.kr/board_eJGl96#spcsave','spcsave');
+  if(!w){ alert('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요.'); return; }
+  const btns=document.querySelectorAll('button[onclick^="lowmSave"]');
+  btns.forEach(b=>b.disabled=true);
+  if(msg)msg.textContent='masterc 에 저장 중… (열린 창이 저장하고 닫힙니다)';
+  const done=()=>{ clearTimeout(t); window.removeEventListener('message',onMsg); btns.forEach(b=>b.disabled=false); };
+  const t=setTimeout(()=>{ done(); if(msg)msg.textContent='⚠️ masterc 응답이 없습니다 — 열린 masterc 창을 확인하세요(로그인 풀림 등). 저장됐는지는 [🏷 특별단가 보기]에서 확인.'; },120000);
+  function onMsg(ev){
+    if(ev.origin!=='https://masterc.kr'||!ev.data||ev.data.type!=='spcsave')return;
+    const d=ev.data;
+    if(d.ready){ try{ w.postMessage({type:'spcsave-rows',rows:rows.map(r=>({n:r.n,wh:r.wh,price:r.price}))},'https://masterc.kr'); }catch(e){} return; }
+    done();
+    if(!d.ok){ if(msg)msg.textContent='⚠️ 저장하지 못했습니다 — '+(d.error||'알 수 없음'); alert('masterc 특별단가 저장 실패: '+(d.error||'알 수 없음')); return; }
+    if(msg)msg.textContent='✅ masterc 특별단가(전체) '+d.n+'건 저장'+(d.spc>=0?' · 카탈로그 반영 중…':' · ⚠️ 카탈로그로는 못 보냄 — 상시 딸깍 필요');
+    toast('특별단가 '+d.n+'건 저장 — 리모컨·카탈로그 반영');
+    api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(location.hash.replace(/^#/,'')==='lowm')renderRoute(); });
   }
+  window.addEventListener('message',onMsg);
 }
 function renderUser(){
   if(!ME)return;
