@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.174</title>
+<title>마스터 유통 카탈로그 v23.175</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1143,7 +1143,10 @@ function parseGrid(grid){
   MKSRL=new Map();   // 🖼 상품명 → masterc 새 상세 srl (상세페이지 만들기가 연다)
   ((SNAP&&SNAP.mc)||[]).concat((SNAP&&SNAP.mcDay)||[]).forEach(r=>{if(r&&r.n&&+r.srl>0)MKSRL.set(pkey(r.n),+r.srl);});
   const spc=new Map(((SNAP&&SNAP.mcSpc)||[]).map(r=>[pkey(r.n),+r.price||0]));
-  if(spc.size)out.forEach(g=>g.products.forEach(p=>{const s=spc.get(pkey(p.name));if(s>0){p.price={old:null,cur:s,dir:''};p.spc=1;}}));
+  /* 🔴 오늘 당일 등록가가 걸려 있으면 그게 먼저다 (2026-10-15 연안 오육미전복 — masterc 는 오늘 등록가 39,500 으로 파는데
+     카탈로그만 특별단가 43,500 을 띄웠다. masterc 판매가 근거 how:'daily'). 특별단가는 등록이 끝난 다음 날부터. */
+  const regToday=new Set(((SNAP&&SNAP.mcDay)||[]).filter(r=>r&&r.n&&r.on&&+r.price>0&&String(r.until||'')>=todayYmd()).map(r=>pkey(r.n)));
+  if(spc.size)out.forEach(g=>g.products.forEach(p=>{const k=pkey(p.name);if(regToday.has(k))return;const s=spc.get(k);if(s>0){p.price={old:null,cur:s,dir:''};p.spc=1;}}));
   // 당일생물을 맨 앞으로
   out.sort((a,b)=>(a.wh==='당일생물'?-1:0)-(b.wh==='당일생물'?-1:0));
   return out;
@@ -2386,6 +2389,9 @@ function renderMoveBox(){
   const days=[];
   items.forEach(it=>{ if(it.day&&days.length<CHG_DAYS&&days.indexOf(it.day)<0)days.push(it.day); });
   const CUR=liveCur();
+  const tday=(function(){const y=todayYmd();return y.slice(0,4)+'-'+y.slice(4,6)+'-'+y.slice(6,8);})();
+  const SPCM=new Map(((SNAP&&SNAP.mcSpc)||[]).map(r=>[pkey(r.n),+r.price||0]));
+  const isFut=it=>String(it.day||'').replace(/\s*[.\/]\s*/g,'-').replace(/-$/,'')>tday;   // 적용일이 내일 이후
   const up=[],down=[],seen={};
   items.forEach(it=>{
     if(!it.day||days.indexOf(it.day)<0)return;
@@ -2397,7 +2403,8 @@ function renderMoveBox(){
     //    글자와 숫자가 어긋나면 업체가 우리를 못 믿는다. 금액이 둘 다 있으면 금액대로 가른다.
     const pp=parsePrice(it.price);
     // 지금 단가가 있으면 그것으로 가른다 — 화면에 뜨는 숫자와 칸이 어긋나면 안 된다
-    const nowP=(function(){ const v=CUR.get(k); return v==null?(pp?pp.cur:null):v; })();
+    const nowP=isFut(it)?(SPCM.get(k)>0?SPCM.get(k):(pp?pp.cur:null))
+      :(function(){ const v=CUR.get(k); return v==null?(pp?pp.cur:null):v; })();
     const byNum=(pp&&pp.old!=null&&nowP!=null&&pp.old!==nowP)?(nowP>pp.old?'up':'down'):'';
     ((byNum||(/인상/.test(it.kind)?'up':'down'))==='up'?up:down).push(it);
     seen[k]=1;
@@ -2405,8 +2412,21 @@ function renderMoveBox(){
   if(!up.length&&!down.length){box.innerHTML='';return;}
   // 적용날짜는 '2026. 08. 25' 형태로 들어온다 → 연도 떼고 '08-25'
   const shortDay=d=>String(d||'').replace(/^\s*\d{4}\s*[-.\/]\s*/,'').replace(/\s*[-.\/]\s*/g,'-').trim();
+  /* 📅 적용일이 내일 이후인 변동은 «지금 카드값»이 아니라 그날 나갈 값을 띄운다 (2026-10-15 홍팀장 — 16일 인상인 오육미전복이
+     오늘 등록가 39,500 으로 떠서 «16일에 39,500 된다»로 읽혔다). 그날 값 = 특별단가(전체)가 있으면 그것, 없으면 변동 금액.
+     지움줄(옛값)은 지금 카드값. (tday·SPCM·isFut 는 위 분류 루프 앞에 있다) */
   const row=it=>{
     const p=parsePrice(it.price)||{old:null,cur:null};
+    if(isFut(it)){
+      const k=pkey(it.name), live=CUR.get(k), nx=(SPCM.get(k)>0?SPCM.get(k):p.cur);
+      const old=(live!=null?live:p.old);
+      const price=noPrice()?'<span class="mvp">별도 안내</span>'
+        :(nx==null)?'<span class="mvp">문의</span>'
+        :('<span class="mvp">'+((old>0&&old!==nx)?'<s>'+won(old)+'</s>':'')+won(nx)+'원</span>');
+      return '<div class="mvit"><button class="mvn" data-mv="'+esc(it.name)+'" title="이 상품 검색">'+esc(it.name)+'</button>'
+        +price+'<span class="mvd">'+esc(shortDay(it.day))+'</span>'
+        +'<button class="cpbtn" data-cp="'+esc(it.name)+'" title="상품명 복사">📋</button></div>';
+    }
     /* 💰 금액은 **지금 카탈로그 단가**로 맞춘다 (홍팀장 2026-09-08)
        변동사항 시트의 값은 그 변동이 올라간 날의 값이라, 그 뒤에 단가가 또 움직이면
        이 목록만 옛 금액으로 남는다 (9/8 '연안 활 숫게' 9,000 인데 실제 단가는 9,500이었다).
