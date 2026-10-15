@@ -31,7 +31,7 @@
   box.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#f8fafc;font:14px/1.7 system-ui,sans-serif;color:#1f2937;padding:28px;overflow:auto';
   box.innerHTML = '<div style="max-width:720px;margin:0 auto">'
     + '<div style="font-size:22px;font-weight:800">👀 masterc 변동 감시 중</div>'
-    + '<div style="color:#6b7280;margin:4px 0 14px">이 창은 <b>열어 두세요</b>(최소화 OK). 닫으면 감시가 멈춥니다. 월~토 09:00~18:00에만 돕니다.</div>'
+    + '<div style="color:#6b7280;margin:4px 0 14px">이 창은 <b>열어 두세요</b>(최소화 OK). 닫으면 감시가 멈춥니다. 다시 켤 땐 즐겨찾기(masterc.kr/board_eJGl96#mcwatch)나 카탈로그 [👀 변동 감시].</div>'
     + '<div id="mcw_st" style="background:#fff;border:2px solid #15803d;border-radius:12px;padding:14px 16px;white-space:pre-wrap">준비 중…</div>'
     + '<div style="margin-top:14px;font-weight:700">기록</div>'
     + '<div id="mcw_log" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 14px;white-space:pre-wrap;font-size:12.5px;max-height:50vh;overflow:auto"></div>'
@@ -167,7 +167,7 @@
   }
 
   async function tick(force) {
-    if (!force && !inHours()) { S.lastMsg = '⏸ 업무시간 밖 — 월~토 09:00~18:00에만 돕니다'; paint(); return; }
+    // ⏰ 시간 제한 없음 (2026-10-15 홍팀장 「시간은 상관없을 거 같은데, 열려 있으면 계속 감시해」) — inHours 는 안 쓴다
     try {
       var s = await signature();
       S.lastCheck = Date.now(); S.err = '';
