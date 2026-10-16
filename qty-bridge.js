@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-16b';
+  var QTYB_VER = '2026-10-16c';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -130,10 +130,63 @@
      반드시 «줄 수» 로 볼 것. */
   function haveIdx() { return !!(IDX && Object.keys(IDX).length); }
 
+  /* 🔑 내 구글 계정으로 시트 연결 (2026-10-16 홍팀장 「다들 자기 크롬, 자기 메일주소로 쓰는데 이것도 당연한 거 아니냐」)
+     채널팀은 홍팀장 계정 웹앱(SHEET_API)·공용 프록시를 안 쓴다 — 둘 다 홍팀장 계정으로 돌아 시트를 홍팀장에게 공유해야 했다.
+     대신 «접속한 사람 계정으로 실행» 되는 웹앱(CONN_URL, github/수량대조_시트연결)을 숨은 iframe 으로 띄워 거기에 요청한다.
+     처음엔 구글 권한 허용이 필요하다 — 안 되면 [🔑 구글 권한 허용] 을 띄운다.
+     홍팀장 브라우저(qtybStockOn)는 예전 연결 그대로. 강제로 바꾸려면 localStorage 'qtybConn' = 'mine' | 'shared'. */
+  var CONN_URL = 'https://script.google.com/macros/s/AKfycbzNF0cFm5T2LBMICTJaOyN8tGzn4vrgqgQx4nuDktdaP-MmRkvi0q7oUxHli9w0nQLK/exec';
+  function useMine() {
+    var v = ''; try { v = localStorage.getItem('qtybConn') || ''; } catch (e) {}
+    if (v === 'mine') return true;
+    if (v === 'shared') return false;
+    return !stockOn();
+  }
+  var CONN = { win: null, origin: '', wait: null, seq: 0, cb: {}, who: '' };
+  window.addEventListener('message', function (ev) {
+    var d = ev.data;
+    if (!d || !d.qtyconn || !/\.googleusercontent\.com$/.test(String(ev.origin || '').replace(/^https:\/\//, '.'))) return;
+    if (d.qtyconn === 'ready') { CONN.win = ev.source; CONN.origin = ev.origin; CONN.who = d.who || ''; if (CONN.wait) { CONN.wait.res(); CONN.wait = null; } return; }
+    if (d.qtyconn === 'res' && CONN.cb[d.id]) { var f = CONN.cb[d.id]; delete CONN.cb[d.id]; f(d.r); }
+  });
+  function connReady() {
+    if (CONN.win) return Promise.resolve();
+    return new Promise(function (res, rej) {
+      CONN.wait = { res: res };
+      var old = document.getElementById('qtyb-conn'); if (old) old.remove();
+      var f = document.createElement('iframe');
+      f.id = 'qtyb-conn'; f.src = CONN_URL; f.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;top:0;border:0';
+      document.body.appendChild(f);
+      setTimeout(function () {
+        if (CONN.win) return;
+        CONN.wait = null;
+        var e = new Error('🔑 구글 권한 허용이 필요합니다 — 패널의 [🔑 구글 권한 허용] 을 눌러 본인 구글 계정으로 «허용» 한 뒤 다시 누르세요.');
+        e.needAuth = true; rej(e);
+        connAuthBtn(true);
+      }, 15000);
+    });
+  }
+  function connAuthBtn(show) { var b = document.getElementById('qtyb-auth'); if (b) b.style.display = show ? '' : 'none'; }
+  function connPost(body, ms) {
+    return connReady().then(function () {
+      return new Promise(function (res, rej) {
+        var id = ++CONN.seq;
+        var tm = setTimeout(function () { delete CONN.cb[id]; rej(new Error('시트 답이 없습니다 — 잠시 뒤 다시 눌러주세요')); }, ms || 90000);
+        CONN.cb[id] = function (r) { clearTimeout(tm); res(r); };
+        CONN.win.postMessage({ qtyconn: 'req', id: id, body: body }, CONN.origin);
+      });
+    }).then(function (j) {
+      if (!j || !j.ok) throw new Error((j && j.error) || '시트가 거절했습니다');
+      connAuthBtn(false);
+      return j;
+    });
+  }
+
   function sheetPost(action, rows, extra, ms) {
     if (!SHEET_ID) return Promise.reject(new Error(NO_SHEET));
     var body = { token: SHEET_TOKEN, action: action, rows: rows || [], sheet: SHEET_ID, cfg: cfgWire() };
     if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
+    if (useMine()) { delete body.token; return connPost(body, ms ? Math.max(ms, 30000) : 90000); }
     /* ⏱ 읽기(tally)는 시간 제한을 건다 — 안 오는 요청이 60초씩 버티다 «Failed to fetch» 로 끝났다(2026-10-06). */
     var ac = (ms && typeof AbortController === 'function') ? new AbortController() : null;
     var tm = ac ? setTimeout(function () { ac.abort(); }, ms) : null;
@@ -152,6 +205,7 @@
 
   function sheetRead(tabRange) {
     if (!SHEET_ID) return Promise.reject(new Error(NO_SHEET));
+    if (useMine()) return Promise.reject(new Error('공용 프록시는 쓰지 않습니다(내 구글 계정 연결)'));   // 프록시는 홍팀장 계정으로 돈다
     var path = SHEET_ID + '/values/' + encodeURIComponent(tabRange);
     return fetch(PROXY, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1087,6 +1141,7 @@
       '    <span class="mut">📄 발주 시트</span>' +
       '    <input id="qtyb-sid" value="' + esc(SHEET_ID) + '" placeholder="월 시트 주소 붙여넣기" style="flex:1;min-width:180px;border:1px solid #cfd6e0;border-radius:6px;padding:4px;font-size:11px">' +
       '    <span class="mut" id="qtyb-sname"></span>' +
+      '    <button id="qtyb-auth" style="display:none;padding:3px 8px;font-size:11px;font-weight:700">🔑 구글 권한 허용</button>' +
       '  </div>' +
       /* ⚙️ 시트 모양 — 사람마다 시트가 다르다(2026-10-16). 고치면 이 브라우저에 기억하고 바로 다시 확인한다. */
       '  <details id="qtyb-cfgbox" style="margin-top:6px"><summary class="mut" style="cursor:pointer">⚙️ 시트 모양 <span id="qtyb-cfgsum"></span></summary>' +
@@ -1143,7 +1198,7 @@
         if (j.hasDay === false) miss.push('«' + CFG.day + '»');
         if (j.hasNone === false) miss.push('«' + CFG.none + '»');
         if (miss.length) { s.textContent = '⚠️ ' + j.name + ' — ' + miss.join('·') + ' 탭이 없습니다 (⚙️ 시트 모양 확인)'; s.style.color = '#c62828'; return; }
-        s.textContent = '✅ ' + j.name; s.style.color = '#1a7f37';
+        s.textContent = '✅ ' + j.name + (useMine() && j.who ? ' · ' + j.who : ''); s.style.color = '#1a7f37';
       }, function (e) {
         s.textContent = '⚠️ ' + e.message; s.style.color = '#c62828';
       });
@@ -1156,6 +1211,18 @@
       try { localStorage.setItem(SKEY, id); } catch (e) {}
       DONE_MAP = {}; NONE_MAP = {}; DONE_OK = false;
       sheetName();
+    };
+    /* 🔑 처음 한 번 — 본인 구글 계정으로 시트 연결 앱을 «허용». 새 탭에서 허용하고 돌아오면 다시 연결한다. */
+    el('qtyb-auth').onclick = function () {
+      window.open(CONN_URL, '_blank');
+      var s = el('qtyb-sname'); if (s) { s.textContent = '새 탭에서 본인 구글 계정으로 «허용» 한 뒤 이 화면으로 돌아오세요…'; s.style.color = ''; }
+      var once = function () {
+        if (document.hidden) return;
+        document.removeEventListener('visibilitychange', once);
+        CONN.win = null; var f = document.getElementById('qtyb-conn'); if (f) f.remove();
+        sheetName();
+      };
+      document.addEventListener('visibilitychange', once);
     };
     /* ⚙️ 시트 모양 칸 — 값 채우고, 고치면 저장·다시 확인 */
     function cfgPaint() {
