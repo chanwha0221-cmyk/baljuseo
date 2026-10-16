@@ -4063,7 +4063,18 @@ document.addEventListener('click', e => {
        고쳐 올려도 그 사람 화면만 예전 그대로였다 — 우리가 제일 자주 밟는 함정이다. */
     let mkv = '';
     try{ mkv = (String(document.title).match(/v[\d.]+/) || [''])[0]; }catch(e){}
-    window.open('상세메이커_업체용.html' + (mkv ? '?' + encodeURIComponent(mkv) : ''), '_blank', 'noopener');
+    const maker = new URL('상세메이커_업체용.html' + (mkv ? '?' + encodeURIComponent(mkv) : ''), location.href).href;
+    /* 🤖 창 하나로 끝까지 (2026-10-16 홍팀장 「상품페이지 창 띄워서 소스 니가 땡겨서 넣어주고, 기다리면 상세페이지 바로 떠 있게」).
+       예전엔 상세메이커를 열고 거기서 상품 글 창을 또 열었는데, 그 두 번째 창은 사람 클릭이 아니라 크롬이 막아
+       업체 화면엔 「① 상품 글 열기」 버튼이 남았다(마스터는 팝업 허용이라 자동으로 돌아 못 알아챘다).
+       → 이 클릭으로 **상품 글(masterc 새 상세)** 을 바로 연다. 거기 심은 dm-bridge.js 가 #dmgo 를 보고
+         소스를 읽어 창 이름(window.name)에 담은 뒤 **같은 창을 상세메이커로 넘긴다** → 상세메이커가 받아 바로 만든다.
+       상세 링크가 masterc 새 상세(?p=)가 아니면 예전대로 상세메이커만 연다. */
+    if(/^https:\/\/(www\.)?masterc\.kr\/board_eJGl96\?p=\d+/.test(u)){
+      window.open(u + '#dmgo=' + encodeURIComponent(maker), '_blank', 'noopener');
+      return;
+    }
+    window.open(maker, '_blank', 'noopener');
     return;
   }
 });

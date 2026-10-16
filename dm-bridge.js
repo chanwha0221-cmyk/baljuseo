@@ -45,6 +45,45 @@
   s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/spc-save.js?v=' + Date.now();
   document.head.appendChild(s);
 })();
+/* 🤖 #dmgo=<상세메이커 주소> — 카탈로그 카드 [상세페이지 만들기] 가 이 상품 글을 바로 연다 (2026-10-16 홍팀장).
+   소스를 읽어 창 이름(window.name — 같은 창이 다른 사이트로 넘어가도 남는다)에 담고, 이 창을 상세메이커로 넘긴다.
+   상세메이커가 열리자마자 그걸 꺼내 바로 만든다. 넘길 곳은 우리 상세메이커 주소로만 못 박는다. */
+(function () {
+  var h = String(location.hash || '');
+  var i = h.indexOf('dmgo=');
+  if (i < 0) return;
+  var dest = '';
+  try { dest = decodeURIComponent(h.slice(i + 5)); } catch (e) { return; }
+  if (dest.indexOf('https://chanwha0221-cmyk.github.io/baljuseo/') !== 0) return;
+  function say(msg, bad) {
+    try {
+      var d = document.getElementById('dmgo-say') || document.createElement('div');
+      d.id = 'dmgo-say';
+      d.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483647;background:' + (bad ? '#c0392b' : '#0d6efd') + ';'
+        + 'color:#fff;font:700 15px/1.7 system-ui,sans-serif;padding:14px;text-align:center';
+      d.textContent = msg;
+      (document.body || document.documentElement).appendChild(d);
+    } catch (e) {}
+  }
+  function go(html) {
+    try { window.name = 'DMSRC:' + JSON.stringify({ u: location.href.split('#')[0], html: html, at: Date.now() }); } catch (e) {}
+    say('✅ 상품 글을 읽었습니다 — 상세페이지 만드는 화면으로 넘어갑니다…');
+    setTimeout(function () { location.replace(dest); }, 300);
+  }
+  say('⏳ 상품 글을 읽는 중입니다 — 잠시만 기다려 주세요 (상세페이지가 자동으로 만들어집니다)');
+  var srl = (location.search.match(/[?&]p=(\d+)/) || [])[1];
+  if (!srl) { say('⚠️ 상품 글 주소가 아닙니다', true); return; }
+  fetch('/xd/api.php?mid=board_eJGl96&a=doc&srl=' + srl, { credentials: 'include', cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var d = j && j.doc;
+      if (!d || !d.html) { say('⚠️ 상품 글을 읽지 못했습니다 — masterc 에 로그인한 뒤 카탈로그에서 [상세페이지 만들기] 를 다시 눌러 주세요', true); return; }
+      var html = String(d.html).replace(/src="\//g, 'src="' + location.origin + '/');
+      go('<html><head><title>' + String(d.title || d.n || '').replace(/</g, '') + '</title></head><body>'
+        + '<div class="xe_content">' + html + '</div><!--AfterDocument--></body></html>');
+    })
+    .catch(function () { say('⚠️ 상품 글을 읽지 못했습니다 — masterc 에 로그인한 뒤 카탈로그에서 [상세페이지 만들기] 를 다시 눌러 주세요', true); });
+})();
 /* 💰 #misusync — 미수 보고 [🔄 금액 업데이트] 가 이 게시판을 새 창으로 연다 (2026-10-13 홍팀장). misu-sync.js 가 정산현황을 읽어 보낸다. */
 (function () {
   if (String(location.hash || '').indexOf('misusync') < 0) return;

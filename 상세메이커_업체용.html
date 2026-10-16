@@ -261,7 +261,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.12</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.13</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -882,6 +882,9 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
          &&ev.origin!=='https://www.masterc.kr'&&ev.origin!=='https://www.masterc.co.kr') return;
       var d=ev.data||{};
       if(d.type!=='dm-source'||!d.html) return;
+      useSrc(d);
+    });
+    function useSrc(d){
       var s3=$('dm-s3'), s2=$('dm-s2'), s1b=$('dm-s1');
       if((d.html.match(/<img/gi)||[]).length<2){
         if(s3) s3.innerHTML='⚠️ 넘어온 소스에 사진이 없습니다 — 게시판에 <b>로그인</b>한 뒤 다시 눌러주세요.';
@@ -899,11 +902,21 @@ window.addEventListener('DOMContentLoaded',function(){try{DM.setMode('master');}
           if(typeof toast==='function') toast('⚡ '+one.n+' 상세페이지를 만들었습니다');
         }catch(e){ if(s3) s3.innerHTML='⚠️ <b>③</b> 만들지 못했습니다 — [⚡ 상세페이지 생성] 을 눌러보세요.'; }
       },60);
-    });
+    }
     var rl=document.querySelector('.dm-relink');
     if(rl) rl.onclick=function(){ openIt(false); };
+    /* 🤖 상품 글 창이 소스를 담아 이 창으로 넘어왔으면(dm-bridge #dmgo → window.name) 그대로 만든다 (2026-10-16 홍팀장).
+       창을 또 열 필요가 없다 — 업체는 카드 한 번 누르고 기다리기만 하면 된다. 한 번 쓰면 바로 비운다. */
+    var got=null;
+    try{
+      if(String(window.name||'').indexOf('DMSRC:')===0){
+        got=JSON.parse(window.name.slice(6)); window.name='';
+        if(!got||!got.html||Date.now()-(+got.at||0)>10*60*1000) got=null;   // 10분 넘은 건 안 쓴다
+      }
+    }catch(e){ got=null; }
+    if(got){ useSrc(got); }
     // 열자마자 자동으로 한 번 — 막히면 위 버튼이 그대로 남는다
-    if(one.u) setTimeout(function(){ try{ openIt(true); }catch(e){} }, 250);
+    else if(one.u) setTimeout(function(){ try{ openIt(true); }catch(e){} }, 250);
     if(!one.u) $('dm-steps').innerHTML='<div style="color:#c0392b">이 상품은 상세 링크가 없습니다 — 상품 글 소스를 아래 ① 칸에 직접 붙여넣어 주세요.</div>';
     /* ⚡ 붙여넣는 즉시 만든다 — [⚡ 상세페이지 생성] 을 또 누르게 하지 않는다.
        ⚠️ paste 이벤트는 **값이 들어가기 전에** 뜬다 → 다음 틱에 읽는다.
