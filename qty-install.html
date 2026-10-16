@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>수량 대조 설치</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--ink:#1f2937;--mut:#6b7280;--acc:#15803d;--line:#e5e7eb}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 system-ui,-apple-system,"Malgun Gothic",sans-serif}
+  .wrap{max-width:640px;margin:0 auto;padding:28px 16px}
+  h1{font-size:22px;margin:0 0 4px}
+  .mut{color:var(--mut);font-size:13px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-top:16px}
+  ol{margin:6px 0 0;padding-left:20px}
+  li{margin:6px 0}
+  .bm{display:inline-block;margin:12px 0 4px;padding:12px 20px;border-radius:12px;background:var(--acc);color:#fff;font-weight:800;font-size:17px;text-decoration:none;cursor:grab}
+  .warn{border-color:#f59e0b;background:#fffbeb}
+  code{background:#f3f4f6;padding:1px 6px;border-radius:5px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧾 수량 대조 설치</h1>
+  <div class="mut">마스터 수량 웹에서 당일 발주를 수량과 맞춰 보는 도구입니다. 크롬에서 한 번만 설치하면 됩니다.</div>
+
+  <div class="card">
+    <b>1. 아래 초록 버튼을 크롬 즐겨찾기바로 끌어다 놓으세요</b>
+    <div class="mut">즐겨찾기바가 안 보이면 <code>Ctrl + Shift + B</code></div>
+    <a class="bm" id="bm" href="#" onclick="alert('누르지 말고 즐겨찾기바로 끌어다 놓으세요');return false;">🧾 수량대조</a>
+  </div>
+
+  <div class="card">
+    <b>2. 쓰는 법</b>
+    <ol>
+      <li>수량 웹(<code>service.masterc.co.kr/qty</code>)에 <b>본인 아이디로 로그인</b>합니다.</li>
+      <li>수량 웹 화면에서 즐겨찾기바의 <b>🧾 수량대조</b>를 누르면 오른쪽에 패널이 뜹니다.</li>
+      <li>패널의 <b>📄 가져오기_당일</b>을 누르면 당일 발주와 수량이 자동으로 대조됩니다.</li>
+    </ol>
+  </div>
+
+  <div class="card warn">
+    <b>⚠️ 꼭 지켜 주세요</b>
+    <ol>
+      <li><b>🚀 판정대로 실행</b>(잡기·대기·증량)은 <b>한 사람만</b> 누릅니다. 둘이 같이 누르면 수량이 두 번 잡힙니다. 보기·대조만 하는 건 같이 해도 괜찮습니다.</li>
+      <li>패널 제목 옆 버전 글자가 안 바뀌면 옛 화면입니다 — 수량 웹 탭을 새로고침하고 다시 누르세요.</li>
+    </ol>
+  </div>
+</div>
+<script>
+  document.getElementById('bm').href = "javascript:(function(){var s=document.createElement('script');s.src='https://chanwha0221-cmyk.github.io/baljuseo/qty-bridge.js?v='+Date.now();document.head.appendChild(s);})();";
+</script>
+</body>
+</html>
