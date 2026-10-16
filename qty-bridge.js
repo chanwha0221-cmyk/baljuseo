@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-16f';
+  var QTYB_VER = '2026-10-16g';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1282,11 +1282,17 @@
       b.disabled = true; b.textContent = '창고 긁고 당일 읽는 중…';
       /* 🔄 누를 때마다 창고를 새로 긁는다 — 예전엔 한 번 긁은 판을 계속 써서 [창고 전부 긁기] 를 따로 눌러야 했다.
          긁은 판으로 카탈로그 재고도 같이 보낸다(뒤에서, 실패해도 대조는 그대로 간다). */
+      /* ⚡ 시트 먼저 읽고(2초) → 그 상품이 있는 창고만 긁는다(scanFor). 전부 긁은 판일 때만 카탈로그 재고도 보낸다. */
       Promise.all([
         tallyTab(CFG.day),
-        tallyTab(day).catch(function () { return null; }),
-        scanAll().then(function () { if (haveIdx()) stockPush(true, IDX); }).catch(function (e) { alert(e.message || e); })
+        tallyTab(day).catch(function () { return null; })
       ]).then(function (r) {
+        var names = [];
+        [r[0], r[1]].forEach(function (t) { if (t && t.map) Object.keys(t.map).forEach(function (k) { names.push(t.map[k].name); }); });
+        b.textContent = '필요한 창고 긁는 중…';
+        return scanFor(names).then(function (full) { if (full && haveIdx()) stockPush(true, IDX); }, function (e) { alert(e.message || e); })
+          .then(function () { return r; });
+      }).then(function (r) {
         var need = r[0], done = r[1];
         DONE_OK = !!done; DONE_TAB = day; DONE_LINES = done ? done.lines : 0;
         done = done || { map: {}, lines: 0, tab: day };
@@ -1571,7 +1577,7 @@
       var b = this, old = b.textContent;
       b.disabled = true; b.textContent = '세는 중…';
       var day = dayTab();
-      var go = haveIdx() ? Promise.resolve() : scanAll();
+      var go = idxReady();   // ⚡ 일부만 긁은 판이면 전부 긁는다(2분 안 창고는 재사용)
       go.then(function () { return loadMy(); })
         .then(function () { return tallyTab(day).catch(function () { return null; }); })
         .then(function (done) {
@@ -2106,8 +2112,69 @@
   var LANES = 4;
   var SCAN_FAIL = [];      // 마지막 긁기에서 못 읽은 창고 — 있으면 그 판으로 카탈로그 재고를 보내지 않는다
 
+  var IDX_FULL = false;    // 지금 IDX 가 창고 전부를 긁은 판인가 — 일부만 긁은 판은 다른 버튼이 그대로 쓰지 않는다
   function scanAll() {
-    return getChips().then(function (cs) { return scanChips(cs); });
+    return getChips().then(function (cs) { return scanChips(cs); }).then(function (v) { IDX_FULL = true; return v; });
+  }
+  function idxReady() { return (haveIdx() && IDX_FULL) ? Promise.resolve() : scanAll(); }
+
+  /* ⚡ 창고 긁기 줄이기 (2026-10-16 홍팀장 「당일 주문에 나오는 창고만 긁고, 2분 안에 긁은 건 재사용」)
+     실측: 수량 웹이 한 쪽에 1.4~1.8초, 같은 로그인은 한 번에 하나씩만 처리해 18곳 긁기가 30초.
+     ① 2분 안에 긁은 창고는 다시 안 긁는다(SCAN_CACHE)
+     ② 상품 → 창고를 기억해 두고(WHMAP, 이 브라우저), 당일 주문 상품이 있는 창고만 긁는다(scanFor).
+        처음 보는 상품이 있거나, 기억한 창고에서 못 찾으면 전부 긁는다(그때 기억도 새로 고친다). */
+  var SCAN_CACHE = {}, CACHE_MS = 2 * 60 * 1000;
+  var WHK = 'qtybWhMap', NOK = 'qtybWhNone';
+  var WHMAP = {}, WHNONE = {};
+  try { WHMAP = JSON.parse(localStorage.getItem(WHK) || '{}') || {}; } catch (e) {}
+  try { WHNONE = JSON.parse(localStorage.getItem(NOK) || '{}') || {}; } catch (e) {}
+  function whSave() {
+    try { localStorage.setItem(WHK, JSON.stringify(WHMAP)); localStorage.setItem(NOK, JSON.stringify(WHNONE)); } catch (e) {}
+  }
+  function secCached(c) {
+    var e = SCAN_CACHE[c.tab];
+    if (e && Date.now() - e.at < CACHE_MS) return Promise.resolve(e.rows);
+    return fetchSec(c.tab).then(function (rows) {
+      SCAN_CACHE[c.tab] = { at: Date.now(), rows: rows };
+      rows.forEach(function (r) { if (r && r.key) { WHMAP[r.key] = c.tab; delete WHNONE[r.key]; } });
+      return rows;
+    });
+  }
+  function needKeys(names) {
+    var ks = {};
+    names.forEach(function (n) {
+      ks[nk(n)] = 1;
+      ALIAS.forEach(function (a) { if (a.hit(n)) ks[nk(a.to)] = 1; });   // 연어·홍어는 대표 줄의 창고도
+    });
+    return Object.keys(ks);
+  }
+  /* 돌려주는 값: true = 창고 전부 긁음(카탈로그 재고를 이 판으로 보내도 된다) / false = 일부만 */
+  function scanFor(names) {
+    return getChips().then(function (cs) {
+      var today = todayTab(), keys = needKeys(names), tabs = {}, unknown = 0;
+      keys.forEach(function (k) {
+        if (WHMAP[k]) tabs[WHMAP[k]] = 1;
+        else if (WHNONE[k] !== today) unknown++;          // 오늘 «어느 창고에도 없음» 확인된 상품은 다시 안 찾는다
+      });
+      var full = function () {
+        return scanChips(cs).then(function () {
+          IDX_FULL = true;
+          keys.forEach(function (k) { if (!IDX[k]) WHNONE[k] = today; });
+          whSave(); return true;
+        });
+      };
+      if (!cs.length || unknown || !Object.keys(tabs).length) return full();
+      var sub = cs.filter(function (c) { return tabs[c.tab]; });
+      if (sub.length >= cs.length) return full();
+      return scanChips(sub).then(function () {
+        var miss = keys.filter(function (k) { return WHMAP[k] && !IDX[k]; });
+        if (miss.length) { miss.forEach(function (k) { delete WHMAP[k]; }); return full(); }   // 창고가 바뀐 상품 — 전부 다시
+        whSave();
+        IDX_FULL = false;
+        stat('필요한 창고 ' + sub.length + '/' + cs.length + '곳만 긁음 · ' + Object.keys(IDX).length + '줄 · ' + hhmm() + ' 기준');
+        return false;
+      });
+    });
   }
   function scanChips(cs) {
     if (!cs.length) { stat('창고 칩을 못 찾음'); return Promise.resolve(); }
@@ -2119,7 +2186,7 @@
     function take(queue) {
       if (!queue.length) return Promise.resolve();
       var c = queue.shift();
-      return fetchSec(c.tab).then(function (rows) {
+      return secCached(c).then(function (rows) {   // ⚡ 2분 안에 긁은 창고는 재사용
         rows.forEach(function (r) {
           if (IDX[r.key]) { dup++; return; }   // 이름이 같으면 첫 것만 — 수량 웹도 이름중복은 건너뛴다
           IDX[r.key] = r; n++;
@@ -2323,7 +2390,7 @@
     needSave(el('qtyb-in').value);      // 마이페이지에서 그대로 쓰도록 담아 둔다
     DROPPED = {};                       // 새로 대조하면 ✕ 로 뺐던 것도 다시 살린다
 
-    var go = haveIdx() ? Promise.resolve() : scanAll();
+    var go = idxReady();   // ⚡ 일부만 긁은 판이면 전부 긁는다(2분 안 창고는 재사용)
     var noneWarn = '';
     return go.then(function () { return loadMy(); }).then(function () {
       /* 재고 없음 탭 — 걸어 둔 대기가 누구 몫인지 가르는 데 쓴다. 못 읽으면 예전처럼(0) 가고 화면에 알린다. */
