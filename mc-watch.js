@@ -15,8 +15,8 @@
      · 🐟 당일 자동 등록 (2026-10-16 홍팀장 「당일도 등록하려고 이지랄 한 거 아님?」) — mc-day.js ① 과 같은 규칙:
        아직 등록 안 한 당일 상품 중 잔여 > 0 · 규칙가 있음 · 규칙가 ≥ 공급가 인 것만 규칙가·오늘만으로 등록.
        이미 등록한 것(꺼둔 것 포함)·잔여 0 은 손대지 않는다. 규칙가 < 공급가(역마진)는 등록하지 않고 확인창으로 알린다.
-     · 🔴 매 확인마다 고정가 역마진(특별단가·당일 등록가 < 공급가)을 찾아 새로 생기면 확인창 (lossCheck).
-     · 보낼 때마다 마진율 8% 이하 상품을 세어, 직전에 없던 것이 나오면 알림 + 확인창([확인] = 카탈로그 저마진 화면).
+     · 🔴 매 확인 끝에 서버(lowmq)의 «지금 바로 확인할 상품» 중 안 물어본 것을 한 개씩 확인창으로 묻는다 (lossAsk, 10-16).
+       기준 = 역마진(판매가 < 공급가) + 마진율 6% 미만 중 새로 생기거나 값이 바뀐 것, 👌괜찮음 제외 — 서버 한 곳에서 정한다.
        마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) — 카탈로그 저마진·월 시트 Q열과 같은 식. 원가는 이 창 밖으로 안 나간다.
    🔴 masterc 에 쓰는 건 위 당일 자동 등록(daily_save) 하나뿐이다. 우리 서버로 보내는 저장은 30% 넘게 줄면 서버가 거절한다.
    ════════════════════════════════════════════════════════════════ */
@@ -148,7 +148,7 @@
       }
     } catch (e) { dayTxt = '당일 못 보냄: ' + (e && e.message ? e.message : e); }
 
-    lowmCheck(C, L);
+    // 💸 저마진 알림은 lossAsk(서버 lowmq 긴급 목록)가 맡는다 — 옛 lowmCheck(8% 이하 새것 전부)는 안 부른다 (10-16)
     return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt;
   }
 
@@ -257,18 +257,43 @@
       return '· ' + x.n + ' (' + x.wh + ', ' + x.how + ') 판매가 ' + won(x.sell) + ' < 공급가 ' + won(x.base)
         + ' → 개당 ' + won(x.base - x.sell) + ' 손해' + (x.remain != null ? ' · 잔여 ' + x.remain : '');
     }).join('\n') + (fresh.length > 15 ? '\n… 외 ' + (fresh.length - 15) + '개' : '');
-    log('🔴 역마진 ' + fresh.length + '개\n' + lines);
-    notify('🔴 역마진 ' + fresh.length + '개 — 고정가가 공급가보다 낮습니다', fresh.slice(0, 5).map(function (x) { return x.n + ' ' + won(x.sell) + '<' + won(x.base); }).join('\n'));
+    log('🔴 역마진 ' + fresh.length + '개\n' + lines);   // 알림·확인창은 lossAsk(서버 긴급 목록)가 한 번만 띄운다
     // 확인창은 tick 이 카탈로그로 보낸 «뒤에» 띄운다 — 먼저 띄우면 카탈로그가 옛 값으로 열린다(confirm 이 보내기를 멈춰 세운다)
     S.lossAsk = '🔴 역마진 — 판매가가 공급가보다 낮습니다 (' + fresh.length + '개)\n\n' + lines
       + (fresh.some(function (x) { return x.at === '#daily'; }) ? '\n\n🙈 당일은 업체 화면에서 숨겨 뒀습니다 — 단가를 고치거나 [✅ 이 가격으로 노출]을 눌러야 다시 보입니다.' : '')
       + '\n\n[확인] 확인하러 가기 — 카탈로그 «지금 바로 확인할 상품»에서 단가 수정   [취소] 닫기';
   }
   /* 🔴 확인하러 가기 = 카탈로그 저마진의 «지금 바로 확인할 상품» 탭 (2026-10-16 홍팀장) */
-  function lossAsk() {
-    var m = S.lossAsk, d = S.dayAsk; S.lossAsk = ''; S.dayAsk = '';
+  /* 🔴 긴급 확인 — 서버(lowmq)가 정한 «지금 바로 확인할 상품» 중 아직 안 물어본 것만, 한 개씩 순서대로 묻는다
+     (2026-10-16 홍팀장 「변경 있는 상품 순차적으로 하나씩 물어봐라 / 괜찮음 누른 건 안 물어봐도 됨」).
+     기준(역마진 + 마진율 6% 미만 중 새로 생기거나 값이 바뀐 것, 👌괜찮음 제외)은 서버 한 곳에서만 정한다. */
+  var URG_KEY = 'mcw_urgent_asked_v1';
+  async function urgentList() {
+    try { var j = await edge({ action: 'lowmq', key: KEY }); return j && j.ok ? (j.rows || []) : null; } catch (e) { return null; }
+  }
+  function lossAsk(rows) {
+    var d = S.dayAsk; S.lossAsk = ''; S.dayAsk = '';
+    var asked = {}; try { asked = JSON.parse(localStorage.getItem(URG_KEY) || '{}') || {}; } catch (e) {}
+    var fresh = (rows || []).filter(function (r) { return !asked[r.n + '|' + r.at]; })
+      .sort(function (a, b) { return (a.at || 0) - (b.at || 0); });          // 먼저 생긴 것부터 하나씩
+    if (rows) {
+      var keep = {}; rows.forEach(function (r) { var k = r.n + '|' + r.at; keep[k] = asked[k] || (fresh.indexOf(r) >= 0 ? 1 : 0); });
+      fresh.forEach(function (r) { keep[r.n + '|' + r.at] = 1; });
+      try { localStorage.setItem(URG_KEY, JSON.stringify(keep)); } catch (e) {}
+    }
+    if (fresh.length) {
+      log('🔴 확인할 상품 새로 ' + fresh.length + '개\n' + fresh.map(function (r) { return '· ' + r.n + ' (' + r.wh + ', ' + r.why + (r.hold ? ' · 업체 화면 숨김' : '') + ')'; }).join('\n'));
+      notify('🔴 확인할 상품 ' + fresh.length + '개', fresh.slice(0, 5).map(function (r) { return r.n + ' — ' + r.why; }).join('\n'));
+    }
     setTimeout(function () {
-      if (m && confirm(m)) window.open(CATALOG_LOSS, 'catalog_lowm');
+      for (var i = 0; i < fresh.length; i++) {
+        var r = fresh[i];
+        var m = '🔴 확인할 상품 (' + (i + 1) + '/' + fresh.length + ')\n\n' + r.n + '  (' + r.wh + ' · ' + (r.k === '당일' ? '🐟 당일' : '상시') + ')\n→ ' + r.why
+          + (r.why === '역마진' ? ' — 판매가가 공급가보다 낮습니다' : ' — 마진율 6% 미만으로 새로 들어왔거나 값이 바뀌었습니다')
+          + (r.hold ? '\n🙈 업체 화면에서 숨겨 뒀습니다 — 단가를 고치거나 [✅ 이 가격으로 노출]을 눌러야 다시 보입니다.' : '')
+          + '\n\n[확인] 확인하러 가기 — 카탈로그 «지금 바로 확인할 상품» (단가 수정 · 👌 괜찮음)\n[취소] ' + (i + 1 < fresh.length ? '다음 상품' : '닫기');
+        if (confirm(m)) { window.open(CATALOG_LOSS, 'catalog_lowm'); break; }
+      }
       if (d && confirm(d)) window.open('https://masterc.kr/machan_admin#daily', 'mc_admin');
     }, 50);
   }
@@ -294,7 +319,7 @@
       S.err = m;
     }
     paint();
-    lossAsk();
+    lossAsk(await urgentList());
   }
 
   try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
