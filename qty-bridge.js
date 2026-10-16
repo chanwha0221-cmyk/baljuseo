@@ -2314,6 +2314,26 @@
       return !!(j && j.ok);
     }).catch(function () { return false; });
   }
+  /* 🆕 신상품 → 소식글 초안 (2026-10-16 홍팀장 「신상품 뜨면 소식글 초안 — 소식글 탭에 검토요청으로 넣어 놔」).
+        이 페이지의 [🆕 신상품] 자료(newprodapi.php)를 그대로 서버 npsync 로. 처음 보는 신상품만 초안이 된다(서버가 거른다). */
+  function npPush() {
+    return fetch(new URL('newprodapi.php', location.href).href, { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok || !Array.isArray(j.list)) return false;
+        var list = j.list.map(function (p) {
+          return { gkey: p.gkey, name: p.name, day: p.day, opts: p.opts, hook: p.hook, intro: p.intro, points: p.points, ment: p.ment, spec: p.spec, url: p.url };
+        });
+        return fetch(QTY_API, {
+          method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'npsync', key: QTY_KEY, list: list })
+        }).then(function (r) { return r.json(); }).then(function (s) {
+          var sEl = el('qtyb-stock');
+          if (sEl && s && s.ok && s.added) sEl.textContent += ' · 🆕 신상품 소식글 초안 ' + s.added + '개';
+          return !!(s && s.ok);
+        });
+      }).catch(function () { return false; });
+  }
   function stockPush(auto, preset) {
     if (window.__QTYB_PUSHING) return Promise.resolve(false);
     var sEl = el('qtyb-stock');
@@ -2347,6 +2367,7 @@
       if (sEl) sEl.textContent = '📤 ' + hhmm() + ' 보냄 · ' + j.count + '개 (재고없음 ' + j.zero + ' · 소량 ' + j.low + ')'
         + (auto ? ' · 자동' : '');
       infoPush(lastAll);   // 🚚📦 같은 판으로 택배사·합배송도 (뒤에서 — 실패해도 재고 전송은 끝난 것)
+      npPush();            // 🆕 신상품 → 소식글 초안 «검토요청» (뒤에서)
       return true;
     }).catch(function (e) {
       window.__QTYB_PUSHING = false;

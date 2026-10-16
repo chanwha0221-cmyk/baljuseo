@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.178</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.179</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -765,7 +765,7 @@ h1{letter-spacing:-.6px}
 <div class="menu" id="menu">
   <button class="mbtn" data-go="notice">📢 공지사항<span class="nbadge" id="ntcBadge" style="display:none"></span></button>
   <button class="mbtn" data-go="rec">⭐ 추천상품<span class="tapb">눌러서 확인</span></button>
-  <button class="mbtn" data-go="news">📰 소식글<span class="tapb">눌러서 확인</span><span class="nbadge" id="newsBadge" style="display:none"></span></button>
+  <button class="mbtn" data-go="news">📰 소식글<span class="tapb">눌러서 확인</span><span class="nbadge" id="newsBadge" style="display:none"></span><span class="nbadge" id="npBadge" style="display:none;background:#d97706"></span></button>
   <button class="mbtn" data-go="change">📊 상품변동사항<span class="tapb">눌러서 확인</span></button>
   <button class="mbtn" data-go="order">🧾 발주하기<span class="nbadge" id="ordCount" style="display:none"></span></button>
   <button class="mbtn" data-go="orders" id="mbOrders" style="display:none">📋 발주 내역<span class="nbadge" id="ordsBadge" style="display:none"></span></button>
@@ -3139,8 +3139,56 @@ document.addEventListener('click',async function(e){
     b.disabled=false; b.textContent=old;
   }
 });
-function renderNews(list){
-  let h=subHead('📰 소식글','카톡으로 보내드린 소식글입니다. 글 안의 상품은 눌러서 바로 보실 수 있어요.');
+/* 📝 검토요청 — 신상품 소식글 초안 (2026-10-16 홍팀장 「신상품 뜨면 소식글 초안을 소식글 탭에 검토요청으로 넣어 놔 — 내가 확인하고 수정해서 올리던가」).
+   수량 패널이 수량 웹 [🆕 신상품]을 서버(npsync)로 보내면 처음 보는 상품만 초안이 된다. 🔒 마스터에게만 — 원본은 Edge NP_DRAFT(업체가 받는 스냅샷 밖).
+   [📤 올리기] = 소식글 게시판 한 줄 + 글 안 상품을 ⭐ 추천상품 📰로(상품도구 [📰 소식글 등록]과 같은 규칙). */
+let NPDR=null;
+async function loadNpDrafts(){
+  if(!(ME&&ME.master&&ME.token))return [];
+  try{ const j=await api('npdrafts',{token:ME.token}); NPDR=(j&&j.ok)?(j.rows||[]):[]; }catch(e){ NPDR=NPDR||[]; }
+  npBadge(); return NPDR;
+}
+function npBadge(){ const b=$('npBadge'); if(!b)return; const n=(NPDR||[]).length; b.style.display=n?'':'none'; b.textContent=n?('검토 '+n):''; b.title=n?('신상품 소식글 초안 '+n+'건 — 검토요청'):''; }
+function renderNpDrafts(rows){
+  if(!rows||!rows.length)return '';
+  const box='background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px';
+  const fld='font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit';
+  return '<div style="margin:10px 0 14px;padding:12px;border:2px dashed #d97706;border-radius:12px">'
+    +'<div style="font-weight:800">📝 검토요청 '+rows.length+'건 <span style="font-weight:400;font-size:12.5px;color:var(--muted)">— 신상품이 떠서 만든 초안입니다. 고쳐서 <b>[📤 올리기]</b>를 누르면 소식글로 올라가고 글 안 상품이 ⭐ 추천상품에 📰로 섭니다. 🔒 마스터에게만 보입니다.</span></div>'
+    +rows.map(r=>'<details class="npd" data-npid="'+esc(String(r.id||''))+'" style="'+box+'">'
+      +'<summary style="cursor:pointer;font-weight:700">'+esc(String(r.title||r.name||''))+' <span style="font-weight:400;font-size:12px;color:var(--muted)">· '+esc(String(r.day||''))+' 출시</span></summary>'
+      +'<div style="margin-top:8px;display:grid;gap:6px">'
+      +'<input class="npd-t" value="'+esc(String(r.title||''))+'" style="'+fld+'">'
+      +'<textarea class="npd-b" rows="12" style="'+fld+';line-height:1.6">'+esc(String(r.body||''))+'</textarea>'
+      +'<input class="npd-i" value="'+esc((r.items||[]).join(', '))+'" title="⭐ 추천상품에 📰로 올릴 상품(쉼표로) — 카탈로그 상품명 그대로" style="'+fld+';font-size:12.5px">'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ubtn" style="font-weight:800" onclick="npPub(this)">📤 올리기</button><button class="ubtn" onclick="npDel(this)">🗑 버리기</button>'
+      +(r.url?'<a class="ubtn" href="'+esc(String(r.url))+'" target="_blank" rel="noopener" style="text-decoration:none">상품정보 글 →</a>':'')+'</div>'
+      +'</div></details>').join('')
+    +'</div>';
+}
+function npPub(btn){
+  const d=btn.closest('[data-npid]'); if(!d)return;
+  const title=d.querySelector('.npd-t').value.trim(), body=d.querySelector('.npd-b').value.trim();
+  const items=d.querySelector('.npd-i').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!title||!body){alert('제목과 본문을 채워주세요.');return;}
+  const miss=items.filter(n=>!newsInCatalog(n));
+  if(!confirm('소식글로 올립니다 — 업체 화면에 바로 보입니다.\n\n'+title+(items.length?'\n\n⭐ 추천상품 📰: '+items.join(', '):'')+(miss.length?'\n\n⚠️ 지금 카탈로그에 없는 이름: '+miss.join(', '):'')))return;
+  btn.disabled=true;btn.textContent='올리는 중…';
+  api('npdraftpub',{token:ME.token,id:d.getAttribute('data-npid'),title,body,items}).then(j=>{
+    if(!j||!j.ok){btn.disabled=false;btn.textContent='📤 올리기';alert('올리지 못했습니다 — '+((j&&j.error)||'알 수 없음'));return;}
+    toast(j.dup?'이미 같은 글이 있어 다시 안 올렸습니다':('소식글 올림'+(j.radd&&j.radd.length?' · 추천 📰 '+j.radd.length+'개':'')));
+    NEWS=null;RECS=null;
+    api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(location.hash.replace(/^#/,'')==='news')renderRoute(); });
+  }).catch(e=>{btn.disabled=false;btn.textContent='📤 올리기';alert('올리지 못했습니다 — '+(e&&e.message||e));});
+}
+function npDel(btn){
+  const d=btn.closest('[data-npid]'); if(!d)return;
+  if(!confirm('이 초안을 버릴까요? (같은 신상품으로 다시 만들어지지 않습니다)'))return;
+  btn.disabled=true;
+  api('npdraftdel',{token:ME.token,id:d.getAttribute('data-npid')}).then(j=>{ NPDR=(j&&j.rows)||[]; npBadge(); renderRoute(); }).catch(e=>{btn.disabled=false;alert(e&&e.message||e);});
+}
+function renderNews(list,dr){
+  let h=subHead('📰 소식글','카톡으로 보내드린 소식글입니다. 글 안의 상품은 눌러서 바로 보실 수 있어요.')+renderNpDrafts(dr);
   if(!list.length)return h+'<div class="empty">아직 올라온 소식글이 없습니다.</div>';
   // 🔒 게시판이니 전부 접어 둔다 — 제목만 보이고 누른 것만 열린다 (홍팀장 2026-09-01)
   return h+'<div class="ntclist">'+list.map(n=>newsItem(n,false)).join('')+'</div>';
@@ -3182,7 +3230,7 @@ async function renderRoute(){
     // ⚠️ 공지 화면에 들어왔다고 전부 읽음 처리하지 않는다 — 제목을 눌러야 확인이다(사장님 2026-08-19).
     else if(v==='notice'){if(!NOTI)NOTI=await loadNotices();NTC_PAGE=1;subV.innerHTML=renderNotices(NOTI);renderNtcBadge();}
     // 📰 소식글 — 글 안의 상품 버튼을 만들려면 상품(ALL)이 먼저 들어와 있어야 한다
-    else if(v==='news'){if(!NEWS)NEWS=await loadNews();subV.innerHTML=renderNews(NEWS);renderNewsBadge();}
+    else if(v==='news'){if(!NEWS)NEWS=await loadNews();const dr=await loadNpDrafts();subV.innerHTML=renderNews(NEWS,dr);renderNewsBadge();}
     // 🧾 발주 — order.js. 상품(ALL)이 있어야 상품명 검증이 되므로 카탈로그가 먼저 로드된 뒤에만 연다.
     else if(v==='order'){
       if(!(typeof ALL!=='undefined'&&ALL.length)){subV.innerHTML=subHead('🧾 발주하기','')+'<div class="empty">상품을 불러오는 중입니다. 잠시 후 다시 눌러주세요.</div>';}
@@ -3633,6 +3681,7 @@ function renderUser(){
   /* 💸 저마진 — 마스터만, 위쪽 작은 버튼(아래 userbar). 개수는 뒤에서 받아 버튼 옆 숫자로 (실패해도 화면은 그대로)
      🔴 메뉴 큰 칸에 두지 말 것 (2026-10-06 홍팀장 「나만 볼 건데 대문짝만하게 올렸냐」) */
   {if(ME.master&&ME.token)api('lowmargin',{token:ME.token,max:LOWM_MAX}).then(j=>{const go=()=>{if(typeof ALL!=='undefined'&&ALL.length){const v=lowmVisible(j.rows);lowmBadge(v.length,lowmLoss(v).length);}else setTimeout(go,1500);};go();}).catch(()=>{});}
+  if(ME.master&&ME.token)loadNpDrafts();   // 📝 검토요청(신상품 소식글 초안) 개수 — 소식글 메뉴에 «검토 N»
   // 발주 내역은 웹앱이 붙어 있을 때만
   const mo=$('mbOrders');
   if(mo)mo.style.display=(API&&ME.token)?'':'none';
