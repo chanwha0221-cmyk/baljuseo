@@ -11,11 +11,14 @@
    하는 일 (월~토 09:00~18:00, 서울 시간)
      · 5분마다 변동사항(machan_chg)·특별단가·당일 등록가를 읽어 지문을 만든다.
      · 지문이 바뀌었거나 마지막으로 보낸 지 30분이 지났으면 → 상시(mcpush+mcspc) + 당일(mcday) 를 조용히 보낸다.
-       상시는 mc-list.js, 당일은 mc-day.js ② 와 같은 모양이다. 🔴 당일 «자동 등록»(daily_save)은 하지 않는다 — 읽어서 보내기만.
+       상시는 mc-list.js, 당일은 mc-day.js ①② 와 같은 모양이다.
+     · 🐟 당일 자동 등록 (2026-10-16 홍팀장 「당일도 등록하려고 이지랄 한 거 아님?」) — mc-day.js ① 과 같은 규칙:
+       아직 등록 안 한 당일 상품 중 잔여 > 0 · 규칙가 있음 · 규칙가 ≥ 공급가 인 것만 규칙가·오늘만으로 등록.
+       이미 등록한 것(꺼둔 것 포함)·잔여 0 은 손대지 않는다. 규칙가 < 공급가(역마진)는 등록하지 않고 확인창으로 알린다.
      · 🔴 매 확인마다 고정가 역마진(특별단가·당일 등록가 < 공급가)을 찾아 새로 생기면 확인창 (lossCheck).
      · 보낼 때마다 마진율 8% 이하 상품을 세어, 직전에 없던 것이 나오면 알림 + 확인창([확인] = 카탈로그 저마진 화면).
        마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) — 카탈로그 저마진·월 시트 Q열과 같은 식. 원가는 이 창 밖으로 안 나간다.
-   🔴 masterc 에 아무것도 쓰지 않는다. 우리 서버로 보내는 저장은 30% 넘게 줄면 서버가 거절한다.
+   🔴 masterc 에 쓰는 건 위 당일 자동 등록(daily_save) 하나뿐이다. 우리 서버로 보내는 저장은 30% 넘게 줄면 서버가 거절한다.
    ════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -81,7 +84,9 @@
     var C = await get('machan_admin', 'cost');
     var a = (G.rows || []).map(function (r) { return [r.id, r.k, r.p, r.stock].join('|'); }).join(';');
     var b = (Sp.rows || []).map(function (r) { return [r.id, r.price, r.active, r.upd_dt].join('|'); }).join(';');
-    var c = (Q.cands || []).filter(function (r) { return r.k === 'day' && r.reg; }).map(function (r) { return [r.n, r.reg.price, r.reg.on, r.base].join('|'); }).join(';');
+    // 🐟 아직 등록 안 한 당일(잔여 있음)도 지문에 넣는다 — 새 당일이 풀리면 30분 기다리지 않고 바로 등록·보내기
+    var c = (Q.cands || []).filter(function (r) { return r.k === 'day' && (r.reg || r.remain > 0); })
+      .map(function (r) { return r.reg ? [r.n, r.reg.price, r.reg.on, r.base].join('|') : [r.n, 'new', r.sug, r.base].join('|'); }).join(';');
     // 💰 공급가·판매가가 바뀌어도 다시 보낸다 — 고정가 역마진을 저마진 화면에서도 바로 보게
     var d = (C && C.ok ? (C.rows || []) : []).map(function (r) { return [r.n, r.sell, r.base].join('|'); }).join(';');
     lossCheck(C, Q);
@@ -119,9 +124,14 @@
       }
     } catch (e) {}
 
-    var dayTxt = '당일 못 보냄';
+    var dayTxt = '당일 못 보냄', regTxt = '';
     try {
       var Q = await get('machan_admin', 'daily_cand');
+      if (Q && Q.ok) {
+        var rg = await dayRegister(Q);
+        if (rg.ok) Q = await get('machan_admin', 'daily_cand');   // 등록한 상태로 다시 읽어서 보낸다
+        regTxt = rg.txt;
+      }
       if (Q && Q.ok) {
         var im = {};
         [].concat(L.items || [], L.today || []).forEach(function (p) {
@@ -139,7 +149,52 @@
     } catch (e) { dayTxt = '당일 못 보냄: ' + (e && e.message ? e.message : e); }
 
     lowmCheck(C, L);
-    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄');
+    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt;
+  }
+
+  /* ── 🐟 당일 자동 등록 — mc-day.js ① 과 같은 규칙·같은 요청(daily_save · 규칙가 · 오늘만) ── */
+  var DAYSKIP_KEY = 'mcw_dayskip_v1';
+  function saveDaily(c) {
+    var fd = new FormData();
+    fd.append('a', 'daily_save');
+    fd.append('wh', c.wh); fd.append('item', c.n); fd.append('price', String(c.sug));
+    fd.append('ship_txt', c.ship || ''); fd.append('tax', c.tax || ''); fd.append('memo', ''); fd.append('days', '1');
+    return fetch('/xd/api.php?mid=machan_admin&a=daily_save', { method: 'POST', body: fd, credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { return r.json(); });
+  }
+  async function dayRegister(Q) {
+    var won = function (n) { return Math.round(+n || 0).toLocaleString(); };
+    var fresh = (Q.cands || []).filter(function (r) { return r.k === 'day' && !r.reg && r.remain > 0; });
+    var under = function (r) { var b = +(r.base || 0); return b > 0 && +r.sug < b; };
+    var go = fresh.filter(function (r) { return +r.sug > 0 && !under(r); });
+    var loss = fresh.filter(function (r) { return +r.sug > 0 && under(r); });
+    var ok = [], fail = [];
+    for (var i = 0; i < go.length; i++) {
+      try {
+        var x = await saveDaily(go[i]);
+        if (x && x.ok) ok.push(go[i]); else fail.push(go[i].n + ' — ' + ((x && x.msg) || '거절'));
+      } catch (e) { fail.push(go[i].n + ' — ' + (e && e.message ? e.message : e)); }
+    }
+    if (ok.length) {
+      log('🐟 당일 자동 등록 ' + ok.length + '개\n' + ok.map(function (c) { return '· ' + c.n + ' (' + c.wh + ') ' + won(c.sug) + ' · 잔여 ' + c.remain; }).join('\n'));
+      notify('🐟 당일 자동 등록 ' + ok.length + '개', ok.slice(0, 5).map(function (c) { return c.n + ' ' + won(c.sug); }).join('\n'));
+    }
+    if (fail.length) { log('⚠️ 당일 등록 실패 ' + fail.length + '개\n' + fail.slice(0, 10).join('\n')); notify('⚠️ 당일 등록 실패 ' + fail.length + '개', fail.slice(0, 3).join('\n')); }
+    /* 규칙가 < 공급가 — 등록하지 않는다. 같은 상품·같은 값이면 한 번만 묻는다 */
+    if (loss.length) {
+      var prev = {}; try { prev = JSON.parse(localStorage.getItem(DAYSKIP_KEY) || '{}') || {}; } catch (e) {}
+      var cur = {}; loss.forEach(function (c) { cur[c.n + '|' + c.sug + '|' + c.base] = 1; });
+      try { localStorage.setItem(DAYSKIP_KEY, JSON.stringify(cur)); } catch (e) {}
+      var nw = loss.filter(function (c) { return !prev[c.n + '|' + c.sug + '|' + c.base]; });
+      if (nw.length) {
+        var lines = nw.map(function (c) { return '· ' + c.n + ' (잔여 ' + c.remain + ' · 규칙가 ' + won(c.sug) + ' / 공급가 ' + won(c.base) + ' → 마진 ' + won(c.sug - c.base) + ')'; }).join('\n');
+        log('⚠️ 당일 등록 안 함(마진 마이너스) ' + nw.length + '개\n' + lines);
+        notify('⚠️ 당일 등록 안 함 ' + nw.length + '개 — 마진 마이너스', nw.slice(0, 5).map(function (c) { return c.n; }).join('\n'));
+        S.dayAsk = '⚠️ 당일 — 수량은 있는데 규칙가가 공급가보다 낮아 등록하지 않았습니다 (' + nw.length + '개)\n\n' + lines
+          + '\n\n[확인] masterc 당일상품 열기 — 가격 정해서 손으로 등록   [취소] 닫기';
+      }
+    }
+    return { ok: ok.length, txt: (ok.length ? ' · 🐟 새로 등록 ' + ok.length + '개' : '') + (fail.length ? ' · ⚠️ 등록 실패 ' + fail.length + '개' : '') };
   }
 
   /* ── 💸 새 저마진 상품 — 업체 화면에 떠 있는 것(상품리스트 items·today)만, 직전에 없던 것만 알린다 ── */
@@ -210,8 +265,11 @@
   }
   /* 🔴 확인하러 가기 = 카탈로그 저마진의 «지금 바로 확인할 상품» 탭 (2026-10-16 홍팀장) */
   function lossAsk() {
-    var m = S.lossAsk; if (!m) return; S.lossAsk = '';
-    setTimeout(function () { if (confirm(m)) window.open(CATALOG_LOSS, 'catalog_lowm'); }, 50);
+    var m = S.lossAsk, d = S.dayAsk; S.lossAsk = ''; S.dayAsk = '';
+    setTimeout(function () {
+      if (m && confirm(m)) window.open(CATALOG_LOSS, 'catalog_lowm');
+      if (d && confirm(d)) window.open('https://masterc.kr/machan_admin#daily', 'mc_admin');
+    }, 50);
   }
 
   async function tick(force) {
