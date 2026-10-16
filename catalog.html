@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.180</title>
+<title>마스터 유통 카탈로그 v23.181</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3153,6 +3153,10 @@ function renderNpDrafts(rows){
       +'<input class="npd-t" value="'+esc(String(r.title||''))+'" style="'+fld+'">'
       +'<textarea class="npd-b" rows="12" style="'+fld+';line-height:1.6">'+esc(String(r.body||''))+'</textarea>'
       +'<input class="npd-i" value="'+esc((r.items||[]).join(', '))+'" title="⭐ 추천상품에 📰로 올릴 상품(쉼표로) — 카탈로그 상품명 그대로" style="'+fld+';font-size:12.5px">'
+      /* 💬 카톡용 짧은 글 (10-16 홍팀장) — 200자 이내. 고쳐서 [📋 복사] → 카톡에 붙여넣기. 게시판엔 안 올라간다. */
+      +'<div style="font-size:12.5px;font-weight:700;margin-top:4px">💬 카톡용 짧은 글 <span class="npd-sn" style="font-weight:400;color:var(--muted)">'+String(r.short||'').length+'자</span></div>'
+      +'<textarea class="npd-s" rows="5" oninput="this.previousElementSibling.querySelector(\'.npd-sn\').textContent=this.value.length+\'자\'" style="'+fld+';line-height:1.6">'+esc(String(r.short||''))+'</textarea>'
+      +'<div><button class="ubtn" onclick="npCopyShort(this)">📋 카톡용 복사</button></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ubtn" style="font-weight:800" onclick="npPub(this)">📤 올리기</button><button class="ubtn" onclick="npDel(this)">🗑 버리기</button>'
       +(r.url?'<a class="ubtn" href="'+esc(String(r.url))+'" target="_blank" rel="noopener" style="text-decoration:none">상품정보 글 →</a>':'')+'</div>'
       +'</div></details>').join('')
@@ -3172,6 +3176,13 @@ function npPub(btn){
     NEWS=null;RECS=null;
     api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(location.hash.replace(/^#/,'')==='news')renderRoute(); });
   }).catch(e=>{btn.disabled=false;btn.textContent='📤 올리기';alert('올리지 못했습니다 — '+(e&&e.message||e));});
+}
+function npCopyShort(btn){
+  const d=btn.closest('[data-npid]'); if(!d)return;
+  const v=d.querySelector('.npd-s').value.trim(); if(!v){alert('짧은 글이 비어 있습니다.');return;}
+  const done=()=>toast('카톡용 짧은 글 복사됨 ('+v.length+'자)');
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(v).then(done,()=>{d.querySelector('.npd-s').select();document.execCommand('copy');done();});
+  else{d.querySelector('.npd-s').select();document.execCommand('copy');done();}
 }
 function npDel(btn){
   const d=btn.closest('[data-npid]'); if(!d)return;

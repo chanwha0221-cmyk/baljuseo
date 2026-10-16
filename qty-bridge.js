@@ -2322,7 +2322,7 @@
       .then(function (j) {
         if (!j || !j.ok || !Array.isArray(j.list)) return false;
         var list = j.list.map(function (p) {
-          return { gkey: p.gkey, name: p.name, day: p.day, opts: p.opts, hook: p.hook, intro: p.intro, points: p.points, ment: p.ment, spec: p.spec, url: p.url };
+          return { gkey: p.gkey, gw: p.gw, name: p.name, day: p.day, opts: p.opts, hook: p.hook, intro: p.intro, points: p.points, ment: p.ment, spec: p.spec, url: p.url };
         });
         return fetch(QTY_API, {
           method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },

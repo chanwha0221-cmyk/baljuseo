@@ -264,6 +264,34 @@
       + '\n\n[확인] 확인하러 가기 — 카탈로그 «지금 바로 확인할 상품»에서 단가 수정   [취소] 닫기';
   }
   /* 🔴 확인하러 가기 = 카탈로그 저마진의 «지금 바로 확인할 상품» 탭 (2026-10-16 홍팀장) */
+  /* 🆕 신상품 소식글 초안에 masterc 상세를 채운다 (2026-10-16 홍팀장 「글이 너무 짧다, 상품 상세도 참고」).
+     상세(a=doc)는 masterc 로그인이 있어야 읽힌다 → 이 창이 읽어 «○ 제목» 섹션으로 잘라 서버(npdetail)로. 서버가 초안·카톡 짧은 글을 다시 짓는다. */
+  function npSections(html) {
+    var doc = new DOMParser().parseFromString(String(html || '').replace(/<(br|\/p|\/div|\/li|\/h\d|\/tr)[^>]*>/gi, '$&\n'), 'text/html');
+    var lines = String(doc.body ? doc.body.textContent : '').split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); })
+      .filter(function (l) { return l && !/^[ㄱ-ㅣ\s.~!]+$/.test(l); });
+    var out = [], cur = { h: '', lines: [] };
+    lines.forEach(function (l) {
+      if (/^[○●◎■▶]/.test(l)) { if (cur.h || cur.lines.length) out.push(cur); cur = { h: l.replace(/^[○●◎■▶]\s*/, ''), lines: [] }; }
+      else cur.lines.push(l);
+    });
+    if (cur.h || cur.lines.length) out.push(cur);
+    return out.slice(0, 20);
+  }
+  async function npDetailFill() {
+    try {
+      var j = await edge({ action: 'npneed', key: KEY });
+      if (!j || !j.ok || !j.rows || !j.rows.length) return;
+      for (var i = 0; i < j.rows.length; i++) {
+        var r = j.rows[i];
+        var d = await get('board_eJGl96', 'doc', '&srl=' + r.srl);
+        if (!d || !d.ok || !d.doc) continue;
+        var s = await edge({ action: 'npdetail', key: KEY, id: r.id, sections: npSections(d.doc.html) });
+        if (s && s.ok) log('🆕 신상품 초안에 상세 반영 — ' + r.name + ' (' + s.len + '자)');
+      }
+    } catch (e) {}
+  }
+
   /* 🔴 긴급 확인 — 서버(lowmq)가 정한 «지금 바로 확인할 상품» 중 아직 안 물어본 것만, 한 개씩 순서대로 묻는다
      (2026-10-16 홍팀장 「변경 있는 상품 순차적으로 하나씩 물어봐라 / 괜찮음 누른 건 안 물어봐도 됨」).
      기준(역마진 + 마진율 6% 미만 중 새로 생기거나 값이 바뀐 것, 👌괜찮음 제외)은 서버 한 곳에서만 정한다. */
@@ -319,6 +347,7 @@
       S.err = m;
     }
     paint();
+    await npDetailFill();
     lossAsk(await urgentList());
   }
 
