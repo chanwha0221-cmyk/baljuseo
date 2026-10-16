@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-16e';
+  var QTYB_VER = '2026-10-16f';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -93,7 +93,10 @@
   var CKEY = 'qtybCfg';
   /* noneCol = 재고 없음 탭에 줄을 붙일 시작 열 (2026-10-16 홍팀장 「재고 없음으로 넘길 때 A부터 넣을지 C부터 넣을지」).
      재고 없음 탭의 상품명·성함·주소 열은 그만큼 밀린 자리로 본다(C부터면 J→L). 당일 탭 줄은 A열부터라고 본다. */
-  var CFG_DEF = { day: '당일', none: '재고 없음', start: 8, noneStart: 2, prod: 'J', name: 'K', addr: 'L', noneCol: 'A' };
+  /* mark = 메시지 열 (2026-10-16 홍팀장) — 비우면 예전처럼 재고 없음 탭으로 옮긴다. 넣으면 «한 시트 모드»:
+     못 채운 주문은 옮기지 않고 그 열에 «대기»·«증량요청» 등을 적고, 가져오기_당일은 메시지 없는 주문만 / 가져오기_재고없음은 있는 주문만.
+     (한 시트 모드는 본인 계정 연결(채널팀)에서 돈다) */
+  var CFG_DEF = { day: '당일', none: '재고 없음', start: 8, noneStart: 2, prod: 'J', name: 'K', addr: 'L', noneCol: 'A', mark: '' };
   function colNo(v, d) {
     var s = String(v == null ? '' : v).trim().toUpperCase();
     if (/^\d+$/.test(s)) { var n = parseInt(s, 10); return (n >= 1 && n <= 52) ? n : colNo(d); }
@@ -107,10 +110,20 @@
     o.start = parseInt(o.start, 10) || 8; o.noneStart = parseInt(o.noneStart, 10) || 2;
     o.P = colNo(o.prod, CFG_DEF.prod) - 1; o.N = colNo(o.name, CFG_DEF.name) - 1; o.A = colNo(o.addr, CFG_DEF.addr) - 1;
     o.NC = colNo(o.noneCol, CFG_DEF.noneCol) - 1;   // 재고 없음 탭 밀림(0 = A열)
+    o.mark = /^[A-Za-z]{1,2}$|^\d{1,2}$/.test(String(o.mark || '').trim()) ? String(o.mark).trim().toUpperCase() : '';
     return o;
   }
   var CFG = cfgLoad();
-  function cfgWire() { return { day: CFG.day, none: CFG.none, start: CFG.start, noneStart: CFG.noneStart, prod: CFG.prod, name: CFG.name, addr: CFG.addr, noneCol: CFG.noneCol }; }
+  function cfgWire() { return { day: CFG.day, none: CFG.none, start: CFG.start, noneStart: CFG.noneStart, prod: CFG.prod, name: CFG.name, addr: CFG.addr, noneCol: CFG.noneCol, mark: CFG.mark }; }
+  /* 판정 → 시트에 남길 메시지 */
+  function markMsg(x) {
+    var a = String(x && x.act || '');
+    if (/more/.test(a)) return '증량요청';
+    if (/wait/.test(a)) return '대기';
+    if (a === 'hunt') return '구해야';
+    if (a === 'late') return '마감지남';
+    return '재고없음';
+  }
   function sheetIdFrom(v) {
     var s = String(v || '').trim();
     var m = s.match(/\/d\/([A-Za-z0-9_-]{20,})/);
@@ -196,6 +209,7 @@
     var body = { token: SHEET_TOKEN, action: action, rows: rows || [], sheet: SHEET_ID, cfg: cfgWire() };
     if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
     if (useMine()) { delete body.token; return connPost(body, ms ? Math.max(ms, 30000) : 90000); }
+    if (CFG.mark) return Promise.reject(new Error('📝 한 시트 모드(메시지 열)는 본인 구글 계정 연결에서만 됩니다 — ⚙️ 시트 모양의 메시지 열을 비워 주세요.'));
     /* ⏱ 읽기(tally)는 시간 제한을 건다 — 안 오는 요청이 60초씩 버티다 «Failed to fetch» 로 끝났다(2026-10-06). */
     var ac = (ms && typeof AbortController === 'function') ? new AbortController() : null;
     var tm = ac ? setTimeout(function () { ac.abort(); }, ms) : null;
@@ -1164,6 +1178,7 @@
       '    <span class="mut">성함 열</span><input data-cfg="name" style="width:30px;text-align:center">' +
       '    <span class="mut">주소 열</span><input data-cfg="addr" style="width:30px;text-align:center">' +
       '    <span class="mut" title="당일 줄을 재고 없음 탭의 몇 번째 열부터 붙일지. 재고 없음 탭의 상품명·성함·주소 열도 그만큼 밀려서 봅니다">재고 없음에 붙일 시작 열</span><input data-cfg="noneCol" style="width:30px;text-align:center">' +
+      '    <span class="mut" title="넣으면 «한 시트 모드» — 못 채운 주문을 옮기지 않고 이 열에 대기·증량요청 등을 적습니다. 가져오기_당일 = 메시지 없는 주문, 가져오기_재고없음 = 메시지 있는 주문. 비우면 재고 없음 탭으로 옮깁니다">📝 메시지 열(한 시트)</span><input data-cfg="mark" placeholder="비움" style="width:38px;text-align:center">' +
       '    <button id="qtyb-cfgdef" style="padding:3px 8px;font-size:11px">기본값</button>' +
       '   </div>' +
       '   <div class="mut" style="font-size:11px;margin-top:4px">상품명 칸은 「상품 x 수량」, 합포장은 「 / 」로 구분. 성함·주소가 둘 다 빈 줄은 주문으로 안 셉니다. 날짜 탭은 위 «📅 날짜 시트» 칸 이름(예: 1016).</div>' +
@@ -1234,7 +1249,9 @@
     function cfgPaint() {
       Array.prototype.forEach.call(p.querySelectorAll('[data-cfg]'), function (i) { i.value = CFG[i.getAttribute('data-cfg')]; });
       var sm = el('qtyb-cfgsum');
-      if (sm) sm.textContent = '(' + CFG.day + ' · ' + CFG.none + '(' + CFG.noneCol + '열부터) · ' + CFG.start + '행 · 상품 ' + CFG.prod + '열)';
+      if (sm) sm.textContent = CFG.mark
+        ? '(📝 한 시트 — ' + CFG.day + ' · 메시지 ' + CFG.mark + '열 · ' + CFG.start + '행 · 상품 ' + CFG.prod + '열)'
+        : '(' + CFG.day + ' · ' + CFG.none + '(' + CFG.noneCol + '열부터) · ' + CFG.start + '행 · 상품 ' + CFG.prod + '열)';
     }
     Array.prototype.forEach.call(p.querySelectorAll('[data-cfg]'), function (i) {
       i.onchange = function () {
@@ -2602,16 +2619,16 @@
       if (!holes.length) { alert('못 채운 것이 없습니다 — 내릴 줄이 없습니다.'); return; }
       if (pending && !confirm('아직 «잡을 수 있는데 안 잡은 것» 이 ' + pending + '건 남아 있습니다.\n'
           + '이대로 내리면 그만큼도 「재고 없음」 으로 갑니다.\n\n그래도 내릴까요?')) return;
-      var list = holes.map(function (x) { return { name: (x.raw || x.row.name), qty: x.hole }; });
-      if (!confirm('「재고 없음」 으로 내립니다 — ' + list.length + '건\n\n'
-          + list.slice(0, 15).map(function (r) { return '· ' + r.name + ' ' + r.qty + '개'; }).join('\n')
+      var list = holes.map(function (x) { return { name: (x.raw || x.row.name), qty: x.hole, msg: markMsg(x) }; });
+      if (!confirm((CFG.mark ? '주문 줄 ' + CFG.mark + '열에 처리 메시지를 남깁니다 — ' : '「재고 없음」 으로 내립니다 — ') + list.length + '건\n\n'
+          + list.slice(0, 15).map(function (r) { return '· ' + r.name + ' ' + r.qty + '개' + (CFG.mark ? ' → ' + r.msg : ''); }).join('\n')
           + (list.length > 15 ? '\n…' : ''))) return;
       var btn = this, old = btn.textContent;
       btn.disabled = true; btn.textContent = '시트에 보내는 중…';
       sheetPost('out', list).then(function (j) {
         btn.disabled = false;
         btn.textContent = '✅ ' + j.done.length + '건 내림';
-        var m = '🚫 재고 없음으로 내렸습니다\n\n'
+        var m = (CFG.mark ? '📝 처리 메시지를 남겼습니다 (' + CFG.mark + '열)\n\n' : '🚫 재고 없음으로 내렸습니다\n\n')
           + (j.done.length ? j.done.map(function (d) { return '· ' + d.name + ' — ' + d.moved + '줄 (' + d.units + '개)'; }).join('\n') : '(없음)')
           + (j.miss.length ? ('\n\n못 내린 것(당일에 그 상품 줄이 없음)\n' + j.miss.map(function (d) { return '· ' + d.name + ' ' + d.want + '개'; }).join('\n')) : '')
           + (j.errs.length ? ('\n\n오류\n' + j.errs.join('\n')) : '')
