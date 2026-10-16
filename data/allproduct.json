@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-16 15:04",
+ "updatedAt": "2026-10-16 15:35",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -491,14 +491,14 @@
     "※ 포장방식 : 비닐실링",
     "※ 기타 : 자연산이라 크기차이가 있습니다."
    ],
-   "supplyPrice": 19000,
+   "supplyPrice": 20000,
    "previousPrice": null,
    "tax": "면세",
-   "courier": "",
+   "courier": "우체국택배",
    "shipFee": 4000,
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/319/691/006/6d705d678c33a8fab4c920558389a92e.jpg",
+   "image": "https://masterc.kr/xd/thumbs/6691319.jpg?v=1789633873",
    "note": ""
   },
   {
@@ -1086,6 +1086,29 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.kr/xd/thumbs/24900438.jpg?v=1791852302",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "열수",
+   "category": "수산",
+   "name": "푸짐한 가성비 홍게 8kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 홍게",
+    "※ 중량/ 사이즈 : 원물 8kg/ 21-28미 내외",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 홍게 100%",
+    "※ 포장방식 : 비닐포장"
+   ],
+   "supplyPrice": 19000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/24751216.jpg?v=1789633855",
    "note": ""
   },
   {
@@ -8953,6 +8976,75 @@
   },
   {
    "warehouse": "단독(유)",
+   "sourceWarehouse": "오징",
+   "category": "수산",
+   "name": "과메기 10쪽 간편야채세트",
+   "spec": [
+    "※ 원산지 : 성분표시 참조.",
+    "※ 구성 : 꽁치 과메기 10쪽(5미) / 김 / 초장 / 쌈배추 / 쪽파 / 마늘 / 고추 / 돌미역 /꼬시래기",
+    "※ 중량/ 사이즈 : 꽁치 과메기 10쪽(5미) 120g 내외 / 김 5g / 초장 100g / 쌈배추 / 쪽파 / 마늘 / 고추 / 돌미역 /꼬시래기 / 다시마",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 꽁치 100%[원양산(국내가공)]",
+    "※ 포장방식 : 종이상자 - 진공포장(과메기), 트레이포장(야채), 비닐포장"
+   ],
+   "supplyPrice": 13000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 4000,
+   "orderCutoff": "오후마감 : 14시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/25431114.jpg?v=1791957602",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(유)",
+   "sourceWarehouse": "오징",
+   "category": "수산",
+   "name": "과메기 20쪽 야채풀세트",
+   "spec": [
+    "※ 원산지 : 성분표시 참조.",
+    "※ 구성 : 꽁치 과메기 10쪽(5미) 2팩 / 김 / 초장 / 알배추 / 쌈배추 / 쪽파 / 마늘 / 고추 / 돌미역 /꼬시래기",
+    "※ 중량/ 사이즈 : 꽁치 과메기 10쪽(5미) 팩당 120g 내외 / 김 5g / 초장 100g / 알배추 / 쌈배추 / 쪽파 / 마늘 / 고추 / 돌미역 /꼬시래기",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 꽁치 100%[원양산(국내가공)]",
+    "※ 포장방식 : 종이상자 - 진공포장(과메기), 트레이포장(야채), 비닐포장"
+   ],
+   "supplyPrice": 22000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 4000,
+   "orderCutoff": "오후마감 : 14시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/25431240.jpg?v=1791957602",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(유)",
+   "sourceWarehouse": "킹대",
+   "category": "수산",
+   "name": "깔끔 깐대하 500g",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 자연산 깐 대하 1팩",
+    "※ 중량/ 사이즈 : 500g / 26-28미",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 대하 100%",
+    "※ 포장방식 : 지퍼백포장"
+   ],
+   "supplyPrice": 16000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "롯데택배",
+   "shipFee": 4000,
+   "orderCutoff": "오전마감 : 10시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/24761154.jpg?v=1789633884",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(유)",
    "sourceWarehouse": "민장",
    "category": "수산",
    "name": "특왕 민물장어 1kg",
@@ -9044,6 +9136,30 @@
    "shelfLife": "-",
    "image": "https://masterc.kr/xd/thumbs/24674048.jpg?v=1789633866",
    "note": ""
+  },
+  {
+   "warehouse": "단독(유)",
+   "sourceWarehouse": "이성",
+   "category": "수산",
+   "name": "왕 바지락 1kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 바지락",
+    "※ 중량/ 사이즈 : 1kg 내외 / 50-60미 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 바지락 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 특이사항 : 생물 수분감량 10-20% 쯤 있음."
+   ],
+   "supplyPrice": 4000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/23952363.jpg?v=1791936609",
+   "note": "- 스펙 : 1kg 70미 내외 > 1kg 50-55미 내외"
   },
   {
    "warehouse": "단독(유)",
@@ -9931,6 +10047,30 @@
    "shelfLife": "제조일로부터 1년",
    "image": "https://masterc.kr/xd/thumbs/24896959.jpg?v=1789633874",
    "note": "택배사 변동 : 롯데택배 > 씨제이대한통운"
+  },
+  {
+   "warehouse": "단독(유)",
+   "sourceWarehouse": "이성",
+   "category": "수산",
+   "name": "깐 바지락 500g",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 깐 바지락 1팩",
+    "※ 중량/사이즈 : 500g 내외 / 원물 2kg내외 / 원물 1kg 기준 50-55미 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 바지락 100%",
+    "※ 포장방식 : 비닐실링 / 해수포장",
+    "※ 특이사항 : 생물 수분감량 10-20% 쯤 있음"
+   ],
+   "supplyPrice": 9000,
+   "previousPrice": 11500,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/24123692.jpg?v=1789633871",
+   "note": ""
   },
   {
    "warehouse": "단독(유)",
@@ -12680,6 +12820,29 @@
   },
   {
    "warehouse": "단독(무)",
+   "sourceWarehouse": "하모",
+   "category": "수산",
+   "name": "프리미엄 반건조 4종",
+   "spec": [
+    "※ 원산지 : 참돔(국내산) / 가자미(국내산) / 고등어(국내산) / 박대(세네갈)",
+    "※ 구성 : 참돔 1미 + 가자미 1미 + 고등어 1미 + 박대 2미",
+    "※ 중량/ 사이즈 : 반건조 후 중량",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 참돔(99%, 천일염 1%)",
+    "※ 포장방식 : 실링포장"
+   ],
+   "supplyPrice": 27000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "로젠택배",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.kr/xd/thumbs/25401709.jpg?v=1791936608",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(무)",
    "sourceWarehouse": "제이",
    "category": "수산",
    "name": "제주 순살갈치 10마리",
@@ -13387,6 +13550,52 @@
   },
   {
    "warehouse": "단독(무)",
+   "sourceWarehouse": "수갈",
+   "category": "수산",
+   "name": "제주 은갈치 40미",
+   "spec": [
+    "※ 원산지 : 국내산(제주)",
+    "※ 구성 : 제주 은갈치",
+    "※ 중량/사이즈 : 40미 / 2.5-3지 내외 / 8kg 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 갈치 100%",
+    "※ 포장방식 : 비닐포장"
+   ],
+   "supplyPrice": 59000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "오전마감 : 12시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/25045798.jpg?v=1789633867",
+   "note": "- 내용 : 특이사항 - 드라이아이스 동봉 내용 삭제\r\n기존 포장에 사용되던 드라이아이스가 전국적인 수급 부족으로 공급이 어려운 상황이라,\r\n부득이하게 아이스팩으로 변경"
+  },
+  {
+   "warehouse": "단독(무)",
+   "sourceWarehouse": "수갈",
+   "category": "수산",
+   "name": "제주 은갈치 20미",
+   "spec": [
+    "※ 원산지 : 국내산(제주)",
+    "※ 구성 : 제주 은갈치",
+    "※ 중량/사이즈 : 20미 / 2.5-3지 내외 / 4kg 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 갈치 100%",
+    "※ 포장방식 : 비닐포장"
+   ],
+   "supplyPrice": 39000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "오전마감 : 12시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/25045744.jpg?v=1789633867",
+   "note": "- 내용 : 특이사항 - 드라이아이스 동봉 내용 삭제\r\n기존 포장에 사용되던 드라이아이스가 전국적인 수급 부족으로 공급이 어려운 상황이라,\r\n부득이하게 아이스팩으로 변경"
+  },
+  {
+   "warehouse": "단독(무)",
    "sourceWarehouse": "전라",
    "category": "김치·반찬",
    "name": "전라도식 총각김치 10kg",
@@ -14087,6 +14296,29 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.kr/xd/thumbs/25342543.jpg?v=1789633862",
+   "note": ""
+  },
+  {
+   "warehouse": "단독(선물)",
+   "sourceWarehouse": "하모",
+   "category": "수산",
+   "name": "프리미엄 반건조 4종 선물세트",
+   "spec": [
+    "※ 원산지 : 참돔(국내산) / 가자미(국내산) / 고등어(국내산) / 박대(세네갈)",
+    "※ 구성 : 참돔 1미 + 가자미 1미 + 고등어 1미 + 박대 2미",
+    "※ 중량/ 사이즈 : 반건조 후 중량",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 참돔(99%, 천일염 1%)",
+    "※ 포장방식 : 실링포장 / 부직포 선물포장"
+   ],
+   "supplyPrice": 29000,
+   "previousPrice": 30000,
+   "tax": "면세",
+   "courier": "로젠택배",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "",
+   "image": "https://masterc.kr/xd/thumbs/25400955.jpg?v=1789633853",
    "note": ""
   },
   {
