@@ -24,6 +24,7 @@
   var KEY = 'mc-zq3px7mypqwbfs3cfkjg';
   var EDGE = 'https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
   var CATALOG = 'https://chanwha0221-cmyk.github.io/baljuseo/catalog.html#lowm';
+  var CATALOG_LOSS = 'https://chanwha0221-cmyk.github.io/baljuseo/catalog.html#lowmloss';
   var CHECK_MS = 5 * 60 * 1000, FULL_MS = 30 * 60 * 1000, LOWM_MAX = 8;
   var SEEN_KEY = 'mcw_lowm_seen_v1';
 
@@ -203,12 +204,14 @@
     }).join('\n') + (fresh.length > 15 ? '\n… 외 ' + (fresh.length - 15) + '개' : '');
     log('🔴 역마진 ' + fresh.length + '개\n' + lines);
     notify('🔴 역마진 ' + fresh.length + '개 — 고정가가 공급가보다 낮습니다', fresh.slice(0, 5).map(function (x) { return x.n + ' ' + won(x.sell) + '<' + won(x.base); }).join('\n'));
-    var dayOnly = fresh.every(function (x) { return x.at === '#daily'; });
-    setTimeout(function () {
-      if (confirm('🔴 역마진 — 고정해 둔 판매가가 공급가보다 낮습니다 (' + fresh.length + '개)\n\n' + lines
-        + '\n\n[확인] masterc ' + (dayOnly ? '당일상품' : '특별단가') + ' 화면 열기   [취소] 닫기'))
-        window.open('https://masterc.kr/machan_admin' + (dayOnly ? '#daily' : '#special'), 'mc_admin');
-    }, 50);
+    // 확인창은 tick 이 카탈로그로 보낸 «뒤에» 띄운다 — 먼저 띄우면 카탈로그가 옛 값으로 열린다(confirm 이 보내기를 멈춰 세운다)
+    S.lossAsk = '🔴 역마진 — 판매가가 공급가보다 낮습니다 (' + fresh.length + '개)\n\n' + lines
+      + '\n\n[확인] 확인하러 가기 — 카탈로그 «지금 바로 확인할 상품»에서 단가 수정   [취소] 닫기';
+  }
+  /* 🔴 확인하러 가기 = 카탈로그 저마진의 «지금 바로 확인할 상품» 탭 (2026-10-16 홍팀장) */
+  function lossAsk() {
+    var m = S.lossAsk; if (!m) return; S.lossAsk = '';
+    setTimeout(function () { if (confirm(m)) window.open(CATALOG_LOSS, 'catalog_lowm'); }, 50);
   }
 
   async function tick(force) {
@@ -232,6 +235,7 @@
       S.err = m;
     }
     paint();
+    lossAsk();
   }
 
   try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}

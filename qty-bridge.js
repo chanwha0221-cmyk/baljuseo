@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-16d';
+  var QTYB_VER = '2026-10-16e';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -91,7 +91,9 @@
   /* ⚙️ 시트 모양 (2026-10-16 홍팀장 「몇 열부터 주문인지, 재고 없는 건 어떤 시트로 옮길지 설정으로 넣어놓고 백엔드에서 쓰면 되잖아」)
      이 브라우저에 기억한다. 시트 웹앱에도 cfg 로 실어 보내, 읽기·옮기기 전부 이 모양으로 한다. 기본값 = 마스터 유통 월 시트. */
   var CKEY = 'qtybCfg';
-  var CFG_DEF = { day: '당일', none: '재고 없음', start: 8, noneStart: 2, prod: 'J', name: 'K', addr: 'L' };
+  /* noneCol = 재고 없음 탭에 줄을 붙일 시작 열 (2026-10-16 홍팀장 「재고 없음으로 넘길 때 A부터 넣을지 C부터 넣을지」).
+     재고 없음 탭의 상품명·성함·주소 열은 그만큼 밀린 자리로 본다(C부터면 J→L). 당일 탭 줄은 A열부터라고 본다. */
+  var CFG_DEF = { day: '당일', none: '재고 없음', start: 8, noneStart: 2, prod: 'J', name: 'K', addr: 'L', noneCol: 'A' };
   function colNo(v, d) {
     var s = String(v == null ? '' : v).trim().toUpperCase();
     if (/^\d+$/.test(s)) { var n = parseInt(s, 10); return (n >= 1 && n <= 52) ? n : colNo(d); }
@@ -104,10 +106,11 @@
     var o = {}; Object.keys(CFG_DEF).forEach(function (k) { o[k] = (c[k] != null && String(c[k]).trim() !== '') ? c[k] : CFG_DEF[k]; });
     o.start = parseInt(o.start, 10) || 8; o.noneStart = parseInt(o.noneStart, 10) || 2;
     o.P = colNo(o.prod, CFG_DEF.prod) - 1; o.N = colNo(o.name, CFG_DEF.name) - 1; o.A = colNo(o.addr, CFG_DEF.addr) - 1;
+    o.NC = colNo(o.noneCol, CFG_DEF.noneCol) - 1;   // 재고 없음 탭 밀림(0 = A열)
     return o;
   }
   var CFG = cfgLoad();
-  function cfgWire() { return { day: CFG.day, none: CFG.none, start: CFG.start, noneStart: CFG.noneStart, prod: CFG.prod, name: CFG.name, addr: CFG.addr }; }
+  function cfgWire() { return { day: CFG.day, none: CFG.none, start: CFG.start, noneStart: CFG.noneStart, prod: CFG.prod, name: CFG.name, addr: CFG.addr, noneCol: CFG.noneCol }; }
   function sheetIdFrom(v) {
     var s = String(v || '').trim();
     var m = s.match(/\/d\/([A-Za-z0-9_-]{20,})/);
@@ -266,13 +269,14 @@
 
   function tallyTabViaProxy(tab, startRow) {
     var from = startRow || CFG.start;
-    var endCol = colLetter(Math.max(14, CFG.P + 1, CFG.N + 1, CFG.A + 1));
+    var sh = (tab === CFG.none) ? CFG.NC : 0;          // 재고 없음 탭은 시작 열만큼 밀린 자리
+    var endCol = colLetter(sh + Math.max(14, CFG.P + 1, CFG.N + 1, CFG.A + 1));
     return sheetRead("'" + String(tab).replace(/'/g, "''") + "'!A" + from + ':' + endCol + '600').then(function (v) {
       var map = {}, lines = 0;
       v.forEach(function (row) {
-        var prod = S(row[CFG.P]);
+        var prod = S(row[sh + CFG.P]);
         if (!prod) return;
-        var nm = S(row[CFG.N]), ad = S(row[CFG.A]);
+        var nm = S(row[sh + CFG.N]), ad = S(row[sh + CFG.A]);
         if (!nm && !ad) return;
         if (prod === '상품명' || nm === '성함') return;
         lines++;
@@ -1159,6 +1163,7 @@
       '    <span class="mut">상품명 열</span><input data-cfg="prod" style="width:30px;text-align:center">' +
       '    <span class="mut">성함 열</span><input data-cfg="name" style="width:30px;text-align:center">' +
       '    <span class="mut">주소 열</span><input data-cfg="addr" style="width:30px;text-align:center">' +
+      '    <span class="mut" title="당일 줄을 재고 없음 탭의 몇 번째 열부터 붙일지. 재고 없음 탭의 상품명·성함·주소 열도 그만큼 밀려서 봅니다">재고 없음에 붙일 시작 열</span><input data-cfg="noneCol" style="width:30px;text-align:center">' +
       '    <button id="qtyb-cfgdef" style="padding:3px 8px;font-size:11px">기본값</button>' +
       '   </div>' +
       '   <div class="mut" style="font-size:11px;margin-top:4px">상품명 칸은 「상품 x 수량」, 합포장은 「 / 」로 구분. 성함·주소가 둘 다 빈 줄은 주문으로 안 셉니다. 날짜 탭은 위 «📅 날짜 시트» 칸 이름(예: 1016).</div>' +
@@ -1229,7 +1234,7 @@
     function cfgPaint() {
       Array.prototype.forEach.call(p.querySelectorAll('[data-cfg]'), function (i) { i.value = CFG[i.getAttribute('data-cfg')]; });
       var sm = el('qtyb-cfgsum');
-      if (sm) sm.textContent = '(' + CFG.day + ' · ' + CFG.none + ' · ' + CFG.start + '행 · 상품 ' + CFG.prod + '열)';
+      if (sm) sm.textContent = '(' + CFG.day + ' · ' + CFG.none + '(' + CFG.noneCol + '열부터) · ' + CFG.start + '행 · 상품 ' + CFG.prod + '열)';
     }
     Array.prototype.forEach.call(p.querySelectorAll('[data-cfg]'), function (i) {
       i.onchange = function () {
