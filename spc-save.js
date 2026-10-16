@@ -60,9 +60,44 @@
         }
       } catch (e) {}
 
-      tell({ ok: true, n: x.n || list.length, rk: x.rk || null, spc: spcN, rows: list });
+      /* 🐟 당일은 오늘 등록가가 특별단가보다 먼저다 → 등록가도 같은 값으로 (2026-10-16 홍팀장 「왜 여기서 바로 수정해서 루틴 타게 안 되냐」).
+         masterc #daily [가격 수정] 과 같은 요청(daily_save, 기간 0 = 지금 기간 그대로). 그다음 당일을 카탈로그로 다시 보낸다(mc-day.js ② 와 같은 모양). */
+      var dayTxt = '';
+      var dayRows = (rows || []).filter(function (r) { return r && r.day && +r.price > 0; });
+      if (dayRows.length) {
+        try {
+          var Q = await (await fetch('/xd/api.php?mid=machan_admin&a=daily_cand', { credentials: 'same-origin', cache: 'no-store' })).json();
+          var key = function (s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); };
+          var byN = {}; ((Q && Q.cands) || []).forEach(function (c) { if (c.k === 'day') byN[key(c.n)] = c; });
+          var dOk = 0, dBad = [];
+          for (var i = 0; i < dayRows.length; i++) {
+            var r = dayRows[i], c = byN[key(r.n)];
+            if (!c) { dBad.push(r.n + '(당일 목록에 없음)'); continue; }
+            say('🐟 당일 등록가 고치는 중… ' + (i + 1) + '/' + dayRows.length);
+            var y = await mc('daily_save', { wh: c.wh, item: c.n, price: String(Math.round(+r.price)), ship_txt: c.ship || '', tax: c.tax || '',
+              memo: (c.reg && c.reg.memo) || '', days: c.reg ? '0' : '1' });
+            if (y && y.ok) dOk++; else dBad.push(r.n + '(' + ((y && y.msg) || '거절') + ')');
+          }
+          // 카탈로그로 당일 다시 보내기
+          var Q2 = await (await fetch('/xd/api.php?mid=machan_admin&a=daily_cand', { credentials: 'same-origin', cache: 'no-store' })).json();
+          var L = null; try { L = await (await fetch('/xd/api.php?mid=machan_list&a=list', { credentials: 'same-origin', cache: 'no-store' })).json(); } catch (e) {}
+          var im = {};
+          [].concat((L && L.items) || [], (L && L.today) || []).forEach(function (p) { im[key(p.n)] = { img: p.img, srl: p.srl, ship_n: p.ship_n, courier: p.courier }; });
+          var items = ((Q2 && Q2.cands) || []).filter(function (r) { return r.k === 'day'; }).map(function (r) {
+            var m = im[key(r.n)] || {};
+            return { n: r.n, wh: r.wh, qid: r.qid, sell: r.sell, sug: r.sug, base: r.base, cost: r.cost, ship: r.ship, ship_n: m.ship_n,
+                     tax: r.tax, courier: r.courier || r.cou || m.courier || '', cut: r.cut, exp: r.exp, img: m.img, srl: m.srl,
+                     total: r.total, sold: r.sold, remain: r.remain, reg: r.reg };
+          });
+          var dj = (Q2 && Q2.ok) ? await edge({ action: 'mcday', key: KEY, day: Q2.day, items: items }) : null;
+          dayTxt = '\n🐟 당일 등록가 ' + dOk + '개 고침' + (dBad.length ? ' · ⚠️ 못 한 것: ' + dBad.join(', ') : '')
+            + (dj && dj.ok ? ' · 카탈로그 당일 반영' : ' · ⚠️ 당일은 카탈로그로 못 보냄(감시 창이 5분 안에 보냅니다)');
+        } catch (e) { dayTxt = '\n⚠️ 당일 등록가는 못 고쳤습니다 — ' + ((e && e.message) || e); }
+      }
+
+      tell({ ok: true, n: x.n || list.length, rk: x.rk || null, spc: spcN, rows: list, day: dayTxt });
       say('✅ masterc 특별단가(전체) ' + (x.n || list.length) + '개 저장'
-        + (spcN >= 0 ? '\n카탈로그에도 보냈습니다 (특별단가 ' + spcN + '개)' : '\n⚠️ 카탈로그로는 못 보냈습니다 — 상시 딸깍을 눌러주세요')
+        + (spcN >= 0 ? '\n카탈로그에도 보냈습니다 (특별단가 ' + spcN + '개)' : '\n⚠️ 카탈로그로는 못 보냈습니다 — 상시 딸깍을 눌러주세요') + dayTxt
         + '\n\n이 창은 곧 닫힙니다.');
       setTimeout(function () { try { window.close(); } catch (e) {} }, 1500);
     } catch (e) {
