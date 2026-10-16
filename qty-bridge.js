@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-16c';
+  var QTYB_VER = '2026-10-16d';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -149,22 +149,28 @@
     if (d.qtyconn === 'ready') { CONN.win = ev.source; CONN.origin = ev.origin; CONN.who = d.who || ''; if (CONN.wait) { CONN.wait.res(); CONN.wait = null; } return; }
     if (d.qtyconn === 'res' && CONN.cb[d.id]) { var f = CONN.cb[d.id]; delete CONN.cb[d.id]; f(d.r); }
   });
-  function connReady() {
-    if (CONN.win) return Promise.resolve();
+  /* 🔴 숨은 iframe 은 구글이 401 로 막는다(2026-10-16 실측 — 남의 사이트 안에선 구글 로그인을 못 씀).
+        → 패널의 [🔗 시트 연결] 버튼(사람 클릭)으로 «작은 연결 창» 을 연다. 그 창이 열려 있는 동안 연결된다. */
+  function connOpen() {
+    CONN.win = null;
+    CONN.pop = window.open(CONN_URL, 'qtyconn', 'width=460,height=200');
     return new Promise(function (res, rej) {
+      if (!CONN.pop) { rej(new Error('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 [🔗 시트 연결] 을 다시 누르세요')); return; }
       CONN.wait = { res: res };
-      var old = document.getElementById('qtyb-conn'); if (old) old.remove();
-      var f = document.createElement('iframe');
-      f.id = 'qtyb-conn'; f.src = CONN_URL; f.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;top:0;border:0';
-      document.body.appendChild(f);
       setTimeout(function () {
         if (CONN.win) return;
         CONN.wait = null;
-        var e = new Error('🔑 구글 권한 허용이 필요합니다 — 패널의 [🔑 구글 권한 허용] 을 눌러 본인 구글 계정으로 «허용» 한 뒤 다시 누르세요.');
-        e.needAuth = true; rej(e);
-        connAuthBtn(true);
-      }, 15000);
+        rej(new Error('연결 창에서 본인 구글 계정을 고르고 «허용» 을 눌러 주세요(처음 한 번). 그다음 [🔗 시트 연결] 을 다시 누르세요.'));
+      }, 60000);
     });
+  }
+  function connReady() {
+    if (CONN.win && CONN.pop && !CONN.pop.closed) return Promise.resolve();
+    CONN.win = null;
+    connAuthBtn(true);
+    var e = new Error('🔗 패널의 [🔗 시트 연결] 을 눌러 주세요 — 본인 구글 계정으로 시트에 연결합니다(작은 창이 뜨면 최소화).');
+    e.needAuth = true;
+    return Promise.reject(e);
   }
   function connAuthBtn(show) { var b = document.getElementById('qtyb-auth'); if (b) b.style.display = show ? '' : 'none'; }
   function connPost(body, ms) {
@@ -1141,7 +1147,7 @@
       '    <span class="mut">📄 발주 시트</span>' +
       '    <input id="qtyb-sid" value="' + esc(SHEET_ID) + '" placeholder="월 시트 주소 붙여넣기" style="flex:1;min-width:180px;border:1px solid #cfd6e0;border-radius:6px;padding:4px;font-size:11px">' +
       '    <span class="mut" id="qtyb-sname"></span>' +
-      '    <button id="qtyb-auth" style="display:none;padding:3px 8px;font-size:11px;font-weight:700">🔑 구글 권한 허용</button>' +
+      '    <button id="qtyb-auth" style="display:none;padding:3px 8px;font-size:11px;font-weight:700">🔗 시트 연결</button>' +
       '  </div>' +
       /* ⚙️ 시트 모양 — 사람마다 시트가 다르다(2026-10-16). 고치면 이 브라우저에 기억하고 바로 다시 확인한다. */
       '  <details id="qtyb-cfgbox" style="margin-top:6px"><summary class="mut" style="cursor:pointer">⚙️ 시트 모양 <span id="qtyb-cfgsum"></span></summary>' +
@@ -1214,15 +1220,10 @@
     };
     /* 🔑 처음 한 번 — 본인 구글 계정으로 시트 연결 앱을 «허용». 새 탭에서 허용하고 돌아오면 다시 연결한다. */
     el('qtyb-auth').onclick = function () {
-      window.open(CONN_URL, '_blank');
-      var s = el('qtyb-sname'); if (s) { s.textContent = '새 탭에서 본인 구글 계정으로 «허용» 한 뒤 이 화면으로 돌아오세요…'; s.style.color = ''; }
-      var once = function () {
-        if (document.hidden) return;
-        document.removeEventListener('visibilitychange', once);
-        CONN.win = null; var f = document.getElementById('qtyb-conn'); if (f) f.remove();
-        sheetName();
-      };
-      document.addEventListener('visibilitychange', once);
+      var s = el('qtyb-sname'); if (s) { s.textContent = '연결 창 여는 중… (처음이면 본인 구글 계정 고르고 «허용»)'; s.style.color = ''; }
+      connOpen().then(function () { connAuthBtn(false); sheetName(); }, function (e) {
+        if (s) { s.textContent = '⚠️ ' + e.message; s.style.color = '#c62828'; }
+      });
     };
     /* ⚙️ 시트 모양 칸 — 값 채우고, 고치면 저장·다시 확인 */
     function cfgPaint() {
