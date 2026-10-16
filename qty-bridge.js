@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-16a';
+  var QTYB_VER = '2026-10-16b';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -88,6 +88,26 @@
   /* 📤 카탈로그 재고 보내기는 마스터 유통 카탈로그 재고를 덮어쓴다 — 켜 둔 브라우저(홍팀장)에서만 돈다.
      켜기: 이 브라우저 localStorage 'qtybStockOn' = '1'. */
   function stockOn() { try { return localStorage.getItem('qtybStockOn') === '1'; } catch (e) { return false; } }
+  /* ⚙️ 시트 모양 (2026-10-16 홍팀장 「몇 열부터 주문인지, 재고 없는 건 어떤 시트로 옮길지 설정으로 넣어놓고 백엔드에서 쓰면 되잖아」)
+     이 브라우저에 기억한다. 시트 웹앱에도 cfg 로 실어 보내, 읽기·옮기기 전부 이 모양으로 한다. 기본값 = 마스터 유통 월 시트. */
+  var CKEY = 'qtybCfg';
+  var CFG_DEF = { day: '당일', none: '재고 없음', start: 8, noneStart: 2, prod: 'J', name: 'K', addr: 'L' };
+  function colNo(v, d) {
+    var s = String(v == null ? '' : v).trim().toUpperCase();
+    if (/^\d+$/.test(s)) { var n = parseInt(s, 10); return (n >= 1 && n <= 52) ? n : colNo(d); }
+    if (/^[A-Z]{1,2}$/.test(s)) { var x = 0; for (var i = 0; i < s.length; i++) x = x * 26 + (s.charCodeAt(i) - 64); return x <= 52 ? x : colNo(d); }
+    return d == null ? 10 : colNo(d);
+  }
+  function colLetter(n) { var s = ''; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+  function cfgLoad() {
+    var c = {}; try { c = JSON.parse(localStorage.getItem(CKEY) || '{}') || {}; } catch (e) {}
+    var o = {}; Object.keys(CFG_DEF).forEach(function (k) { o[k] = (c[k] != null && String(c[k]).trim() !== '') ? c[k] : CFG_DEF[k]; });
+    o.start = parseInt(o.start, 10) || 8; o.noneStart = parseInt(o.noneStart, 10) || 2;
+    o.P = colNo(o.prod, CFG_DEF.prod) - 1; o.N = colNo(o.name, CFG_DEF.name) - 1; o.A = colNo(o.addr, CFG_DEF.addr) - 1;
+    return o;
+  }
+  var CFG = cfgLoad();
+  function cfgWire() { return { day: CFG.day, none: CFG.none, start: CFG.start, noneStart: CFG.noneStart, prod: CFG.prod, name: CFG.name, addr: CFG.addr }; }
   function sheetIdFrom(v) {
     var s = String(v || '').trim();
     var m = s.match(/\/d\/([A-Za-z0-9_-]{20,})/);
@@ -112,7 +132,7 @@
 
   function sheetPost(action, rows, extra, ms) {
     if (!SHEET_ID) return Promise.reject(new Error(NO_SHEET));
-    var body = { token: SHEET_TOKEN, action: action, rows: rows || [], sheet: SHEET_ID };
+    var body = { token: SHEET_TOKEN, action: action, rows: rows || [], sheet: SHEET_ID, cfg: cfgWire() };
     if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
     /* ⏱ 읽기(tally)는 시간 제한을 건다 — 안 오는 요청이 60초씩 버티다 «Failed to fetch» 로 끝났다(2026-10-06). */
     var ac = (ms && typeof AbortController === 'function') ? new AbortController() : null;
@@ -185,13 +205,14 @@
   }
 
   function tallyTabViaProxy(tab, startRow) {
-    var from = startRow || 8;
-    return sheetRead(tab + '!A' + from + ':N600').then(function (v) {
+    var from = startRow || CFG.start;
+    var endCol = colLetter(Math.max(14, CFG.P + 1, CFG.N + 1, CFG.A + 1));
+    return sheetRead("'" + String(tab).replace(/'/g, "''") + "'!A" + from + ':' + endCol + '600').then(function (v) {
       var map = {}, lines = 0;
       v.forEach(function (row) {
-        var prod = S(row[9]);
+        var prod = S(row[CFG.P]);
         if (!prod) return;
-        var nm = S(row[10]), ad = S(row[11]);
+        var nm = S(row[CFG.N]), ad = S(row[CFG.A]);
         if (!nm && !ad) return;
         if (prod === '상품명' || nm === '성함') return;
         lines++;
@@ -1067,6 +1088,20 @@
       '    <input id="qtyb-sid" value="' + esc(SHEET_ID) + '" placeholder="월 시트 주소 붙여넣기" style="flex:1;min-width:180px;border:1px solid #cfd6e0;border-radius:6px;padding:4px;font-size:11px">' +
       '    <span class="mut" id="qtyb-sname"></span>' +
       '  </div>' +
+      /* ⚙️ 시트 모양 — 사람마다 시트가 다르다(2026-10-16). 고치면 이 브라우저에 기억하고 바로 다시 확인한다. */
+      '  <details id="qtyb-cfgbox" style="margin-top:6px"><summary class="mut" style="cursor:pointer">⚙️ 시트 모양 <span id="qtyb-cfgsum"></span></summary>' +
+      '   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:11.5px">' +
+      '    <span class="mut">주문 탭</span><input data-cfg="day" style="width:70px">' +
+      '    <span class="mut">재고 없음 탭</span><input data-cfg="none" style="width:70px">' +
+      '    <span class="mut">주문 시작 행</span><input data-cfg="start" style="width:34px;text-align:center">' +
+      '    <span class="mut">재고 없음 시작 행</span><input data-cfg="noneStart" style="width:34px;text-align:center">' +
+      '    <span class="mut">상품명 열</span><input data-cfg="prod" style="width:30px;text-align:center">' +
+      '    <span class="mut">성함 열</span><input data-cfg="name" style="width:30px;text-align:center">' +
+      '    <span class="mut">주소 열</span><input data-cfg="addr" style="width:30px;text-align:center">' +
+      '    <button id="qtyb-cfgdef" style="padding:3px 8px;font-size:11px">기본값</button>' +
+      '   </div>' +
+      '   <div class="mut" style="font-size:11px;margin-top:4px">상품명 칸은 「상품 x 수량」, 합포장은 「 / 」로 구분. 성함·주소가 둘 다 빈 줄은 주문으로 안 셉니다. 날짜 탭은 위 «📅 날짜 시트» 칸 이름(예: 1016).</div>' +
+      '  </details>' +
       '  <div class="mut" style="margin:8px 0 4px">필요수량 — 상품명 + 수량 (탭 또는 띄어쓰기). 같은 상품 여러 줄이면 합칩니다.</div>' +
       '  <textarea id="qtyb-in" placeholder="연안 활 숫게 1kg&#9;30&#10;맛상 닭목살 1kg&#9;12"></textarea>' +
       '  <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
@@ -1104,6 +1139,10 @@
       s.textContent = '확인 중…'; s.style.color = '';
       sheetPost('ping').then(function (j) {
         if (!j.name) { s.textContent = '⚠️ 시트 웹앱이 옛 버전 — 옛 버전입니다'; s.style.color = '#c62828'; return; }
+        var miss = [];
+        if (j.hasDay === false) miss.push('«' + CFG.day + '»');
+        if (j.hasNone === false) miss.push('«' + CFG.none + '»');
+        if (miss.length) { s.textContent = '⚠️ ' + j.name + ' — ' + miss.join('·') + ' 탭이 없습니다 (⚙️ 시트 모양 확인)'; s.style.color = '#c62828'; return; }
         s.textContent = '✅ ' + j.name; s.style.color = '#1a7f37';
       }, function (e) {
         s.textContent = '⚠️ ' + e.message; s.style.color = '#c62828';
@@ -1118,6 +1157,28 @@
       DONE_MAP = {}; NONE_MAP = {}; DONE_OK = false;
       sheetName();
     };
+    /* ⚙️ 시트 모양 칸 — 값 채우고, 고치면 저장·다시 확인 */
+    function cfgPaint() {
+      Array.prototype.forEach.call(p.querySelectorAll('[data-cfg]'), function (i) { i.value = CFG[i.getAttribute('data-cfg')]; });
+      var sm = el('qtyb-cfgsum');
+      if (sm) sm.textContent = '(' + CFG.day + ' · ' + CFG.none + ' · ' + CFG.start + '행 · 상품 ' + CFG.prod + '열)';
+    }
+    Array.prototype.forEach.call(p.querySelectorAll('[data-cfg]'), function (i) {
+      i.onchange = function () {
+        var c = {}; Array.prototype.forEach.call(p.querySelectorAll('[data-cfg]'), function (x) { c[x.getAttribute('data-cfg')] = String(x.value || '').trim(); });
+        try { localStorage.setItem(CKEY, JSON.stringify(c)); } catch (e) {}
+        CFG = cfgLoad(); cfgPaint();
+        DONE_MAP = {}; NONE_MAP = {}; DONE_OK = false;
+        sheetName();
+      };
+    });
+    el('qtyb-cfgdef').onclick = function () {
+      try { localStorage.removeItem(CKEY); } catch (e) {}
+      CFG = cfgLoad(); cfgPaint(); sheetName();
+    };
+    cfgPaint();
+    /* 📦 채널팀 배포판은 «수량 사이트 ↔ 시트» 만 (2026-10-16 홍팀장) — 우리 카탈로그로 보내는 줄은 숨긴다 */
+    if (!stockOn()) { var srow = el('qtyb-stockgo'); if (srow && srow.parentNode) srow.parentNode.style.display = 'none'; }
     sheetName();
     /* 📄 시트에서 가져오기 — 당일 탭(=넣을 발주)과 오늘 날짜 탭(=이미 나간 것)을 한 번에 읽는다.
        붙여넣기를 시키지 않는다(홍팀장 2026-09-28 「시트와 웹이 유기적으로 안 돌아간다」). */
@@ -1132,7 +1193,7 @@
       /* 🔄 누를 때마다 창고를 새로 긁는다 — 예전엔 한 번 긁은 판을 계속 써서 [창고 전부 긁기] 를 따로 눌러야 했다.
          긁은 판으로 카탈로그 재고도 같이 보낸다(뒤에서, 실패해도 대조는 그대로 간다). */
       Promise.all([
-        tallyTab('당일'),
+        tallyTab(CFG.day),
         tallyTab(day).catch(function () { return null; }),
         scanAll().then(function () { if (haveIdx()) stockPush(true, IDX); }).catch(function (e) { alert(e.message || e); })
       ]).then(function (r) {
@@ -1201,8 +1262,8 @@
       var autoAct = !window.__QTYB_NOAUTO;
       window.__QTYB_NOAUTO = false;
       /* ⚡ 시트 읽기는 누르자마자 시작한다 — 창고 긁기(수량 웹)와 겹쳐 돌게(2026-10-06, 예전엔 긁기가 끝난 뒤에야 시작). */
-      var sheetsP = Promise.all([tallyTab('재고 없음', 2),
-                                 tallyTab('당일').catch(function () { return null; }),
+      var sheetsP = Promise.all([tallyTab(CFG.none, CFG.noneStart),
+                                 tallyTab(CFG.day).catch(function () { return null; }),
                                  tallyTab(dayTab()).catch(function () { return null; })]);
       sheetsP.catch(function () {});
       // 검토는 언제나 새로 긁는다 — 대기·증량을 건 직후 다시 볼 때 옛 잔여로 판정하면 안 된다
@@ -1580,7 +1641,7 @@
     btn.textContent = '날짜 시트 읽는 중…';
     /* 📦 「재고 없음」 주문 = 오늘 못 나가서 내일 나가야 하는 몫 (2026-10-12 홍팀장 「평균이랑 아예 상관없이 그 수량만큼 더 잡아」).
           평균 대상(6일 매일 나간 상품)이 아니어도 잡는다. 못 읽으면 예전처럼 평균만. */
-    var noneP = tallyTab('재고 없음', 2).then(function (t) {
+    var noneP = tallyTab(CFG.none, CFG.noneStart).then(function (t) {
       var m = {};
       if (t && t.map) Object.keys(t.map).forEach(function (k) { m[k] = t.map[k].qty; m['#raw:' + k] = t.map[k].name; });
       foldAlias(m);
@@ -2108,7 +2169,7 @@
     window.__QTYB_PUSHING = true;
     if (sEl) sEl.textContent = '📤 보내는 중…';
     // 시트에 쓰인 주문 — 셋 중 하나라도 못 읽으면 null(우리 몫은 안 더한다)
-    var usedP = Promise.all([tallyTab('당일'), tallyTab('재고 없음', 2), tallyTab(dayTab())]).then(function (ts) {
+    var usedP = Promise.all([tallyTab(CFG.day), tallyTab(CFG.none, CFG.noneStart), tallyTab(dayTab())]).then(function (ts) {
       var u = {};
       ts.forEach(function (t) { Object.keys(t.map).forEach(function (k) { u[k] = (u[k] || 0) + (t.map[k].qty || 0); }); });
       return u;
@@ -2176,7 +2237,7 @@
     var noneWarn = '';
     return go.then(function () { return loadMy(); }).then(function () {
       /* 재고 없음 탭 — 걸어 둔 대기가 누구 몫인지 가르는 데 쓴다. 못 읽으면 예전처럼(0) 가고 화면에 알린다. */
-      return tallyTab('재고 없음', 2).then(function (no) {
+      return tallyTab(CFG.none, CFG.noneStart).then(function (no) {
         NONE_MAP = {};
         Object.keys(no.map).forEach(function (k) { NONE_MAP[k] = no.map[k].qty; });
       }, function () {
@@ -2497,7 +2558,7 @@
      사용 = 날짜 시트에 나간 것 + 당일에 남은 것 (잡은 것까지). 적힌 게 그보다 크면 그 값으로 내린다.
      연어·홍어처럼 여러 이름을 한 줄로 합치는 상품은 시트 이름과 줄이 달라 건드리지 않는다. */
   function usedAfterOut(done) {
-    tallyTab('당일').then(function (dg) {
+    tallyTab(CFG.day).then(function (dg) {
       var todo = [];
       done.forEach(function (d) {
         var k = nk(d.name), row = IDX && IDX[k];
