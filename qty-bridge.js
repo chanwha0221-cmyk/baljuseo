@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-14b';
+  var QTYB_VER = '2026-10-16a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -78,8 +78,16 @@
      시트를 고치는 웹앱은 9월 시트에 붙어 있지만 요청마다 sheet 를 받아 그 시트를 연다. */
   var SKEY = 'qtybSheetId';
   var SHEET_ID_DEFAULT = '10ySIJhiz8_H9f8oVFLikpyW1WcSWSW4os8dOtroALYU';     // 마찬 10월 (9월 = 1w5HYxmaovLADK23OhBAubxzbVJjHeTYJt24jPyzgOTw)
-  var SHEET_ID = SHEET_ID_DEFAULT;
-  try { SHEET_ID = localStorage.getItem(SKEY) || SHEET_ID_DEFAULT; } catch (e) {}
+  /* 🔴 기본 시트 없음 (2026-10-15 홍팀장 「사람마다 발주 시트가 다른데, 온 세상 사람들이 내 시트에 발주를 하게 할래?」)
+     예전엔 칸을 비워두면 홍팀장 10월 시트로 붙어서, 다른 사람이 설치하자마자 홍팀장 당일 시트를 읽고 옮겼다.
+     → 이 브라우저에 직접 넣은 주소만 쓴다. 안 넣었으면 시트 읽기·쓰기를 전부 막는다(SHEET_ID_DEFAULT 는 안내용 기록일 뿐).
+     웹앱은 홍팀장 계정으로 돈다 — 다른 사람 시트는 그 시트를 chanwha0221@gmail.com 에 «편집자»로 공유해야 열린다. */
+  var SHEET_ID = '';
+  try { SHEET_ID = localStorage.getItem(SKEY) || ''; } catch (e) {}
+  var NO_SHEET = '📄 발주 시트 주소를 먼저 넣어주세요 (패널의 «📄 발주 시트» 칸 — 본인 월 시트 주소)';
+  /* 📤 카탈로그 재고 보내기는 마스터 유통 카탈로그 재고를 덮어쓴다 — 켜 둔 브라우저(홍팀장)에서만 돈다.
+     켜기: 이 브라우저 localStorage 'qtybStockOn' = '1'. */
+  function stockOn() { try { return localStorage.getItem('qtybStockOn') === '1'; } catch (e) { return false; } }
   function sheetIdFrom(v) {
     var s = String(v || '').trim();
     var m = s.match(/\/d\/([A-Za-z0-9_-]{20,})/);
@@ -103,6 +111,7 @@
   function haveIdx() { return !!(IDX && Object.keys(IDX).length); }
 
   function sheetPost(action, rows, extra, ms) {
+    if (!SHEET_ID) return Promise.reject(new Error(NO_SHEET));
     var body = { token: SHEET_TOKEN, action: action, rows: rows || [], sheet: SHEET_ID };
     if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
     /* ⏱ 읽기(tally)는 시간 제한을 건다 — 안 오는 요청이 60초씩 버티다 «Failed to fetch» 로 끝났다(2026-10-06). */
@@ -122,6 +131,7 @@
   }
 
   function sheetRead(tabRange) {
+    if (!SHEET_ID) return Promise.reject(new Error(NO_SHEET));
     var path = SHEET_ID + '/values/' + encodeURIComponent(tabRange);
     return fetch(PROXY, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1090,6 +1100,7 @@
     el('qtyb-pre').onclick = function () { preGrab(this); };
     function sheetName() {
       var s = el('qtyb-sname'); if (!s) return;
+      if (!SHEET_ID) { s.textContent = '⚠️ 본인 월 시트 주소를 붙여넣으세요'; s.style.color = '#c62828'; return; }
       s.textContent = '확인 중…'; s.style.color = '';
       sheetPost('ping').then(function (j) {
         if (!j.name) { s.textContent = '⚠️ 시트 웹앱이 옛 버전 — 옛 버전입니다'; s.style.color = '#c62828'; return; }
@@ -2087,9 +2098,14 @@
   }
   function stockPush(auto, preset) {
     if (window.__QTYB_PUSHING) return Promise.resolve(false);
+    var sEl = el('qtyb-stock');
+    if (!stockOn()) {   // 🔒 다른 사람 브라우저에선 우리 카탈로그 재고를 덮지 않는다
+      if (sEl) sEl.textContent = '📤 카탈로그 재고 보내기는 꺼져 있습니다 (마스터 유통 담당 브라우저 전용)';
+      if (!auto) alert('카탈로그 재고 보내기는 마스터 유통 담당 브라우저에서만 됩니다.');
+      return Promise.resolve(false);
+    }
     var lastAll = null;
     window.__QTYB_PUSHING = true;
-    var sEl = el('qtyb-stock');
     if (sEl) sEl.textContent = '📤 보내는 중…';
     // 시트에 쓰인 주문 — 셋 중 하나라도 못 읽으면 null(우리 몫은 안 더한다)
     var usedP = Promise.all([tallyTab('당일'), tallyTab('재고 없음', 2), tallyTab(dayTab())]).then(function (ts) {
@@ -2128,6 +2144,7 @@
      실패하면 다음 1분에 다시 한다(같은 30분 칸 안에서). */
   function stockTimer() {
     if (window.__QTYB_TIMER) clearInterval(window.__QTYB_TIMER);
+    if (!stockOn()) { var s0 = el('qtyb-stock'); if (s0) s0.textContent = '📤 카탈로그 재고 보내기 꺼짐 (마스터 유통 담당 브라우저 전용)'; return; }
     function tick() {
       var last = 0;
       try { last = parseInt(localStorage.getItem(STOCK_LAST) || '0', 10) || 0; } catch (e) {}
