@@ -1,7 +1,30 @@
 {
- "updatedAt": "2026-10-19 08:55",
+ "updatedAt": "2026-10-19 09:07",
  "supplier": "마스터 유통",
  "products": [
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "디디",
+   "category": "수산",
+   "name": "동해 직발송 박달홍게 4kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 홍게",
+    "※ 중량/ 사이즈 : 원물 4kg/ 8-12미 내외",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 홍게 100%",
+    "※ 포장방식 : 비닐포장"
+   ],
+   "supplyPrice": 19000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "씨제이대한통운",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/thumbs/25100832.jpg?v=1789633851",
+   "note": ""
+  },
   {
    "warehouse": "당일생물",
    "sourceWarehouse": "싱생",
@@ -39,7 +62,7 @@
     "※ 성분표시 : 소고기 100% / 육우",
     "※ 포장방식 :  스킨포장"
    ],
-   "supplyPrice": 51000,
+   "supplyPrice": 53000,
    "previousPrice": null,
    "tax": "면세",
    "courier": "씨제이대한통운",
@@ -164,29 +187,6 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.kr/xd/thumbs/24892896.jpg?v=1789633852",
-   "note": ""
-  },
-  {
-   "warehouse": "당일생물",
-   "sourceWarehouse": "디디",
-   "category": "수산",
-   "name": "동해 직발송 박달홍게 4kg",
-   "spec": [
-    "※ 원산지 : 국내산",
-    "※ 구성 : 홍게",
-    "※ 중량/ 사이즈 : 원물 4kg/ 8-12미 내외",
-    "※ 생물여부 : 냉장",
-    "※ 성분표시 : 홍게 100%",
-    "※ 포장방식 : 비닐포장"
-   ],
-   "supplyPrice": 19000,
-   "previousPrice": null,
-   "tax": "면세",
-   "courier": "",
-   "shipFee": 0,
-   "orderCutoff": "연장마감 : 16시",
-   "shelfLife": "-",
-   "image": "https://masterc.co.kr/files/attach/images/8333658/832/100/025/72041ba8f4078cd249dd5e580afe2a2a.jpg",
    "note": ""
   },
   {
@@ -3797,8 +3797,8 @@
     "※ 성분표시 : 참전복 100%",
     "※ 포장방식 : 산소포장"
    ],
-   "supplyPrice": 39500,
-   "previousPrice": 27000,
+   "supplyPrice": 41000,
+   "previousPrice": null,
    "tax": "면세",
    "courier": "우체국택배",
    "shipFee": 4000,
@@ -3889,8 +3889,8 @@
     "※ 성분표시 : 참전복 100%",
     "※ 포장방식 : 산소포장"
    ],
-   "supplyPrice": 41500,
-   "previousPrice": 30000,
+   "supplyPrice": 43000,
+   "previousPrice": null,
    "tax": "면세",
    "courier": "우체국택배",
    "shipFee": 4000,
@@ -8173,7 +8173,7 @@
     "※ 특이사항 : 구매하는 수량과 관계 없이 소스, 소금은 1개씩만 제공됩니다.",
     "※ 곱창막을 제거하여 조금 더 연하고 고소합니다!"
    ],
-   "supplyPrice": 24500,
+   "supplyPrice": 26000,
    "previousPrice": null,
    "tax": "면세",
    "courier": "씨제이대한통운",
