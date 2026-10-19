@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.186</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.187</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -2941,7 +2941,7 @@ function renderRecs(list){
     if(amMasterC())autoExcGone(gone);
     else list=list.filter(r=>ALL.find(x=>pkey(x.name)===pkey(r.name)));
   }
-  let h=subHead('⭐ 추천상품','마스터 유통이 요즘 밀고 있는 상품입니다.');
+  let h=subHead('⭐ 추천상품','마스터 유통이 요즘 밀고 있는 상품입니다.')+(amMasterC()?muBox('rec','✏️ 추천상품 담기 · 📰 소식글 등록'):'');
   if(!list.length)return h+'<div class="empty">아직 등록된 추천상품이 없습니다.</div>';
   h+='<div class="grid" style="margin-top:14px">'+list.map(r=>{
     /* 🗑 추천에서 내리기 — 마스터만 (사장님 2026-09-01)
@@ -2999,7 +2999,8 @@ function renderNotices(list){
   const all=list||[];
   const un=all.filter(n=>!seen.has(ntcKey(n))).length;
   let h=subHead('📢 공지사항', un?('아직 안 보신 공지가 '+un+'건 있습니다 — 제목을 누르면 내용이 열립니다.')
-                                 :'배송 · 휴무 · 상품 관련 안내입니다. 제목을 누르면 내용이 열립니다.');
+                                 :'배송 · 휴무 · 상품 관련 안내입니다. 제목을 누르면 내용이 열립니다.')
+    +(amMasterC()?muBox('notice','✏️ 공지 쓰기 · 고치기'):'');
   if(!all.length)return h+'<div class="empty">등록된 공지가 없습니다.</div>';
   const pages=Math.max(1,Math.ceil(all.length/NTC_PAGE_SIZE));
   if(NTC_PAGE>pages)NTC_PAGE=pages; if(NTC_PAGE<1)NTC_PAGE=1;
@@ -3268,6 +3269,32 @@ document.addEventListener('click',function(e){
   if(e.target.closest('[data-newsone]'))location.hash='news';
 });
 // ── 라우팅 ──
+/* 🧩 상품도구 기능을 카탈로그 안에서 (2026-10-19 홍팀장 「media-updater 기능 다 카탈로그 안으로 — 합포장·원가는 필요 없고,
+   추천상품·공지사항은 각각 게시판에서 쓰게, 카테고리 분류·업체 전용 상품도」).
+   상품도구 화면을 ?embed=<화면> 으로 iframe 에 띄운다 — 저장 로직은 상품도구 것 그대로(같은 주소라 로그인 토큰도 같이 쓴다).
+   🔒 마스터에게만. 높이는 상품도구가 postMessage(mu-h)로 알려 준다. */
+function muSrc(view){ const v=(String(document.title).match(/v[\d.]+/)||[''])[0]; return 'media-updater.html?'+(v?encodeURIComponent(v)+'&':'')+'embed='+view; }
+function muFrame(view){ return '<iframe data-mu="'+view+'" src="'+muSrc(view)+'" style="width:100%;border:0;height:520px;display:block" loading="lazy"></iframe>'; }
+function muBox(view,label){
+  return '<details class="mubox" style="margin:12px 0;border:1px solid var(--line);border-radius:11px;background:var(--card);padding:8px 12px">'
+    +'<summary style="cursor:pointer;font-weight:800;font-size:13.5px">'+label+' <span style="font-weight:400;font-size:12px;color:var(--muted)">— 🔒 마스터만</span></summary>'
+    +'<div style="margin-top:8px">'+muFrame(view)+'</div>'
+    +'<button class="ubtn" style="margin-top:6px" onclick="RECS=null;NOTI=null;renderRoute()">🔄 저장한 내용 이 화면에 반영</button>'
+    +'</details>';
+}
+window.addEventListener('message',ev=>{
+  if(ev.origin!==location.origin||!ev.data||ev.data.type!=='mu-h')return;
+  document.querySelectorAll('iframe[data-mu="'+ev.data.v+'"]').forEach(f=>{ if(f.contentWindow===ev.source)f.style.height=Math.max(200,(+ev.data.h||0)+20)+'px'; });
+});
+/* 🛠 상품 관리 — 카테고리 분류 · 업체 전용 상품 · 사진·링크 · 단가 안내 (마스터 위쪽 작은 버튼) */
+let MU_TAB='cat';
+function renderTools(){
+  const tabs=[['cat','🏷️ 카테고리 분류'],['vonly','🔐 업체 전용 상품'],['pu','💬 단가 업데이트 안내'],['photo','🔧 사진·링크 수정']];
+  return subHead('🛠 상품 관리','카테고리 분류 · 업체 전용 상품 · 단가 안내 · 사진·링크 — 예전 상품도구 화면입니다. 🔒 마스터에게만 보입니다.')
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
+    +tabs.map(([k,t])=>'<button class="ubtn" onclick="MU_TAB=\''+k+'\';renderRoute()" style="font-weight:800;'+(MU_TAB===k?'background:var(--text,#1f2937);color:#fff;border-color:transparent':'')+'">'+t+'</button>').join('')
+    +'</div><div style="margin-top:10px;border:1px solid var(--line);border-radius:11px;background:var(--card);padding:6px 10px">'+muFrame(MU_TAB)+'</div>';
+}
 async function renderRoute(){
   const v=location.hash.replace(/^#/,'');
   menuEl.querySelectorAll('.mbtn').forEach(b=>b.classList.toggle('on',b.getAttribute('data-go')===v));
@@ -3301,6 +3328,7 @@ async function renderRoute(){
     // 📮 클레임 — 업체는 등록+내 목록, 마스터는 들어온 클레임+[확인] (2026-08-31)
     else if(v==='claim'){subV.innerHTML=CLAIM.view();await CLAIM.bind();}
     else if((v==='lowm'||v==='lowmloss')&&ME&&ME.master){subV.innerHTML=renderLowm(await loadLowm(),v==='lowmloss');}
+    else if(v==='tools'&&ME&&ME.master){subV.innerHTML=renderTools();}
     else{location.hash='';}
   }catch(e){
     subV.innerHTML=subHead('⚠️ 불러오지 못했습니다','')+'<div class="empty">'+esc(e.message||String(e))+'</div>';
@@ -3786,6 +3814,8 @@ function renderUser(){
     +(ME.master?'<button class="ubtn" id="ub_lowm" title="마진율 8% 이하로 카탈로그에 떠 있는 상품 (마스터만)">💸 저마진 <b id="lowmBadge" style="display:none;color:#b91c1c"></b><span class="nbadge" id="lossBadge" style="display:none"></span></button>':'')
     /* 👀 변동 감시 (2026-10-15 홍팀장) — masterc 창 하나를 열어 두면 5분마다 변동을 보고 카탈로그를 갱신한다(mc-watch.js). 같은 이름 창이라 두 번 눌러도 하나만 뜬다. */
     +(ME.master?'<button class="ubtn" id="ub_watch" title="masterc 변동사항·특별단가·당일가가 바뀌면 카탈로그를 자동 갱신하고, 새 저마진 상품은 확인창으로 알립니다. 열린 masterc 창을 닫지 마세요(PC·크롬이 켜져 있어야 돕니다)">👀 변동 감시</button>':'')
+    /* 🛠 상품 관리 (2026-10-19) — 예전 상품도구(media-updater) 화면을 카탈로그 안에서. 추천상품·공지는 각 게시판 위에서 쓴다 */
+    +(ME.master?'<button class="ubtn" id="ub_tools" title="카테고리 분류 · 업체 전용 상품 · 단가 업데이트 안내 · 사진·링크 수정 (마스터만)">🛠 상품 관리</button>':'')
     /* 📥 상품·단가 파일 — 달라고 한 업체와 마스터에게만 (XLSX_OK 참조) */
     +(canXlsx()?'<button class="ubtn" id="ub_xls" title="지금 화면의 상품명과 공급가 전체를 엑셀로 여는 파일(CSV)로 내려받습니다">📥 상품·단가 엑셀</button>':'')
     +'<button class="ubtn" id="ub_pw">🔑 비밀번호 변경</button>'
@@ -3798,6 +3828,7 @@ function renderUser(){
   { const e=$('ub_watch'); if(e)e.onclick=()=>{ const w=window.open('https://masterc.kr/board_eJGl96#mcwatch','mcwatch'); if(!w)toast('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요'); }; }   // 👀 변동 감시 — 마스터 전용
   { const e=$('ub_lowm'); if(e)e.onclick=(ev)=>{const to=(ev&&ev.target&&ev.target.id==='lossBadge')?'lowmloss':'lowm';lowmGo(to);}; }   // 💸 저마진 — 마스터 전용 (🔴 동그라미를 누르면 «지금 바로 확인할 상품»)
   { const e=$('ub_xls'); if(e)e.onclick=downloadPriceXlsx; } // 📥 상품·단가 엑셀 — 허용된 업체에게만 있는 버튼
+  { const e=$('ub_tools'); if(e)e.onclick=()=>lowmGo('tools'); }   // 🛠 상품 관리 — 마스터 전용
   // 거래처가 보고 있는 게 최신인지 확신할 수 있게 — 저장본을 버리고 시트에서 새로 받는다 (사장님 2026-08-18)
   $('ub_reload').onclick=()=>{
     try{localStorage.removeItem(CK);}catch(e){}
