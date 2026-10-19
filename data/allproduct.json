@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-19 09:07",
+ "updatedAt": "2026-10-19 09:14",
  "supplier": "마스터 유통",
  "products": [
   {
@@ -121,6 +121,54 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "여수2",
+   "category": "수산",
+   "name": "큼직 바지락 1kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 바지락",
+    "※ 중량/ 사이즈 : 1kg 내외 / 50-60미 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 바지락 100%",
+    "※ 포장방식 : 비닐포장",
+    "※ 특이사항 : 생물 수분감량 10-20% 쯤 있음."
+   ],
+   "supplyPrice": 5000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/012/884/024/a518bfd03d8a5f3fa3593e35ca29de8b.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "알가",
+   "category": "수산",
+   "name": "생물 갑오징어 1kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 갑오징어",
+    "※ 중량/사이즈 : 1kg / 13미 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 갑오징어 100%",
+    "※ 포장방식 : 트레이포장",
+    "※ 특이사항 : 생물특성상 크기가 다를 수 있습니다."
+   ],
+   "supplyPrice": 7000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/i/images/8333660/180/781/024/931b7540660983a5334bd549c0f54431.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "진수",
    "category": "수산",
    "name": "활 흰다리새우 500g",
@@ -191,6 +239,31 @@
   },
   {
    "warehouse": "당일생물",
+   "sourceWarehouse": "여수",
+   "category": "수산",
+   "name": "국내산 랜덤 돌문어 1kg",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 돌문어 1kg",
+    "※ 중량/사이즈 : 1-4마리 내외",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 돌문어 100%",
+    "※ 포장방식: 실링포장, 빙장포장",
+    "※ 기타 : 자연감량 10-20% 있을 수 있습니다.",
+    "※ 특이사항 : - 2kg 이상은 중량 기준 랜덤 마릿수로 출고됩니다."
+   ],
+   "supplyPrice": 18000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/482/574/024/eeccdbbcbe3550ab0fb1729df68b11ae.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
    "sourceWarehouse": "싱싱",
    "category": "수산",
    "name": "싱싱 뿔소라 1kg",
@@ -212,6 +285,55 @@
    "orderCutoff": "오후마감 : 14시",
    "shelfLife": "-",
    "image": "https://masterc.kr/xd/thumbs/25337465.jpg?v=1789633862",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "디디",
+   "category": "수산",
+   "name": "S급 러시아 박달대게 3kg",
+   "spec": [
+    "※ 원산지 : 러시아",
+    "※ 구성 : 대게",
+    "※ 중량/사이즈 : 원물 3kg 2~4미",
+    "※자숙시 중량감소 20~30%, 자숙 후 수율 7~80%",
+    "※ 생물여부 : 냉장",
+    "※ 성분표시 : 대게 100%",
+    "※ 포장방식 : 비닐포장",
+    "※특이사항 : 다리는 새끼다리 2개제외 1~2개까지 떨어져 있을 수 있음."
+   ],
+   "supplyPrice": 75000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/089/220/012/a43744e72062ff40180a752a61d90e45.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "디디",
+   "category": "수산",
+   "name": "북해도 대게 3.5kg",
+   "spec": [
+    "※ 원산지 : 일본 북해도(훗카이도 지역)",
+    "※ 구성 : 북해도 대게 3.5kg",
+    "※ 중량/ 사이즈 : 대게 3.5kg/ 12-15미 내외",
+    "※ 생물여부 : 냉동",
+    "※ 성분표시 : 대게 100%",
+    "※ 포장방식 : 아이스박스/ 아이스팩",
+    "※ 기타 : 자숙후 수분감량 30%내외 있을 수 있습니다."
+   ],
+   "supplyPrice": 46000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.co.kr/files/attach/images/8333658/115/913/024/a3c1175186aeb2c43234b76c04671c66.jpg",
    "note": ""
   },
   {
@@ -283,6 +405,61 @@
    "orderCutoff": "연장마감 : 16시",
    "shelfLife": "-",
    "image": "https://masterc.kr/xd/thumbs/23571531.jpg?v=1791763202",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "디디",
+   "category": "수산",
+   "name": "자숙 킹크랩 2.5kg",
+   "spec": [],
+   "supplyPrice": 100000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "",
+   "shipFee": 0,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "알가",
+   "category": "수산",
+   "name": "생물 호래기 500g",
+   "spec": [
+    "※ 원산지 : 국내산",
+    "※ 구성 : 호래기",
+    "※ 중량/ 사이즈 : 500g / 80-100미 내외 / 중량 우선",
+    "※ 생물여부 : 생물",
+    "※ 성분표시 : 호래기 100%",
+    "※ 포장방식 : 비닐실링"
+   ],
+   "supplyPrice": 8000,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "https://masterc.kr/xd/i/images/8333660/136/952/024/44f96bb9149133735a06745a5b7325c6.jpg",
+   "note": ""
+  },
+  {
+   "warehouse": "당일생물",
+   "sourceWarehouse": "여수",
+   "category": "수산",
+   "name": "탱글 손질 키조개 1kg",
+   "spec": [],
+   "supplyPrice": 14500,
+   "previousPrice": null,
+   "tax": "면세",
+   "courier": "",
+   "shipFee": 4000,
+   "orderCutoff": "연장마감 : 16시",
+   "shelfLife": "-",
+   "image": "",
    "note": ""
   },
   {
