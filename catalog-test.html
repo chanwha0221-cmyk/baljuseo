@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.191</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.192</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3168,7 +3168,7 @@ function renderNpDrafts(rows){
     +'<div style="font-size:12.5px;color:var(--muted)">신상품이 뜨면 초안이 자동으로 들어옵니다. 고쳐서 <b>[📤 올리기]</b>를 누르면 소식글로 올라가고 글 안 상품이 ⭐ 추천상품에 📰로 섭니다. 올린 글은 ✅ 완료로 남습니다. 🔒 마스터에게만 보입니다.</div>'
     +(wait.length?'':'<div class="empty" style="margin-top:8px">지금 검토할 초안이 없습니다.</div>')
     +wait.map((r,i)=>'<details class="npd"'+(i===0?' open':'')+' data-npid="'+esc(String(r.id||''))+'" style="'+box+';border:2px solid #d97706">'
-      +'<summary style="cursor:pointer;font-weight:700"><span style="font-size:11px;font-weight:800;color:#fff;background:#d97706;padding:2px 7px;border-radius:5px;margin-right:6px">검토</span>'+esc(String(r.title||r.name||''))+' <span style="font-weight:400;font-size:12px;color:var(--muted)">· '+esc(String(r.day||''))+' 출시</span></summary>'
+      +'<summary style="cursor:pointer;font-weight:700"><span style="font-size:11px;font-weight:800;color:#fff;background:#d97706;padding:2px 7px;border-radius:5px;margin-right:6px">검토</span>'+(r.upd?'<span style="font-size:11px;font-weight:800;color:#fff;background:#2563eb;padding:2px 7px;border-radius:5px;margin-right:6px" title="신상품 자료가 업데이트되고 마진 20% 이상이라 다시 올라온 초안">🔄 업데이트</span>':'')+esc(String(r.title||r.name||''))+' <span style="font-weight:400;font-size:12px;color:var(--muted)">· '+esc(String(r.day||''))+' 출시</span></summary>'
       +'<div style="margin-top:8px;display:grid;gap:6px">'
       +'<input class="npd-t" value="'+esc(String(r.title||''))+'" style="'+fld+'">'
       +'<textarea class="npd-b" rows="14" style="'+fld+';line-height:1.6">'+esc(String(r.body||''))+'</textarea>'
