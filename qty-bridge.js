@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-20a';
+  var QTYB_VER = '2026-10-20b';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1201,6 +1201,8 @@
       '    <button class="pri" id="qtyb-stockgo">📤 카탈로그 재고 보내기</button>' +
       '    <span class="mut" id="qtyb-stock">30분마다 자동 (이 탭이 켜져 있을 때 · 시간 제한 없음)</span>' +
       '  </div>' +
+      /* ⚠️ 재고없음 급증·전송 차단 알림 자리 (2026-10-20) — 평소엔 숨어 있다 */
+      '  <div id="qtyb-stockwarn" style="display:none;margin-top:6px;padding:7px 9px;border:1px solid #f0a;border-radius:7px;background:#fff0f6;color:#a0005a;font-weight:700;line-height:1.45"></div>' +
       '  <div id="qtyb-hunt"></div>' +
       '  <div id="qtyb-out"></div>' +
       '</div>';
@@ -1212,7 +1214,11 @@
       b.style.display = b.style.display === 'none' ? '' : 'none';
     };
     el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
-    el('qtyb-stockgo').onclick = function () { stockPush(false); };
+    /* 🔔 브라우저 알림 권한은 사람이 누른 이 순간에만 물을 수 있다 — 한 번 받아 두면 자동 전송 때도 알림이 뜬다 */
+    el('qtyb-stockgo').onclick = function () {
+      try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
+      stockPush(false);
+    };
     el('qtyb-pre').onclick = function () { preGrab(this); };
     function sheetName() {
       var s = el('qtyb-sname'); if (!s) return;
@@ -2360,6 +2366,36 @@
     err.sane = true;   // 실패가 아니라 «일부러 안 보낸 것»
     throw err;
   }
+  /* ⚠️ 상시 재고없음 급증 알림 (2026-10-20 홍팀장 「변동 감시에 상시 재고없음 급증 알림 붙여줘」).
+     👀 변동 감시(mc-watch)는 masterc 만 읽는다 — 수량 웹은 다른 도메인이라 거기선 못 읽는다.
+     개수를 아는 자리가 여기(보낸 판의 j.zero)라 알림도 여기서 띄운다. 알리는 두 가지:
+       ① 가드가 전송을 막았을 때 — 통째로 잠긴 판(10-19 사고와 같은 모양)
+       ② 막히진 않았는데 재고없음이 한 번에 크게 늘었을 때 — 9할 밑이라 가드는 안 걸리지만 수량이 덜 풀린 것
+     탭이 뒤에 있어도 보이도록 브라우저 알림 · 탭 제목 · 패널 줄 세 군데에 띄운다. */
+  var ZERO_LAST = 'qtybZeroLast';   // 직전에 보낸 재고없음 개수
+  var ZERO_JUMP_N = 200;            // 직전보다 이만큼 늘면 알린다 (10-19 사고는 826 → 1,355)
+  var ZERO_JUMP_X = 1.5;            // 또는 이 배수를 넘으면
+  function titleWarn(on) {
+    try {
+      var t = String(document.title || '').replace(/^⚠️\s*/, '');
+      document.title = (on ? '⚠️ ' : '') + t;
+    } catch (e) {}
+  }
+  function stockAlert(msg) {
+    titleWarn(true);
+    try {
+      if (window.Notification && Notification.permission === 'granted') {
+        new Notification('⚠️ 카탈로그 재고', { body: msg, tag: 'qtyb-stock' });
+      }
+    } catch (e) {}
+    var w = el('qtyb-stockwarn');
+    if (w) { w.textContent = '⚠️ ' + hhmm() + ' ' + msg; w.style.display = 'block'; }
+  }
+  function stockCalm() {
+    titleWarn(false);
+    var w = el('qtyb-stockwarn');
+    if (w) { w.style.display = 'none'; w.textContent = ''; }
+  }
   function stockPush(auto, preset) {
     if (window.__QTYB_PUSHING) return Promise.resolve(false);
     var sEl = el('qtyb-stock');
@@ -2393,6 +2429,15 @@
       try { localStorage.setItem(STOCK_LAST, String(Date.now())); } catch (e) {}
       if (sEl) sEl.textContent = '📤 ' + hhmm() + ' 보냄 · ' + j.count + '개 (재고없음 ' + j.zero + ' · 소량 ' + j.low + ')'
         + (auto ? ' · 자동' : '');
+      /* ⚠️ 재고없음이 한 번에 크게 늘었으면 알린다 — 가드(9할)에 안 걸리는 급증을 사람이 보게 */
+      var zeroN = +j.zero || 0, prev = -1;
+      try { prev = parseInt(localStorage.getItem(ZERO_LAST) || '-1', 10); } catch (e) {}
+      try { localStorage.setItem(ZERO_LAST, String(zeroN)); } catch (e) {}
+      if (prev >= 0 && (zeroN - prev >= ZERO_JUMP_N || (prev > 0 && zeroN / prev >= ZERO_JUMP_X))) {
+        stockAlert('상시 재고없음이 ' + prev + '개 → ' + zeroN + '개 (+' + (zeroN - prev) + ') 로 늘어 카탈로그에 반영했습니다 — 수량 웹이 덜 풀린 건지 보세요.');
+      } else {
+        stockCalm();
+      }
       infoPush(lastAll);   // 🚚📦 같은 판으로 택배사·합배송도 (뒤에서 — 실패해도 재고 전송은 끝난 것)
       npPush();            // 🆕 신상품 → 소식글 초안 «검토요청» (뒤에서)
       return true;
@@ -2400,7 +2445,10 @@
       window.__QTYB_PUSHING = false;
       /* 🛑 가드가 막은 것은 «실패» 가 아니다 — 시계를 돌려 둔다. 안 돌리면 자동 전송이 1분마다
          창고 18곳을 다시 긁으며 밤새 같은 판정을 되풀이한다. 30분 뒤에 다시 본다. */
-      if (e && e.sane) { try { localStorage.setItem(STOCK_LAST, String(Date.now())); } catch (e2) {} }
+      if (e && e.sane) {
+        try { localStorage.setItem(STOCK_LAST, String(Date.now())); } catch (e2) {}
+        stockAlert('카탈로그 재고를 안 보냈습니다 — ' + (e.message || e));   // ⚠️ 막은 것은 반드시 알린다
+      }
       if (sEl) sEl.textContent = (e && e.sane ? '🛑 ' : '⚠️ ') + hhmm()
         + (e && e.sane ? ' 안 보냄 — ' : ' 재고 못 보냄 — ') + (e.message || e);
       if (!auto) alert((e && e.sane ? '카탈로그 재고를 보내지 않았습니다.\n\n' : '카탈로그 재고를 못 보냈습니다.\n\n') + (e.message || e));
