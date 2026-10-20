@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-20b';
+  var QTYB_VER = '2026-10-20c';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -2278,7 +2278,13 @@
         if (r.kind !== '상시') return;
         var ghost = r.stuck || (r.closed && r.left < 0);
         var spare = (used && !ghost) ? Math.max(0, (r.mine || 0) - (used[k] || 0)) : 0;
-        if (r.locked) { m[k] = spare; return; }
+        /* 🔒 안 풀린 줄(품절·안 풀림·수량최신화 전)은 «모름» 으로 둔다 — 보내지 않는다 (2026-10-20 홍팀장 「안 풀린 건 안 보내게 고쳐라」).
+           예전엔 spare(=잡아둔 것 − 나간 것)를 보냈는데 잡아둔 게 없으면 그게 0 이 되어 서버에 «재고 없음» 으로 박히고
+           업체 화면에서 발주가 막혔다. 출시 당일 상품은 수량이 풀리기 전까지 거의 항상 이 상태라 신상품마다 반복됐다
+           (10-20 항공직송 생연어 3종 — 수량 웹엔 잔여 50 인데 카탈로그는 발주 불가).
+           🔴 잡아둔 몫이 있으면 그건 진짜 팔 수 있는 수량이니 그대로 보낸다. 0 만 안 보내는 것이다.
+           발주 대조(judge)는 이 함수를 안 쓴다 — 잠긴 줄을 잔여 0 으로 보고 «대기» 거는 규칙은 그대로다. */
+        if (r.locked) { if (spare > 0) m[k] = spare; return; }
         /* 🟢 넉넉도 숫자로 보낸다 (2026-09-29 홍팀장 「넉넉도 혹시 모르니까 수량 넣고 가져와」) —
            «모름» 이 아니라 «충분» 이라는 게 서버에 남는다. 9999 = 넉넉 (소량·재고 없음 어디에도 안 걸림). */
         if (r.free && /넉넉/.test(r.leftRaw)) { m[k] = 9999; return; }
