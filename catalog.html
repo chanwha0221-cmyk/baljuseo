@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.189</title>
+<title>마스터 유통 카탈로그 v23.190</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3157,7 +3157,7 @@ function npBadge(){ const b=$('npBadge'); if(!b)return; const n=(NPDR||[]).filte
    ▸ 🔴 글에 원가·마진은 한 글자도 쓰지 않는다 — [📤 올리기]를 누르면 업체가 보는 글이 된다.
    ▸ 홍팀장이 고쳐 둔 초안을 덮지 않는다 — 이미 있는 id 는 건너뛴다. */
 const HIMG_MIN=20, HIMG_SEEN='cat_himg_seen_v1', HIMG_DAYS=3;   // 최근 3일 변동만 — 소식글 소재는 최신이어야 한다
-const HIMG_OK=/인하|재입고|증정/, HIMG_NO=/인상|품절|종료|마감시간|택배사|창고명|출시/;
+const HIMG_OK=/증정/, HIMG_NO=/인상|인하|재입고|품절|종료|마감시간|택배사|창고명|출시/;   // 🚫 인하·재입고 뺌 (2026-10-20 홍팀장 「단가인하랑 재입고는 소식글 계속 쓸 필요 없어」 — 흔한 일이라 매번 글 쓸 거리가 아니다)
 function himgFresh(day){                                         // 변동 날짜가 최근 HIMG_DAYS 일 안인가 (KST)
   const d=String(day||'').slice(0,10); if(!/^\d{4}-\d\d-\d\d$/.test(d))return false;
   const kst=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
@@ -3252,7 +3252,7 @@ function renderNpDrafts(rows){
   const part=done.slice((NP_PAGE-1)*6,NP_PAGE*6);
   const pager=pages<2?'':'<div class="ntcpg">'+Array.from({length:pages},(_,i)=>'<button class="ntcpb'+(i+1===NP_PAGE?' on':'')+'" data-nppg="'+(i+1)+'">'+(i+1)+'</button>').join('')+'</div>';
   return '<div style="margin:10px 0 14px">'
-    +'<div style="font-size:12.5px;color:var(--muted)">신상품이 뜨거나 <b>단가가 좋아진 상품</b>(마진 20% 이상으로 인하·재입고)이 생기면 초안이 자동으로 들어옵니다. 고쳐서 <b>[📤 올리기]</b>를 누르면 소식글로 올라가고 글 안 상품이 ⭐ 추천상품에 📰로 섭니다. 올린 글은 ✅ 완료로 남습니다. 🔒 마스터에게만 보입니다.</div>'
+    +'<div style="font-size:12.5px;color:var(--muted)">신상품이 뜨거나 <b>마진 20% 이상인 상품에 이벤트가 붙으면</b> 초안이 자동으로 들어옵니다. 고쳐서 <b>[📤 올리기]</b>를 누르면 소식글로 올라가고 글 안 상품이 ⭐ 추천상품에 📰로 섭니다. 올린 글은 ✅ 완료로 남습니다. 🔒 마스터에게만 보입니다.</div>'
     +(wait.length?'':'<div class="empty" style="margin-top:8px">지금 검토할 초안이 없습니다.</div>')
     +wait.map((r,i)=>'<details class="npd"'+(i===0?' open':'')+' data-npid="'+esc(String(r.id||''))+'" style="'+box+';border:2px solid #d97706">'
       +'<summary style="cursor:pointer;font-weight:700"><span style="font-size:11px;font-weight:800;color:#fff;background:#d97706;padding:2px 7px;border-radius:5px;margin-right:6px">검토</span>'+esc(String(r.title||r.name||''))+' <span style="font-weight:400;font-size:12px;color:var(--muted)">· '+esc(String(r.day||''))+' 출시</span></summary>'
