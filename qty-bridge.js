@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-16g';
+  var QTYB_VER = '2026-10-20a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -2334,6 +2334,32 @@
         });
       }).catch(function () { return false; });
   }
+  /* 🛑 전 품목이 0 인 판은 보내지 않는다 (2026-10-20 홍팀장 「전체 다 내려가면 상시도 판단해서 내리는 건 아니다 —
+        다 내리는 건 당일 상품만」).
+     🔴 10-19 17:14, 마감 뒤라 수량 웹 1,810줄이 전부 「품절 안 풀림」·「🔒수량최신화 전 안 풀림」 으로 잠긴 판을 보냈다.
+        잠김 = 0 규칙에 상시가 통째로 0 이 되어 카탈로그 637개 중 575개가 「🚫 재고 없음 · 문의」 로 굳었고,
+        다음날 09:01 에 다시 보낼 때까지 업체가 거의 아무것도 담지 못했다.
+        상시가 한꺼번에 다 떨어지는 일은 없다 — 그런 판은 «재고가 없는 것» 이 아니라 «아직 안 풀린 것» 이다.
+        그래서 버리고 30분 뒤에 다시 본다. 전부 내려가는 건 당일 상품만 있는 일이고, 당일은 애초에 안 보낸다
+        (stockMap 이 상시만 담는다 — 당일은 등록 토글이 기준). */
+  var STOCK_SANE_MIN = 200;    // 이만큼은 돼야 비율을 믿는다 (상시 평소 1,300줄 남짓)
+  var STOCK_SANE_MAX = 0.9;    // 0 인 줄이 9할을 넘으면 사고로 본다 (10-19 사고 99.9% · 정상인 날 6할대)
+  function stockSane(rows, all) {
+    if (rows.length < STOCK_SANE_MIN) return;
+    var zero = 0;
+    rows.forEach(function (r) { if (!r[1]) zero++; });
+    if (zero / rows.length < STOCK_SANE_MAX) return;
+    var lock = 0, live = 0;
+    Object.keys(all || {}).forEach(function (k) {
+      var r = all[k]; if (!r || r.kind !== '상시') return;
+      live++; if (r.locked) lock++;
+    });
+    var err = new Error('상시 ' + rows.length + '개 중 ' + zero + '개가 재고 0'
+      + (live ? ' · 잠긴 줄 ' + lock + '/' + live : '')
+      + ' — 수량이 아직 안 풀린 판입니다. 카탈로그를 덮지 않았습니다 (수량 풀린 뒤 다시 눌러 주세요).');
+    err.sane = true;   // 실패가 아니라 «일부러 안 보낸 것»
+    throw err;
+  }
   function stockPush(auto, preset) {
     if (window.__QTYB_PUSHING) return Promise.resolve(false);
     var sEl = el('qtyb-stock');
@@ -2356,6 +2382,7 @@
       : stockRows();
     return Promise.all([src, usedP]).then(function (x) { lastAll = x[0]; return stockMap(x[0], x[1]); }).then(function (m) {
       var rows = Object.keys(m).map(function (k) { return [k, m[k]]; });
+      stockSane(rows, lastAll);   // 🛑 전 품목 0 인 판이면 여기서 멈춘다 (10-19 사고)
       return fetch(QTY_API, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'qtypush', key: QTY_KEY, rows: rows })
@@ -2371,8 +2398,12 @@
       return true;
     }).catch(function (e) {
       window.__QTYB_PUSHING = false;
-      if (sEl) sEl.textContent = '⚠️ ' + hhmm() + ' 재고 못 보냄 — ' + (e.message || e);
-      if (!auto) alert('카탈로그 재고를 못 보냈습니다.\n\n' + (e.message || e));
+      /* 🛑 가드가 막은 것은 «실패» 가 아니다 — 시계를 돌려 둔다. 안 돌리면 자동 전송이 1분마다
+         창고 18곳을 다시 긁으며 밤새 같은 판정을 되풀이한다. 30분 뒤에 다시 본다. */
+      if (e && e.sane) { try { localStorage.setItem(STOCK_LAST, String(Date.now())); } catch (e2) {} }
+      if (sEl) sEl.textContent = (e && e.sane ? '🛑 ' : '⚠️ ') + hhmm()
+        + (e && e.sane ? ' 안 보냄 — ' : ' 재고 못 보냄 — ') + (e.message || e);
+      if (!auto) alert((e && e.sane ? '카탈로그 재고를 보내지 않았습니다.\n\n' : '카탈로그 재고를 못 보냈습니다.\n\n') + (e.message || e));
       return false;
     });
   }
