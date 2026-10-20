@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.188</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.189</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3191,7 +3191,7 @@ function himgCompose(x){
   if(/재입고/.test(kind))pts.push('· 품절이었다가 다시 풀렸습니다 — 찾는 고객 있으면 지금이 좋습니다');
   if(/증정/.test(kind))pts.push('· 증정 이벤트가 붙어 있습니다');
   if(String(r.memo||'').trim())pts.push('· '+String(r.memo).trim().replace(/^스펙변경\s*:\s*/,'규격 ').replace(/^상품명 변경\s*:\s*/,'상품명 '));
-  if(+p.bund>0)pts.push('· 합포장 '+(+p.bund)+'개까지 한 박스로 나갑니다');
+  if(+p.bund>1)pts.push('· 합포장 '+(+p.bund)+'개까지 한 박스로 나갑니다');   // 1 개는 합포장이 아니다(단독 배송)
   if(free)pts.push('· 무료배송이라 판매가 잡기 편합니다');
   pts.push('· 마진 여유 있는 단가라 소비자가 잡기 편합니다');
   L.push(...pts.slice(0,6),'','찾는 고객 늘 때 먼저 세팅해 두세요!');
@@ -3211,7 +3211,7 @@ async function himgScan(tries){
   let seen=null; try{ seen=JSON.parse(localStorage.getItem(HIMG_SEEN)||'null'); }catch(e){}
   const first=!seen||typeof seen!=='object'; if(first)seen={};
   const has={}; (NPDR||[]).forEach(r=>{ if(r&&r.id)has[r.id]=1; });
-  const now=Date.now(), keep={}, fresh=[];
+  const now=Date.now(), keep={}; let fresh=[];
   chg.forEach(r=>{
     if(!r||r.freq!=='상시'||!r.name)return;
     const kind=String(r.kind||'');
@@ -3230,7 +3230,9 @@ async function himgScan(tries){
   });
   try{ localStorage.setItem(HIMG_SEEN,JSON.stringify(keep)); }catch(e){}
   if(first||!fresh.length)return;                       // 처음 = 기준선만 적고 끝
-  fresh.sort((a,b)=>b.rate-a.rate);
+  /* 🔁 같은 상품에 변동이 둘 이상이면(인하 + 재입고) 초안은 하나만 — 인하를 먼저, 그다음 최신 날짜 */
+  fresh.sort((a,b)=>(/인하/.test(b.r.kind)?1:0)-(/인하/.test(a.r.kind)?1:0)||String(b.r.day).localeCompare(String(a.r.day))||b.rate-a.rate);
+  { const one={}; fresh=fresh.filter(x=>{const k=pkey(x.r.name); if(one[k])return false; one[k]=1; return true;}); }
   let added=0;
   for(const x of fresh.slice(0,5)){                      // 한 번에 다섯 개까지 — 쏟지 않는다
     const g=himgCompose(x);
