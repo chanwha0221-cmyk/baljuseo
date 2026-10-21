@@ -792,6 +792,7 @@
           : (row.closed
               ? ('총수량 0 — 오늘 안 올라온 상품' + (row.left < 0 ? ' (잔여 ' + row.left + ')' : ''))
               : ('잔여 ' + row.left + '개로 ' + rest + '개 부족')));
+    base += altText(row);   // ↪ 같은 품목·규격에 잔여 있고 공급가 같거나 싼 줄이 있으면 알려 준다
 
     /* ⏰ 마감이 지났으면 무조건 «대기» 다 (홍팀장 2026-09-28 22시) :
          「수량은 오전 9시 전후해서 풀린다. 지금 저녁 10시잖아.
@@ -1070,6 +1071,56 @@
   /* ── 패널 ───────────────────────────────────────────────────────── */
   var IDX = null;          // key → row (전체 창고 인덱스)
   var LASTWH = null;       // 마지막으로 긁은 창고 목록
+
+  /* ↪ 품절 줄을 대신 내보낼 수 있는 상품 찾기 (2026-10-21 홍팀장 — 연안 거북손 500g 이 없어 못 나간 날)
+       「중량 동일, 단가 동일이거나 더 낮음, 수량 있음, 스펙 동일이면 이 상품으로 출고 가능하다고 추천해 달라」
+     🔒 **우리 화면(수량 대조)에서만 쓴다.** 업체 화면엔 띄우지 않는다 — 홍팀장 「업체한테 바로 보여주면
+        그건 나름대로 혼동일 것 같다, 업체가 문의하면 내가 답변 주는 형태로 하겠다」.
+     규칙 : 상품명 끝 규격(500g·1kg·3미…)을 떼고 **바로 앞 단어**를 품목으로 본다 →
+            같은 품목·같은 규격 안에서 ① 잔여가 있고 ② 공급가가 같거나 더 싼 줄.
+            상시↔당일은 섞지 않고, 잠긴 줄은 후보에서 뺀다.
+     ⚠️ 수식어가 **등급**인 경우(대왕 ↔ 초대왕 같은 것)는 크기가 다를 수 있다 — 추천은 하되 「규격 확인」을
+        붙여 사람이 보고 정하게 한다. 상품 스펙 자료는 일부 상품에만 있어 기계로 못 거른다. */
+  var ALT_GRADE = /(초특대|초대왕|특대|대왕|대짜|소짜|중짜|프리미엄|명품|왕|특)/g;
+  var ALT_SIZE = /(\d+(?:[.,]\d+)?\s*(?:kg|g|미|팩|마리|개|쪽|구|박스|통|봉|입)(?:급)?)\s*$/i;
+  function altSplit(name) {
+    var s = String(name || '').replace(/\([^)]*\)/g, ' ').trim();   // 괄호(홍어 삭힘정도 등)는 뺀다
+    var m = s.match(ALT_SIZE);
+    var size = m ? m[1].replace(/\s+/g, '').toLowerCase() : '';
+    if (m) s = s.slice(0, m.index).trim();
+    var w = s.split(/\s+/).filter(Boolean);
+    return { item: w.length ? w[w.length - 1] : '', size: size };
+  }
+  function altPick(row) {
+    if (!IDX || !row || !row.name) return null;
+    var me = altSplit(row.name);
+    if (!me.item || !me.size) return null;
+    var mg = (row.name.match(ALT_GRADE) || []).join('');
+    var out = [];
+    Object.keys(IDX).forEach(function (k) {
+      var r = IDX[k];
+      if (!r || !r.name || r.name === row.name) return;
+      if (r.kind !== row.kind) return;
+      if (r.locked) return;
+      var p = altSplit(r.name);
+      if (p.item !== me.item || p.size !== me.size) return;
+      var left = r.free ? 9999 : r.left;
+      if (!(left > 0)) return;
+      if (!(r.price > 0 && row.price > 0) || r.price > row.price) return;
+      out.push({ name: r.name, wh: r.wh, left: left, cheap: r.price < row.price,
+                 warn: (r.name.match(ALT_GRADE) || []).join('') !== mg });
+    });
+    out.sort(function (a, b) { return (a.warn ? 1 : 0) - (b.warn ? 1 : 0) || b.left - a.left; });
+    return out.length ? out : null;
+  }
+  function altText(row) {
+    var a = altPick(row);
+    if (!a) return '';
+    return ' · ↪ ' + a.slice(0, 2).map(function (x) {
+      return x.name + '(' + x.wh + ' · 잔여 ' + (x.left >= 9999 ? '넉넉' : x.left)
+        + (x.cheap ? ' · 공급가 더 쌈' : '') + ')' + (x.warn ? ' ⚠️규격 확인' : '');
+    }).join(' / ') + ' 로 출고 가능';
+  }
 
   function css() {
     /* 🔴 이미 있으면 «그냥 두지» 말고 내용을 갈아 끼운다 — 북마크릿을 다시 눌러도
