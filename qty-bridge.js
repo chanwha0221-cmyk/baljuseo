@@ -24,7 +24,11 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-21a';
+  var QTYB_VER = '2026-10-21b';
+  /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
+     🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
+     ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
+  var RUN_DONE = null;   // { at, ok, skip, bad }
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -2584,7 +2588,7 @@
   /* ✅ [🚀 판정대로 실행] 을 눌렀는지 화면에 남긴다 (2026-10-21 홍팀장 「안 누르는 경우가 있는데 가끔 헷갈려」).
      실행이 끝나면 판을 다시 긁어 그리기 때문에 버튼 글자(「✅ N건 완료」)가 그 자리에서 사라졌다.
      → 이 표시는 **다음 대조를 가져올 때까지** 남는다(가져오기_당일·재고없음·수동 대조·비우기에서 지움). */
-  var RUN_DONE = null;   // { at, ok, skip, bad }
+  /* 🔴 선언은 파일 맨 위(IIFE 최상단)에 있다 — 여기(깊은 블록)에 두면 버튼 핸들러에서 안 보인다 */
   function runDoneBadge() {
     if (!RUN_DONE) return '';
     var t = new Date(RUN_DONE.at);
