@@ -1216,7 +1216,7 @@
       var b = p.querySelector('.bd');
       b.style.display = b.style.display === 'none' ? '' : 'none';
     };
-    el('qtyb-clr').onclick = function () { el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
+    el('qtyb-clr').onclick = function () { RUN_DONE = null; el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
     /* 🔔 브라우저 알림 권한은 사람이 누른 이 순간에만 물을 수 있다 — 한 번 받아 두면 자동 전송 때도 알림이 뜬다 */
     el('qtyb-stockgo').onclick = function () {
       try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
@@ -1286,6 +1286,7 @@
           (홍팀장 2026-09-28 : 「오늘 날짜에 저걸 썼는지 확인하면 또 잡아야 되는지 아닌지를 판별할 수 있다」).
           기준 날짜는 위 칸에서 고른다 — 밤에 내일 것을 미리 잡을 때가 있어서다. */
     el('qtyb-sheet').onclick = function () {
+      RUN_DONE = null;   // ✅ 새 대조 — 지난 판의 «실행함» 표시는 지운다
       var b = this, old = b.textContent;
       var day = dayTab();
       b.disabled = true; b.textContent = '창고 긁고 당일 읽는 중…';
@@ -1327,6 +1328,7 @@
     /* ✍️ 수동 대조 — 칸에 붙여넣은 「상품명 x 수량」(또는 탭·띄어쓰기) 그대로 대조한다.
        당일 탭은 안 읽고 칸을 덮어쓰지도 않는다. 창고는 새로 긁고, 기준 날짜 시트(나간 것)는 같이 읽는다. */
     el('qtyb-manual').onclick = function () {
+      RUN_DONE = null;   // ✅ 새 대조 — 지난 판의 «실행함» 표시는 지운다
       var b = this, old = b.textContent;
       var day = dayTab();
       var parsed = parseNeed(el('qtyb-in').value);
@@ -1359,6 +1361,7 @@
        홍팀장 2026-09-28 : 「이유가 어찌 됐건 아직 여유분이 있다면 … 여유분 당일로 옮겨」
        여유 = 잡아 두고 안 쓴 몫(잡음 − 나감) + 창고 잔여. 「물건없음」 줄은 뺀다. */
     el('qtyb-none').onclick = function () {
+      RUN_DONE = null;   // ✅ 새 대조 — 지난 판의 «실행함» 표시는 지운다
       var b = this, old = b.textContent;
       b.disabled = true; b.textContent = '재고 없음 읽는 중…';
       /* 🤖 불러올 때 «걸어 둔 대기·증량보다 더 필요하다» 고 판단되면 자동으로 모자란 만큼 건다 (2026-10-06 홍팀장
@@ -2578,6 +2581,21 @@
     late: ['t-hunt', '⏰ 마감 지남']
   };
 
+  /* ✅ [🚀 판정대로 실행] 을 눌렀는지 화면에 남긴다 (2026-10-21 홍팀장 「안 누르는 경우가 있는데 가끔 헷갈려」).
+     실행이 끝나면 판을 다시 긁어 그리기 때문에 버튼 글자(「✅ N건 완료」)가 그 자리에서 사라졌다.
+     → 이 표시는 **다음 대조를 가져올 때까지** 남는다(가져오기_당일·재고없음·수동 대조·비우기에서 지움). */
+  var RUN_DONE = null;   // { at, ok, skip, bad }
+  function runDoneBadge() {
+    if (!RUN_DONE) return '';
+    var t = new Date(RUN_DONE.at);
+    var hh = ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2);
+    return '<span style="display:inline-block;background:#dcfce7;border:1px solid #16a34a;color:#166534;'
+      + 'border-radius:7px;padding:3px 9px;font-size:12.5px;font-weight:800">✅ ' + hh + ' 판정대로 실행함 · '
+      + RUN_DONE.ok + '건'
+      + (RUN_DONE.skip ? ' · 건너뜀 ' + RUN_DONE.skip : '')
+      + (RUN_DONE.bad ? ' · 실패 ' + RUN_DONE.bad : '')
+      + '</span>';
+  }
   function draw(hits, miss, bad, notes) {
     // 손봐야 할 것 먼저 : 증량 → 대기 → 잡기 → 풀어야 → 그대로
     var ord = { late: 0, hunt: 0, more: 1, 'set+more': 1, wait: 2, 'set+wait': 2, moreP: 3, waitP: 3,
@@ -2643,10 +2661,15 @@
         + '<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">'
         +   '<button class="pri" id="qtyb-run">🚀 판정대로 실행</button>'
         +   '<span style="font-size:12.5px">잡기 <b>' + nSet + '</b> · 사용 <b>' + nUse + '</b> · 대기 <b>' + nWait + '</b> · 증량요청 <b>' + nMore + '</b></span>'
+        +   runDoneBadge()                      // ✅ 이번 대조에서 이미 눌렀으면 표시
         + '</div>'
         + '<div style="margin-top:6px"><span class="mut">증량요청 사유</span> '
         +   '<input id="qtyb-why" value="' + esc(WHY_DEFAULT) + '" style="width:calc(100% - 80px);border:1px solid #cfd6e0;border-radius:6px;padding:5px 8px;font:12.5px Pretendard,sans-serif"></div>'
         + '<div id="qtyb-runlog" class="mut" style="margin-top:6px"></div></div>';
+    } else if (RUN_DONE) {
+      /* 다 걸어서 할 일이 없어진 판 — 그래도 «눌렀다» 는 표시는 남겨 둔다 */
+      h += '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:9px;padding:9px 11px;margin:8px 0">'
+        + runDoneBadge() + ' <span class="mut" style="font-size:12.5px">— 더 걸 것이 없습니다</span></div>';
     }
 
     h += '<div class="tw"><table><thead><tr><th>빼기</th><th>판정</th><th>창고</th><th>상품명</th><th>필요</th><th>잡음</th>' +
@@ -2790,6 +2813,8 @@
           btn.textContent = (bad.length ? '⚠️ ' : '✅ ') + ok + '건 완료'
             + (skip.length ? ' · ' + skip.length + '건 건너뜀' : '')
             + (bad.length ? ' · ' + bad.length + '건 실패' : '');
+          /* ✅ 눌렀다는 표시를 다음 대조까지 남긴다 — 바로 아래 scanAll 이 화면을 새로 그려도 안 지워진다 */
+          RUN_DONE = { at: Date.now(), ok: ok, skip: skip.length, bad: bad.length };
           var h2 = '';
           if (bad.length)  h2 += '<b style="color:#b91c1c">안 된 것</b><br>' + bad.map(esc).join('<br>');
           if (skip.length) h2 += (h2 ? '<br><br>' : '') + '<b>건너뛴 것</b> — 이미 되어 있어 다시 걸지 않았습니다<br>' + skip.map(esc).join('<br>');
