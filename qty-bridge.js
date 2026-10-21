@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-20d';
+  var QTYB_VER = '2026-10-21a';
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -2274,8 +2274,13 @@
        재고 = 창고 잔여(잠긴 줄은 0) + 마찬 칸 중 시트에 아직 안 쓰인 것.
        «시트에 쓰인 것» = 당일 + 재고 없음 + 기준 날짜 시트의 그 상품 주문 (수량 웹 «사용» 칸은 안 본다 — 전어 사고).
        used 가 없으면(시트를 못 읽음) 예전처럼 잔여만 본다 — 모르는 몫으로 발주를 열지 않는다. */
+  /* 🔢 이번 판에서 «창고는 읽었는데 일부러 안 보낸» 상시 줄 수 (2026-10-21).
+     서버의 «줄어드는 저장» 가드는 줄 수로 창고 누락을 재는데, 10-20 부터 안 풀린 줄을 빼고 보내면서
+     정상인 판도 개수가 뚝 떨어져 가드에 걸렸다(1361 → 581 로 막힘, 기준이 안 갱신되니 계속 막힘).
+     그래서 «뺀 줄 수» 를 같이 보내 서버가 n + skip 으로 보게 한다 — 창고 누락은 그대로 잡힌다. */
+  var STOCK_SKIP = 0;
   function stockMap(all, used) {
-      var m = {};
+      var m = {}, skip = 0;
       Object.keys(all).forEach(function (k) {
         var r = all[k];
         if (r.kind !== '상시') return;
@@ -2287,11 +2292,11 @@
            (10-20 항공직송 생연어 3종 — 수량 웹엔 잔여 50 인데 카탈로그는 발주 불가).
            🔴 잡아둔 몫이 있으면 그건 진짜 팔 수 있는 수량이니 그대로 보낸다. 0 만 안 보내는 것이다.
            발주 대조(judge)는 이 함수를 안 쓴다 — 잠긴 줄을 잔여 0 으로 보고 «대기» 거는 규칙은 그대로다. */
-        if (r.locked) { if (spare > 0) m[k] = spare; return; }
+        if (r.locked) { if (spare > 0) m[k] = spare; else skip++; return; }
         /* 🟢 넉넉도 숫자로 보낸다 (2026-09-29 홍팀장 「넉넉도 혹시 모르니까 수량 넣고 가져와」) —
            «모름» 이 아니라 «충분» 이라는 게 서버에 남는다. 9999 = 넉넉 (소량·재고 없음 어디에도 안 걸림). */
         if (r.free && /넉넉/.test(r.leftRaw)) { m[k] = 9999; return; }
-        if (!r.leftRaw || r.free) return;
+        if (!r.leftRaw || r.free) { skip++; return; }
         m[k] = Math.max(0, r.left) + spare;
       });
       ALIAS.forEach(function (a) {
@@ -2303,6 +2308,7 @@
           m[k] = a.weight ? Math.floor(base / kgOf(r.name)) : base;
         });
       });
+      STOCK_SKIP = skip;
       return m;
   }
 
@@ -2428,15 +2434,33 @@
     return Promise.all([src, usedP]).then(function (x) { lastAll = x[0]; return stockMap(x[0], x[1]); }).then(function (m) {
       var rows = Object.keys(m).map(function (k) { return [k, m[k]]; });
       stockSane(rows, lastAll);   // 🛑 전 품목 0 인 판이면 여기서 멈춘다 (10-19 사고)
-      return fetch(QTY_API, {
-        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'qtypush', key: QTY_KEY, rows: rows })
-      }).then(function (r) { return r.json(); });
+      function send(force) {
+        return fetch(QTY_API, {
+          method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'qtypush', key: QTY_KEY, rows: rows, skip: STOCK_SKIP, force: force || undefined })
+        }).then(function (r) { return r.json(); });
+      }
+      /* 🔁 «줄어드는 저장» 가드에 막히면 한 번만 강제로 다시 보낸다 (2026-10-21).
+         이 자리까지 왔다는 건 창고를 하나도 빠뜨리지 않고 읽었다는 뜻이다 — 못 읽은 창고가 있으면
+         stockRows/SCAN_FAIL 이 위에서 이미 멈춰 세운다. 그러니 여기서 줄 수가 줄어든 이유는
+         «안 풀린 줄을 일부러 뺀 것»(10-20 변경)뿐이고, 그건 막을 일이 아니다.
+         🔴 막히면 서버 기준이 갱신되지 않아 그 뒤로 계속 막힌다 — 10-21 오전 내내 못 보낸 이유. */
+      return send(false).then(function (j) {
+        if (j && !j.ok && /많이 줄어/.test(String(j.error || ''))) {
+          return send(true).then(function (j2) {
+            if (j2 && j2.ok) j2.forced = String(j.error || '');
+            return j2;
+          });
+        }
+        return j;
+      });
     }).then(function (j) {
       window.__QTYB_PUSHING = false;
       if (!j || !j.ok) throw new Error((j && j.error) || '서버가 거절했습니다');
       try { localStorage.setItem(STOCK_LAST, String(Date.now())); } catch (e) {}
       if (sEl) sEl.textContent = '📤 ' + hhmm() + ' 보냄 · ' + j.count + '개 (재고없음 ' + j.zero + ' · 소량 ' + j.low + ')'
+        + (STOCK_SKIP ? ' · 안 풀려서 안 보낸 줄 ' + STOCK_SKIP : '')
+        + (j.forced ? ' · ⚠️ 줄 수 줄어 강제로 보냄' : '')
         + (auto ? ' · 자동' : '');
       /* ⚠️ 재고없음이 한 번에 크게 늘었으면 알린다 — 가드(9할)에 안 걸리는 급증을 사람이 보게 */
       var zeroN = +j.zero || 0, prev = -1;
