@@ -712,7 +712,17 @@ const DM=(function(){
     if(document.fonts&&document.fonts.ready)await document.fonts.ready;
     try{
       const c=await html2canvas(clone,{scale:2,backgroundColor:'#ffffff',width:860,windowWidth:860,useCORS:true});
-      c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=(DATA.title||'상세').replace(/[\\/:*?"<>|]/g,'')+'_상세.jpg';a.click();},'image/jpeg',0.92);
+      /* 🔴 앵커는 문서에 붙였다 눌러야 저장된다 — 떼어 둔 a.click() 은 브라우저가 무시하는 경우가 있다
+           (2026-10-22 업체용에서 「저장됐다고만 뜨고 파일이 없다」 로 확인된 것, 같은 코드라 같이 고침) */
+      c.toBlob(function(b){
+        if(!b){ alert('이미지를 만들지 못했습니다'); return; }
+        const fn=(DATA.title||'상세').replace(/[\\/:*?"<>|]/g,'')+'_상세.jpg';
+        const u=URL.createObjectURL(b), a=document.createElement('a');
+        a.href=u; a.download=fn; a.style.display='none';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(u); }, 2000);
+        if(typeof toast==='function')toast('🖼️ 다운로드 폴더에 저장했어요 — '+fn);
+      },'image/jpeg',0.92);
     }catch(e){alert('JPG 생성 실패: '+e.message);}
     document.body.removeChild(clone);
   }
