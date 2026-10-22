@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-22a';
+  var QTYB_VER = '2026-10-22b';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -1315,6 +1315,15 @@
       cnt();
     })();
     el('qtyb-grabgo').onclick = function () { grabNow(this); };
+    /* 💾 끊긴 감시 이어 받기 — 페이지가 새로 떠서 타이머가 날아갔으면 적어 둔 예약으로 다시 시작한다 (2026-10-22) */
+    (function () {
+      if (window.__QTYB_PRE) return;
+      var w = loadWatch();
+      if (w && w.length) {
+        preWatch(w);
+        stat('⏳ 끊겼던 감시 ' + w.length + '건 이어 받음');
+      }
+    })();
     /* 🌙 손으로 추가한 내일 몫 — 이 브라우저에 기억하고, 접힌 채로도 몇 줄인지 보여준다 */
     (function () {
       var ta = el('qtyb-preman'); if (!ta) return;
@@ -1759,6 +1768,23 @@
 
   function stat(t) { var s = el('qtyb-stat'); if (s) s.textContent = t; }
 
+  /* 💾 예약을 이 브라우저에 적어 둔다 (2026-10-22) — 수량 웹에서 검색을 하거나 창고 탭을 누르면 페이지가 새로 떠서
+        패널과 타이머가 통째로 날아간다(09:27 알도루묵 감시가 그렇게 끊겼다 — 「탭을 닫지 마라」만으로는 모자랐다).
+        북마크릿을 다시 누르면 적어 둔 예약을 그대로 이어 받아 감시를 다시 시작한다. */
+  function saveWatch(list, until) {
+    try {
+      if (!list || !list.length) localStorage.removeItem('qtybWatch');
+      else localStorage.setItem('qtybWatch', JSON.stringify({ until: until, list: list }));
+    } catch (e) {}
+  }
+  function loadWatch() {
+    try {
+      var o = JSON.parse(localStorage.getItem('qtybWatch') || 'null');
+      if (o && o.list && o.list.length && (!o.until || Date.now() < o.until)) return o.list;
+    } catch (e) {}
+    return null;
+  }
+
   /* 🌙 내일 몫 미리 잡기 (2026-10-07 홍팀장 「보고서 쓸 때쯤 수량 잡기 오픈될 텐데, 일주일 동안 꾸준히 판매되는 상품은
         수량을 좀 잡아 볼까」 → 「평균으로 잡아. 못 팔 것 같으면 빨리 풀면 돼」).
      · 최근 날짜 시트 6곳(주문 30줄 이상인 날만 — 휴일·반쪽 날은 건너뜀)을 읽어, 6일 «매일» 나간 상품만 고른다.
@@ -1803,9 +1829,10 @@
         + (log.length ? '<br><b>잡은 것</b><br>' + log.map(esc).join('<br>') : '')
         + (left.length ? ' <button id="qtyb-prestop" style="margin-left:6px">예약 취소</button>' : '');
       var s = el('qtyb-prestop');
-      if (s) s.onclick = function () { stop(); left = []; paint('취소했습니다'); };
+      if (s) s.onclick = function () { left = []; stop(); paint('취소했습니다'); };
+      saveWatch(left, until);                      // 💾 페이지가 새로 떠도 이어 받게 적어 둔다
     }
-    function stop() { clearInterval(window.__QTYB_PRE); window.__QTYB_PRE = null; window.__QTYB_PRE_ADD = null; }
+    function stop() { clearInterval(window.__QTYB_PRE); window.__QTYB_PRE = null; window.__QTYB_PRE_ADD = null; saveWatch(left, until); }
     function tick() {
       if (busy) return;
       if (!left.length) { stop(); paint('다 잡았습니다'); return; }
