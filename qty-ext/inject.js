@@ -9,42 +9,45 @@
    이 확장이 하는 일은 하나다 — 수량 웹이 뜰 때마다 북마크릿을 대신 눌러 준다.
    패널 코드는 늘 라이브에서 가져오므로, 배포하면 따로 손대지 않아도 최신이 된다.
 
-   🔴 한 번 실패하면 포기하지 않는다 (2026-10-22 설치 직후 실측): 패널이 안 떠서 보니 GitHub Pages 가
-      503 을 주고 있었는데, 홍팀장 화면엔 «그냥 안 뜸» 으로만 보였다.
-   🔴🔴 그 503 의 원인이 캐시 버스터였다 — 처음엔 `?v=<분>` 을 붙였는데, **버스터가 붙은 주소만 503**
-      이고 맨 주소는 계속 200 이었다(실측: ?v=29877294·29877297 → 503 / 쿼리 없음·?retry=… → 200).
-      매번 새 주소로 받아 가면 Pages 앞단 캐시가 번번이 비어 원서버로 가고, 거기서 막힌다.
-      → 평소엔 **맨 주소**로 받는다(Pages 가 주는 10분 캐시면 충분하다). 버스터는 실패했을 때만 붙인다. */
+   🔴🔴 `<script src=…>` 로 꽂으면 안 된다 — 그 요청만 503 이 돌아온다 (2026-10-22 실측).
+      같은 탭 같은 순간에 `fetch` 는 200 인데 확장이 넣은 script 태그는 503 이었다(맨 주소·버스터 둘 다).
+      처음엔 캐시 버스터 탓인 줄 알고 그걸 뺐는데 그대로였다 — 요청을 어떻게 내느냐의 문제였다.
+      → **fetch 로 코드를 받아 `textContent` 로 꽂는다.** 그러면 script 태그가 네트워크를 타지 않는다.
+      (cross-origin fetch 라 manifest 에 host_permissions 가 필요하다.) */
 (function () {
   var SRC = 'https://chanwha0221-cmyk.github.io/baljuseo/qty-bridge.js';
   var MAX = 4;
-  var tries = 0;
 
   function up() { return !!document.getElementById('qtyb-panel'); }
 
-  function load() {
-    if (up()) return;                                   // 북마크릿으로 이미 띄워 뒀으면 건드리지 않는다
-    var old = document.getElementById('qtyb-auto');
-    if (old) old.remove();
+  function run(code) {
     var s = document.createElement('script');
     s.id = 'qtyb-auto';
-    s.src = tries ? (SRC + '?r=' + tries + '-' + Date.now()) : SRC;   // 평소엔 맨 주소
-    s.onerror = retry;
-    s.onload = function () {
-      /* 200 으로 받아 왔는데도 패널이 없으면(중간에 끊긴 파일 등) 한 번 더 */
-      setTimeout(function () { if (!up()) retry(); }, 1500);
-    };
+    s.textContent = code;
     (document.head || document.documentElement).appendChild(s);
   }
 
-  function retry() {
-    if (up()) return;
-    if (++tries > MAX) {
-      console.warn('[수량대조] 패널을 불러오지 못했습니다 — 북마크릿으로 띄워 주세요.');
-      return;
-    }
-    setTimeout(load, tries * 2000);                     // 2 · 4 · 6 · 8 초
+  function attempt(n) {
+    if (up()) return;                                   // 북마크릿으로 이미 띄워 뒀으면 건드리지 않는다
+    fetch(n ? (SRC + '?r=' + n + '-' + Date.now()) : SRC, { cache: n ? 'reload' : 'default' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
+      .then(function (code) {
+        if (!code || code.length < 1000) throw new Error('받은 내용이 너무 짧다 (' + (code ? code.length : 0) + ')');
+        if (up()) return;
+        run(code);
+      })
+      .catch(function (e) {
+        if (up()) return;
+        if (n >= MAX) {
+          console.warn('[수량대조] 패널을 불러오지 못했습니다 — 북마크릿으로 띄워 주세요. (' + (e && e.message || e) + ')');
+          return;
+        }
+        setTimeout(function () { attempt(n + 1); }, (n + 1) * 2000);   // 2 · 4 · 6 · 8 초
+      });
   }
 
-  load();
+  attempt(0);
 })();
