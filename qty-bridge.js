@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-22b';
+  var QTYB_VER = '2026-10-22c';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -100,7 +100,10 @@
   /* mark = 메시지 열 (2026-10-16 홍팀장) — 비우면 예전처럼 재고 없음 탭으로 옮긴다. 넣으면 «한 시트 모드»:
      못 채운 주문은 옮기지 않고 그 열에 «대기»·«증량요청» 등을 적고, 가져오기_당일은 메시지 없는 주문만 / 가져오기_재고없음은 있는 주문만.
      (한 시트 모드는 본인 계정 연결(채널팀)에서 돈다) */
-  var CFG_DEF = { day: '당일', none: '재고 없음', start: 8, noneStart: 2, prod: 'J', name: 'K', addr: 'L', noneCol: 'A', mark: '' };
+  /* 🔴 재고 없음 탭도 머리글이 7행이라 데이터는 8행부터다 (2026-10-22 홍팀장 「8행부터 잡으면 되잖아」).
+     2 로 두면 머리글 위 메모 줄까지 상품으로 읽는다 — 메모를 거르는 규칙은 「성함·주소가 둘 다 비면 제외」인데
+     성함 칸에 메모를 적어 두면(4행 「티알에스큐 과메기 제안 요청」 / 「행복한 밥상 추가」) 발주 줄로 들어온다. */
+  var CFG_DEF = { day: '당일', none: '재고 없음', start: 8, noneStart: 8, prod: 'J', name: 'K', addr: 'L', noneCol: 'A', mark: '' };
   function colNo(v, d) {
     var s = String(v == null ? '' : v).trim().toUpperCase();
     if (/^\d+$/.test(s)) { var n = parseInt(s, 10); return (n >= 1 && n <= 52) ? n : colNo(d); }
@@ -111,7 +114,7 @@
   function cfgLoad() {
     var c = {}; try { c = JSON.parse(localStorage.getItem(CKEY) || '{}') || {}; } catch (e) {}
     var o = {}; Object.keys(CFG_DEF).forEach(function (k) { o[k] = (c[k] != null && String(c[k]).trim() !== '') ? c[k] : CFG_DEF[k]; });
-    o.start = parseInt(o.start, 10) || 8; o.noneStart = parseInt(o.noneStart, 10) || 2;
+    o.start = parseInt(o.start, 10) || 8; o.noneStart = parseInt(o.noneStart, 10) || 8;
     o.P = colNo(o.prod, CFG_DEF.prod) - 1; o.N = colNo(o.name, CFG_DEF.name) - 1; o.A = colNo(o.addr, CFG_DEF.addr) - 1;
     o.NC = colNo(o.noneCol, CFG_DEF.noneCol) - 1;   // 재고 없음 탭 밀림(0 = A열)
     o.mark = /^[A-Za-z]{1,2}$|^\d{1,2}$/.test(String(o.mark || '').trim()) ? String(o.mark).trim().toUpperCase() : '';
