@@ -1,14 +1,14 @@
 {
   "manifest_version": 3,
   "name": "마스터 수량대조 — 패널 자동 띄우기",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "수량 웹을 열 때마다 🧾 수량대조 패널을 자동으로 띄웁니다. 검색하거나 창고 탭을 눌러 페이지가 새로 떠도 감시가 끊기지 않습니다.",
-  "host_permissions": ["https://chanwha0221-cmyk.github.io/*"],
   "content_scripts": [
     {
       "matches": ["https://service.masterc.co.kr/qty/*"],
       "js": ["inject.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "world": "MAIN"
     }
   ]
 }

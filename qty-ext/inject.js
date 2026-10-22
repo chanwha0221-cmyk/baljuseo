@@ -9,23 +9,19 @@
    이 확장이 하는 일은 하나다 — 수량 웹이 뜰 때마다 북마크릿을 대신 눌러 준다.
    패널 코드는 늘 라이브에서 가져오므로, 배포하면 따로 손대지 않아도 최신이 된다.
 
-   🔴🔴 `<script src=…>` 로 꽂으면 안 된다 — 그 요청만 503 이 돌아온다 (2026-10-22 실측).
-      같은 탭 같은 순간에 `fetch` 는 200 인데 확장이 넣은 script 태그는 503 이었다(맨 주소·버스터 둘 다).
-      처음엔 캐시 버스터 탓인 줄 알고 그걸 뺐는데 그대로였다 — 요청을 어떻게 내느냐의 문제였다.
-      → **fetch 로 코드를 받아 `textContent` 로 꽂는다.** 그러면 script 태그가 네트워크를 타지 않는다.
-      (cross-origin fetch 라 manifest 에 host_permissions 가 필요하다.) */
+   🔴 여기까지 오는 데 두 번 헛짚었다 (2026-10-22, 전부 실측):
+     ① `<script src=…>` 로 꽂으면 **그 요청만 503** 이 온다 — 같은 탭 같은 순간에 `fetch` 는 200 이다
+        (맨 주소든 캐시 버스터든 같다. 처음엔 버스터 탓인 줄 알고 뺐는데 그대로였다).
+        → fetch 로 받아 `textContent` 로 꽂는다. script 태그가 네트워크를 타지 않는다.
+     ② 그렇게 고쳤더니 코드는 176KB 그대로 꽂혔는데 **실행이 안 됐다**(콘솔 에러도 없음).
+        기본 content script 는 페이지와 분리된 자리에서 돌기 때문이다.
+        → `"world": "MAIN"` 으로 **페이지와 같은 자리**에서 돌린다. 북마크릿과 똑같은 조건이 된다
+          (그 조건에서 fetch+inline 이 실제로 패널을 띄우는 것을 먼저 확인하고 이렇게 바꿨다). */
 (function () {
   var SRC = 'https://chanwha0221-cmyk.github.io/baljuseo/qty-bridge.js';
   var MAX = 4;
 
   function up() { return !!document.getElementById('qtyb-panel'); }
-
-  function run(code) {
-    var s = document.createElement('script');
-    s.id = 'qtyb-auto';
-    s.textContent = code;
-    (document.head || document.documentElement).appendChild(s);
-  }
 
   function attempt(n) {
     if (up()) return;                                   // 북마크릿으로 이미 띄워 뒀으면 건드리지 않는다
@@ -37,7 +33,10 @@
       .then(function (code) {
         if (!code || code.length < 1000) throw new Error('받은 내용이 너무 짧다 (' + (code ? code.length : 0) + ')');
         if (up()) return;
-        run(code);
+        var s = document.createElement('script');
+        s.id = 'qtyb-auto';
+        s.textContent = code;
+        (document.head || document.documentElement).appendChild(s);
       })
       .catch(function (e) {
         if (up()) return;
