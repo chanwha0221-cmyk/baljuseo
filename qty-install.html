@@ -54,11 +54,50 @@
     <div>수량 웹은 <b>검색을 하거나 창고 탭을 누르면 페이지가 새로 뜹니다.</b> 그때 패널과 타이머가 통째로 날아가서,
       <b>📌 지금 잡기</b>로 걸어 둔 감시도 같이 멈춥니다. 북마크릿을 다시 누르면 이어받지만, 누르는 걸 잊으면 조용히 끊깁니다.</div>
     <div style="margin-top:6px">아래 확장을 한 번 설치해 두면 <b>수량 웹이 뜰 때마다 패널이 저절로</b> 올라옵니다(접어 둔 상태도 그대로).</div>
+    <div style="margin-top:8px"><b>먼저 확장 폴더를 만듭니다 — 둘 중 편한 쪽으로</b></div>
+    <ol>
+      <li><b>이 PC에 도구 폴더가 있으면</b> 그냥 <code>C:\work\baljuseo\qty-ext</code> 를 쓰면 됩니다.
+        <span class="mut">(없으면 그 폴더에서 <code>git pull</code> 한 번)</span></li>
+      <li><b>없거나 모르겠으면</b> 아래 버튼으로 파일 2개를 받아서,
+        아무 데나 <b>폴더 하나</b>(예: <code>바탕화면\qty-ext</code>)를 만들고 그 안에 <b>둘 다</b> 넣으세요.
+        <div style="margin-top:6px">
+          <button id="dlext" style="padding:8px 14px;font-weight:700;cursor:pointer">⬇ 확장 파일 2개 받기</button>
+          <span id="dlmsg" class="mut" style="margin-left:8px"></span>
+        </div>
+      </li>
+    </ol>
+    <div style="margin-top:8px"><b>그 다음 설치 (한 번만)</b></div>
     <ol>
       <li>크롬 주소창에 <code>chrome://extensions</code> → 오른쪽 위 <b>개발자 모드</b> 켜기</li>
-      <li><b>[압축해제된 확장 프로그램을 로드합니다]</b> → <code>C:\work\baljuseo\qty-ext</code> 폴더 선택</li>
+      <li><b>[압축해제된 확장 프로그램을 로드합니다]</b> → 위에서 만든 <b>폴더</b> 선택</li>
       <li>수량 웹을 새로고침하면 패널이 저절로 뜹니다</li>
     </ol>
+    <script>
+    /* ⬇ 확장 파일 받기 — 도구 폴더(C:\work\baljuseo)가 없는 PC에서도 설치할 수 있게
+         (2026-10-22 홍팀장 「회사 가서 내놓으라 했는데 없으면 안 된다」). 파일은 이 사이트에서 그대로 내려준다. */
+    document.getElementById('dlext').onclick = async function () {
+      var msg = document.getElementById('dlmsg');
+      this.disabled = true; msg.textContent = '받는 중…';
+      try {
+        var files = ['manifest.json', 'inject.js'];
+        for (var i = 0; i < files.length; i++) {
+          var r = await fetch('qty-ext/' + files[i] + '?v=' + Date.now());
+          if (!r.ok) throw new Error(files[i] + ' ' + r.status);
+          var t = await r.text();
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(new Blob([t], { type: 'application/octet-stream' }));
+          a.download = files[i];
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function (u) { return function () { URL.revokeObjectURL(u); }; }(a.href), 10000);
+          await new Promise(function (res) { setTimeout(res, 400); });
+        }
+        msg.textContent = '✅ 2개 받았습니다 — 폴더 하나 만들어 둘 다 넣으세요 (다운로드 폴더에 있습니다)';
+      } catch (e) {
+        msg.textContent = '⚠️ 못 받았습니다: ' + (e.message || e);
+      }
+      this.disabled = false;
+    };
+    </script>
     <div class="mut">패널 코드는 늘 최신을 받아 오므로 도구가 업데이트돼도 확장을 다시 설치할 필요는 없습니다.
       설치해도 북마크릿은 그대로 쓸 수 있습니다.</div>
   </div>
