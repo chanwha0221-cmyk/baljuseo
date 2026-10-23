@@ -297,7 +297,8 @@ async function loadCatalog(){
                                      body: JSON.stringify({ action:'ppk', k: SLUG }) });
   if (!res.ok) throw new Error('상품 데이터를 읽지 못했습니다 (' + res.status + ')');
   const doc = await res.json();
-  if (!doc.ok) throw new Error(doc.error || '상품 데이터를 읽지 못했습니다');
+  /* 🔒 서버는 옛 ?k= 를 {ok:false, gone:true} 로 거절한다 — 고장이 아니라 만료다(아래 catch 가 안내문으로 받는다) */
+  if (!doc.ok) { const er = new Error(doc.error || '상품 데이터를 읽지 못했습니다'); if (doc.gone) er.expired = true; throw er; }
   const rows = doc.rows || [];
   /* 🔒 주소가 갱신되면(카탈로그 [🔗 단가 주소]) 옛 ?k= 는 서버가 0줄로 돌려준다 — 고장이 아니라 만료다.
         거래처에는 「오류」 대신 안내와 연락처를 보여준다 (홍팀장 2026-10-23). */
