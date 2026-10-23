@@ -60,6 +60,73 @@ function slotsFor(ty, how){
   return out;
 }
 
+/* ══ 📋 유형별 필요 사진 안내 (2026-10-23 홍팀장 「나도 업체한테 설명할 때 주게 유형별로 나눠서 복사하게」) ══
+   · 마스터 화면엔 등록 폼이 없어서 이 표가 아예 없었다 — 업체에 불러줄 근거가 화면에 없었다는 뜻이다.
+   · 업체 화면에서도 유형을 고르기 전엔 안 보였다. 이제 양쪽 다 접어서 띄우고, 유형마다 그대로 복사된다.
+   · 문구는 SLOT·TYPES 한 곳에서 나온다 — 필요 사진이 바뀌면 복사 문구도 같이 바뀐다. */
+function guideText(ty){
+  var lines = ty.need.map(function(k,i){ return (i+1)+'. '+slotName(k)+' — '+slotDesc(k); });
+  var s = '['+ty.t+'] 접수에 필요한 사진입니다.\n\n' + lines.join('\n');
+  if(ty.ref && ty.ref.length){
+    s += '\n\n※ 환불로 처리하시는 경우 아래도 같이 보내주세요.\n'
+       + ty.ref.map(function(k){ return '· '+slotName(k)+' — '+slotDesc(k); }).join('\n');
+  }
+  return s + '\n\n※ 사진이 빠지면 CS 처리가 진행되지 않습니다.';
+}
+function guideHtml(){
+  return ''
+  + '<div class="ordbox" style="margin-bottom:10px">'
+  + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+  +   '<h3 style="margin:0">📋 클레임 유형별 필요 사진</h3>'
+  +   '<button class="ordb2" type="button" id="cl_g_all" style="margin-left:auto">📋 전체 복사</button>'
+  +   '<button class="ordb2" type="button" id="cl_g_tog">펼치기</button>'
+  + '</div>'
+  + '<div class="hint" style="margin-top:5px">업체에 안내할 때 유형별로 그대로 복사해 보내세요.</div>'
+  + '<div id="cl_g_body" style="display:none;margin-top:10px">'
+  + TYPES.map(function(ty,i){
+      var need = ty.need.map(function(k){
+        return '<li style="margin:2px 0"><b>'+E(slotName(k))+'</b> <span style="color:var(--muted)">— '+E(slotDesc(k))+'</span></li>'; }).join('');
+      var ref = (ty.ref||[]).map(function(k){
+        return '<li style="margin:2px 0"><b>'+E(slotName(k))+'</b> <span style="color:var(--muted)">— '+E(slotDesc(k))+'</span></li>'; }).join('');
+      return '<div class="ordfix" style="margin-bottom:8px">'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">'
+        +   '<b style="font-size:12.5px">'+E(ty.t)+'</b>'
+        +   '<span class="hint" style="margin:0">사진 '+ty.need.length+'가지</span>'
+        +   '<button class="ordb2" type="button" data-guide="'+i+'" style="margin-left:auto;white-space:nowrap">📋 복사</button>'
+        + '</div>'
+        + '<ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.6">'+need+'</ul>'
+        + (ref ? '<div style="font-size:12px;color:#c0392b;font-weight:700;margin-top:5px">환불 처리면 추가</div>'
+               + '<ul style="margin:2px 0 0;padding-left:18px;font-size:12.5px;line-height:1.6">'+ref+'</ul>' : '')
+        + '</div>';
+    }).join('')
+  + '</div>'
+  + '</div>';
+}
+function copyTxt(s, okMsg){
+  function done(){ if(typeof toast === 'function') toast(okMsg || '📋 복사했습니다'); }
+  try{
+    navigator.clipboard.writeText(s).then(done, function(){ window.prompt('복사해 주세요', s); });
+  }catch(e){ window.prompt('복사해 주세요', s); }
+}
+function bindGuide(){
+  var tg = $c('cl_g_tog'), bd = $c('cl_g_body');
+  if(tg && bd) tg.onclick = function(){
+    var open = bd.style.display !== 'none';
+    bd.style.display = open ? 'none' : '';
+    tg.textContent = open ? '펼치기' : '접기';
+  };
+  var all = $c('cl_g_all');
+  if(all) all.onclick = function(){
+    copyTxt(TYPES.map(guideText).join('\n\n──────────\n\n'), '📋 전체 '+TYPES.length+'종 복사했습니다');
+  };
+  document.querySelectorAll('[data-guide]').forEach(function(b){
+    b.onclick = function(){
+      var ty = TYPES[Number(b.getAttribute('data-guide'))];
+      if(ty) copyTxt(guideText(ty), '📋 「'+ty.t+'」 복사했습니다');
+    };
+  });
+}
+
 /* 사진은 그대로 보내면 너무 크다 — 긴 변 1400px, jpeg 0.72 로 줄여 보낸다.
    접수용 확인 사진이라 이 정도면 글씨(주문내역서·송장)도 읽힌다. */
 function shrink(file){
@@ -458,12 +525,14 @@ var CLAIM = {
     var master = (typeof ME !== 'undefined' && ME && S(ME.role).indexOf('마스터') >= 0);
     PICK = {}; CUR = null;
     return (typeof subHead === 'function' ? subHead('📮 클레임', '') : '')
+      + guideHtml()
       + (master ? '' : formHtml())
       + '<h3 style="margin-top:14px">'+(master?'📮 들어온 클레임':'📋 내가 올린 클레임')+'</h3>'
       + '<div id="cl_list"><div class="load">⏳ 불러오는 중입니다…</div></div>';
   },
   bind: async function(){
     var master = (typeof ME !== 'undefined' && ME && S(ME.role).indexOf('마스터') >= 0);
+    bindGuide();                       // 📋 유형별 안내 — 마스터·업체 양쪽에 뜬다 (2026-10-23)
     if(!master){
       $c('cl_type').onchange = function(){ CUR = typeOf(this.value); PICK = {}; drawSlots(); };
       $c('cl_how').onchange  = drawSlots;
