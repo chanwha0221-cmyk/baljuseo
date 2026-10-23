@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.196</title>
+<title>마스터 유통 카탈로그 v23.197</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1711,7 +1711,7 @@ async function ppKeyPanel(btn){
     const msg='📄 단가가 보이는 상품목록 주소입니다.\n\n'+url+'\n\n'
       +'· 마지막 변경 : '+when+'\n'
       +(j.k?'· 지금 이 주소로만 단가가 보입니다.\n':'· 🔴 아직 주소 잠금을 안 켰습니다 — 주소만 알면 누구나 단가를 봅니다.\n')
-      +'\n[확인] 을 누르면 주소를 복사합니다.\n주소를 바꾸려면 취소하고 다시 눌러 [주소 바꾸기] 를 고르세요.';
+      +'\n──────────────\n[확인] → 이 주소 복사\n[취소] → 새 주소로 바꾸기';
     if(confirm(msg)){
       try{ await navigator.clipboard.writeText(url); toast('📋 주소 복사됨'); }
       catch(e){ prompt('복사해 주세요',url); }
@@ -3951,7 +3951,7 @@ function renderUser(){
   $('ub_pw').onclick=showPwForm;
   $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
   { const e=$('ub_exp'); if(e)e.onclick=updateProposal; }   // 🔄 제안서 업데이트 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
-  { const e=$('ub_spec'); if(e)e.onclick=specSync; }        // 📝 스펙 최신화 — 마스터 전용
+  { const e=$('ub_spec'); if(e)e.onclick=specSync; }        // 📝 스펙 최신화 — 마스터 전용
   { const e=$('ub_ppk'); if(e)e.onclick=function(){ppKeyPanel(this);}; }   // 🔗 단가 주소 — 마스터만 (10-23)
   { const e=$('ub_watch'); if(e)e.onclick=()=>{ const w=window.open('https://masterc.kr/board_eJGl96#mcwatch','mcwatch'); if(!w)toast('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요'); }; }   // 👀 변동 감시 — 마스터 전용
   { const e=$('ub_lowm'); if(e)e.onclick=(ev)=>{const to=(ev&&ev.target&&ev.target.id==='lossBadge')?'lowmloss':'lowm';lowmGo(to);}; }   // 💸 저마진 — 마스터 전용 (🔴 동그라미를 누르면 «지금 바로 확인할 상품»)
