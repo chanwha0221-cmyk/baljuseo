@@ -526,14 +526,32 @@ var CLAIM = {
     PICK = {}; CUR = null;
     return (typeof subHead === 'function' ? subHead('📮 클레임', '') : '')
       + guideHtml()
-      + (master ? '' : formHtml())
+      /* ✍️ 마스터도 등록 화면을 본다 (2026-10-23 홍팀장 「나도 클레임 등록 버튼 만들어줘 검토해보게」).
+         업체에게 보이는 그 폼 그대로를 접어서 띄운다. 눌러서 올리면 진짜로 등록되므로 보낼 때 한 번 더 묻는다. */
+      + (master
+          ? '<div class="ordbox" style="margin-bottom:10px">'
+            + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+            +   '<h3 style="margin:0">✍️ 클레임 등록 화면</h3>'
+            +   '<span class="hint" style="margin:0">업체에게 보이는 화면 그대로입니다</span>'
+            +   '<button class="ordb2" type="button" id="cl_f_tog" style="margin-left:auto">펼치기</button>'
+            + '</div>'
+            + '<div id="cl_f_body" style="display:none;margin-top:10px">' + formHtml() + '</div>'
+            + '</div>'
+          : formHtml())
       + '<h3 style="margin-top:14px">'+(master?'📮 들어온 클레임':'📋 내가 올린 클레임')+'</h3>'
       + '<div id="cl_list"><div class="load">⏳ 불러오는 중입니다…</div></div>';
   },
   bind: async function(){
     var master = (typeof ME !== 'undefined' && ME && S(ME.role).indexOf('마스터') >= 0);
     bindGuide();                       // 📋 유형별 안내 — 마스터·업체 양쪽에 뜬다 (2026-10-23)
-    if(!master){
+    /* ✍️ 마스터 쪽 등록 화면 펼치기 (2026-10-23) */
+    var ftg = $c('cl_f_tog'), fbd = $c('cl_f_body');
+    if(ftg && fbd) ftg.onclick = function(){
+      var open = fbd.style.display !== 'none';
+      fbd.style.display = open ? 'none' : '';
+      ftg.textContent = open ? '펼치기' : '접기';
+    };
+    if($c('cl_type')){                 // 폼이 있으면 묶는다 — 업체는 항상, 마스터는 검토용으로 접혀 있다
       $c('cl_type').onchange = function(){ CUR = typeOf(this.value); PICK = {}; drawSlots(); };
       $c('cl_how').onchange  = drawSlots;
       $c('cl_find').onclick  = findOrders;
@@ -546,6 +564,8 @@ var CLAIM = {
           return;
         }
         eb.style.display = 'none';
+        /* 🔴 마스터가 검토하다 그냥 누를 수 있다 — 진짜로 들어간다는 걸 한 번 알린다 (2026-10-23) */
+        if(master && !confirm('이대로 등록하면 실제 클레임으로 들어갑니다.\n\n화면만 보시는 중이면 [취소] 를 누르세요.')) return;
         b.disabled = true; b.textContent = '등록 중…';
         try{
           var j = await api('claimadd', { token: ME.token, claim: d });
