@@ -299,7 +299,9 @@ async function loadCatalog(){
   const doc = await res.json();
   if (!doc.ok) throw new Error(doc.error || '상품 데이터를 읽지 못했습니다');
   const rows = doc.rows || [];
-  if (!rows.length) throw new Error('상품 데이터가 비어 있습니다');
+  /* 🔒 주소가 갱신되면(카탈로그 [🔗 단가 주소]) 옛 ?k= 는 서버가 0줄로 돌려준다 — 고장이 아니라 만료다.
+        거래처에는 「오류」 대신 안내와 연락처를 보여준다 (홍팀장 2026-10-23). */
+  if (!rows.length) { const er = new Error('EXPIRED'); er.expired = true; throw er; }
   DOC_META = { updatedAt: doc.at ? new Date(doc.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}) : '', supplier: doc.supplier || '' };
 
   const order = [], byWh = {};
@@ -576,6 +578,14 @@ let LAST_STAMP = null;
     $('load').style.display='none';
     $('layout').style.display='grid';
   }catch(e){
+    if(e&&e.expired){
+      $('load').innerHTML='<div style="font-size:30px;margin-bottom:12px">🔒</div>'
+        +'<div style="font-size:17px;font-weight:800;margin-bottom:10px">주소가 갱신되었습니다</div>'
+        +'<div style="max-width:430px;margin:0 auto;line-height:1.75;color:var(--muted);font-size:14px">'
+        +'해당 사이트 단가 정보가 있다 보니 일정 시간 이후에 주소를 갱신하고 있습니다.<br>'
+        +'단가 정보가 다시 필요하시거나 문의사항이 있으신 경우 연락 주세요.</div>';
+      return;
+    }
     $('load').innerHTML='⚠️ 상품을 불러오지 못했습니다.<div class="err">'+esc(e.message||String(e))+'</div>'
       +'<button class="retry" onclick="location.reload()">다시 시도</button>';
   }
