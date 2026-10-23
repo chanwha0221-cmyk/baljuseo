@@ -580,6 +580,7 @@ let LAST_STAMP = null;
     $('layout').style.display='grid';
   }catch(e){
     if(e&&e.expired){
+      $('sub').textContent='기존 거래처 전용 · 주소 갱신됨';
       $('load').innerHTML='<div style="font-size:30px;margin-bottom:12px">🔒</div>'
         +'<div style="font-size:17px;font-weight:800;margin-bottom:10px">주소가 갱신되었습니다</div>'
         +'<div style="max-width:430px;margin:0 auto;line-height:1.75;color:var(--muted);font-size:14px">'
