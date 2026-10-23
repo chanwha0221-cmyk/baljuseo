@@ -316,19 +316,24 @@ footer b{color:var(--steel)}
    데이터 출처 : data/products.json  (아래 스키마 참조 — README.md)
    서비스계정/인증키 없음. JSON 파일만 갈아끼우면 화면이 바뀝니다.
    ───────────────────────────────────────────────────────────── */
-const DATA_URL = 'https://chanwha0221-cmyk.github.io/baljuseo/data/allproduct.json';
+const API_URL = 'https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
 const pkey = s => String(s||'').replace(/\s+/g,'').toLowerCase();
 
 async function loadCatalog(){
   // cache:'no-cache'는 이 브라우저 캐시만 건너뛴다 — GitHub Pages 앞단 CDN은 주소가
   // 같으면 한동안 옛 응답을 그대로 내주므로, 매번 다른 주소가 되도록 캐시버스터를 붙인다.
-  const bust = DATA_URL + (DATA_URL.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now();
-  const res = await fetch(bust, { cache:'no-cache' });
+  /* 🌐 2026-10-23 — 정적 파일(data/allproduct.json) 대신 서버에서 바로 읽는다.
+     예전엔 카탈로그가 GitHub 에 커밋해 떨군 파일을 읽었다(원비 팀장 외부 사이트 때문에 만든 길).
+     원비 팀장 퇴사로 그 이유가 사라져 서버 공개 읽기로 옮겼다 — 토큰 불필요, 커밋·Pages 대기 없음.
+     🔴 이 페이지는 **불특정 다수**가 본다 → 단가는 서버가 아예 안 실어 보낸다(action 'pp'). */
+  const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+                                     body: JSON.stringify({ action:'pp' }) });
   if (!res.ok) throw new Error('상품 데이터를 읽지 못했습니다 (' + res.status + ')');
   const doc = await res.json();
-  const rows = Array.isArray(doc) ? doc : (doc.products || []);
+  if (!doc.ok) throw new Error(doc.error || '상품 데이터를 읽지 못했습니다');
+  const rows = doc.rows || [];
   if (!rows.length) throw new Error('상품 데이터가 비어 있습니다');
-  DOC_META = { updatedAt: doc.updatedAt || '', supplier: doc.supplier || '' };
+  DOC_META = { updatedAt: doc.at ? new Date(doc.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}) : '', supplier: doc.supplier || '' };
 
   const order = [], byWh = {};
   rows.forEach(r => {

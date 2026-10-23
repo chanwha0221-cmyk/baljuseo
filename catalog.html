@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.195</title>
+<title>마스터 유통 카탈로그 v23.196</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1649,6 +1649,8 @@ function downloadProposal(doc){
       토큰은 baljuseo 하나에 Contents: Read and write 만 준 fine-grained PAT 를 쓸 것.
    ⏱ 커밋 뒤 GitHub Pages 가 굽는 데 보통 1~2분 — 그 전에 새로고침하면 옛 데이터가 온다. */
 const GH_OWNER='chanwha0221-cmyk',GH_REPO='baljuseo',GH_FILE='data/allproduct.json',GH_KEY='mc_gh_pat';
+/* 📤 마지막으로 서버에 보낸 목록의 지문 — 바뀐 게 없으면 안 보낸다(이 브라우저에만) */
+const PP_SIG='pp_last_sig';
 function ghB64(str){                       // 한글이 섞여 있어 btoa 에 그냥 못 넣는다
   const bytes=new TextEncoder().encode(str);
   let bin=''; bytes.forEach(b=>{bin+=String.fromCharCode(b);});
@@ -1691,17 +1693,57 @@ async function ghPutProposal(token,doc,note){
    ⚠️ 상품이 **실제로 바뀌었을 때만** 올린다(updatedAt 빼고 비교) — 안 그러면 열 때마다 커밋이 쌓인다.
    ⚠️ 토큰이 없으면 아무 일도 안 한다. 자동으로 도는 일이 비밀번호를 묻고 나서면 안 된다.
    ⚠️ 실패해도 조용하다 — 곁다리 작업이 화면을 막으면 안 된다. 손으로는 [🔄 제안서 업데이트]로 언제든 올린다. */
+/* ══ 🔗 단가 주소 (2026-10-23 홍팀장) ═════════════════════════════════════════
+   「공급가가 메일로 계속 나간다. 일주일에 한 번쯤 url 변경 버튼 누르면 url 이 바뀌어서
+     이전 주소로는 단가 볼 수 없게 해라. 물론 나만 보이는 버튼이어야겠지」
+   · 단가가 보이는 쪽은 allproduct/partners.html 하나뿐이다 — 거기 주소에 ?k=<슬러그> 를 붙인다.
+   · [바꾸기] 를 누르면 서버가 새 슬러그를 발급한다 → **이전 주소는 그 순간부터 막힌다**(ppk 가 거절).
+   · 🔴 슬러그는 주소에만 산다. 소스에 안 박는다 — 이 사이트는 저장소가 private 이어도 전체 공개다(08-27 사고).
+   · ⚠️ 한 번도 안 바꿨으면 슬러그가 없고, 그동안은 예전처럼 그냥 열린다(돌아다니는 메일 주소를 안 끊는다). */
+async function ppKeyPanel(btn){
+  const old=btn.textContent; btn.disabled=true; btn.textContent='⏳ 확인 중…';
+  try{
+    const j=await api('ppkey',{token:ME.token});
+    if(!j||!j.ok)throw new Error((j&&j.error)||'주소를 읽지 못했습니다');
+    const base=location.origin+location.pathname.replace(/[^/]*$/,'')+'allproduct/partners.html';
+    const url=j.k?(base+'?k='+j.k):base;
+    const when=j.at?new Date(j.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'아직 바꾼 적 없음';
+    const msg='📄 단가가 보이는 상품목록 주소입니다.\n\n'+url+'\n\n'
+      +'· 마지막 변경 : '+when+'\n'
+      +(j.k?'· 지금 이 주소로만 단가가 보입니다.\n':'· 🔴 아직 주소 잠금을 안 켰습니다 — 주소만 알면 누구나 단가를 봅니다.\n')
+      +'\n[확인] 을 누르면 주소를 복사합니다.\n주소를 바꾸려면 취소하고 다시 눌러 [주소 바꾸기] 를 고르세요.';
+    if(confirm(msg)){
+      try{ await navigator.clipboard.writeText(url); toast('📋 주소 복사됨'); }
+      catch(e){ prompt('복사해 주세요',url); }
+      return;
+    }
+    if(!confirm('🔄 주소를 새로 바꿀까요?\n\n'
+      +'· 새 주소가 발급되고 **지금 주소는 그 즉시 막힙니다.**\n'
+      +'· 이미 메일로 보낸 주소를 쓰던 거래처는 더 이상 단가를 못 봅니다.\n'
+      +'· 바꾼 뒤 새 주소를 다시 보내 주세요.'))return;
+    btn.textContent='⏳ 바꾸는 중…';
+    const r=await api('pproll',{token:ME.token});
+    if(!r||!r.ok)throw new Error((r&&r.error)||'바꾸지 못했습니다');
+    const nu=base+'?k='+r.k;
+    try{ await navigator.clipboard.writeText(nu); }catch(e){}
+    toast('🔗 주소를 바꿨습니다 — 이전 주소는 막혔습니다');
+    alert('새 주소입니다 (복사해 뒀습니다)\n\n'+nu+'\n\n이전 주소는 지금부터 막혔습니다.');
+  }catch(e){ alert('실패했습니다 — '+(e&&e.message||e)); }
+  finally{ btn.disabled=false; btn.textContent=old; }
+}
 async function autoSyncProposal(){
   try{
     if(!(ME&&ME.master)||!ALL.length)return;
-    let token=''; try{token=localStorage.getItem(GH_KEY)||'';}catch(e){}
-    if(!token)return;
+    /* 🌐 2026-10-23 — GitHub 커밋 대신 서버(Supabase)에 넣는다. 토큰이 필요 없어져 조건 없이 돈다.
+       바뀐 게 없으면 안 보낸다 — 예전엔 라이브 파일을 받아 비교했는데, 이제 보낸 내용을 이 브라우저에 적어 두고 비교한다. */
     const doc=buildProposalDoc();
-    let live=null;
-    try{ live=await(await fetch('data/allproduct.json?cb='+Date.now(),{cache:'no-cache'})).json(); }catch(e){}
-    if(live&&live.products&&JSON.stringify(live.products)===JSON.stringify(doc.products))return;  // 그대로면 안 올린다
-    await ghPutProposal(token,doc,'카탈로그 열 때 자동');
-    toast('📤 제안서 데이터도 최신으로 맞췄습니다 ('+doc.products.length+'개)');
+    const sig=JSON.stringify(doc.products);
+    let last=''; try{last=localStorage.getItem(PP_SIG)||'';}catch(e){}
+    if(sig===last)return;
+    const j=await api('ppset',{token:ME.token,rows:doc.products});
+    if(!j||!j.ok)return;
+    try{localStorage.setItem(PP_SIG,sig);}catch(e){}
+    toast('📤 상품·단가 목록도 최신으로 맞췄습니다 ('+doc.products.length+'개)');
   }catch(e){ /* 곁다리다 — 조용히 넘긴다 */ }
 }
 /* 📝 스펙 최신화 (홍팀장 2026-10-01 — 생물 갑오징어 1kg 카드 「4-6미」, 상세는 「13미」).
@@ -1733,23 +1775,16 @@ async function updateProposal(){
   const btn=$('ub_exp');
   if(!ALL.length){ toast('상품을 아직 불러오는 중입니다 — 잠시 뒤 눌러주세요'); return; }
   const doc=buildProposalDoc();
-  let token=''; try{token=localStorage.getItem(GH_KEY)||'';}catch(e){}
-  if(!token)token=ghAsk();
-  if(!token)return;
+
   if(btn){btn.disabled=true;btn.textContent='⏳ 올리는 중…';}
   try{
-    try{ await ghPutProposal(token,doc,'카탈로그에서 바로 올림'); }
-    catch(e){
-      if(e.message!=='AUTH')throw e;
-      try{localStorage.removeItem(GH_KEY);}catch(x){}
-      token=ghAsk('토큰이 거절됐습니다. 다시 붙여넣어 주세요.\n(baljuseo 저장소에 Contents: Read and write 권한이 있어야 합니다)');
-      if(!token){if(btn){btn.disabled=false;btn.textContent='🔄 제안서 업데이트';}return;}
-      await ghPutProposal(token,doc,'카탈로그에서 바로 올림');
-    }
-    toast('✅ 제안서 '+doc.products.length+'개 올렸습니다 — 1~2분 뒤 새로고침하면 반영됩니다');
-    alert('제안서 데이터를 올렸습니다.\n\n'
+    const j=await api('ppset',{token:ME.token,rows:doc.products});
+    if(!j||!j.ok)throw new Error((j&&j.error)||'저장하지 못했습니다');
+    try{localStorage.setItem(PP_SIG,JSON.stringify(doc.products));}catch(x){}
+    toast('✅ 상품·단가 목록 '+doc.products.length+'개 올렸습니다 — 바로 반영됩니다');
+    alert('상품·단가 목록을 올렸습니다.\n\n'
       +'· 기준 시각 : '+doc.updatedAt+'\n· 상품 : '+doc.products.length+'개\n\n'
-      +'GitHub 가 굽는 데 1~2분 걸립니다.\n그 뒤 제안서 사이트를 새로고침하면 카탈로그와 같은 시점이 됩니다.');
+      +'서버에 바로 들어갔습니다 — 새로고침하면 그 시점으로 보입니다.');
   }catch(e){
     // 못 올렸으면 손으로라도 갈아끼울 수 있게 파일을 내어준다
     if(confirm('올리지 못했습니다.\n\n'+(e.message||e)+'\n\n대신 파일로 받으시겠습니까?'))downloadProposal(doc);
@@ -3900,6 +3935,8 @@ function renderUser(){
     +(ME.master?'<a class="ubtn" href="계정관리.html" target="_blank" rel="noopener" title="업체 권한(업체·단가숨김·임시·차단) 승인·수정">👤 계정관리</a>':'')
     /* 📤 제안서 데이터 — 마스터에게만. 원비씨 제안서 사이트에 넣을 products.json 을 내려받는다. */
     +(ME.master?'<button class="ubtn" id="ub_exp" title="원비 팀장 제안서 사이트(allproduct)가 읽는 데이터를 지금 카탈로그와 같은 시점으로 올립니다. 1~2분 뒤 그쪽 사이트를 새로고침하면 반영됩니다">🔄 제안서 업데이트</button>':'')
+    /* 🔗 단가 주소 (2026-10-23 홍팀장 「일주일에 한 번씩 url 변경 버튼 누르면 이전 주소로는 단가 못 보게」) — 마스터만 */
+    +(ME.master?'<button class="ubtn" id="ub_ppk" title="단가가 보이는 상품목록(partners) 주소를 봅니다. 바꾸면 이전 주소는 즉시 막힙니다.">🔗 단가 주소</button>':'')
     +(ME.master?'<button class="ubtn" id="ub_spec" title="masterc 상세에서 고친 스펙(미수·구성 등)을 카드에 맞춥니다. masterc 창이 잠깐 열립니다(로그인 필요)">📝 스펙 최신화</button>':'')
     +(ME.master?'<button class="ubtn" id="ub_lowm" title="마진율 8% 이하로 카탈로그에 떠 있는 상품 (마스터만)">💸 저마진 <b id="lowmBadge" style="display:none;color:#b91c1c"></b><span class="nbadge" id="lossBadge" style="display:none"></span></button>':'')
     /* 👀 변동 감시 (2026-10-15 홍팀장) — masterc 창 하나를 열어 두면 5분마다 변동을 보고 카탈로그를 갱신한다(mc-watch.js). 같은 이름 창이라 두 번 눌러도 하나만 뜬다. */
@@ -3914,7 +3951,8 @@ function renderUser(){
   $('ub_pw').onclick=showPwForm;
   $('ub_out').onclick=()=>{if(confirm('로그아웃 할까요?'))logout();};
   { const e=$('ub_exp'); if(e)e.onclick=updateProposal; }   // 🔄 제안서 업데이트 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
-  { const e=$('ub_spec'); if(e)e.onclick=specSync; }        // 📝 스펙 최신화 — 마스터 전용
+  { const e=$('ub_spec'); if(e)e.onclick=specSync; }        // 📝 스펙 최신화 — 마스터 전용
+  { const e=$('ub_ppk'); if(e)e.onclick=function(){ppKeyPanel(this);}; }   // 🔗 단가 주소 — 마스터만 (10-23)
   { const e=$('ub_watch'); if(e)e.onclick=()=>{ const w=window.open('https://masterc.kr/board_eJGl96#mcwatch','mcwatch'); if(!w)toast('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요'); }; }   // 👀 변동 감시 — 마스터 전용
   { const e=$('ub_lowm'); if(e)e.onclick=(ev)=>{const to=(ev&&ev.target&&ev.target.id==='lossBadge')?'lowmloss':'lowm';lowmGo(to);}; }   // 💸 저마진 — 마스터 전용 (🔴 동그라미를 누르면 «지금 바로 확인할 상품»)
   { const e=$('ub_xls'); if(e)e.onclick=downloadPriceXlsx; } // 📥 상품·단가 엑셀 — 허용된 업체에게만 있는 버튼
