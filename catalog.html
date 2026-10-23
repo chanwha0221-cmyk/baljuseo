@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.194</title>
+<title>마스터 유통 카탈로그 v23.195</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -970,6 +970,13 @@ function buildDayGroup(){
        🔴 판정: 오늘 수량이 잡혀 있었고(total>0) 잔여가 0 이면 «다 나간 것» → MCZERO.
           한 번도 안 켠 것(total 0)·역마진 보류(hold)는 그대로 감춘다(MCEXC).
        ⚠️ buildDayGroup 은 applyMc 뒤에 돈다 — 거기서 MCZERO 를 새로 만들므로 여기서 넣는 값은 안 지워진다. */
+    /* 🔁 오늘 수량이 잡힌 상품은 «품절» 이 아니다 — 묵은 품절 변동을 걷어낸다 (2026-10-23 홍팀장 「홍게 8kg 변동사항 품절도 풀어라」).
+       변동사항은 최신 한 건으로만 판정하는데, 창고가 「일시품절」 을 올려 놓고 재입고 변동을 안 올리면 그대로 굳는다.
+       산더미 가성비 홍게 8kg — 10-20 「일시품절(창고 수량 체크 오류, 익일 입고)」 이 사흘째 최신으로 남아 감춰져 있었다.
+       그런데 오늘 당일에 총1·판매1 로 **실제로 팔렸다.** 팔린 물건이 품절일 수는 없다.
+       🔴 그래서 오늘 수량이 잡힌 줄(total>0)은 품절 딱지를 뗀다 — 그 뒤 아래 판정이 다시 «다 나감(문의)» 이든 «소량» 이든 정한다.
+          «꺼둠»·«역마진 보류» 는 지금 상태를 보고 찍는 것이라 건드리지 않는다. */
+    if(r.total>0&&MCEXC.get(pkey(r.n))==='품절')MCEXC.delete(pkey(r.n));
     if(r.zero){
       if(!r.hold&&r.total>0&&r.remain<=0)MCZERO.set(pkey(r.n),1);
       else MCEXC.set(pkey(r.n),r.hold?'역마진 보류':'꺼둠');
