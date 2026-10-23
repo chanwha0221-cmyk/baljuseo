@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.193</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.194</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -968,7 +968,19 @@ function buildDayGroup(){
   DAYLOW=new Map();
   rows.forEach(r=>{
     if(!r||!r.n)return;
-    if(r.zero)MCEXC.set(pkey(r.n),r.hold?'역마진 보류':'꺼둠');      // 관리화면에서 꺼둔 것 + 🙈 역마진 보류(10-16, 승인·단가 수정 전까지)만 감춘다
+    /* 🚫 다 팔려서 0 이 된 것은 «감추지» 않는다 — 카드는 남기고 「문의」 로 보내고 발주만 막는다 (2026-10-23 홍팀장
+       「사람들이 수량 다 잡아서 수량 없는 건 노출을 안 하는 게 아니라 수량 문의 주세요 하고 발주만 막는 거였잖아.
+        왜 아예 노출을 안 하냐, 이러면 사람들 이제 그 상품 없다고 생각해」).
+       masterc 는 당일 잔여가 0 이 되면 등록 토글을 스스로 내린다 → 그 «꺼짐» 이 «안 파는 것» 과 똑같은 값(zero)으로 와서
+       다 팔린 상품까지 통째로 사라졌다. 10-23 실측 14 건(항공직송 생연어 500g 총50·판매50·잔여0, 생물 알도루묵 700/700,
+       연안 생물 호래기 75/75 …). 감춰 버리면 업체는 «이제 그 상품 안 판다» 고 읽는다 — 이게 제일 나쁘다(§ MCLOW 와 같은 뿌리).
+       🔴 판정: 오늘 수량이 잡혀 있었고(total>0) 잔여가 0 이면 «다 나간 것» → MCZERO.
+          한 번도 안 켠 것(total 0)·역마진 보류(hold)는 그대로 감춘다(MCEXC).
+       ⚠️ buildDayGroup 은 applyMc 뒤에 돈다 — 거기서 MCZERO 를 새로 만들므로 여기서 넣는 값은 안 지워진다. */
+    if(r.zero){
+      if(!r.hold&&r.total>0&&r.remain<=0)MCZERO.set(pkey(r.n),1);
+      else MCEXC.set(pkey(r.n),r.hold?'역마진 보류':'꺼둠');
+    }
     /* 🟡 당일 소량 — 잔여 1~29개 (2026-09-29 홍팀장 "15/30 이런 거 소량 남아있는 건 소량으로").
        파는 건 여전히 등록 토글이 정한다 — 이건 딱지만, 발주는 된다. 수량을 모르면(total 0) 안 붙인다. */
     if(!r.zero&&r.total>0&&r.remain>0&&r.remain<DAY_LOW_N)DAYLOW.set(pkey(r.n),1);
