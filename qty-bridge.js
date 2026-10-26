@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-23b';
+  var QTYB_VER = '2026-10-26a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -489,6 +489,7 @@
        이미 대기 걸어 둔 것에 대기를 또 걸 일도 없다. 둘 다 막힌 것이 「따로 구해야 할 수량」이다.
      🔴 이 표들엔 data-k · data-c 가 없다 — 머리글 이름으로 칸을 찾는다(번호로 세면 칸 하나 늘 때 밀린다). */
   var MORE = {}, WAIT = {}, OURS = {}, DRAW = {};
+  var RECV = [];   // 🧹 오늘 받은 것 — 수락된 증량 · 대기로 받은 수 (겹친 것 정리가 쓴다)
 
   function colOf(th, re) {
     for (var i = 0; i < th.length; i++) if (re.test(th[i])) return i;
@@ -531,7 +532,7 @@
   // 지금 수량 웹에 «기다리는 중» 으로 걸린 우리 대기 총량 (손으로 거는 칸의 처음 값)
   function waitNow(k) { var w = WAIT[k]; return (w && w.pend) ? w.qty : 0; }
   function loadMy() {
-    MORE = {}; WAIT = {}; OURS = {}; DRAW = {};
+    MORE = {}; WAIT = {}; OURS = {}; DRAW = {}; RECV = [];
     return Promise.all([fetchMy('more'), fetchMy('wait'), fetchMy('ours'), fetchMy('draw')])
       .then(function (r) {
         var more = r[0], wait = r[1], ours = r[2], draw = r[3];
@@ -562,7 +563,15 @@
           var o = MORE[k] || { qty: 0, no: 0, ok: 0, pend: 0, done: 0, wh: '', ans: '' };
           o.wh = o.wh || (iW >= 0 ? x.c[iW] : '');
           if (/거부|반려|안 ?됨/.test(st)) o.no++;
-          else if (/승인|수락|완료|늘림|받음/.test(st)) o.ok++;
+          else if (/승인|수락|완료|늘림|받음/.test(st)) {
+            o.ok++;
+            /* 🧹 겹친 것 정리용 — 수락된 증량은 «받은 것» 이다. 「1 → 1 받음」 의 뒤 숫자 = 실제로 늘려 준 수,
+                  답 시각 = 때 칸의 두 번째 시각(「10-26 15:40 답 10-26 15:58」). */
+            var gotM = String(x.c[iQ] || '').match(/→\s*(\d+)/);
+            var tm = String(x.c[0] || '').match(/\d{2}-\d{2}\s+\d{1,2}:\d{2}/g) || [];
+            RECV.push({ kind: 'more', k: k, wh: o.wh || (iW >= 0 ? x.c[iW] : ''), name: x.c[iN],
+                        qty: gotM ? parseInt(gotM[1], 10) : num(x.c[iQ]), t: tm[1] || tm[0] || '', t0: tm[0] || '' });
+          }
           else if (/무름|취소|철회/.test(st)) o.done++;       // 우리가 거둬들인 것 — 걸린 게 아니다
           else { o.pend++; o.qty += num(x.c[iQ]); }        // 답을 아직 안 준 것 («기다리는 중» · 빈칸)
           if (iA >= 0 && !o.ans) o.ans = x.c[iA].slice(0, 60);
@@ -579,8 +588,13 @@
           var k = nk(x.c[jN]); if (!k) return;
           var o = WAIT[k] || { qty: 0, got: 0, pend: 0, done: 0 };
           var live = /기다리는/.test(S(x.c[jS]));
-          if (live) { o.qty += num(x.c[jQ]); o.pend++; } else o.done++;
+          var tw = String(x.c[0] || '').match(/\d{2}-\d{2}\s+\d{1,2}:\d{2}/g) || [];   // [건 때, 바뀜]
+          if (live) { o.qty += num(x.c[jQ]); o.pend++; o.at = o.at || tw[0] || ''; } else o.done++;
           o.got += num(x.c[jG]);                          // '—' 은 0 으로 읽힌다 — 화면 안내용
+          /* 🧹 대기로 받은 것 — 받은 수는 누적이라 정리 쪽이 «지난번보다 늘어난 만큼» 만 처리한다 */
+          var jW = colOf(wait.th, /창고/);
+          if (num(x.c[jG]) > 0) RECV.push({ kind: 'wait', k: k, wh: jW >= 0 ? x.c[jW] : '', name: x.c[jN],
+                                            qty: num(x.c[jG]), t: tw[1] || tw[0] || '', t0: tw[0] || '' });
           WAIT[k] = o;
         });
 
@@ -603,6 +617,7 @@
           var k = nk(x.c[dN]); if (!k) return;
           DRAW[k] = { state: S(x.c[dS]) };
         });
+        setTimeout(dedupRun, 0);   // 🧹 받은 것이 있으면 겹친 반대쪽을 무른다 (뒤에서 — 판정은 기다리지 않는다)
       });
   }
   function S(v) { return String(v == null ? '' : v).trim(); }
@@ -850,6 +865,7 @@
       } else {
         r.more = hole - mFree; r.haveM = (mo && mo.pend) ? mo.qty : 0;
         r.act = 'more';
+        r.fromWait = true;   // ⇄ 걸어 둔 대기는 증량으로 옮긴다 — 둘 다 살려 두면 두 번 받는다(2026-10-26)
         r.why = base + ' · ' + OPEN_HOUR + '시 지나도 안 풀림 → 대기 말고 증량요청으로 빨리 확인'
           + (mFree ? (' · 걸어 둔 증량 ' + mFree + '개 빼고 ' + r.more + '개 추가') : '');
       }
@@ -994,12 +1010,13 @@
         그때 옛 숫자로 덮어쓰면 남이 잡은 걸 깎거나 우리 것을 두 번 잡는다. */
   function freshRow(row) {
     return qpost({ do: 'row', tab: whTab(row), nkey: row.key }).then(function (j) {
-      var mine = 0, wq = 0, mq = 0;
+      var mine = 0, wq = 0, mq = 0, wl = [], ml = [];
       (j.cos || []).forEach(function (c) { if (c.me == 1 || c.co === row.co) mine = num(c.val); });
-      (j.waits || []).forEach(function (w) { if (w.mine == 1 || w.co === row.co) wq += num(w.qty); });
-      (j.mores || []).forEach(function (m) { if (m.mine == 1 || m.co === row.co) mq += (num(m.qty) || 1); });
+      (j.waits || []).forEach(function (w) { if (w.mine == 1 || w.co === row.co) { wq += num(w.qty); wl.push(w); } });
+      (j.mores || []).forEach(function (m) { if (m.mine == 1 || m.co === row.co) { mq += (num(m.qty) || 1); ml.push(m); } });
       var used = (j.used && row.co && j.used[row.co] != null) ? num(j.used[row.co]) : 0;
-      return { mine: mine, left: Math.max(0, num(j.remain)), wait: wq, more: mq, used: used };
+      /* waitList·moreList = 내 대기·증량 «건» 들 — 무르기(unwait·unmore)는 건 번호(srl)로 한다 */
+      return { mine: mine, left: Math.max(0, num(j.remain)), wait: wq, more: mq, used: used, waitList: wl, moreList: ml };
     });
   }
 
@@ -1059,14 +1076,161 @@
       var expect = x.haveM || 0;
       if (f.more > expect) q -= (f.more - expect);
       if (q <= 0) return { skip: '이미 증량요청 ' + f.more + '개가 답을 기다리는 중' };
-      /* 🔴 do=more 의 qty 도 «더할 값» 이 아니라 «그 회사 증량요청 총량» 이다 (2026-10-06 홍팀장 활 주꾸미 :
-            증량 20 걸어 둔 데 주문 9 가 더 들어와 9 를 보냈더니 20 이 9 로 줄었다). 대기와 똑같이
-            지금 답을 기다리는 내 증량에 더해서 보낸다 → 20 + 9 = 29. */
-      var total = f.more + q;
-      return qpost({ do: 'more', tab: whTab(x.row), nkey: x.row.key, co: x.row.co,
-                     qty: total, why: why || WHY_DEFAULT })
-        .then(function () { return { done: total, was: f.more }; });
+      /* ⇄ 대기를 증량으로 «옮겨» 건다 (2026-10-26 홍팀장 — 마감 1시간 안 자반 고등어·급냉 오징어가
+            대기도 받고 증량도 수락돼 두 번 받았다). 마감 임박·10시 지나도 안 풀림 판정은 «대기로는 안 온다» 고 보고
+            증량을 거는 것이라, 걸어 둔 대기를 그대로 두면 둘 다 살아 있게 된다.
+            순서는 [⇄ 증량] 버튼과 같다 : 대기를 먼저 무르고 → 다시 읽어 정말 줄었는지 보고 → 줄었을 때만 증량. */
+      var pre = Promise.resolve(f);
+      if (x.fromWait && f.wait > 0) {
+        var mv = Math.min(f.wait, q);
+        pre = unN('unwait', f.waitList, mv).then(function () { return freshRow(x.row); }).then(function (g) {
+          if (g.wait > f.wait - mv) throw new Error('대기 ' + f.wait + '개를 못 무르고 ' + g.wait + '개로 남아 증량은 걸지 않았습니다 — 수량 웹에서 확인해 주세요');
+          g.moved = f.wait - g.wait;
+          return g;
+        });
+      }
+      return pre.then(function (g) {
+        /* 🔴 do=more 의 qty 도 «더할 값» 이 아니라 «그 회사 증량요청 총량» 이다 (2026-10-06 홍팀장 활 주꾸미 :
+              증량 20 걸어 둔 데 주문 9 가 더 들어와 9 를 보냈더니 20 이 9 로 줄었다). 대기와 똑같이
+              지금 답을 기다리는 내 증량에 더해서 보낸다 → 20 + 9 = 29. */
+        var total = g.more + q;
+        return qpost({ do: 'more', tab: whTab(x.row), nkey: x.row.key, co: x.row.co,
+                       qty: total, why: why || WHY_DEFAULT })
+          .then(function () { return { done: total, was: g.more, moved: g.moved || 0 }; });
+      });
     });
+  }
+
+  /* ↩️ 무르기 — 수량 웹 자기 버튼과 같은 요청 (2026-10-26 수량 웹 코드에서 확인) :
+       do=unwait | unmore · srl(건 번호) · n(무를 개수, «0» = 그 건 전부).
+       여러 건이면 «나중에 건 것» 부터 무른다 — 먼저 건 대기는 줄 앞자리라 아깝다. */
+  function unN(what, list, n) {
+    var left = n, p = Promise.resolve();
+    (list || []).slice().sort(function (a, b) { return num(b.srl) - num(a.srl); }).forEach(function (it) {
+      var q = num(it.qty) || 1;
+      if (left <= 0 || !it.srl) return;
+      var take = Math.min(left, q);
+      left -= take;
+      p = p.then(function () { return qpost({ do: what, srl: it.srl, n: take >= q ? '0' : String(take) }); });
+    });
+    return p.then(function () { return n - left; });   // 실제로 무르러 보낸 수
+  }
+
+  /* 🧹 겹친 것 정리 (2026-10-26 홍팀장 「증량이 되거나 대기 건 걸 받거나 하면 체크해서 지우자」).
+       대기와 증량이 같은 부족분을 함께 덮고 있다가 «한쪽이 들어오면» 다른 쪽은 남는 몫이 된다
+       — 10/26 자반 고등어(대기 1 받음 15:50 + 증량 1 수락 15:58)·급냉 오징어(대기 4 받음 15:45 + 증량 5 수락 15:57).
+     규칙
+       · 증량 수락 N개 → 그 상품에 살아 있는 내 대기를 N개 무른다
+       · 대기로 N개 받음 → 답 안 온 내 증량을 N개 무른다
+       · 🔴 «받은 시각보다 먼저 건 것» 만 무른다. 받은 뒤에 건 것은 그 뒤 들어온 발주 몫이다(판정이 받은 수를 빼고 건다).
+       · 오늘 받은 것만. 받은 수는 이 브라우저에 적어 두고 «늘어난 만큼» 만 처리한다 — 두 번 무르지 않는다.
+     loadMy 가 끝날 때마다(가져오기·실행·마이페이지 읽기) + 이 탭이 켜져 있으면 3분마다 돈다. */
+  var DEDUP_KEY = 'qtyb_dedup_v1';
+  function dedupLoad() {
+    var d = {}; try { d = JSON.parse(localStorage.getItem(DEDUP_KEY) || '{}') || {}; } catch (e) {}
+    if (d.day !== todayMDk()) d = { day: todayMDk(), done: {}, log: [] };
+    d.done = d.done || {}; d.log = d.log || [];
+    return d;
+  }
+  function dedupSave(d) { try { localStorage.setItem(DEDUP_KEY, JSON.stringify(d)); } catch (e) {} }
+  function todayMDk() {
+    var kd = new Date(Date.now() + 9 * 3600e3);
+    return ('0' + (kd.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + kd.getUTCDate()).slice(-2);
+  }
+  var TABS = null;   // 창고 이름 → 탭 코드 (「부산」 → 「부산28」)
+  function tabOf(wh) {
+    if (TABS) return Promise.resolve(TABS[wh] || null);
+    return fetch(useUrl(), { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (h) {
+      TABS = {};
+      (h.match(/[?&]tab=([^&"'\s]+)/g) || []).forEach(function (m) {
+        var t = decodeURIComponent(m.replace(/^[?&]tab=/, ''));
+        var w = t.replace(/\d+$/, '');
+        if (w && w !== '*' && !TABS[w]) TABS[w] = t;
+      });
+      return TABS[wh] || null;
+    }).catch(function () { return null; });
+  }
+  /* 🔴 마이페이지 «창고» 칸이 탭 이름과 다를 때가 있다 — 증량 목록엔 「알가」, 탭은 「단독(유)28」(10-26 급냉 오징어).
+        이름으로 못 찾으면 탭을 하나씩 대 보고(do=row) 그 상품이 있는 탭을 쓴다. 찾은 건 기억해 둔다. */
+  var TAB_OF_KEY = {};
+  function rowFor(rc) {
+    if (IDX && IDX[rc.k]) return Promise.resolve(IDX[rc.k]);
+    var mk = function (t) { return t ? { key: rc.k, k: t + '\t' + rc.k, wh: rc.wh, name: rc.name, co: '' } : null; };
+    if (TAB_OF_KEY[rc.k]) return Promise.resolve(mk(TAB_OF_KEY[rc.k]));
+    return tabOf(rc.wh).then(function (t) {
+      var cands = (t ? [t] : []).concat(Object.keys(TABS || {}).map(function (w) { return TABS[w]; }).filter(function (x) { return x !== t; }));
+      var found = null, p = Promise.resolve();
+      cands.forEach(function (tb) {
+        p = p.then(function () {
+          if (found) return;
+          return qpost({ do: 'row', tab: tb, nkey: rc.k }).then(function (j) { if (j && j.ok && j.name) found = tb; }, function () {});
+        });
+      });
+      return p.then(function () { if (found) TAB_OF_KEY[rc.k] = found; return mk(found); });
+    });
+  }
+  function tmv(s) { var m = String(s || '').match(/(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/); return m ? ((+m[1]) * 1e6 + (+m[2]) * 1e4 + (+m[3]) * 100 + (+m[4])) : 0; }
+  var DEDUP_BUSY = false;
+  function dedupRun() {
+    if (DEDUP_BUSY) return Promise.resolve();
+    var d = dedupLoad(), today = todayMDk();
+    var todo = RECV.filter(function (rc) {
+      if (String(rc.t).slice(0, 5) !== today) return false;
+      var id = rc.kind + '|' + rc.k + '|' + rc.t0;
+      rc.id = id; rc.delta = rc.qty - (d.done[id] || 0);
+      return rc.delta > 0;
+    });
+    if (!todo.length) { dedupPaint(d); return Promise.resolve(); }
+    DEDUP_BUSY = true;
+    var p = Promise.resolve();
+    todo.forEach(function (rc) {
+      p = p.then(function () { return rowFor(rc); }).then(function (row) {
+        if (!row) return;                                   // 탭을 못 찾았다 — 다음 회차에 다시
+        return freshRow(row).then(function (f) {
+          var rt = tmv(rc.t);
+          /* 반대쪽 = 증량을 받았으면 대기, 대기로 받았으면 증량. 받은 시각보다 먼저 건 것만. */
+          var opp = rc.kind === 'more'
+            ? (WAIT[rc.k] && WAIT[rc.k].at && tmv(WAIT[rc.k].at) <= rt ? f.waitList : [])
+            : f.moreList.filter(function (m) { return tmv(m.at) && tmv(m.at) <= rt; });
+          var have = opp.reduce(function (n, it) { return n + (num(it.qty) || 1); }, 0);
+          var n = Math.min(rc.delta, have);
+          var what = rc.kind === 'more' ? 'unwait' : 'unmore';
+          if (!n) { d.done[rc.id] = rc.qty; dedupSave(d); return; }   // 겹친 게 없다 — 처리한 것으로 적는다
+          return unN(what, opp, n).then(function () { return freshRow(row); }).then(function (g) {
+            var before = rc.kind === 'more' ? f.wait : f.more, after = rc.kind === 'more' ? g.wait : g.more;
+            var okN = Math.max(0, before - after);
+            d.done[rc.id] = rc.qty;
+            d.log.unshift({ at: hhmm(), name: rc.name, txt: (rc.kind === 'more' ? '증량 ' + rc.qty + ' 수락 → 대기 ' : '대기로 ' + rc.qty + ' 받음 → 증량 ')
+              + before + '→' + after + (okN < n ? ' ⚠️ ' + n + '개 무르려 했는데 ' + okN + '개만 줄었음' : '') , bad: okN < n });
+            d.log = d.log.slice(0, 30);
+            dedupSave(d);
+          });
+        });
+      }).catch(function (e) {
+        var d2 = dedupLoad();
+        d2.log.unshift({ at: hhmm(), name: rc.name, txt: '정리 실패 — ' + (e && e.message ? e.message : e), bad: true });
+        d2.log = d2.log.slice(0, 30); dedupSave(d2); d = d2;
+      });
+    });
+    return p.then(function () { DEDUP_BUSY = false; dedupPaint(dedupLoad()); }, function () { DEDUP_BUSY = false; });
+  }
+  function dedupPaint(d) {
+    var box = el('qtyb-dedup'); if (!box) return;
+    d = d || dedupLoad();
+    if (!d.log.length) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    box.innerHTML = '<b>🧹 겹친 대기·증량 정리</b> <span class="mut">(오늘 ' + d.log.length + '건)</span><br>'
+      + d.log.slice(0, 6).map(function (l) {
+          return '<span' + (l.bad ? ' style="color:#b91c1c;font-weight:700"' : '') + '>· ' + esc(l.at) + ' ' + esc(l.name) + ' — ' + esc(l.txt) + '</span>';
+        }).join('<br>');
+  }
+  function dedupTimer() {
+    if (window.__QTYB_DEDUP) clearInterval(window.__QTYB_DEDUP);
+    window.__QTYB_DEDUP = setInterval(function () {
+      var h = kstNow(); if (h < 8 || h >= 19) return;      // 수량이 오가는 시간에만
+      loadMy();                                             // 끝나면 dedupRun 이 뒤에서 돈다
+    }, 3 * 60 * 1000);
+    dedupPaint();
   }
   /* 창고 코드는 줄 키 앞머리에 있다 — data-k = 「경기28\t양평해장국600G」 */
   function whTab(row) { return (row.k || '').split('\t')[0] || row.wh; }
@@ -1284,6 +1448,8 @@
       '  </div>' +
       /* ⚠️ 재고없음 급증·전송 차단 알림 자리 (2026-10-20) — 평소엔 숨어 있다 */
       '  <div id="qtyb-stockwarn" style="display:none;margin-top:6px;padding:7px 9px;border:1px solid #f0a;border-radius:7px;background:#fff0f6;color:#a0005a;font-weight:700;line-height:1.45"></div>' +
+      /* 🧹 겹친 대기·증량 정리 기록 (2026-10-26) — 오늘 정리한 게 없으면 숨어 있다 */
+      '  <div id="qtyb-dedup" style="display:none;margin-top:6px;padding:7px 9px;border:1px solid #a7f3d0;border-radius:7px;background:#ecfdf5;font-size:12px;line-height:1.5"></div>' +
       '  <div id="qtyb-hunt"></div>' +
       '  <div id="qtyb-out"></div>' +
       '</div>';
@@ -1558,7 +1724,8 @@
               var why0 = idx.stuck && nowH >= OPEN_HOUR ? OPEN_HOUR + '시 지나도 안 풀림' : '마감(' + cut + '시) 1시간 안';
               if (refused) chk = '증량 거부 — 업체 안내';
               else if (mq >= gap) chk = '증량 ' + mq + ' 걸림';
-              else { act = { t: 'more', n: gap - mq }; chk = '🔴 증량요청 ' + act.n + '개 필요 (' + why0 + (wq ? ' · 대기 ' + wq + '만 걸림' : '') + ')'; bad = true; }
+              /* ⇄ fromWait — 걸어 둔 대기는 증량으로 «옮긴다»(대기를 무르고 증량). 둘 다 살려 두면 두 번 받는다(2026-10-26 자반 고등어) */
+              else { act = { t: 'more', n: gap - mq, fromWait: wq > 0 }; chk = '🔴 증량요청 ' + act.n + '개 필요 (' + why0 + (wq ? ' · 대기 ' + wq + '개는 증량으로 옮김' : '') + ')'; bad = true; }
             } else if (wq + mq >= gap) chk = (wq ? '대기 ' + wq : '') + (wq && mq ? ' · ' : '') + (mq ? '증량 ' + mq : '') + ' 걸림'
                 + (idx.locked && idx.left > 0 ? ' (잔여 ' + idx.left + ' 남아 증량 불가 — 안 풀리면 관리팀 문의)' : '');
             else {
@@ -1627,10 +1794,11 @@
               }
               var r = acts[i];
               bb.textContent = '거는 중 ' + (i + 1) + '/' + acts.length;
-              var x = { row: r.idx, wait: r.act.t === 'wait' ? r.act.n : 0, more: r.act.t === 'more' ? r.act.n : 0, haveW: r.wq, haveM: r.mq };
+              var x = { row: r.idx, wait: r.act.t === 'wait' ? r.act.n : 0, more: r.act.t === 'more' ? r.act.n : 0, haveW: r.wq, haveM: r.mq, fromWait: !!r.act.fromWait };
               (r.act.t === 'more' ? actMore(x, WHY_DEFAULT) : actWait(x)).then(function (res) {
                 if (res && res.skip) done.push('· ' + esc(r.name) + ' — 건너뜀: ' + esc(res.skip));
                 else done.push('· ' + esc(r.name) + ' — ' + (r.act.t === 'more' ? '증량요청 ' : '대기 ') + r.act.n + '개'
+                  + (res && res.moved ? ' (대기 ' + res.moved + '개 무르고 옮김)' : '')
                   + (res && res.now != null ? ' (대기 합계 ' + res.now + ')' : ''));
               }, function (e) {
                 fail.push('· ' + esc(r.name) + ' — ' + esc(e && e.message ? e.message : e));
@@ -3251,4 +3419,5 @@
   };
   build();
   stockTimer();
+  dedupTimer();
 })();
