@@ -708,7 +708,13 @@ function buildOut(){
     const c = checkRow(r);
     if(c.errs.length || !c.p) return;
     const wh = whOf(c.p);
-    const key = [S(r.biz), D(r.otel), S(r.rcv), addrKey(r.addr), D(r.tel), wh].join('');
+    /* 🔴 묶는 열쇠는 **발주서에 실제로 나가는 값**으로 (2026-10-27 다정한공간 O261027-007 — 알도루묵·양미리가 한 집인데 두 줄).
+       아래 put 은 자기 업체명 송장명을 비우고, 빈 주문처 연락처를 출고지·계정 번호로 채운다. 그런데 열쇠는 원본 칸을 봐서
+       「한 줄은 연락처 빈칸 / 한 줄은 계정 번호」 같은 차이만으로 다른 집으로 갈렸다 — 시트엔 똑같이 찍히는데 합포장이 안 됐다. */
+    const kBiz = (S(r.biz) && pkey(r.biz) === pkey(me.name)) ? '' : S(r.biz);
+    const kSh = kBiz ? shipOf(kBiz) : null;
+    const kOtel = D(r.otel) || ((kBiz && vflag('emptyOtel') === 'rcv') ? D(r.tel) : '') || D(kSh && kSh.phone) || D(me.phone);
+    const key = [pkey(kBiz), kOtel, S(r.rcv), addrKey(r.addr), D(r.tel), wh].join('');
     if(!groups.has(key)) groups.set(key, {biz:S(r.biz), otel:S(r.otel), rcv:S(r.rcv), addr:S(r.addr), tel:S(r.tel), msg:'', wh, items:[]});
     const g = groups.get(key);
     /* 🐟 발주서에 나가는 이름 = 카탈로그 정식 이름 + 고른 삭힘정도.
@@ -2360,6 +2366,17 @@ function qtyCells(no, r){
         + '" data-name="' + esc(p.name) + '" inputmode="numeric" value="' + esc(p.qty) + '">' : '')
     + '</span>').join('');
 }
+/* 📦 합포장 후보 = 아직 접수인 줄 중 받는분·주소·연락처(+송장명·주문처 연락처)가 같은 줄이 2개 이상 (2026-10-27 홍팀장).
+   서버 doMerge 와 같은 열쇠. 몇 줄이 합쳐지는지 돌려준다(0이면 버튼 없음). */
+function mergeable(list){
+  const m = new Map();
+  list.filter(r => r.state === '접수').forEach(r => {
+    const k = [S(r.biz), D(r.otel), S(r.rcv).replace(/\s+/g, ''), S(r.addr).replace(/\s+/g, ''), D(r.tel)].join('\u0001');
+    m.set(k, (m.get(k) || 0) + 1);
+  });
+  let n = 0; m.forEach(c => { if(c > 1) n += c - 1; });
+  return n;
+}
 function orderCard(no, list, master){
   let h = '';
   {
@@ -2407,6 +2424,7 @@ function orderCard(no, list, master){
           ? (sent
               ? '<button class="ordb2 done" disabled>✅ 당일 시트로 보냈습니다</button>'
               : (live.length ? '<button class="ordb2 pri" data-opush="' + esc(no) + '">📤 당일 시트로 보내기</button>' : ''))
+            + (!sent && mergeable(list) ? '<button class="ordb2" data-omerge="' + esc(no) + '" title="받는분·주소·연락처가 같은 접수 줄을 한 줄(A x 2 / B x 1)로 합칩니다">📦 합포장</button>' : '')
           : '')
       + (EDIT_NO === no
           ? '<button class="ordb2 pri" data-osave="' + esc(no) + '">💾 수정 완료</button>'
@@ -3935,6 +3953,17 @@ document.addEventListener('click', e => {
     api('push', {token: ME.token, orderNo: no})
       .then(j => { toast(no + ' → 당일 시트 ' + j.col + j.row + '행에 ' + j.count + '줄'); reloadOrders(); })
       .catch(err => { alert(err.message || '보내지 못했습니다'); op.disabled = false; op.textContent = '📤 당일 시트로 보내기'; });
+    return;
+  }
+  /* 📦 합포장 — 같은 집으로 가는 접수 줄을 한 줄로. 나머지 줄은 서버가 취소+메모로 남긴다 (2026-10-27 홍팀장) */
+  const omg = e.target.closest && e.target.closest('[data-omerge]');
+  if(omg){
+    const no = omg.getAttribute('data-omerge');
+    if(!confirm('📦 ' + no + '\n\n받는분·주소·연락처가 같은 접수 줄을 한 줄로 합칩니다 (A x 2 / B x 1).\n합쳐진 나머지 줄은 취소로 남습니다.\n\n창고가 다른 상품이면 합포장이 안 됩니다 — 확인하셨나요?')) return;
+    omg.disabled = true; omg.textContent = '합치는 중…';
+    api('merge', {token: ME.token, orderNo: no})
+      .then(j => { toast('📦 ' + no + ' — ' + (j.lines || []).join(' · ')); reloadOrders(); })
+      .catch(err => { alert(err.message || '합치지 못했습니다'); omg.disabled = false; omg.textContent = '📦 합포장'; });
     return;
   }
   /* 📤 한번에 보내기 — 묶음마다 [📤 당일 시트로 보내기]를 누른 것과 똑같이 하나씩 차례로 보낸다.
