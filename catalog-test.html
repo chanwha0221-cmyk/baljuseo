@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.200</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.201</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3781,10 +3781,7 @@ async function loadLowm(){
 function lowmLoss(rows){return rows.filter(r=>r.urgent!=null?!!r.urgent:(!r.okd&&+r.base>0&&+r.sell>0&&+r.sell<+r.base));}
 /* 👌 괜찮음 — 이 상품은 마진을 다시 묻지 않는다(연어처럼 서비스로 파는 것). 다시 누르면 취소. */
 function lowmOk(btn,n,on){
-  const tr=btn.closest('tr'), loss=on&&tr&&tr.dataset.loss==='1';
-  if(on&&!confirm(loss
-    ?'🔴 '+n+'\n\n판매가가 공급가보다 낮습니다 — 팔면 밑집니다.\n지금 판매가·공급가 그대로일 때만 안 묻고, 값이 바뀌면 다시 묻습니다(당일은 다시 숨김).\n이 가격 그대로 괜찮습니까?'
-    :'👌 '+n+'\n\n앞으로 이 상품은 마진을 묻지 않습니다.\n진행할까요?'))return;
+  if(on&&!confirm('👌 '+n+'\n\n앞으로 이 상품은 마진을 묻지 않습니다.\n(역마진이 되면 괜찮음과 상관없이 다시 뜹니다)\n진행할까요?'))return;
   btn.disabled=true;
   api('lowmok',{token:ME.token,n,on}).then(j=>{
     if(!j||!j.ok){btn.disabled=false;alert('저장하지 못했습니다 — '+((j&&j.error)||'알 수 없음'));return;}
@@ -3795,13 +3792,13 @@ function lowmOk(btn,n,on){
 /* 👌 전체 괜찮음 (2026-10-19 홍팀장 「전체 괜찮음 버튼 하나만」) — 지금 확인할 상품 목록 전부를 한 번에.
    서버(lowmok)가 목록을 읽고 고쳐 쓰므로 동시에 쏘지 않고 하나씩 보낸다. */
 function lowmOkAll(btn){
-  /* 🔴 역마진(판매가 < 공급가)은 한꺼번에 넘기지 않는다 (2026-10-27 — 10-19 전체 괜찮음에 역마진 전복이 섞여 공급가 밑으로 10개 팔림). 줄마다 [👌 괜찮음] */
+  /* 🔴 역마진(판매가 < 공급가)은 괜찮음 대상이 아니다 (2026-10-27 — 10-19 전체 괜찮음에 역마진 전복이 섞여 공급가 밑으로 10개 팔림). 단가를 고쳐야 빠진다 */
   const all=[...document.querySelectorAll('tr[data-lowm]')];
   const names=all.filter(tr=>tr.dataset.loss!=='1').map(tr=>tr.dataset.lowm).filter(Boolean);
   const lossN=all.length-names.length;
-  if(!names.length){toast(lossN?'🔴 역마진 '+lossN+'개는 하나씩 — 단가를 고치거나 줄마다 [👌 괜찮음]':'괜찮음 할 상품이 없습니다');return;}
+  if(!names.length){toast(lossN?'🔴 역마진 '+lossN+'개는 괜찮음이 안 됩니다 — 새 판매가로 고쳐 주세요':'괜찮음 할 상품이 없습니다');return;}
   if(!confirm('👌 지금 목록 '+names.length+'개 전부 «괜찮음»\n\n'+names.slice(0,15).map(n=>'· '+n).join('\n')+(names.length>15?'\n…':'')
-    +(lossN?'\n\n🔴 역마진 '+lossN+'개는 빼고 합니다 — 줄마다 확인하세요.':'')+'\n\n앞으로 이 상품들은 마진을 묻지 않습니다. 진행할까요?'))return;
+    +(lossN?'\n\n🔴 역마진 '+lossN+'개는 빼고 합니다 — 단가를 고쳐야 빠집니다.':'')+'\n\n앞으로 이 상품들은 마진을 묻지 않습니다. 진행할까요?'))return;
   btn.disabled=true;
   let ok=0;const fail=[];
   (async()=>{
@@ -3854,7 +3851,8 @@ function renderLowm(j,lossOnly){
   if(!rows.length)return h+bar('')+'<div class="empty">'+(lossOnly?'✅ 지금 확인할 상품이 없습니다.':'마진율 '+j.max+'% 이하 상품이 없습니다.')+'</div>';
   const cols=lossOnly?['등장','구분','창고','상품명','판매가','공급가','새 판매가','원가','택배비','마진','마진율','']:['등장','구분','창고','상품명','판매가','새 판매가','원가','택배비','마진','마진율',''];
   const hm=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}):'';
-  const okBtn=r=>r.ok?'<button class="ubtn" style="font-size:11.5px" title="다시 확인 대상으로" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',false)">👌 괜찮음 ✓</button>':'<button class="ubtn" style="font-size:11.5px" title="이 상품은 마진을 다시 묻지 않습니다" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',true)">👌 괜찮음</button>';
+  /* 🔴 역마진 줄엔 [👌 괜찮음] 없음 — 괜찮음을 눌러도 역마진이면 계속 뜬다 (2026-10-27 홍팀장 「어떤 장사꾼이 역마진을 보고 상품이 나가냐」) */
+  const okBtn=r=>(+r.base>0&&+r.sell<+r.base)?'<span style="font-size:11.5px;color:#b91c1c;font-weight:700;white-space:nowrap">🔴 단가 수정</span>':r.ok?'<button class="ubtn" style="font-size:11.5px" title="다시 확인 대상으로" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',false)">👌 괜찮음 ✓</button>':'<button class="ubtn" style="font-size:11.5px" title="이 상품은 마진을 다시 묻지 않습니다" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',true)">👌 괜찮음</button>';
   const inCell=r=>'<input class="lowm-in" inputmode="numeric" placeholder="'+won(r.sell)+'" oninput="lowmCalc(this)" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit">';
   const okAllBtn=lossOnly?'<button class="ubtn" style="font-weight:800" onclick="lowmOkAll(this)">👌 전체 괜찮음 '+rows.length+'</button>':'';
   h+=bar(saveBtn+okAllBtn)
