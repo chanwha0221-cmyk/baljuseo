@@ -2372,9 +2372,18 @@ function mergeable(list){
   const m = new Map();
   list.filter(r => r.state === '접수').forEach(r => {
     const k = [S(r.biz), D(r.otel), S(r.rcv).replace(/\s+/g, ''), S(r.addr).replace(/\s+/g, ''), D(r.tel)].join('\u0001');
-    m.set(k, (m.get(k) || 0) + 1);
+    if(!m.has(k)) m.set(k, []);
+    m.get(k).push(r);
   });
-  let n = 0; m.forEach(c => { if(c > 1) n += c - 1; });
+  /* 🔴 같은 상품이 여러 줄 = 박스 한도·무료배송으로 일부러 나눈 줄 → 후보에서 뺀다 (O261027-023 홍가리비 x 10 × 13줄을 띄웠다).
+     무료배송은 서버(doMerge)가 한 번 더 뺀다. */
+  const nm = p => pkey(S(p).replace(/\s*[xX×]\s*\d+.*$/, ''));
+  let n = 0;
+  m.forEach(g => {
+    const cnt = {}; g.forEach(r => { const k = nm(r.prod); cnt[k] = (cnt[k] || 0) + 1; });
+    const ok = g.filter(r => S(r.prod).indexOf(' / ') >= 0 || cnt[nm(r.prod)] === 1);
+    if(ok.length > 1) n += ok.length - 1;
+  });
   return n;
 }
 function orderCard(no, list, master){
