@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-27b';
+  var QTYB_VER = '2026-10-27c';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -2001,14 +2001,18 @@
       var tabs = {}, unknown = false;
       left.forEach(function (w) { var t = WHMAP[w.key] || (IDX && IDX[w.key] && whTab(IDX[w.key])); if (t) tabs[t] = 1; else unknown = true; });
       if (unknown || !haveIdx()) return scanAll();
+      var seen = {};
       return Object.keys(tabs).reduce(function (pr, t) {
         return pr.then(function () {
           return fetchSec(t).then(function (rows) {
             SCAN_CACHE[t] = { at: Date.now(), rows: rows };
-            rows.forEach(function (r) { if (r && r.key) { IDX[r.key] = r; WHMAP[r.key] = t; } });
+            rows.forEach(function (r) { if (r && r.key) { IDX[r.key] = r; WHMAP[r.key] = t; seen[r.key] = 1; } });
           });
         });
-      }, Promise.resolve());
+      }, Promise.resolve()).then(function () {
+        /* 🔴 창고 탭은 날짜 숫자가 붙어 판이 바뀐다(단독(유)28 → 29). 그 탭에서 상품이 안 보이면 전부 긁어 새 탭을 찾는다 */
+        if (left.some(function (w) { return !seen[w.key]; })) { left.forEach(function (w) { delete WHMAP[w.key]; }); SCAN_CACHE = {}; return scanAll(); }
+      });
     }
     window.__QTYB_PRE_ADD = function (more) {
       var n = 0;
