@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-26a';
+  var QTYB_VER = '2026-10-27a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -1971,6 +1971,10 @@
      · 넉넉(안 잡아도 되는 상품)·잠긴 줄(품절·안 풀림)·총수량 0·당일 상품·잡기 칸 없는 줄은 뺀다.
      잡은 것은 다음 날 대조에서 «잡아 둔 여유» 로 먼저 쓰이고, 안 나가면 마감 1시간 전 「풀어야」 경고가 뜬다. */
   var PRE_DAYS = 6, PRE_MIN_LINES = 30, PRE_UNTIL_H = 10, PRE_EVERY_MS = 5 * 60000;
+  /* ⚡ 📌 지금 잡기 감시는 10초마다, 그 상품 창고만 캐시 없이 다시 읽는다 (2026-10-27 홍팀장 「바지락 400개 팔고 50개밖에 못 나간다 —
+        나왔음요 튀어나오자마자 목숨 걸고 수량 잡아야 한다」). 5분 간격 + 18곳 전부 긁기(30초)로는 늦다.
+        🌙 내일 몫 예약(fast 없음)은 예전대로 5분. 창고를 모르는 상품이 섞이면 그 회차만 전부 긁는다. */
+  var FAST_MS = 10000;
 
   /* ⏳ 예약 — 아직 안 열린 상품을 5분마다 보고, 열리면 평균만큼 잡는다 (2026-10-07 홍팀장
         「끝나고 저 버튼 눌러 놓으면 수량 열리는 거 확인해서 자동으로 잡아 줄 수 있어?」).
@@ -1984,15 +1988,30 @@
     if (window.__QTYB_PRE) clearInterval(window.__QTYB_PRE);
     var k = new Date(Date.now() + 9 * 3600000);                   // 한국 시간
     var until = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() + (k.getUTCHours() >= PRE_UNTIL_H ? 1 : 0), PRE_UNTIL_H) - 9 * 3600000;
-    var left = waits.slice(), log = [], busy = false;
+    var left = waits.slice(), log = [], busy = false, lastSlow = 0;
+    function anyFast() { return left.some(function (w) { return w.fast; }); }
+    /* ⚡ 빠른 회차 = 기다리는 상품이 있는 창고만 캐시 없이 직접 읽어 IDX 를 고친다. 창고를 모르는 게 있으면 전부 긁기 */
+    function scanWatch() {
+      var tabs = {}, unknown = false;
+      left.forEach(function (w) { var t = WHMAP[w.key] || (IDX && IDX[w.key] && whTab(IDX[w.key])); if (t) tabs[t] = 1; else unknown = true; });
+      if (unknown || !haveIdx()) return scanAll();
+      return Object.keys(tabs).reduce(function (pr, t) {
+        return pr.then(function () {
+          return fetchSec(t).then(function (rows) {
+            SCAN_CACHE[t] = { at: Date.now(), rows: rows };
+            rows.forEach(function (r) { if (r && r.key) { IDX[r.key] = r; WHMAP[r.key] = t; } });
+          });
+        });
+      }, Promise.resolve());
+    }
     window.__QTYB_PRE_ADD = function (more) {
       var n = 0;
       (more || []).forEach(function (w) {
         var old = left.filter(function (x) { return x.key === w.key; })[0];
-        if (old) { if (w.avg > old.avg) { old.avg = w.avg; n++; } }
+        if (old) { if (w.avg > old.avg) { old.avg = w.avg; n++; } if (w.fast) old.fast = 1; }
         else { left.push(w); n++; }
       });
-      paint(hhmm() + ' 기다릴 것 ' + n + '건 더했습니다 — 5분마다 확인합니다');
+      paint(hhmm() + ' 기다릴 것 ' + n + '건 더했습니다 — ' + (anyFast() ? '⚡ ' + (FAST_MS / 1000) + '초마다' : '5분마다') + ' 확인합니다');
     };
     function paint(msg) {
       var d = el('qtyb-prew');
@@ -2015,10 +2034,13 @@
       if (busy) return;
       if (!left.length) { stop(); paint('다 잡았습니다'); return; }
       if (Date.now() > until) { stop(); paint(PRE_UNTIL_H + '시가 지나 그만뒀습니다 — 남은 건 아침 대조에서'); return; }
+      var fast = anyFast();
+      if (!fast && Date.now() - lastSlow < PRE_EVERY_MS - 5000) return;   // 🌙 만 남았으면 5분 간격 그대로
+      lastSlow = Date.now();
       busy = true;
-      var hm = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+      var hm = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: fast ? '2-digit' : undefined, hour12: false }).format(new Date());
       paint(hm + ' 확인 중…');
-      scanAll().then(function () {
+      (fast ? scanWatch() : scanAll()).then(function () {
         if (!haveIdx()) { paint(hm + ' 창고를 못 읽음(로그인 확인) — 5분 뒤 다시'); return; }
         return left.slice().reduce(function (pr, w) {
           return pr.then(function () {
@@ -2043,13 +2065,14 @@
             }).catch(function (e) { log.push('· ' + w.name + ' — 실패: ' + (e.message || e)); });
           });
         }, Promise.resolve()).then(function () {
-          paint(left.length ? hm + ' 확인 — 5분 뒤 다시 봅니다(내일 ' + PRE_UNTIL_H + '시까지)' : '다 잡았습니다');
+          paint(left.length ? hm + ' 확인 — ' + (anyFast() ? '⚡ ' + (FAST_MS / 1000) + '초 뒤' : '5분 뒤') + ' 다시 봅니다(내일 ' + PRE_UNTIL_H + '시까지)' : '다 잡았습니다');
         });
       }).catch(function (e) { paint(hm + ' 실패(' + (e.message || e) + ') — 5분 뒤 다시'); })
         .then(function () { busy = false; });
     }
-    window.__QTYB_PRE = setInterval(tick, PRE_EVERY_MS);
-    paint('예약했습니다 — 5분마다 확인합니다(내일 ' + PRE_UNTIL_H + '시까지). 이 탭은 켜 두세요.');
+    window.__QTYB_PRE = setInterval(tick, FAST_MS);
+    paint('예약했습니다 — ' + (anyFast() ? '⚡ ' + (FAST_MS / 1000) + '초마다' : '5분마다') + ' 확인합니다(내일 ' + PRE_UNTIL_H + '시까지). 이 탭은 켜 두세요.');
+    if (anyFast()) setTimeout(tick, 500);   // ⚡ 첫 확인은 바로
   }
 
   /* 📌 지금 잡기 (2026-10-22 홍팀장 「알도루묵 1팩 이거 35개 필요하거든 — 발주대조에 수량 잡기 기능 만들어 주고
@@ -2113,11 +2136,11 @@
         });
       }, Promise.resolve()).then(function () {
         if (wait.length) {
-          preWatch(wait.map(function (x) { return { key: x.key, name: x.name, avg: x.qty, outToday: 0 }; }));
+          preWatch(wait.map(function (x) { return { key: x.key, name: x.name, avg: x.qty, outToday: 0, fast: 1 }; }));
           try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
         }
         fin(log.map(esc).join('<br>')
-          + (wait.length ? (log.length ? '<br>' : '') + '<b>⏳ 열릴 때까지 지켜봅니다</b> (5분마다 · 이 탭 켜 두세요) — '
+          + (wait.length ? (log.length ? '<br>' : '') + '<b>⏳ 열릴 때까지 지켜봅니다</b> (⚡ ' + (FAST_MS / 1000) + '초마다 · 이 탭 켜 두세요) — '
               + wait.map(function (x) { return esc(x.name) + ' ' + x.qty + '개'; }).join(' · ') : '')
           + (miss.length ? '<br><b>🔎 수량 웹에 아직 줄이 없는 이름</b> — 이름이 틀렸는지 확인해 주세요<br>'
               + miss.map(function (m) {
