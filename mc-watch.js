@@ -148,8 +148,17 @@
       }
     } catch (e) { dayTxt = '당일 못 보냄: ' + (e && e.message ? e.message : e); }
 
+    /* 📋 ※ 스펙 — 스펙이 아직 없는 상품만 masterc 상세에서 긁어 보낸다(mc-spec.js, mc-list·mc-day 와 같은 것).
+       (2026-10-27 홍팀장 「보내기를 안 누르는 시스템을 만든 건데」 — 감시 창엔 이 단계가 빠져 있어서 새 상품 카드 스펙이 비었다) */
+    var specTxt = '';
+    try {
+      if (!window.MCSPEC) await new Promise(function (res, rej) { var s = document.createElement('script'); s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/mc-spec.js?v=' + Date.now(); s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+      var sr = await window.MCSPEC.run(EDGE, KEY);
+      if (sr.need) specTxt = ' · 📋 스펙 ' + sr.saved + '개 채움' + (sr.miss ? '(상세에 스펙 없는 것 ' + sr.miss + ')' : '');
+    } catch (e) { specTxt = ' · ⚠️ 스펙 못 채움: ' + (e && e.message ? e.message : e); }
+
     // 💸 저마진 알림은 lossAsk(서버 lowmq 긴급 목록)가 맡는다 — 옛 lowmCheck(8% 이하 새것 전부)는 안 부른다 (10-16)
-    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt;
+    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt + specTxt;
   }
 
   /* ── 🐟 당일 자동 등록 — mc-day.js ① 과 같은 규칙·같은 요청(daily_save · 규칙가 · 오늘만) ── */
