@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-27c';
+  var QTYB_VER = '2026-10-27d';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -1994,6 +1994,65 @@
     if (waits.some(function (w) { return w.fast; }))                 // 📌 = 다음 날 19시까지
       until = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() + 1, FAST_UNTIL_H) - 9 * 3600000;
     var left = waits.slice(), log = [], busy = false, lastSlow = 0;
+    /* 🔥 1초 감시 + 공지 감시 (2026-10-27 홍팀장 「10초 동안 못 잡을 수도 있다 / 공지 뜨면 사람들은 바로 움직인다 — 그 공지를 체크해서 바로 움직여야」)
+          · 📌 상품 줄을 do=row(30ms·1.5KB)로 **1초마다** 직접 본다 — 잔여가 생기는 순간 잡는다.
+          · 수량 웹 실시간 공지(infolive.php?hist=1, 재입고·출시 «총수량 N»)를 **2초마다** 본다 — 📌 상품 이름이 든 새 공지가 뜨면
+            90초 동안 **0.25초 간격**으로 몰아친다.
+          · 잡은 만큼 내 대기를 무른다 — 대기 자동 배정(wait:auto)까지 받으면 두 번 들어온다.
+          · 06~19시만(밤엔 위 1분 확인이 맡는다). 창고 판 바뀜·잠김은 10초 확인(scanWatch)이 IDX 를 고친다. */
+    var HOT_MS = 1000, BURST_MS = 250, BURST_FOR = 90000, NT_MS = 2000;
+    var hotT = null, hotBusy = false, lastHot = 0, burstUntil = 0, lastNt = 0, ntTop = 0;
+    function hotItems() { return left.filter(function (w) { return w.fast && IDX && IDX[w.key] && IDX[w.key].co; }); }
+    function ntCheck() {
+      if (Date.now() - lastNt < NT_MS) return;
+      lastNt = Date.now();
+      fetch('/qty/infolive.php?hist=1', { cache: 'no-store', credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+        var list = (j && j.list) || [], top = list.length ? +list[0].srl || 0 : 0;
+        if (!ntTop) { ntTop = top; return; }                       // 처음 본 판 = 기준선
+        var fresh = list.filter(function (n) { return +n.srl > ntTop; });
+        ntTop = Math.max(ntTop, top);
+        var hit = fresh.filter(function (n) {
+          var t = String((n.head || '') + ' ' + (n.rest || '')).replace(/\s+/g, '').toUpperCase();
+          return hotItems().some(function (w) { return t.indexOf(w.key) >= 0 || t.indexOf(String(w.name).replace(/\s+/g, '').toUpperCase()) >= 0; });
+        });
+        if (hit.length) {
+          burstUntil = Date.now() + BURST_FOR;
+          log.push('· 📢 ' + hit[0].at + ' 공지 — ' + String(hit[0].rest || hit[0].head).slice(0, 80) + ' → 0.25초 몰아치기');
+          try { if (window.Notification && Notification.permission === 'granted') new Notification('📢 공지 떴습니다 — 잡는 중', { body: String(hit[0].rest || '').slice(0, 100), tag: 'qtyb-nt' }); } catch (e) {}
+          paint(hhmm() + ' 공지 감지 — 몰아치는 중');
+        }
+      }).catch(function () {});
+    }
+    function hotRun() {
+      var hh = kstHour();
+      if (hh < FAST_DAY_H[0] || hh >= FAST_DAY_H[1]) return;
+      var items = hotItems(); if (!items.length) return;
+      ntCheck();
+      var gap = Date.now() < burstUntil ? BURST_MS : HOT_MS;
+      if (hotBusy || Date.now() - lastHot < gap - 30) return;
+      hotBusy = true; lastHot = Date.now();
+      items.reduce(function (pr, w) {
+        return pr.then(function () {
+          var row = IDX[w.key];
+          return freshRow(row).then(function (f) {
+            var spare = Math.max(0, f.mine - Math.max(f.used, w.outToday || 0));
+            var need = Math.max(0, w.avg - spare);
+            if (!need) { if (left.indexOf(w) >= 0) left.splice(left.indexOf(w), 1); log.push('· ' + hhmm() + ' ' + w.name + ' — 여유 ' + spare + '개, 다 찼습니다'); paint('다 찼습니다'); return; }
+            var add = Math.min(need, f.left);
+            if (add <= 0) return;
+            var hm = hhmm();
+            return qpost({ do: 'set', tab: whTab(row), nkey: row.key, co: row.co, val: f.mine + add, name: row.name, how: 'pop' })
+              .then(function () {
+                log.push('· 🔥 ' + hm + ' ' + w.name + ' ' + f.mine + ' → ' + (f.mine + add) + (add < need ? ' (잔여 부족, ' + (need - add) + '개 더 기다림)' : ''));
+                try { if (window.Notification && Notification.permission === 'granted') new Notification('📌 수량 잡았습니다', { body: w.name + ' ' + (f.mine + add) + '개 (' + hm + ')', tag: 'qtyb-grab' }); } catch (e) {}
+                var un = Math.min(add, f.wait);
+                if (un > 0 && f.waitList.length) return unN('unwait', f.waitList, un).then(function () { log.push('·   대기 ' + un + '개 무름(두 번 받지 않게)'); }, function (e) { log.push('·   ⚠️ 대기 무르기 실패 — ' + (e.message || e) + ' · 수량 웹에서 대기 확인'); });
+              }).then(function () { paint(hm + ' 잡음'); });
+          });
+        });
+      }, Promise.resolve()).catch(function (e) { log.push('· ⚠️ ' + hhmm() + ' 1초 감시 실패 — ' + (e.message || e)); })
+        .then(function () { hotBusy = false; });
+    }
     function untilTxt() { var t = new Date(until + 9 * 3600000), k = new Date(Date.now() + 9 * 3600000); return (t.getUTCDate() === k.getUTCDate() ? '오늘 ' : '내일 ') + t.getUTCHours() + '시'; }
     function anyFast() { return left.some(function (w) { return w.fast; }); }
     /* ⚡ 빠른 회차 = 기다리는 상품이 있는 창고만 캐시 없이 직접 읽어 IDX 를 고친다. 창고를 모르는 게 있으면 전부 긁기 */
@@ -2041,7 +2100,7 @@
       if (s) s.onclick = function () { left = []; stop(); paint('취소했습니다'); };
       saveWatch(left, until);                      // 💾 페이지가 새로 떠도 이어 받게 적어 둔다
     }
-    function stop() { clearInterval(window.__QTYB_PRE); window.__QTYB_PRE = null; window.__QTYB_PRE_ADD = null; saveWatch(left, until); }
+    function stop() { clearInterval(window.__QTYB_PRE); window.__QTYB_PRE = null; window.__QTYB_PRE_ADD = null; if (window.__QTYB_HOT) { clearInterval(window.__QTYB_HOT); window.__QTYB_HOT = null; } saveWatch(left, until); }
     function tick() {
       if (busy) return;
       if (!left.length) { stop(); paint('다 잡았습니다'); return; }
@@ -2085,6 +2144,8 @@
         .then(function () { busy = false; });
     }
     window.__QTYB_PRE = setInterval(tick, FAST_MS);
+    if (window.__QTYB_HOT) clearInterval(window.__QTYB_HOT);
+    window.__QTYB_HOT = setInterval(hotRun, BURST_MS);   // 🔥 0.25초마다 깨어 1초(공지 뒤엔 0.25초) 간격으로 본다
     paint('예약했습니다 — ' + (anyFast() ? '⚡ ' + (FAST_MS / 1000) + '초마다' : '5분마다') + ' 확인합니다(' + untilTxt() + '까지). 이 탭은 켜 두세요.');
     if (anyFast()) setTimeout(tick, 500);   // ⚡ 첫 확인은 바로
   }
