@@ -18,8 +18,7 @@
   .warn{color:#c0262d;font-size:13px;white-space:pre-line}
   .hint{font-size:12px;color:#777}
   /* 명세서 */
-  .sheet{width:190mm;min-height:270mm;margin:16px auto;background:#fff;padding:12mm 10mm;box-shadow:0 1px 4px rgba(0,0,0,.15);page-break-after:always}
-  .sheet:last-child{page-break-after:auto}
+  .sheet{width:190mm;min-height:270mm;margin:16px auto;background:#fff;padding:12mm 10mm;box-shadow:0 1px 4px rgba(0,0,0,.15)}
   .sheet h2{text-align:center;font-size:26px;letter-spacing:12px;margin:0 0 14px}
   .date{font-size:14px;margin-bottom:10px}
   table{width:100%;border-collapse:collapse;font-size:13px}
@@ -37,7 +36,9 @@
   @media print{
     body{background:#fff}
     .panel{display:none}
-    .sheet{margin:0;box-shadow:none;width:auto;min-height:0;padding:0}
+    html,body{height:auto!important;margin:0}
+    .sheet{margin:0;box-shadow:none;width:auto;min-height:0;padding:0;page-break-after:auto!important;break-after:auto!important;break-inside:avoid}
+    .sheet + .sheet{break-before:page;page-break-before:always}
     @page{size:A4;margin:14mm 12mm}
     [contenteditable]:hover{outline:0}
   }
