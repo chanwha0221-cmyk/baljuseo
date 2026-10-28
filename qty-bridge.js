@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-27d';
+  var QTYB_VER = '2026-10-28a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -2050,7 +2050,10 @@
               }).then(function () { paint(hm + ' 잡음'); });
           });
         });
-      }, Promise.resolve()).catch(function (e) { log.push('· ⚠️ ' + hhmm() + ' 1초 감시 실패 — ' + (e.message || e)); })
+      /* 🔇 못 잡은 회차는 패널에 안 적는다 (2026-10-28 홍팀장 「못 구한 건 안 궁금하니까 메시지 띄우지 마」) —
+         품절·안 풀림 줄은 열릴 때까지 1초마다 «품절·마감이거나 사다리타기 중» 으로 거절돼 「잡은 것」 칸이 같은 줄로 도배됐다.
+         재시도는 그대로(열리는 순간 잡아야 한다), 잡은 것만 남긴다. */
+      }, Promise.resolve()).catch(function (e) { try { console.debug('[qtyb] 1초 감시 못 잡음', e && e.message || e); } catch (_) {} })
         .then(function () { hotBusy = false; });
     }
     function untilTxt() { var t = new Date(until + 9 * 3600000), k = new Date(Date.now() + 9 * 3600000); return (t.getUTCDate() === k.getUTCDate() ? '오늘 ' : '내일 ') + t.getUTCHours() + '시'; }
@@ -2798,7 +2801,13 @@
       var m = {}, skip = 0;
       Object.keys(all).forEach(function (k) {
         var r = all[k];
-        if (r.kind !== '상시') return;
+        /* 🐟 안 열린 수매 상품(이름에 활·생물)은 상시든 당일이든 «재고 없음» 으로 보낸다 (2026-10-28 홍팀장 「아직 안 열림이면
+             당일 생물일 경우 조업 안 돼서 안 나올 수도 있는데 발주를 받으면 어케」). 생물 알도루묵 1팩이 「품절 안 풀림」 인데
+             당일 줄이라 아예 안 보내져서(=모름) 가산프레시 발주가 그대로 들어왔다. 「수량최신화 전」 도 수매 상품이면 0 —
+             모름으로 두는 10-20 예외(항공직송 생연어)는 이름에 활·생물이 없어 여기 안 걸린다.
+             업체 전용 상품·마스터 [✅ 발주 승인] 은 서버가 이 0 보다 먼저 통과시킨다. */
+        var sumaeLock = r.locked && isSumae(r);
+        if (r.kind !== '상시' && !sumaeLock) return;
         var ghost = r.stuck || (r.closed && r.left < 0);
         var spare = (used && !ghost) ? Math.max(0, (r.mine || 0) - (used[k] || 0)) : 0;
         /* 🔒 안 풀린 줄(품절·안 풀림·수량최신화 전)은 «모름» 으로 둔다 — 보내지 않는다 (2026-10-20 홍팀장 「안 풀린 건 안 보내게 고쳐라」).
@@ -2822,6 +2831,7 @@
              잡아둔 몫(spare)이 있으면 그건 진짜 팔 수 있는 수량이니 언제나 그대로 보낸다. */
         if (r.locked) {
           if (spare > 0) m[k] = spare;
+          else if (sumaeLock) m[k] = 0;
           else if (/수량최신화/.test(r.name)) skip++;
           else if (/품절|안\s*풀림/.test(r.name)) m[k] = 0;
           else skip++;
