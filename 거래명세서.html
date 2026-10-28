@@ -91,7 +91,10 @@ function build(){
     if(!line.trim()) return;
     const c = line.split('\t');
     if(c.length < 11){ warns.push(`${i+1}번째 줄: 칸 수 모자람 → 건너뜀`); return; }
-    const date = c[0].trim();
+    // 머리글 줄·날짜 없는 줄은 건너뜀 (2026-10-27 / 2026.10.27 / 2026/10/27)
+    const dm = c[0].trim().match(/^(\d{4})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{1,2})/);
+    if(!dm) return;
+    const date = dm[1] + '-' + dm[2].padStart(2,'0') + '-' + dm[3].padStart(2,'0');
     const it = parseItem(c[5]);
     const amt = num(c[10]);
     const unit = (amt - ship) / it.qty;
