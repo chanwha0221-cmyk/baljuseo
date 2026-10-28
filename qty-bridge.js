@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-28a';
+  var QTYB_VER = '2026-10-28b';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -1421,22 +1421,16 @@
          잔여·잡아 둔 여유를 보고 [↩️ 여유분 당일로 올리기] 로 같은 일을 한다. 함수는 남겨 둠(qtyb-back). */
       '    <button id="qtyb-clr">비우기</button>' +
       '  </div>' +
-      /* ✍️ 내일 몫 손으로 추가 (2026-10-21 홍팀장 「내일 수량 잡기에 수동으로 상품명이랑 수량 넣을 수 있게 해줘」) —
-         6일 평균에도 재고 없음에도 안 걸리는 몫(미리 받은 주문·행사분 등)을 내일 몫에 그대로 얹는다.
-         🔴 위 «필요수량» 칸과 따로 둔다 — 오늘 대조하던 글이 내일 몫으로 섞여 들어가면 안 된다.
-         이 브라우저에 기억한다(qtybPreMan) — 패널을 다시 띄워도 남아 있다. */
-      '  <details id="qtyb-manbox" style="margin-top:7px"><summary class="mut" style="cursor:pointer">🌙 내일 몫 손으로 추가 <span id="qtyb-mancnt"></span></summary>' +
-      '    <textarea id="qtyb-preman" rows="4" placeholder="상품명 x 수량 — 한 줄에 하나&#10;예) 연안 활 숫게 1kg x 20" style="width:100%;box-sizing:border-box;margin-top:5px;font:inherit;padding:5px;border:1px solid #cfd6e0;border-radius:6px"></textarea>' +
-      '    <div class="mut" style="font-size:11.5px">🌙 를 누르면 이 줄들이 «손으로» 칸으로 들어가 내일 몫에 더해집니다. 비우면 평소대로 평균만 잡습니다.</div>' +
-      '  </details>' +
-      /* 📌 지금 잡기 (2026-10-22 홍팀장 「알도루묵 1팩 35개 필요하거든 — 수량 잡기 기능 만들어 주고 감시해서 그거 뜨면 잡아줘」) —
+      /* 🌙 내일 몫 손으로 추가 칸은 뺐다 (2026-10-28 홍팀장 「이렇게 해 놓으니까 더 헷갈린다」) — 손으로 잡을 건 📌 수동 잡기 한 곳에 적는다.
+         🌙 는 판매 평균으로 바로 잡고, 안 열려서 못 잡은 것은 📌 수동 잡기로 내려 거기서만 감시한다. */
+      /* 📌 수동 잡기 (옛 이름 «지금 잡기», 2026-10-22 홍팀장 「알도루묵 1팩 35개 필요하거든 — 수량 잡기 기능 만들어 주고 감시해서 그거 뜨면 잡아줘」) —
          대조·평균과 상관없이 «이 상품 N개» 를 바로 잡는다. 열려 있으면 그 자리에서, 잠겨 있으면(품절·안 풀림·수량최신화 전)
          열릴 때까지 5분마다 보고 열리는 즉시 잡는다(⏳ 예약과 같은 타이머 — 내일 10시까지, 탭이 켜져 있어야 돈다).
          🔴 목표는 «여유 N개» 다 — 이미 잡아 둔 몫에서 나간 것을 뺀 나머지가 N 이 되게 잡는다(actSet 과 같은 자). */
-      '  <details id="qtyb-grabbox" style="margin-top:7px"><summary class="mut" style="cursor:pointer">📌 지금 잡기 <span id="qtyb-grabcnt"></span></summary>' +
+      '  <details id="qtyb-grabbox" style="margin-top:7px"><summary class="mut" style="cursor:pointer">📌 수동 잡기 <span id="qtyb-grabcnt"></span></summary>' +
       '    <textarea id="qtyb-grabin" rows="3" placeholder="상품명 x 수량 — 한 줄에 하나&#10;예) 알도루묵 1팩 x 35" style="width:100%;box-sizing:border-box;margin-top:5px;font:inherit;padding:5px;border:1px solid #cfd6e0;border-radius:6px"></textarea>' +
       '    <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">' +
-      '      <button class="pri" id="qtyb-grabgo">📌 지금 잡기 · 안 열렸으면 감시</button>' +
+      '      <button class="pri" id="qtyb-grabgo">📌 수동 잡기 · 안 열렸으면 감시</button>' +
       '      <span class="mut" style="align-self:center;font-size:11.5px">열려 있으면 바로, 잠겨 있으면 열리는 즉시 (이 탭은 켜 두세요)</span>' +
       '    </div>' +
       '    <div id="qtyb-grablog" class="mut" style="margin-top:6px"></div>' +
@@ -1499,22 +1493,6 @@
         preWatch(w);
         stat('⏳ 끊겼던 감시 ' + w.length + '건 이어 받음');
       }
-    })();
-    /* 🌙 손으로 추가한 내일 몫 — 이 브라우저에 기억하고, 접힌 채로도 몇 줄인지 보여준다 */
-    (function () {
-      var ta = el('qtyb-preman'); if (!ta) return;
-      try { ta.value = localStorage.getItem('qtybPreMan') || ''; } catch (e) {}
-      function cnt() {
-        var n = parseNeed(ta.value).map;
-        var c = Object.keys(n).filter(function (k) { return k.indexOf('#raw:') !== 0; }).length;
-        var b = el('qtyb-mancnt'); if (b) b.textContent = c ? ('· ' + c + '개') : '';
-        var box = el('qtyb-manbox'); if (box && c) box.open = true;
-      }
-      ta.addEventListener('input', function () {
-        try { localStorage.setItem('qtybPreMan', ta.value); } catch (e) {}
-        cnt();
-      });
-      cnt();
     })();
     function sheetName() {
       var s = el('qtyb-sname'); if (!s) return;
@@ -1987,6 +1965,18 @@
   function preWatch(waits) {
     /* 📌 이미 돌고 있는 예약이 있으면 «합친다» (2026-10-22) — 새로 걸 때 앞서 걸어 둔 것이 조용히 취소되면 안 된다.
           [🌙] 내일 몫 예약과 [📌] 지금 잡기 감시가 같은 타이머를 쓴다. */
+    /* 📌 감시는 수동 잡기 한 줄기뿐이다 (2026-10-28 홍팀장 「저기에 있는 것만 계속 돌리고 — 중복되어 있다 보니 겹칠 거 같다」).
+          🌙 에서 안 열려 넘어온 것도, 적어 둔 옛 예약(5분짜리)도 전부 📌 로 묶고 같은 상품은 한 줄(큰 수량)로 합친다. */
+    waits = (function (src) {
+      var by = {}, out = [];
+      (src || []).forEach(function (w) {
+        if (!w || !w.key) return;
+        var o = by[w.key];
+        if (o) { if ((w.avg || 0) > (o.avg || 0)) o.avg = w.avg; return; }
+        w.fast = 1; by[w.key] = w; out.push(w);
+      });
+      return out;
+    })(waits);
     if (window.__QTYB_PRE && window.__QTYB_PRE_ADD) { window.__QTYB_PRE_ADD(waits); return; }
     if (window.__QTYB_PRE) clearInterval(window.__QTYB_PRE);
     var k = new Date(Date.now() + 9 * 3600000);                   // 한국 시간
@@ -2078,12 +2068,15 @@
     }
     window.__QTYB_PRE_ADD = function (more) {
       var n = 0;
+      /* 🔴 2026-10-28 고침: 예전엔 «새 📌 상품» 은 목록에 안 들어가고 «이미 있던 🌙 상품» 이 한 번 더 들어갔다
+            (else 가 old 가 아니라 fast 에 붙어 있었다) — 같은 상품이 두 번 돌아 겹쳐 잡힐 뻔했다. 이제 키 하나에 줄 하나. */
       (more || []).forEach(function (w) {
+        w.fast = 1;
         var old = left.filter(function (x) { return x.key === w.key; })[0];
-        if (old) { if (w.avg > old.avg) { old.avg = w.avg; n++; } if (w.fast) old.fast = 1; }
-        if (w.fast) { var k2 = new Date(Date.now() + 9 * 3600000);   // 📌 이 붙으면 마감도 다음 날 19시로
-          until = Math.max(until, Date.UTC(k2.getUTCFullYear(), k2.getUTCMonth(), k2.getUTCDate() + 1, FAST_UNTIL_H) - 9 * 3600000); }
+        if (old) { if (w.avg > old.avg) { old.avg = w.avg; n++; } old.fast = 1; }
         else { left.push(w); n++; }
+        var k2 = new Date(Date.now() + 9 * 3600000);   // 📌 마감은 다음 날 19시
+        until = Math.max(until, Date.UTC(k2.getUTCFullYear(), k2.getUTCMonth(), k2.getUTCDate() + 1, FAST_UNTIL_H) - 9 * 3600000);
       });
       paint(hhmm() + ' 기다릴 것 ' + n + '건 더했습니다 — ' + (anyFast() ? '⚡ ' + (FAST_MS / 1000) + '초마다' : '5분마다') + ' 확인합니다');
     };
@@ -2095,7 +2088,7 @@
         d.style.cssText = 'background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:8px 10px;margin:8px 0;font-size:12.5px';
         out.parentNode.insertBefore(d, out);
       }
-      d.innerHTML = '⏳ <b>수량 열리면 잡기 예약</b> — ' + esc(msg)
+      d.innerHTML = '📌 <b>수동 잡기 감시</b> — ' + esc(msg)
         + (left.length ? '<br>기다리는 것: ' + left.map(function (w) { return esc(w.name) + ' ' + w.avg; }).join(' · ') : '')
         + (log.length ? '<br><b>잡은 것</b><br>' + log.map(esc).join('<br>') : '')
         + (left.length ? ' <button id="qtyb-prestop" style="margin-left:6px">예약 취소</button>' : '');
@@ -2159,6 +2152,26 @@
      · 잠긴 줄(품절·안 풀림·수량최신화 전)과 아직 수량 웹에 줄이 없는 상품은 ⏳ 예약으로 넘겨 5분마다 보고 열리는 즉시 잡는다.
      · 잔여가 모자라 덜 잡힌 것도 예약에 남긴다 — 수량이 더 풀리면 채운다.
      🔴 이름은 완전일치로만 찾는다 — 못 찾으면 비슷한 이름 후보를 같이 보여 준다(한 글자만 달라도 다른 상품). */
+  /* 📌 수동 잡기 칸에 줄을 얹는다 (2026-10-28) — 🌙 내일 몫에서 안 열려 못 잡은 것이 여기로 내려온다.
+        같은 상품이 이미 적혀 있으면 큰 수량 한 줄로 바꾼다(두 줄로 두면 parseNeed 가 더해 버린다). 수량 웹 꼬리말(품절 안 풀림 등)은 뗀다. */
+  function toGrabBox(list) {
+    var ta = el('qtyb-grabin'); if (!ta || !list || !list.length) return;
+    var lines = String(ta.value || '').split(/\r?\n/).filter(function (s) { return s.trim(); });
+    list.forEach(function (x) {
+      var nm = String(x.name || '').replace(/\s*🔒?\s*(수량최신화\s*전)?\s*(품절)?\s*(안\s*풀림)?\s*$/, '');
+      if (nk(nm) !== x.key && nk(x.name) === x.key) nm = x.name;
+      var q = x.qty, keep = [];
+      lines.forEach(function (ln) {
+        var m = parseNeed(ln).map;
+        if (m[x.key]) { q = Math.max(q, m[x.key]); return; }
+        keep.push(ln);
+      });
+      keep.push(nm + ' x ' + q);
+      lines = keep;
+    });
+    ta.value = lines.join('\n');
+    try { localStorage.setItem('qtybGrabIn', ta.value); ta.dispatchEvent(new Event('input')); } catch (e) {}
+  }
   function grabNow(btn) {
     var ta = el('qtyb-grabin'); if (!ta) return;
     var pn = parseNeed(ta.value || '');
@@ -2226,7 +2239,7 @@
                     + (m.cand.length ? ' → 비슷한 이름: ' + m.cand.map(esc).join(' / ') : ' (비슷한 이름 없음)');
                 }).join('<br>') : '')
           + (pn.bad.length ? '<br>못 읽은 줄: ' + pn.bad.map(esc).join(' / ') : ''));
-        stat('📌 지금 잡기 — 잡음 ' + now.length + '건' + (wait.length ? ' · 기다림 ' + wait.length + '건' : ''));
+        stat('📌 수동 잡기 — 잡음 ' + now.length + '건' + (wait.length ? ' · 기다림 ' + wait.length + '건' : ''));
       });
     }).catch(function (e) { fin('<div class="warn">📌 실패 — ' + esc(e.message || e) + '</div>'); });
   }
@@ -2255,8 +2268,8 @@
         .format(new Date(Date.now() - i * 86400000)).split('/');
       names.push(p[1] + p[0]);
     }
-    /* ✍️ 손으로 추가한 내일 몫 — 평균·재고 없음과 «따로» 더한다 (2026-10-21) */
-    var manMap = parseNeed((el('qtyb-preman') || {}).value || '').map;
+    /* ✍️ 손으로 추가 칸은 10-28 에 뺐다 — 손으로 잡을 건 📌 수동 잡기에 적는다 */
+    var manMap = {};
     var days = [];
     btn.textContent = '날짜 시트 읽는 중…';
     /* 📦 「재고 없음」 주문 = 오늘 못 나가서 내일 나가야 하는 몫 (2026-10-12 홍팀장 「평균이랑 아예 상관없이 그 수량만큼 더 잡아」).
@@ -2342,24 +2355,23 @@
       + '🌙 <b>내일 몫 미리 잡기 — 검산</b> · 최근 6일(' + esc(dayTxt || '-') + ') 매일 나간 상품 + 재고 없음 주문 ' + nNone + '개 상품 · 모두 ' + items.length + '개<br>'
       + '<span class="mut">빨간 숫자 = 특판처럼 튄 날(6일 중앙값의 2배 넘음) — 제안 수량에선 중앙값×2 로 깎아 셉니다. '
       + '<b>내일 몫 = 제안(평균) + 재고 없음</b> — 재고 없음은 오늘 못 나가 내일 나갈 주문이라 평균과 따로 더합니다. «내일 몫» 칸을 고치면 그 수로 잡습니다.</span></div>'
-      + '<div class="tw"><table><thead><tr><th>잡기</th><th>상품명</th><th>날짜별</th><th>그냥 평균</th><th>제안</th><th>재고 없음</th><th>손으로</th><th>안 쓴 여유</th><th>잔여</th><th>내일 몫</th><th>상태</th></tr></thead><tbody>'
+      + '<div class="tw"><table><thead><tr><th>잡기</th><th>상품명</th><th>날짜별</th><th>그냥 평균</th><th>제안</th><th>재고 없음</th><th>안 쓴 여유</th><th>잔여</th><th>내일 몫</th><th>상태</th></tr></thead><tbody>'
       + items.map(function (x, i) {
           var seqH = x.seq.length ? x.seq.map(function (q) { return q > x.est.cap ? '<b style="color:#b91c1c">' + q + '</b>' : String(q); }).join('·') : '—';
           var tgt = x.est.adj + (x.none || 0) + (x.man || 0);
-          var st = x.err ? '⚠️ ' + esc(x.err) : (x.open ? (x.left > 0 ? '지금 잡기' : '⏳ 잔여 0 — 풀리면 잡기') : '⏳ 안 열림 — 열리면 잡기');
+          var st = x.err ? '⚠️ ' + esc(x.err) : (x.open ? (x.left > 0 ? '바로 잡음' : '잔여 0 → 📌 수동 잡기로') : '안 열림 → 📌 수동 잡기로');
           return '<tr><td><input type="checkbox" data-pre-on="' + i + '"' + (x.err ? '' : ' checked') + '></td>'
             + '<td class="nm">' + esc(x.name) + '</td><td class="mut">' + seqH + '</td>'
             + '<td class="mut">' + (x.seq.length ? x.est.raw : '—') + '</td><td><b>' + (x.seq.length ? x.est.adj : '—') + '</b></td>'
             + '<td' + (x.none ? ' style="font-weight:800;color:#b45309"' : ' class="mut"') + '>' + (x.none || 0) + '</td>'
-            + '<td' + (x.man ? ' style="font-weight:800;color:#1d4ed8"' : ' class="mut"') + '>' + (x.man || 0) + '</td>'
             + '<td>' + (x.open && !x.err ? x.spare : '-') + '</td><td>' + (x.open && !x.err ? x.left : '-') + '</td>'
             + '<td><input data-pre-n="' + i + '" value="' + tgt + '" inputmode="numeric" style="width:46px;text-align:center;border:1px solid #cfd6e0;border-radius:6px;padding:3px"></td>'
             + '<td class="mut">' + st + '</td></tr>';
         }).join('') + '</tbody></table></div>'
       + (skip.length ? '<div class="mut" style="margin-top:6px">뺀 것 — ' + skip.map(esc).join(' · ') + '</div>' : '')
       + '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'
-      + '<button class="pri" id="qtyb-prego">✅ 체크한 것 잡기 · 안 열린 건 예약</button>'
-      + '<span class="mut" style="align-self:center">예약은 5분마다 확인, 내일 ' + PRE_UNTIL_H + '시까지 · 이 탭은 켜 두세요</span></div>'
+      + '<button class="pri" id="qtyb-prego">✅ 체크한 것 잡기 · 안 열린 건 수동 잡기로</button>'
+      + '<span class="mut" style="align-self:center">안 열린 건 📌 수동 잡기 칸에 적고 거기서 감시합니다 · 이 탭은 켜 두세요</span></div>'
       + '<div id="qtyb-prelog" class="mut" style="margin-top:6px"></div>';
     box.innerHTML = h;
     el('qtyb-prego').onclick = function () {
@@ -2376,8 +2388,8 @@
       var now = pick.filter(function (x) { return x.open && x.left > 0; });
       var later = pick.filter(function (x) { return !(x.open && x.left > 0); });
       if (!confirm('🌙 내일 몫 미리 잡기\n\n'
-          + (now.length ? '【지금 잡기 ' + now.length + '건】\n' + now.map(function (x) { return '· ' + x.name + ' 내일 몫 ' + x.target + ' (안 쓴 여유 ' + x.spare + ' → +' + Math.min(Math.max(0, x.target - x.spare), x.left) + ')'; }).join('\n') + '\n\n' : '')
-          + (later.length ? '【열리면 잡기 예약 ' + later.length + '건】\n' + later.map(function (x) { return '· ' + x.name + ' 내일 몫 ' + x.target; }).join('\n') + '\n\n' : '')
+          + (now.length ? '【바로 잡기 ' + now.length + '건】\n' + now.map(function (x) { return '· ' + x.name + ' 내일 몫 ' + x.target + ' (안 쓴 여유 ' + x.spare + ' → +' + Math.min(Math.max(0, x.target - x.spare), x.left) + ')'; }).join('\n') + '\n\n' : '')
+          + (later.length ? '【안 열림 → 📌 수동 잡기로 ' + later.length + '건】\n' + later.map(function (x) { return '· ' + x.name + ' 내일 몫 ' + x.target; }).join('\n') + '\n\n' : '')
           + '수량 웹에 실제로 잡습니다.')) return;
       go.disabled = true;
       var log = [];
@@ -2395,8 +2407,11 @@
       }, Promise.resolve()).then(function () {
         go.textContent = '✅ 끝';
         el('qtyb-prelog').innerHTML = (log.length ? '<b>지금 잡은 것</b><br>' + log.map(esc).join('<br>') : '');
-        stat('🌙 미리 잡기 ' + now.length + '건' + (later.length ? ' · 예약 ' + later.length + '건' : ''));
-        if (later.length) preWatch(later.map(function (x) { return { key: x.key, name: x.name, avg: x.target, outToday: x.outToday }; }));
+        stat('🌙 미리 잡기 ' + now.length + '건' + (later.length ? ' · 수동 잡기로 ' + later.length + '건' : ''));
+        if (later.length) {
+          toGrabBox(later.map(function (x) { return { key: x.key, name: x.name, qty: x.target }; }));
+          preWatch(later.map(function (x) { return { key: x.key, name: x.name, avg: x.target, outToday: x.outToday, fast: 1 }; }));
+        }
       });
     };
   }
