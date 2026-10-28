@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>거래명세서 만들기</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Malgun Gothic","맑은 고딕",sans-serif;background:#eef0f3;color:#111}
+  .panel{max-width:900px;margin:16px auto;background:#fff;border:1px solid #d5d8dd;border-radius:8px;padding:16px}
+  .panel h1{font-size:18px;margin:0 0 10px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+  .row label{font-size:13px;color:#444}
+  input[type=text],input[type=number]{padding:6px 8px;border:1px solid #bbb;border-radius:4px;font-size:14px}
+  textarea{width:100%;height:160px;font-size:12px;font-family:Consolas,monospace;padding:8px;border:1px solid #bbb;border-radius:4px}
+  button{padding:8px 14px;font-size:14px;border:0;border-radius:5px;background:#2b5cd6;color:#fff;cursor:pointer}
+  button.sub{background:#666}
+  .warn{color:#c0262d;font-size:13px;white-space:pre-line}
+  .hint{font-size:12px;color:#777}
+  /* 명세서 */
+  .sheet{width:190mm;min-height:270mm;margin:16px auto;background:#fff;padding:12mm 10mm;box-shadow:0 1px 4px rgba(0,0,0,.15);page-break-after:always}
+  .sheet:last-child{page-break-after:auto}
+  .sheet h2{text-align:center;font-size:26px;letter-spacing:12px;margin:0 0 14px}
+  .date{font-size:14px;margin-bottom:10px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  td,th{border:1px solid #333;padding:6px 8px}
+  th{background:#f0f0f0;font-weight:bold}
+  .party th{width:90px}
+  .party td.bn{width:130px}
+  .items{margin-top:14px}
+  .items td.n{text-align:right}
+  .items td.c{text-align:center}
+  .items tr.ship td{background:#fafafa}
+  .items tr.sum td{font-weight:bold;background:#f0f0f0;font-size:14px}
+  .note{font-size:12px;margin-top:10px}
+  [contenteditable]:hover{outline:1px dashed #9ab}
+  @media print{
+    body{background:#fff}
+    .panel{display:none}
+    .sheet{margin:0;box-shadow:none;width:auto;min-height:0;padding:0}
+    @page{size:A4;margin:14mm 12mm}
+    [contenteditable]:hover{outline:0}
+  }
+</style>
+</head>
+<body>
+<div class="panel">
+  <h1>📄 거래명세서 만들기</h1>
+  <div class="hint">발주 줄(운송장 시트에서 복사)을 그대로 붙여넣기 → 날짜별로 명세서가 한 장씩 나옴. 줄 금액 = 상품 단가×수량 + 박스당 택배비로 보고 단가를 역산함.</div>
+  <div class="row">
+    <label>공급받는자</label><input type="text" id="buyer" value="행복한밥상" style="width:160px">
+    <label>사업자번호</label><input type="text" id="buyerBn" placeholder="000-00-00000" style="width:140px">
+    <label>박스당 택배비</label><input type="number" id="ship" value="4000" style="width:90px">
+  </div>
+  <textarea id="src" placeholder="2026-10-27	운송장	마스터	행복한밥상	이성	왕 바지락 1kg x 7	씨제이대한통운	6011-...	받는분	010-...	29,900	29,900"></textarea>
+  <div class="row">
+    <button id="go">명세서 만들기</button>
+    <button class="sub" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+    <span class="hint">PDF는 인쇄 창에서 "PDF로 저장" 선택. 표 안 글자는 클릭해서 고칠 수 있음.</span>
+  </div>
+  <div id="warn" class="warn"></div>
+</div>
+<div id="out"></div>
+
+<script>
+const SUPPLIER = {name:'(주)마스터', bn:'803-86-03206'};
+const $ = id => document.getElementById(id);
+const won = n => Math.round(n).toLocaleString('ko-KR');
+const num = s => Number(String(s||'').replace(/[^\d.-]/g,'')) || 0;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function ls(k, v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } }
+
+// 공급받는자별 사업자번호 기억
+function loadBn(){ const m = JSON.parse(ls('gms_bn')||'{}'); $('buyerBn').value = m[$('buyer').value.trim()] || ''; }
+function saveBn(){ const m = JSON.parse(ls('gms_bn')||'{}'); m[$('buyer').value.trim()] = $('buyerBn').value.trim(); ls('gms_bn', JSON.stringify(m)); }
+
+// "왕 바지락 1kg x 7  (메모)" → {name:'왕 바지락 1kg', qty:7}
+function parseItem(s){
+  const t = s.replace(/\(.*?\)/g,'').trim();
+  const m = t.match(/^(.*?)\s*[xX×]\s*(\d+)\s*$/);
+  return m ? {name:m[1].trim(), qty:+m[2]} : {name:t, qty:1};
+}
+
+function build(){
+  const ship = num($('ship').value);
+  const warns = [];
+  const byDate = {};
+  $('src').value.split(/\r?\n/).forEach((line, i) => {
+    if(!line.trim()) return;
+    const c = line.split('\t');
+    if(c.length < 11){ warns.push(`${i+1}번째 줄: 칸 수 모자람 → 건너뜀`); return; }
+    const date = c[0].trim();
+    const it = parseItem(c[5]);
+    const amt = num(c[10]);
+    const unit = (amt - ship) / it.qty;
+    if(!Number.isInteger(unit)) warns.push(`${i+1}번째 줄 「${c[5].trim()}」: 단가가 딱 안 떨어짐(${unit.toFixed(1)}) → 택배비 확인`);
+    const d = byDate[date] ||= {items:{}, boxes:0};
+    const key = it.name + '|' + unit;
+    const row = d.items[key] ||= {name:it.name, unit, qty:0, boxes:0};
+    row.qty += it.qty; row.boxes++; d.boxes++;
+  });
+  ls('gms_src', $('src').value); ls('gms_ship', $('ship').value); ls('gms_buyer', $('buyer').value); saveBn();
+  $('warn').textContent = warns.join('\n');
+  $('out').innerHTML = Object.keys(byDate).sort().map(date => sheet(date, byDate[date], ship)).join('');
+}
+
+function sheet(date, d, ship){
+  const [y,m,dd] = date.split('-').map(Number);
+  const rows = Object.values(d.items);
+  let total = 0, no = 0;
+  const body = rows.map(r => { const a = r.unit*r.qty; total += a; return `<tr><td class="c">${++no}</td><td contenteditable>${esc(r.name)}</td><td class="n">${won(r.qty)}</td><td class="n">${won(r.unit)}</td><td class="n">${won(a)}</td><td class="c">${r.boxes}박스</td></tr>`; }).join('');
+  const shipAmt = ship * d.boxes; total += shipAmt;
+  return `<div class="sheet">
+    <h2>거 래 명 세 서</h2>
+    <div class="date">거래일자 : ${y}년 ${m}월 ${dd}일</div>
+    <table class="party">
+      <tr><th>공 급 자</th><td>${SUPPLIER.name}</td><th>사업자번호</th><td class="bn">${SUPPLIER.bn}</td></tr>
+      <tr><th>공급받는자</th><td contenteditable>${esc($('buyer').value.trim())}</td><th>사업자번호</th><td class="bn" contenteditable>${esc($('buyerBn').value.trim())}</td></tr>
+    </table>
+    <table class="items">
+      <tr><th style="width:40px">No</th><th>품 목 명</th><th style="width:70px">수량</th><th style="width:90px">단가</th><th style="width:110px">금액</th><th style="width:70px">비고</th></tr>
+      ${body}
+      <tr class="ship"><td class="c">${++no}</td><td>택배비</td><td class="n">${d.boxes}</td><td class="n">${won(ship)}</td><td class="n">${won(shipAmt)}</td><td class="c">박스당</td></tr>
+      <tr class="sum"><td colspan="4" class="c">합 계</td><td class="n">${won(total)}</td><td></td></tr>
+    </table>
+    <div class="note" contenteditable>※ 수산물(면세) 품목입니다. 택배비는 박스당 ${won(ship)}원 별도 기재.</div>
+  </div>`;
+}
+
+$('go').onclick = build;
+$('buyer').onchange = loadBn;
+const s = ls('gms_src'); if(s) $('src').value = s;
+if(ls('gms_ship')) $('ship').value = ls('gms_ship');
+if(ls('gms_buyer')) $('buyer').value = ls('gms_buyer');
+loadBn();
+if($('src').value.trim()) build();
+</script>
+</body>
+</html>
