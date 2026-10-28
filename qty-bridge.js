@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-28b';
+  var QTYB_VER = '2026-10-29a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -2027,7 +2027,7 @@
           return freshRow(row).then(function (f) {
             var spare = Math.max(0, f.mine - Math.max(f.used, w.outToday || 0));
             var need = Math.max(0, w.avg - spare);
-            if (!need) { if (left.indexOf(w) >= 0) left.splice(left.indexOf(w), 1); log.push('· ' + hhmm() + ' ' + w.name + ' — 여유 ' + spare + '개, 다 찼습니다'); paint('다 찼습니다'); return; }
+            if (!need) { if (left.indexOf(w) >= 0) left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); log.push('· ' + hhmm() + ' ' + w.name + ' — 여유 ' + spare + '개, 다 찼습니다'); paint('다 찼습니다'); return; }
             var add = Math.min(need, f.left);
             if (add <= 0) return;
             var hm = hhmm();
@@ -2118,7 +2118,7 @@
             return freshRow(row).then(function (f) {
               var spare = Math.max(0, f.mine - Math.max(f.used, w.outToday));
               var need = Math.max(0, w.avg - spare);
-              if (!need) { left.splice(left.indexOf(w), 1); log.push('· ' + w.name + ' — 이미 여유 ' + spare + '개, 안 잡음'); return; }
+              if (!need) { left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); log.push('· ' + w.name + ' — 이미 여유 ' + spare + '개, 안 잡음'); return; }
               var add = Math.min(need, f.left);
               if (add <= 0) return;                                              // 열렸는데 잔여 0 — 다음에
               return qpost({ do: 'set', tab: whTab(row), nkey: row.key, co: row.co, val: f.mine + add, name: row.name, how: 'pop' })
@@ -2129,7 +2129,7 @@
                     if (window.Notification && Notification.permission === 'granted')
                       new Notification('📌 수량 잡았습니다', { body: w.name + ' ' + (f.mine + add) + '개 (' + hm + ')', tag: 'qtyb-grab' });
                   } catch (e) {}
-                  if (add >= need) left.splice(left.indexOf(w), 1);               // 덜 잡았으면 계속 기다린다
+                  if (add >= need) { left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); }   // 덜 잡았으면 계속 기다린다
                 });
             }).catch(function (e) { log.push('· ' + w.name + ' — 실패: ' + (e.message || e)); });
           });
@@ -2172,6 +2172,21 @@
     ta.value = lines.join('\n');
     try { localStorage.setItem('qtybGrabIn', ta.value); ta.dispatchEvent(new Event('input')); } catch (e) {}
   }
+  /* ✂️ 다 잡힌(또는 이미 여유가 찬) 상품은 📌 수동 잡기 칸에서 지운다 (2026-10-29 홍팀장 「저 리스트에서도 없어져야지」) —
+        칸에 남아 있으면 다 끝난 건지 아직 기다리는 건지 헷갈린다. 덜 잡혀 기다리는 줄은 남긴다. */
+  function dropFromGrabBox(keys) {
+    var ta = el('qtyb-grabin'); if (!ta || !keys || !keys.length) return;
+    var gone = {}; keys.forEach(function (k) { gone[k] = 1; });
+    var lines = String(ta.value || '').split(/\r?\n/);
+    var keep = lines.filter(function (ln) {
+      if (!ln.trim()) return false;
+      var ks = Object.keys(parseNeed(ln).map).filter(function (k) { return k.indexOf('#raw:') !== 0; });
+      return !(ks.length && ks.every(function (k) { return gone[k]; }));
+    });
+    if (keep.length === lines.filter(function (s) { return s.trim(); }).length) return;
+    ta.value = keep.join('\n');
+    try { localStorage.setItem('qtybGrabIn', ta.value); ta.dispatchEvent(new Event('input')); } catch (e) {}
+  }
   function grabNow(btn) {
     var ta = el('qtyb-grabin'); if (!ta) return;
     var pn = parseNeed(ta.value || '');
@@ -2202,13 +2217,13 @@
         else now.push({ key: k, row: row, name: row.name, qty: q });
       });
       btn.textContent = '잡는 중…';
-      var log = [], hm = hhmm();
+      var log = [], hm = hhmm(), done = [];
       return now.reduce(function (pr, x) {
         return pr.then(function () {
           return freshRow(x.row).then(function (f) {
             var spare = Math.max(0, f.mine - f.used);
             var need = Math.max(0, x.qty - spare);
-            if (!need) { log.push('✅ ' + x.name + ' — 이미 여유 ' + spare + '개, 안 잡음'); return; }
+            if (!need) { done.push(x.key); log.push('✅ ' + x.name + ' — 이미 여유 ' + spare + '개, 안 잡음'); return; }
             var add = Math.min(need, f.left);
             if (add <= 0) {
               wait.push({ key: x.key, name: x.name, qty: x.qty });
@@ -2222,10 +2237,12 @@
                   + ' (여유 ' + (spare + add) + '개' + (f.used ? ' · 나간 것 ' + f.used + '개' : '') + ')'
                   + (add < need ? ' — 잔여가 모자라 ' + (need - add) + '개는 기다립니다' : ''));
                 if (add < need) wait.push({ key: x.key, name: x.name, qty: x.qty });
+                else done.push(x.key);
               });
           }).catch(function (e) { log.push('⚠️ ' + x.name + ' — 실패: ' + (e.message || e)); });
         });
       }, Promise.resolve()).then(function () {
+        dropFromGrabBox(done);
         if (wait.length) {
           preWatch(wait.map(function (x) { return { key: x.key, name: x.name, avg: x.qty, outToday: 0, fast: 1 }; }));
           try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
