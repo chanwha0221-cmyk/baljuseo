@@ -38,8 +38,8 @@
   tr.ok td:nth-child(n+5){color:#2d7a3a}
   tr.short td{background:#fff6e0}
   tr.short td:nth-child(n+5){color:#b3261e;font-weight:bold}
-  tr.over td{background:#eef4ff}
-  tr.over td:nth-child(n+5){color:#1b4fb3;font-weight:bold}
+  tr.over td,tr.nomatch td{background:#eef4ff}
+  tr.over td:nth-child(n+5),tr.nomatch td:nth-child(n+5){color:#1b4fb3;font-weight:bold}
   tr.unpaid td,tr.missing td{background:#fdecec;color:#b3261e}
   tr.skip td{color:#999;background:#f6f6f6}
   tr.day td{color:#444;font-size:12px;padding:4px 8px}
@@ -236,58 +236,73 @@ function parseSettles(warns){
   return Object.keys(byDate).sort().map(d => ({date:d, amt:byDate[d]}));
 }
 
-// ── 대조: 입금 한 건마다 «어느 정산 구간 몫인지» 찾아 붙이고 차액을 보여준다 ──
-/* 홍팀장 26-10-29: «9월 21일~22일 정산 226,000 / 실 입금 10월 5일 218,500 / 차액 7,500» 처럼 보여야
-   덜 넣은 건지 아예 안 넣은 건지 찾는다. 입금을 날짜순으로, 아직 안 쓴 정산을 앞에서부터 이어 붙여
-   합이 입금액에 가장 가까운 구간을 고른다(같으면 짧은 쪽). 입금이 떨어지면 남은 정산은 한 줄로 «미입금». */
-function matchFrom(settles, deps, s0){
-  const blocks = []; let si = s0;
-  deps.forEach(d => {
-    if(si >= settles.length){ blocks.push({n:0, amt:0, dep:d, diff:-d.amt, st:'over'}); return; }
-    /* 입금액에 처음으로 닿거나 넘는 날까지 묶는다 (홍팀장 26-10-29: 461,200 입금 → 9/22~10/1 468,700, 차액 7,500).
-       «가장 가까운 합»으로 고르면 마지막 날을 빼고 «더 들어옴»으로 잘못 나온다. 덜 넣은 건 차액으로 드러나야 한다. */
-    /* 앞 정산 몇 건을 건너뛰면 딱 맞으면 그쪽으로 (홍팀장 26-10-29): 9/22 7,500 을 빼면 9/25~10/1 = 461,200.
-       «덜 들어옴 7,500» 보다 «9/22 입금 내역 없음» 한 줄이 확인하기 명확하다. 건너뛴 정산은 한 줄씩 «입금 내역 없음». */
-    for(let j = 1; j <= 10 && si + j < settles.length; j++){
-      let s2 = 0, e = -1;
-      for(let k = si + j; k < settles.length; k++){ s2 += settles[k].amt; if(s2 >= d.amt){ e = k; break; } }
-      if(e < 0 || s2 !== d.amt) continue;
-      settles.slice(si, si + j).forEach(r => blocks.push({from:r.date, to:r.date, n:1, rs:[r], amt:r.amt, dep:null, diff:r.amt, st:'missing'}));
-      const rs = settles.slice(si + j, e + 1);
-      blocks.push({from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt:d.amt, dep:d, diff:0, st:'ok'});
-      si = e + 1; return;
+// ── 대조: 딱 맞는 것부터 전부 잡고, 남은 것만 따로 보여준다 ──
+/* 홍팀장 26-10-29: 앞에서부터 차례로 이어 붙이는 방식은 이상한 입금 하나(9/29 200,600)에 뒤가 통째로 밀려
+   «일치가 몇 건 있는데 하나도 못 맞춘다». → 입금마다 아직 안 쓴 정산 중 «이어진 며칠 합 = 입금액»인 구간을
+   이른 날부터 찾아 먼저 다 붙인다(1단계). 남은 입금은 남은 정산 중 ±10% 안의 구간과만 «덜/더 들어옴»으로 붙이고(2단계),
+   그래도 남으면 입금만 한 줄(«맞는 정산 없음»), 정산만 남으면 그날 한 줄씩 «입금 내역 없음». */
+const DAY = 86400000, dnum = s => Date.parse(s);
+const AFTER = 7 * DAY;                   // 정산일이 입금일보다 7일 넘게 뒤면 그 입금 몫으로 안 봄(선입금은 며칠까지만)
+function matchAll(settles, deps){
+  const used = settles.map(() => false), pair = deps.map(() => null);
+  const runs = (d, fn) => {               // 아직 안 쓴, 이어진 정산 구간을 이른 것부터 훑음
+    for(let a = 0; a < settles.length; a++){
+      if(used[a]) continue;
+      if(dnum(settles[a].date) > dnum(d.date) + AFTER) break;
+      let sum = 0;
+      for(let k = a; k < settles.length && k - a < 40; k++){
+        if(used[k] || dnum(settles[k].date) > dnum(d.date) + AFTER) break;
+        sum += settles[k].amt;
+        if(fn(a, k, sum) === false) break;
+      }
     }
-    let sum = 0, best = settles.length - 1;
-    for(let k = si; k < settles.length; k++){
-      sum += settles[k].amt;
-      if(sum >= d.amt){ best = k; break; }
-    }
-    const rs = settles.slice(si, best + 1), amt = rs.reduce((s,r) => s+r.amt, 0);
-    blocks.push({from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt, dep:d, diff:amt - d.amt,
-                 st: amt === d.amt ? 'ok' : amt > d.amt ? 'short' : 'over'});
-    si = best + 1;
+  };
+  const take = (di, a, k) => { for(let t = a; t <= k; t++) used[t] = true; pair[di] = {a, k}; };
+  // 1단계: 딱 맞는 것
+  deps.forEach((d, di) => {
+    let hit = null;
+    runs(d, (a, k, sum) => { if(hit) return false; if(sum === d.amt){ hit = {a, k}; return false; } if(sum > d.amt) return false; });
+    if(hit) take(di, hit.a, hit.k);
   });
-  if(si < settles.length){
-    const rs = settles.slice(si);
-    blocks.push({from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt:rs.reduce((s,r) => s+r.amt, 0), dep:null, st:'unpaid'});
-    blocks[blocks.length-1].diff = blocks[blocks.length-1].amt;
-  }
-  return blocks;
+  // 2단계: ±10% 안에서 제일 가까운 구간
+  deps.forEach((d, di) => {
+    if(pair[di]) return;
+    let best = null;
+    runs(d, (a, k, sum) => {
+      const gap = Math.abs(sum - d.amt);
+      if(gap <= d.amt * 0.1 && (!best || gap < best.gap)) best = {a, k, gap};
+      if(sum > d.amt * 1.1) return false;
+    });
+    if(best) take(di, best.a, best.k);
+  });
+  return {used, pair};
 }
-/* 시작점 자동 — 정산·입금 둘 다 (홍팀장 26-10-29).
-   ① 앞쪽 정산은 이번에 안 붙여넣은 옛 입금으로 이미 끝났을 수 있다.
-   ② 앞쪽 입금은 이번 정산보다 더 앞 정산 몫일 수 있다(9/20 223,500 → 9/21~22 는 실제로 10/5 에 들어옴).
-   정산 시작 × 입금 시작을 다 맞춰 보고 «딱 맞는 입금»이 제일 많은 조합. 같으면 입금 덜 빼는 쪽 → 정산 이른 쪽.
-   딱 맞는 게 하나도 없으면 근거가 없으니 처음부터(0,0) — 그땐 담당자가 「대조 시작」에서 고른다. */
-function autoStart(settles, deps){
-  let best = {s:0, d:0}, bestOk = 0;
-  for(let d = 0; d < deps.length && d <= 10; d++){
-    for(let s = 0; s < settles.length && settles[s].date <= deps[d].date; s++){
-      const ok = matchFrom(settles, deps.slice(d), s).filter(b => b.st === 'ok').length;
-      if(ok > bestOk){ bestOk = ok; best = {s, d}; }
+
+/* 화면 줄 만들기: 정산 순서대로 깔고, 정산 못 찾은 입금은 입금일 자리에 끼운다.
+   첫 «맞은» 정산보다 앞의 정산·입금은 «대조 시작 전»(이번에 안 붙인 옛 입금·옛 정산 몫)으로 접는다. */
+function buildBlocks(settles, deps, m){
+  const firstHit = m.used.findIndex((u, i) => u && m.pair.some(p => p && p.a <= i && i <= p.k));
+  const startIdx = firstHit < 0 ? 0 : firstHit;
+  const startDate = settles[startIdx] ? settles[startIdx].date : '0000';
+  const lastDep = deps.length ? deps[deps.length-1].date : '0000';
+  const items = [], skipped = settles.slice(0, startIdx).filter((s, i) => !m.used[i]), skipDeps = [];
+  m.pair.forEach((p, di) => {
+    const d = deps[di];
+    if(!p){
+      if(d.date < startDate) skipDeps.push(d);
+      else items.push({key:d.date + '~', blk:{n:0, amt:0, dep:d, diff:-d.amt, st:'nomatch'}});
+      return;
     }
-  }
-  return best;
+    const rs = settles.slice(p.a, p.k + 1), amt = rs.reduce((s,r) => s+r.amt, 0);
+    items.push({key:rs[0].date, blk:{from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt, dep:d, diff:amt - d.amt,
+                st: amt === d.amt ? 'ok' : amt > d.amt ? 'short' : 'over'}});
+  });
+  settles.forEach((s, i) => {
+    if(m.used[i] || i < startIdx) return;
+    items.push({key:s.date, blk:{from:s.date, to:s.date, n:1, rs:[s], amt:s.amt, dep:null, diff:s.amt, st: s.date > lastDep ? 'unpaid' : 'missing'}});
+  });
+  items.sort((x, y) => x.key < y.key ? -1 : x.key > y.key ? 1 : 0);
+  return {blocks:items.map(x => x.blk), skipped, skipDeps, startIdx};
 }
 
 let CUR = null;
@@ -303,20 +318,22 @@ function run(){
   $('warn').textContent = warns.join('\n');
   if(!settles.length){ $('resPanel').style.display='none'; return; }
 
-  const auto = autoStart(settles, used);
   const pick = $('startSel').dataset.pick, dpick = $('depSel').dataset.pick;   // 사람이 고른 시작(없으면 자동)
-  let s0 = pick ? settles.findIndex(s => s.date >= pick) : auto.s;
-  if(s0 < 0) s0 = auto.s;
-  const d0 = dpick !== undefined && dpick !== '' ? Math.min(+dpick, used.length) : auto.d;
-  const inDeps = used.slice(d0), skipDeps = used.slice(0, d0);
-  const blocks = matchFrom(settles, inDeps, s0);
-  $('startSel').innerHTML = `<option value="">자동 (${kDate(settles[auto.s].date)}부터)</option>` +
+  const sIn = pick ? settles.filter(s => s.date >= pick) : settles;
+  const d0 = dpick !== undefined && dpick !== '' ? Math.min(+dpick, used.length) : 0;
+  const inDeps0 = used.slice(d0);
+  const m = matchAll(sIn, inDeps0);
+  const B = buildBlocks(sIn, inDeps0, m);
+  const blocks = B.blocks, skipDeps = [...used.slice(0, d0), ...B.skipDeps];
+  const inDeps = inDeps0.filter(d => !B.skipDeps.includes(d));
+  const autoS = sIn[B.startIdx] ? sIn[B.startIdx].date : null;
+  $('startSel').innerHTML = `<option value="">자동${autoS ? ' ('+kDate(autoS)+'부터)' : ''}</option>` +
     settles.map(s => `<option value="${s.date}"${pick===s.date?' selected':''}>${kDate(s.date)}부터</option>`).join('');
-  $('depSel').innerHTML = `<option value="">자동 (${used[auto.d] ? kDate(used[auto.d].date)+' '+won(used[auto.d].amt)+'부터' : '없음'})</option>` +
+  $('depSel').innerHTML = `<option value="">자동 (맞는 정산 없는 앞쪽 입금은 뺌)</option>` +
     used.map((d, i) => `<option value="${i}"${dpick===String(i)?' selected':''}>${kDate(d.date)} ${won(d.amt)}부터</option>`).join('');
-  const inR = settles.slice(s0);
+  const inR = sIn.slice(B.startIdx);
   const setTotal = inR.reduce((s,r) => s+r.amt, 0), depTotal = inDeps.reduce((s,d) => s+d.amt, 0);
-  const skipped = settles.slice(0, s0);
+  const skipped = [...settles.filter(s => !sIn.includes(s)), ...B.skipped];
   CUR = {vendor:$('vendor').value.trim() || '(업체명)', honor:$('honor').value.trim(), blocks, skipped, skipDeps,
          setTotal, depTotal, net:setTotal - depTotal, firstBad:blocks.findIndex(b => b.st === 'short' || b.st === 'unpaid' || b.st === 'missing'),
          lastDep: inDeps.length ? inDeps[inDeps.length-1].date : null, nDep:inDeps.length, nSet:inR.length};
@@ -325,8 +342,8 @@ function run(){
 function startPick(v){ $('startSel').dataset.pick = v; run(); }
 function depPick(v){ $('depSel').dataset.pick = v; run(); }
 
-const ST_TXT = {ok:'일치', short:'덜 들어옴', over:'더 들어옴', unpaid:'미입금', missing:'입금 내역 없음'};
-const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌', missing:'❌'};
+const ST_TXT = {ok:'일치', short:'덜 들어옴', over:'더 들어옴', unpaid:'미입금', missing:'입금 내역 없음', nomatch:'맞는 정산 없음'};
+const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌', missing:'❌', nomatch:'🔵'};
 const setLabel = b => b.n ? rangeLabel(b) : '-';
 const diffTxt = b => b.diff === 0 ? '0' : (b.diff > 0 ? won(b.diff) : '+' + won(-b.diff));
 /* 정산은 뭉뚱그리지 않는다 (홍팀장 26-10-29): 여러 날이면 그날그날 줄을 깔고,
@@ -392,7 +409,7 @@ function tableDraw(x, L, y, cols, rows){        // rows: {vals:[[줄…]…], bg
   return y;
 }
 function tableHeight(rows){ return rows.reduce((s,r) => s + Math.max(...r.vals.map(v => v.length))*20 + 16, 0); }
-const BG = {ok:'#fff', short:'#fff6e0', over:'#eef4ff', unpaid:'#fdecec', missing:'#fdecec', head:'#eef0f3'};
+const BG = {ok:'#fff', short:'#fff6e0', over:'#eef4ff', unpaid:'#fdecec', missing:'#fdecec', nomatch:'#eef4ff', head:'#eef0f3'};
 const blockColors = (b, withDep) => { const red = (b.st==='short'||b.st==='unpaid'||b.st==='missing') ? '#b3261e' : b.st==='ok' ? '#2d7a3a' : '#1b4fb3';
   const n = withDep ? 6 : 5; const a = Array(n).fill(null); a[n-2] = b.st==='ok'?null:red; a[n-1] = red; return a; };
 // 이미지용 줄: 날짜별 줄(입금 칸 비움) + 합계 줄(굵게, 입금·차액)
