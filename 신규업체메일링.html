@@ -242,6 +242,7 @@
       </table>
     </div>
     <div id="bg-pager" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:12px"></div>
+    <details id="bg-undo" style="margin-top:10px;display:none"></details>
     <div class="empty" id="bg-empty" style="display:none">조건에 맞는 업체가 없습니다.</div>
   </div>
   </div><!-- /sec-balgul -->
@@ -1007,7 +1008,7 @@ function prosHide(name,on){
 }
 // 저장이 아직 안 끝났는데 창을 닫으려 하면 붙잡는다
 let MAILTO_GO=false;   // 썬더버드를 부르는 그 순간만 켠다 — openCompose 참고
-window.addEventListener('beforeunload',e=>{ if(MAILTO_GO) return; if(hideTimer||saveTimer){ e.preventDefault(); e.returnValue=''; } });
+window.addEventListener('beforeunload',e=>{ if(MAILTO_GO) return; if(hideTimer||saveTimer||(typeof bgHideTimer!=='undefined'&&bgHideTimer)){ e.preventDefault(); e.returnValue=''; } });
 /* ✉ 보냄 — 메일링 관리 목록에 기록한다.
    이래야 ①위 [이 주소로 보낸 적 있나?]에 걸리고 ②2주 뒤 추가연락 대상에 뜨고 ③회신 추적이 된다.
 
@@ -1614,6 +1615,47 @@ let BG=null, BG_PAGE=1, BG_FILT=[];
 const BG_PER=20;
 const bgSt={q:'',rg:'',own:false,pf:false,ct:false,onlyNew:false};
 let bgLoading=false;
+/* 🗑 지운 곳 — 홍팀장 2026-10-29 「삭제한 건 다시는 가져 오지 마라」.
+   🔴 설정(메일설정 탭)에 남긴다. 브라우저에 두면 집·회사 PC가 따로 놀고,
+      명단 파일(balgul-list.json)을 다시 만들어도 이 목록이 정본이라 되살아나지 않는다.
+   🔴 열쇠는 «상호+대표자» — 34,000곳이라 같은 상호가 여럿 있다.
+   🔴 ✕ 하나마다 저장하면 프록시 왕복(7~90초)에 묶인다 → 화면 먼저, 저장은 1.5초 뒤 한 번에. */
+const BG_HIDE='bg_hide';
+const bgKey=r=>pkeyN(r[0])+'\u0001'+pkeyN(r[1]);
+const bgHideSet=()=>new Set(String(SET[BG_HIDE]||'').split('\n').filter(Boolean));
+let bgHideTimer=null, BG_LASTDEL=[];
+function bgDel(r){
+  const s=bgHideSet();
+  s.add(bgKey(r));
+  SET[BG_HIDE]=[...s].join('\n');
+  BG_LASTDEL.unshift({k:bgKey(r),name:r[0]});
+  if(BG_LASTDEL.length>30)BG_LASTDEL.pop();
+  bgRender();
+  setStatus('🗑 지움 — 잠시 후 저장');
+  bgSaveHide();
+}
+function bgUndo(k){
+  const s=bgHideSet();
+  s.delete(k);
+  SET[BG_HIDE]=[...s].join('\n');
+  BG_LASTDEL=BG_LASTDEL.filter(x=>x.k!==k);
+  bgRender();
+  bgSaveHide();
+}
+function bgSaveHide(){
+  clearTimeout(bgHideTimer);
+  bgHideTimer=setTimeout(async()=>{
+    bgHideTimer=null;
+    try{
+      setStatus('저장 중…');
+      await setSetting(BG_HIDE,SET[BG_HIDE]);
+      setStatus('저장됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
+    }catch(e){
+      setStatus('⚠️ 저장 실패');
+      toast('지운 목록을 저장하지 못했습니다 — 새로고침 후 다시 지워주세요');
+    }
+  },1500);
+}
 async function bgLoad(){
   if(BG||bgLoading)return;
   bgLoading=true;
@@ -1649,7 +1691,9 @@ function bgRender(){
   /* 안 보낸 곳만 — 메일링 목록(DATA)의 연락처·업체명과 겹치는 곳을 뺀다 */
   const sentMail=new Set(), sentName=new Set();
   if(bgSt.onlyNew)DATA.forEach(r=>{ if(r[2])sentMail.add(pkeyN(r[2])); if(r[0])sentName.add(pkeyN(r[0])); });
+  const hid=bgHideSet();
   BG_FILT=BG.rows.filter(r=>{
+    if(hid.has(bgKey(r)))return false;        // 🗑 지운 곳은 영영 안 올라온다
     if(bgSt.rg!==''&&String(r[2])!==bgSt.rg)return false;
     if(bgSt.own&&!bgSt.pf&&r[3]!==0)return false;
     if(bgSt.pf&&!bgSt.own&&r[3]!==1)return false;
@@ -1661,14 +1705,24 @@ function bgRender(){
   const withCt=BG.rows.filter(r=>r[6]||r[7]).length;
   $('bg-cnt').textContent=BG_FILT.length.toLocaleString();
   $('bg-foot').innerHTML='전체 <b>'+BG.rows.length.toLocaleString()+'</b>곳 · 연락처 확보 <b>'+withCt.toLocaleString()
-    +'</b>곳 (자체몰 사이트에서 수집 중) · 갱신 '+esc(BG.at);
+    +'</b>곳 · 갱신 '+esc(BG.at)
+    +(hid.size?' · 🗑 지운 곳 <b>'+hid.size.toLocaleString()+'</b>곳 (목록에 안 올라옵니다)':'');
+  /* 실수로 지웠을 때만 쓰는 되돌리기 — 이번에 지운 것만 보인다(새로고침하면 사라진다) */
+  const un=$('bg-undo');
+  if(un){
+    un.innerHTML=BG_LASTDEL.length
+      ? '<summary style="cursor:pointer;font-size:12.5px;color:var(--sub)">↩ 방금 지운 '+BG_LASTDEL.length+'곳 되돌리기</summary><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">'
+        +BG_LASTDEL.map(x=>'<button class="btn sm ghost" data-bg="undo" data-k="'+esc(x.k)+'">↩ '+esc(x.name)+'</button>').join('')+'</div>'
+      : '';
+    un.style.display=BG_LASTDEL.length?'':'none';
+  }
   const pages=Math.max(1,Math.ceil(BG_FILT.length/BG_PER));
   if(BG_PAGE>pages)BG_PAGE=pages;
   if(BG_PAGE<1)BG_PAGE=1;
   const from=(BG_PAGE-1)*BG_PER;
   const page=BG_FILT.slice(from,from+BG_PER);
   $('bg-empty').style.display=BG_FILT.length?'none':'';
-  $('bg-body').innerHTML=page.map(r=>{
+  $('bg-body').innerHTML=page.map((r,idx)=>{
     const url=bgUrl(r[4]);
     const shown=String(r[4]||'').replace(/^https?:\/\//i,'').slice(0,46);
     const site=url
@@ -1685,7 +1739,10 @@ function bgRender(){
       +'<td style="font-size:11.5px;max-width:260px;word-break:break-all">'+site+'</td>'
       +'<td style="font-size:11.5px;line-height:1.5">'+(ct.length?ct.join('<br>'):'<span class="muted">—</span>')+'</td>'
       +'<td class="muted" style="font-size:11.5px;white-space:nowrap">'+esc(r[5]||'')+'</td>'
-      +'<td style="white-space:nowrap"><button class="btn sm brand" data-bg="mail" data-i="'+(from+page.indexOf(r))+'">✉ 메일 쓰기</button></td>'
+      +'<td style="white-space:nowrap">'
+        +'<button class="btn sm brand" data-bg="mail" data-i="'+(from+idx)+'">✉ 메일 쓰기</button> '
+        +'<button class="btn sm ghost" title="목록에서 영영 지웁니다" style="color:var(--red)" data-bg="del" data-i="'+(from+idx)+'">🗑</button>'
+      +'</td>'
       +'</tr>';
   }).join('');
   $('bg-pager').innerHTML=pages<=1?'':
@@ -1714,6 +1771,8 @@ document.addEventListener('click',ev=>{
   const a=b.getAttribute('data-bg');
   if(a==='page'){ BG_PAGE=parseInt(b.getAttribute('data-p'),10)||1; bgRender(); window.scrollTo({top:$('bg-table').offsetTop-80,behavior:'smooth'}); }
   else if(a==='mail'){ const r=BG_FILT[parseInt(b.getAttribute('data-i'),10)]; if(r)bgToMail(r); }
+  else if(a==='del'){ const r=BG_FILT[parseInt(b.getAttribute('data-i'),10)]; if(r)bgDel(r); }
+  else if(a==='undo'){ bgUndo(b.getAttribute('data-k')); }
 });
 (function(){
   let t;
