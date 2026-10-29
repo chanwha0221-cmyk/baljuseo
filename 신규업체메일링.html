@@ -83,12 +83,15 @@
     <button class="btn ghost sm" onclick="loadAll()">새로고침</button>
   </div>
 
-  <!-- 📑 상단 섹션 탭 -->
+  <!-- 📑 상단 섹션 탭 (2026-10-29 홍팀장 「발굴명단에서 업체 선택하면 바로 메일링, 히스토리는 탭 하나 더 만들어 안 보이게」) -->
   <div class="tabbar">
-    
+    <button class="tab active" type="button" data-sec="compose">✉️ 메일 작성</button>
+    <button class="tab" type="button" data-sec="balgul">🎯 발굴 명단 <span class="badge green" id="bg-tabn" style="margin-left:6px">…</span></button>
+    <button class="tab" type="button" data-sec="hist">📋 발송 히스토리</button>
   </div>
 
   <div id="tab-manage">
+  <div id="sec-compose">
   <!-- ⚡ 2026-08-11 사장님 지시: 이 도구의 목적은 '중복 발송 거르기' 하나. 메일주소·보낸날짜만 위에 두고 나머지는 접는다. -->
   <div class="card" id="quick-card">
     <h2>📧 이 주소로 보낸 적 있나?</h2>
@@ -211,8 +214,42 @@
     </div>
   </div>
 
+  </div><!-- /sec-compose -->
+
+  <!-- 🎯 발굴 명단 — 공정위 통신판매사업자에서 뽑은 34,000여 곳 (2026-10-29).
+       ⚠️ 아래 «발굴 대상»은 이메일이 있는 곳만 올라온다. 이 탭은 **이메일이 없어도** 다 보여준다 —
+          홍팀장이 도메인으로 직접 들어가 보고 판단하기 때문이다(「사이트도 내가 들어가서 직접 확인」).
+       데이터는 balgul-list.json (탭을 처음 열 때만 받는다 · 3MB라 미리 받지 않는다). -->
+  <div id="sec-balgul" hidden>
+  <div class="card">
+    <h2>🎯 발굴 명단 <span class="badge green" id="bg-cnt">0</span>
+      <span class="muted" style="font-weight:400;font-size:12px">— 공정위 통신판매사업자 · 상호에 식품·수산·지역명이 든 업체. 도메인을 눌러 직접 보고, 쓸 곳은 [✉ 메일 쓰기]</span>
+      <div class="muted" id="bg-foot" style="font-weight:400;font-size:12px;margin-top:5px"></div></h2>
+    <div style="display:flex;gap:8px;align-items:center;margin:4px 0 10px;flex-wrap:wrap">
+      <input id="bg-q" placeholder="🔎 상호 · 대표자 · 도메인으로 찾기" style="flex:1;min-width:240px;font-size:14px">
+      <select id="bg-rg" style="font-size:14px"><option value="">전체 지역</option></select>
+      <button class="btn ghost sm" type="button" id="bg-own" aria-pressed="false">자체몰</button>
+      <button class="btn ghost sm" type="button" id="bg-pf" aria-pressed="false">플랫폼입점</button>
+      <button class="btn ghost sm" type="button" id="bg-ct" aria-pressed="false">연락처 있음</button>
+      <button class="btn ghost sm" type="button" id="bg-new" aria-pressed="false">안 보낸 곳만</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="bg-table">
+        <thead><tr>
+          <th>상호</th><th>대표자</th><th>지역</th><th>유형</th><th>도메인</th><th>연락처</th><th>신고일</th><th></th>
+        </tr></thead>
+        <tbody id="bg-body"></tbody>
+      </table>
+    </div>
+    <div id="bg-pager" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:12px"></div>
+    <div class="empty" id="bg-empty" style="display:none">조건에 맞는 업체가 없습니다.</div>
+  </div>
+  </div><!-- /sec-balgul -->
+
   <!-- 📋 전체 업체 — 메일 작성 바로 밑 (홍팀장 2026-09-11). 예전엔 «펼치기» 안에 접혀 있어서
-       [기록]을 눌러도 어디로 갔는지 안 보였다. 한 줄에 한 업체, 보낸날짜·마지막연락 머리글을 누르면 정렬. -->
+       [기록]을 눌러도 어디로 갔는지 안 보였다. 한 줄에 한 업체, 보낸날짜·마지막연락 머리글을 누르면 정렬.
+       🔁 2026-10-29 «발송 히스토리» 탭으로 옮겼다 — 평소엔 안 보이게. -->
+  <div id="sec-hist" hidden>
   <div class="card">
     <h2>전체 업체 <span class="badge green" id="total-count">0</span> <span class="muted" style="font-weight:400;font-size:12px">— 지난 담당자 발송분까지 합친 전체 목록 (어느 줄이든 수정·삭제 가능)</span>
       <!-- 👤 퇴사자 담당 승계 (2026-09-21) — 담당 칸이 지금 담당자 목록(PEOPLE)에 없는 줄을 내 담당으로 넘긴다. 넘길 게 없으면 버튼 자체가 안 뜬다. -->
@@ -234,10 +271,12 @@
     </div>
     <div class="empty" id="empty" style="display:none">아직 등록된 업체가 없어요.</div>
   </div>
+  </div><!-- /sec-hist -->
 
   <!-- 🎯 발굴 대상 A — 신규발굴_데이터.js 에서 '농수산' 취급으로 걸러낸 175곳 (홍팀장 2026-09-04)
        상호로 네이버·구글을 바로 열어 뭘 파는 곳인지 확인하고, 보낸 곳은 아래로 내린다.
        진행상태(보냄/삭제)는 '메일설정' 탭에 적는다 — 브라우저에 두면 집·회사 PC가 따로 논다. -->
+  <div id="sec-balgul-b" hidden>
   <div class="card" id="pros-card" style="display:none">
     <h2>🎯 발굴 대상 <span class="badge green" id="pros-left">0</span>
       <span class="muted" style="font-weight:400">— 상호로 검색해 보고, 메일 보낸 곳은 [보냄]을 누르면 아래로 내려갑니다</span>
@@ -259,6 +298,7 @@
       <div id="pros-done" style="margin-top:8px;opacity:.65"></div>
     </details>
   </div>
+  </div><!-- /sec-balgul-b -->
   </div><!-- /tab-manage -->
 
   
@@ -1550,6 +1590,147 @@ async function copyPreview(){
 
 // ─── 추가연락 초안 (채널별 톤) ───
 
+/* ══ 📑 섹션 탭 ═══════════════════════════════════════════════════════════
+   홍팀장 2026-10-29: 「메일 보낸 히스토리는 탭 하나 더 만들어서 안 보이게 만들어도 되니까
+   발굴명단에서 업체 선택하면 바로 메일링 할 수 있게」 */
+const SECS={compose:['sec-compose'], balgul:['sec-balgul','sec-balgul-b'], hist:['sec-hist']};
+let SEC='compose';
+function showSec(k){
+  if(!SECS[k])return;
+  SEC=k;
+  Object.keys(SECS).forEach(n=>SECS[n].forEach(id=>{ const e=$(id); if(e)e.hidden=(n!==k); }));
+  document.querySelectorAll('.tab[data-sec]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-sec')===k));
+  if(k==='balgul')bgLoad();
+  try{ localStorage.setItem('mailing_sec',k); }catch(e){}
+}
+document.querySelectorAll('.tab[data-sec]').forEach(b=>b.addEventListener('click',()=>showSec(b.getAttribute('data-sec'))));
+
+/* ══ 🎯 발굴 명단 ════════════════════════════════════════════════════════
+   balgul-list.json = [상호,대표자,지역코드,유형(0자체몰/1플랫폼),도메인,신고일,전화,이메일]
+   🔴 이메일이 없어도 다 보여준다 — 홍팀장이 도메인으로 직접 들어가 보고 판단한다.
+   🔴 도메인은 손으로 적은 칸이라 「a.com,b.com」·「오픈마켓(smartstore…/id)」처럼 섞여 온다.
+      bgUrl() 이 그걸 눌러서 바로 열리는 주소 하나로 만든다. */
+let BG=null, BG_PAGE=1, BG_FILT=[];
+const BG_PER=20;
+const bgSt={q:'',rg:'',own:false,pf:false,ct:false,onlyNew:false};
+let bgLoading=false;
+async function bgLoad(){
+  if(BG||bgLoading)return;
+  bgLoading=true;
+  $('bg-foot').textContent='명단을 받고 있습니다…';
+  try{
+    const r=await fetch('balgul-list.json',{cache:'no-cache'});
+    BG=await r.json();
+    const sel=$('bg-rg');
+    BG.regions.map((n,i)=>[n,i]).filter(x=>x[0])
+      .sort((a,b)=>a[0].localeCompare(b[0],'ko'))
+      .forEach(([n,i])=>{ const o=document.createElement('option'); o.value=i; o.textContent=n; sel.appendChild(o); });
+    $('bg-tabn').textContent=BG.rows.length.toLocaleString();
+    bgRender();
+  }catch(e){
+    $('bg-foot').textContent='⚠️ 명단을 못 받았습니다 — 새로고침해 주세요.';
+  }
+  bgLoading=false;
+}
+/* 눌러서 열리는 주소로 — 괄호 안 주소, 쉼표로 둘 적힌 것, http 없는 것 다 처리 */
+function bgUrl(raw){
+  let u=String(raw||'').trim();
+  const inPar=u.match(/\(([^)]*[a-z0-9-]+\.[a-z]{2,}[^)]*)\)/i);
+  if(inPar)u=inPar[1].trim();
+  u=u.split(/[,\s]+/).find(x=>/[a-z0-9-]+\.[a-z]{2,}/i.test(x))||'';
+  if(!u)return '';
+  u=u.replace(/^[^a-z0-9]+/i,'');
+  if(!/^https?:\/\//i.test(u))u='http://'+u;
+  return u;
+}
+function bgRender(){
+  if(!BG)return;
+  const q=bgSt.q.trim().toLowerCase();
+  /* 안 보낸 곳만 — 메일링 목록(DATA)의 연락처·업체명과 겹치는 곳을 뺀다 */
+  const sentMail=new Set(), sentName=new Set();
+  if(bgSt.onlyNew)DATA.forEach(r=>{ if(r[2])sentMail.add(pkeyN(r[2])); if(r[0])sentName.add(pkeyN(r[0])); });
+  BG_FILT=BG.rows.filter(r=>{
+    if(bgSt.rg!==''&&String(r[2])!==bgSt.rg)return false;
+    if(bgSt.own&&!bgSt.pf&&r[3]!==0)return false;
+    if(bgSt.pf&&!bgSt.own&&r[3]!==1)return false;
+    if(bgSt.ct&&!(r[6]||r[7]))return false;
+    if(bgSt.onlyNew&&((r[7]&&sentMail.has(pkeyN(r[7])))||sentName.has(pkeyN(r[0]))))return false;
+    if(q&&!((r[0]||'').toLowerCase().includes(q)||(r[1]||'').toLowerCase().includes(q)||(r[4]||'').toLowerCase().includes(q)))return false;
+    return true;
+  });
+  const withCt=BG.rows.filter(r=>r[6]||r[7]).length;
+  $('bg-cnt').textContent=BG_FILT.length.toLocaleString();
+  $('bg-foot').innerHTML='전체 <b>'+BG.rows.length.toLocaleString()+'</b>곳 · 연락처 확보 <b>'+withCt.toLocaleString()
+    +'</b>곳 (자체몰 사이트에서 수집 중) · 갱신 '+esc(BG.at);
+  const pages=Math.max(1,Math.ceil(BG_FILT.length/BG_PER));
+  if(BG_PAGE>pages)BG_PAGE=pages;
+  if(BG_PAGE<1)BG_PAGE=1;
+  const from=(BG_PAGE-1)*BG_PER;
+  const page=BG_FILT.slice(from,from+BG_PER);
+  $('bg-empty').style.display=BG_FILT.length?'none':'';
+  $('bg-body').innerHTML=page.map(r=>{
+    const url=bgUrl(r[4]);
+    const shown=String(r[4]||'').replace(/^https?:\/\//i,'').slice(0,46);
+    const site=url
+      ? '<a href="'+esc(url)+'" target="_blank" rel="noopener" title="'+esc(r[4])+'" style="color:var(--blue);text-decoration:none">'+esc(shown)+' ↗</a>'
+      : '<span class="muted">'+esc(shown||'—')+'</span>';
+    const ct=[];
+    if(r[6])ct.push('<span>'+esc(r[6])+'</span>');
+    if(r[7])ct.push('<span style="color:var(--blue)">'+esc(r[7])+'</span>');
+    return '<tr>'
+      +'<td><b>'+esc(r[0])+'</b></td>'
+      +'<td class="muted">'+esc(r[1]||'—')+'</td>'
+      +'<td class="muted" style="white-space:nowrap">'+esc(BG.regions[r[2]]||'—')+'</td>'
+      +'<td>'+(r[3]===0?'<span class="pill">자체몰</span>':'<span class="muted" style="font-size:11.5px">플랫폼</span>')+'</td>'
+      +'<td style="font-size:11.5px;max-width:260px;word-break:break-all">'+site+'</td>'
+      +'<td style="font-size:11.5px;line-height:1.5">'+(ct.length?ct.join('<br>'):'<span class="muted">—</span>')+'</td>'
+      +'<td class="muted" style="font-size:11.5px;white-space:nowrap">'+esc(r[5]||'')+'</td>'
+      +'<td style="white-space:nowrap"><button class="btn sm brand" data-bg="mail" data-i="'+(from+page.indexOf(r))+'">✉ 메일 쓰기</button></td>'
+      +'</tr>';
+  }).join('');
+  $('bg-pager').innerHTML=pages<=1?'':
+      '<button class="btn sm ghost" data-bg="page" data-p="'+(BG_PAGE-1)+'"'+(BG_PAGE<=1?' disabled':'')+'>‹</button>'
+    + pagerNums(BG_PAGE,pages).map(n=>'<button class="btn sm '+(n===BG_PAGE?'brand':'ghost')+'" data-bg="page" data-p="'+n+'">'+n+'</button>').join('')
+    + '<button class="btn sm ghost" data-bg="page" data-p="'+(BG_PAGE+1)+'"'+(BG_PAGE>=pages?' disabled':'')+'>›</button>'
+    + '<span class="muted" style="margin-left:8px;font-size:12px">'+BG_PAGE+' / '+pages+' 쪽</span>';
+}
+/* ✉ 메일 쓰기 — 업체명·메일주소를 꽂고 메일 작성 탭으로 넘긴다 (기록은 홍팀장이 [기록]으로) */
+function bgToMail(r){
+  $('company-name').value=r[0]||'';
+  if(r[7])$('q-mail').value=r[7];
+  const src=$('source-text');
+  if(src&&!src.value.trim()){
+    const u=bgUrl(r[4]).replace(/^https?:\/\//i,'').split('/')[0];
+    if(u)src.value='운영하고 계신 '+u+' 를 보고 상품 제안드리고 싶어';
+  }
+  if(typeof stampSlots==='function')stampSlots();
+  if(r[7]&&typeof quickCheck==='function')quickCheck();
+  showSec('compose');
+  window.scrollTo({top:0,behavior:'smooth'});
+  toast(r[0]+(r[7]?' — 업체명·메일주소를 꽂았습니다':' — 업체명을 꽂았습니다 (메일주소는 직접 확인)'));
+}
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-bg]'); if(!b)return;
+  const a=b.getAttribute('data-bg');
+  if(a==='page'){ BG_PAGE=parseInt(b.getAttribute('data-p'),10)||1; bgRender(); window.scrollTo({top:$('bg-table').offsetTop-80,behavior:'smooth'}); }
+  else if(a==='mail'){ const r=BG_FILT[parseInt(b.getAttribute('data-i'),10)]; if(r)bgToMail(r); }
+});
+(function(){
+  let t;
+  $('bg-q').addEventListener('input',e=>{ bgSt.q=e.target.value; clearTimeout(t); t=setTimeout(()=>{BG_PAGE=1;bgRender();},200); });
+  $('bg-rg').addEventListener('change',e=>{ bgSt.rg=e.target.value; BG_PAGE=1; bgRender(); });
+  [['bg-own','own'],['bg-pf','pf'],['bg-ct','ct'],['bg-new','onlyNew']].forEach(([id,key])=>{
+    $(id).addEventListener('click',()=>{
+      bgSt[key]=!bgSt[key];
+      const e=$(id);
+      e.setAttribute('aria-pressed',String(bgSt[key]));
+      e.classList.toggle('brand',bgSt[key]);
+      e.classList.toggle('ghost',!bgSt[key]);
+      BG_PAGE=1; bgRender();
+    });
+  });
+})();
+
 // init
 $('q-date').value=todayKST();
 // 👥 작성자 선택 — 서명·명함만 바뀌고 목록은 항상 통합 (2026-08-11)
@@ -1558,6 +1739,12 @@ document.title='신규업체 메일링 — '+PERSON;
   PEOPLE.forEach(p=>{ const o=document.createElement('option'); o.value=p; o.textContent=p; if(p===PERSON)o.selected=true; sel.appendChild(o); });
 })();
 loadAll();
+/* 마지막으로 보던 탭으로 — 발굴 명단을 보다가 새로고침했을 때 메일작성으로 튕기지 않게 */
+(function(){
+  let k='compose';
+  try{ k=localStorage.getItem('mailing_sec')||'compose'; }catch(e){}
+  showSec(SECS[k]?k:'compose');
+})();
 </script>
 
 </body>
