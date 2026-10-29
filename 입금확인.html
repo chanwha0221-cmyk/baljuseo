@@ -39,6 +39,7 @@
   tr.short td{background:#fff6e0}
   tr.short td:nth-child(n+5){color:#b3261e;font-weight:bold}
   tr.over td,tr.nomatch td{background:#eef4ff}
+  tr.refunded td,tr.refund td{background:#f5f0ff;color:#5b3fa0}
   tr.over td:nth-child(n+5),tr.nomatch td:nth-child(n+5){color:#1b4fb3;font-weight:bold}
   tr.unpaid td,tr.missing td{background:#fdecec;color:#b3261e}
   tr.skip td{color:#999;background:#f6f6f6}
@@ -76,6 +77,10 @@
     <button class="mini" onclick="loadSample()">샘플 넣기</button>
     <span class="hint">아무 칸이나 클릭하고 붙여넣으면 거기서부터 오른쪽·아래로 채워짐. 6칸 넘는 건 버림.</span>
   </div>
+
+  <h3>③ 환불 내역 <span class="hint">환불 시트에서 줄째 복사해 붙여넣기 — 날짜·채널명·금액만 읽음. 없으면 비워 둬도 됨</span></h3>
+  <textarea id="ref" style="height:100px" placeholder="진행중	2026-10-06	주식회사 마스터	감탄상회	홍찬화	단순환불	기업2 - 감탄상회	N	320,400	카카오뱅크	3333380443202	감탄상회(이진화)	2026-10-07 19:29"></textarea>
+  <div id="refNames" class="payers"></div>
 
   <div class="row">
     <label>업체명</label><input type="text" id="vendor" style="width:180px">
@@ -178,6 +183,37 @@ function renderPayers(deps){
 }
 function payerToggle(el){ const k = JSON.parse(ls('ipg_off')||'{}'); if(el.checked) delete k[el.dataset.n]; else k[el.dataset.n]=1; ls('ipg_off', JSON.stringify(k)); }
 function payerOn(n){ const el = [...document.querySelectorAll('#payers input')].find(x => x.dataset.n === n); return !el || el.checked; }
+// ── ③ 환불 (우리가 업체에 돌려준 돈) ──
+/* 환불 시트 줄: 상태·날짜·사업자·채널명·요청자·목적·대상·계산서·금액·은행·계좌·이름·지급일시…
+   날짜 = 줄의 마지막 날짜(실제 지급일시, 없으면 요청 날짜) / 금액 = 첫 금액(계좌번호처럼 10자리 넘는 숫자는 뺌) /
+   이름 = 칸이 많으면 4번째 칸(채널명), 아니면 첫 글자 칸. */
+function parseRefunds(text){
+  const out = [];
+  text.split(/\r?\n/).forEach(line => {
+    if(!line.trim()) return;
+    const c = splitLine(line).map(x => x.trim());
+    let date = null, amt = null;
+    c.forEach(x => { const d = parseDate(x); if(d) date = d; });
+    for(const x of c){ if(parseDate(x)) continue; const a = parseAmt(x); if(a !== null && a > 0 && !/^\d{10,}$/.test(x.replace(/,/g,''))){ amt = a; break; } }
+    if(!date || amt === null) return;
+    const name = c.length >= 10 ? c[3] : (c.find(x => /[가-힣A-Za-z]/.test(x) && !parseDate(x)) || '');
+    out.push({date, amt, name});
+  });
+  return out;
+}
+// 환불 시트엔 여러 업체가 섞여 온다 → 채널명 고르기. 처음엔 업체명과 겹치는 것만 켬, 손으로 바꾼 건 기억.
+function refOn(n){
+  const k = JSON.parse(ls('ipg_refon')||'{}'); if(n in k) return k[n];
+  const v = $('vendor').value.trim(); if(!v) return true;
+  return n.includes(v) || v.includes(n);
+}
+function renderRefNames(refs){
+  const names = [...new Set(refs.map(r => r.name))];
+  $('refNames').innerHTML = !names.length ? '' :
+    '<span class="hint">이 업체 환불만 켜기: </span>' + names.map(n =>
+      `<label><input type="checkbox" data-n="${esc(n)}" ${refOn(n)?'checked':''} onchange="refToggle(this)"> ${esc(n)}</label>`).join('');
+}
+function refToggle(el){ const k = JSON.parse(ls('ipg_refon')||'{}'); k[el.dataset.n] = el.checked; ls('ipg_refon', JSON.stringify(k)); }
 // 「박하해(블레스드잇샤」 → 「블레스드잇샤」 (괄호 안이 업체명인 경우)
 function vendorFromPayer(n){ const m = String(n||'').match(/\(([^)]+)\)?/); return m ? m[1].trim() : String(n||'').trim(); }
 
@@ -243,8 +279,9 @@ function parseSettles(warns){
    그래도 남으면 입금만 한 줄(«맞는 정산 없음»), 정산만 남으면 그날 한 줄씩 «입금 내역 없음». */
 const DAY = 86400000, dnum = s => Date.parse(s);
 const AFTER = 7 * DAY;                   // 정산일이 입금일보다 7일 넘게 뒤면 그 입금 몫으로 안 봄(선입금은 며칠까지만)
-function matchAll(settles, deps){
+function matchAll(settles, deps, refs = []){
   const used = settles.map(() => false), pair = deps.map(() => null);
+  const rUsed = refs.map(() => false), rPair = deps.map(() => null);
   /* 아직 안 쓴 정산을 날짜순으로 이어 붙여 훑는다. 이미 다른 입금에 붙은 날은 «건너뛰고» 잇는다
      (홍팀장 26-10-29: 9/29 200,600 = 밀린 9/17 93,100 + 9/21 74,500 + 9/29 33,000 — 사이 날들은 이미 입금됨). */
   const runs = (d, fn) => {
@@ -268,6 +305,20 @@ function matchAll(settles, deps){
     runs(d, (ids, k, sum) => { if(sum === d.amt && (!hit || far(d, k) < far(d, hit.k))) hit = {ids, k}; if(sum >= d.amt) return false; });
     if(hit) take(di, hit.ids);
   });
+  /* 환불 단계 (홍팀장 26-10-29 «환불 해준 건도 맞춰야 해»): 아직 못 맞춘 입금에 45일 안의 환불을 붙여 본다.
+     ① 환불 = 입금 → 더 들어온 돈을 그대로 돌려준 것(«환불로 정리») ② 입금 − 환불 = 정산 구간 합 → 그만큼만 정산 몫. */
+  deps.forEach((d, di) => {
+    if(pair[di]) return;
+    for(let ri = 0; ri < refs.length; ri++){
+      const r = refs[ri];
+      if(rUsed[ri] || Math.abs(dnum(r.date) - dnum(d.date)) > 45 * DAY) continue;
+      if(r.amt === d.amt){ rUsed[ri] = true; rPair[di] = ri; pair[di] = {ids:[]}; return; }
+      const net = d.amt - r.amt; if(net <= 0) continue;
+      let hit = null;
+      runs(d, (ids, k, sum) => { if(sum === net && (!hit || far(d, k) < far(d, hit.k))) hit = {ids, k}; if(sum >= net) return false; });
+      if(hit){ take(di, hit.ids); rUsed[ri] = true; rPair[di] = ri; return; }
+    }
+  });
   // 2단계: ±10% 안에서 제일 가까운 구간
   deps.forEach((d, di) => {
     if(pair[di]) return;
@@ -279,12 +330,12 @@ function matchAll(settles, deps){
     });
     if(best) take(di, best.ids);
   });
-  return {used, pair};
+  return {used, pair, rPair, rUsed};
 }
 
 /* 화면 줄 만들기: 정산 순서대로 깔고, 정산 못 찾은 입금은 입금일 자리에 끼운다.
    첫 «맞은» 정산보다 앞의 정산·입금은 «대조 시작 전»(이번에 안 붙인 옛 입금·옛 정산 몫)으로 접는다. */
-function buildBlocks(settles, deps, m){
+function buildBlocks(settles, deps, m, refs = []){
   const firstHit = m.used.indexOf(true);
   const startIdx = firstHit < 0 ? 0 : firstHit;
   const startDate = settles[startIdx] ? settles[startIdx].date : '0000';
@@ -297,11 +348,15 @@ function buildBlocks(settles, deps, m){
       else items.push({key:d.date + '~', blk:{n:0, amt:0, dep:d, diff:-d.amt, st:'nomatch'}});
       return;
     }
-    const rs = p.ids.map(i => settles[i]), amt = rs.reduce((s,r) => s+r.amt, 0);
+    const ref = m.rPair && m.rPair[di] != null ? refs[m.rPair[di]] : null;
+    if(!p.ids.length){ items.push({key:d.date + '~', blk:{n:0, amt:0, dep:d, ref, diff:0, st:'refunded'}}); return; }
+    const rs = p.ids.map(i => settles[i]), amt = rs.reduce((s,r) => s+r.amt, 0), got = d.amt - (ref ? ref.amt : 0);
     const gapped = p.ids.some((v, j) => j && v !== p.ids[j-1] + 1);   // 밀린 날을 건너뛰어 모은 입금은 입금일 자리에 둔다
-    items.push({key: gapped ? d.date + "~" : rs[0].date, blk:{from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt, dep:d, diff:amt - d.amt, gap:p.ids.some((v, j) => j && v !== p.ids[j-1] + 1),
-                st: amt === d.amt ? 'ok' : amt > d.amt ? 'short' : 'over'}});
+    items.push({key: gapped ? d.date + "~" : rs[0].date, blk:{from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt, dep:d, ref, diff:amt - got, gap:gapped,
+                st: amt === got ? 'ok' : amt > got ? 'short' : 'over'}});
   });
+  // 어느 입금에도 못 붙인 환불은 환불일 자리에 그대로 한 줄 (합계엔 안 넣음 — 확인용)
+  refs.forEach((r, ri) => { if(!(m.rUsed && m.rUsed[ri])) items.push({key:r.date + '~', blk:{n:0, amt:0, dep:null, ref:r, diff:null, st:'refund'}}); });
   settles.forEach((s, i) => {
     if(m.used[i] || i < startIdx) return;
     items.push({key:s.date, blk:{from:s.date, to:s.date, n:1, rs:[s], amt:s.amt, dep:null, diff:s.amt, st: s.date > lastDep ? 'unpaid' : 'missing'}});
@@ -318,7 +373,10 @@ function run(){
   const used = deps.filter(d => payerOn(d.name)).map((d, i) => ({...d, i})).sort((a,b) => a.date<b.date?-1:a.date>b.date?1:a.i-b.i);
   const settles = parseSettles(warns);
   if(!$('vendor').value.trim() && used.length) $('vendor').value = vendorFromPayer(used[0].name);
-  ls('ipg_dep', $('dep').value); ls('ipg_vendor', $('vendor').value); ls('ipg_honor', $('honor').value);
+  const refsAll = parseRefunds($('ref').value);
+  renderRefNames(refsAll);
+  const refs = refsAll.filter(r => refOn(r.name)).sort((a,b) => a.date<b.date?-1:a.date>b.date?1:0);
+  ls('ipg_dep', $('dep').value); ls('ipg_ref', $('ref').value); ls('ipg_vendor', $('vendor').value); ls('ipg_honor', $('honor').value);
   if(!settles.length) warns.push('정산 내역을 못 읽었음 — 1칸에 일자, 3~6칸에 금액이 들어갔는지 확인');
   $('warn').textContent = warns.join('\n');
   if(!settles.length){ $('resPanel').style.display='none'; return; }
@@ -327,8 +385,9 @@ function run(){
   const sIn = pick ? settles.filter(s => s.date >= pick) : settles;
   const d0 = dpick !== undefined && dpick !== '' ? Math.min(+dpick, used.length) : 0;
   const inDeps0 = used.slice(d0);
-  const m = matchAll(sIn, inDeps0);
-  const B = buildBlocks(sIn, inDeps0, m);
+  const m = matchAll(sIn, inDeps0, refs);
+  const B = buildBlocks(sIn, inDeps0, m, refs);
+  const refPaid = refs.filter((r, ri) => m.rUsed[ri]).reduce((s,r) => s+r.amt, 0);   // 입금과 짝지은 환불만 입금에서 뺌
   const blocks = B.blocks, skipDeps = [...used.slice(0, d0), ...B.skipDeps];
   const inDeps = inDeps0.filter(d => !B.skipDeps.includes(d));
   const autoS = sIn[B.startIdx] ? sIn[B.startIdx].date : null;
@@ -337,20 +396,23 @@ function run(){
   $('depSel').innerHTML = `<option value="">자동 (맞는 정산 없는 앞쪽 입금은 뺌)</option>` +
     used.map((d, i) => `<option value="${i}"${dpick===String(i)?' selected':''}>${kDate(d.date)} ${won(d.amt)}부터</option>`).join('');
   const inR = sIn.slice(B.startIdx);
-  const setTotal = inR.reduce((s,r) => s+r.amt, 0), depTotal = inDeps.reduce((s,d) => s+d.amt, 0);
+  const setTotal = inR.reduce((s,r) => s+r.amt, 0), depTotal = inDeps.reduce((s,d) => s+d.amt, 0) - refPaid;
   const skipped = [...settles.filter(s => !sIn.includes(s)), ...B.skipped];
   CUR = {vendor:$('vendor').value.trim() || '(업체명)', honor:$('honor').value.trim(), blocks, skipped, skipDeps,
          setTotal, depTotal, net:setTotal - depTotal, bad:blocks.filter(b => ['short','unpaid','missing'].includes(b.st)).reduce((s,b) => s+b.diff, 0), firstBad:blocks.findIndex(b => b.st === 'short' || b.st === 'unpaid' || b.st === 'missing'),
-         lastDep: inDeps.length ? inDeps[inDeps.length-1].date : null, nDep:inDeps.length, nSet:inR.length};
+         refPaid, lastDep: inDeps.length ? inDeps[inDeps.length-1].date : null, nDep:inDeps.length, nSet:inR.length};
   render();
 }
 function startPick(v){ $('startSel').dataset.pick = v; run(); }
 function depPick(v){ $('depSel').dataset.pick = v; run(); }
 
-const ST_TXT = {ok:'일치', short:'덜 들어옴', over:'더 들어옴', unpaid:'미입금', missing:'입금 내역 없음', nomatch:'맞는 정산 없음'};
-const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌', missing:'❌', nomatch:'🔵'};
+const ST_TXT = {ok:'일치', short:'덜 들어옴', over:'더 들어옴', unpaid:'미입금', missing:'입금 내역 없음', nomatch:'맞는 정산 없음', refunded:'환불로 정리', refund:'환불'};
+const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌', missing:'❌', nomatch:'🔵', refunded:'↩', refund:'↩'};
 const setLabel = b => b.n ? rangeLabel(b) : '-';
-const diffTxt = b => b.diff === 0 ? '0' : (b.diff > 0 ? won(b.diff) : '+' + won(-b.diff));
+const diffTxt = b => b.diff == null ? '-' : b.diff === 0 ? '0' : (b.diff > 0 ? won(b.diff) : '+' + won(-b.diff));
+// 입금일·실 입금액 칸: 입금 한 줄 + 짝지은 환불 한 줄(−)
+const depDates = b => { const a = []; if(b.dep) a.push(kDate(b.dep.date)); if(b.ref) a.push('↩ ' + kDate(b.ref.date) + ' 환불'); return a.length ? a : ['-']; };
+const depAmts = b => { const a = []; if(b.dep) a.push(won(b.dep.amt)); if(b.ref) a.push('−' + won(b.ref.amt)); return a.length ? a : ['-']; };
 /* 정산은 뭉뚱그리지 않는다 (홍팀장 26-10-29): 여러 날이면 그날그날 줄을 깔고,
    그 아래 «기간 합계» 줄 한 칸에 실 입금액·차액을 붙인다. 하루짜리는 한 줄. */
 const blockLines = b => b.n > 1
@@ -363,7 +425,7 @@ function render(){
   const ok = c.blocks.filter(b => b.st === 'ok').length, bad = c.blocks.filter(b => b.st === 'short' || b.st === 'over').length;
   $('sum').innerHTML =
     `<div>정산 합계<br><b>${won(c.setTotal)}</b> <span class="hint">${c.nSet}건</span></div>` +
-    `<div>입금 합계<br><b>${won(c.depTotal)}</b> <span class="hint">${c.nDep}건${c.lastDep?' · 마지막 '+kDate(c.lastDep):''}</span></div>` +
+    `<div>입금 합계${c.refPaid?' (환불 뺌)':''}<br><b>${won(c.depTotal)}</b> <span class="hint">${c.nDep}건${c.refPaid?' · 환불 −'+won(c.refPaid):''}${c.lastDep?' · 마지막 '+kDate(c.lastDep):''}</span></div>` +
     (c.net > 0 ? `<div class="red">차액 (정산−입금)<br><b>${won(c.net)}</b></div>`
                : c.net < 0 ? `<div>차액 (정산−입금)<br><b>+${won(-c.net)}</b> <span class="hint">더 들어옴</span></div>`
                : `<div>차액<br><b>0 ✅</b></div>`) +
@@ -377,7 +439,7 @@ function render(){
       ? `<tr class="day${i===c.firstBad&&k===0?' cut':''}"><td class="c">${ln.vals[0]}</td><td class="n">${ln.vals[1]}</td><td colspan="4"></td></tr>`
       : `<tr class="${b.st}${b.n>1?' tot':''}${i===c.firstBad&&k===0?' cut':''}">
     <td class="c">${ln.vals[0]}</td><td class="n">${ln.vals[1]}</td>
-    <td class="c">${b.dep?kDate(b.dep.date):'-'}</td><td class="n">${b.dep?won(b.dep.amt):'-'}</td>
+    <td class="c">${depDates(b).join('<br>')}</td><td class="n">${depAmts(b).join('<br>')}</td>
     <td class="n">${diffTxt(b)}</td><td class="c">${ST_ICON[b.st]} ${ST_TXT[b.st]}</td></tr>`).join('')).join('');
   $('msg').textContent = buildMsg();
   drawImg();
@@ -417,13 +479,13 @@ function tableDraw(x, L, y, cols, rows){        // rows: {vals:[[줄…]…], bg
   return y;
 }
 function tableHeight(rows){ return rows.reduce((s,r) => s + Math.max(...r.vals.map(v => v.length))*20 + 16, 0); }
-const BG = {ok:'#fff', short:'#fff6e0', over:'#eef4ff', unpaid:'#fdecec', missing:'#fdecec', nomatch:'#eef4ff', head:'#eef0f3'};
+const BG = {ok:'#fff', short:'#fff6e0', over:'#eef4ff', unpaid:'#fdecec', missing:'#fdecec', nomatch:'#eef4ff', refunded:'#f5f0ff', refund:'#f5f0ff', head:'#eef0f3'};
 const blockColors = (b, withDep) => { const red = (b.st==='short'||b.st==='unpaid'||b.st==='missing') ? '#b3261e' : b.st==='ok' ? '#2d7a3a' : '#1b4fb3';
   const n = withDep ? 6 : 5; const a = Array(n).fill(null); a[n-2] = b.st==='ok'?null:red; a[n-1] = red; return a; };
 // 이미지용 줄: 날짜별 줄(입금 칸 비움) + 합계 줄(굵게, 입금·차액)
 const blockImgRows = (b, withDep, cut) => blockLines(b).map((ln, k) => ln.day
   ? {vals:[[ln.vals[0]], [ln.vals[1]], ...Array(withDep ? 4 : 3).fill([''])], bg:'#fff', cut:cut&&k===0}
-  : {vals:[[ln.vals[0]], [ln.vals[1]], ...(withDep ? [[b.dep?kDate(b.dep.date):'-']] : []), [b.dep?won(b.dep.amt):'-'], [diffTxt(b)], [ST_TXT[b.st]]],
+  : {vals:[[ln.vals[0]], [ln.vals[1]], ...(withDep ? [depDates(b)] : []), depAmts(b), [diffTxt(b)], [ST_TXT[b.st]]],
      bg:BG[b.st], bold:b.n>1, colors:blockColors(b, withDep), cut:cut&&k===0});
 function footer(x, L, y){
   const c = CUR;
@@ -525,6 +587,7 @@ try{
   if(Array.isArray(g)){ gridBuild(Math.max(ROWS, g.length)); g.forEach((row, r) => row.forEach((v, c) => { const el = cell(r,c); if(el) el.value = v; })); }
 }catch(e){}
 $('dep').value = ls('ipg_dep') || '';
+$('ref').value = ls('ipg_ref') || '';
 $('vendor').value = ls('ipg_vendor') || '';
 $('honor').value = ls('ipg_honor') || '';
 // 보내는 회사명: 저장값 → 배포 페이지가 붙여 준 ?co= → 기본 주소면 마스터 유통
