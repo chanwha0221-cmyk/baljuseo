@@ -64,7 +64,7 @@
 <div id="out"></div>
 
 <script>
-const SUPPLIER = {name:'(주)마스터', bn:'803-86-03206'};
+const SUPPLIER = {name:'(주)마스터', bn:'803-86-03206', bank:'기업은행 514-049965-04-014 (예금주: 주식회사 마스터)'};
 const $ = id => document.getElementById(id);
 const won = n => Math.round(n).toLocaleString('ko-KR');
 const num = s => Number(String(s||'').replace(/[^\d.-]/g,'')) || 0;
@@ -127,6 +127,7 @@ function sheet(date, d, ship){
       ${body}
       <tr class="ship"><td class="c">${++no}</td><td>택배비</td><td class="n">${d.boxes}</td><td class="n">${won(ship)}</td><td class="n">${won(shipAmt)}</td><td class="c">박스당</td></tr>
       <tr class="sum"><td colspan="4" class="c">합 계</td><td class="n">${won(total)}</td><td></td></tr>
+      <tr><th colspan="2">입금 계좌</th><td colspan="4">${SUPPLIER.bank}</td></tr>
     </table>
     <div class="note" contenteditable>※ 수산물(면세) 품목입니다. 택배비는 박스당 ${won(ship)}원 별도 기재.</div>
   </div>`;
