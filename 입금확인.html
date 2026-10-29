@@ -99,9 +99,10 @@
     <button class="sub" onclick="dlImg('full')">⬇ PNG 저장</button>
   </div>
   <div class="row">
-    <label>대조 시작</label><select id="startSel" onchange="startPick(this.value)" style="padding:5px;font-size:13px"></select>
-    <span class="hint">앞쪽 정산이 이번에 안 붙인 옛 입금으로 이미 끝났으면, 딱 맞는 입금이 제일 많이 나오는 날부터 자동으로 잡음. 틀리면 여기서 고르기.</span>
+    <label>대조 시작 — 정산</label><select id="startSel" onchange="startPick(this.value)" style="padding:5px;font-size:13px"></select>
+    <label>입금</label><select id="depSel" onchange="depPick(this.value)" style="padding:5px;font-size:13px"></select>
   </div>
+  <div class="hint" style="margin-top:-4px">[대조하기] 누르면 딱 맞는 입금이 제일 많이 나오는 정산·입금 시작점을 자동으로 잡음. 딱 맞는 입금이 하나도 없으면 처음부터 맞추니까, 맨 위 줄이 이상하면 여기서 직접 고르기.</div>
   <table class="res"><thead><tr><th>정산일</th><th>정산금액</th><th>입금일</th><th>실 입금액</th><th>차액</th><th>상태</th></tr></thead><tbody id="rbody"></tbody></table>
 
   <h3>📤 업체에 보낼 메시지 (카톡)</h3>
@@ -266,14 +267,18 @@ function matchFrom(settles, deps, s0){
   }
   return blocks;
 }
-/* 시작점 자동: 앞쪽 정산은 이번에 안 붙여넣은 옛 입금으로 이미 끝났을 수 있다.
-   첫 입금일 이전 정산 중 어디서 시작해야 «딱 맞는 입금»이 제일 많은지 보고, 같으면 이른 쪽. */
+/* 시작점 자동 — 정산·입금 둘 다 (홍팀장 26-10-29).
+   ① 앞쪽 정산은 이번에 안 붙여넣은 옛 입금으로 이미 끝났을 수 있다.
+   ② 앞쪽 입금은 이번 정산보다 더 앞 정산 몫일 수 있다(9/20 223,500 → 9/21~22 는 실제로 10/5 에 들어옴).
+   정산 시작 × 입금 시작을 다 맞춰 보고 «딱 맞는 입금»이 제일 많은 조합. 같으면 입금 덜 빼는 쪽 → 정산 이른 쪽.
+   딱 맞는 게 하나도 없으면 근거가 없으니 처음부터(0,0) — 그땐 담당자가 「대조 시작」에서 고른다. */
 function autoStart(settles, deps){
-  if(!deps.length) return 0;
-  let best = 0, bestOk = -1;
-  for(let s = 0; s < settles.length && settles[s].date <= deps[0].date; s++){
-    const ok = matchFrom(settles, deps, s).filter(b => b.st === 'ok').length;
-    if(ok > bestOk){ bestOk = ok; best = s; }
+  let best = {s:0, d:0}, bestOk = 0;
+  for(let d = 0; d < deps.length && d <= 10; d++){
+    for(let s = 0; s < settles.length && settles[s].date <= deps[d].date; s++){
+      const ok = matchFrom(settles, deps.slice(d), s).filter(b => b.st === 'ok').length;
+      if(ok > bestOk){ bestOk = ok; best = {s, d}; }
+    }
   }
   return best;
 }
@@ -292,21 +297,26 @@ function run(){
   if(!settles.length){ $('resPanel').style.display='none'; return; }
 
   const auto = autoStart(settles, used);
-  const pick = $('startSel').dataset.pick;                       // 사람이 고른 시작일(없으면 자동)
-  let s0 = pick ? settles.findIndex(s => s.date >= pick) : auto;
-  if(s0 < 0) s0 = auto;
-  const blocks = matchFrom(settles, used, s0);
-  $('startSel').innerHTML = `<option value="">자동 (${kDate(settles[auto].date)}부터)</option>` +
+  const pick = $('startSel').dataset.pick, dpick = $('depSel').dataset.pick;   // 사람이 고른 시작(없으면 자동)
+  let s0 = pick ? settles.findIndex(s => s.date >= pick) : auto.s;
+  if(s0 < 0) s0 = auto.s;
+  const d0 = dpick !== undefined && dpick !== '' ? Math.min(+dpick, used.length) : auto.d;
+  const inDeps = used.slice(d0), skipDeps = used.slice(0, d0);
+  const blocks = matchFrom(settles, inDeps, s0);
+  $('startSel').innerHTML = `<option value="">자동 (${kDate(settles[auto.s].date)}부터)</option>` +
     settles.map(s => `<option value="${s.date}"${pick===s.date?' selected':''}>${kDate(s.date)}부터</option>`).join('');
+  $('depSel').innerHTML = `<option value="">자동 (${used[auto.d] ? kDate(used[auto.d].date)+' '+won(used[auto.d].amt)+'부터' : '없음'})</option>` +
+    used.map((d, i) => `<option value="${i}"${dpick===String(i)?' selected':''}>${kDate(d.date)} ${won(d.amt)}부터</option>`).join('');
   const inR = settles.slice(s0);
-  const setTotal = inR.reduce((s,r) => s+r.amt, 0), depTotal = used.reduce((s,d) => s+d.amt, 0);
+  const setTotal = inR.reduce((s,r) => s+r.amt, 0), depTotal = inDeps.reduce((s,d) => s+d.amt, 0);
   const skipped = settles.slice(0, s0);
-  CUR = {vendor:$('vendor').value.trim() || '(업체명)', honor:$('honor').value.trim(), blocks, skipped,
+  CUR = {vendor:$('vendor').value.trim() || '(업체명)', honor:$('honor').value.trim(), blocks, skipped, skipDeps,
          setTotal, depTotal, net:setTotal - depTotal, firstBad:blocks.findIndex(b => b.st === 'short' || b.st === 'unpaid'),
-         lastDep: used.length ? used[used.length-1].date : null, nDep:used.length, nSet:inR.length};
+         lastDep: inDeps.length ? inDeps[inDeps.length-1].date : null, nDep:inDeps.length, nSet:inR.length};
   render();
 }
 function startPick(v){ $('startSel').dataset.pick = v; run(); }
+function depPick(v){ $('depSel').dataset.pick = v; run(); }
 
 const ST_TXT = {ok:'일치', short:'덜 들어옴', over:'더 들어옴', unpaid:'미입금'};
 const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌'};
@@ -326,7 +336,9 @@ function render(){
     `<div>입금 ${c.nDep}건 중<br><b>${ok}건 일치</b>${bad?` <span class="hint">· 차액 ${bad}건</span>`:''}</div>`;
   $('rbody').innerHTML =
     (c.skipped.length ? `<tr class="skip"><td class="c">${rangeLabel({n:c.skipped.length, from:c.skipped[0].date, to:c.skipped[c.skipped.length-1].date})}</td>
-      <td class="n">${won(c.skipped.reduce((s,r)=>s+r.amt,0))}</td><td class="c" colspan="4">대조 시작 전 (이번 입금 내역 밖)</td></tr>` : '') +
+      <td class="n">${won(c.skipped.reduce((s,r)=>s+r.amt,0))}</td><td class="c" colspan="4">대조 시작 전 정산 (이번 입금 내역 밖)</td></tr>` : '') +
+    (c.skipDeps.length ? `<tr class="skip"><td class="c" colspan="2">대조 시작 전 입금 (더 앞 정산 몫)</td>
+      <td class="c">${c.skipDeps.map(d => kDate(d.date)).join('<br>')}</td><td class="n">${c.skipDeps.map(d => won(d.amt)).join('<br>')}</td><td colspan="2"></td></tr>` : '') +
     c.blocks.map((b, i) => `<tr class="${b.st}${i===c.firstBad?' cut':''}">
     <td class="c">${setLabel(b)}${b.n>1?` <span class="hint">(${b.n}건)</span>`:''}</td><td class="n">${b.n?won(b.amt):'-'}</td>
     <td class="c">${b.dep?kDate(b.dep.date):'-'}</td><td class="n">${b.dep?won(b.dep.amt):'-'}</td>
@@ -478,7 +490,7 @@ $('honor').value = ls('ipg_honor') || '';
 $('company').addEventListener('input', () => { ls('ipg_co', $('company').value); if(CUR) render(); });
 const _p = ls('ipg_pair'); if(_p) document.querySelector(`input[name=pair][value=${_p}]`).checked = true;
 pairMark();
-$('go').onclick = () => { delete $('startSel').dataset.pick; run(); };   // 새로 대조할 땐 시작점 다시 자동
+$('go').onclick = () => { delete $('startSel').dataset.pick; delete $('depSel').dataset.pick; run(); };   // 새로 대조할 땐 시작점 다시 자동
 $('honor').addEventListener('change', () => { if(CUR){ CUR.honor = $('honor').value.trim(); ls('ipg_honor', $('honor').value); render(); } });
 </script>
 </body>
