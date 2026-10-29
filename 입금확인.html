@@ -208,8 +208,12 @@ $('gbody').addEventListener('paste', e => {
   const text = (e.clipboardData||window.clipboardData).getData('text');
   if(!/[\t\n]/.test(text)) return;                       // 한 칸짜리는 그냥 붙여넣기
   e.preventDefault();
-  // 맨 윗줄에 붙여넣으면 새 자료 → 표를 먼저 비운다. 안 비우면 전에 넣은 긴 자료의 아랫줄·옆칸이 남아 같은 날짜가 두 번 더해진다.
-  if(+t.dataset.r === 0) $('gbody').querySelectorAll('input').forEach(x => x.value='');
+  /* 맨 윗줄에 붙여넣으면 «붙여넣는 칸들만» 위에서 아래까지 비운다 — 전에 넣은 긴 자료의 아랫줄이 남아 두 번 더해지는 걸 막음.
+     🔴 다른 칸은 건드리지 말 것: 일자·요일 2칸 넣고 금액 4칸을 따로 넣는다(26-10-29, 통째로 비웠다가 먼저 넣은 2칸이 날아감). */
+  if(+t.dataset.r === 0){
+    const c0 = +t.dataset.c, w = Math.max(...text.replace(/\r/g,'').replace(/\n+$/,'').split('\n').map(l => l.split('\t').length));
+    $('gbody').querySelectorAll('input').forEach(x => { const c = +x.dataset.c; if(c >= c0 && c < c0 + w) x.value = ''; });
+  }
   gridFill(+t.dataset.r, +t.dataset.c, text);
 });
 $('gbody').addEventListener('input', gridSave);
