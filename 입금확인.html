@@ -79,7 +79,7 @@
   </div>
 
   <h3>③ 환불 내역 <span class="hint">환불 시트에서 줄째 복사해 붙여넣기 — 날짜·채널명·금액만 읽음. 없으면 비워 둬도 됨</span></h3>
-  <textarea id="ref" style="height:100px" placeholder="진행중	2026-10-06	주식회사 마스터	감탄상회	홍찬화	단순환불	기업2 - 감탄상회	N	320,400	카카오뱅크	3333380443202	감탄상회(이진화)	2026-10-07 19:29"></textarea>
+  <textarea id="ref" style="height:100px" placeholder="진행중	2026-10-06	(우리 회사)	샘플상회	담당자	단순환불	샘플상회 환불	N	32,000	○○은행	123-456-789	김철수(샘플상회)	2026-10-07 19:29"></textarea>
   <div id="refNames" class="payers"></div>
 
   <div class="row">
@@ -214,10 +214,10 @@ function renderRefNames(refs){
       `<label><input type="checkbox" data-n="${esc(n)}" ${refOn(n)?'checked':''} onchange="refToggle(this)"> ${esc(n)}</label>`).join('');
 }
 function refToggle(el){ const k = JSON.parse(ls('ipg_refon')||'{}'); k[el.dataset.n] = el.checked; ls('ipg_refon', JSON.stringify(k)); }
-// 「박하해(블레스드잇샤」 → 「블레스드잇샤」 (괄호 안이 업체명인 경우)
+// 「김철수(샘플상회」 → 「샘플상회」 (괄호 안이 업체명인 경우)
 function vendorFromPayer(n){ const m = String(n||'').match(/\(([^)]+)\)?/); return m ? m[1].trim() : String(n||'').trim(); }
 
-// ── ② 정산 6칸 고정 그리드 (2칸씩 A·B·C 묶음 — 26-10-29 맹도르 정산 생겨 4칸→6칸) ──
+// ── ② 정산 6칸 고정 그리드 (2칸씩 A·B·C 묶음 — 26-10-29 4칸→6칸) ──
 const NC = 6, CI = [...Array(NC).keys()], PAIRS = {A:[0,1], B:[2,3], C:[4,5]};
 function gridBuild(n){
   const tb = $('gbody'); const have = tb.rows.length;
