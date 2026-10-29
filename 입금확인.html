@@ -245,36 +245,39 @@ const DAY = 86400000, dnum = s => Date.parse(s);
 const AFTER = 7 * DAY;                   // 정산일이 입금일보다 7일 넘게 뒤면 그 입금 몫으로 안 봄(선입금은 며칠까지만)
 function matchAll(settles, deps){
   const used = settles.map(() => false), pair = deps.map(() => null);
-  const runs = (d, fn) => {               // 아직 안 쓴, 이어진 정산 구간을 이른 것부터 훑음
-    for(let a = 0; a < settles.length; a++){
-      if(used[a]) continue;
-      if(dnum(settles[a].date) > dnum(d.date) + AFTER) break;
+  /* 아직 안 쓴 정산을 날짜순으로 이어 붙여 훑는다. 이미 다른 입금에 붙은 날은 «건너뛰고» 잇는다
+     (홍팀장 26-10-29: 9/29 200,600 = 밀린 9/17 93,100 + 9/21 74,500 + 9/29 33,000 — 사이 날들은 이미 입금됨). */
+  const runs = (d, fn) => {
+    const free = settles.map((s, i) => i).filter(i => !used[i]);
+    for(let x = 0; x < free.length; x++){
+      if(dnum(settles[free[x]].date) > dnum(d.date) + AFTER) break;
       let sum = 0;
-      for(let k = a; k < settles.length && k - a < 40; k++){
-        if(used[k] || dnum(settles[k].date) > dnum(d.date) + AFTER) break;
+      for(let y = x; y < free.length && y - x < 40; y++){
+        const k = free[y];
+        if(dnum(settles[k].date) > dnum(d.date) + AFTER) break;
         sum += settles[k].amt;
-        if(fn(a, k, sum) === false) break;
+        if(fn(free.slice(x, y + 1), k, sum) === false) break;
       }
     }
   };
-  const take = (di, a, k) => { for(let t = a; t <= k; t++) used[t] = true; pair[di] = {a, k}; };
+  const take = (di, ids) => { ids.forEach(t => used[t] = true); pair[di] = {ids}; };
   // 1단계: 딱 맞는 것 — 같은 금액 구간이 여럿이면 입금일과 날짜가 제일 가까운 쪽(10/13 입금 10,000 → 9/30 말고 10/13 정산)
   const far = (d, k) => Math.abs(dnum(d.date) - dnum(settles[k].date));
   deps.forEach((d, di) => {
     let hit = null;
-    runs(d, (a, k, sum) => { if(sum === d.amt && (!hit || far(d, k) < far(d, hit.k))) hit = {a, k}; if(sum >= d.amt) return false; });
-    if(hit) take(di, hit.a, hit.k);
+    runs(d, (ids, k, sum) => { if(sum === d.amt && (!hit || far(d, k) < far(d, hit.k))) hit = {ids, k}; if(sum >= d.amt) return false; });
+    if(hit) take(di, hit.ids);
   });
   // 2단계: ±10% 안에서 제일 가까운 구간
   deps.forEach((d, di) => {
     if(pair[di]) return;
     let best = null;
-    runs(d, (a, k, sum) => {
+    runs(d, (ids, k, sum) => {
       const gap = Math.abs(sum - d.amt);
-      if(gap <= d.amt * 0.1 && (!best || gap < best.gap)) best = {a, k, gap};
+      if(gap <= d.amt * 0.1 && (!best || gap < best.gap)) best = {ids, gap};
       if(sum > d.amt * 1.1) return false;
     });
-    if(best) take(di, best.a, best.k);
+    if(best) take(di, best.ids);
   });
   return {used, pair};
 }
@@ -282,7 +285,7 @@ function matchAll(settles, deps){
 /* 화면 줄 만들기: 정산 순서대로 깔고, 정산 못 찾은 입금은 입금일 자리에 끼운다.
    첫 «맞은» 정산보다 앞의 정산·입금은 «대조 시작 전»(이번에 안 붙인 옛 입금·옛 정산 몫)으로 접는다. */
 function buildBlocks(settles, deps, m){
-  const firstHit = m.used.findIndex((u, i) => u && m.pair.some(p => p && p.a <= i && i <= p.k));
+  const firstHit = m.used.indexOf(true);
   const startIdx = firstHit < 0 ? 0 : firstHit;
   const startDate = settles[startIdx] ? settles[startIdx].date : '0000';
   const lastDep = deps.length ? deps[deps.length-1].date : '0000';
@@ -294,8 +297,8 @@ function buildBlocks(settles, deps, m){
       else items.push({key:d.date + '~', blk:{n:0, amt:0, dep:d, diff:-d.amt, st:'nomatch'}});
       return;
     }
-    const rs = settles.slice(p.a, p.k + 1), amt = rs.reduce((s,r) => s+r.amt, 0);
-    items.push({key:rs[0].date, blk:{from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt, dep:d, diff:amt - d.amt,
+    const rs = p.ids.map(i => settles[i]), amt = rs.reduce((s,r) => s+r.amt, 0);
+    items.push({key:rs[0].date, blk:{from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt, dep:d, diff:amt - d.amt, gap:p.ids.some((v, j) => j && v !== p.ids[j-1] + 1),
                 st: amt === d.amt ? 'ok' : amt > d.amt ? 'short' : 'over'}});
   });
   settles.forEach((s, i) => {
@@ -350,7 +353,7 @@ const diffTxt = b => b.diff === 0 ? '0' : (b.diff > 0 ? won(b.diff) : '+' + won(
 /* 정산은 뭉뚱그리지 않는다 (홍팀장 26-10-29): 여러 날이면 그날그날 줄을 깔고,
    그 아래 «기간 합계» 줄 한 칸에 실 입금액·차액을 붙인다. 하루짜리는 한 줄. */
 const blockLines = b => b.n > 1
-  ? [...b.rs.map(r => ({day:true, vals:[kDate(r.date), won(r.amt)]})), {vals:[rangeLabel(b)+' 합계', won(b.amt)]}]
+  ? [...b.rs.map(r => ({day:true, vals:[kDate(r.date), won(r.amt)]})), {vals:[(b.gap ? b.n+'건' : rangeLabel(b))+' 합계', won(b.amt)]}]   // 날짜가 띄엄띄엄(사이는 이미 입금)이면 «~»로 잇지 않음
   : [{vals:[setLabel(b), b.n ? won(b.amt) : '-']}];
 function render(){
   const c = CUR;
