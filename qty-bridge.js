@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-10-29a';
+  var QTYB_VER = '2026-10-29b';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -1483,6 +1483,7 @@
         cnt();
       });
       cnt();
+      setTimeout(cleanGrabBox, 1500);
     })();
     el('qtyb-grabgo').onclick = function () { grabNow(this); };
     /* 💾 끊긴 감시 이어 받기 — 페이지가 새로 떠서 타이머가 날아갔으면 적어 둔 예약으로 다시 시작한다 (2026-10-22) */
@@ -2186,6 +2187,29 @@
     if (keep.length === lines.filter(function (s) { return s.trim(); }).length) return;
     ta.value = keep.join('\n');
     try { localStorage.setItem('qtybGrabIn', ta.value); ta.dispatchEvent(new Event('input')); } catch (e) {}
+  }
+  /* 🧹 패널 뜰 때 한 번 — 칸에 적힌 것 중 이미 여유가 찬 줄을 지운다(읽기만, 잡지 않음) (2026-10-29 「이미 잡은 건 텍스트 날려」) */
+  function cleanGrabBox() {
+    var ta = el('qtyb-grabin'); if (!ta) return;
+    var pn = parseNeed(ta.value || '');
+    var keys = Object.keys(pn.map).filter(function (k) { return k.indexOf('#raw:') !== 0; });
+    if (!keys.length) return;
+    idxReady().then(function () {
+      if (!haveIdx()) return;
+      var done = [];
+      return keys.reduce(function (pr, k) {
+        return pr.then(function () {
+          var row = IDX[k]; if (!row || !row.co) return;
+          return freshRow(row).then(function (f) {
+            if (Math.max(0, f.mine - f.used) >= pn.map[k]) done.push(k);
+          }).catch(function () {});
+        });
+      }, Promise.resolve()).then(function () {
+        if (!done.length) return;
+        dropFromGrabBox(done);
+        stat('🧹 수동 잡기 칸 — 이미 찬 ' + done.length + '건 지움');
+      });
+    }).catch(function () {});
   }
   function grabNow(btn) {
     var ta = el('qtyb-grabin'); if (!ta) return;
