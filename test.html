@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🧪 테스트본 — 발주서 변환기 v22.597</title>
+<title>🧪 테스트본 — 발주서 변환기 v22.598</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -62,7 +62,7 @@ body{box-shadow:inset 0 0 0 3px #dc2626}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span><span class="testbadge">🧪 테스트본</span>
-  <span class="ver">v22.597</span>
+  <span class="ver">v22.598</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -485,8 +485,6 @@ function pp(cl,pr,qty){
       if(gaeM){_qty=parseInt(gaeM[1]);_cn=_r.slice(0,gaeM.index).trim();}
       else if(xM){_qty=parseInt(xM[1]);_cn=_r.slice(0,xM.index).trim();}
       _cn=_cn.replace(/(\d+(?:\.\d+)?)\s*(KG|MG|ML|G|L)\b/gi,(m,n,u)=>n+u.toLowerCase()).replace(/(\d+)[kK]\b/g,'$1kg').trim();
-      // 옥돔: 무료배송 상자분리(FREE_SHIP)이면서도 '미→마리' 정식명 통일 (2026-07-07 사장님 재요청 — 옥돔을 FREE_SHIP에 넣으며 아래 옥돔 규칙이 안 타게 됐던 것 보완)
-      if(norm(_cn).includes('옥돔')){const _om=_cn.match(/(\d+)\s*(?:미|마리)/);_cn='제주 반건조 옥돔 '+(_om?_om[1]:'5')+'마리';}
       return{name:_cn,qty:_qty,maxB:1};
     }
   }
@@ -554,11 +552,8 @@ function pp(cl,pr,qty){
   cn=cn.replace(/\[마스터\]/g,'').replace('연안명게','연안 멍게').replace(/활\s*새우\s*/g,'활 새우 ').replace('난간','난각').replace(/건갈지/g,'건갈치').replace(/알가\s+생물\s+호래기/g,'생물 호래기').replace(/(\d+(?:\.\d+)?)\s*(KG|MG|ML|G|L)\b/gi,(m,n,u)=>n+u.toLowerCase()).replace(/(\d+)[kK]\b/g,'$1kg').trim();
   // 🦆 양념 접두어 복원 — 괄호에서 뺀 고추장/간장을 상품명 맨 앞에 붙여 표준 상품명화
   if(_saucePrefix&&!cn.startsWith(_saucePrefix.trim()))cn=(_saucePrefix+cn).replace(/\s+/g,' ').trim();
-  if(cn.includes('자연산 급냉 대구'))cn='급냉 국내산 대구 1.5kg';
   if(cn.includes('급냉 국내산 대구 1.5kg'))return{name:'급냉 국내산 대구 1.5kg',qty,maxB:6};
-  if(norm(cn).includes('참치오마카세'))cn='참치 오마카세 한판';
   if(cl==='신선한아침'&&cn.includes('노르웨이 생연어')){const _sw=cn.match(/(\d+(?:\.\d+)?)\s*(kg|g)\b/i);cn='연안 생연어'+(_sw?' '+_sw[1]+_sw[2].toLowerCase():'');}
-  if(cn.includes('유정란')){const em=cn.match(/(\d+)\s*[구알]/);const en=em?em[1]:'';if(cn.includes('1번'))return{name:'자연방사 난각 1번 유정란 '+en+'구',qty,maxB:999};if(cn.includes('2번'))return{name:'동물복지 난각 2번 유정란 '+en+'구',qty,maxB:999};}
   if(cl==='아크미소프트'&&cn.includes('홍어'))cn='아 '+cn;
   if(cl==='서율컴퍼니'&&norm(cn).includes('거북손')&&!norm(cn).includes('1kg'))cn='연안 거북손 500g';
   if(cl==='팡베베'&&norm(cn).includes('총알한치')){const wm=cn.match(/([\d.]+)\s*kg/i);if(wm){return{name:'총알한치 500g',qty:qty*Math.round(parseFloat(wm[1])/0.5),maxB:999};}}
@@ -588,61 +583,15 @@ function pp(cl,pr,qty){
     if(norm(pn).includes('바지락')&&!norm(pn).includes('깐'))return{name:'왕 바지락 1kg',qty:Math.round(qty*wi),maxB:999};
     if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty:Math.round(qty*wi*2),maxB:999};
   }
-  if(norm(pn).includes('홍가리비'))return{name:'활 홍가리비 1kg',qty:Math.round(qty*wi),maxB:999};
-  // 비단 가리비는 1kg 기준 (2k 들어오면 2개로 변환)
-  if(norm(pn).includes('비단')&&norm(pn).includes('가리비'))return{name:'큼직 비단가리비 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
-  if(norm(pn).includes('생굴')&&!norm(pn).includes('kg'))return{name:'생굴 1kg',qty,maxB:999};
-  if(norm(pn).includes('꼼장어'))return{name:'생물 꼼장어 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
-  if(norm(pn).includes('염소탕'))return{name:'김대헌 장수 염소탕 1팩',qty,maxB:999};
-  if(norm(pn).includes('밥도둑')&&norm(pn).includes('건갈치'))return{name:'밥도둑 건갈치 1kg',qty,maxB:999};
-  if(norm(pn).includes('삼배체')&&norm(pn).includes('굴'))return{name:'통통 삼배체 굴 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
-  if(norm(pn).includes('도다리회')){const units=Math.max(1,Math.round(qty*wi*1000/250));return{name:'통통 활 도다리 회 250g',qty:units,maxB:999};}
-  // 미더덕 회는 200g 기준 (600g x 1 → 200g x 3 으로 변환)
-  if(norm(pn).includes('미더덕')&&norm(pn).includes('회'))return{name:'통통 손질미더덕 회 200g',qty:Math.max(1,Math.round(qty*wi*5)),maxB:999};
-  // 미더덕 (회 없음)은 500g 기준
-  if(norm(pn).includes('미더덕'))return{name:'통통 미더덕 500g',qty:Math.max(1,Math.round(qty*wi*2)),maxB:999};
-  if(norm(pn).includes('바지락살')||(norm(pn).includes('깐')&&norm(pn).includes('바지락')))return{name:'깐 바지락 500g',qty,maxB:999};
-  if(norm(pn).includes('총알한치')&&norm(pn).includes('1kg'))return{name:'총알한치 500g',qty:qty*2,maxB:999};
   if(cl==='대상수산'&&(norm(pn).includes('바다장어')||norm(pn).includes('바다 장어')))return{name:'비만 바다장어 1kg',qty:Math.round(qty*wi),maxB:999};
   // 초벌 고창 민물 장어 → 이름 그대로 유지 + 1kg 단위 (특왕 민물장어 규칙보다 먼저 처리 — 초벌·고창 있으면 특왕 아님)
   if(cl==='대상수산'&&norm(pn).includes('초벌')&&norm(pn).includes('고창')&&norm(pn).includes('민물')&&norm(pn).includes('장어'))return{name:'초벌 고창 민물 장어 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
   if(cl==='대상수산'&&(norm(pn).includes('생물 풍천 민물 장어')||(norm(pn).includes('민물')&&norm(pn).includes('장어'))))return{name:'특왕 민물장어 1kg',qty:Math.round(qty*wi),maxB:999};
   // 초벌 고창 풍천 장어 → 1kg 기준 (2kg 들어오면 1kg x 2). 민물·바다 장어는 위에서 이미 처리 (2026-06-19)
-  // 프리미엄 초벌 풍천장어 1.5kg은 따로 있는 상품 — 이름·수량 그대로. 아래 1kg 규칙에 걸려 1.5kg→「1kg x 2」로 바뀌던 사고 (2026-09-14 홍팀장)
-  if(norm(pn).includes('프리미엄')&&norm(pn).includes('풍천')&&norm(pn).includes('장어'))return{name:'프리미엄 초벌 풍천장어 1.5kg',qty,maxB:999};
   if(cl==='대상수산'&&norm(pn).includes('풍천')&&norm(pn).includes('장어')&&!norm(pn).includes('민물'))return{name:'초벌 고창 풍천 장어 1kg',qty:Math.max(1,Math.round(qty*wi)),maxB:999};
-  if(norm(pn).includes('풀도다리')){const isFrozen=norm(pn).includes('급냉');return{name:isFrozen?'연안 급냉 풀도다리 1kg':'연안 활 풀도다리 1kg',qty:Math.round(qty*wi),maxB:999};}
-  // 골뱅이 어묵탕은 완전 다른 상품 — 활 골뱅이 규칙보다 먼저 처리 (2026-07-13 사고: 157세트가 활 골뱅이 1kg으로 치환됨)
-  if(norm(pn).includes('골뱅이')&&(norm(pn).includes('어묵탕')||norm(pn).includes('어묵')))return{name:'골뱅이 어묵탕 1세트',qty,maxB:999};
-  // 자숙(삶은) 골뱅이는 활 골뱅이와 완전 다른 상품 — 이름·수량·중량 입력 그대로 (2026-07-28 사고: 자숙 골뱅이 500g x2가 활 골뱅이 1kg x1로 둔갑)
-  if(norm(pn).includes('골뱅이')&&norm(pn).includes('자숙'))return{name:pn,qty,maxB:999};
-  // 급냉 골뱅이는 활 골뱅이와 다른 상품 — 이름·수량 입력 그대로 (2026-07-29 식봄 급냉 골뱅이 1kg이 동해 활 골뱅이로 둔갑)
-  if(norm(pn).includes('골뱅이')&&norm(pn).includes('급냉'))return{name:pn,qty,maxB:999};
-  if(norm(pn).includes('골뱅이'))return{name:'동해 활 골뱅이 1kg',qty:Math.round(qty*wi),maxB:999};
-  if(norm(pn).includes('거북손')&&norm(pn).includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
-  // 「제철 석화굴」은 따로 있는 상품 — 국내산 석화로 바꾸지 않는다 (2026-10-29 엄지손수산)
-  if(norm(pn).includes('석화')&&!norm(pn).includes('석화굴')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
   if(norm(pn).includes('새꼬막'))return{name:pn,qty,maxB:qty>=2?1:999};
   if(norm(pn).includes('박달홍게'))return{name:pn,qty,maxB:1};
   if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};
-  if(norm(pn).includes('담양')&&norm(pn).includes('떡갈비')&&!norm(pn).includes('맛상'))return{name:'맛상 '+pn,qty,maxB:999};
-  if(norm(pn).includes('보리굴비'))return{name:pn.replace(/(\d+)\s*미/,'$1마리'),qty,maxB:999};
-  // ⚠️ 아래 옥돔 규칙은 현재 도달 불가 — FREE_SHIP_KEYWORDS의 '옥돔'이 위에서 항상 먼저 처리(803행 부근).
-  //    옥돔을 무료배송(FREE_SHIP)에서 빼는 날 다시 살아나는 백업 규칙이라 일부러 남겨둠 (2026-08-03 점검).
-  if(norm(pn).includes('옥돔')){const _m=pn.match(/(\d+)\s*(?:미|마리)/);return{name:'제주 반건조 옥돔 '+(_m?_m[1]:'5')+'마리',qty,maxB:999};}
-  // 마스터씨 자체 육류 표준 상품명 — 게시판 기준명으로 정규화 (인분/냉동 등 부가표기 제거. 2026-06-19 사장님 지시)
-  if(norm(pn).includes('도가니')&&norm(pn).includes('곰탕'))return{name:'도가니곰탕 600g',qty,maxB:999};
-  if(norm(pn).includes('흑돼지')&&norm(pn).includes('고추장'))return{name:'제주흑돼지 고추장불고기 400g',qty,maxB:999};
-  // 찐한국 시리즈 (자체제작, 상품명 미정의 → 오타 그대로 들어옴. 키워드 정규화)
-  {const _z=norm(pn).toLowerCase();
-    if(_z.includes('고무장갑')){
-      if(/퍼플|purple|보라/.test(_z))return{name:'찐한국 고무장갑 퍼플',qty,maxB:999};
-      if(/그레이|그래이|그레의|gray|grey|회색/.test(_z))return{name:'찐한국 고무장갑 그레이',qty,maxB:999};
-    }
-    if(_z.includes('주방')&&_z.includes('세'))return{name:'찐한국 주방세제 500ml',qty,maxB:999};
-    if(_z.includes('핸드')||_z.includes('손결')||_z.includes('handwash')||_z.includes('핸워'))return{name:'찐한국 손결 핸드워시 300ml',qty,maxB:999};
-    if(_z.includes('치약'))return{name:'찐한국 그냥치약 100g',qty,maxB:999};
-  }
   return{name:pn,qty,maxB:999};
 }
 function br(cl,cfg,nq,nr,ord,iv){
