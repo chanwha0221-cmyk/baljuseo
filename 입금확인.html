@@ -258,10 +258,11 @@ function matchAll(settles, deps){
     }
   };
   const take = (di, a, k) => { for(let t = a; t <= k; t++) used[t] = true; pair[di] = {a, k}; };
-  // 1단계: 딱 맞는 것
+  // 1단계: 딱 맞는 것 — 같은 금액 구간이 여럿이면 입금일과 날짜가 제일 가까운 쪽(10/13 입금 10,000 → 9/30 말고 10/13 정산)
+  const far = (d, k) => Math.abs(dnum(d.date) - dnum(settles[k].date));
   deps.forEach((d, di) => {
     let hit = null;
-    runs(d, (a, k, sum) => { if(hit) return false; if(sum === d.amt){ hit = {a, k}; return false; } if(sum > d.amt) return false; });
+    runs(d, (a, k, sum) => { if(sum === d.amt && (!hit || far(d, k) < far(d, hit.k))) hit = {a, k}; if(sum >= d.amt) return false; });
     if(hit) take(di, hit.a, hit.k);
   });
   // 2단계: ±10% 안에서 제일 가까운 구간
