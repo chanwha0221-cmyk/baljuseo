@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>입금 확인 도구</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Malgun Gothic","맑은 고딕",sans-serif;background:#eef0f3;color:#111}
+  .panel{max-width:640px;margin:24px auto;background:#fff;border:1px solid #d5d8dd;border-radius:8px;padding:22px 20px}
+  h1{font-size:22px;margin:0 0 6px}
+  .lead{font-size:14px;color:#444;margin:0 0 16px;line-height:1.6}
+  ol{margin:0 0 18px;padding-left:20px;font-size:14px;line-height:1.8;color:#333}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+  label{font-size:14px;color:#444}
+  input[type=text]{padding:9px 10px;border:1px solid #bbb;border-radius:5px;font-size:15px;flex:1;min-width:180px}
+  button{padding:10px 16px;font-size:15px;border:0;border-radius:6px;background:#2b5cd6;color:#fff;cursor:pointer}
+  button.big{width:100%;padding:14px;font-size:17px;font-weight:bold;margin-top:6px}
+  button.sub{background:#666}
+  .hint{font-size:12px;color:#777;line-height:1.6}
+  .mine{display:none;margin-top:18px;background:#f4f7ff;border:1px solid #c9d6f5;border-radius:6px;padding:14px}
+  .mine .url{font-family:Consolas,monospace;font-size:13px;word-break:break-all;background:#fff;border:1px solid #dde;border-radius:4px;padding:8px;margin:6px 0}
+</style>
+</head>
+<body>
+<div class="panel">
+  <h1>💰 입금 확인 도구</h1>
+  <p class="lead">거래처별 정산 내역과 통장 입금 내역을 붙여넣으면, 어디까지 입금됐고 어디부터 빠졌는지 바로 보여 줍니다. 엑셀에 하나씩 옮겨 눈으로 대조하던 일을 대신합니다.</p>
+  <ol>
+    <li>통장에서 입금 내역을 복사해 붙여넣기</li>
+    <li>정산달력에서 그 거래처 칸(일자·요일·면세·과세)을 복사해 붙여넣기</li>
+    <li>[대조하기] → 정산 건마다 입금일·입금액, 미입금 합계 확인</li>
+    <li>거래처에 보낼 카톡 문구와 표 이미지를 바로 복사</li>
+  </ol>
+
+  <div class="row">
+    <label for="co">보내는 회사명</label>
+    <input type="text" id="co" placeholder="예: ○○수산">
+  </div>
+  <div class="hint">카톡 문구 「안녕하세요, ○○입니다」와 이미지 아래에 들어갑니다. 도구 안에서 언제든 바꿀 수 있습니다.</div>
+  <button class="big" id="start">사용하기</button>
+
+  <div class="mine" id="mine">
+    <b>내 전용 주소</b>
+    <div class="url" id="url"></div>
+    <div class="row">
+      <button onclick="copyUrl()">📋 주소 복사</button>
+      <button class="sub" onclick="location.href=$('url').textContent">열기</button>
+    </div>
+    <div class="hint">이 주소를 즐겨찾기 해 두세요. 붙여넣은 내용은 서버로 가지 않고 이 브라우저에만 저장됩니다. 그래서 다른 PC에서 같은 주소를 열면 입력칸은 비어 있습니다.</div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+function ls(k, v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } }
+const TOOL = new URL('입금확인.html', location.href).href;
+
+function newId(){
+  const a = new Uint8Array(6); crypto.getRandomValues(a);
+  return [...a].map(b => b.toString(36).padStart(2,'0')).join('').slice(0,10);
+}
+function myUrl(id, co){ return TOOL + '?id=' + id + (co ? '&co=' + encodeURIComponent(co) : ''); }
+function show(u){ $('url').textContent = u; $('mine').style.display = 'block'; }
+
+$('start').onclick = () => {
+  const co = $('co').value.trim();
+  const id = ls('ipg_myid') || newId();          // 이 브라우저에서 이미 받은 주소가 있으면 그걸 그대로
+  ls('ipg_myid', id); ls('ipg_myco', co);
+  const u = myUrl(id, co); ls('ipg_myurl', u); show(u);
+  window.open(u, '_blank');
+};
+async function copyUrl(){
+  const t = $('url').textContent;
+  try{ await navigator.clipboard.writeText(t); $('start').textContent = '📋 주소 복사됨'; setTimeout(() => $('start').textContent = '사용하기', 1500); }
+  catch(e){ prompt('복사해서 쓰세요', t); }
+}
+$('co').value = ls('ipg_myco') || '';
+if(ls('ipg_myurl')) show(ls('ipg_myurl'));
+</script>
+</body>
+</html>

@@ -51,10 +51,14 @@
 <body>
 <div class="panel">
   <h1>💰 입금 확인 <span class="hint">(초안)</span></h1>
+  <div class="row">
+    <label>보내는 회사명</label><input type="text" id="company" placeholder="예: ○○수산" style="width:180px">
+    <span class="hint">메시지 「안녕하세요, ○○입니다」와 이미지 아래에 들어감</span>
+  </div>
   <div class="hint">한 번에 한 업체씩. 입금 내역과 정산 내역을 붙여넣고 [대조하기] → 정산 건을 오래된 날짜부터 입금 누적액으로 채워서, 어디까지 들어왔고 어디부터 빠졌는지 보여줌.</div>
 
   <h3>① 입금 내역 <span class="hint">계좌 / 일시 / 입금자명 / 금액 (탭·콤마·공백 구분 다 됨)</span></h3>
-  <textarea id="dep" placeholder="514***96504014	2026-09-28 21:38:00	박하해(블레스드잇샤	214,000"></textarea>
+  <textarea id="dep" placeholder="123***45678901	2026-09-28 21:38:00	김철수(샘플상회	214,000"></textarea>
   <div id="payers" class="payers"></div>
 
   <h3>② 정산 내역 <span class="hint">정산달력에서 복사한 그대로 붙여넣기 — 가로 4칸 고정, 앞 2칸·뒤 2칸 따로</span></h3>
@@ -108,7 +112,11 @@ const ROWS = 40;
 const $ = id => document.getElementById(id);
 const won = n => Math.round(n).toLocaleString('ko-KR');
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function ls(k, v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } }
+// 개인 주소(?id=…)마다 저장칸을 따로 씀 — 한 PC에서 여러 사람이 써도 안 섞이게. id 없는 기본 주소는 예전 키 그대로.
+const QS = new URLSearchParams(location.search);
+const UID = (QS.get('id')||'').replace(/[^\w-]/g,'').slice(0,32);
+function ls(k, v){ if(UID) k = k.replace(/^ipg_/, 'ipg_'+UID+'_'); try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } }
+const coName = () => $('company').value.trim();
 
 // ── 칸 읽기 ──
 // 날짜: 2026-09-28 / 2026.9.28 / 2026/09/28 / 9/28 / 9월 28일 / 엑셀 시리얼(45000대)
@@ -285,7 +293,8 @@ function render(){
 // 업체에 나가는 문구 — 사실만, 정중하게. 탓하는 말·재촉하는 말 넣지 말 것.
 function buildMsg(){
   const c = CUR;
-  const hi = c.honor ? `안녕하세요 ${c.honor}님, 마스터 유통입니다.` : '안녕하세요, 마스터 유통입니다.';
+  const co = coName();
+  const hi = `안녕하세요${c.honor ? ' '+c.honor+'님' : ''}${co ? ', '+co+'입니다.' : '.'}`;
   if(c.firstMiss < 0) return `${hi}\n${c.vendor} 정산 건 입금 모두 확인되었습니다.\n감사합니다.`;
   const miss = c.rows[c.firstMiss];
   return `${hi}\n\n${kDate(miss.date)}분부터 ${won(c.unpaid)}원 입금 확인이 안 됩니다.\n` +
@@ -331,7 +340,7 @@ function drawImgFooter(x, W, y){
   const c = CUR;
   x.font = '12px "Malgun Gothic","맑은 고딕",sans-serif'; x.fillStyle = '#777'; x.textAlign = 'left';
   const base = c.lastDep ? `입금 확인 기준: ${kDate(c.lastDep)} 입금분까지` : '입금 내역 없음';
-  x.fillText(base + '  ·  마스터 유통', 24, y + 30);
+  x.fillText(base + (coName() ? '  ·  '+coName() : ''), 24, y + 30);
 }
 // ── 대조표 전체 이미지 (요약 + 정산 건마다 입금일·입금액) — 화면 표와 같은 내용 ──
 function drawFull(){
@@ -384,7 +393,7 @@ function drawFull(){
     if(i === c.firstMiss){ x.strokeStyle = '#c0262d'; x.lineWidth = 3; x.beginPath(); x.moveTo(L, y-hs[i]); x.lineTo(W-L, y-hs[i]); x.stroke(); }
   });
   x.font = F('normal', 12); x.fillStyle = '#777';
-  x.fillText((c.lastDep ? `입금 확인 기준: ${kDate(c.lastDep)} 입금분까지` : '입금 내역 없음') + '  ·  마스터 유통', L, y + 26);
+  x.fillText((c.lastDep ? `입금 확인 기준: ${kDate(c.lastDep)} 입금분까지` : '입금 내역 없음') + (coName() ? '  ·  '+coName() : ''), L, y + 26);
   return cv;
 }
 function cvBlob(which){ const cv = which === 'full' ? drawFull() : $('cv'); return new Promise(r => cv.toBlob(r, 'image/png')); }
@@ -409,13 +418,14 @@ function toast(m){
 
 // 샘플 — 정산달력 복사 모양 그대로: 일자 / 요일 / 면세 / 과세 (0은 정산 없음)
 function loadSample(){
+  // 남한테도 나가는 페이지라 실제 거래처·계좌 말고 지어낸 값으로
   $('dep').value = [
-    '514***96504014\t2026-09-28 21:38:00\t박하해(블레스드잇샤\t214,000',
-    '514***96504014\t2026-09-29 18:35:00\t박하해(블레스드잇샤\t143,000',
-    '514***96504014\t2026-09-30 18:53:00\t박하해(블레스드잇샤\t13,000',
-    '514***96504014\t2026-10-06 09:00:00\t박하해(블레스드잇샤\t13,000',
-    '514***96504014\t2026-10-12 11:08:00\t박하해(블레스드잇샤\t103,000',
-    '514***96504014\t2026-10-19 17:23:00\t박하해(블레스드잇샤\t26,000'].join('\n');
+    '123***45678901\t2026-09-28 21:38:00\t김철수(샘플상회\t214,000',
+    '123***45678901\t2026-09-29 18:35:00\t김철수(샘플상회\t143,000',
+    '123***45678901\t2026-09-30 18:53:00\t김철수(샘플상회\t13,000',
+    '123***45678901\t2026-10-06 09:00:00\t김철수(샘플상회\t13,000',
+    '123***45678901\t2026-10-12 11:08:00\t김철수(샘플상회\t103,000',
+    '123***45678901\t2026-10-19 17:23:00\t김철수(샘플상회\t26,000'].join('\n');
   gridClear();
   gridFill(0, 0, [
     '2026-09-19\t토\t0\t0', '2026-09-20\t일\t0\t0', '2026-09-21\t월\t214,000\t0',
@@ -437,6 +447,9 @@ try{
 $('dep').value = ls('ipg_dep') || '';
 $('vendor').value = ls('ipg_vendor') || '';
 $('honor').value = ls('ipg_honor') || '';
+// 보내는 회사명: 저장값 → 배포 페이지가 붙여 준 ?co= → 기본 주소면 마스터 유통
+{ const sv = ls('ipg_co'); $('company').value = sv !== null ? sv : (QS.get('co') || (UID ? '' : '마스터 유통')); }
+$('company').addEventListener('input', () => { ls('ipg_co', $('company').value); if(CUR) render(); });
 const _p = ls('ipg_pair'); if(_p) document.querySelector(`input[name=pair][value=${_p}]`).checked = true;
 pairMark();
 $('go').onclick = run;
