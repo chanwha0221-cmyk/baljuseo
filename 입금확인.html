@@ -67,14 +67,7 @@
   <textarea id="dep" placeholder="123***45678901	2026-09-28 21:38:00	김철수(샘플상회	214,000"></textarea>
   <div id="payers" class="payers"></div>
 
-  <h3>② 정산 내역 <span class="hint">정산달력에서 복사한 그대로 붙여넣기 — 가로 6칸 고정, 2칸씩 따로</span></h3>
-  <div class="row">
-    <label>대상 업체 칸</label>
-    <label><input type="radio" name="pair" value="A"> 1·2칸</label>
-    <label><input type="radio" name="pair" value="B" checked> 3·4칸</label>
-    <label><input type="radio" name="pair" value="C"> 5·6칸</label>
-    <span class="hint">정산달력 복사하면 다른 업체 칸이 같이 딸려 오니까, 대상 업체 묶음만 골라 씀. 날짜는 그 줄 어디에 있든 읽음.</span>
-  </div>
+  <h3>② 정산 내역 <span class="hint">가로 6칸 고정 — 일자·요일 / 면세·과세 / 면세·과세. 그날 정산 = 3~6칸 합</span></h3>
   <div class="grid"><table><thead><tr>
     <th>#</th><th class="pA">1칸 (일자)</th><th class="pA">2칸 (요일)</th><th class="pB">3칸 (면세)</th><th class="pB">4칸 (과세)</th><th class="pC">5칸 (면세)</th><th class="pC">6칸 (과세)</th>
   </tr></thead><tbody id="gbody"></tbody></table></div>
@@ -220,17 +213,10 @@ $('gbody').addEventListener('paste', e => {
   gridFill(+t.dataset.r, +t.dataset.c, text);
 });
 $('gbody').addEventListener('input', gridSave);
-function pairMark(){
-  const p = document.querySelector('input[name=pair]:checked').value;
-  'ABC'.split('').forEach(k => document.querySelectorAll('.p'+k).forEach(x => x.classList.toggle('on', p===k)));
-  ls('ipg_pair', p);
-}
-document.querySelectorAll('input[name=pair]').forEach(x => x.addEventListener('change', pairMark));
-
-// 정산 줄: 날짜 = 그 줄 어디든 처음 나온 날짜 / 금액 = 고른 2칸 중 날짜 아닌 숫자 합(면세+과세면 합쳐짐)
+/* 정산 줄: 날짜 = 그 줄 어디든 처음 나온 날짜 / 금액 = 3~6칸(면세·과세 두 묶음) 중 날짜 아닌 숫자 합.
+   「대상 업체 칸 고르기」는 26-10-29 홍팀장 지시로 없앰 — 칸에 뭘 넣을지는 담당자가 맞춰 붙여넣는다. */
 function parseSettles(warns){
-  const p = document.querySelector('input[name=pair]:checked').value;
-  const idx = PAIRS[p] || PAIRS.B;
+  const idx = [...PAIRS.B, ...PAIRS.C];
   const byDate = {};
   gridData().forEach((row, r) => {
     if(row.every(x => !x)) return;
@@ -238,7 +224,7 @@ function parseSettles(warns){
     for(const c of [...idx, ...CI]){ const d = parseDate(row[c]); if(d){ date = d; break; } }
     let amt = 0, got = false;
     idx.forEach(c => { if(parseDate(row[c])) return; const a = parseAmt(row[c]); if(a !== null){ amt += a; got = true; } });
-    if(!got || !amt) return;                             // 그 날 대상 업체 정산 없음
+    if(!got || !amt) return;                             // 그 날 정산 없음
     if(!date){ warns.push(`정산 ${r+1}번째 줄: 날짜 없음 → 건너뜀`); return; }
     if(byDate[date] !== undefined) warns.push(`⚠ 정산 ${r+1}번째 줄: ${kDate(date)}이 위에도 있음 → 두 줄을 더해서 계산함. 전에 넣은 자료가 남은 거면 [칸 비우기] 후 다시 붙여넣기`);
     byDate[date] = (byDate[date]||0) + amt;
@@ -298,7 +284,7 @@ function run(){
   const settles = parseSettles(warns);
   if(!$('vendor').value.trim() && used.length) $('vendor').value = vendorFromPayer(used[0].name);
   ls('ipg_dep', $('dep').value); ls('ipg_vendor', $('vendor').value); ls('ipg_honor', $('honor').value);
-  if(!settles.length) warns.push('정산 내역을 못 읽었음 — 대상 업체 칸(1·2 / 3·4 / 5·6)이 맞는지 확인');
+  if(!settles.length) warns.push('정산 내역을 못 읽었음 — 1칸에 일자, 3~6칸에 금액이 들어갔는지 확인');
   $('warn').textContent = warns.join('\n');
   if(!settles.length){ $('resPanel').style.display='none'; return; }
 
@@ -488,7 +474,7 @@ function loadSample(){
     '2026-09-28\t월\t143,000\t0', '2026-09-29\t화\t18,000\t0', '2026-09-30\t수\t13,000\t0',
     '2026-10-01\t목\t13,000\t0', '2026-10-02\t금\t0\t0',
     '2026-10-05\t월\t103,000\t0', '2026-10-12\t월\t41,000\t0', '2026-10-19\t월\t58,000\t0'].join('\n'));
-  $('vendor').value = ''; document.querySelector('input[name=pair][value=B]').checked = true; pairMark();
+  $('vendor').value = '';
   run();
 }
 
@@ -504,8 +490,6 @@ $('honor').value = ls('ipg_honor') || '';
 // 보내는 회사명: 저장값 → 배포 페이지가 붙여 준 ?co= → 기본 주소면 마스터 유통
 { const sv = ls('ipg_co'); $('company').value = sv !== null ? sv : (QS.get('co') || (UID ? '' : '마스터 유통')); }
 $('company').addEventListener('input', () => { ls('ipg_co', $('company').value); if(CUR) render(); });
-const _p = ls('ipg_pair'); if(_p) document.querySelector(`input[name=pair][value=${_p}]`).checked = true;
-pairMark();
 $('go').onclick = () => { delete $('startSel').dataset.pick; delete $('depSel').dataset.pick; run(); };   // 새로 대조할 땐 시작점 다시 자동
 $('honor').addEventListener('change', () => { if(CUR){ CUR.honor = $('honor').value.trim(); ls('ipg_honor', $('honor').value); render(); } });
 </script>
