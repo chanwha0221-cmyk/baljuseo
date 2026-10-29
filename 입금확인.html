@@ -298,7 +298,8 @@ function buildBlocks(settles, deps, m){
       return;
     }
     const rs = p.ids.map(i => settles[i]), amt = rs.reduce((s,r) => s+r.amt, 0);
-    items.push({key:rs[0].date, blk:{from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt, dep:d, diff:amt - d.amt, gap:p.ids.some((v, j) => j && v !== p.ids[j-1] + 1),
+    const gapped = p.ids.some((v, j) => j && v !== p.ids[j-1] + 1);   // 밀린 날을 건너뛰어 모은 입금은 입금일 자리에 둔다
+    items.push({key: gapped ? d.date + "~" : rs[0].date, blk:{from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt, dep:d, diff:amt - d.amt, gap:p.ids.some((v, j) => j && v !== p.ids[j-1] + 1),
                 st: amt === d.amt ? 'ok' : amt > d.amt ? 'short' : 'over'}});
   });
   settles.forEach((s, i) => {
