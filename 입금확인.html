@@ -42,6 +42,8 @@
   tr.over td:nth-child(n+5){color:#1b4fb3;font-weight:bold}
   tr.unpaid td{background:#fdecec;color:#b3261e}
   tr.skip td{color:#999;background:#f6f6f6}
+  tr.day td{color:#444;font-size:12px;padding:4px 8px}
+  tr.tot td{font-weight:bold;border-bottom:2px solid #999}
   tr.cut td{border-top:3px solid #c0262d}
   .sum{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
   .sum div{background:#f6f7f9;border:1px solid #dde;border-radius:6px;padding:8px 12px;font-size:13px}
@@ -212,7 +214,10 @@ $('gbody').addEventListener('paste', e => {
   const t = e.target; if(t.tagName !== 'INPUT') return;
   const text = (e.clipboardData||window.clipboardData).getData('text');
   if(!/[\t\n]/.test(text)) return;                       // 한 칸짜리는 그냥 붙여넣기
-  e.preventDefault(); gridFill(+t.dataset.r, +t.dataset.c, text);
+  e.preventDefault();
+  // 맨 윗줄에 붙여넣으면 새 자료 → 표를 먼저 비운다. 안 비우면 전에 넣은 긴 자료의 아랫줄·옆칸이 남아 같은 날짜가 두 번 더해진다.
+  if(+t.dataset.r === 0) $('gbody').querySelectorAll('input').forEach(x => x.value='');
+  gridFill(+t.dataset.r, +t.dataset.c, text);
 });
 $('gbody').addEventListener('input', gridSave);
 function pairMark(){
@@ -235,6 +240,7 @@ function parseSettles(warns){
     idx.forEach(c => { if(parseDate(row[c])) return; const a = parseAmt(row[c]); if(a !== null){ amt += a; got = true; } });
     if(!got || !amt) return;                             // 그 날 대상 업체 정산 없음
     if(!date){ warns.push(`정산 ${r+1}번째 줄: 날짜 없음 → 건너뜀`); return; }
+    if(byDate[date] !== undefined) warns.push(`⚠ 정산 ${r+1}번째 줄: ${kDate(date)}이 위에도 있음 → 두 줄을 더해서 계산함. 전에 넣은 자료가 남은 거면 [칸 비우기] 후 다시 붙여넣기`);
     byDate[date] = (byDate[date]||0) + amt;
   });
   return Object.keys(byDate).sort().map(d => ({date:d, amt:byDate[d]}));
@@ -248,21 +254,21 @@ function matchFrom(settles, deps, s0){
   const blocks = []; let si = s0;
   deps.forEach(d => {
     if(si >= settles.length){ blocks.push({n:0, amt:0, dep:d, diff:-d.amt, st:'over'}); return; }
-    let sum = 0, best = -1, bestGap = Infinity;
+    /* 입금액에 처음으로 닿거나 넘는 날까지 묶는다 (홍팀장 26-10-29: 461,200 입금 → 9/22~10/1 468,700, 차액 7,500).
+       «가장 가까운 합»으로 고르면 마지막 날을 빼고 «더 들어옴»으로 잘못 나온다. 덜 넣은 건 차액으로 드러나야 한다. */
+    let sum = 0, best = settles.length - 1;
     for(let k = si; k < settles.length; k++){
       sum += settles[k].amt;
-      const gap = Math.abs(sum - d.amt);
-      if(gap < bestGap){ bestGap = gap; best = k; }
-      if(sum >= d.amt) break;
+      if(sum >= d.amt){ best = k; break; }
     }
     const rs = settles.slice(si, best + 1), amt = rs.reduce((s,r) => s+r.amt, 0);
-    blocks.push({from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, amt, dep:d, diff:amt - d.amt,
+    blocks.push({from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt, dep:d, diff:amt - d.amt,
                  st: amt === d.amt ? 'ok' : amt > d.amt ? 'short' : 'over'});
     si = best + 1;
   });
   if(si < settles.length){
     const rs = settles.slice(si);
-    blocks.push({from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, amt:rs.reduce((s,r) => s+r.amt, 0), dep:null, st:'unpaid'});
+    blocks.push({from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, rs, amt:rs.reduce((s,r) => s+r.amt, 0), dep:null, st:'unpaid'});
     blocks[blocks.length-1].diff = blocks[blocks.length-1].amt;
   }
   return blocks;
@@ -322,6 +328,11 @@ const ST_TXT = {ok:'일치', short:'덜 들어옴', over:'더 들어옴', unpaid
 const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌'};
 const setLabel = b => b.n ? rangeLabel(b) : '-';
 const diffTxt = b => b.diff === 0 ? '0' : (b.diff > 0 ? won(b.diff) : '+' + won(-b.diff));
+/* 정산은 뭉뚱그리지 않는다 (홍팀장 26-10-29): 여러 날이면 그날그날 줄을 깔고,
+   그 아래 «기간 합계» 줄 한 칸에 실 입금액·차액을 붙인다. 하루짜리는 한 줄. */
+const blockLines = b => b.n > 1
+  ? [...b.rs.map(r => ({day:true, vals:[kDate(r.date), won(r.amt)]})), {vals:[rangeLabel(b)+' 합계', won(b.amt)]}]
+  : [{vals:[setLabel(b), b.n ? won(b.amt) : '-']}];
 function render(){
   const c = CUR;
   $('resPanel').style.display = '';
@@ -339,10 +350,12 @@ function render(){
       <td class="n">${won(c.skipped.reduce((s,r)=>s+r.amt,0))}</td><td class="c" colspan="4">대조 시작 전 정산 (이번 입금 내역 밖)</td></tr>` : '') +
     (c.skipDeps.length ? `<tr class="skip"><td class="c" colspan="2">대조 시작 전 입금 (더 앞 정산 몫)</td>
       <td class="c">${c.skipDeps.map(d => kDate(d.date)).join('<br>')}</td><td class="n">${c.skipDeps.map(d => won(d.amt)).join('<br>')}</td><td colspan="2"></td></tr>` : '') +
-    c.blocks.map((b, i) => `<tr class="${b.st}${i===c.firstBad?' cut':''}">
-    <td class="c">${setLabel(b)}${b.n>1?` <span class="hint">(${b.n}건)</span>`:''}</td><td class="n">${b.n?won(b.amt):'-'}</td>
+    c.blocks.map((b, i) => blockLines(b).map((ln, k) => ln.day
+      ? `<tr class="day${i===c.firstBad&&k===0?' cut':''}"><td class="c">${ln.vals[0]}</td><td class="n">${ln.vals[1]}</td><td colspan="4"></td></tr>`
+      : `<tr class="${b.st}${b.n>1?' tot':''}${i===c.firstBad&&k===0?' cut':''}">
+    <td class="c">${ln.vals[0]}</td><td class="n">${ln.vals[1]}</td>
     <td class="c">${b.dep?kDate(b.dep.date):'-'}</td><td class="n">${b.dep?won(b.dep.amt):'-'}</td>
-    <td class="n">${diffTxt(b)}</td><td class="c">${ST_ICON[b.st]} ${ST_TXT[b.st]}</td></tr>`).join('');
+    <td class="n">${diffTxt(b)}</td><td class="c">${ST_ICON[b.st]} ${ST_TXT[b.st]}</td></tr>`).join('')).join('');
   $('msg').textContent = buildMsg();
   drawImg();
 }
@@ -379,10 +392,13 @@ function tableDraw(x, L, y, cols, rows){        // rows: {vals:[[줄…]…], bg
 }
 function tableHeight(rows){ return rows.reduce((s,r) => s + Math.max(...r.vals.map(v => v.length))*20 + 16, 0); }
 const BG = {ok:'#fff', short:'#fff6e0', over:'#eef4ff', unpaid:'#fdecec', head:'#eef0f3'};
-const blockVals = (b, withDep) => [b.n>1 ? [setLabel(b), `(${b.n}건)`] : [setLabel(b)], [b.n?won(b.amt):'-'],
-  ...(withDep ? [[b.dep?kDate(b.dep.date):'-']] : []), [b.dep?won(b.dep.amt):'-'], [diffTxt(b)], [ST_TXT[b.st]]];
 const blockColors = (b, withDep) => { const red = (b.st==='short'||b.st==='unpaid') ? '#b3261e' : b.st==='ok' ? '#2d7a3a' : '#1b4fb3';
   const n = withDep ? 6 : 5; const a = Array(n).fill(null); a[n-2] = b.st==='ok'?null:red; a[n-1] = red; return a; };
+// 이미지용 줄: 날짜별 줄(입금 칸 비움) + 합계 줄(굵게, 입금·차액)
+const blockImgRows = (b, withDep, cut) => blockLines(b).map((ln, k) => ln.day
+  ? {vals:[[ln.vals[0]], [ln.vals[1]], ...Array(withDep ? 4 : 3).fill([''])], bg:'#fff', cut:cut&&k===0}
+  : {vals:[[ln.vals[0]], [ln.vals[1]], ...(withDep ? [[b.dep?kDate(b.dep.date):'-']] : []), [b.dep?won(b.dep.amt):'-'], [diffTxt(b)], [ST_TXT[b.st]]],
+     bg:BG[b.st], bold:b.n>1, colors:blockColors(b, withDep), cut:cut&&k===0});
 function footer(x, L, y){
   const c = CUR;
   x.font = FONT('normal', 12); x.fillStyle = '#777'; x.textAlign = 'left';
@@ -396,7 +412,7 @@ function drawImg(){
   const cols = [{t:'정산일', w:150, a:'center'}, {t:'정산금액', w:100, a:'right'}, {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:90, a:'right'}, {t:'상태', w:84, a:'center'}];
   const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0), top = 108;
   const rows = [{vals:cols.map(co => [co.t]), bg:BG.head, bold:true},
-    ...show.map(b => ({vals:blockVals(b, false), bg:BG[b.st], colors:blockColors(b, false)}))];
+    ...show.flatMap(b => blockImgRows(b, false, false))];
   const H = show.length ? top + tableHeight(rows) + 50 : 130;
   const S = 2; cv.width = W*S; cv.height = H*S; cv.style.width = W+'px';
   x.setTransform(S,0,0,S,0,0); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.textBaseline = 'middle';
@@ -414,7 +430,7 @@ function drawFull(){
                 {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:90, a:'right'}, {t:'상태', w:84, a:'center'}];
   const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0), top = 150;
   const rows = [{vals:cols.map(co => [co.t]), bg:BG.head, bold:true},
-    ...c.blocks.map((b, i) => ({vals:blockVals(b, true), bg:BG[b.st], colors:blockColors(b, true), cut:i===c.firstBad}))];
+    ...c.blocks.flatMap((b, i) => blockImgRows(b, true, i===c.firstBad))];
   const H = top + tableHeight(rows) + 50;
   const S = 2; cv.width = W*S; cv.height = H*S; x.scale(S, S);
   x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.textBaseline = 'middle';
