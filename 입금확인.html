@@ -85,7 +85,7 @@
 <div class="panel" id="resPanel" style="display:none">
   <h3 style="margin-top:0">대조 결과 — <span id="rVendor"></span> <button class="mini" onclick="copyText(CUR.vendor,'업체명')">📋</button></h3>
   <div class="sum" id="sum"></div>
-  <table class="res"><thead><tr><th>정산일</th><th>정산액</th><th>누적 정산</th><th>채운 입금</th><th>남은 금액</th><th>상태</th></tr></thead><tbody id="rbody"></tbody></table>
+  <table class="res"><thead><tr><th>정산일</th><th>정산액</th><th>입금일</th><th>입금액</th><th>남은 금액</th><th>상태</th></tr></thead><tbody id="rbody"></tbody></table>
 
   <h3>📤 업체에 보낼 메시지 (카톡)</h3>
   <pre class="msg" id="msg"></pre>
@@ -231,16 +231,23 @@ function run(){
   if(!settles.length){ $('resPanel').style.display='none'; return; }
 
   const depTotal = used.reduce((s,d) => s+d.amt, 0);
-  let left = depTotal, acc = 0, firstMiss = -1;
+  // 입금을 날짜순 줄로 세워 오래된 정산부터 떼어 준다 → 정산 한 건마다 «어느 날 입금 얼마»로 채워졌는지 남김
+  const q = used.map((d, i) => ({...d, i, left:d.amt})).sort((a,b) => a.date<b.date?-1:a.date>b.date?1:a.i-b.i);
+  let qi = 0, setTotal = 0, firstMiss = -1;
   const rows = settles.map((s, i) => {
-    acc += s.amt;
-    const fill = Math.min(left, s.amt); left -= fill;
-    const remain = s.amt - fill;
+    setTotal += s.amt;
+    let need = s.amt; const pays = [];
+    while(need > 0 && qi < q.length){
+      const d = q[qi], take = Math.min(need, d.left);
+      pays.push({date:d.date, amt:take, of:d.amt}); d.left -= take; need -= take;
+      if(d.left === 0) qi++;
+    }
+    const fill = s.amt - need, remain = need;
     const st = remain === 0 ? 'paid' : (fill > 0 ? 'part' : 'unpaid');
     if(st !== 'paid' && firstMiss < 0) firstMiss = i;
-    return {...s, acc, fill, remain, st};
+    return {...s, fill, remain, st, pays};
   });
-  const setTotal = acc, unpaid = rows.reduce((s,r) => s+r.remain, 0), over = left;
+  const unpaid = rows.reduce((s,r) => s+r.remain, 0), over = q.reduce((s,d) => s+d.left, 0);
   const lastPaid = rows.filter(r => r.st === 'paid').pop();
   const lastDep = used.map(d => d.date).sort().pop();
   CUR = {vendor:$('vendor').value.trim() || '(업체명)', honor:$('honor').value.trim(), rows, setTotal, depTotal, unpaid, over, firstMiss, lastPaid, lastDep, nDep:used.length};
@@ -261,9 +268,12 @@ function render(){
           : `<div>미입금<br><b>없음 ✅</b></div>`) +
     (c.over > 0 ? `<div>초과 입금<br><b>${won(c.over)}</b> <span class="hint">정산보다 더 들어옴</span></div>` : '');
   const ST = {paid:'✅ 입금 확인', part:'🟡 일부 입금', unpaid:'❌ 미입금'};
+  // 한 입금이 여러 정산에 나뉘면 «(103,000 중)»을 붙여 업체가 자기 통장 입금과 바로 맞춰 보게 함
+  const payDate = r => r.pays.length ? r.pays.map(p => kDate(p.date)).join('<br>') : '-';
+  const payAmt = r => r.pays.length ? r.pays.map(p => won(p.amt) + (p.amt !== p.of ? ` <span class="hint">(${won(p.of)} 중)</span>` : '')).join('<br>') : '-';
   $('rbody').innerHTML = c.rows.map((r, i) => `<tr class="${r.st}${i===c.firstMiss?' cut':''}">
-    <td class="c">${kDate(r.date)}</td><td class="n">${won(r.amt)}</td><td class="n">${won(r.acc)}</td>
-    <td class="n">${r.fill?won(r.fill):'-'}</td><td class="n">${r.remain?won(r.remain):'-'}</td><td class="c">${ST[r.st]}</td></tr>`).join('');
+    <td class="c">${kDate(r.date)}</td><td class="n">${won(r.amt)}</td>
+    <td class="c">${payDate(r)}</td><td class="n">${payAmt(r)}</td><td class="n">${r.remain?won(r.remain):'-'}</td><td class="c">${ST[r.st]}</td></tr>`).join('');
   $('msg').textContent = buildMsg();
   drawImg();
 }
