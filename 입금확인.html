@@ -85,6 +85,10 @@
 <div class="panel" id="resPanel" style="display:none">
   <h3 style="margin-top:0">대조 결과 — <span id="rVendor"></span> <button class="mini" onclick="copyText(CUR.vendor,'업체명')">📋</button></h3>
   <div class="sum" id="sum"></div>
+  <div class="row">
+    <button onclick="copyImg('full')">📋 대조표 이미지 복사</button>
+    <button class="sub" onclick="dlImg('full')">⬇ PNG 저장</button>
+  </div>
   <table class="res"><thead><tr><th>정산일</th><th>정산액</th><th>입금일</th><th>입금액</th><th>남은 금액</th><th>상태</th></tr></thead><tbody id="rbody"></tbody></table>
 
   <h3>📤 업체에 보낼 메시지 (카톡)</h3>
@@ -329,14 +333,68 @@ function drawImgFooter(x, W, y){
   const base = c.lastDep ? `입금 확인 기준: ${kDate(c.lastDep)} 입금분까지` : '입금 내역 없음';
   x.fillText(base + '  ·  마스터 유통', 24, y + 30);
 }
-function cvBlob(){ return new Promise(r => $('cv').toBlob(r, 'image/png')); }
-async function copyImg(){
-  try{ await navigator.clipboard.write([new ClipboardItem({'image/png': cvBlob()})]); toast('📋 이미지 복사됨 — 카톡에 붙여넣기'); }
-  catch(e){ toast('이미지 복사가 막혔음 → PNG 저장으로'); dlImg(); }
+// ── 대조표 전체 이미지 (요약 + 정산 건마다 입금일·입금액) — 화면 표와 같은 내용 ──
+function drawFull(){
+  const c = CUR, cv = document.createElement('canvas'), x = cv.getContext('2d');
+  const F = (w, s) => `${w} ${s}px "Malgun Gothic","맑은 고딕",sans-serif`;
+  const cols = [{t:'정산일', w:96, a:'center'}, {t:'정산액', w:104, a:'right'}, {t:'입금일', w:96, a:'center'},
+                {t:'입금액', w:190, a:'right'}, {t:'남은 금액', w:100, a:'right'}, {t:'상태', w:96, a:'center'}];
+  const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0), lineH = 20, pad = 8, top = 150;
+  const ST = {paid:'입금 확인', part:'일부 입금', unpaid:'미입금'};
+  const BG = {paid:'#fff', part:'#fff6e0', unpaid:'#fdecec'};
+  const cells = c.rows.map(r => [
+    [kDate(r.date)], [won(r.amt)],
+    r.pays.length ? r.pays.map(p => kDate(p.date)) : ['-'],
+    r.pays.length ? r.pays.map(p => won(p.amt) + (p.amt !== p.of ? ` (${won(p.of)} 중)` : '')) : ['-'],
+    [r.remain ? won(r.remain) : '-'], [ST[r.st]]]);
+  const hs = cells.map(cl => Math.max(...cl.map(v => v.length)) * lineH + pad*2);
+  const H = top + 36 + hs.reduce((s,h) => s+h, 0) + 50;
+  const S = 2; cv.width = W*S; cv.height = H*S; x.scale(S, S);
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.textBaseline = 'middle';
+  x.fillStyle = '#111'; x.font = F('bold', 20); x.fillText(`입금 대조 — ${c.vendor}`, L, 30);
+  const miss = c.firstMiss >= 0 ? c.rows[c.firstMiss] : null;
+  const box = [['정산 합계', won(c.setTotal)+'원'], ['입금 합계', won(c.depTotal)+'원'],
+               miss ? ['미입금 합계', won(c.unpaid)+'원'] : ['미입금', '없음']];
+  const bw = (W - L*2 - 20) / 3;
+  box.forEach(([k, v], i) => {
+    const bx = L + i*(bw+10), red = miss && i === 2;
+    x.fillStyle = red ? '#fdecec' : '#f6f7f9'; x.fillRect(bx, 52, bw, 54);
+    x.strokeStyle = '#dde'; x.strokeRect(bx+.5, 52.5, bw, 54);
+    x.fillStyle = '#666'; x.font = F('normal', 12); x.fillText(k, bx+12, 66);
+    x.fillStyle = red ? '#b3261e' : '#111'; x.font = F('bold', 17); x.fillText(v, bx+12, 90);
+  });
+  x.fillStyle = '#444'; x.font = F('normal', 13);
+  x.fillText(miss ? `${c.lastPaid ? kDate(c.lastPaid.date)+'분까지 입금 확인 · ' : ''}${kDate(miss.date)}분부터 입금 확인이 안 됩니다.` : '정산 건 입금이 모두 확인되었습니다.', L, 128);
+  let y = top;
+  const rowDraw = (vals, h, bg, bold, colors) => {
+    let cx = L; x.fillStyle = bg; x.fillRect(L, y, W-L*2, h);
+    cols.forEach((co, j) => {
+      x.strokeStyle = '#bbb'; x.lineWidth = 1; x.strokeRect(cx+.5, y+.5, co.w, h);
+      x.fillStyle = (colors && colors[j]) || '#111'; x.font = F(bold?'bold':'normal', 13); x.textAlign = co.a;
+      const lines = vals[j], ty = y + (h - lines.length*lineH)/2 + lineH/2;
+      lines.forEach((t, k) => x.fillText(t, co.a==='right' ? cx+co.w-8 : co.a==='center' ? cx+co.w/2 : cx+8, ty + k*lineH));
+      cx += co.w;
+    });
+    x.textAlign = 'left'; y += h;
+  };
+  rowDraw(cols.map(co => [co.t]), 36, '#eef0f3', true);
+  c.rows.forEach((r, i) => {
+    const red = r.st === 'paid' ? null : '#b3261e';
+    rowDraw(cells[i], hs[i], BG[r.st], r.st === 'part', [null, null, null, null, red, r.st === 'paid' ? '#2d7a3a' : red]);
+    if(i === c.firstMiss){ x.strokeStyle = '#c0262d'; x.lineWidth = 3; x.beginPath(); x.moveTo(L, y-hs[i]); x.lineTo(W-L, y-hs[i]); x.stroke(); }
+  });
+  x.font = F('normal', 12); x.fillStyle = '#777';
+  x.fillText((c.lastDep ? `입금 확인 기준: ${kDate(c.lastDep)} 입금분까지` : '입금 내역 없음') + '  ·  마스터 유통', L, y + 26);
+  return cv;
 }
-async function dlImg(){
-  const b = await cvBlob(), a = document.createElement('a');
-  a.href = URL.createObjectURL(b); a.download = `입금확인_${CUR.vendor}_${new Date().toISOString().slice(0,10)}.png`;
+function cvBlob(which){ const cv = which === 'full' ? drawFull() : $('cv'); return new Promise(r => cv.toBlob(r, 'image/png')); }
+async function copyImg(which){
+  try{ await navigator.clipboard.write([new ClipboardItem({'image/png': cvBlob(which)})]); toast('📋 이미지 복사됨 — 카톡에 붙여넣기'); }
+  catch(e){ toast('이미지 복사가 막혔음 → PNG 저장으로'); dlImg(which); }
+}
+async function dlImg(which){
+  const b = await cvBlob(which), a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = `입금${which==='full'?'대조':'확인'}_${CUR.vendor}_${new Date().toISOString().slice(0,10)}.png`;
   a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
