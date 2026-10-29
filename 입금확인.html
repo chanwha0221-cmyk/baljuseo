@@ -35,9 +35,13 @@
   table.res th{background:#f0f0f0}
   table.res td.n{text-align:right}
   table.res td.c{text-align:center}
-  tr.paid td{color:#2d7a3a}
-  tr.part td{background:#fff6e0;font-weight:bold}
+  tr.ok td:nth-child(n+5){color:#2d7a3a}
+  tr.short td{background:#fff6e0}
+  tr.short td:nth-child(n+5){color:#b3261e;font-weight:bold}
+  tr.over td{background:#eef4ff}
+  tr.over td:nth-child(n+5){color:#1b4fb3;font-weight:bold}
   tr.unpaid td{background:#fdecec;color:#b3261e}
+  tr.skip td{color:#999;background:#f6f6f6}
   tr.cut td{border-top:3px solid #c0262d}
   .sum{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
   .sum div{background:#f6f7f9;border:1px solid #dde;border-radius:6px;padding:8px 12px;font-size:13px}
@@ -55,26 +59,27 @@
     <label>보내는 회사명</label><input type="text" id="company" placeholder="예: ○○수산" style="width:180px">
     <span class="hint">메시지 「안녕하세요, ○○입니다」와 이미지 아래에 들어감</span>
   </div>
-  <div class="hint">한 번에 한 업체씩. 입금 내역과 정산 내역을 붙여넣고 [대조하기] → 정산 건을 오래된 날짜부터 입금 누적액으로 채워서, 어디까지 들어왔고 어디부터 빠졌는지 보여줌.</div>
+  <div class="hint">한 번에 한 업체씩. 입금 내역과 정산 내역을 붙여넣고 [대조하기] → 입금 한 건마다 어느 정산일 구간 몫인지 찾아 정산금액·실 입금액·차액을 보여줌.</div>
 
   <h3>① 입금 내역 <span class="hint">계좌 / 일시 / 입금자명 / 금액 (탭·콤마·공백 구분 다 됨)</span></h3>
   <textarea id="dep" placeholder="123***45678901	2026-09-28 21:38:00	김철수(샘플상회	214,000"></textarea>
   <div id="payers" class="payers"></div>
 
-  <h3>② 정산 내역 <span class="hint">정산달력에서 복사한 그대로 붙여넣기 — 가로 4칸 고정, 앞 2칸·뒤 2칸 따로</span></h3>
+  <h3>② 정산 내역 <span class="hint">정산달력에서 복사한 그대로 붙여넣기 — 가로 6칸 고정, 2칸씩 따로</span></h3>
   <div class="row">
     <label>대상 업체 칸</label>
     <label><input type="radio" name="pair" value="A"> 1·2칸</label>
     <label><input type="radio" name="pair" value="B" checked> 3·4칸</label>
-    <span class="hint">정산달력 복사하면 앞 업체 2칸이 같이 딸려 오니까, 대상 업체 묶음만 골라 씀. 날짜는 그 줄 어디에 있든 읽음.</span>
+    <label><input type="radio" name="pair" value="C"> 5·6칸</label>
+    <span class="hint">정산달력 복사하면 다른 업체 칸이 같이 딸려 오니까, 대상 업체 묶음만 골라 씀. 날짜는 그 줄 어디에 있든 읽음.</span>
   </div>
   <div class="grid"><table><thead><tr>
-    <th>#</th><th class="pA">1칸 (일자)</th><th class="pA">2칸 (요일)</th><th class="pB">3칸 (면세)</th><th class="pB">4칸 (과세)</th>
+    <th>#</th><th class="pA">1칸 (일자)</th><th class="pA">2칸 (요일)</th><th class="pB">3칸 (면세)</th><th class="pB">4칸 (과세)</th><th class="pC">5칸 (면세)</th><th class="pC">6칸 (과세)</th>
   </tr></thead><tbody id="gbody"></tbody></table></div>
   <div class="row">
     <button class="mini" onclick="gridClear()">칸 비우기</button>
     <button class="mini" onclick="loadSample()">샘플 넣기</button>
-    <span class="hint">아무 칸이나 클릭하고 붙여넣으면 거기서부터 오른쪽·아래로 채워짐. 4칸 넘는 건 버림.</span>
+    <span class="hint">아무 칸이나 클릭하고 붙여넣으면 거기서부터 오른쪽·아래로 채워짐. 6칸 넘는 건 버림.</span>
   </div>
 
   <div class="row">
@@ -93,7 +98,11 @@
     <button onclick="copyImg('full')">📋 대조표 이미지 복사</button>
     <button class="sub" onclick="dlImg('full')">⬇ PNG 저장</button>
   </div>
-  <table class="res"><thead><tr><th>정산일</th><th>정산액</th><th>입금일</th><th>입금액</th><th>남은 금액</th><th>상태</th></tr></thead><tbody id="rbody"></tbody></table>
+  <div class="row">
+    <label>대조 시작</label><select id="startSel" onchange="startPick(this.value)" style="padding:5px;font-size:13px"></select>
+    <span class="hint">앞쪽 정산이 이번에 안 붙인 옛 입금으로 이미 끝났으면, 딱 맞는 입금이 제일 많이 나오는 날부터 자동으로 잡음. 틀리면 여기서 고르기.</span>
+  </div>
+  <table class="res"><thead><tr><th>정산일</th><th>정산금액</th><th>입금일</th><th>실 입금액</th><th>차액</th><th>상태</th></tr></thead><tbody id="rbody"></tbody></table>
 
   <h3>📤 업체에 보낼 메시지 (카톡)</h3>
   <pre class="msg" id="msg"></pre>
@@ -176,16 +185,17 @@ function payerOn(n){ const el = [...document.querySelectorAll('#payers input')].
 // 「박하해(블레스드잇샤」 → 「블레스드잇샤」 (괄호 안이 업체명인 경우)
 function vendorFromPayer(n){ const m = String(n||'').match(/\(([^)]+)\)?/); return m ? m[1].trim() : String(n||'').trim(); }
 
-// ── ② 정산 4칸 고정 그리드 ──
+// ── ② 정산 6칸 고정 그리드 (2칸씩 A·B·C 묶음 — 26-10-29 맹도르 정산 생겨 4칸→6칸) ──
+const NC = 6, CI = [...Array(NC).keys()], PAIRS = {A:[0,1], B:[2,3], C:[4,5]};
 function gridBuild(n){
   const tb = $('gbody'); const have = tb.rows.length;
   for(let r = have; r < n; r++){
     const tr = tb.insertRow();
-    tr.innerHTML = `<td class="no">${r+1}</td>` + [0,1,2,3].map(c => `<td class="p${c<2?'A':'B'}"><input data-r="${r}" data-c="${c}"></td>`).join('');
+    tr.innerHTML = `<td class="no">${r+1}</td>` + CI.map(c => `<td class="p${'ABC'[c>>1]}"><input data-r="${r}" data-c="${c}"></td>`).join('');
   }
 }
 function cell(r, c){ return $('gbody').querySelector(`input[data-r="${r}"][data-c="${c}"]`); }
-function gridData(){ return [...$('gbody').rows].map((tr, r) => [0,1,2,3].map(c => cell(r,c).value.trim())); }
+function gridData(){ return [...$('gbody').rows].map((tr, r) => CI.map(c => cell(r,c).value.trim())); }
 function gridClear(){ $('gbody').querySelectorAll('input').forEach(x => x.value=''); gridSave(); }
 function gridSave(){ ls('ipg_grid', JSON.stringify(gridData())); }
 function gridFill(r0, c0, text){
@@ -193,7 +203,7 @@ function gridFill(r0, c0, text){
   gridBuild(r0 + lines.length);
   lines.forEach((line, i) => {
     const parts = line.includes('\t') ? line.split('\t') : splitLine(line);
-    parts.forEach((v, j) => { if(c0 + j < 4) cell(r0+i, c0+j).value = v.trim(); });
+    parts.forEach((v, j) => { if(c0 + j < NC) cell(r0+i, c0+j).value = v.trim(); });
   });
   gridSave();
 }
@@ -206,8 +216,7 @@ $('gbody').addEventListener('paste', e => {
 $('gbody').addEventListener('input', gridSave);
 function pairMark(){
   const p = document.querySelector('input[name=pair]:checked').value;
-  document.querySelectorAll('.pA').forEach(x => x.classList.toggle('on', p==='A'));
-  document.querySelectorAll('.pB').forEach(x => x.classList.toggle('on', p==='B'));
+  'ABC'.split('').forEach(k => document.querySelectorAll('.p'+k).forEach(x => x.classList.toggle('on', p===k)));
   ls('ipg_pair', p);
 }
 document.querySelectorAll('input[name=pair]').forEach(x => x.addEventListener('change', pairMark));
@@ -215,12 +224,12 @@ document.querySelectorAll('input[name=pair]').forEach(x => x.addEventListener('c
 // 정산 줄: 날짜 = 그 줄 어디든 처음 나온 날짜 / 금액 = 고른 2칸 중 날짜 아닌 숫자 합(면세+과세면 합쳐짐)
 function parseSettles(warns){
   const p = document.querySelector('input[name=pair]:checked').value;
-  const idx = p === 'A' ? [0,1] : [2,3];
+  const idx = PAIRS[p] || PAIRS.B;
   const byDate = {};
   gridData().forEach((row, r) => {
     if(row.every(x => !x)) return;
     let date = null;
-    for(const c of [...idx, 0,1,2,3]){ const d = parseDate(row[c]); if(d){ date = d; break; } }
+    for(const c of [...idx, ...CI]){ const d = parseDate(row[c]); if(d){ date = d; break; } }
     let amt = 0, got = false;
     idx.forEach(c => { if(parseDate(row[c])) return; const a = parseAmt(row[c]); if(a !== null){ amt += a; got = true; } });
     if(!got || !amt) return;                             // 그 날 대상 업체 정산 없음
@@ -230,80 +239,98 @@ function parseSettles(warns){
   return Object.keys(byDate).sort().map(d => ({date:d, amt:byDate[d]}));
 }
 
-// ── 대조: 오래된 정산부터 입금 누적액으로 채운다 ──
+// ── 대조: 입금 한 건마다 «어느 정산 구간 몫인지» 찾아 붙이고 차액을 보여준다 ──
+/* 홍팀장 26-10-29: «9월 21일~22일 정산 226,000 / 실 입금 10월 5일 218,500 / 차액 7,500» 처럼 보여야
+   덜 넣은 건지 아예 안 넣은 건지 찾는다. 입금을 날짜순으로, 아직 안 쓴 정산을 앞에서부터 이어 붙여
+   합이 입금액에 가장 가까운 구간을 고른다(같으면 짧은 쪽). 입금이 떨어지면 남은 정산은 한 줄로 «미입금». */
+function matchFrom(settles, deps, s0){
+  const blocks = []; let si = s0;
+  deps.forEach(d => {
+    if(si >= settles.length){ blocks.push({n:0, amt:0, dep:d, diff:-d.amt, st:'over'}); return; }
+    let sum = 0, best = -1, bestGap = Infinity;
+    for(let k = si; k < settles.length; k++){
+      sum += settles[k].amt;
+      const gap = Math.abs(sum - d.amt);
+      if(gap < bestGap){ bestGap = gap; best = k; }
+      if(sum >= d.amt) break;
+    }
+    const rs = settles.slice(si, best + 1), amt = rs.reduce((s,r) => s+r.amt, 0);
+    blocks.push({from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, amt, dep:d, diff:amt - d.amt,
+                 st: amt === d.amt ? 'ok' : amt > d.amt ? 'short' : 'over'});
+    si = best + 1;
+  });
+  if(si < settles.length){
+    const rs = settles.slice(si);
+    blocks.push({from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, amt:rs.reduce((s,r) => s+r.amt, 0), dep:null, st:'unpaid'});
+    blocks[blocks.length-1].diff = blocks[blocks.length-1].amt;
+  }
+  return blocks;
+}
+/* 시작점 자동: 앞쪽 정산은 이번에 안 붙여넣은 옛 입금으로 이미 끝났을 수 있다.
+   첫 입금일 이전 정산 중 어디서 시작해야 «딱 맞는 입금»이 제일 많은지 보고, 같으면 이른 쪽. */
+function autoStart(settles, deps){
+  if(!deps.length) return 0;
+  let best = 0, bestOk = -1;
+  for(let s = 0; s < settles.length && settles[s].date <= deps[0].date; s++){
+    const ok = matchFrom(settles, deps, s).filter(b => b.st === 'ok').length;
+    if(ok > bestOk){ bestOk = ok; best = s; }
+  }
+  return best;
+}
+
 let CUR = null;
 function run(){
   const warns = [];
   const deps = parseDeposits($('dep').value, warns);
   renderPayers(deps);
-  const used = deps.filter(d => payerOn(d.name));
+  const used = deps.filter(d => payerOn(d.name)).map((d, i) => ({...d, i})).sort((a,b) => a.date<b.date?-1:a.date>b.date?1:a.i-b.i);
   const settles = parseSettles(warns);
   if(!$('vendor').value.trim() && used.length) $('vendor').value = vendorFromPayer(used[0].name);
   ls('ipg_dep', $('dep').value); ls('ipg_vendor', $('vendor').value); ls('ipg_honor', $('honor').value);
-  if(!settles.length) warns.push('정산 내역을 못 읽었음 — 대상 업체 칸(1·2 / 3·4)이 맞는지 확인');
+  if(!settles.length) warns.push('정산 내역을 못 읽었음 — 대상 업체 칸(1·2 / 3·4 / 5·6)이 맞는지 확인');
   $('warn').textContent = warns.join('\n');
   if(!settles.length){ $('resPanel').style.display='none'; return; }
 
-  const depTotal = used.reduce((s,d) => s+d.amt, 0);
-  // 입금을 날짜순 줄로 세워 오래된 정산부터 떼어 준다 → 정산 한 건마다 «어느 날 입금 얼마»로 채워졌는지 남김
-  const q = used.map((d, i) => ({...d, i, left:d.amt})).sort((a,b) => a.date<b.date?-1:a.date>b.date?1:a.i-b.i);
-  let qi = 0, setTotal = 0, firstMiss = -1;
-  const rows = settles.map((s, i) => {
-    setTotal += s.amt;
-    let need = s.amt, lastLeft = -1; const pays = [];
-    while(need > 0 && qi < q.length){
-      const d = q[qi], take = Math.min(need, d.left);
-      pays.push({k:d.i, date:d.date, amt:take, of:d.amt}); d.left -= take; need -= take; lastLeft = d.left;
-      if(d.left === 0) qi++;
-    }
-    const fill = s.amt - need, remain = need;
-    const st = remain === 0 ? 'paid' : (fill > 0 ? 'part' : 'unpaid');
-    if(st !== 'paid' && firstMiss < 0) firstMiss = i;
-    return {...s, fill, remain, st, pays, aligned: st === 'paid' && lastLeft === 0}; // 이 정산에서 입금이 딱 떨어짐
-  });
-  /* 입금 한 건이 정산 여러 날을 덮으면 한 줄로 묶는다 (홍팀장 26-10-29: 9/20 223,500 입금 = 9/21~22 정산).
-     입금이 딱 떨어지는 곳에서만 끊는다 → «9월 21일 ~ 22일 223,500 / 9월 20일 223,500». 덜 들어온 줄·안 들어온 줄은 한 줄씩. */
-  const blocks = []; let cur = [];
-  const mkBlock = rs => {
-    const pm = new Map();
-    rs.forEach(r => r.pays.forEach(p => { const o = pm.get(p.k); if(o) o.amt += p.amt; else pm.set(p.k, {...p}); }));
-    return {from:rs[0].date, to:rs[rs.length-1].date, n:rs.length, st:rs[rs.length-1].st,
-            amt:rs.reduce((s,r) => s+r.amt, 0), fill:rs.reduce((s,r) => s+r.fill, 0), remain:rs.reduce((s,r) => s+r.remain, 0),
-            pays:[...pm.values()]};
-  };
-  rows.forEach(r => {
-    if(r.st !== 'paid'){ if(cur.length) blocks.push(mkBlock(cur)); cur = []; blocks.push(mkBlock([r])); return; }
-    cur.push(r);
-    if(r.aligned){ blocks.push(mkBlock(cur)); cur = []; }
-  });
-  if(cur.length) blocks.push(mkBlock(cur));
-  const unpaid = rows.reduce((s,r) => s+r.remain, 0), over = q.reduce((s,d) => s+d.left, 0);
-  const lastPaid = rows.filter(r => r.st === 'paid').pop();
-  const lastDep = used.map(d => d.date).sort().pop();
-  CUR = {vendor:$('vendor').value.trim() || '(업체명)', honor:$('honor').value.trim(), rows, blocks, cutB:blocks.findIndex(b => b.st !== 'paid'), setTotal, depTotal, unpaid, over, firstMiss, lastPaid, lastDep, nDep:used.length};
+  const auto = autoStart(settles, used);
+  const pick = $('startSel').dataset.pick;                       // 사람이 고른 시작일(없으면 자동)
+  let s0 = pick ? settles.findIndex(s => s.date >= pick) : auto;
+  if(s0 < 0) s0 = auto;
+  const blocks = matchFrom(settles, used, s0);
+  $('startSel').innerHTML = `<option value="">자동 (${kDate(settles[auto].date)}부터)</option>` +
+    settles.map(s => `<option value="${s.date}"${pick===s.date?' selected':''}>${kDate(s.date)}부터</option>`).join('');
+  const inR = settles.slice(s0);
+  const setTotal = inR.reduce((s,r) => s+r.amt, 0), depTotal = used.reduce((s,d) => s+d.amt, 0);
+  const skipped = settles.slice(0, s0);
+  CUR = {vendor:$('vendor').value.trim() || '(업체명)', honor:$('honor').value.trim(), blocks, skipped,
+         setTotal, depTotal, net:setTotal - depTotal, firstBad:blocks.findIndex(b => b.st === 'short' || b.st === 'unpaid'),
+         lastDep: used.length ? used[used.length-1].date : null, nDep:used.length, nSet:inR.length};
   render();
 }
+function startPick(v){ $('startSel').dataset.pick = v; run(); }
 
+const ST_TXT = {ok:'일치', short:'덜 들어옴', over:'더 들어옴', unpaid:'미입금'};
+const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌'};
+const setLabel = b => b.n ? rangeLabel(b) : '-';
+const diffTxt = b => b.diff === 0 ? '0' : (b.diff > 0 ? won(b.diff) : '+' + won(-b.diff));
 function render(){
   const c = CUR;
   $('resPanel').style.display = '';
   $('rVendor').textContent = c.vendor;
-  const miss = c.firstMiss >= 0 ? c.rows[c.firstMiss] : null;
+  const ok = c.blocks.filter(b => b.st === 'ok').length, bad = c.blocks.filter(b => b.st === 'short' || b.st === 'over').length;
   $('sum').innerHTML =
-    `<div>정산 합계<br><b>${won(c.setTotal)}</b> <span class="hint">${c.rows.length}건</span></div>` +
+    `<div>정산 합계<br><b>${won(c.setTotal)}</b> <span class="hint">${c.nSet}건</span></div>` +
     `<div>입금 합계<br><b>${won(c.depTotal)}</b> <span class="hint">${c.nDep}건${c.lastDep?' · 마지막 '+kDate(c.lastDep):''}</span></div>` +
-    `<div>입금 확인된 곳<br><b>${c.lastPaid ? kDate(c.lastPaid.date)+'분까지' : '없음'}</b></div>` +
-    (miss ? `<div class="red">빠진 곳<br><b>${kDate(miss.date)}분부터</b>${miss.st==='part'?` <span class="hint">(이날 ${won(miss.fill)} 들어옴)</span>`:''}</div>` +
-            `<div class="red">미입금 합계<br><b>${won(c.unpaid)}</b></div>`
-          : `<div>미입금<br><b>없음 ✅</b></div>`) +
-    (c.over > 0 ? `<div>초과 입금<br><b>${won(c.over)}</b> <span class="hint">정산보다 더 들어옴</span></div>` : '');
-  const ST = {paid:'✅ 입금 확인', part:'🟡 일부 입금', unpaid:'❌ 미입금'};
-  // 한 입금이 여러 정산에 나뉘면 «(103,000 중)»을 붙여 업체가 자기 통장 입금과 바로 맞춰 보게 함
-  const payDate = r => r.pays.length ? r.pays.map(p => kDate(p.date)).join('<br>') : '-';
-  const payAmt = r => r.pays.length ? r.pays.map(p => won(p.amt) + (p.amt !== p.of ? ` <span class="hint">(${won(p.of)} 중)</span>` : '')).join('<br>') : '-';
-  $('rbody').innerHTML = c.blocks.map((r, i) => `<tr class="${r.st}${i===c.cutB?' cut':''}">
-    <td class="c">${rangeLabel(r)}${r.n>1?` <span class="hint">(${r.n}건)</span>`:''}</td><td class="n">${won(r.amt)}</td>
-    <td class="c">${payDate(r)}</td><td class="n">${payAmt(r)}</td><td class="n">${r.remain?won(r.remain):'-'}</td><td class="c">${ST[r.st]}</td></tr>`).join('');
+    (c.net > 0 ? `<div class="red">차액 (정산−입금)<br><b>${won(c.net)}</b></div>`
+               : c.net < 0 ? `<div>차액 (정산−입금)<br><b>+${won(-c.net)}</b> <span class="hint">더 들어옴</span></div>`
+               : `<div>차액<br><b>0 ✅</b></div>`) +
+    `<div>입금 ${c.nDep}건 중<br><b>${ok}건 일치</b>${bad?` <span class="hint">· 차액 ${bad}건</span>`:''}</div>`;
+  $('rbody').innerHTML =
+    (c.skipped.length ? `<tr class="skip"><td class="c">${rangeLabel({n:c.skipped.length, from:c.skipped[0].date, to:c.skipped[c.skipped.length-1].date})}</td>
+      <td class="n">${won(c.skipped.reduce((s,r)=>s+r.amt,0))}</td><td class="c" colspan="4">대조 시작 전 (이번 입금 내역 밖)</td></tr>` : '') +
+    c.blocks.map((b, i) => `<tr class="${b.st}${i===c.firstBad?' cut':''}">
+    <td class="c">${setLabel(b)}${b.n>1?` <span class="hint">(${b.n}건)</span>`:''}</td><td class="n">${b.n?won(b.amt):'-'}</td>
+    <td class="c">${b.dep?kDate(b.dep.date):'-'}</td><td class="n">${b.dep?won(b.dep.amt):'-'}</td>
+    <td class="n">${diffTxt(b)}</td><td class="c">${ST_ICON[b.st]} ${ST_TXT[b.st]}</td></tr>`).join('');
   $('msg').textContent = buildMsg();
   drawImg();
 }
@@ -313,105 +340,86 @@ function buildMsg(){
   const c = CUR;
   const co = coName();
   const hi = `안녕하세요${c.honor ? ' '+c.honor+'님' : ''}${co ? ', '+co+'입니다.' : '.'}`;
-  if(c.firstMiss < 0) return `${hi}\n${c.vendor} 정산 건 입금 모두 확인되었습니다.\n감사합니다.`;
-  const miss = c.rows[c.firstMiss];
-  return `${hi}\n\n${kDate(miss.date)}분부터 ${won(c.unpaid)}원 입금 확인이 안 됩니다.\n` +
+  if(c.net <= 0 || c.firstBad < 0) return `${hi}\n${c.vendor} 정산 건 입금 모두 확인되었습니다.\n감사합니다.`;
+  return `${hi}\n\n${kDate(c.blocks[c.firstBad].from)}분부터 ${won(c.net)}원 입금 확인이 안 됩니다.\n` +
     `확인 후 입금 부탁드립니다.\n\n` +
     `이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
 }
 
-// ── 이미지 (표) ──
-function drawImg(){
-  const c = CUR, cv = $('cv'), x = cv.getContext('2d');
-  const show = c.firstMiss < 0 ? [] : c.rows.slice(c.firstMiss);
-  const S = 2, W = 560, rowH = 34, top = 112;
-  const H = top + rowH * (show.length + 1) + (show.length ? rowH : 0) + 64;
-  cv.width = W*S; cv.height = H*S; cv.style.width = W+'px';
-  x.scale(S, S);
-  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
-  const F = (w, s) => `${w} ${s}px "Malgun Gothic","맑은 고딕",sans-serif`;
-  x.fillStyle = '#111'; x.font = F('bold', 20); x.textBaseline = 'middle';
-  x.fillText('입금 확인 요청', 24, 32);
-  x.font = F('normal', 14); x.fillStyle = '#444';
-  x.fillText(`${c.vendor}${c.honor?' · '+c.honor+'님':''}`, 24, 62);
-  x.fillText(c.firstMiss < 0 ? '정산 건 입금이 모두 확인되었습니다.' : `${kDate(show[0].date)}분부터 ${won(c.unpaid)}원 입금 확인이 안 됩니다.`, 24, 86);
-  if(!show.length){ cv.height = 110*S; x.setTransform(S,0,0,S,0,0); return drawImgFooter(x, W, 0); }
-  const cols = [{t:'정산일', w:150, a:'center'}, {t:'정산액', w:130, a:'right'}, {t:'입금 확인', w:120, a:'right'}, {t:'미입금', w:112, a:'right'}];
-  const L = 24; let y = top;
-  const rowDraw = (vals, bg, bold, color) => {
-    let cx = L;
-    x.fillStyle = bg; x.fillRect(L, y, W-2*L, rowH);
-    cols.forEach((co, j) => {
-      x.strokeStyle = '#bbb'; x.lineWidth = 1; x.strokeRect(cx+.5, y+.5, co.w, rowH);
-      x.fillStyle = (color && color[j]) || '#111'; x.font = F(bold?'bold':'normal', 14);
-      x.textAlign = co.a; x.fillText(vals[j], co.a==='right' ? cx+co.w-10 : co.a==='center' ? cx+co.w/2 : cx+10, y+rowH/2);
-      cx += co.w;
-    });
-    x.textAlign = 'left'; y += rowH;
-  };
-  rowDraw(cols.map(co => co.t), '#eef0f3', true);
-  show.forEach(r => rowDraw([kDate(r.date), won(r.amt), r.fill?won(r.fill):'-', won(r.remain)], r.st==='part'?'#fff6e0':'#fff', false, [null,null,null,'#b3261e']));
-  rowDraw(['합계', won(show.reduce((s,r)=>s+r.amt,0)), won(show.reduce((s,r)=>s+r.fill,0)), won(c.unpaid)], '#fdecec', true, [null,null,null,'#b3261e']);
-  drawImgFooter(x, W, y);
-}
-function drawImgFooter(x, W, y){
-  const c = CUR;
-  x.font = '12px "Malgun Gothic","맑은 고딕",sans-serif'; x.fillStyle = '#777'; x.textAlign = 'left';
-  const base = c.lastDep ? `입금 확인 기준: ${kDate(c.lastDep)} 입금분까지` : '입금 내역 없음';
-  x.fillText(base + (coName() ? '  ·  '+coName() : ''), 24, y + 30);
-}
-// ── 대조표 전체 이미지 (요약 + 정산 건마다 입금일·입금액) — 화면 표와 같은 내용 ──
-function drawFull(){
-  const c = CUR, cv = document.createElement('canvas'), x = cv.getContext('2d');
-  const F = (w, s) => `${w} ${s}px "Malgun Gothic","맑은 고딕",sans-serif`;
-  const cols = [{t:'정산일', w:150, a:'center'}, {t:'정산액', w:104, a:'right'}, {t:'입금일', w:96, a:'center'},
-                {t:'입금액', w:180, a:'right'}, {t:'남은 금액', w:100, a:'right'}, {t:'상태', w:96, a:'center'}];
-  const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0), lineH = 20, pad = 8, top = 150;
-  const ST = {paid:'입금 확인', part:'일부 입금', unpaid:'미입금'};
-  const BG = {paid:'#fff', part:'#fff6e0', unpaid:'#fdecec'};
-  const cells = c.blocks.map(r => [
-    r.n > 1 ? [rangeLabel(r), `(${r.n}건)`] : [rangeLabel(r)], [won(r.amt)],
-    r.pays.length ? r.pays.map(p => kDate(p.date)) : ['-'],
-    r.pays.length ? r.pays.map(p => won(p.amt) + (p.amt !== p.of ? ` (${won(p.of)} 중)` : '')) : ['-'],
-    [r.remain ? won(r.remain) : '-'], [ST[r.st]]]);
-  const hs = cells.map(cl => Math.max(...cl.map(v => v.length)) * lineH + pad*2);
-  const H = top + 36 + hs.reduce((s,h) => s+h, 0) + 50;
-  const S = 2; cv.width = W*S; cv.height = H*S; x.scale(S, S);
-  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.textBaseline = 'middle';
-  x.fillStyle = '#111'; x.font = F('bold', 20); x.fillText(`입금 대조 — ${c.vendor}`, L, 30);
-  const miss = c.firstMiss >= 0 ? c.rows[c.firstMiss] : null;
-  const box = [['정산 합계', won(c.setTotal)+'원'], ['입금 합계', won(c.depTotal)+'원'],
-               miss ? ['미입금 합계', won(c.unpaid)+'원'] : ['미입금', '없음']];
-  const bw = (W - L*2 - 20) / 3;
-  box.forEach(([k, v], i) => {
-    const bx = L + i*(bw+10), red = miss && i === 2;
-    x.fillStyle = red ? '#fdecec' : '#f6f7f9'; x.fillRect(bx, 52, bw, 54);
-    x.strokeStyle = '#dde'; x.strokeRect(bx+.5, 52.5, bw, 54);
-    x.fillStyle = '#666'; x.font = F('normal', 12); x.fillText(k, bx+12, 66);
-    x.fillStyle = red ? '#b3261e' : '#111'; x.font = F('bold', 17); x.fillText(v, bx+12, 90);
-  });
-  x.fillStyle = '#444'; x.font = F('normal', 13);
-  x.fillText(miss ? `${c.lastPaid ? kDate(c.lastPaid.date)+'분까지 입금 확인 · ' : ''}${kDate(miss.date)}분부터 입금 확인이 안 됩니다.` : '정산 건 입금이 모두 확인되었습니다.', L, 128);
-  let y = top;
-  const rowDraw = (vals, h, bg, bold, colors) => {
-    let cx = L; x.fillStyle = bg; x.fillRect(L, y, W-L*2, h);
+// ── 표 그리기 (두 이미지 공용) ──
+const FONT = (w, s) => `${w} ${s}px "Malgun Gothic","맑은 고딕",sans-serif`;
+function tableDraw(x, L, y, cols, rows){        // rows: {vals:[[줄…]…], bg, bold, colors, cut}
+  const lineH = 20, pad = 8, W = cols.reduce((s,co) => s+co.w, 0);
+  rows.forEach(r => {
+    const h = Math.max(...r.vals.map(v => v.length)) * lineH + pad*2;
+    let cx = L; x.fillStyle = r.bg || '#fff'; x.fillRect(L, y, W, h);
     cols.forEach((co, j) => {
       x.strokeStyle = '#bbb'; x.lineWidth = 1; x.strokeRect(cx+.5, y+.5, co.w, h);
-      x.fillStyle = (colors && colors[j]) || '#111'; x.font = F(bold?'bold':'normal', 13); x.textAlign = co.a;
-      const lines = vals[j], ty = y + (h - lines.length*lineH)/2 + lineH/2;
+      x.fillStyle = (r.colors && r.colors[j]) || '#111'; x.font = FONT(r.bold?'bold':'normal', 13); x.textAlign = co.a;
+      const lines = r.vals[j], ty = y + (h - lines.length*lineH)/2 + lineH/2;
       lines.forEach((t, k) => x.fillText(t, co.a==='right' ? cx+co.w-8 : co.a==='center' ? cx+co.w/2 : cx+8, ty + k*lineH));
       cx += co.w;
     });
+    if(r.cut){ x.strokeStyle = '#c0262d'; x.lineWidth = 3; x.beginPath(); x.moveTo(L, y); x.lineTo(L+W, y); x.stroke(); }
     x.textAlign = 'left'; y += h;
-  };
-  rowDraw(cols.map(co => [co.t]), 36, '#eef0f3', true);
-  c.blocks.forEach((r, i) => {
-    const red = r.st === 'paid' ? null : '#b3261e';
-    rowDraw(cells[i], hs[i], BG[r.st], r.st === 'part', [null, null, null, null, red, r.st === 'paid' ? '#2d7a3a' : red]);
-    if(i === c.cutB){ x.strokeStyle = '#c0262d'; x.lineWidth = 3; x.beginPath(); x.moveTo(L, y-hs[i]); x.lineTo(W-L, y-hs[i]); x.stroke(); }
   });
-  x.font = F('normal', 12); x.fillStyle = '#777';
+  return y;
+}
+function tableHeight(rows){ return rows.reduce((s,r) => s + Math.max(...r.vals.map(v => v.length))*20 + 16, 0); }
+const BG = {ok:'#fff', short:'#fff6e0', over:'#eef4ff', unpaid:'#fdecec', head:'#eef0f3'};
+const blockVals = (b, withDep) => [b.n>1 ? [setLabel(b), `(${b.n}건)`] : [setLabel(b)], [b.n?won(b.amt):'-'],
+  ...(withDep ? [[b.dep?kDate(b.dep.date):'-']] : []), [b.dep?won(b.dep.amt):'-'], [diffTxt(b)], [ST_TXT[b.st]]];
+const blockColors = (b, withDep) => { const red = (b.st==='short'||b.st==='unpaid') ? '#b3261e' : b.st==='ok' ? '#2d7a3a' : '#1b4fb3';
+  const n = withDep ? 6 : 5; const a = Array(n).fill(null); a[n-2] = b.st==='ok'?null:red; a[n-1] = red; return a; };
+function footer(x, L, y){
+  const c = CUR;
+  x.font = FONT('normal', 12); x.fillStyle = '#777'; x.textAlign = 'left';
   x.fillText((c.lastDep ? `입금 확인 기준: ${kDate(c.lastDep)} 입금분까지` : '입금 내역 없음') + (coName() ? '  ·  '+coName() : ''), L, y + 26);
+}
+
+// 작은 이미지 — 차액 난 곳부터 끝까지
+function drawImg(){
+  const c = CUR, cv = $('cv'), x = cv.getContext('2d');
+  const show = c.firstBad < 0 || c.net <= 0 ? [] : c.blocks.slice(c.firstBad);
+  const cols = [{t:'정산일', w:150, a:'center'}, {t:'정산금액', w:100, a:'right'}, {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:90, a:'right'}, {t:'상태', w:84, a:'center'}];
+  const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0), top = 108;
+  const rows = [{vals:cols.map(co => [co.t]), bg:BG.head, bold:true},
+    ...show.map(b => ({vals:blockVals(b, false), bg:BG[b.st], colors:blockColors(b, false)}))];
+  const H = show.length ? top + tableHeight(rows) + 50 : 130;
+  const S = 2; cv.width = W*S; cv.height = H*S; cv.style.width = W+'px';
+  x.setTransform(S,0,0,S,0,0); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.textBaseline = 'middle';
+  x.fillStyle = '#111'; x.font = FONT('bold', 20); x.fillText('입금 확인 요청', L, 32);
+  x.font = FONT('normal', 14); x.fillStyle = '#444';
+  x.fillText(`${c.vendor}${c.honor?' · '+c.honor+'님':''}`, L, 60);
+  x.fillText(show.length ? `${kDate(show[0].from)}분부터 ${won(c.net)}원 입금 확인이 안 됩니다.` : '정산 건 입금이 모두 확인되었습니다.', L, 84);
+  if(!show.length) return footer(x, L, 84);
+  footer(x, L, tableDraw(x, L, top, cols, rows));
+}
+// 대조표 전체 이미지 — 화면 표와 같은 내용
+function drawFull(){
+  const c = CUR, cv = document.createElement('canvas'), x = cv.getContext('2d');
+  const cols = [{t:'정산일', w:150, a:'center'}, {t:'정산금액', w:100, a:'right'}, {t:'입금일', w:90, a:'center'},
+                {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:90, a:'right'}, {t:'상태', w:84, a:'center'}];
+  const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0), top = 150;
+  const rows = [{vals:cols.map(co => [co.t]), bg:BG.head, bold:true},
+    ...c.blocks.map((b, i) => ({vals:blockVals(b, true), bg:BG[b.st], colors:blockColors(b, true), cut:i===c.firstBad}))];
+  const H = top + tableHeight(rows) + 50;
+  const S = 2; cv.width = W*S; cv.height = H*S; x.scale(S, S);
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.textBaseline = 'middle';
+  x.fillStyle = '#111'; x.font = FONT('bold', 20); x.fillText(`입금 대조 — ${c.vendor}`, L, 30);
+  const box = [['정산 합계', won(c.setTotal)+'원'], ['입금 합계', won(c.depTotal)+'원'],
+               ['차액 (정산−입금)', c.net > 0 ? won(c.net)+'원' : c.net < 0 ? '+'+won(-c.net)+'원' : '0원']];
+  const bw = (W - L*2 - 20) / 3;
+  box.forEach(([k, v], i) => {
+    const bx = L + i*(bw+10), red = c.net > 0 && i === 2;
+    x.fillStyle = red ? '#fdecec' : '#f6f7f9'; x.fillRect(bx, 52, bw, 54);
+    x.strokeStyle = '#dde'; x.lineWidth = 1; x.strokeRect(bx+.5, 52.5, bw, 54);
+    x.fillStyle = '#666'; x.font = FONT('normal', 12); x.fillText(k, bx+12, 66);
+    x.fillStyle = red ? '#b3261e' : '#111'; x.font = FONT('bold', 17); x.fillText(v, bx+12, 90);
+  });
+  x.fillStyle = '#444'; x.font = FONT('normal', 13);
+  x.fillText(c.net > 0 && c.firstBad >= 0 ? `${kDate(c.blocks[c.firstBad].from)}분부터 입금 확인이 안 됩니다.` : '정산 건 입금이 모두 확인되었습니다.', L, 128);
+  footer(x, L, tableDraw(x, L, top, cols, rows));
   return cv;
 }
 function cvBlob(which){ const cv = which === 'full' ? drawFull() : $('cv'); return new Promise(r => cv.toBlob(r, 'image/png')); }
@@ -470,7 +478,7 @@ $('honor').value = ls('ipg_honor') || '';
 $('company').addEventListener('input', () => { ls('ipg_co', $('company').value); if(CUR) render(); });
 const _p = ls('ipg_pair'); if(_p) document.querySelector(`input[name=pair][value=${_p}]`).checked = true;
 pairMark();
-$('go').onclick = run;
+$('go').onclick = () => { delete $('startSel').dataset.pick; run(); };   // 새로 대조할 땐 시작점 다시 자동
 $('honor').addEventListener('change', () => { if(CUR){ CUR.honor = $('honor').value.trim(); ls('ipg_honor', $('honor').value); render(); } });
 </script>
 </body>
