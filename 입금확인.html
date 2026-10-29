@@ -409,7 +409,7 @@ function footer(x, L, y){
 function drawImg(){
   const c = CUR, cv = $('cv'), x = cv.getContext('2d');
   const show = c.firstBad < 0 || c.net <= 0 ? [] : c.blocks.slice(c.firstBad);
-  const cols = [{t:'정산일', w:150, a:'center'}, {t:'정산금액', w:100, a:'right'}, {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:90, a:'right'}, {t:'상태', w:84, a:'center'}];
+  const cols = [{t:'정산일', w:190, a:'center'}, {t:'정산금액', w:100, a:'right'}, {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:90, a:'right'}, {t:'상태', w:84, a:'center'}];
   const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0), top = 108;
   const rows = [{vals:cols.map(co => [co.t]), bg:BG.head, bold:true},
     ...show.flatMap(b => blockImgRows(b, false, false))];
@@ -426,7 +426,7 @@ function drawImg(){
 // 대조표 전체 이미지 — 화면 표와 같은 내용
 function drawFull(){
   const c = CUR, cv = document.createElement('canvas'), x = cv.getContext('2d');
-  const cols = [{t:'정산일', w:150, a:'center'}, {t:'정산금액', w:100, a:'right'}, {t:'입금일', w:90, a:'center'},
+  const cols = [{t:'정산일', w:190, a:'center'}, {t:'정산금액', w:100, a:'right'}, {t:'입금일', w:90, a:'center'},
                 {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:90, a:'right'}, {t:'상태', w:84, a:'center'}];
   const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0), top = 150;
   const rows = [{vals:cols.map(co => [co.t]), bg:BG.head, bold:true},
