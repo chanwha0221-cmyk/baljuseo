@@ -471,9 +471,9 @@ function findProd(raw){
       그 길은 건드리지 않는다. 여기서 거르는 건 "골라 담으라고 내미는 목록"뿐이다. */
 /* 🔐 도구로 열어준 상품은 예외에 걸려 있어도 보여준다 (홍팀장 2026-09-10) —
    카탈로그에서 내리려고 예외로 빼둔 물건을 [🔐 업체 전용 상품]으로 다시 연 경우다. */
-/* 🚫 재고 없음(수량 웹 잔여 0) — 카탈로그가 매긴다(isZeroQ). 당일생물은 등록 토글이 기준이라 제외 (2026-09-29 홍팀장). */
-const zeroNow = p => !!p && typeof isZeroQ === 'function' && isZeroQ(p.name)
-  && S(p.group) !== '당일생물' && S(p.effWh) !== '당일생물' && !vonlyOpen(p.name);
+/* 🚫 재고 없음(수량 웹 잔여 0) — 카탈로그가 매긴다(isZeroQ).
+   📞 당일도 막는다 (2026-10-29 홍팀장 「소량은 발주 가능, 재고 문의는 발주 불가」) — 당일은 오늘 잡힌 수량이 다 나간 것(총>0·잔여 0)만 MCZERO 에 들어온다. */
+const zeroNow = p => !!p && typeof isZeroQ === 'function' && isZeroQ(p.name) && !vonlyOpen(p.name);
 const sellable = p => (!(p && typeof isExc === 'function' && isExc(p.name)) || vonlyOpen(p && p.name)) && !zeroNow(p);
 /* 🧑‍💼 마스터(대신 발주)는 재고 없음·예외 상품도 후보·직접 찾기에 띄운다 (2026-10-15 홍팀장 「일단 입력 가능하게 —
    강제로 할지 패스할지 내가 정한다, 수량 구해놓고 직접 발주하는 걸 수도 있잖아」). 고르면 checkRow 가 사유를 띄우고
