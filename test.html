@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🧪 테스트본 — 발주서 변환기 v22.596</title>
+<title>🧪 테스트본 — 발주서 변환기 v22.597</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -62,7 +62,7 @@ body{box-shadow:inset 0 0 0 3px #dc2626}
 <body>
 <header>
   <span class="logo">발주서 <span>변환기</span></span><span class="testbadge">🧪 테스트본</span>
-  <span class="ver">v22.596</span>
+  <span class="ver">v22.597</span>
   <div class="header-right">
     <div class="stat-inline">
       <div class="stat-item"><div class="dot"></div><span>입력</span><strong id="s-in">0</strong></div>
@@ -620,7 +620,8 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('골뱅이')&&norm(pn).includes('급냉'))return{name:pn,qty,maxB:999};
   if(norm(pn).includes('골뱅이'))return{name:'동해 활 골뱅이 1kg',qty:Math.round(qty*wi),maxB:999};
   if(norm(pn).includes('거북손')&&norm(pn).includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
-  if(norm(pn).includes('석화')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
+  // 「제철 석화굴」은 따로 있는 상품 — 국내산 석화로 바꾸지 않는다 (2026-10-29 엄지손수산)
+  if(norm(pn).includes('석화')&&!norm(pn).includes('석화굴')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
   if(norm(pn).includes('새꼬막'))return{name:pn,qty,maxB:qty>=2?1:999};
   if(norm(pn).includes('박달홍게'))return{name:pn,qty,maxB:1};
   if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};
