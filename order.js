@@ -1032,32 +1032,64 @@ let EDIT = false;   // 주문처 정보 수정 중인가
    고르면 그 사업자가 **정산업체**로 들어간다(송장명 칸과 다르다). 목록은 서버 ALT_BIZ, 마스터가 계정관리에서 고친다.
    🔴 발주를 넣으면 기본(로그인 업체)으로 되돌린다 — 다음 발주가 엉뚱한 사업자로 정산되지 않게(대신 발주의 FOR 와 같은 규칙). */
 let ALTS = [], ASBIZ = '';
-const ALT_NOTICE = '이 기능은 추가로 사업자 등록을 하신 업체만 사용할 수 있습니다.\n사용 전에 담당자에게 먼저 문의 주세요. (010-2455-4156 홍찬화 팀장)';
+/* 🔁 고른 사업자는 계속 간다 (2026-10-30 홍팀장 — 강씨네밥상 kangsfood99). 처음 발주할 때 «이 사업자로 발주 맞으실까요?»로
+   한 번 고르면 이 브라우저에 기억해서 다음 발주도 그 사업자로 나간다. 바꾸려면 위 「발주 사업자」 칸에서.
+   (09-30 엔 발주 뒤 기본으로 되돌렸다 — 지금은 사업자마다 따로 쓰는 업체라 매번 고르게 하면 더 헷갈린다.)
+   ➕ 사업자 추가는 **마스터만**(계정관리) — 업체 화면엔 «담당자에게 요청» 안내만. */
+const ALT_PICK_KEY = 'ord_asbiz_v1';
+function altPickGet(){ try{ const m = JSON.parse(localStorage.getItem(ALT_PICK_KEY) || '{}'); return (ME && m[ME.id] != null) ? m[ME.id] : null; }catch(e){ return null; } }
+function altPickSet(v){ try{ const m = JSON.parse(localStorage.getItem(ALT_PICK_KEY) || '{}'); m[ME.id] = v; localStorage.setItem(ALT_PICK_KEY, JSON.stringify(m)); }catch(e){} }
 async function loadAlts(){
   try{
     const j = await api('altbiz', {token: ME.token});
     ALTS = (j && j.list) || [];
+    const saved = altPickGet();
+    if(saved != null) ASBIZ = saved;
     if(ASBIZ && !ALTS.some(a => pkey(a.name) === pkey(ASBIZ))) ASBIZ = '';
     const box = document.getElementById('ordme');
     if(box && !EDIT){ box.outerHTML = meCard(); if(window.__bindMe) window.__bindMe(); }
   }catch(e){}
 }
 function altOf(){ return ASBIZ ? ALTS.find(a => pkey(a.name) === pkey(ASBIZ)) || null : null; }
+function bizNow(){ const a = altOf(); return a ? a.name : ((typeof ME !== 'undefined' && ME) ? ME.name : ''); }
+/* 🏢 «이 사업자로 발주 맞으실까요?» — 버튼으로 고른다. 고르면 기억(altPickSet). 닫으면 null(발주 안 넣음). */
+function chooseBiz(){
+  return new Promise(res => {
+    const base = (typeof ME !== 'undefined' && ME) ? ME.name : '';
+    const opts = [{v: '', n: base, t: '기본'}].concat(ALTS.map(a => ({v: a.name, n: a.name, t: ''})));
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:18px 18px 14px;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
+      + '<div style="font-weight:800;font-size:16px;margin-bottom:4px">🏢 이 사업자로 발주 맞으실까요?</div>'
+      + '<div style="font-size:12.5px;color:#666;margin-bottom:12px">고르신 사업자로 정산·계산서가 나갑니다. 한 번 고르시면 다음 발주에도 계속 이 사업자로 들어가고, 위 「발주 사업자」 칸에서 언제든 바꾸실 수 있습니다.</div>'
+      + opts.map((o, i) => '<button data-i="' + i + '" style="display:block;width:100%;text-align:left;padding:11px 12px;margin:6px 0;border:1.5px solid ' + (pkey(o.v) === pkey(ASBIZ) ? '#2b5cd6' : '#ddd') + ';border-radius:8px;background:#fafafa;font-size:14px;cursor:pointer">'
+          + esc(o.n) + (o.t ? ' <span style="color:#888;font-size:12px">(' + o.t + ')</span>' : '') + '</button>').join('')
+      + '<div style="text-align:right;margin-top:8px"><button data-x="1" style="padding:7px 14px;border:0;background:#eee;border-radius:6px;cursor:pointer">취소</button></div></div>';
+    document.body.appendChild(ov);
+    ov.onclick = e => {
+      const b = e.target.closest('button');
+      if(!b && e.target !== ov) return;
+      ov.remove();
+      if(!b || b.dataset.x){ res(null); return; }
+      const o = opts[+b.dataset.i];
+      ASBIZ = o.v; altPickSet(o.v); res(o.v);
+    };
+  });
+}
 function altRow(){
   const base = (typeof ME !== 'undefined' && ME) ? ME.name : '';
   return '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line,#e5e2dc)">'
-    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     + (ALTS.length
-        ? '<span class="k" style="font-size:11.5px;color:var(--muted)">발주 사업자</span>'
+        ? '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+          + '<span class="k" style="font-size:11.5px;color:var(--muted)">발주 사업자</span>'
           + '<select class="ordin" id="ord_asbiz" style="width:auto;min-width:160px">'
           + '<option value="">' + esc(base) + ' (기본)</option>'
           + ALTS.map(a => '<option value="' + esc(a.name) + '"' + (pkey(a.name) === pkey(ASBIZ) ? ' selected' : '') + '>' + esc(a.name) + '</option>').join('')
-          + '</select>'
+          + '</select></div>'
+          + '<div class="hint" style="margin-top:6px">고르신 사업자로 <b>정산·계산서</b>가 나가고, 다음 발주에도 계속 유지됩니다. '
+          + '송장에 다른 이름을 찍는 기능이 아닙니다 — 그건 아래 발주서 맨 앞 <b>업체명</b> 칸에 적으세요.</div>'
         : '')
-    + '<button class="ordb2" id="ord_altadd" style="padding:4px 10px;font-size:12px">➕ 사업자 추가</button>'
-    + '</div>'
-    + '<div class="hint" style="margin-top:6px">⚠️ <b>추가로 사업자 등록을 하신 업체만</b> 사용할 수 있습니다. 사용 전에 <b>담당자에게 먼저 문의</b> 주세요. (010-2455-4156 홍찬화 팀장)<br>'
-    + '송장에 다른 이름을 찍는 기능이 아닙니다 — 그건 아래 발주서 맨 앞 <b>업체명</b> 칸에 적으세요.</div>'
+    + '<div class="hint" style="margin-top:6px">🏢 사업자를 여러 개 쓰시나요? <b>사업자 추가는 담당자에게 요청</b>해 주세요. (010-2455-4156 홍찬화 팀장)</div>'
     + '</div>';
 }
 function meCard(){
@@ -1762,9 +1794,16 @@ async function submit(){
         + '\n\n이 수량이 맞으면 [확인],\n잘못 담으신 것이면 [취소] 후 그 줄을 지워주세요.')) return;
     }
   }
+  /* 🏢 사업자가 여럿인 업체 — 아직 안 골랐으면 여기서 «이 사업자로 발주 맞으실까요?» */
+  if(!master && ALTS.length && altPickGet() == null){
+    const got = await chooseBiz();
+    if(got == null) return;
+    const mb = document.getElementById('ordme');
+    if(mb && window.__bindMe){ mb.outerHTML = meCard(); window.__bindMe(); }
+  }
   const ask = master
     ? ('[' + FOR.name + '] 발주 ' + items.length + '건을 넣고 당일 시트로 바로 보낼까요?\n\n보낸 뒤에는 그 줄을 고치거나 취소할 수 없습니다.')
-    : (items.length + '건을 발주로 넣을까요?\n\n넣으신 뒤에도 저희가 처리에 들어가기 전까지는 취소하실 수 있습니다.');
+    : ((ALTS.length ? '🏢 발주 사업자: ' + bizNow() + '\n\n' : '') + items.length + '건을 발주로 넣을까요?\n\n넣으신 뒤에도 저희가 처리에 들어가기 전까지는 취소하실 수 있습니다.');
   if(!confirm(ask)) return;
   sb.disabled = true; sb.textContent = '보내는 중…'; if(msg) msg.textContent = '';
   try{
@@ -1809,11 +1848,7 @@ async function submit(){
       FOR = null; saveFor();
       const fb = document.getElementById('ordfor');
       if(fb){ fb.outerHTML = forCard(); bindFor(); }
-    } else if(ASBIZ){
-      ASBIZ = '';                                   // 🏢 다음 발주는 기본 사업자로
-      const mb = document.getElementById('ordme');
-      if(mb && window.__bindMe){ mb.outerHTML = meCard(); window.__bindMe(); }
-    }
+    }                                               // 🏢 고른 사업자는 그대로 둔다(2026-10-30) — 다음 발주도 같은 사업자
     paint();
     if(master){
       const p = j.push || {};
@@ -3695,21 +3730,7 @@ function bind(){
   function bindMe(){
     window.__bindMe = bindMe;
     const sel = $$('ord_asbiz');
-    if(sel) sel.onchange = () => { ASBIZ = sel.value; redrawMe(); paint(); };
-    const ad = $$('ord_altadd');
-    if(ad) ad.onclick = async () => {
-      if(!confirm(ALT_NOTICE + '\n\n담당자와 이야기가 되셨으면 [확인]을 눌러 사업자를 추가하세요.')) return;
-      const nm = S(prompt('추가할 사업자명 (사업자등록증의 상호 그대로)') || '');
-      if(!nm) return;
-      const ph = S(prompt('이 사업자의 주문처 연락처 (비우면 지금 연락처를 씁니다)') || '');
-      try{
-        const j = await api('altbizadd', {token: ME.token, name: nm, phone: ph});
-        ALTS = (j && j.list) || ALTS;
-        if(ALTS.some(a => pkey(a.name) === pkey(nm))) ASBIZ = nm;
-        redrawMe(); paint();
-        toast('사업자를 추가했습니다 — 지금 ' + nm + ' 로 발주합니다');
-      }catch(e){ alert(e.message || '추가하지 못했습니다'); }
-    };
+    if(sel) sel.onchange = () => { ASBIZ = sel.value; altPickSet(sel.value); redrawMe(); paint(); toast('발주 사업자: ' + bizNow() + ' — 다음 발주에도 유지됩니다'); };
     const ed = $$('ord_edit');
     if(ed) ed.onclick = () => { EDIT = true; redrawMe(); };
     const cc = $$('ord_cancel');
