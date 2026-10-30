@@ -61,6 +61,23 @@
   </div>
   <div id="warn" class="warn"></div>
 </div>
+<!-- ✍️ 정산서 없이 계산서 먼저 끊을 때 — 상품명·수량·단가를 손으로 넣는다 (2026-10-30 홍팀장) -->
+<div class="panel">
+  <h1>✍️ 직접 입력 <span class="hint">정산서(운송장) 없이 먼저 명세서가 필요할 때 — 위 공급받는자·박스당 택배비 그대로 씀</span></h1>
+  <div class="row">
+    <label>거래일자</label><input type="date" id="mDate">
+  </div>
+  <table class="mtab" style="font-size:13px">
+    <thead><tr><th>상품명</th><th style="width:80px">수량</th><th style="width:100px">단가</th><th style="width:120px" title="이 수량마다 택배 1건(박스 1개). 비우면 택배비 없음">몇 개당 택배 1건</th><th style="width:80px">택배 건수</th><th style="width:40px"></th></tr></thead>
+    <tbody id="mRows"></tbody>
+  </table>
+  <div class="row">
+    <button class="sub" id="mAdd">＋ 줄 추가</button>
+    <button id="mGo">직접 입력으로 명세서 만들기</button>
+    <span class="hint">예) 왕 바지락 1kg · 14개 · 5,900 · 7 → 택배 2건</span>
+  </div>
+  <div id="mWarn" class="warn"></div>
+</div>
 <div id="out"></div>
 
 <script>
@@ -113,7 +130,7 @@ function sheet(date, d, ship){
   const [y,m,dd] = date.split('-').map(Number);
   const rows = Object.values(d.items);
   let total = 0, no = 0;
-  const body = rows.map(r => { const a = r.unit*r.qty; total += a; return `<tr><td class="c">${++no}</td><td contenteditable>${esc(r.name)}</td><td class="n">${won(r.qty)}</td><td class="n">${won(r.unit)}</td><td class="n">${won(a)}</td><td class="c">${r.boxes}박스</td></tr>`; }).join('');
+  const body = rows.map(r => { const a = r.unit*r.qty; total += a; return `<tr><td class="c">${++no}</td><td contenteditable>${esc(r.name)}</td><td class="n">${won(r.qty)}</td><td class="n">${won(r.unit)}</td><td class="n">${won(a)}</td><td class="c">${r.boxes ? r.boxes + '박스' : ''}</td></tr>`; }).join('');
   const shipAmt = ship * d.boxes; total += shipAmt;
   return `<div class="sheet">
     <h2>거 래 명 세 서</h2>
@@ -125,13 +142,72 @@ function sheet(date, d, ship){
     <table class="items">
       <tr><th style="width:40px">No</th><th>품 목 명</th><th style="width:70px">수량</th><th style="width:90px">단가</th><th style="width:110px">금액</th><th style="width:70px">비고</th></tr>
       ${body}
-      <tr class="ship"><td class="c">${++no}</td><td>택배비</td><td class="n">${d.boxes}</td><td class="n">${won(ship)}</td><td class="n">${won(shipAmt)}</td><td class="c">박스당</td></tr>
+      ${d.boxes ? `<tr class="ship"><td class="c">${++no}</td><td>택배비</td><td class="n">${d.boxes}</td><td class="n">${won(ship)}</td><td class="n">${won(shipAmt)}</td><td class="c">박스당</td></tr>` : ''}
       <tr class="sum"><td colspan="4" class="c">합 계</td><td class="n">${won(total)}</td><td></td></tr>
       <tr><th colspan="2">입금 계좌</th><td colspan="4">${SUPPLIER.bank}</td></tr>
     </table>
     <div class="note" contenteditable>※ 수산물(면세) 품목입니다. 택배비는 박스당 ${won(ship)}원 별도 기재.</div>
   </div>`;
 }
+
+/* ✍️ 직접 입력 — 줄 = 상품명·수량·단가·몇 개당 택배 1건. 택배 건수 = 올림(수량 ÷ 몇 개당) */
+function mRow(r){
+  r = r || {};
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input type="text" class="mn" style="width:100%" value="${esc(r.name||'')}" placeholder="상품명"></td>`
+    + `<td><input type="number" class="mq" style="width:100%" min="0" value="${r.qty||''}"></td>`
+    + `<td><input type="text" class="mu" style="width:100%" inputmode="numeric" value="${r.unit?won(r.unit):''}"></td>`
+    + `<td><input type="number" class="mp" style="width:100%" min="0" value="${r.per||''}" placeholder="비우면 0"></td>`
+    + `<td class="mb" style="text-align:center">-</td>`
+    + `<td><button class="sub mx" style="padding:4px 8px">✕</button></td>`;
+  tr.querySelector('.mx').onclick = () => { tr.remove(); mCalc(); };
+  tr.querySelectorAll('input').forEach(i => i.oninput = mCalc);
+  $('mRows').appendChild(tr);
+  mCalc();
+}
+function mRead(){
+  return [...$('mRows').children].map(tr => ({
+    name: tr.querySelector('.mn').value.trim(),
+    qty: num(tr.querySelector('.mq').value),
+    unit: num(tr.querySelector('.mu').value),
+    per: num(tr.querySelector('.mp').value),
+    tr
+  }));
+}
+const mBoxes = r => (r.per > 0 && r.qty > 0) ? Math.ceil(r.qty / r.per) : 0;
+function mCalc(){
+  const rows = mRead();
+  rows.forEach(r => { r.tr.querySelector('.mb').textContent = r.per > 0 ? mBoxes(r) + '건' : '-'; });
+  ls('gms_manual', JSON.stringify({date:$('mDate').value, rows: rows.map(({tr, ...x}) => x)}));
+}
+function mBuild(){
+  const ship = num($('ship').value);
+  const warns = [];
+  const d = {items:{}, boxes:0};
+  mRead().forEach((r, i) => {
+    if(!r.name && !r.qty && !r.unit) return;
+    if(!r.name || !r.qty){ warns.push(`${i+1}번째 줄: 상품명·수량을 채워 주세요 → 건너뜀`); return; }
+    if(!r.unit) warns.push(`${i+1}번째 줄 「${r.name}」: 단가 0원`);
+    const b = mBoxes(r);
+    const key = r.name + '|' + r.unit;
+    const row = d.items[key] ||= {name:r.name, unit:r.unit, qty:0, boxes:0};
+    row.qty += r.qty; row.boxes += b; d.boxes += b;
+  });
+  const date = $('mDate').value || new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'});
+  ls('gms_ship', $('ship').value); ls('gms_buyer', $('buyer').value); saveBn();
+  $('mWarn').textContent = warns.join('\n');
+  if(!Object.keys(d.items).length){ $('mWarn').textContent = '넣은 상품이 없습니다.'; return; }
+  $('out').innerHTML = sheet(date, d, ship);
+}
+$('mAdd').onclick = () => mRow();
+$('mGo').onclick = mBuild;
+$('mDate').onchange = mCalc;
+(function(){
+  let m = null; try{ m = JSON.parse(ls('gms_manual')||'null'); }catch(e){}
+  $('mDate').value = (m && m.date) || new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'});
+  const rs = (m && m.rows && m.rows.length) ? m.rows : [{}, {}, {}];
+  rs.forEach(mRow);
+})();
 
 $('go').onclick = build;
 $('buyer').onchange = loadBn;
