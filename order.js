@@ -1086,6 +1086,14 @@ function altRow(){
           + '<option value="">' + esc(base) + ' (기본)</option>'
           + ALTS.map(a => '<option value="' + esc(a.name) + '"' + (pkey(a.name) === pkey(ASBIZ) ? ' selected' : '') + '>' + esc(a.name) + '</option>').join('')
           + '</select></div>'
+          /* ☎️ 추가 사업자 연락처는 업체가 직접 (2026-10-30 홍팀장) — 비우면 기본(로그인 업체) 연락처로 나간다 */
+          + (altOf()
+              ? '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">'
+                + '<span class="k" style="font-size:11.5px;color:var(--muted)">' + esc(altOf().name) + ' 연락처</span>'
+                + '<input class="ordin" id="ord_altph" style="width:150px" inputmode="tel" value="' + esc(altOf().phone || '') + '" placeholder="' + esc((ME && ME.phone) || '') + '">'
+                + '<button class="ordb2" id="ord_altphsave" style="padding:4px 10px;font-size:12px">저장</button>'
+                + '<span class="hint" id="ord_altphmsg">' + (altOf().phone ? '' : '비우면 기본 연락처로 나갑니다') + '</span></div>'
+              : '')
           + '<div class="hint" style="margin-top:6px">고르신 사업자로 <b>정산·계산서</b>가 나가고, 다음 발주에도 계속 유지됩니다. '
           + '송장에 다른 이름을 찍는 기능이 아닙니다 — 그건 아래 발주서 맨 앞 <b>업체명</b> 칸에 적으세요.</div>'
         : '')
@@ -3731,6 +3739,17 @@ function bind(){
     window.__bindMe = bindMe;
     const sel = $$('ord_asbiz');
     if(sel) sel.onchange = () => { ASBIZ = sel.value; altPickSet(sel.value); redrawMe(); paint(); toast('발주 사업자: ' + bizNow() + ' — 다음 발주에도 유지됩니다'); };
+    const aps = $$('ord_altphsave');
+    if(aps) aps.onclick = async () => {
+      const a = altOf(); if(!a) return;
+      const msg = $$('ord_altphmsg');
+      try{
+        const j = await api('altbizphone', {token: ME.token, name: a.name, phone: S($$('ord_altph').value)});
+        ALTS = (j && j.list) || ALTS;
+        redrawMe(); paint();
+        toast(a.name + ' 연락처를 저장했습니다');
+      }catch(e){ if(msg) msg.textContent = e.message || '저장하지 못했습니다'; }
+    };
     const ed = $$('ord_edit');
     if(ed) ed.onclick = () => { EDIT = true; redrawMe(); };
     const cc = $$('ord_cancel');
