@@ -64,6 +64,7 @@
   <textarea id="src" placeholder="2026-10-27	운송장	마스터	행복한밥상	이성	왕 바지락 1kg x 7	씨제이대한통운	6011-...	받는분	010-...	29,900	29,900"></textarea>
   <div class="row">
     <button id="go">명세서 만들기</button>
+    <button class="sub" id="clr" style="background:#c0262d">🗑 내용 지우기</button>
     <button class="sub" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
     <span class="hint">PDF는 인쇄 창에서 "PDF로 저장" 선택. 표 안 글자는 클릭해서 고칠 수 있음.</span>
   </div>
@@ -130,7 +131,7 @@ function build(){
     const row = d.items[key] ||= {name:it.name, unit, qty:0, boxes:0};
     row.qty += it.qty; row.boxes++; d.boxes++;
   });
-  ls('gms_src', $('src').value); ls('gms_ship', $('ship').value); ls('gms_buyer', $('buyer').value); saveBn();
+  ls('gms_ship', $('ship').value); ls('gms_buyer', $('buyer').value); saveBn();
   $('warn').textContent = warns.join('\n');
   LAST = {sheets: Object.keys(byDate).sort().map(date => [date, byDate[date]]), ship};
   render();
@@ -249,7 +250,6 @@ const mBoxes = r => (r.per > 0 && r.qty > 0) ? Math.ceil(r.qty / r.per) : 0;
 function mCalc(){
   const rows = mRead();
   rows.forEach(r => { r.tr.querySelector('.mb').textContent = r.per > 0 ? mBoxes(r) + '건' : '-'; });
-  ls('gms_manual', JSON.stringify({date:$('mDate').value, rows: rows.map(({tr, ...x}) => x)}));
 }
 function mBuild(){
   const ship = num($('ship').value);
@@ -275,20 +275,23 @@ function mBuild(){
 $('mAdd').onclick = () => mRow();
 $('mGo').onclick = mBuild;
 $('mDate').onchange = mCalc;
-(function(){
-  let m = null; try{ m = JSON.parse(ls('gms_manual')||'null'); }catch(e){}
-  $('mDate').value = (m && m.date) || new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'});
-  const rs = (m && m.rows && m.rows.length) ? m.rows : [{}, {}, {}];
-  rs.forEach(mRow);
-})();
+/* 🗑 내용 지우기 — 붙여넣은 줄·직접 입력 줄·만든 명세서를 비운다. 새로고침해도 처음엔 빈 화면(2026-10-30 홍팀장 「새로고침 할 때마다 내용이 차 있다」).
+   공급받는자·사업자번호·박스당 택배비·면세/과세 고친 것은 남긴다(내용이 아니라 설정). */
+function clearAll(){
+  $('src').value = ''; $('warn').textContent = ''; $('mWarn').textContent = ''; $('taxWarn').textContent = '';
+  $('mRows').innerHTML = ''; [{}, {}, {}].forEach(mRow);
+  $('mDate').value = new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'});
+  $('out').innerHTML = ''; LAST = null;
+}
+$('clr').onclick = clearAll;
+try{ localStorage.removeItem('gms_src'); localStorage.removeItem('gms_manual'); }catch(e){}   // 예전에 남겨 둔 내용도 지운다
+clearAll();
 
 $('go').onclick = build;
 $('buyer').onchange = loadBn;
-const s = ls('gms_src'); if(s) $('src').value = s;
 if(ls('gms_ship')) $('ship').value = ls('gms_ship');
 if(ls('gms_buyer')) $('buyer').value = ls('gms_buyer');
 loadBn();
-if($('src').value.trim()) build();
 </script>
 </body>
 </html>
