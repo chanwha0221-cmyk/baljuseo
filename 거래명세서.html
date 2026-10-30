@@ -76,7 +76,7 @@
     <label>거래일자</label><input type="date" id="mDate">
   </div>
   <table class="mtab" style="font-size:13px">
-    <thead><tr><th>상품명</th><th style="width:80px">수량</th><th style="width:100px">단가</th><th style="width:120px" title="이 수량마다 택배 1건(박스 1개). 비우면 택배비 없음">몇 개당 택배 1건</th><th style="width:80px">택배 건수</th><th style="width:40px"></th></tr></thead>
+    <thead><tr><th>상품명</th><th style="width:80px">수량</th><th style="width:100px">단가</th><th style="width:110px" title="이 수량마다 택배 1건(박스 1개). 비우면 택배비 없음">몇 개당 택배 1건</th><th style="width:100px" title="택배 1건당 금액. 비우면 위 「박스당 택배비」">택배비(1건당)</th><th style="width:70px">택배 건수</th><th style="width:40px"></th></tr></thead>
     <tbody id="mRows"></tbody>
   </table>
   <div class="row">
@@ -187,14 +187,17 @@ function sheet(date, d, ship){
     const tag = label ? `<span class="tx ${t==='과세'?'t':t==='면세'?'f':'q'}" data-n="${esc(label)}" title="눌러서 면세↔과세">${t==='?'?'확인':t}</span>` : (t==='?'?'면세':t);
     return `<tr${cls?` class="${cls}"`:''}><td class="c">${++no}</td>${nameCell}<td class="c">${tag}</td><td class="n">${won(qty)}</td><td class="n">${won(unit)}</td><td class="n">${won(a)}</td><td class="n">${won(sup)}</td><td class="n">${taxed?won(vat):'-'}</td><td class="c">${boxes}</td></tr>`;
   };
-  const shipBy = {};   // 구분별 택배 박스 수 — 택배비는 그 상품의 면세·과세를 따른다
+  const shipBy = {};   // (구분|1건당 금액)별 택배 건수 — 택배비는 그 상품의 면세·과세를 따른다, 직접 입력은 줄마다 금액이 다를 수 있다
   const body = rows.map(r => {
-    const t = taxOf(r.name).t;
-    if(r.boxes){ const g = t === '과세' ? '과세' : '면세'; shipBy[g] = (shipBy[g]||0) + r.boxes; }
+    const t = taxOf(r.name).t, fee = r.fee != null ? r.fee : ship;
+    if(r.boxes && fee){ const g = (t === '과세' ? '과세' : '면세') + '|' + fee; shipBy[g] = (shipBy[g]||0) + r.boxes; }
     return line(r.name, `<td contenteditable>${esc(r.name)}</td>`, t, r.qty, r.unit, r.boxes ? r.boxes + '박스' : '');
   }).join('');
-  const shipRows = ship ? ['면세','과세'].filter(g => shipBy[g]).map(g =>
-    line('', `<td>택배비${shipBy.면세 && shipBy.과세 ? ' (' + g + ' 상품분)' : ''}</td>`, g, shipBy[g], ship, '박스당', 'ship')).join('') : '';
+  const sk = Object.keys(shipBy).sort();
+  const mixT = new Set(sk.map(k => k.split('|')[0])).size > 1;
+  const shipRows = sk.map(k => { const [g, fee] = k.split('|');
+    return line('', `<td>택배비${mixT ? ' (' + g + ' 상품분)' : ''}</td>`, g, shipBy[k], +fee, '건당', 'ship'); }).join('');
+  const fees = [...new Set(sk.map(k => +k.split('|')[1]))];
   const hasT = S.sup > 0 || S.vat > 0, hasF = S.free > 0;
   return `<div class="sheet">
     <h2>거 래 명 세 서</h2>
@@ -212,7 +215,7 @@ function sheet(date, d, ship){
       <tr class="sum"><td colspan="5" class="c">합 계 (VAT 포함)</td><td class="n">${won(S.total)}</td><td class="n">${won(S.free + S.sup)}</td><td class="n">${hasT ? won(S.vat) : '-'}</td><td></td></tr>
       <tr><th colspan="2">입금 계좌</th><td colspan="7">${SUPPLIER.bank}</td></tr>
     </table>
-    <div class="note" contenteditable>※ 단가·금액은 VAT 포함 금액입니다.${hasT ? ' 과세 품목은 공급가액·세액을 나눠 적었습니다(공급가액 = 금액 ÷ 1.1).' : ''}${hasF ? ' 면세 품목은 세액이 없습니다.' : ''}${ship ? ` 택배비는 박스당 ${won(ship)}원이며 해당 상품의 면세·과세를 따릅니다.` : ''}</div>
+    <div class="note" contenteditable>※ 단가·금액은 VAT 포함 금액입니다.${hasT ? ' 과세 품목은 공급가액·세액을 나눠 적었습니다(공급가액 = 금액 ÷ 1.1).' : ''}${hasF ? ' 면세 품목은 세액이 없습니다.' : ''}${fees.length ? ` 택배비는 1건당 ${fees.map(f => won(f) + '원').join('·')}이며 해당 상품의 면세·과세를 따릅니다.` : ''}</div>
   </div>`;
 }
 
@@ -224,6 +227,7 @@ function mRow(r){
     + `<td><input type="number" class="mq" style="width:100%" min="0" value="${r.qty||''}"></td>`
     + `<td><input type="text" class="mu" style="width:100%" inputmode="numeric" value="${r.unit?won(r.unit):''}"></td>`
     + `<td><input type="number" class="mp" style="width:100%" min="0" value="${r.per||''}" placeholder="비우면 0"></td>`
+    + `<td><input type="text" class="mf" style="width:100%" inputmode="numeric" value="${r.fee?won(r.fee):''}" placeholder="${won(num($('ship').value))}"></td>`
     + `<td class="mb" style="text-align:center">-</td>`
     + `<td><button class="sub mx" style="padding:4px 8px">✕</button></td>`;
   tr.querySelector('.mx').onclick = () => { tr.remove(); mCalc(); };
@@ -237,6 +241,7 @@ function mRead(){
     qty: num(tr.querySelector('.mq').value),
     unit: num(tr.querySelector('.mu').value),
     per: num(tr.querySelector('.mp').value),
+    fee: num(tr.querySelector('.mf').value),
     tr
   }));
 }
@@ -255,8 +260,9 @@ function mBuild(){
     if(!r.name || !r.qty){ warns.push(`${i+1}번째 줄: 상품명·수량을 채워 주세요 → 건너뜀`); return; }
     if(!r.unit) warns.push(`${i+1}번째 줄 「${r.name}」: 단가 0원`);
     const b = mBoxes(r);
-    const key = r.name + '|' + r.unit;
-    const row = d.items[key] ||= {name:r.name, unit:r.unit, qty:0, boxes:0};
+    const fee = r.fee || ship;   // 그 줄 택배비(1건당) — 비우면 위 박스당 택배비
+    const key = r.name + '|' + r.unit + '|' + fee;
+    const row = d.items[key] ||= {name:r.name, unit:r.unit, qty:0, boxes:0, fee};
     row.qty += r.qty; row.boxes += b; d.boxes += b;
   });
   const date = $('mDate').value || new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'});
