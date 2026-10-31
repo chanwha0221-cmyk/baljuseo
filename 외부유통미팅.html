@@ -32,7 +32,7 @@
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.7; }
 .wrap {
   max-width: 760px; margin: 0 auto;
-  padding-block: 40px 64px;
+  padding-block: 68px 64px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   display: grid; gap: 36px;
@@ -83,6 +83,32 @@ td.empty { color: var(--muted); }
 .unsure { text-decoration: underline dotted var(--marker); text-underline-offset: 4px; cursor: help; }
 .legend { font-size: 13px; color: var(--muted); }
 footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+
+.editbar {
+  position: fixed; z-index: 20;
+  top: calc(12px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px));
+  display: flex; gap: 8px; align-items: center;
+}
+.editbar button {
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--paper); color: var(--ink);
+}
+.editbar button.primary { background: var(--marker); border-color: var(--marker); color: #fff; }
+.editbar button:disabled { opacity: .5; cursor: default; }
+.editbar button:focus-visible { outline: 2px solid var(--marker); outline-offset: 2px; }
+.status {
+  font-size: 13px; color: var(--muted); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+}
+.status:empty { display: none; }
+body.editing main { outline: 2px dashed var(--marker); outline-offset: 8px; border-radius: 4px; }
+body.editing main:focus { outline-style: solid; }
+.addrow {
+  font: inherit; font-size: 13px; cursor: pointer; margin-top: 8px; justify-self: start;
+  padding: 6px 12px; border-radius: 8px; border: 1px dashed var(--marker);
+  background: transparent; color: var(--marker);
+}
 </style>
 </head>
 <body>
@@ -200,5 +226,91 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
     <span class="legend"><span class="unsure">점선 밑줄</span>은 화이트보드 글씨가 흐려서 확인이 필요한 부분입니다.</span>
   </footer>
 </main>
+
+<div class="editbar" id="editbar">
+  <span class="status" id="status" role="status"></span>
+  <button type="button" id="btnEdit" disabled>✏️ 수정</button>
+  <button type="button" id="btnCancel" hidden>취소</button>
+  <button type="button" id="btnSave" class="primary" hidden>💾 저장</button>
+</div>
+
+<script>
+/* 본문 저장처 = Supabase app_config PAGE:oebu-meeting (Edge pageget/pageset).
+   읽기는 누구나, 저장은 카탈로그 마스터 로그인(같은 도메인 localStorage)이 있는 브라우저만. */
+(function(){
+  const API = 'https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
+  const PAGE_ID = 'oebu-meeting';
+  const main = document.querySelector('main');
+  const $ = (id) => document.getElementById(id);
+  const btnEdit = $('btnEdit'), btnSave = $('btnSave'), btnCancel = $('btnCancel'), status = $('status');
+  let rev = 0, loaded = false, before = '';
+
+  async function api(action, payload) {
+    const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(Object.assign({ action }, payload || {})) });
+    const j = await r.json();
+    if (!r.ok || !j || j.ok === false) { const e = new Error((j && j.error) || '서버 오류'); e.conflict = j && j.conflict; throw e; }
+    return j;
+  }
+  function token() {
+    try { const a = JSON.parse(localStorage.getItem('catalog_auth_v1') || 'null'); return a && a.token || ''; } catch (_) { return ''; }
+  }
+  function say(t, ms) { status.textContent = t; if (ms) setTimeout(() => { if (status.textContent === t) status.textContent = ''; }, ms); }
+
+  function setEditing(on) {
+    document.body.classList.toggle('editing', on);
+    main.contentEditable = on ? 'true' : 'false';
+    btnEdit.hidden = on; btnSave.hidden = !on; btnCancel.hidden = !on;
+    document.querySelectorAll('.addrow').forEach((b) => b.remove());
+    if (on) {
+      document.querySelectorAll('.table-wrap').forEach((w) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'addrow'; b.contentEditable = 'false'; b.textContent = '+ 줄 추가';
+        b.addEventListener('click', () => {
+          const t = w.querySelector('table'), n = t.tHead.rows[0].cells.length, tb = t.tBodies[0];
+          const empty = tb.querySelector('td.empty');
+          if (empty) empty.parentElement.remove();
+          const tr = tb.insertRow();
+          for (let i = 0; i < n; i++) tr.insertCell().textContent = '';
+          tr.cells[0].focus();
+        });
+        w.after(b);
+      });
+      main.focus();
+    }
+  }
+
+  btnEdit.addEventListener('click', () => {
+    if (!token()) { say('저장하려면 이 브라우저에서 카탈로그에 마스터로 로그인돼 있어야 해요.', 6000); return; }
+    before = main.innerHTML;
+    setEditing(true);
+    say('고칠 곳을 눌러 바로 쓰세요.', 4000);
+  });
+  btnCancel.addEventListener('click', () => { setEditing(false); main.innerHTML = before; say('고친 내용을 버렸어요.', 3000); });
+  btnSave.addEventListener('click', async () => {
+    if (!loaded) return;
+    btnSave.disabled = true; say('저장 중…');
+    setEditing(false);
+    main.querySelectorAll('[contenteditable]').forEach((el) => el.removeAttribute('contenteditable'));
+    try {
+      const j = await api('pageset', { token: token(), id: PAGE_ID, html: main.innerHTML, baseRev: rev });
+      rev = j.rev; say('저장했어요.', 3000);
+    } catch (e) {
+      say(e.message);
+      setEditing(true);
+    } finally { btnSave.disabled = false; }
+  });
+
+  (async () => {
+    try {
+      const j = await api('pageget', { id: PAGE_ID });
+      if (j.page && j.page.html) { main.innerHTML = j.page.html; rev = j.page.rev; }
+      loaded = true; btnEdit.disabled = false;
+    } catch (e) {
+      say('최신 내용을 못 불러왔어요. 새로고침해 주세요.');
+    }
+  })();
+})();
+</script>
 </body>
 </html>
