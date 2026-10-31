@@ -29,7 +29,7 @@
           [].forEach.call(t.tBodies[0].rows, function (tr) {
             var o = {};
             heads.forEach(function (h, i) { o[h] = tr.cells[i] ? tr.cells[i].textContent.trim() : ''; });
-            if (o['업체명'] || o['사업자번호'] || o['판매채널명'] || o['연락처'] || o['메일주소']) out[k].push(o);
+            if (o['사업자명'] || o['사업자번호'] || o['판매채널명'] || o['연락처'] || o['메일주소']) out[k].push(o);
           });
         });
         cache = out; cacheAt = Date.now();
@@ -44,7 +44,7 @@
       return [o['사업자번호'], o['연락처']].some(function (v) { var d = dig(v); return d && (d.indexOf(qd) >= 0 || qd.indexOf(d) >= 0); });
     }
     if (qt.length < 2) return false;
-    return [o['업체명'], o['판매채널명'], o['메일주소']].some(function (v) {
+    return [o['사업자명'], o['판매채널명'], o['메일주소']].some(function (v) {
       var t = txt(v); return t && (t.indexOf(qt) >= 0 || (t.length >= 2 && qt.indexOf(t) >= 0));
     });
   }
@@ -65,13 +65,13 @@
     if (p.length) {
       h += '<div style="margin-top:12px;padding:14px 16px;border-radius:10px;border:1.5px solid #c2303f;background:#fbecee;color:#5a1219;font-size:14px;line-height:1.6">'
         + '<div style="font-weight:700;margin-bottom:6px">⚠️ 문제 업체 — 외부유통 미팅에서 공유된 업체예요</div>'
-        + p.map(function (o) { return '<div>' + line(o, ['업체명', '사업자번호', '판매채널명', '연락처', '메일주소', '문제 내용']) + '</div>'; }).join('')
+        + p.map(function (o) { return '<div>' + line(o, ['사업자명', '사업자번호', '판매채널명', '연락처', '메일주소', '문제 내용']) + '</div>'; }).join('')
         + '<div style="margin-top:6px;font-size:12px"><a href="' + PAGE_URL + '" target="_blank" rel="noopener" style="color:inherit">문제 업체 공유 보기 ↗</a></div></div>';
     }
     if (g.length) {
       h += '<div style="margin-top:12px;padding:14px 16px;border-radius:10px;border:1.5px solid #2f5fb3;background:#eaf1fc;color:#13284d;font-size:14px;line-height:1.6">'
         + '<div style="font-weight:700;margin-bottom:6px">🏢 그룹 자회사</div>'
-        + g.map(function (o) { return '<div>' + line(o, ['업체명', '사업자번호', '판매채널명', '연락처', '메일주소']) + '</div>'; }).join('')
+        + g.map(function (o) { return '<div>' + line(o, ['사업자명', '사업자번호', '판매채널명', '연락처', '메일주소']) + '</div>'; }).join('')
         + '</div>';
     }
     box.innerHTML = h;
