@@ -1,0 +1,196 @@
+<title>외부유통 정기 미팅</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* 레이아웃: 한 줄 읽기 폭의 회의록, 위에 '다음 미팅' 카드 하나만 강조 */
+:root {
+  --bg: #f7f7f5;
+  --paper: #ffffff;
+  --ink: #1d2126;
+  --muted: #646a72;
+  --line: #e2e3e0;
+  --marker: #c2303f;
+  --marker-soft: #fbecee;
+  --f-display: "Gowun Batang", "Nanum Myeongjo", serif;
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171a; --paper: #1d2024; --ink: #e9eaec; --muted: #9aa0a8;
+    --line: #2e3238; --marker: #f06b78; --marker-soft: #3a1f24; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171a; --paper: #1d2024; --ink: #e9eaec; --muted: #9aa0a8;
+  --line: #2e3238; --marker: #f06b78; --marker-soft: #3a1f24; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.7; }
+.wrap {
+  max-width: 760px; margin: 0 auto;
+  padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 36px;
+}
+header { display: grid; gap: 8px; }
+.eyebrow { font-size: 13px; letter-spacing: .08em; color: var(--marker); font-weight: 600; }
+h1 { font-family: var(--f-display); font-size: clamp(28px, 6vw, 40px); line-height: 1.25; margin: 0; text-wrap: balance; }
+.meta { color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+
+.next {
+  background: var(--paper); border: 1.5px solid var(--marker); border-radius: 10px;
+  padding: 22px 24px; display: grid; gap: 14px;
+}
+.next-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.next-date { font-family: var(--f-display); font-size: 30px; color: var(--marker); line-height: 1.2; }
+.next-place { font-size: 18px; font-weight: 600; }
+.kv { display: grid; grid-template-columns: 88px 1fr; gap: 6px 12px; margin: 0; font-size: 15px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; min-width: 0; }
+
+h2 { font-family: var(--f-display); font-size: 22px; margin: 0 0 14px; }
+section { display: grid; }
+.agenda { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; border-top: 1px solid var(--line); }
+.agenda > li { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 20px 0; border-bottom: 1px solid var(--line); }
+.num { font-family: var(--f-display); font-size: 24px; color: var(--marker); line-height: 1.2; }
+.agenda h3 { margin: 0 0 6px; font-size: 18px; font-weight: 600; line-height: 1.4; }
+.agenda p, .agenda ul { margin: 0; color: var(--ink); }
+.agenda ul { padding-left: 18px; display: grid; gap: 2px; }
+.agenda .body { min-width: 0; display: grid; gap: 8px; }
+.note { color: var(--muted); font-size: 14px; }
+
+.tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; background: var(--marker-soft); color: var(--marker); font-weight: 600; vertical-align: 2px; }
+
+.tips { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.tip { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: grid; gap: 10px; align-content: start; }
+.tip h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.flow { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 15px; }
+.flow li { display: flex; gap: 8px; }
+.flow li::before { content: "→"; color: var(--marker); flex: none; }
+
+.table-wrap { overflow-x: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 15px; }
+th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+th { font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .03em; }
+tbody tr:last-child td { border-bottom: 0; }
+td.empty { color: var(--muted); }
+
+.unsure { text-decoration: underline dotted var(--marker); text-underline-offset: 4px; cursor: help; }
+.legend { font-size: 13px; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+<main class="wrap">
+  <header>
+    <div class="eyebrow">외부유통 정기 미팅 · 2개월마다</div>
+    <h1>10월 외부유통 미팅 정리</h1>
+    <div class="meta">
+      <span>미팅일 2026년 10월 30일 (금)</span>
+      <span>공유 <span class="unsure" title="판독 확인 필요">단톡방</span></span>
+    </div>
+  </header>
+
+  <div class="next" aria-label="다음 미팅">
+    <div class="eyebrow">다음 미팅</div>
+    <div class="next-head">
+      <span class="next-date">2027년 1월 16일 (토)</span>
+      <span class="next-place">군산</span>
+    </div>
+    <dl class="kv">
+      <dt>담당</dt><dd>김찬영</dd>
+      <dt>준비 기한</dt><dd>다음 주까지</dd>
+      <dt>가져올 것</dt><dd>문제 있는 업체 리스트 (업체명) · 밀고 싶은 상품 리스트</dd>
+    </dl>
+  </div>
+
+  <section>
+    <h2>미팅 안건</h2>
+    <ol class="agenda">
+      <li>
+        <span class="num">1</span>
+        <div class="body">
+          <h3>노하우 공유 또는 TIP</h3>
+          <ul>
+            <li>개별 발표 — 의견 있는 사람 누구나</li>
+            <li>영업, 업체 관리 방법 등</li>
+            <li>영업 잘한 사례</li>
+          </ul>
+          <p class="note">예: 「창고에서 이 물건 팔아주세요」 물건 추천</p>
+        </div>
+      </li>
+      <li>
+        <span class="num">2</span>
+        <div class="body">
+          <h3>창고 현황 · 영업 현황 계획 공유</h3>
+          <ul>
+            <li>서로의 창고 현황, 영업 현황, 앞으로의 계획 공유</li>
+            <li>유통 → 창고에 대한 희망사항</li>
+          </ul>
+        </div>
+      </li>
+      <li>
+        <span class="num">3</span>
+        <div class="body">
+          <h3>업무 중 애로사항</h3>
+          <p>일하면서 막히는 부분, 개선이 필요한 부분을 자유롭게.</p>
+        </div>
+      </li>
+      <li>
+        <span class="num">4</span>
+        <div class="body">
+          <h3>판매가 필요하거나 밀고 싶은 상품 리스트 만들기 <span class="tag">숙제</span></h3>
+          <p>조건: <strong>재고 수량</strong> / <strong>얼마나 공급 가능한지(기간)</strong> 같이 적기</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>오늘 나온 TIP</h2>
+    <div class="tips">
+      <div class="tip">
+        <h3>거래처 관리 루틴</h3>
+        <ul class="flow">
+          <li>정기적으로 관리</li>
+          <li>안부 연락, 소통</li>
+          <li>술집 거래처는 인스타로</li>
+        </ul>
+      </div>
+      <div class="tip">
+        <h3>플랫폼별 접근</h3>
+        <ul class="flow">
+          <li>메인: 쿠팡 · G마켓 · 인스타/유튜브</li>
+          <li>전화 → <span class="unsure" title="판독 확인 필요">콜드·센드</span></li>
+          <li>문자</li>
+          <li>톡톡</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>문제 있는 업체 리스트 공유</h2>
+    <p style="margin:0 0 14px">서로 공유 가능. 업체명 기준으로 정리해서 다음 미팅 때 가져오기.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>업체명</th><th>문제 내용</th><th>공유한 사람</th></tr></thead>
+        <tbody><tr><td class="empty" colspan="3">다음 미팅 전까지 채울 예정</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>밀고 싶은 상품 리스트</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>상품명</th><th>창고</th><th>재고 수량</th><th>공급 가능 기간</th></tr></thead>
+        <tbody><tr><td class="empty" colspan="4">각자 작성해서 공유</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <span class="legend"><span class="unsure">점선 밑줄</span>은 화이트보드 글씨가 흐려서 확인이 필요한 부분입니다.</span>
+  </footer>
+</main>
