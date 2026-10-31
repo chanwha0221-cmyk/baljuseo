@@ -236,7 +236,7 @@ body.editing main:focus { outline-style: solid; }
 
 <script>
 /* 본문 저장처 = Supabase app_config PAGE:oebu-meeting (Edge pageget/pageset).
-   읽기는 누구나, 저장은 카탈로그 마스터 로그인(같은 도메인 localStorage)이 있는 브라우저만. */
+   읽기·저장 모두 로그인 없이 누구나. */
 (function(){
   const API = 'https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
   const PAGE_ID = 'oebu-meeting';
@@ -251,9 +251,6 @@ body.editing main:focus { outline-style: solid; }
     const j = await r.json();
     if (!r.ok || !j || j.ok === false) { const e = new Error((j && j.error) || '서버 오류'); e.conflict = j && j.conflict; throw e; }
     return j;
-  }
-  function token() {
-    try { const a = JSON.parse(localStorage.getItem('catalog_auth_v1') || 'null'); return a && a.token || ''; } catch (_) { return ''; }
   }
   function say(t, ms) { status.textContent = t; if (ms) setTimeout(() => { if (status.textContent === t) status.textContent = ''; }, ms); }
 
@@ -281,7 +278,6 @@ body.editing main:focus { outline-style: solid; }
   }
 
   btnEdit.addEventListener('click', () => {
-    if (!token()) { say('저장하려면 이 브라우저에서 카탈로그에 마스터로 로그인돼 있어야 해요.', 6000); return; }
     before = main.innerHTML;
     setEditing(true);
     say('고칠 곳을 눌러 바로 쓰세요.', 4000);
@@ -293,7 +289,7 @@ body.editing main:focus { outline-style: solid; }
     setEditing(false);
     main.querySelectorAll('[contenteditable]').forEach((el) => el.removeAttribute('contenteditable'));
     try {
-      const j = await api('pageset', { token: token(), id: PAGE_ID, html: main.innerHTML, baseRev: rev });
+      const j = await api('pageset', { id: PAGE_ID, html: main.innerHTML, baseRev: rev });
       rev = j.rev; say('저장했어요.', 3000);
     } catch (e) {
       say(e.message);
