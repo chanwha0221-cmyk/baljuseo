@@ -112,8 +112,10 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .03
 td.n { font-variant-numeric: tabular-nums; }
 tbody tr:last-child td { border-bottom: 0; }
 td.empty, .empty { color: var(--muted); }
-table.push td { height: 46px; }
-table.push td + td { border-left: 1px solid var(--line); }
+table.push td, table.grid td { height: 46px; }
+table.push td + td, table.grid td + td, table.grid th + th { border-left: 1px solid var(--line); }
+table.grid { min-width: 760px; }
+table.grid th { white-space: nowrap; }
 .addrow {
   font: inherit; font-size: 13px; cursor: pointer; margin-top: 8px; justify-self: start;
   padding: 6px 12px; border-radius: 8px; border: 1px dashed var(--marker);
@@ -300,11 +302,21 @@ table.push td + td { border-left: 1px solid var(--line); }
     <div class="content">
       <section>
         <h2>문제 있는 업체 리스트</h2>
-        <p class="lead">미수·클레임·연락 두절 등 문제 있었던 업체를 업체명 기준으로 서로 공유해요.</p>
+        <p class="lead">미수·클레임·연락 두절 등 문제 있었던 업체를 공유해요. 알고 있는 만큼만 기재해 주시면 됩니다.</p>
         <div class="table-wrap">
-          <table>
-            <thead><tr><th>업체명</th><th>문제 내용</th><th>날짜</th><th>공유한 사람</th></tr></thead>
-            <tbody><tr><td class="empty" colspan="4">다음 미팅 전까지 채울 예정</td></tr></tbody>
+          <table class="grid" data-list="problem">
+            <thead><tr><th>업체명</th><th>사업자번호</th><th>판매채널명</th><th>연락처</th><th>메일주소</th><th>문제 내용</th></tr></thead>
+            <tbody><tr><td></td><td class="n"></td><td></td><td class="n"></td><td></td><td></td></tr><tr><td></td><td class="n"></td><td></td><td class="n"></td><td></td><td></td></tr><tr><td></td><td class="n"></td><td></td><td class="n"></td><td></td><td></td></tr><tr><td></td><td class="n"></td><td></td><td class="n"></td><td></td><td></td></tr><tr><td></td><td class="n"></td><td></td><td class="n"></td><td></td><td></td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <h2>그룹 자회사</h2>
+        <p class="lead">우리 그룹 자회사예요. 알고 있는 만큼만 기재해 주시면 됩니다.</p>
+        <div class="table-wrap">
+          <table class="grid" data-list="group">
+            <thead><tr><th>업체명</th><th>사업자번호</th><th>판매채널명</th><th>연락처</th><th>메일주소</th></tr></thead>
+            <tbody><tr><td></td><td class="n"></td><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td><td class="n"></td><td></td></tr></tbody>
           </table>
         </div>
       </section>
