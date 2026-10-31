@@ -1,4 +1,5 @@
-/* 외부유통 현황(service.masterc.co.kr/mastercco-ext) 거래처 중복검색 → 문제 업체·그룹 자회사 표시
+/* 외부유통 현황(service.masterc.co.kr/mastercco-ext) 거래처 중복검색 → 문제 업체 표시
+   (그룹 자회사 표는 미팅 페이지에서 뺐다 26-10-31 — 표가 없으면 그 박스는 안 뜬다)
    자료 = 외부유통 미팅 페이지 「문제 업체 공유」 탭 (Supabase app_config PAGE:oebu-tab-vendors, Edge pageget)
    붙이는 법: 그 페이지에 <script src="https://chanwha0221-cmyk.github.io/baljuseo/oebu-flag.js"></script> 한 줄 (2026-10-31) */
 (function () {
