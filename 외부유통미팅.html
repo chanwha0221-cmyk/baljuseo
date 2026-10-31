@@ -112,6 +112,8 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .03
 td.n { font-variant-numeric: tabular-nums; }
 tbody tr:last-child td { border-bottom: 0; }
 td.empty, .empty { color: var(--muted); }
+table.push td { height: 46px; }
+table.push td + td { border-left: 1px solid var(--line); }
 .addrow {
   font: inherit; font-size: 13px; cursor: pointer; margin-top: 8px; justify-self: start;
   padding: 6px 12px; border-radius: 8px; border: 1px dashed var(--marker);
@@ -261,9 +263,10 @@ td.empty, .empty { color: var(--muted); }
       <section>
         <h2>밀고 싶은 상품</h2>
         <div class="table-wrap">
-          <table>
+          <table class="push">
+            <colgroup><col style="width:30%"><col style="width:16%"><col></colgroup>
             <thead><tr><th>상품명</th><th>재고 수량</th><th>이 상품을 미는 이유</th></tr></thead>
-            <tbody><tr><td class="empty" colspan="3">작성 예정</td></tr></tbody>
+            <tbody><tr><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td></tr></tbody>
           </table>
         </div>
       </section>
@@ -282,9 +285,10 @@ td.empty, .empty { color: var(--muted); }
       <section>
         <h2>밀고 싶은 상품</h2>
         <div class="table-wrap">
-          <table>
+          <table class="push">
+            <colgroup><col style="width:30%"><col style="width:16%"><col></colgroup>
             <thead><tr><th>상품명</th><th>재고 수량</th><th>이 상품을 미는 이유</th></tr></thead>
-            <tbody><tr><td class="empty" colspan="3">작성 예정</td></tr></tbody>
+            <tbody><tr><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td></tr><tr><td></td><td class="n"></td><td></td></tr></tbody>
           </table>
         </div>
       </section>
