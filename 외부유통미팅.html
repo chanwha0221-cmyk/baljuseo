@@ -70,6 +70,19 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 /* 본문 */
 .panels { padding-block: 28px 64px; }
 .content { display: grid; gap: 36px; }
+/* 수정 모드에서 새 문장을 입력해도 세로쓰기나 글자 단위 줄바꿈이 생기지 않도록 편집 영역의 방향과 폭을 고정 */
+.content[contenteditable="true"],
+.content[contenteditable="true"] * {
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+}
+.content[contenteditable="true"] { width: 100%; min-width: 0; box-sizing: border-box; }
+.content[contenteditable="true"] p,
+.content[contenteditable="true"] h2,
+.content[contenteditable="true"] h3,
+.content[contenteditable="true"] li,
+.content[contenteditable="true"] td,
+.content[contenteditable="true"] th { overflow-wrap: break-word; word-break: normal; }
 body.editing .panel:not([hidden]) .content { outline: 2px dashed var(--marker); outline-offset: 10px; border-radius: 4px; }
 body.editing .panel:not([hidden]) .content:focus { outline-style: solid; }
 
@@ -323,7 +336,12 @@ table.grid th { white-space: nowrap; }
           const empty = tb.querySelector('td.empty');
           if (empty) empty.parentElement.remove();
           const tr = tb.insertRow();
-          for (let i = 0; i < n; i++) tr.insertCell();
+          for (let i = 0; i < n; i++) {
+            const cell = tr.insertCell();
+            cell.tabIndex = 0;
+            cell.style.writingMode = 'horizontal-tb';
+            cell.style.textOrientation = 'mixed';
+          }
           tr.cells[0].focus();
         });
         w.after(b);
