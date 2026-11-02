@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-02c';
+  var QTYB_VER = '2026-11-02d';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -2300,22 +2300,67 @@
     return { raw: raw, adj: adj, cap: cap, med: med };
   }
 
+  /* 🗄 지난 날짜 판매 합계 = Supabase (2026-11-02 홍팀장 「맨날 느리게 시트 다시 읽지 말고, 나 매월 시트 초기화하는 거 알면서 데이터 없음 나오면 내가 이걸 왜 하냐」).
+        월 시트는 달마다 비워져 지난달 탭이 사라진다 → 지나간 날은 한 번 읽어 Edge tallyput 으로 남긴다. 오늘은 바뀌는 중이라 늘 시트에서 읽는다.
+        🔴 다른 사람 패널은 시트가 달라 섞이면 안 된다 — 마스터 유통 담당 브라우저(stockOn)만 쓴다. 못 읽으면 예전처럼 시트로 간다. */
+  function tallyDays(n) {
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' })
+        .format(new Date(Date.now() - i * 86400000)).split('/');
+      out.push({ tab: p[1] + p[0], ymd: p[2] + p[1] + p[0] });
+    }
+    return out;
+  }
+  function tallyStoreCall(body) {
+    body.key = QTY_KEY;
+    return fetch(QTY_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); });
+  }
+  function tallyStoreGet(list) {
+    if (!stockOn()) return Promise.resolve({});
+    return tallyStoreCall({ action: 'tallyget', days: list.map(function (n) { return n.ymd; }) })
+      .then(function (j) { return (j && j.ok && j.days) || {}; }, function () { return {}; });
+  }
+  function tallyStorePut(n, t) {
+    if (!stockOn()) return Promise.resolve();
+    var rows = Object.keys(t.map || {}).map(function (k) { return [t.map[k].name, t.map[k].qty]; });
+    return tallyStoreCall({ action: 'tallyput', ymd: n.ymd, tab: n.tab, lines: t.lines || 0, rows: rows }).catch(function () {});
+  }
+  function tallyFromStore(s) {
+    var map = {};
+    (s.rows || []).forEach(function (r) { map[nk(r[0])] = { name: r[0], qty: r[1], each: null }; });
+    return { map: map, lines: s.lines || 0, tab: s.tab };
+  }
+  /* 하루 한 번, 아직 안 남긴 지난 날을 뒤에서 남긴다 — 🌙 를 안 눌러도 달이 바뀌기 전에 쌓이게 */
+  function tallyKeep() {
+    if (!stockOn() || !SHEET_ID) return;
+    var list = tallyDays(15).slice(1), today = tallyDays(1)[0].ymd;
+    try { if (localStorage.getItem('qtybTallyKeep') === today) return; } catch (e) {}
+    tallyStoreGet(list).then(function (store) {
+      return list.filter(function (n) { return !store[n.ymd]; }).reduce(function (pr, n) {
+        return pr.then(function () {
+          return tallyTab(n.tab).then(function (t) { return tallyStorePut(n, t); }, function (e) {
+            if (e && /찾을 수 없/.test(e.message || '')) return tallyStorePut(n, { lines: 0, map: {} });
+            throw e;
+          });
+        });
+      }, Promise.resolve());
+    }).then(function () {
+      try { localStorage.setItem('qtybTallyKeep', today); } catch (e) {}
+    }).catch(function () { /* 못 읽었으면 다음에 패널 뜰 때 다시 */ });
+  }
+
   function preGrab(btn) {
     var old = btn.textContent;
     btn.disabled = true;
     var box = el('qtyb-out');
     function fin(h) { btn.disabled = false; btn.textContent = old; if (h != null) box.innerHTML = h; }
-    // 오늘부터 거꾸로 14일 — 날짜 탭 이름(mmdd)
-    var names = [];
-    for (var i = 0; i < 14; i++) {
-      var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit' })
-        .format(new Date(Date.now() - i * 86400000)).split('/');
-      names.push(p[1] + p[0]);
-    }
+    var names = tallyDays(14);
     /* ✍️ 손으로 추가 칸은 10-28 에 뺐다 — 손으로 잡을 건 📌 수동 잡기에 적는다 */
     var manMap = {};
     var days = [];
-    btn.textContent = '날짜 시트 읽는 중…';
+    btn.textContent = '판매 기록 읽는 중…';
     /* 📦 「재고 없음」 주문 = 오늘 못 나가서 내일 나가야 하는 몫 (2026-10-12 홍팀장 「평균이랑 아예 상관없이 그 수량만큼 더 잡아」).
           평균 대상(6일 매일 나간 상품)이 아니어도 잡는다. 못 읽으면 예전처럼 평균만. */
     var noneP = tallyTab(CFG.none, CFG.noneStart).then(function (t) {
@@ -2324,15 +2369,23 @@
       foldAlias(m);
       return m;
     }, function () { return null; });
-    var chain = names.reduce(function (pr, n) {
-      return pr.then(function () {
-        if (days.length >= PRE_DAYS) return;
-        stat('🌙 ' + n + ' 읽는 중 (' + days.length + '/' + PRE_DAYS + ')');
-        return tallyTab(n).then(function (t) {
-          if (t && t.lines >= PRE_MIN_LINES) days.push(t);
-        }, function () { /* 없는 날(주말·휴일) */ });
-      });
-    }, Promise.resolve());
+    /* 🗄 지난 날은 Supabase 기록을 먼저 본다 — 월 시트를 비워도 남고, 시트를 다시 안 읽는다. 오늘만 시트에서 읽는다. */
+    var chain = tallyStoreGet(names).then(function (store) {
+      return names.reduce(function (pr, n, idx) {
+        return pr.then(function () {
+          if (days.length >= PRE_DAYS) return;
+          var s = idx > 0 ? store[n.ymd] : null;
+          if (s) { if (s.lines >= PRE_MIN_LINES) days.push(tallyFromStore(s)); return; }
+          stat('🌙 ' + n.tab + ' 읽는 중 (' + days.length + '/' + PRE_DAYS + ')');
+          return tallyTab(n.tab).then(function (t) {
+            if (t && t.lines >= PRE_MIN_LINES) days.push(t);
+            if (idx > 0) tallyStorePut(n, t);
+          }, function (e) {                                  // 없는 날(주말·휴일)
+            if (idx > 0 && e && /찾을 수 없/.test(e.message || '')) tallyStorePut(n, { lines: 0, map: {} });
+          });
+        });
+      }, Promise.resolve());
+    });
     chain.then(function () { return noneP; }).then(function (none) {
       var avgOk = days.length >= PRE_DAYS;
       if (!avgOk && !none) { fin('<div class="warn">🌙 최근 날짜 시트를 ' + days.length + '곳밖에 못 읽었습니다 — ' + PRE_DAYS + '곳이 있어야 «매일 나간 상품» 을 고릅니다. 잠시 뒤 다시 눌러 주세요.</div>'); return; }
@@ -3165,6 +3218,7 @@
     }
     window.__QTYB_TIMER = setInterval(tick, 60 * 1000);
     tick();
+    setTimeout(tallyKeep, 90 * 1000);
   }
 
   function hhmm() {
