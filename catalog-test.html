@@ -985,7 +985,11 @@ function buildDayGroup(){
           «꺼둠»·«역마진 보류» 는 지금 상태를 보고 찍는 것이라 건드리지 않는다. */
     if(r.total>0&&MCEXC.get(pkey(r.n))==='품절')MCEXC.delete(pkey(r.n));
     /* 📞 등록이 켜져 있어도 오늘 잡힌 수량이 다 나갔으면(총>0·잔여 0) «재고 문의» — 발주 불가 (2026-10-29 홍팀장 활 숫게 90/90) */
-    if(!r.hold&&r.total>0&&r.remain<=0)MCZERO.set(pkey(r.n),1);
+    /* 🙋 우리가 잡아 둔 몫(수량 패널: 잡은 것 − 시트에 나간 것)이 남았으면 masterc 잔여가 0 이어도 발주 가능 —
+       masterc 는 우리가 잡은 것까지 «판매» 로 세서 잔여 0·등록 꺼짐이 된다 (2026-11-02 홍팀장 활 골뱅이). 서버 qtyZeroSet 도 같은 값. */
+    const own=r.hold?0:(+(((SNAP&&SNAP.qtyD)||{})[pkey(r.n)])||0);
+    if(own>0&&!(r.remain>0)){ MCZERO.delete(pkey(r.n)); if(own<DAY_LOW_N)DAYLOW.set(pkey(r.n),1); }
+    else if(!r.hold&&r.total>0&&r.remain<=0)MCZERO.set(pkey(r.n),1);
     else if(r.zero)MCEXC.set(pkey(r.n),r.hold?'역마진 보류':'꺼둠');
     /* 🟡 당일 소량 — 잔여 1~29개 (2026-09-29 홍팀장 "15/30 이런 거 소량 남아있는 건 소량으로").
        파는 건 여전히 등록 토글이 정한다 — 이건 딱지만, 발주는 된다. 수량을 모르면(total 0) 안 붙인다. */
