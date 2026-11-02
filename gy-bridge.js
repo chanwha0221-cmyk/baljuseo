@@ -4,25 +4,23 @@
    ────────────────────────────────────────────────────────────────
    왜 필요한가:
      비서(github.io)와 글쓰기 화면(masterc.co.kr)은 다른 사이트라 비서가 직접 못 채운다.
-     → 비서가 값을 주소 # 뒤에 실어 글쓰기 창을 열고, 이 파일이 그 페이지 안에서 칸을 채운다.
+     → 비서가 값을 그룹웨어 주소 # 뒤에 실어 창을 열고, 확장이 틀 안 글쓰기로 건네면 이 파일이 칸을 채운다.
        # 뒤는 서버로 안 간다(금액이 서버 기록에 안 남는다). 읽자마자 주소에서도 지운다.
 
    누가 꽂는가:
      수량대조 확장(qty-ext/gy-inject.js). 게시판 「하단 내용」 은 그룹웨어 관리자 권한이 없어 못 쓴다.
 
    안전장치:
-     · 공유서 게시판 글쓰기 + #gysend= 일 때만 깨어난다. 그 밖의 방문에는 아무 일도 안 한다.
+     · 공유서 게시판 글쓰기 + 그룹웨어 틀에서 온 값이 있을 때만 깨어난다. 그 밖의 방문에는 아무 일도 안 한다.
      · 값은 글자로만 받아 여기서 이스케이프해 마크업을 짓는다 — 링크에 스크립트를 실어도 안 돈다.
      · 🔴 채우기만 한다. [등록]은 사람이 누른다. 이미 적힌 글이 있으면 묻고 나서 덮는다.
    ════════════════════════════════════════════════════════════════ */
 (function () {
-  var TAG = '#gysend=';
-  if (location.hash.indexOf(TAG) !== 0) return;
   if (!/[?&]mid=board_mJof66(&|$)/.test(location.search) || !/[?&]act=dispBoardWrite(&|$)/.test(location.search)) return;
 
-  var data;
-  try { data = JSON.parse(decodeURIComponent(location.hash.slice(TAG.length))); } catch (e) { return; }
-  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  /* 그룹웨어 틀이 건넨 값(window.__gysend, qty-ext/gy-inject.js). */
+  var data = window.__gysend;
+  window.__gysend = null;
   if (!data || !data.b) return;
 
   /* 비서 copyBoardFull 과 같은 마크업 */
