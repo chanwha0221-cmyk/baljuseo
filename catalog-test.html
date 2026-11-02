@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.210</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.211</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1710,6 +1710,25 @@ async function ghPutProposal(token,doc,note){
    · [바꾸기] 를 누르면 서버가 새 슬러그를 발급한다 → **이전 주소는 그 순간부터 막힌다**(ppk 가 거절).
    · 🔴 슬러그는 주소에만 산다. 소스에 안 박는다 — 이 사이트는 저장소가 private 이어도 전체 공개다(08-27 사고).
    · ⚠️ 한 번도 안 바꿨으면 슬러그가 없고, 그동안은 예전처럼 그냥 열린다(돌아다니는 메일 주소를 안 끊는다). */
+/* ⏰ 위쪽 줄에 지금 단가 주소·마지막 교체일·복사 버튼 (2026-11-02 홍팀장 「주소 바뀌면 나는 알아야 하니까 여기서 보고 복사」).
+   2주 지나면 서버 ppkey 가 이 호출에서 새 주소로 바꾼다 — 바뀐 날은 빨갛게 띄워 거래처에 다시 보내게 한다. */
+async function ppBarLoad(){
+  const el=$('ppbar'); if(!el)return;
+  try{
+    const j=await api('ppkey',{token:ME.token});
+    if(!j||!j.ok)throw new Error((j&&j.error)||'');
+    if(!j.k){ el.innerHTML='🔗 단가 주소 잠금 안 켜짐 — [🔗 단가 주소]에서 바꾸면 시작됩니다'; return; }
+    const url=location.origin+location.pathname.replace(/[^/]*$/,'')+'allproduct/partners.html?k='+j.k;
+    const md=t=>{const d=new Date(t+9*3600000);return String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');};
+    const dayNo=t=>Math.floor((t+9*3600000)/86400000);
+    const ago=dayNo(Date.now())-dayNo(j.at);
+    el.innerHTML=(ago===0?'<b style="color:#b91c1c">🆕 오늘 주소 교체됨 — 거래처에 새 주소를 보내세요</b>':'🔗 단가 주소')
+      +' · 마지막 교체 <b>'+md(j.at)+'</b>'+(ago>0?' ('+ago+'일 전)':'')+' · 다음 교체 <b>'+md(j.at+(j.rollMs||14*86400000))+'</b>'
+      +'<a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:var(--muted);word-break:break-all">'+esc(url)+'</a>'
+      +'<button class="ubtn cpbtn" data-cp="'+esc(url)+'" data-cpmsg="단가 주소 복사됨" title="지금 단가 주소를 복사합니다">📋 복사</button>';
+    if(j.rolled)toast('🔄 2주가 지나 단가 주소를 새로 바꿨습니다 — 이전 주소는 막혔습니다');
+  }catch(e){ el.innerHTML='🔗 단가 주소를 읽지 못했습니다 — [🔗 단가 주소] 버튼으로 확인하세요'; }
+}
 async function ppKeyPanel(btn){
   const old=btn.textContent; btn.disabled=true; btn.textContent='⏳ 확인 중…';
   try{
@@ -1737,6 +1756,7 @@ async function ppKeyPanel(btn){
     const nu=base+'?k='+r.k;
     try{ await navigator.clipboard.writeText(nu); }catch(e){}
     toast('🔗 주소를 바꿨습니다 — 이전 주소는 막혔습니다');
+    ppBarLoad();
     alert('새 주소입니다 (복사해 뒀습니다)\n\n'+nu+'\n\n이전 주소는 지금부터 막혔습니다.');
   }catch(e){ alert('실패했습니다 — '+(e&&e.message||e)); }
   finally{ btn.disabled=false; btn.textContent=old; }
@@ -3944,7 +3964,8 @@ function renderUser(){
   /* 🔗 업체에 카탈로그 주소를 줄 때 쓰는 복사 버튼 — 마스터에게만 보인다 (홍팀장 2026-08-31).
      주소는 일부러 하드코딩이다. 로컬 파일·테스트 사본에서 눌러도 항상 라이브 주소가 나가야 한다.
      클릭 처리는 .cpbtn 공용 핸들러가 맡는다(모양은 .ubtn 이 이긴다 — 선언이 뒤라서). */
-  $('userbar').innerHTML='<span class="uname">'+esc(ME.name||ME.id)+'</span>'
+  $('userbar').innerHTML=(ME.master?'<div id="ppbar" style="flex-basis:100%;display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);min-height:26px"></div>':'')
+    +'<span class="uname">'+esc(ME.name||ME.id)+'</span>'
     +(ME.master?'<button class="ubtn cpbtn" data-cp="https://chanwha0221-cmyk.github.io/baljuseo/catalog.html" data-cpmsg="카탈로그 주소 복사됨" title="업체에 보낼 카탈로그 주소를 복사합니다">🔗 카탈로그 주소 복사</button>':'')
     /* 👤 업체 계정 관리 — 마스터에게만 (홍팀장 2026-08-31 지적: "그런 화면이 있는 줄도 몰랐다").
        어디에서도 링크가 걸려 있지 않아 주소를 아는 사람만 쓰는 화면이었다. 매일 보는 자리에 박는다.
@@ -3970,6 +3991,7 @@ function renderUser(){
   { const e=$('ub_exp'); if(e)e.onclick=updateProposal; }   // 🔄 제안서 업데이트 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
   { const e=$('ub_spec'); if(e)e.onclick=specSync; }        // 📝 스펙 최신화 — 마스터 전용
   { const e=$('ub_ppk'); if(e)e.onclick=function(){ppKeyPanel(this);}; }   // 🔗 단가 주소 — 마스터만 (10-23)
+  ppBarLoad();
   { const e=$('ub_watch'); if(e)e.onclick=()=>{ const w=window.open('https://masterc.kr/board_eJGl96#mcwatch','mcwatch'); if(!w)toast('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요'); }; }   // 👀 변동 감시 — 마스터 전용
   { const e=$('ub_lowm'); if(e)e.onclick=(ev)=>{const to=(ev&&ev.target&&ev.target.id==='lossBadge')?'lowmloss':'lowm';lowmGo(to);}; }   // 💸 저마진 — 마스터 전용 (🔴 동그라미를 누르면 «지금 바로 확인할 상품»)
   { const e=$('ub_xls'); if(e)e.onclick=downloadPriceXlsx; } // 📥 상품·단가 엑셀 — 허용된 업체에게만 있는 버튼
