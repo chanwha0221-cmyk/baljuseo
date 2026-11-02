@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.211</title>
+<title>마스터 유통 카탈로그 v23.212</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1717,7 +1717,7 @@ async function ppBarLoad(){
     const ago=dayNo(Date.now())-dayNo(j.at);
     el.innerHTML=(ago===0?'<b style="color:#b91c1c">🆕 오늘 주소 교체됨 — 거래처에 새 주소를 보내세요</b>':'🔗 단가 주소')
       +' · 마지막 교체 <b>'+md(j.at)+'</b>'+(ago>0?' ('+ago+'일 전)':'')+' · 다음 교체 <b>'+md(j.at+(j.rollMs||14*86400000))+'</b>'
-      +'<a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:var(--muted);word-break:break-all">'+esc(url)+'</a>'
+      +'<a href="'+esc(url)+'" target="_blank" rel="noopener" title="'+esc(url)+'" style="color:var(--muted);white-space:nowrap">…?k='+esc(j.k)+'</a>'
       +'<button class="ubtn cpbtn" data-cp="'+esc(url)+'" data-cpmsg="단가 주소 복사됨" title="지금 단가 주소를 복사합니다">📋 복사</button>';
     if(j.rolled)toast('🔄 2주가 지나 단가 주소를 새로 바꿨습니다 — 이전 주소는 막혔습니다');
   }catch(e){ el.innerHTML='🔗 단가 주소를 읽지 못했습니다 — [🔗 단가 주소] 버튼으로 확인하세요'; }
