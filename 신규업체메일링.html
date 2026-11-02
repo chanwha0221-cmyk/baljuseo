@@ -274,32 +274,9 @@
   </div>
   </div><!-- /sec-hist -->
 
-  <!-- 🎯 발굴 대상 A — 신규발굴_데이터.js 에서 '농수산' 취급으로 걸러낸 175곳 (홍팀장 2026-09-04)
-       상호로 네이버·구글을 바로 열어 뭘 파는 곳인지 확인하고, 보낸 곳은 아래로 내린다.
-       진행상태(보냄/삭제)는 '메일설정' 탭에 적는다 — 브라우저에 두면 집·회사 PC가 따로 논다. -->
-  <div id="sec-balgul-b" hidden>
-  <div class="card" id="pros-card" style="display:none">
-    <h2>🎯 발굴 대상 <span class="badge green" id="pros-left">0</span>
-      <span class="muted" style="font-weight:400">— 상호로 검색해 보고, 메일 보낸 곳은 [보냄]을 누르면 아래로 내려갑니다</span>
-      <div class="muted" id="pros-note" style="font-weight:400;font-size:12px;margin-top:5px"></div></h2>
-    <!-- 📂 명단 파일 넣기 — 공정위에서 지역별로 받아온 자료를 그대로 올린다 (홍팀장 2026-09-07)
-         🔴 넣자마자 저장하지 않는다. 몇 건이 새로 붙는지 먼저 보여주고 [합치기]를 눌러야 저장된다.
-            이미 ✕한 곳·이미 보낸 곳·이미 명단에 있는 곳은 여기서 미리 걸러서 숫자로 알린다. -->
-    <div class="ct-bulk" style="margin:0 0 12px">
-      <button class="btn brand" id="pros-pick">📂 명단 파일 넣기</button>
-      <input type="file" id="pros-file" accept=".csv,.tsv,.txt,.xlsx,.xls" style="display:none">
-      <span class="muted" style="align-self:center;font-size:12px">공정위 통신판매사업자 파일 그대로 · 지역별로 나눠 넣어도 됩니다</span>
-    </div>
-    <div id="pros-import" style="margin-bottom:12px"></div>
-    <div id="pros-list"></div>
-    <!-- 📄 게시판식 쪽 넘기기 — 한 쪽 5곳 (홍팀장 2026-09-11 "5개씩, 게시판처럼 1 2 3") -->
-    <div id="pros-pager" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:12px"></div>
-    <details id="pros-done-wrap" style="margin-top:12px">
-      <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--sub)">✉ 보낸 곳 <span id="pros-done-n">0</span>곳 (펼치기)</summary>
-      <div id="pros-done" style="margin-top:8px;opacity:.65"></div>
-    </details>
-  </div>
-  </div><!-- /sec-balgul-b -->
+  <!-- 🗑 옛 「🎯 발굴 대상」(신규발굴_데이터.js 2,742곳 중 '농수산' 175곳)은 2026-11-02 홍팀장 지시로 삭제.
+       거기서 쓰던 «상호로 네이버·구글 검색»만 위 발굴 명단 줄로 옮겼다.
+       원본 자료는 드라이브 claude\발굴\신규발굴_데이터.js 로 옮겨뒀다(웹에 메일주소가 공개돼 있어 repo 에서 뺌). -->
   </div><!-- /tab-manage -->
 
   
@@ -327,8 +304,8 @@
 <div class="toast" id="toast"></div>
 
 <script src="sheets-proxy.js"></script>
-<!-- 🎯 발굴 명단 원본 (window.PROSPECTS) — 발굴 대상 목록이 여기서 나온다 -->
-<script src="신규발굴_데이터.js"></script>
+<!-- 🗑 신규발굴_데이터.js (window.PROSPECTS) 제거 — 「발굴 대상」과 함께 2026-11-02 삭제 -->
+<script>window.PROSPECTS=[];</script>
 <script>
 // ───────────────────────────────────────────────────────────
 //  인증 / 시트 / 드라이브 / AI  — 마찬 비서(secretary.html) 패턴 재활용
@@ -679,8 +656,8 @@ async function loadAll(){
     DATA.forEach(r=>{ if(!r[8]) r[8]='홍찬화'; });   // 담당 비어있던 옛 행 = 찬화 것
     // 🔀 옛 원비 탭 흡수는 껐다 (2026-09-15) — 이미 합쳐져 있고, 읽기 실패 순간 이 흡수가 목록을 4줄로 덮었다. 원비 탭은 백업으로 둔다.
     render();
-    await prosLoadAdded();   // 📂 올려둔 명단(시트 '발굴명단')을 먼저 읽어야 합쳐서 보인다
-    renderPros();            // 🎯 발굴 대상 — 설정(진행상태)을 읽은 뒤라야 보낸 곳이 갈린다
+    /* 🗑 「발굴 대상」 삭제(2026-11-02) — prosLoadAdded 가 프록시로 시트를 읽느라
+       매 동기화마다 17~45초를 잡아먹던 자리라 호출도 같이 뺐다. */
     setStatus('동기화됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){ setStatus('오류: '+e.message); console.error(e); toast('동기화 실패 — 콘솔 확인'); }
 }
@@ -1594,7 +1571,7 @@ async function copyPreview(){
 /* ══ 📑 섹션 탭 ═══════════════════════════════════════════════════════════
    홍팀장 2026-10-29: 「메일 보낸 히스토리는 탭 하나 더 만들어서 안 보이게 만들어도 되니까
    발굴명단에서 업체 선택하면 바로 메일링 할 수 있게」 */
-const SECS={compose:['sec-compose'], balgul:['sec-balgul','sec-balgul-b'], hist:['sec-hist']};
+const SECS={compose:['sec-compose'], balgul:['sec-balgul'], hist:['sec-hist']};
 let SEC='compose';
 function showSec(k){
   if(!SECS[k])return;
@@ -1744,6 +1721,10 @@ function bgRender(){
       +'<td style="font-size:11.5px;line-height:1.5">'+(ct.length?ct.join('<br>'):'<span class="muted">—</span>')+'</td>'
       +'<td class="muted" style="font-size:11.5px;white-space:nowrap">'+esc(r[5]||'')+'</td>'
       +'<td style="white-space:nowrap">'
+        /* 🔎 상호로 바로 검색 — 옛 「발굴 대상」에서 가져왔다(홍팀장 2026-11-02).
+           뭘 파는 곳인지는 결국 눈으로 봐야 한다. 도메인이 죽었을 때도 이쪽으로 확인된다. */
+        +'<a class="btn sm ghost" href="https://search.naver.com/search.naver?query='+encodeURIComponent(r[0]||'')+'" target="_blank" rel="noopener" title="네이버에서 이 업체 검색" style="text-decoration:none">N</a> '
+        +'<a class="btn sm ghost" href="https://www.google.com/search?q='+encodeURIComponent(r[0]||'')+'" target="_blank" rel="noopener" title="구글에서 이 업체 검색" style="text-decoration:none">G</a> '
         +'<button class="btn sm brand" data-bg="mail" data-i="'+(from+idx)+'">✉ 메일 쓰기</button> '
         +'<button class="btn sm ghost" title="목록에서 영영 지웁니다" style="color:var(--red)" data-bg="del" data-i="'+(from+idx)+'">🗑</button>'
       +'</td>'
