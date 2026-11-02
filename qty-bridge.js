@@ -24,11 +24,12 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-02b';
+  var QTYB_VER = '2026-11-02c';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
   var RUN_DONE = null;   // { at, ok, skip, bad }
+  var SEND_DONE = null;  // { at, lines, units, miss, errs } — 🚫 재고 없음으로 이동 결과
   try {
     var oldPanel = document.getElementById('qtyb-panel'); if (oldPanel) oldPanel.remove();
     var oldCss = document.getElementById('qtyb-css'); if (oldCss) oldCss.remove();
@@ -1461,7 +1462,7 @@
         try { localStorage.setItem('qtybMin', hide ? '1' : '0'); } catch (e) {}
       };
     })();
-    el('qtyb-clr').onclick = function () { RUN_DONE = null; el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
+    el('qtyb-clr').onclick = function () { RUN_DONE = null; SEND_DONE = null; el('qtyb-in').value = ''; el('qtyb-out').innerHTML = ''; };
     /* 🔔 브라우저 알림 권한은 사람이 누른 이 순간에만 물을 수 있다 — 한 번 받아 두면 자동 전송 때도 알림이 뜬다 */
     el('qtyb-stockgo').onclick = function () {
       try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
@@ -1558,7 +1559,7 @@
           (홍팀장 2026-09-28 : 「오늘 날짜에 저걸 썼는지 확인하면 또 잡아야 되는지 아닌지를 판별할 수 있다」).
           기준 날짜는 위 칸에서 고른다 — 밤에 내일 것을 미리 잡을 때가 있어서다. */
     el('qtyb-sheet').onclick = function () {
-      RUN_DONE = null;   // ✅ 새 대조 — 지난 판의 «실행함» 표시는 지운다
+      RUN_DONE = null; SEND_DONE = null;   // ✅ 새 대조 — 지난 판의 «실행함»·«이동함» 표시는 지운다
       var b = this, old = b.textContent;
       var day = dayTab();
       b.disabled = true; b.textContent = '창고 긁고 당일 읽는 중…';
@@ -1600,7 +1601,7 @@
     /* ✍️ 수동 대조 — 칸에 붙여넣은 「상품명 x 수량」(또는 탭·띄어쓰기) 그대로 대조한다.
        당일 탭은 안 읽고 칸을 덮어쓰지도 않는다. 창고는 새로 긁고, 기준 날짜 시트(나간 것)는 같이 읽는다. */
     el('qtyb-manual').onclick = function () {
-      RUN_DONE = null;   // ✅ 새 대조 — 지난 판의 «실행함» 표시는 지운다
+      RUN_DONE = null; SEND_DONE = null;   // ✅ 새 대조 — 지난 판의 «실행함»·«이동함» 표시는 지운다
       var b = this, old = b.textContent;
       var day = dayTab();
       var parsed = parseNeed(el('qtyb-in').value);
@@ -1633,7 +1634,7 @@
        홍팀장 2026-09-28 : 「이유가 어찌 됐건 아직 여유분이 있다면 … 여유분 당일로 옮겨」
        여유 = 잡아 두고 안 쓴 몫(잡음 − 나감) + 창고 잔여. 「물건없음」 줄은 뺀다. */
     el('qtyb-none').onclick = function () {
-      RUN_DONE = null;   // ✅ 새 대조 — 지난 판의 «실행함» 표시는 지운다
+      RUN_DONE = null; SEND_DONE = null;   // ✅ 새 대조 — 지난 판의 «실행함»·«이동함» 표시는 지운다
       var b = this, old = b.textContent;
       b.disabled = true; b.textContent = '재고 없음 읽는 중…';
       /* 🤖 불러올 때 «걸어 둔 대기·증량보다 더 필요하다» 고 판단되면 자동으로 모자란 만큼 건다 (2026-10-06 홍팀장
@@ -3253,6 +3254,19 @@
       + (RUN_DONE.bad ? ' · 실패 ' + RUN_DONE.bad : '')
       + '</span>';
   }
+  /* ✅ 「재고 없음으로 이동」 도 눌렀는지 화면에 남긴다 (2026-11-02 홍팀장 「이동 버튼도 적용됐다고 확인 메시지 나오게」).
+       실행 뒤 판을 다시 그리면 버튼 글자가 사라진다 — 판정대로 실행 배지와 같은 자리값으로 다음 대조까지 남긴다. */
+  function sendDoneBadge() {
+    if (!SEND_DONE) return '';
+    var warn = SEND_DONE.miss || SEND_DONE.errs || !SEND_DONE.lines;
+    var verb = CFG.mark ? '처리 메시지 남김' : '재고 없음으로 이동함';
+    return '<span style="display:inline-block;background:' + (warn ? '#fef3c7' : '#dcfce7') + ';border:1px solid ' + (warn ? '#d97706' : '#16a34a')
+      + ';color:' + (warn ? '#92400e' : '#166534') + ';border-radius:7px;padding:3px 9px;font-size:12.5px;font-weight:800">'
+      + (warn ? '⚠️ ' : '✅ ') + SEND_DONE.at + ' ' + verb + ' · ' + SEND_DONE.lines + '줄 (' + SEND_DONE.units + '개)'
+      + (SEND_DONE.miss ? ' · 못 내림 ' + SEND_DONE.miss : '')
+      + (SEND_DONE.errs ? ' · 오류 ' + SEND_DONE.errs : '')
+      + '</span>';
+  }
   function draw(hits, miss, bad, notes) {
     // 손봐야 할 것 먼저 : 증량 → 대기 → 잡기 → 풀어야 → 그대로
     var ord = { late: 0, hunt: 0, more: 1, 'set+more': 1, wait: 2, 'set+wait': 2, moreP: 3, waitP: 3,
@@ -3373,8 +3387,9 @@
        대기·증량요청은 걸어 두어도 오늘 물건이 오는 것이 아니니 못 채운 몫에 들어가는 것이 맞다.
        (2026-09-28 : 셋 다 막았더니 증량요청이 남아 목록을 영영 못 뽑았다) */
     var pending = nSet;
-    h += '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">' +
-      '<button class="pri" id="qtyb-send">🚫 재고 없음으로 이동' + (holes.length ? ' (' + holes.length + ')' : '') + '</button></div>' +
+    h += '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;align-items:center">' +
+      '<button class="pri" id="qtyb-send">🚫 재고 없음으로 이동' + (holes.length ? ' (' + holes.length + ')' : '') + '</button>' +
+      '<span id="qtyb-sendmark">' + sendDoneBadge() + '</span></div>' +
       '<div class="mut" style="margin-top:5px">잡고도 남은 몫 전부(대기·증량 걸어 둔 것 포함)가 시트 「당일」 에서 「재고 없음」 으로 내려갑니다.</div>';
 
     el('qtyb-out').innerHTML = h;
@@ -3510,6 +3525,13 @@
       sheetPost('out', list).then(function (j) {
         btn.disabled = false;
         btn.textContent = '✅ ' + j.done.length + '건 내림';
+        SEND_DONE = {
+          at: hhmm(),
+          lines: j.done.reduce(function (s, d) { return s + (+d.moved || 0); }, 0),
+          units: j.done.reduce(function (s, d) { return s + (+d.units || 0); }, 0),
+          miss: j.miss.length, errs: j.errs.length
+        };
+        var mark = el('qtyb-sendmark'); if (mark) mark.innerHTML = sendDoneBadge();
         var m = (CFG.mark ? '📝 처리 메시지를 남겼습니다 (' + CFG.mark + '열)\n\n' : '🚫 재고 없음으로 내렸습니다\n\n')
           + (j.done.length ? j.done.map(function (d) { return '· ' + d.name + ' — ' + d.moved + '줄 (' + d.units + '개)'; }).join('\n') : '(없음)')
           + (j.miss.length ? ('\n\n못 내린 것(당일에 그 상품 줄이 없음)\n' + j.miss.map(function (d) { return '· ' + d.name + ' ' + d.want + '개'; }).join('\n')) : '')
