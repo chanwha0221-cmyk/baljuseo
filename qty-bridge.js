@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-02a';
+  var QTYB_VER = '2026-11-02b';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -1438,7 +1438,7 @@
       /* 📤 카탈로그 재고 — 누르면 한 번, 이 탭이 켜져 있으면 30분마다 알아서(시간 제한 없음, 2026-10-14) */
       '  <div style="display:flex;gap:6px;align-items:center;margin-top:7px;flex-wrap:wrap">' +
       '    <button class="pri" id="qtyb-stockgo">📤 카탈로그 재고 보내기</button>' +
-      '    <span class="mut" id="qtyb-stock">30분마다 자동 (이 탭이 켜져 있을 때 · 시간 제한 없음)</span>' +
+      '    <span class="mut" id="qtyb-stock">바뀌면 바로 + 30분마다 자동 (이 탭이 켜져 있을 때)</span>' +
       '  </div>' +
       /* ⚠️ 재고없음 급증·전송 차단 알림 자리 (2026-10-20) — 평소엔 숨어 있다 */
       '  <div id="qtyb-stockwarn" style="display:none;margin-top:6px;padding:7px 9px;border:1px solid #f0a;border-radius:7px;background:#fff0f6;color:#a0005a;font-weight:700;line-height:1.45"></div>' +
@@ -3017,7 +3017,7 @@
     var w = el('qtyb-stockwarn');
     if (w) { w.style.display = 'none'; w.textContent = ''; }
   }
-  function stockPush(auto, preset) {
+  function stockPush(auto, preset, fresh) {
     if (window.__QTYB_PUSHING) return Promise.resolve(false);
     var sEl = el('qtyb-stock');
     if (!stockOn()) {   // 🔒 다른 사람 브라우저에선 우리 카탈로그 재고를 덮지 않는다
@@ -3034,7 +3034,7 @@
       ts.forEach(function (t) { Object.keys(t.map).forEach(function (k) { u[k] = (u[k] || 0) + (t.map[k].qty || 0); }); });
       return u;
     }, function () { return null; });
-    var src = preset
+    var src = fresh ? Promise.resolve(fresh) : preset
       ? (SCAN_FAIL.length ? Promise.reject(new Error('못 읽은 창고: ' + SCAN_FAIL.join(','))) : Promise.resolve(preset))
       : stockRows();
     return Promise.all([src, usedP]).then(function (x) { lastAll = x[0]; return stockMap(x[0], x[1]); }).then(function (m) {
@@ -3064,6 +3064,7 @@
       window.__QTYB_PUSHING = false;
       if (!j || !j.ok) throw new Error((j && j.error) || '서버가 거절했습니다');
       try { localStorage.setItem(STOCK_LAST, String(Date.now())); } catch (e) {}
+      fpSave(fpOf(lastAll));
       if (sEl) sEl.textContent = '📤 ' + hhmm() + ' 보냄 · ' + j.count + '개 (재고없음 ' + j.zero + ' · 소량 ' + j.low + ')'
         + (STOCK_SKIP ? ' · 안 풀려서 안 보낸 줄 ' + STOCK_SKIP : '')
         + (j.forced ? ' · ⚠️ 줄 수 줄어 강제로 보냄' : '')
@@ -3086,12 +3087,65 @@
          창고 18곳을 다시 긁으며 밤새 같은 판정을 되풀이한다. 30분 뒤에 다시 본다. */
       if (e && e.sane) {
         try { localStorage.setItem(STOCK_LAST, String(Date.now())); } catch (e2) {}
+        if (lastAll) fpSave(fpOf(lastAll));   // 같은 판으로 2분마다 또 막히고 또 알리지 않게
         stockAlert('카탈로그 재고를 안 보냈습니다 — ' + (e.message || e));   // ⚠️ 막은 것은 반드시 알린다
       }
       if (sEl) sEl.textContent = (e && e.sane ? '🛑 ' : '⚠️ ') + hhmm()
         + (e && e.sane ? ' 안 보냄 — ' : ' 재고 못 보냄 — ') + (e.message || e);
       if (!auto) alert((e && e.sane ? '카탈로그 재고를 보내지 않았습니다.\n\n' : '카탈로그 재고를 못 보냈습니다.\n\n') + (e.message || e));
       return false;
+    });
+  }
+
+  /* 👀 바뀌면 바로 보낸다 (2026-11-02 홍팀장 「재고 보내기 30분 너무 길다, 새로운 거 있으면 감지해서 보내자 — 생굴 열린 지가 언젠데 아직도 품절」).
+     👀 변동 감시(mc-watch)는 masterc 만 읽고 수량 웹은 다른 도메인이라 못 읽는다 → 감지도 이 패널이 한다.
+     1분마다 창고를 긁어(1.6초) 줄 상태를 지난번 보낸 판과 대조, 바뀐 게 있으면 그 판을 그대로 보낸다.
+     «상태» = 잠김 여부 + 잔여 구간(0·소량·충분·넉넉) + 우리 몫. 잔여 숫자가 1개씩 줄어드는 건 카탈로그 화면이 안 바뀌니 안 센다.
+     🔴 보내면 카탈로그 사본을 다시 굽는다(시트 읽기) → 최소 2분 간격. 밤(22~06시)엔 30분 타이머만.
+     30분 타이머는 그대로 둔다 — 시트에 나간 수량(우리 몫 계산)은 여기서 안 읽어서 그쪽이 맡는다. */
+  var STOCK_FP = 'qtybStockFp', STOCK_FP_SCAN = 'qtybStockFpScan';
+  var STOCK_GAP = 2 * 60 * 1000;
+  function fpOf(all) {
+    var o = {};
+    Object.keys(all || {}).forEach(function (k) {
+      var r = all[k]; if (!r) return;
+      var st;
+      if (r.locked) st = /수량최신화/.test(r.name) ? 'N' : 'L';
+      else if (r.kind !== '상시') st = '';                 // 당일은 잔여를 안 보낸다 — 우리 몫만 본다
+      else if (r.free) st = 'F';
+      else if (!r.leftRaw) st = '-';
+      else st = r.left <= 0 ? '0' : (r.left < 20 ? 'S' : 'K');
+      o[k] = st + '|' + (r.mine || 0);
+    });
+    return o;
+  }
+  function fpLoad() { try { return JSON.parse(localStorage.getItem(STOCK_FP) || 'null'); } catch (e) { return null; } }
+  function fpSave(fp) {
+    try { localStorage.setItem(STOCK_FP, JSON.stringify(Object.assign(fpLoad() || {}, fp))); } catch (e) {}
+  }
+  function stockDetect(last) {
+    var hh = kstHour();
+    if (hh < 6 || hh >= 22) return;
+    if (window.__QTYB_PUSHING || window.__QTYB_FPBUSY) return;
+    if (Date.now() - last < STOCK_GAP) return;
+    /* 수량 탭을 여러 개 띄워도 1분에 한 탭만 긁는다 */
+    var scanned = 0;
+    try { scanned = parseInt(localStorage.getItem(STOCK_FP_SCAN) || '0', 10) || 0; } catch (e) {}
+    if (Date.now() - scanned < 50 * 1000) return;
+    try { localStorage.setItem(STOCK_FP_SCAN, String(Date.now())); } catch (e) {}
+    window.__QTYB_FPBUSY = true;
+    stockRows().then(function (all) {
+      var now = fpOf(all), prev = fpLoad();
+      if (!prev) { fpSave(now); return; }                  // 처음 = 기준선만
+      var moved = Object.keys(now).filter(function (k) { return prev[k] !== now[k]; });
+      if (!moved.length) return;
+      var names = moved.slice(0, 3).map(function (k) { return String(all[k].name).replace(/\s*(품절|안\s*풀림|🔒?수량최신화 전)\s*/g, ' ').trim(); });
+      return stockPush(true, null, all).then(function (ok) {
+        var sEl = el('qtyb-stock');
+        if (ok && sEl) sEl.textContent += ' · 👀 변화 ' + moved.length + '개(' + names.join(', ') + (moved.length > 3 ? ' …' : '') + ')';
+      });
+    }).catch(function () { /* 못 긁으면 다음 1분에 다시 — 30분 타이머가 오류를 보여 준다 */ }).then(function () {
+      window.__QTYB_FPBUSY = false;
     });
   }
 
@@ -3105,8 +3159,8 @@
     function tick() {
       var last = 0;
       try { last = parseInt(localStorage.getItem(STOCK_LAST) || '0', 10) || 0; } catch (e) {}
-      if (Date.now() - last < 29 * 60 * 1000) return;
-      stockPush(true);
+      if (Date.now() - last >= 29 * 60 * 1000) { stockPush(true); return; }
+      stockDetect(last);
     }
     window.__QTYB_TIMER = setInterval(tick, 60 * 1000);
     tick();
