@@ -1704,9 +1704,12 @@ function bgRender(){
   });
   const withCt=BG.rows.filter(r=>r[6]||r[7]).length;
   $('bg-cnt').textContent=BG_FILT.length.toLocaleString();
-  $('bg-foot').innerHTML='전체 <b>'+BG.rows.length.toLocaleString()+'</b>곳 · 연락처 확보 <b>'+withCt.toLocaleString()
-    +'</b>곳 · 갱신 '+esc(BG.at)
-    +(hid.size?' · 🗑 지운 곳 <b>'+hid.size.toLocaleString()+'</b>곳 (목록에 안 올라옵니다)':'');
+  /* 🚧 검증 중이면 숫자 대신 사유를 띄운다 — 업종이 안 맞는 곳이 섞인 채로 보게 두지 않는다 */
+  $('bg-foot').innerHTML=BG.note
+    ? '<span style="color:var(--red);font-weight:600">'+esc(BG.note)+'</span>'
+    : '전체 <b>'+BG.rows.length.toLocaleString()+'</b>곳 · 연락처 확보 <b>'+withCt.toLocaleString()
+      +'</b>곳 · 갱신 '+esc(BG.at)
+      +(hid.size?' · 🗑 지운 곳 <b>'+hid.size.toLocaleString()+'</b>곳 (목록에 안 올라옵니다)':'');
   /* 실수로 지웠을 때만 쓰는 되돌리기 — 이번에 지운 것만 보인다(새로고침하면 사라진다) */
   const un=$('bg-undo');
   if(un){
@@ -1722,6 +1725,7 @@ function bgRender(){
   const from=(BG_PAGE-1)*BG_PER;
   const page=BG_FILT.slice(from,from+BG_PER);
   $('bg-empty').style.display=BG_FILT.length?'none':'';
+  if(BG.note)$('bg-empty').textContent=BG.note;
   $('bg-body').innerHTML=page.map((r,idx)=>{
     const url=bgUrl(r[4]);
     const shown=String(r[4]||'').replace(/^https?:\/\//i,'').slice(0,46);
