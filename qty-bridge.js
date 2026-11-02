@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-02d';
+  var QTYB_VER = '2026-11-02e';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -1960,6 +1960,12 @@
   /* 🌃 밤(19시~06시)엔 1분 간격 — 남의 서버를 밤새 10초마다 두드리지 않는다. 📌 감시는 «다음 날 19시»까지 (10시 마감이면 늦게 풀린 걸 놓친다) */
   var FAST_DAY_H = [6, 19], FAST_NIGHT_MS = 60000, FAST_UNTIL_H = 19;
   function kstHour() { return new Date(Date.now() + 9 * 3600000).getUTCHours(); }
+  /* 🐟 🌙 에서 넘어온 당일 상품은 오늘 줄에 잡으면 안 된다 — 내일 몫인데 오늘 판 잔여에 잡힌다. 다음 날 06시부터 본다. */
+  function notYet(w) { return !!(w && w.notBefore && Date.now() < w.notBefore); }
+  function nextMorningMs() {
+    var k = new Date(Date.now() + 9 * 3600000);
+    return Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() + (k.getUTCHours() >= 6 ? 1 : 0), 6) - 9 * 3600000;
+  }
 
   /* ⏳ 예약 — 아직 안 열린 상품을 5분마다 보고, 열리면 평균만큼 잡는다 (2026-10-07 홍팀장
         「끝나고 저 버튼 눌러 놓으면 수량 열리는 거 확인해서 자동으로 잡아 줄 수 있어?」).
@@ -1996,7 +2002,7 @@
           · 06~19시만(밤엔 위 1분 확인이 맡는다). 창고 판 바뀜·잠김은 10초 확인(scanWatch)이 IDX 를 고친다. */
     var HOT_MS = 1000, BURST_MS = 250, BURST_FOR = 90000, NT_MS = 2000;
     var hotT = null, hotBusy = false, lastHot = 0, burstUntil = 0, lastNt = 0, ntTop = 0;
-    function hotItems() { return left.filter(function (w) { return w.fast && IDX && IDX[w.key] && IDX[w.key].co; }); }
+    function hotItems() { return left.filter(function (w) { return w.fast && !notYet(w) && IDX && IDX[w.key] && IDX[w.key].co; }); }
     function ntCheck() {
       if (Date.now() - lastNt < NT_MS) return;
       lastNt = Date.now();
@@ -2118,6 +2124,7 @@
         return left.slice().reduce(function (pr, w) {
           return pr.then(function () {
             var row = IDX[w.key];
+            if (notYet(w)) return;                                                 // 당일 상품 — 내일 판부터
             if (!row || row.free || row.locked || row.closed || !row.co) return;   // 아직 안 열림
             return freshRow(row).then(function (f) {
               var spare = Math.max(0, f.mine - Math.max(f.used, w.outToday));
@@ -2203,6 +2210,7 @@
       return keys.reduce(function (pr, k) {
         return pr.then(function () {
           var row = IDX[k]; if (!row || !row.co) return;
+          if (row.kind && row.kind !== '상시') return;   // 🐟 당일 줄 — 오늘 여유로 내일 몫을 지우지 않는다
           return freshRow(row).then(function (f) {
             if (Math.max(0, f.mine - f.used) >= pn.map[k]) done.push(k);
           }).catch(function () {});
@@ -2419,7 +2427,11 @@
           var outToday = (avgOk && days[0].tab === todayTab()) ? (per[0][k] || 0) : 0;
           if (!row) { skip.push(nm + ' (수량 웹에 없음' + (nq ? ' · 재고 없음 ' + nq + '개' : '') + (mq ? ' · 손으로 ' + mq + '개' : '') + ')'); return; }
           if (row.free) { skip.push(nm + ' (넉넉 — 안 잡아도 됨)'); return; }
-          if (row.kind && row.kind !== '상시') { skip.push(nm + ' (당일 상품' + (nq ? ' · 재고 없음 ' + nq + '개는 내일 당일 대조에서' : '') + ')'); return; }
+          /* 🐟 당일 상품도 건다 (2026-11-02 홍팀장 「당일 상품도 수동에 걸든가 해야지, 골뱅이는 잘 나가는데」) — 오늘 줄엔 안 잡고 📌 수동 잡기로 내린다 */
+          if (row.kind && row.kind !== '상시') {
+            items.push({ key: k, row: row, name: row.name, seq: seq, est: est, none: nq, man: mq, outToday: 0, day: 1, open: false });
+            return;
+          }
           items.push({ key: k, row: row, name: row.name, seq: seq, est: est, none: nq, man: mq, outToday: outToday,
                        open: !(row.locked || row.closed || !row.co) });
         });
@@ -2456,7 +2468,7 @@
       + items.map(function (x, i) {
           var seqH = x.seq.length ? x.seq.map(function (q) { return q > x.est.cap ? '<b style="color:#b91c1c">' + q + '</b>' : String(q); }).join('·') : '—';
           var tgt = x.est.adj + (x.none || 0) + (x.man || 0);
-          var st = x.err ? '⚠️ ' + esc(x.err) : (x.open ? (x.left > 0 ? '바로 잡음' : '잔여 0 → 📌 수동 잡기로') : '안 열림 → 📌 수동 잡기로');
+          var st = x.err ? '⚠️ ' + esc(x.err) : x.day ? '🐟 당일 → 📌 수동 잡기로(내일 06시부터 감시)' : (x.open ? (x.left > 0 ? '바로 잡음' : '잔여 0 → 📌 수동 잡기로') : '안 열림 → 📌 수동 잡기로');
           return '<tr><td><input type="checkbox" data-pre-on="' + i + '"' + (x.err ? '' : ' checked') + '></td>'
             + '<td class="nm">' + esc(x.name) + '</td><td class="mut">' + seqH + '</td>'
             + '<td class="mut">' + (x.seq.length ? x.est.raw : '—') + '</td><td><b>' + (x.seq.length ? x.est.adj : '—') + '</b></td>'
@@ -2507,7 +2519,7 @@
         stat('🌙 미리 잡기 ' + now.length + '건' + (later.length ? ' · 수동 잡기로 ' + later.length + '건' : ''));
         if (later.length) {
           toGrabBox(later.map(function (x) { return { key: x.key, name: x.name, qty: x.target }; }));
-          preWatch(later.map(function (x) { return { key: x.key, name: x.name, avg: x.target, outToday: x.outToday, fast: 1 }; }));
+          preWatch(later.map(function (x) { return { key: x.key, name: x.name, avg: x.target, outToday: x.outToday, fast: 1, notBefore: x.day ? nextMorningMs() : 0 }; }));
         }
       });
     };
