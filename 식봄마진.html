@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>식봄 마진판 v1.0</title>
+<title>식봄 마진판 v1.1</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 /* 🛒 식봄 마진판 (2026-11-03 홍팀장 「식봄 상품 리스트로 수수료 8% 계산했을 때 마진·마진율 볼 수 있는 사이트」)
@@ -69,6 +69,13 @@ tr.loss{background:var(--bad-soft)}
 .note{font-size:12.5px;color:var(--sub);display:grid;gap:4px}
 .note b{color:var(--ink)}
 .msg{font-size:13px;color:var(--accent)}
+.fix{background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:16px;display:grid;gap:12px}
+.fix h2{font-size:15px;margin:0}
+.fix .steps{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--accent)}
+.fix table{min-width:640px}
+.up2{color:var(--good);font-weight:600}
 .err{background:var(--bad-soft);color:var(--bad);border-radius:8px;padding:12px 14px}
 </style>
 </head>
@@ -84,11 +91,24 @@ tr.loss{background:var(--bad-soft)}
   <div id="err" class="err" hidden></div>
   <div class="receipt" id="sum"></div>
   <div class="need" id="need" hidden></div>
+  <!-- 🔧 역마진 수정 → 식봄 「판매가 일괄 수정」 양식 (2026-11-03 홍팀장 「마진 최소 12% 이상, 12% 걸린 시점에서 십단위 반올림해서 100원 단위,
+       양식 파일 넣고 역마진 수정 버튼 → 최종 파일 생성하면 식봄에 바로 넣을 수 있게」).
+       🔴 올린 양식 파일을 그대로 열어 D(정가)·F(판매단가) 칸만 바꾼다 — 나머지는 한 글자도 안 건드린다(식봄이 그대로 받게). -->
+  <div class="fix">
+    <h2>식봄 판매가 일괄 수정 — 마진 12% 미만 올리기</h2>
+    <div class="steps">
+      <label class="up" for="bulk">① 판매가 일괄 수정 양식 넣기<input id="bulk" type="file" accept=".xlsx"></label>
+      <button class="btn" id="b-fix" disabled>② 역마진 수정</button>
+      <button class="btn" id="b-out" disabled>③ 최종 파일 생성</button>
+      <span class="msg" id="b-msg">식봄 [판매가 일괄 수정]에서 받은 양식 파일을 넣어 주세요.</span>
+    </div>
+    <div id="b-list"></div>
+  </div>
   <div class="bar">
     <input id="q" type="search" placeholder="상품명 찾기">
     <button class="chip" id="f-on" aria-pressed="true">판매중만</button>
     <span id="whs" class="bar"></span>
-    <button class="chip" id="f-loss" aria-pressed="false">적자·5% 미만만</button>
+    <button class="chip" id="f-loss" aria-pressed="false">12% 미만만</button>
     <span class="msg" id="msg"></span>
   </div>
   <div class="tbl"><table>
@@ -101,14 +121,16 @@ tr.loss{background:var(--bad-soft)}
   </table></div>
   <div class="note">
     <div><b>계산식</b> 마진 = 판매가 − 판매가×8% − 원가 · 마진율 = 마진 ÷ 판매가. 합계는 각 상품 1개씩 팔았을 때 기준입니다.</div>
+    <div><b>판매가 올리기</b> 마진율 12% 미만인 상품만 올립니다. 새 판매가 = 원가 ÷ (1 − 8% − 12%)를 십의 자리에서 반올림한 100원 단위. 정가가 새 판매가보다 낮으면 정가도 같이 올립니다. 내리는 상품은 없습니다.</div>
     <div><b>빠진 것</b> 택배비·부가세는 넣지 않았습니다. 수량별 판매가가 걸린 상품은 첫 단가로 계산합니다. 원가 매칭이 안 된 상품은 합계에서 빠집니다.</div>
     <div id="src"></div>
   </div>
 </div>
 <datalist id="ourNames"></datalist>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
-const FEE=0.08;
+const FEE=0.08, MIN_RATE=0.12;   // 🔴 마진 최소 12% (2026-11-03 홍팀장)
 const API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
 /* 처음 한 번만 쓰는 씨앗 — 2026-11-03 식봄 다운로드(상품코드·상품명·판매가·창고·판매여부. 원가 없음).
    Supabase 에 목록이 없을 때만 쓰고, 쓰자마자 Supabase 로 올린다. 그 뒤로는 Supabase 가 원본이다. */
@@ -145,7 +167,7 @@ function compute(){
 }
 function view(){
   const q=key(st.q);
-  return ROWS.filter(x=>x.c!=null&&(!st.on||x.on)&&(!st.wh||x.wh===st.wh)&&(!st.loss||x.r<0.05)&&(!q||key(x.n).includes(q)||key(x.ours).includes(q)));
+  return ROWS.filter(x=>x.c!=null&&(!st.on||x.on)&&(!st.wh||x.wh===st.wh)&&(!st.loss||x.r<MIN_RATE)&&(!q||key(x.n).includes(q)||key(x.ours).includes(q)));
 }
 function render(){
   const v=view();
@@ -162,7 +184,7 @@ function render(){
     '<div class="row"><b>'+esc(x.n)+'</b><input list="ourNames" data-code="'+esc(x.code)+'" placeholder="우리 상품명 (masterc 이름) 검색"><button class="btn" data-save="'+esc(x.code)+'">매칭 저장</button></div>').join('');
   const s=[...v].sort((a,b)=>{const A=a[st.k],B=b[st.k];return (typeof A==='string'?A.localeCompare(B,'ko'):A-B)*st.dir;});
   $('tb').innerHTML=s.map(x=>{
-    const cls=(x.m<0?'loss':x.r<0.05?'low':'')+(x.on?'':' off');
+    const cls=(x.m<0?'loss':x.r<MIN_RATE?'low':'')+(x.on?'':' off');
     const w=Math.max(0,Math.min(1,Math.abs(x.r)/0.3))*100;
     const ours=(x.ours&&key(x.ours)!==key(x.n))||x.manual?'<span class="ours">↳ '+esc(x.ours)+(x.manual?' <button data-unmap="'+esc(x.code)+'">매칭 풀기</button>':'')+'</span>':'';
     return '<tr class="'+cls+'"><td>'+esc(x.n)+(x.on?'':'<span class="tag">판매중지</span>')+ours+'</td><td>'+esc(x.wh)+'</td>'
@@ -178,7 +200,7 @@ function chips(){
   const whs=[...new Set(ROWS.map(x=>x.wh))].filter(Boolean);
   $('whs').innerHTML=['',...whs].map(w=>'<button class="chip" data-wh="'+esc(w)+'" aria-pressed="'+(st.wh===w)+'">'+(w||'전체 창고')+'</button>').join('');
 }
-function all(){ compute(); chips(); render(); }
+function all(){ compute(); chips(); render(); if(typeof BULK!=="undefined"&&BULK) bulkList(); }
 
 async function boot(){
   try{
@@ -239,6 +261,97 @@ $('file').addEventListener('change',async e=>{
     all(); $('msg').textContent=list.length+'개 상품을 읽어 저장했습니다.';
   }catch(err){ $('msg').textContent=err.message; }
   e.target.value='';
+});
+/* ══ 🔧 역마진 수정 ══════════════════════════════════════════════════════
+   양식 = 식봄 「판매가 일괄 수정」 다운로드 파일. 5행 머리글(상품no·상품코드·상품명·정가·수량별 판매단가 설정·판매단가…), 7행부터 상품.
+   칸은 전부 inlineStr — 그 칸의 글자만 바꾼다. 원가 찾기는 위 표와 같다(매칭 저장 → 이름 같음). */
+let BULK=null;   // {name, zip, sheetPath, xml, rows:[{r, no, code, n, list, tier, sell, ...}]}
+function newPrice(c){ return Math.round(c/(1-FEE-MIN_RATE)/100)*100; }   // 12% 걸리는 값 → 십의 자리 반올림
+function costOf(code,n){ const to=MAP[code]||MAP[n]||''; const h=MC[key(to||n)]; return h?h.cost:null; }
+function cellTxt(xml,ref){
+  const m=xml.match(new RegExp('<c r="'+ref+'"[^>]*?(?:/>|>([\\s\\S]*?)</c>)'));
+  if(!m||!m[1]) return '';
+  const t=m[1].match(/<t[^>]*>([\s\S]*?)<\/t>/)||m[1].match(/<v>([\s\S]*?)<\/v>/);
+  return t?t[1].replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"'):'';
+}
+function setCell(xml,ref,val){
+  const re=new RegExp('<c r="'+ref+'"([^>]*?)(?:/>|>[\\s\\S]*?</c>)');
+  if(!re.test(xml)) throw new Error(ref+' 칸을 찾지 못했습니다.');
+  return xml.replace(re,(all,attrs)=>{ attrs=attrs.replace(/\s*t="[^"]*"/,''); return '<c r="'+ref+'"'+attrs+' t="inlineStr"><is><t>'+val+'</t></is></c>'; });
+}
+$('bulk').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    if(!window.JSZip) throw new Error('파일 도구를 못 불러왔습니다. 새로고침 후 다시 넣어 주세요.');
+    const zip=await JSZip.loadAsync(await f.arrayBuffer());
+    const sheetPath=Object.keys(zip.files).filter(k=>/^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort()[0];
+    if(!sheetPath) throw new Error('엑셀 시트를 찾지 못했습니다.');
+    const xml=await zip.file(sheetPath).async('string');
+    if(cellTxt(xml,'B5')!=='상품코드'||cellTxt(xml,'D5')!=='정가'||cellTxt(xml,'F5')!=='판매단가')
+      throw new Error('식봄 「판매가 일괄 수정」 양식이 아닙니다 (5행 머리글: 상품no·상품코드·상품명·정가·수량별 판매단가 설정·판매단가).');
+    const rows=[];
+    for(const m of xml.matchAll(/<row r="(\d+)"/g)){
+      const r=+m[1]; if(r<7) continue;
+      const n=cellTxt(xml,'C'+r); if(!n) continue;
+      const code=cellTxt(xml,'B'+r), tier=cellTxt(xml,'E'+r).trim().toLowerCase()==='y';
+      const sell=Number(String(cellTxt(xml,'F'+r)).split('//')[0].split(',').pop())||0;
+      rows.push({r,code,n,list:Number(cellTxt(xml,'D'+r))||0,tier,sell,wt:cellTxt(xml,'G'+r).trim().toLowerCase()==='y'});
+    }
+    if(!rows.length) throw new Error('양식에 상품이 한 줄도 없습니다.');
+    BULK={name:f.name,zip,sheetPath,xml,rows,fixed:false};
+    $('b-fix').disabled=false; $('b-out').disabled=true;
+    $('b-msg').textContent=f.name+' — '+rows.length+'개 상품을 읽었습니다. [② 역마진 수정]을 눌러 주세요.';
+    bulkList();
+  }catch(err){ BULK=null; $('b-fix').disabled=true; $('b-out').disabled=true; $('b-msg').textContent=err.message; $('b-list').innerHTML=''; }
+  e.target.value='';
+});
+function bulkPlan(){
+  BULK.rows.forEach(x=>{
+    x.c=costOf(x.code,x.n); x.np=null; x.nl=null; x.why='';
+    if(x.c==null){ x.why='원가 매칭 필요'; return; }
+    x.rate=x.sell?(x.sell*(1-FEE)-x.c)/x.sell:0;
+    if(x.rate>=MIN_RATE){ x.why='OK'; return; }
+    if(x.tier){ x.why='수량별 판매가 — 식봄에서 직접'; return; }
+    if(x.wt){ x.why='중량단가 상품 — 식봄에서 직접'; return; }
+    x.np=newPrice(x.c); x.nl=Math.max(x.list,x.np); x.why='올림';
+    x.nrate=(x.np*(1-FEE)-x.c)/x.np;
+  });
+}
+function bulkList(){
+  if(!BULK){ $('b-list').innerHTML=''; return; }
+  bulkPlan();
+  const ch=BULK.rows.filter(x=>x.np!=null), skip=BULK.rows.filter(x=>x.why!=='OK'&&x.np==null);
+  let h='';
+  if(BULK.fixed){
+    h+='<div class="tbl"><table><thead><tr><th>상품명</th><th>창고</th><th>원가</th><th>판매가</th><th>새 판매가</th><th>정가 → 새 정가</th><th>마진율</th></tr></thead><tbody>'
+      +(ch.map(x=>'<tr><td>'+esc(x.n)+'</td><td>'+esc((ROWS.find(o=>o.code===x.code)||{}).wh||'')+'</td><td class="num">'+won(x.c)+'</td><td class="num">'+won(x.sell)+'</td><td class="num up2">'+won(x.np)+'</td><td class="num">'+won(x.list)+' → '+won(x.nl)+'</td><td class="num">'+pct(x.rate)+' → <b>'+pct(x.nrate)+'</b></td></tr>').join('')
+        ||'<tr><td colspan="7" style="text-align:center;color:var(--sub)">마진 12% 미만 상품이 없습니다 — 고칠 것이 없습니다.</td></tr>')
+      +'</tbody></table></div>';
+  }
+  if(skip.length) h+='<div class="note"><div><b>못 고친 '+skip.length+'개</b> '+skip.map(x=>esc(x.n)+' ('+x.why+')').join(' · ')+'</div></div>';
+  $('b-list').innerHTML=h;
+}
+$('b-fix').addEventListener('click',()=>{
+  if(!BULK) return;
+  BULK.fixed=true; bulkList();
+  const n=BULK.rows.filter(x=>x.np!=null).length;
+  $('b-out').disabled=!n;
+  $('b-msg').textContent=n?n+'개 상품 판매가를 올립니다. 확인하고 [③ 최종 파일 생성]을 눌러 주세요.':'올릴 상품이 없습니다.';
+});
+$('b-out').addEventListener('click',async()=>{
+  if(!BULK||!BULK.fixed) return;
+  try{
+    let xml=BULK.xml; const ch=BULK.rows.filter(x=>x.np!=null);
+    for(const x of ch){ xml=setCell(xml,'F'+x.r,String(x.np)); xml=setCell(xml,'D'+x.r,String(x.nl)); }
+    BULK.zip.file(BULK.sheetPath,xml);
+    const blob=await BULK.zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',compression:'DEFLATE'});
+    const d=new Date(Date.now()+9*3600000).toISOString().slice(0,10).replace(/-/g,'');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=BULK.name.replace(/\.xlsx$/i,'')+'_역마진수정_'+d+'.xlsx';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    BULK.zip.file(BULK.sheetPath,BULK.xml);   // 원본으로 되돌려 둔다 — 다시 눌러도 같은 결과
+    $('b-msg').textContent='파일을 만들었습니다 ('+ch.length+'개 수정) — 식봄 [판매가 일괄 수정]에 그대로 올리면 됩니다.';
+  }catch(err){ $('b-msg').textContent='파일을 만들지 못했습니다: '+err.message; }
 });
 boot();
 </script>
