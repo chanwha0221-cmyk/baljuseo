@@ -1601,14 +1601,17 @@ const BG_HIDE='bg_hide';
 const bgKey=r=>pkeyN(r[0])+'\u0001'+pkeyN(r[1]);
 const bgHideSet=()=>new Set(String(SET[BG_HIDE]||'').split('\n').filter(Boolean));
 let bgHideTimer=null, BG_LASTDEL=[];
-function bgDel(r){
+/* ✉ 메일 쓰기로 넘긴 곳도 같은 목록에 넣어 명단에서 뺀다 (2026-11-03 홍팀장 「메일 보낸 업체도 없어져야 다음 걸
+   하지 — 휴지통이랑 메일 쓰기 하면 저장하고 리스트에서 없애는 걸로」). 같은 bg_hide 에 남기므로 집·회사·출장 PC
+   어디서 열어도 안 올라온다. 잘못 눌렀으면 아래 [↩ 되돌리기]에 ✉ 표시로 남는다. */
+function bgDel(r,why){
   const s=bgHideSet();
   s.add(bgKey(r));
   SET[BG_HIDE]=[...s].join('\n');
-  BG_LASTDEL.unshift({k:bgKey(r),name:r[0]});
+  BG_LASTDEL.unshift({k:bgKey(r),name:(why==='mail'?'✉ ':'')+r[0]});
   if(BG_LASTDEL.length>30)BG_LASTDEL.pop();
   bgRender();
-  setStatus('🗑 지움 — 잠시 후 저장');
+  setStatus((why==='mail'?'✉ 메일 쓴 곳 — 명단에서 뺌, 잠시 후 저장':'🗑 지움 — 잠시 후 저장'));
   bgSaveHide();
 }
 function bgUndo(k){
@@ -1686,7 +1689,7 @@ function bgRender(){
     ? '<span style="color:var(--red);font-weight:600">'+esc(BG.note)+'</span>'
     : '전체 <b>'+BG.rows.length.toLocaleString()+'</b>곳 · 연락처 확보 <b>'+withCt.toLocaleString()
       +'</b>곳 · 갱신 '+esc(BG.at)
-      +(hid.size?' · 🗑 지운 곳 <b>'+hid.size.toLocaleString()+'</b>곳 (목록에 안 올라옵니다)':'');
+      +(hid.size?' · 🗑 지운 곳·✉ 메일 쓴 곳 <b>'+hid.size.toLocaleString()+'</b>곳 (목록에 안 올라옵니다)':'');
   /* 실수로 지웠을 때만 쓰는 되돌리기 — 이번에 지운 것만 보인다(새로고침하면 사라진다) */
   const un=$('bg-undo');
   if(un){
@@ -1727,7 +1730,7 @@ function bgRender(){
            뭘 파는 곳인지는 결국 눈으로 봐야 한다. 도메인이 죽었을 때도 이쪽으로 확인된다. */
         +'<a class="btn sm ghost" href="https://search.naver.com/search.naver?query='+encodeURIComponent(r[0]||'')+'" target="_blank" rel="noopener" title="네이버에서 이 업체 검색" style="text-decoration:none">N</a> '
         +'<a class="btn sm ghost" href="https://www.google.com/search?q='+encodeURIComponent(r[0]||'')+'" target="_blank" rel="noopener" title="구글에서 이 업체 검색" style="text-decoration:none">G</a> '
-        +'<button class="btn sm brand" data-bg="mail" data-i="'+(from+idx)+'">✉ 메일 쓰기</button> '
+        +'<button class="btn sm brand" title="메일 작성으로 넘기고 이 업체는 명단에서 뺍니다" data-bg="mail" data-i="'+(from+idx)+'">✉ 메일 쓰기</button> '
         +'<button class="btn sm ghost" title="목록에서 영영 지웁니다" style="color:var(--red)" data-bg="del" data-i="'+(from+idx)+'">🗑</button>'
       +'</td>'
       +'</tr>';
@@ -1760,7 +1763,7 @@ document.addEventListener('click',ev=>{
   const b=ev.target.closest('[data-bg]'); if(!b)return;
   const a=b.getAttribute('data-bg');
   if(a==='page'){ BG_PAGE=parseInt(b.getAttribute('data-p'),10)||1; bgRender(); window.scrollTo({top:$('bg-table').offsetTop-80,behavior:'smooth'}); }
-  else if(a==='mail'){ const r=BG_FILT[parseInt(b.getAttribute('data-i'),10)]; if(r)bgToMail(r); }
+  else if(a==='mail'){ const r=BG_FILT[parseInt(b.getAttribute('data-i'),10)]; if(r){ bgToMail(r); bgDel(r,'mail'); } }
   else if(a==='del'){ const r=BG_FILT[parseInt(b.getAttribute('data-i'),10)]; if(r)bgDel(r); }
   else if(a==='undo'){ bgUndo(b.getAttribute('data-k')); }
 });
