@@ -620,6 +620,13 @@ function checkRow(r){
     /* 🚫 재고 없음 — 발주도 막는다 (2026-09-29 홍팀장 "0개는 발주도 막는다"). 서버(doSubmit)도 한 번 더 막는다. */
     else if(zeroNow(p))
       why.push(amMaster() ? '🚫 재고 없음 (수량 웹 잔여 0)' : '🚫 재고 없음 — 지금 수량이 없는 상품입니다. 수량 문의: 010-2455-4156 홍찬화 팀장');
+    /* 🧑‍💼 마스터(대신 발주)는 재고 없음으로 막지 않는다 (2026-11-03 홍팀장 「발주 넣을 때는 수량 신경 쓰지 말고
+       일단 넣으라고 했지, 내가 보고 넣는데 왜 막냐」). 알려만 주고 그대로 넣는다 — 서버로도 승인 목록에 실어 보낸다.
+       🚫 예외(오늘 판매 안 함)는 그대로 [✅ 발주 승인]을 거친다. 업체 화면은 예전대로 막는다. */
+    if(amMaster() && why.length && !(typeof isExc === 'function' && isExc(p.name) && !vonlyOpen(p.name))){
+      warns.push('ℹ️ 수량 웹 잔여 0 — 마스터 발주라 그대로 넣습니다');
+      why.length = 0;
+    }
     if(why.length){
       if(apprOk(p)) warns.push('✅ 마스터 승인으로 넣습니다 — ' + why.join(' · '));
       else errs.push(why.join(' · ') + (amMaster() ? ' — 그래도 넣으려면 [✅ 발주 승인]' : ''));
@@ -1823,7 +1830,16 @@ async function submit(){
       req.forName = FOR.name; req.forAddr = outAddr(FOR.name, FOR.addr); req.forPhone = FOR.phone || '';
       req.andPush = true;
       const ap = Object.keys(APPROVED).map(k => APPROVED[k]);
-      if(ap.length) req.approved = ap;              // ✅ 마스터 승인 — 서버도 이 이름만 재고 없음 검사에서 뺀다
+      /* 🧑‍💼 마스터 발주는 재고 없음 검사를 통째로 건너뛴다 (2026-11-03 홍팀장) — 서버(Edge doSubmit)는
+         승인 목록에 든 이름만 재고 0 검사에서 빼므로, 이번 발주의 상품 이름을 전부 실어 보낸다.
+         화면의 재고 표시와 서버의 수량 웹 잔여가 어긋나도(화면 «정상»인데 서버가 막던 사고) 마스터는 안 막힌다. */
+      items.forEach(it => S(it.prod).split(' / ').forEach(part => {
+        const nm = S(part).replace(/\s*[xX×]\s*\d+.*$/, '');
+        if(nm && ap.indexOf(nm) < 0) ap.push(nm);
+        const fp = nm ? findProd(nm).p : null;
+        if(fp && ap.indexOf(fp.name) < 0) ap.push(fp.name);
+      }));
+      if(ap.length) req.approved = ap;              // ✅ 마스터 승인 — 서버도 이 이름은 재고 없음 검사에서 뺀다
     } else if(altOf()) req.asBiz = altOf().name;   // 🏢 추가 사업자로 넣기
     /* 🔴 같은 발주가 두 번 들어가는 것을 서버가 막으면 `dup` 으로 돌아온다 (2026-08-26).
        조용히 넘어가지도, 조용히 또 넣지도 않는다 — 이미 접수된 발주번호를 보여주고 사람이 정한다. */
