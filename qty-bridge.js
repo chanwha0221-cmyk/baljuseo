@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-02e';
+  var QTYB_VER = '2026-11-03a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -146,7 +146,7 @@
      패널이 여기로 바로 보내므로 «복사해서 시트 창에 옮겨 붙이는» 왕복이 없다.
        out  = 못 나가는 것 → 「재고 없음」
        back = 구해진 것 → 「당일」 */
-  var SHEET_API = 'https://script.google.com/macros/s/AKfycbwHyApkPVLIg4AoSpuTOBXYve7n6rBGbZdnJJt-QNWtQ5Cvbz7wVjKOnuLT2Ri3_Tlikw/exec';   // 10월 시트에 붙은 웹앱 (2026-10-02 — 9월 시트가 관리팀 소유로 넘어가 옛 웹앱이 죽음)
+  var SHEET_API = 'https://script.google.com/macros/s/AKfycbwPSxjTwCMx2n44G3SkG27Gxtq6CoomSEGm3NYoste9zij0NRzSEOpALh_Fl6wNKEcQ/exec';   // 🔒 상설 웹앱 (2026-11-03) — 월 시트에 안 붙은 standalone(scriptId 16rKa09…). 시트는 패널이 보내는 ID 로 연다 → 시트가 관리팀으로 넘어가도 안 죽는다. (옛 9월·10월 시트 바인딩 웹앱은 소유권 이전 때마다 죽었음)
   var SHEET_TOKEN = 'qtyb-2026-hcw';
 
   /* 🔴 IDX 는 긁기를 시작할 때 {} 로 비운다 — 그래서 «있다/없다» 로 보면 빈 것도 «있다» 가 된다.
