@@ -1742,10 +1742,13 @@ function bgRender(){
 function bgToMail(r){
   $('company-name').value=r[0]||'';
   if(r[7])$('q-mail').value=r[7];
+  /* 🔎 「무엇을 보고」 = «업체명 자사몰» 로 매번 새로 쓴다 (2026-11-03 홍팀장 「'업체명' 자사몰 보고로 변경해 줘야지」).
+     예전엔 칸이 비어 있을 때만 도메인으로 채워서, 앞 업체 문구(「…식품의 하늘 사이트…」)가 다음 업체 메일에 그대로 남았다.
+     주식회사·(주) 는 떼고 부른다 — 「주식회사 푸드하늘 자사몰」보다 「푸드하늘 자사몰」이 자연스럽다. */
   const src=$('source-text');
-  if(src&&!src.value.trim()){
-    const u=bgUrl(r[4]).replace(/^https?:\/\//i,'').split('/')[0];
-    if(u)src.value='운영하고 계신 '+u+' 를 보고 상품 제안드리고 싶어';
+  if(src){
+    const nm=String(r[0]||'').replace(/주식회사|유한회사|농업회사법인|영농조합법인|\(주\)|㈜/g,'').replace(/\s+/g,' ').trim();
+    if(nm)src.value='운영하고 계신 '+nm+' '+(r[3]===0?'자사몰':'스토어')+' 보고 상품 제안드리고 싶어';
   }
   if(typeof stampSlots==='function')stampSlots();
   if(r[7]&&typeof quickCheck==='function')quickCheck();
