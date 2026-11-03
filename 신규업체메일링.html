@@ -243,6 +243,16 @@
     </div>
     <div id="bg-pager" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:12px"></div>
     <details id="bg-undo" style="margin-top:10px;display:none"></details>
+    <!-- 🔎 메일 쓴 곳·지운 곳 찾기 (홍팀장 2026-11-03 「팔팔푸드 정보가 없어져서 메일보내기를 다시 누를 수가 없다」
+         「보낸곳 검색도 하게 해놔」). [↩ 방금 지운 곳]은 새로고침하면 사라진다 — 이건 bg_hide 전체에서 찾으니
+         어제·다른 PC에서 뺀 곳도 찾아서 되살린다. -->
+    <details id="bg-hid" style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:13px;font-weight:600">🔎 메일 쓴 곳·지운 곳 찾아서 되살리기 <span class="muted" id="bg-hid-n" style="font-weight:400"></span></summary>
+      <div style="margin-top:8px">
+        <input id="bg-hid-q" placeholder="상호 · 대표자 · 도메인 · 메일주소 (예: 팔팔푸드)" style="width:100%;max-width:420px;font-size:14px;box-sizing:border-box">
+        <div id="bg-hid-body" style="margin-top:8px"></div>
+      </div>
+    </details>
     <div class="empty" id="bg-empty" style="display:none">조건에 맞는 업체가 없습니다.</div>
   </div>
   </div><!-- /sec-balgul -->
@@ -1759,6 +1769,29 @@ function bgRender(){
     + pagerNums(BG_PAGE,pages).map(n=>'<button class="btn sm '+(n===BG_PAGE?'brand':'ghost')+'" data-bg="page" data-p="'+n+'">'+n+'</button>').join('')
     + '<button class="btn sm ghost" data-bg="page" data-p="'+(BG_PAGE+1)+'"'+(BG_PAGE>=pages?' disabled':'')+'>›</button>'
     + '<span class="muted" style="margin-left:8px;font-size:12px">'+BG_PAGE+' / '+pages+' 쪽</span>';
+  bgHidRender();
+}
+/* 🔎 숨긴 곳(bg_hide) 찾기 — 명단(BG.rows)에서 열쇠가 숨김 목록에 있는 줄만 골라 검색.
+   ✉ = 메일링 목록(DATA)에 그 메일주소·업체명이 있는 곳(보낸 곳), 🗑 = 그 외(지운 곳). */
+let BG_HID_Q='';
+function bgHidRender(){
+  const box=$('bg-hid-body'); if(!box||!BG)return;
+  const hid=bgHideSet();
+  $('bg-hid-n').textContent=hid.size?'('+hid.size.toLocaleString()+'곳)':'(없음)';
+  const q=pkeyN(BG_HID_Q);
+  if(!q){ box.innerHTML='<div class="muted" style="font-size:12.5px">위 칸에 업체명을 치면 명단에서 뺀 곳 중에서 찾아 줍니다.</div>'; return; }
+  const sentMail=new Set(), sentName=new Set();
+  DATA.forEach(r=>{ if(r[2])sentMail.add(pkeyN(r[2])); if(r[0])sentName.add(pkeyN(r[0])); });
+  const hits=BG.rows.filter(r=>hid.has(bgKey(r)) && [r[0],r[1],r[4],r[7]].some(v=>pkeyN(v).includes(q))).slice(0,50);
+  if(!hits.length){ box.innerHTML='<div class="muted" style="font-size:12.5px">「'+esc(BG_HID_Q)+'」 — 뺀 곳 중에 없습니다. (지금 명단에 그대로 있을 수 있어요 — 위 검색칸에서 찾아보세요)</div>'; return; }
+  box.innerHTML='<table style="font-size:12.5px"><tbody>'+hits.map(r=>{
+    const sent=(r[7]&&sentMail.has(pkeyN(r[7])))||sentName.has(pkeyN(r[0]));
+    return '<tr><td>'+(sent?'<span class="badge green">✉ 보낸 곳</span>':'<span class="badge">🗑 지운 곳</span>')+'</td>'
+      +'<td><b>'+esc(r[0])+'</b></td><td class="muted">'+esc(r[1]||'—')+'</td>'
+      +'<td style="word-break:break-all">'+esc(String(r[4]||'').replace(/^https?:\/\//i,'').slice(0,40))+'</td>'
+      +'<td style="color:var(--blue)">'+esc(r[7]||'')+'</td>'
+      +'<td style="white-space:nowrap"><button class="btn sm brand" data-bg="restore" data-k="'+esc(bgKey(r))+'">↩ 되살리기</button></td></tr>';
+  }).join('')+'</tbody></table>';
 }
 /* ✉ 메일 쓰기 — 업체명·메일주소를 꽂고 메일 작성 탭으로 넘긴다 (기록은 홍팀장이 [기록]으로) */
 function bgToMail(r){
@@ -1785,10 +1818,13 @@ document.addEventListener('click',ev=>{
   else if(a==='mail'){ const r=BG_FILT[parseInt(b.getAttribute('data-i'),10)]; if(r){ bgToMail(r); bgDel(r,'mail'); } }
   else if(a==='del'){ const r=BG_FILT[parseInt(b.getAttribute('data-i'),10)]; if(r)bgDel(r); }
   else if(a==='undo'){ bgUndo(b.getAttribute('data-k')); }
+  else if(a==='restore'){ const k=b.getAttribute('data-k'); const r=BG.rows.find(x=>bgKey(x)===k); bgUndo(k); toast('↩ '+((r&&r[0])||'')+' — 명단으로 되살렸습니다'); }
 });
 (function(){
   let t;
   $('bg-q').addEventListener('input',e=>{ bgSt.q=e.target.value; clearTimeout(t); t=setTimeout(()=>{BG_PAGE=1;bgRender();},200); });
+  let th;
+  $('bg-hid-q').addEventListener('input',e=>{ BG_HID_Q=e.target.value; clearTimeout(th); th=setTimeout(bgHidRender,200); });
   $('bg-rg').addEventListener('change',e=>{ bgSt.rg=e.target.value; BG_PAGE=1; bgRender(); });
   [['bg-own','own'],['bg-pf','pf'],['bg-ct','ct'],['bg-new','onlyNew']].forEach(([id,key])=>{
     $(id).addEventListener('click',()=>{
