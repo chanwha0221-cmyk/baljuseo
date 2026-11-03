@@ -645,6 +645,11 @@ async function loadAll(){
     /* 🔎 '무엇을 보고'는 그날 내내 같은 문장이라 이 기기에 기억해뒀다가 되살린다
        (업체명은 매번 바뀌니 기억하지 않는다 — 남아 있으면 남의 이름으로 나간다) */
     try{ const s=localStorage.getItem('mailing_source'); if(s && $('source-text') && !$('source-text').value) $('source-text').value=s; }catch(e){}
+    /* 🔗 카탈로그 주소는 한 번 넣으면 그대로 박아둔다 (홍팀장 2026-11-03 「왜 자꾸만 초기화 되냐 한번 넣으면 링크 날아갈때까지 그냥 박아둬」).
+       예전엔 이 기기에 적어두기만 하고 열 때 되살리지 않아서 새로고침마다 빈칸이었다.
+       🔴 원본 = 메일설정(SET.caturl, Supabase) — 집·회사 PC 어디서 열어도 같은 주소. 없으면 이 기기 기억값.
+       🔴 빈칸은 저장하지 않는다 — 실수로 지워도 안 날아간다. 새 주소를 붙여넣으면 그걸로 바뀐다. */
+    try{ const c=(SET.caturl||'').trim()||localStorage.getItem('mailing_caturl')||''; if(c && $('caturl-text') && !$('caturl-text').value) $('caturl-text').value=c; }catch(e){}
     restampCompany();   // 🏢 동기화 끝나기 전에 업체명을 먼저 적어놨으면 여기서 다시 꽂는다
     renderTplButtons();
     loadCard();          // 📇 명함 (담당자별)
@@ -1428,8 +1433,17 @@ function stampSlots(){
     const has=SLOT_FIELDS.some(id=>hasSlot(sl,SLOT_ORIG[id]));
     h.textContent = !v ? sl.idle : (has ? '넣었습니다.' : sl.miss);
     h.style.color = (v && !has) ? 'var(--red)' : '';
+    if(sl.key==='caturl'){ if(v) caturlKeep(v); return; }          // 🔗 빈칸으로 덮지 않는다
     if(sl.remember) try{ localStorage.setItem(sl.remember, v); }catch(e){}
   });
+}
+/* 🔗 카탈로그 주소 박아두기 — 이 기기 + 메일설정(서버) 둘 다. 서버는 붙여넣기 끝나고 1.5초 뒤 한 번만. */
+let CATURL_T=null;
+function caturlKeep(v){
+  try{ localStorage.setItem('mailing_caturl', v); }catch(e){}
+  if(!SET_OK || (SET.caturl||'')===v) return;
+  clearTimeout(CATURL_T);
+  CATURL_T=setTimeout(async()=>{ try{ await setSetting('caturl', v); }catch(e){ console.warn('카탈로그 주소 서버 저장 실패(이 기기엔 남음)',e); } },1500);
 }
 /* 저장용 원문 — 채운 값이 빠지고 태그가 들어간 상태 */
 function rawOf(id){
