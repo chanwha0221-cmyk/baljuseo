@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>식봄 마진판 v1.1</title>
+<title>식봄 마진판 v1.2</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 /* 🛒 식봄 마진판 (2026-11-03 홍팀장 「식봄 상품 리스트로 수수료 8% 계산했을 때 마진·마진율 볼 수 있는 사이트」)
@@ -121,7 +121,7 @@ tr.loss{background:var(--bad-soft)}
   </table></div>
   <div class="note">
     <div><b>계산식</b> 마진 = 판매가 − 판매가×8% − 원가 · 마진율 = 마진 ÷ 판매가. 합계는 각 상품 1개씩 팔았을 때 기준입니다.</div>
-    <div><b>판매가 올리기</b> 마진율 12% 미만인 상품만 올립니다. 새 판매가 = 원가 ÷ (1 − 8% − 12%)를 십의 자리에서 반올림한 100원 단위. 정가가 새 판매가보다 낮으면 정가도 같이 올립니다. 내리는 상품은 없습니다.</div>
+    <div><b>판매가 올리기</b> 마진율 12% 미만인 상품만 올립니다. 새 판매가 = 원가 ÷ (1 − 8% − 12%)를 십의 자리에서 반올림한 100원 단위이고, 반올림해서 12% 밑이면 100원씩 올려 12%를 넘깁니다. 정가가 새 판매가보다 낮으면 정가도 같이 올립니다. 내리는 상품은 없습니다.</div>
     <div><b>빠진 것</b> 택배비·부가세는 넣지 않았습니다. 수량별 판매가가 걸린 상품은 첫 단가로 계산합니다. 원가 매칭이 안 된 상품은 합계에서 빠집니다.</div>
     <div id="src"></div>
   </div>
@@ -266,7 +266,9 @@ $('file').addEventListener('change',async e=>{
    양식 = 식봄 「판매가 일괄 수정」 다운로드 파일. 5행 머리글(상품no·상품코드·상품명·정가·수량별 판매단가 설정·판매단가…), 7행부터 상품.
    칸은 전부 inlineStr — 그 칸의 글자만 바꾼다. 원가 찾기는 위 표와 같다(매칭 저장 → 이름 같음). */
 let BULK=null;   // {name, zip, sheetPath, xml, rows:[{r, no, code, n, list, tier, sell, ...}]}
-function newPrice(c){ return Math.round(c/(1-FEE-MIN_RATE)/100)*100; }   // 12% 걸리는 값 → 십의 자리 반올림
+/* 12% 걸리는 값 → 십의 자리 반올림(100원 단위). 반올림으로 12% 밑이 되면 100원씩 올려 12%를 넘긴다
+   (2026-11-03 홍팀장 「12% 넘기게」 — 소숫게·호래기·세꼬시가 반올림만으론 11.8%였다). */
+function newPrice(c){ let p=Math.round(c/(1-FEE-MIN_RATE)/100)*100; while((p*(1-FEE)-c)/p<MIN_RATE) p+=100; return p; }
 function costOf(code,n){ const to=MAP[code]||MAP[n]||''; const h=MC[key(to||n)]; return h?h.cost:null; }
 function cellTxt(xml,ref){
   const m=xml.match(new RegExp('<c r="'+ref+'"[^>]*?(?:/>|>([\\s\\S]*?)</c>)'));
