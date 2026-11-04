@@ -129,6 +129,11 @@
                ⚠️ 메일 본문과 **같은 슬롯**을 쓴다: (업체명)·(보고온곳)을 바꾸면 여기 문구도 같이 바뀐다. -->
           <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)">
             <label>📱 메일 확인 요청 카톡·문자 <span class="muted">(메일 보낸 뒤 한 통)</span></label>
+            <!-- 📞 발굴 명단에 휴대폰 번호가 있는 곳만 뜬다 (홍팀장 2026-11-04) — 복사해서 카톡 친구 추가 -->
+            <div id="ping-phone" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;border-radius:8px;background:#fff4d6;font-size:14px">
+              <span>📞 <span id="ping-phone-name"></span> 휴대폰 <b id="ping-phone-no" style="font-size:15px"></b></span>
+              <button class="btn brand sm" type="button" onclick="copyPingPhone()">📋 번호 복사</button>
+            </div>
             <textarea id="tpl-ping" style="min-height:120px;line-height:1.6"></textarea>
             <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
               <button class="btn brand" type="button" onclick="copyText('tpl-ping')">📋 복사</button>
@@ -544,9 +549,37 @@ function qFind(q){
   l.sort((a,b)=>{const da=daysSince(a[4]),db=daysSince(b[4]); if(da==null)return 1; if(db==null)return -1; return da-db;});
   return l;
 }
+/* 📞 메일 보낸 뒤 카톡 넣을 휴대폰 번호 (홍팀장 2026-11-04 「카톡 보낼 수 있는 핸드폰 번호도 있으면 카톡 문자 쪽에 끌고 와라」).
+   발굴 명단(balgul-list.json)의 전화 칸에서 01X 만 쓴다 — 유선·070 은 카톡이 안 되니 안 띄운다.
+   🔴 [기록]을 누르면 메일 칸이 비지만 번호는 그때 필요하다 → 메일 칸이 비는 것으로는 안 지운다. 다른 주소를 넣어야 바뀐다. */
+let PING_MAIL=null;
+function mobileOf(raw){
+  for(const t of String(raw||'').split(/[,\/;|]/)){
+    const d=t.replace(/\D/g,'');
+    if(/^01[016789]\d{7,8}$/.test(d)) return d.slice(0,3)+'-'+d.slice(3,d.length-4)+'-'+d.slice(-4);
+  }
+  return '';
+}
+function setPingPhone(name,raw){
+  const no=mobileOf(raw), box=$('ping-phone');
+  $('ping-phone-name').textContent=no?(name||''):'';
+  $('ping-phone-no').textContent=no;
+  box.style.display=no?'flex':'none';
+}
+function copyPingPhone(){ navigator.clipboard.writeText($('ping-phone-no').textContent).then(()=>toast('📞 번호 복사됨 — 카톡 친구 추가에 붙여넣으세요')); }
+function pingLookup(q){
+  const key=String(q||'').trim().toLowerCase();
+  if(key===PING_MAIL)return;
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(key)){ PING_MAIL=key; setPingPhone('',''); return; }
+  if(!BG){ setPingPhone('',''); bgLoad().then(()=>{ if(BG&&String(($('q-mail').value||'')).trim().toLowerCase()===key)pingLookup(key); }); return; }
+  PING_MAIL=key;
+  const hit=BG.rows.find(r=>String(r[7]||'').trim().toLowerCase()===key&&mobileOf(r[6]));
+  setPingPhone(hit?hit[0]:'',hit?hit[6]:'');
+}
 function quickCheck(){
   const q=($('q-mail').value||'').trim(), box=$('q-result');
   if(!q){ box.innerHTML='메일주소를 입력하세요'; box.style.background='#f4f6f9'; box.style.color=''; return null; }
+  pingLookup(q);
   const l=qFind(q);
   if(!l.length){
     box.innerHTML='✅ 처음 보는 곳 — <b>보낸 적 없음</b>';
@@ -1818,6 +1851,8 @@ function bgHidRender(){
 function bgToMail(r){
   $('company-name').value=r[0]||'';
   if(r[7])$('q-mail').value=r[7];
+  PING_MAIL=String(r[7]||'').trim().toLowerCase();
+  setPingPhone(r[0],r[6]);
   /* 🔎 「무엇을 보고」 = «업체명 자사몰» 로 매번 새로 쓴다 (2026-11-03 홍팀장 「'업체명' 자사몰 보고로 변경해 줘야지」).
      예전엔 칸이 비어 있을 때만 도메인으로 채워서, 앞 업체 문구(「…식품의 하늘 사이트…」)가 다음 업체 메일에 그대로 남았다.
      주식회사·(주) 는 떼고 부른다 — 「주식회사 푸드하늘 자사몰」보다 「푸드하늘 자사몰」이 자연스럽다. */
