@@ -1743,6 +1743,12 @@ function bgNotFood(r){
      취급품목에 건강/식품이 있으면 남긴다. 실측: 21,601곳 중 20곳 제외(전부 판촉·잡화몰). */
   if(BG_GIFT_DOM.test(dom)&&ct.indexOf('건강/식품')<0&&!BG_STRONG.test(nm)&&!BG_STRONG.test(dom)
      &&!/바다|sea|푸드|food|맛|선물/i.test(nm)&&!/sea|food|bada|fish|farm|tomato|fruit|meat|rice/i.test(dom))return true;
+  /* ④ 취급품목이 비식품이라고 적힌 곳 (2026-11-04 홍팀장 — 노을상사 noeul.shop 「카테고리부터 의류 패션인데 왜 넣어놨어」).
+     약한 단어(상사·물산·유통·바다…)가 품목을 이기고 살려 줬다. 이제 품목에 건강/식품 없이 의류·가전·컴퓨터·가구·자동차·완구·레저가 있으면 뺀다.
+     상호에 강한 식품 단어(수산·농산·해물…)가 있으면 남긴다 — 도메인은 안 본다(냉열시스템·물산이 farm 으로 살아남았다).
+     레저 + 영농·농원·농업·어촌 = 체험마을이라 뺀다. 「종합몰」·「기타」만 적힌 곳은 품목으로 판단 못 하니 그대로 둔다. */
+  if(ct.indexOf('건강/식품')<0&&/의류|가전|컴퓨터|가구|자동차|완구|레저/.test(ct)
+     &&(!BG_STRONG.test(nm)||(ct.indexOf('레저')>=0&&/영농|농원|농업|어촌/.test(nm))))return true;
   return !(ct.indexOf('건강/식품')>=0||BG_FOOD.test(nm)||BG_FOOD.test(dom));
 }
 function bgRender(){
