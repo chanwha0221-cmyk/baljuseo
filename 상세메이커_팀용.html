@@ -451,7 +451,7 @@ const DM=(function(){
   function parse(src){
     let m=src.match(/class="[^"]*xe_content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<!--AfterDocument/);
     let content=m?m[1]:(src.match(/class="[^"]*xe_content[^"]*"[^>]*>([\s\S]*)/)||[,src])[1];
-    let images=[...content.matchAll(/<img[^>]+src="([^"]+)"/g)].map(x=>x[1].replace('/./','/')).filter(u=>/attach\/images/.test(u));
+    let images=[...content.matchAll(/<img[^>]+src="([^"]+)"/g)].map(x=>x[1].replace('/./','/')).filter(u=>/attach\/images|\/xd\/i\/images\//.test(u));   // 🆕 새 상세 사진 주소(/xd/i/images/…) — 업체용과 같게 2026-11-04
     images=[...new Set(images)];
     let txt=content.replace(/<img[^>]*>/g,'').replace(/<\/p>|<br\s*\/?>|<\/div>|<hr[^>]*>/gi,'\n').replace(/<[^>]+>/g,'');
     txt=decodeEnt(txt);
@@ -720,7 +720,7 @@ const DM=(function(){
            (2026-10-22 업체용에서 「저장됐다고만 뜨고 파일이 없다」 로 확인된 것, 같은 코드라 같이 고침) */
       c.toBlob(function(b){
         if(!b){ alert('이미지를 만들지 못했습니다'); return; }
-        const fn=(DATA.title||'상세').replace(/[\\/:*?"<>|]/g,'')+'_상세.jpg';
+        const fn=(DATA.title||'상세').replace(/[\\/:*?"<>|]/g,'')+(POSTER?'_한장요약.jpg':'_상세.jpg');
         const u=URL.createObjectURL(b), a=document.createElement('a');
         a.href=u; a.download=fn; a.style.display='none';
         document.body.appendChild(a); a.click(); a.remove();
