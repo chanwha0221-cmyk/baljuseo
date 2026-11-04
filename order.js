@@ -2831,14 +2831,20 @@ setInterval(pollClaims, 300000);
 document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(pollClaims, 600); });
 
 // ── 엑셀 양식 · 붙여넣기 ─────────────────────────────────────────
-function template(){
-  const rows = [HEADS, ['', '(카탈로그에 있는 상품명 그대로)', '1', '홍길동', '서울시 ○○구 ○○로 12, 101동 202호', '010-0000-0000', '부재시 경비실']];
-  const csv = '﻿' + rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\r\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
-  a.download = '마스터유통_발주양식.csv';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+/* 📥 발주 양식은 엑셀 통합 문서(.xlsx)로 준다 (홍팀장 2026-11-04 — CSV 말고).
+   예시 줄 문구는 rowsFromCells 가 걸러내는 기준이라 바꾸면 안 된다. */
+async function template(){
+  const rows = [HEADS, ['', '(카탈로그에 있는 상품명 그대로)', 1, '홍길동', '서울시 ○○구 ○○로 12, 101동 202호', '010-0000-0000', '부재시 경비실']];
+  try{
+    const X = await loadXlsx();
+    const ws = X.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:36},{wch:6},{wch:12},{wch:40},{wch:16},{wch:20}];
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, '발주양식');
+    X.writeFile(wb, '마스터유통_발주양식.xlsx');
+  }catch(e){
+    alert('엑셀 양식을 만들지 못했습니다. 새로고침 후 다시 눌러 주세요.');
+  }
 }
 /* ══════════════════════════════════════════════════════════════════
    🔄 업체 양식 그대로 변환 (마스터 대신 발주 전용) — 홍팀장 2026-08-24
