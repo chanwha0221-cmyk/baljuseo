@@ -1736,6 +1736,8 @@ const BG_GIFT_DOM=/gift|goods|souvenir|promo/i;
 function bgNotFood(r){
   const nm=String(r[0]||''), dom=String(r[4]||'');
   if(BG_JUNK.test(nm)&&!BG_STRONG.test(nm))return true;
+  /* 복지·공공 기관 (2026-11-04 홍팀장 — 인천계양지역자활센터 「이새끼들은 왜 넣은거야」). 품목에 건강/식품이 있어도, 상호에 식품 단어가 있어도 뺀다 — 위탁 받아 팔 곳이 아니다. */
+  if(/자활|시니어클럽|보호작업장|직업재활|복지관|사회복지|장애인|학교$|협회|협의회|사단법인|재단법인|\(사\)|\(재\)|공공급식/.test(nm))return true;
   const ct=(BG.cats&&BG.cats[r[8]])||'';
   /* ③ 판촉·기념품 선물몰 (2026-11-03 홍팀장 「yhallgift.kr(연흥상사) 나랑은 상관없는 사이트다」)
      상호는 «상사·물산·유통» 뿐이라 ②의 약한 식품 단어(상사·유통…)에 걸려 살아남았다. 도메인이 gift·goods 인데
