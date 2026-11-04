@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-03a';
+  var QTYB_VER = '2026-11-04a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -1005,6 +1005,29 @@
         return j || {};
       });
   }
+  /* 🚫 「재고 없음으로 이동」 직전에 못 채운 줄을 다시 읽는다 (2026-11-04 홍팀장 연안 활 숫게 x3).
+     대조 때 잔여 0 이라 대기를 걸었고 13:51 에 그 대기로 3개를 받았는데, 판의 hole(3)은 대조 때 값 그대로라 주문이 내려갔다.
+     → 그 사이 받은 몫(mine)·생긴 잔여(left)만큼 hole 을 줄인다. 0 이 되면 내리지 않는다.
+     🔴 못 읽은 줄은 대조 때 값으로 두고 확인창에 알린다. 마감 지남(late)·물건 없는 줄(ghost)은 받은 몫·잔여로 살리지 않는다. */
+  function recheckHoles(holes) {
+    var res = { list: [], saved: [], unread: [] };
+    return holes.reduce(function (p, x) {
+      return p.then(function () {
+        if (x.act === 'late' || x.ghost) { res.list.push({ x: x, qty: x.hole }); return; }
+        return freshRow(x.row).then(function (f) {
+          var avail = Math.max(0, f.mine - (x.used || 0));
+          var left = x.row.locked ? 0 : f.left;
+          var hole = Math.min(x.hole, Math.max(0, x.need - avail - left));
+          if (hole > 0) res.list.push({ x: x, qty: hole });
+          if (hole < x.hole) res.saved.push({ name: x.raw || x.row.name, from: x.hole, to: hole, mine: f.mine, left: left });
+        }, function () {
+          res.list.push({ x: x, qty: x.hole });
+          res.unread.push(x.raw || x.row.name);
+        });
+      });
+    }, Promise.resolve()).then(function () { return res; });
+  }
+
   /* 🔎 실행 직전에 그 줄을 다시 읽는다 — 중복으로 잡거나 두 번 거는 것을 막는 장치.
      do=row 가 그 줄의 «지금» 상태를 준다 : cos(회사별 잡은 값) · waits(대기) · mores(답 안 온 증량요청).
      ⚠️ 긁은 때와 누르는 때 사이에 값이 바뀔 수 있다 — 홍팀장이 손으로 잡았거나, 다른 회사가 가져갔거나.
@@ -3582,12 +3605,27 @@
       if (!holes.length) { alert('못 채운 것이 없습니다 — 내릴 줄이 없습니다.'); return; }
       if (pending && !confirm('아직 «잡을 수 있는데 안 잡은 것» 이 ' + pending + '건 남아 있습니다.\n'
           + '이대로 내리면 그만큼도 「재고 없음」 으로 갑니다.\n\n그래도 내릴까요?')) return;
-      var list = holes.map(function (x) { return { name: (x.raw || x.row.name), qty: x.hole, msg: markMsg(x) }; });
-      if (!confirm((CFG.mark ? '주문 줄 ' + CFG.mark + '열에 처리 메시지를 남깁니다 — ' : '「재고 없음」 으로 내립니다 — ') + list.length + '건\n\n'
-          + list.slice(0, 15).map(function (r) { return '· ' + r.name + ' ' + r.qty + '개' + (CFG.mark ? ' → ' + r.msg : ''); }).join('\n')
-          + (list.length > 15 ? '\n…' : ''))) return;
       var btn = this, old = btn.textContent;
-      btn.disabled = true; btn.textContent = '시트에 보내는 중…';
+      btn.disabled = true; btn.textContent = '수량 다시 확인 중…';
+      recheckHoles(holes).then(function (chk) {
+        var savedTxt = chk.saved.length
+          ? '🟢 그 사이 수량이 생겨 덜 내림 — 잔여가 있는 줄은 다시 대조해서 잡으세요\n'
+            + chk.saved.map(function (s) { return '· ' + s.name + ' ' + s.from + '개 → ' + s.to + '개 (우리 잡음 ' + s.mine + ' · 잔여 ' + s.left + ')'; }).join('\n') + '\n\n'
+          : '';
+        var unreadTxt = chk.unread.length ? '⚠️ 수량을 다시 못 읽어 대조 때 값으로 내림: ' + chk.unread.join(', ') + '\n\n' : '';
+        if (!chk.list.length) {
+          btn.disabled = false; btn.textContent = old;
+          alert(savedTxt + '내릴 줄이 없습니다.');
+          return;
+        }
+        var list = chk.list.map(function (c) { return { name: (c.x.raw || c.x.row.name), qty: c.qty, msg: markMsg(c.x) }; });
+        if (!confirm(savedTxt + unreadTxt + (CFG.mark ? '주문 줄 ' + CFG.mark + '열에 처리 메시지를 남깁니다 — ' : '「재고 없음」 으로 내립니다 — ') + list.length + '건\n\n'
+            + list.slice(0, 15).map(function (r) { return '· ' + r.name + ' ' + r.qty + '개' + (CFG.mark ? ' → ' + r.msg : ''); }).join('\n')
+            + (list.length > 15 ? '\n…' : ''))) { btn.disabled = false; btn.textContent = old; return; }
+        btn.textContent = '시트에 보내는 중…';
+        sendOut(list);
+      });
+      function sendOut(list) {
       sheetPost('out', list).then(function (j) {
         btn.disabled = false;
         btn.textContent = '✅ ' + j.done.length + '건 내림';
@@ -3609,6 +3647,7 @@
         btn.disabled = false; btn.textContent = old;
         alert('시트에 보내지 못했습니다 — ' + (e.message || e));
       });
+      }
     };
   }
 
