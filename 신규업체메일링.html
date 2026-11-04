@@ -1749,6 +1749,9 @@ function bgNotFood(r){
      레저 + 영농·농원·농업·어촌 = 체험마을이라 뺀다. 「종합몰」·「기타」만 적힌 곳은 품목으로 판단 못 하니 그대로 둔다. */
   if(ct.indexOf('건강/식품')<0&&/의류|가전|컴퓨터|가구|자동차|완구|레저/.test(ct)
      &&(!BG_STRONG.test(nm)||(ct.indexOf('레저')>=0&&/영농|농원|농업|어촌/.test(nm))))return true;
+  /* ⑤ 상호가 기계·설비 쪽 (2026-11-04 홍팀장 — 지지푸드시스템 ggkorea.kr 「포장용기 만드는 기계 만드는 회사」).
+     「푸드」·「바다」 같은 약한 단어로 살아남았다. 품목에 건강/식품이 있거나 상호에 강한 식품 단어가 있으면 남긴다. */
+  if(ct.indexOf('건강/식품')<0&&!BG_STRONG.test(nm)&&/시스템|기계|머신|포장용기|포장상회|공업|산업|테크|메카|전기|통신|물류|화학/.test(nm))return true;
   return !(ct.indexOf('건강/식품')>=0||BG_FOOD.test(nm)||BG_FOOD.test(dom));
 }
 function bgRender(){
