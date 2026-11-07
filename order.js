@@ -205,8 +205,8 @@ function applyAlias(rows){
     // ⚖️ 원문 무게와 안 맞는 별칭은 안 붙인다 — 1k 원문이 2kg 상품으로 가는 일을 구조로 막는다(kgClash 참고)
     if(kgClash(raw, hit)) return;
     /* 🐟 삭힘정도·🦴 뼈머리는 업체가 적어 온 것을 살린다 — 후보를 손으로 고를 때와 같은 규칙 */
-    r.name = withBone(withAge(hit, needAge(hit) ? ageOf(raw) : ''), canBone(hit) && hasBone(raw));
-    r._raw = raw;                  // 원문을 들고 있는다 — 다시 고치면 이 이름의 별칭을 갱신해야 한다
+    r.name = withSobun(withBone(withAge(hit, needAge(hit) ? ageOf(raw) : ''), canBone(hit) && hasBone(raw)), needSobun(hit) && hasSobun(raw));
+    r._raw = raw;                 // 원문을 들고 있는다 — 다시 고치면 이 이름의 별칭을 갱신해야 한다
     /* ⚖️ 원문 무게 ÷ 붙인 상품 규격 = 수량 (홍팀장 2026-09-17 — 「. 비만 바다 장어 2k」가 「비만 바다장어 1kg」 1개로 들어갔다).
        후보를 손으로 고를 때는 이 셈을 하는데 **별칭으로 저절로 붙는 길에는 없었다** — 별칭을 넣을수록 수량이 조용히 반이 된다.
        🔴 나눠 떨어질 때만 바꾼다. 규격이 안 적힌 상품(「…선물세트」)은 unit=0 이라 건드리지 않는다.
@@ -367,9 +367,14 @@ const AGE_LEVELS = ['초수','중수','고수','초고수'];
 const AGE_RE = /\s*[\(（]\s*(초고수|초수|중수|고수)\s*[\)）]\s*$/;
 /* 🐟 「연안 대청홍어 200g」 은 삭힘정도 선택이 없는 상품 — 이름 그대로만 나간다 (2026-10-06 홍팀장, (중수)가 붙어 들어옴) */
 const needAge  = nm => /홍어/.test(S(nm)) && !/홍어애|무침|삼합|대청홍어/.test(S(nm));
-const ageOf    = nm => { const m = S(nm).match(AGE_RE); return m ? m[1] : ''; };
+// ✂️ 뒤에 (뼈,머리 포함)·(소분 요청 드립니다)가 붙어 있어도 삭힘정도를 읽고, 바꿀 때 그 괄호들을 살린다
+const ageOf    = nm => { const m = stripBone(nm).match(AGE_RE); return m ? m[1] : ''; };
 const stripAge = nm => S(nm).replace(AGE_RE, '').trim();
-const withAge  = (nm, age) => age ? (stripAge(nm) + ' (' + age + ')') : stripAge(nm);
+const withAge  = (nm, age) => {
+  const bo = hasBone(nm), so = hasSobun(nm), base = stripAge(stripBone(nm));
+  const r = age ? (base + ' (' + age + ')') : base;
+  return withSobun(bo ? (r + ' (' + BONE_TAG + ')') : r, so);
+};
 /* 🦴 민장 민물장어 뼈·머리 (홍팀장 2026-09-11 — "민장창고 민물장어는 머리뼈를 넣어달라고 해야 넣어준다").
    삭힘정도와 같은 방식이다: 고르면 상품명 뒤에 「(뼈,머리 포함)」이 붙어 당일 시트까지 그대로 나가고,
    상품은 괄호를 뗀 정식 이름으로 찾는다. ⚠️ 삭힘정도와 달리 **안 골라도 발주는 된다**(기본은 안 넣음).
@@ -381,21 +386,47 @@ const BONE_TAG   = '뼈,머리 포함';
 const BONE_RE    = /\s*[\(（\[]?\s*(?:뼈\s*[,·/&+]?\s*머리|머리\s*[,·/&+]?\s*뼈)\s*(?:포함|같이|넣어\s*주세요|넣어)?\s*[\)）\]]?\s*$/;
 const BONE_ITEMS = ['갓성비 민물장어 1kg', '통실 민물장어 1kg', '특왕 민물장어 1kg', '프리미엄 민물장어 2kg', '민물장어 1kg'];
 const BONE_SET   = new Set(BONE_ITEMS.map(x => String(x).replace(/\s+/g, '').toLowerCase()));
-const stripBone  = nm => S(nm).replace(BONE_RE, '').trim();
-const hasBone    = nm => BONE_RE.test(S(nm));
-const canBone    = nm => BONE_SET.has(String(stripBone(stripAge(nm))).replace(/\s+/g, '').toLowerCase());
-const withBone   = (nm, on) => on ? (stripBone(nm) + ' (' + BONE_TAG + ')') : stripBone(nm);
+/* ✂️ 소분 요청 (홍팀장 2026-11-06 — 「소분 필요한 상품은 업체가 발주할 때 소분 표기해야 소분된다, 경고 뜨게 /
+   소분 버튼 누르면 뒤에 (소분 요청 드립니다) 들어가게」). 뼈·머리와 같은 방식: 화면 안에선 이름 끝에 들고 다니고,
+   글자로 낼 때는 수량 뒤에 붙는다 → 「상품 x 1 (소분 요청 드립니다)」. 상품은 괄호를 뗀 정식 이름으로 찾는다.
+   대상 = 마스터가 카탈로그 카드 [✂️ 소분 상품]으로 지정한 상품(app_config SOBUN → window.SOBUN_LIST).
+   ⚠️ 안 눌러도 발주는 된다(경고만). 업체가 「소분」「(소분 요청)」처럼 적어 와도 같은 뜻으로 받는다.
+   🔴 순서는 언제나 「이름 (뼈,머리 포함) (소분 요청 드립니다)」 — 소분 괄호가 맨 끝이다. */
+const SOBUN_TAG  = '소분 요청 드립니다';
+const SOBUN_RE   = /\s*[\(（\[]?\s*소분\s*(?:요청)?\s*(?:드립니다|부탁\s*(?:드립니다|해요|합니다)?|해\s*주세요|요망|필요)?\s*[\)）\]]?\s*$/;
+const stripSobun = nm => S(nm).replace(SOBUN_RE, '').trim();
+const hasSobun   = nm => SOBUN_RE.test(S(nm));
+const withSobun  = (nm, on) => on ? (stripSobun(nm) + ' (' + SOBUN_TAG + ')') : stripSobun(nm);
+let SOBUN_SRC = null, SOBUN_SET = new Set();
+function sobunSet(){
+  const a = Array.isArray(window.SOBUN_LIST) ? window.SOBUN_LIST : [];
+  if(a !== SOBUN_SRC){ SOBUN_SRC = a; SOBUN_SET = new Set(a.map(x => String(x || '').replace(/\s+/g, '').toLowerCase()).filter(Boolean)); }
+  return SOBUN_SET;
+}
+const stripBone  = nm => stripSobun(nm).replace(BONE_RE, '').trim();          // ✂️ 소분 괄호도 같이 뗀다(찾기용)
+const hasBone    = nm => BONE_RE.test(stripSobun(nm));
+const canBone    = nm => BONE_SET.has(String(stripAge(stripBone(nm))).replace(/\s+/g, '').toLowerCase());
+const needSobun  = nm => sobunSet().has(String(stripAge(stripBone(nm))).replace(/\s+/g, '').toLowerCase());
+const withBone   = (nm, on) => withSobun(on ? (stripBone(nm) + ' (' + BONE_TAG + ')') : stripBone(nm), hasSobun(nm));
 /* 🦴 발주서 표기는 「특왕 민물장어 1kg x 1 (뼈,머리 포함)」 — 수량 **뒤**에 붙인다 (홍팀장 2026-09-15).
    예전엔 「… 1kg (뼈,머리 포함) x 1」로 나갔다. 화면 안에서는 이름에 붙여 들고 다니고, 글자로 내보낼 때만 뒤로 뺀다.
    🔴 읽어 들이는 곳(발주내역 중복검사·수량수정·서버 이름대조)은 boneBack 으로 **옛/새 표기 둘 다** 같은 상품으로 본다. */
-const itemText   = (nm, qty) => hasBone(nm) ? (stripBone(nm) + ' x ' + qty + ' (' + BONE_TAG + ')') : (S(nm) + ' x ' + qty);
-const boneBack   = s => S(s).replace(/\s*[xX×]\s*(\d+)\s*[\(（]\s*뼈\s*,\s*머리\s*포함\s*[\)）]\s*$/, ' (' + BONE_TAG + ') x $1');
+const itemText   = (nm, qty) => (hasBone(nm) || hasSobun(nm))
+  ? (stripBone(nm) + ' x ' + qty + (hasBone(nm) ? ' (' + BONE_TAG + ')' : '') + (hasSobun(nm) ? ' (' + SOBUN_TAG + ')' : ''))
+  : (S(nm) + ' x ' + qty);
+/* 글자 → 화면: 수량 뒤 괄호(뼈·머리, 소분)를 이름 쪽으로 되돌린다. 수정·중복검사가 이걸로 읽는다. */
+const boneBack   = s => {
+  let t = S(s); const so = /\s*[\(（]\s*소분\s*요청\s*드립니다\s*[\)）]\s*$/.test(t);
+  if(so) t = t.replace(/\s*[\(（]\s*소분\s*요청\s*드립니다\s*[\)）]\s*$/, '');
+  t = t.replace(/\s*[xX×]\s*(\d+)\s*[\(（]\s*뼈\s*,\s*머리\s*포함\s*[\)）]\s*$/, ' (' + BONE_TAG + ') x $1');
+  return so ? t.replace(/\s*[xX×]\s*(\d+)\s*$/, ' (' + SOBUN_TAG + ') x $1') : t;
+};
 /* ✖ 상품명 **끝**에 붙은 배수 — 「특왕 민물장어 1kg*2 (머리뼈포함)」 = 1kg 두 개 (홍팀장 2026-09-11, 아따).
    파일로 읽을 때(headerItems)만 떼던 것을 줄 확인(checkRow)·상품 찾기(findProd)에서도 뗀다 — 표에 그대로
    들어온 줄은 상품도 못 찾고 수량도 안 곱해졌다. 뒤에 (뼈,머리 포함)·(중수)가 붙어 있어도 그걸 걷어내고 본다.
    ⚠️ 「*숫자」「×숫자」가 맨 끝일 때만. 이름 한가운데의 3x4 같은 규격은 건드리지 않는다. */
 const TAIL_MULT_RE = /\s*[*×]\s*(\d{1,3})\s*$/;
-function tailMult(nm){ const m = stripBone(stripAge(S(nm))).match(TAIL_MULT_RE); return m ? (parseInt(m[1], 10) || 0) : 0; }
+function tailMult(nm){ const m = stripAge(stripBone(S(nm))).match(TAIL_MULT_RE); return m ? (parseInt(m[1], 10) || 0) : 0; }
 
 /* 🐟 카탈로그에서 내렸지만 발주는 받아주는 상품 (홍팀장 2026-09-02).
    '몸뱃살'은 뱃살 위주로 나가되 100% 뱃살이 아니다 — 그렇게 커팅이 안 된다고 한다.
@@ -458,7 +489,7 @@ function findProd(raw){
   if(p) return {p, cands:[]};
   const x = stripTailX(t);                                  // ✂️ 「… 15kg x」 꼬리부터 떼고 다시 찾는다
   if(x){ p = hit(x); if(p) return {p, cands:[]}; }
-  const a = stripBone(stripAge(x || t)).replace(TAIL_MULT_RE, '').trim();   // 🐟🦴✖ 삭힘정도·(뼈,머리 포함)·끝의 *2 는 떼고 찾는다
+  const a = stripAge(stripBone(x || t)).replace(TAIL_MULT_RE, '').trim();   // 🐟🦴✖ 삭힘정도·(뼈,머리 포함)·끝의 *2 는 떼고 찾는다
   if(a !== (x || t)){ p = hit(a); if(p) return {p, cands:[]}; }
   const s = stripWh(a);
   if(s){ p = hit(s); if(p) return {p, cands:[]}; }
@@ -471,9 +502,9 @@ function findProd(raw){
       그 길은 건드리지 않는다. 여기서 거르는 건 "골라 담으라고 내미는 목록"뿐이다. */
 /* 🔐 도구로 열어준 상품은 예외에 걸려 있어도 보여준다 (홍팀장 2026-09-10) —
    카탈로그에서 내리려고 예외로 빼둔 물건을 [🔐 업체 전용 상품]으로 다시 연 경우다. */
-/* 🚫 재고 없음(수량 웹 잔여 0) — 카탈로그가 매긴다(isZeroQ). 당일생물은 등록 토글이 기준이라 제외 (2026-09-29 홍팀장). */
-const zeroNow = p => !!p && typeof isZeroQ === 'function' && isZeroQ(p.name)
-  && S(p.group) !== '당일생물' && S(p.effWh) !== '당일생물' && !vonlyOpen(p.name);
+/* 🚫 재고 없음(수량 웹 잔여 0) — 카탈로그가 매긴다(isZeroQ).
+   📞 당일도 막는다 (2026-10-29 홍팀장 「소량은 발주 가능, 재고 문의는 발주 불가」) — 당일은 오늘 잡힌 수량이 다 나간 것(총>0·잔여 0)만 MCZERO 에 들어온다. */
+const zeroNow = p => !!p && typeof isZeroQ === 'function' && isZeroQ(p.name) && !vonlyOpen(p.name);
 const sellable = p => (!(p && typeof isExc === 'function' && isExc(p.name)) || vonlyOpen(p && p.name)) && !zeroNow(p);
 /* 🧑‍💼 마스터(대신 발주)는 재고 없음·예외 상품도 후보·직접 찾기에 띄운다 (2026-10-15 홍팀장 「일단 입력 가능하게 —
    강제로 할지 패스할지 내가 정한다, 수량 구해놓고 직접 발주하는 걸 수도 있잖아」). 고르면 checkRow 가 사유를 띄우고
@@ -620,6 +651,13 @@ function checkRow(r){
     /* 🚫 재고 없음 — 발주도 막는다 (2026-09-29 홍팀장 "0개는 발주도 막는다"). 서버(doSubmit)도 한 번 더 막는다. */
     else if(zeroNow(p))
       why.push(amMaster() ? '🚫 재고 없음 (수량 웹 잔여 0)' : '🚫 재고 없음 — 지금 수량이 없는 상품입니다. 수량 문의: 010-2455-4156 홍찬화 팀장');
+    /* 🧑‍💼 마스터(대신 발주)는 재고 없음으로 막지 않는다 (2026-11-03 홍팀장 「발주 넣을 때는 수량 신경 쓰지 말고
+       일단 넣으라고 했지, 내가 보고 넣는데 왜 막냐」). 알려만 주고 그대로 넣는다 — 서버로도 승인 목록에 실어 보낸다.
+       🚫 예외(오늘 판매 안 함)는 그대로 [✅ 발주 승인]을 거친다. 업체 화면은 예전대로 막는다. */
+    if(amMaster() && why.length && !(typeof isExc === 'function' && isExc(p.name) && !vonlyOpen(p.name))){
+      warns.push('ℹ️ 수량 웹 잔여 0 — 마스터 발주라 그대로 넣습니다');
+      why.length = 0;
+    }
     if(why.length){
       if(apprOk(p)) warns.push('✅ 마스터 승인으로 넣습니다 — ' + why.join(' · '));
       else errs.push(why.join(' · ') + (amMaster() ? ' — 그래도 넣으려면 [✅ 발주 승인]' : ''));
@@ -637,6 +675,11 @@ function checkRow(r){
      조용히 떼어 버리면 업체는 넣어 달라고 한 줄 알고 기다린다. */
   if(p && hasBone(r.name) && !canBone(p.name))
     warns.push('🦴 「뼈·머리 포함」은 민장 민물장어(갓성비·통실·특왕 1kg, 프리미엄 2kg, 민물장어 1kg)만 됩니다 — 이 상품은 빼고 넣습니다.');
+  /* ✂️ 소분 상품인데 소분 요청이 없으면 경고 — 막지는 않는다. 소분 상품이 아닌데 적어 왔으면 빠진다는 걸 말한다. */
+  if(p && needSobun(p.name) && !hasSobun(r.name))
+    warns.push('✂️ 소분 필요한 상품입니다 — 발주에 소분 요청을 표기하셔야 소분됩니다. 아래 [✂️ 소분 요청]을 눌러주세요.');
+  if(p && hasSobun(r.name) && !needSobun(p.name))
+    warns.push('✂️ 이 상품은 소분 대상이 아니라 「소분 요청」은 빼고 넣습니다.');
   // 🐟 카탈로그에서 내린 상품을 받아주는 경우 — 무엇을 감안하는 것인지 그 자리에서 알린다
   if(p && p.offcat) warns.push('ℹ️ ' + (p.note || (p.vonly ? VONLY_NOTE : OFFCAT_NOTE)));
   // 카탈로그에도 이름이 있는 상품을 도구로 열어둔 경우(=예외로 빼둔 것을 다시 연 것)도 같은 안내
@@ -708,13 +751,20 @@ function buildOut(){
     const c = checkRow(r);
     if(c.errs.length || !c.p) return;
     const wh = whOf(c.p);
-    const key = [S(r.biz), D(r.otel), S(r.rcv), addrKey(r.addr), D(r.tel), wh].join('');
+    /* 🔴 묶는 열쇠는 **발주서에 실제로 나가는 값**으로 (2026-10-27 다정한공간 O261027-007 — 알도루묵·양미리가 한 집인데 두 줄).
+       아래 put 은 자기 업체명 송장명을 비우고, 빈 주문처 연락처를 출고지·계정 번호로 채운다. 그런데 열쇠는 원본 칸을 봐서
+       「한 줄은 연락처 빈칸 / 한 줄은 계정 번호」 같은 차이만으로 다른 집으로 갈렸다 — 시트엔 똑같이 찍히는데 합포장이 안 됐다. */
+    const kBiz = (S(r.biz) && pkey(r.biz) === pkey(me.name)) ? '' : S(r.biz);
+    const kSh = kBiz ? shipOf(kBiz) : null;
+    const kOtel = D(r.otel) || ((kBiz && vflag('emptyOtel') === 'rcv') ? D(r.tel) : '') || D(kSh && kSh.phone) || D(me.phone);
+    const key = [pkey(kBiz), kOtel, S(r.rcv), addrKey(r.addr), D(r.tel), wh].join('');
     if(!groups.has(key)) groups.set(key, {biz:S(r.biz), otel:S(r.otel), rcv:S(r.rcv), addr:S(r.addr), tel:S(r.tel), msg:'', wh, items:[]});
     const g = groups.get(key);
     /* 🐟 발주서에 나가는 이름 = 카탈로그 정식 이름 + 고른 삭힘정도.
        합포장 한도·합포장 불가 판정은 괄호 없는 정식 이름(base)으로 봐야 한다 — 괄호가 붙으면 못 찾는다. */
     // 🦴 민장 민물장어는 (뼈,머리 포함)을 골랐으면 그 괄호도 달고 나간다 — 합포장·한도는 여전히 정식 이름(base)으로
-    g.items.push({name:withBone(withAge(c.p.name, needAge(c.p.name) ? ageOf(r.name) : ''), canBone(c.p.name) && hasBone(r.name)), base:c.p.name, qty:c.qty, lim:hapLimit(c.p.name), free:isFreeShip(c.p)});
+    // ✂️ 소분 상품은 (소분 요청 드립니다)를 눌렀으면 그 괄호도 — 소분 상품이 아니면 뗀다(checkRow 가 알린다)
+    g.items.push({name:withSobun(withBone(withAge(c.p.name, needAge(c.p.name) ? ageOf(r.name) : ''), canBone(c.p.name) && hasBone(r.name)), needSobun(c.p.name) && hasSobun(r.name)), base:c.p.name, qty:c.qty, lim:hapLimit(c.p.name), free:isFreeShip(c.p)});
     if(S(r.msg) && !g.msg) g.msg = S(r.msg);
     else if(S(r.msg) && g.msg && g.msg !== S(r.msg)) notes.push((i+1) + '번 행: 같은 배송지에 배송메시지가 둘이라 첫 번째 것만 넣었습니다.');
   });
@@ -1026,32 +1076,72 @@ let EDIT = false;   // 주문처 정보 수정 중인가
    고르면 그 사업자가 **정산업체**로 들어간다(송장명 칸과 다르다). 목록은 서버 ALT_BIZ, 마스터가 계정관리에서 고친다.
    🔴 발주를 넣으면 기본(로그인 업체)으로 되돌린다 — 다음 발주가 엉뚱한 사업자로 정산되지 않게(대신 발주의 FOR 와 같은 규칙). */
 let ALTS = [], ASBIZ = '';
-const ALT_NOTICE = '이 기능은 추가로 사업자 등록을 하신 업체만 사용할 수 있습니다.\n사용 전에 담당자에게 먼저 문의 주세요. (010-2455-4156 홍찬화 팀장)';
+/* 🔁 고른 사업자는 계속 간다 (2026-10-30 홍팀장 — 강씨네밥상 kangsfood99). 처음 발주할 때 «이 사업자로 발주 맞으실까요?»로
+   한 번 고르면 이 브라우저에 기억해서 다음 발주도 그 사업자로 나간다. 바꾸려면 위 「발주 사업자」 칸에서.
+   (09-30 엔 발주 뒤 기본으로 되돌렸다 — 지금은 사업자마다 따로 쓰는 업체라 매번 고르게 하면 더 헷갈린다.)
+   ➕ 사업자 추가는 **마스터만**(계정관리) — 업체 화면엔 «담당자에게 요청» 안내만. */
+const ALT_PICK_KEY = 'ord_asbiz_v1';
+function altPickGet(){ try{ const m = JSON.parse(localStorage.getItem(ALT_PICK_KEY) || '{}'); return (ME && m[ME.id] != null) ? m[ME.id] : null; }catch(e){ return null; } }
+function altPickSet(v){ try{ const m = JSON.parse(localStorage.getItem(ALT_PICK_KEY) || '{}'); m[ME.id] = v; localStorage.setItem(ALT_PICK_KEY, JSON.stringify(m)); }catch(e){} }
 async function loadAlts(){
   try{
     const j = await api('altbiz', {token: ME.token});
     ALTS = (j && j.list) || [];
+    const saved = altPickGet();
+    if(saved != null) ASBIZ = saved;
     if(ASBIZ && !ALTS.some(a => pkey(a.name) === pkey(ASBIZ))) ASBIZ = '';
     const box = document.getElementById('ordme');
     if(box && !EDIT){ box.outerHTML = meCard(); if(window.__bindMe) window.__bindMe(); }
   }catch(e){}
 }
 function altOf(){ return ASBIZ ? ALTS.find(a => pkey(a.name) === pkey(ASBIZ)) || null : null; }
+function bizNow(){ const a = altOf(); return a ? a.name : ((typeof ME !== 'undefined' && ME) ? ME.name : ''); }
+/* 🏢 «이 사업자로 발주 맞으실까요?» — 버튼으로 고른다. 고르면 기억(altPickSet). 닫으면 null(발주 안 넣음). */
+function chooseBiz(){
+  return new Promise(res => {
+    const base = (typeof ME !== 'undefined' && ME) ? ME.name : '';
+    const opts = [{v: '', n: base, t: '기본'}].concat(ALTS.map(a => ({v: a.name, n: a.name, t: ''})));
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:18px 18px 14px;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
+      + '<div style="font-weight:800;font-size:16px;margin-bottom:4px">🏢 이 사업자로 발주 맞으실까요?</div>'
+      + '<div style="font-size:12.5px;color:#666;margin-bottom:12px">고르신 사업자로 정산·계산서가 나갑니다. 한 번 고르시면 다음 발주에도 계속 이 사업자로 들어가고, 위 「발주 사업자」 칸에서 언제든 바꾸실 수 있습니다.</div>'
+      + opts.map((o, i) => '<button data-i="' + i + '" style="display:block;width:100%;text-align:left;padding:11px 12px;margin:6px 0;border:1.5px solid ' + (pkey(o.v) === pkey(ASBIZ) ? '#2b5cd6' : '#ddd') + ';border-radius:8px;background:#fafafa;font-size:14px;cursor:pointer">'
+          + esc(o.n) + (o.t ? ' <span style="color:#888;font-size:12px">(' + o.t + ')</span>' : '') + '</button>').join('')
+      + '<div style="text-align:right;margin-top:8px"><button data-x="1" style="padding:7px 14px;border:0;background:#eee;border-radius:6px;cursor:pointer">취소</button></div></div>';
+    document.body.appendChild(ov);
+    ov.onclick = e => {
+      const b = e.target.closest('button');
+      if(!b && e.target !== ov) return;
+      ov.remove();
+      if(!b || b.dataset.x){ res(null); return; }
+      const o = opts[+b.dataset.i];
+      ASBIZ = o.v; altPickSet(o.v); res(o.v);
+    };
+  });
+}
 function altRow(){
   const base = (typeof ME !== 'undefined' && ME) ? ME.name : '';
   return '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line,#e5e2dc)">'
-    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     + (ALTS.length
-        ? '<span class="k" style="font-size:11.5px;color:var(--muted)">발주 사업자</span>'
+        ? '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+          + '<span class="k" style="font-size:11.5px;color:var(--muted)">발주 사업자</span>'
           + '<select class="ordin" id="ord_asbiz" style="width:auto;min-width:160px">'
           + '<option value="">' + esc(base) + ' (기본)</option>'
           + ALTS.map(a => '<option value="' + esc(a.name) + '"' + (pkey(a.name) === pkey(ASBIZ) ? ' selected' : '') + '>' + esc(a.name) + '</option>').join('')
-          + '</select>'
+          + '</select></div>'
+          /* ☎️ 추가 사업자 연락처는 업체가 직접 (2026-10-30 홍팀장) — 비우면 기본(로그인 업체) 연락처로 나간다 */
+          + (altOf()
+              ? '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">'
+                + '<span class="k" style="font-size:11.5px;color:var(--muted)">' + esc(altOf().name) + ' 연락처</span>'
+                + '<input class="ordin" id="ord_altph" style="width:150px" inputmode="tel" value="' + esc(altOf().phone || '') + '" placeholder="' + esc((ME && ME.phone) || '') + '">'
+                + '<button class="ordb2" id="ord_altphsave" style="padding:4px 10px;font-size:12px">저장</button>'
+                + '<span class="hint" id="ord_altphmsg">' + (altOf().phone ? '' : '비우면 기본 연락처로 나갑니다') + '</span></div>'
+              : '')
+          + '<div class="hint" style="margin-top:6px">고르신 사업자로 <b>정산·계산서</b>가 나가고, 다음 발주에도 계속 유지됩니다. '
+          + '송장에 다른 이름을 찍는 기능이 아닙니다 — 그건 아래 발주서 맨 앞 <b>업체명</b> 칸에 적으세요.</div>'
         : '')
-    + '<button class="ordb2" id="ord_altadd" style="padding:4px 10px;font-size:12px">➕ 사업자 추가</button>'
-    + '</div>'
-    + '<div class="hint" style="margin-top:6px">⚠️ <b>추가로 사업자 등록을 하신 업체만</b> 사용할 수 있습니다. 사용 전에 <b>담당자에게 먼저 문의</b> 주세요. (010-2455-4156 홍찬화 팀장)<br>'
-    + '송장에 다른 이름을 찍는 기능이 아닙니다 — 그건 아래 발주서 맨 앞 <b>업체명</b> 칸에 적으세요.</div>'
+    + '<div class="hint" style="margin-top:6px">🏢 사업자를 여러 개 쓰시나요? <b>사업자 추가는 담당자에게 요청</b>해 주세요. (010-2455-4156 홍찬화 팀장)</div>'
     + '</div>';
 }
 function meCard(){
@@ -1448,7 +1538,8 @@ function rowHtml(r, i){
     + '<td><button class="orddel" data-del="' + i + '" title="이 줄 삭제">✕</button></td></tr>';
   const askAge = c.p && needAge(c.p.name);        // 🐟 홍어 줄은 고른 뒤에도 단계를 바꿀 수 있게 계속 펼쳐 둔다
   const askBone = c.p && canBone(c.p.name);       // 🦴 민장 민물장어 줄도 뼈·머리를 고를 수 있게 펼쳐 둔다
-  if(filled && (c.errs.length || c.warns.length || askAge || askBone || (OPEN === i && c.cands.length))){
+  const askSobun = c.p && needSobun(c.p.name);    // ✂️ 소분 상품 줄은 소분 요청을 넣고 뺄 수 있게 펼쳐 둔다
+  if(filled && (c.errs.length || c.warns.length || askAge || askBone || askSobun ||(OPEN === i && c.cands.length))){
     h += '<tr class="' + (bad ? 'bad' : '') + '"><td></td><td colspan="7" style="padding-top:0">';
     if(c.errs.length) h += '<div class="orderr">⚠️ ' + c.errs.map(esc).join('<br>⚠️ ') + '</div>';
     if(c.warns.length) h += '<div class="ordwarn">' + c.warns.map(esc).join('<br>') + '</div>';
@@ -1472,6 +1563,14 @@ function rowHtml(r, i){
         + '<div class="ordcand">'
         + '<button class="ordb2' + (on ? ' pri' : '') + '" data-bone="1" data-i="' + i + '" style="margin:3px 5px 0 0">🦴 뼈·머리 포함</button>'
         + '<button class="ordb2' + (on ? '' : ' pri') + '" data-bone="0" data-i="' + i + '" style="margin:3px 5px 0 0">빼기 (기본)</button>'
+        + '</div>';
+    }
+    /* ✂️ 소분 요청 — 누르면 상품명 뒤에 「(소분 요청 드립니다)」가 붙어 발주서에 「… x 1 (소분 요청 드립니다)」로 나간다 */
+    if(askSobun){
+      const on = hasSobun(r.name);
+      h += '<div class="ordcand">'
+        + '<button class="ordb2' + (on ? ' pri' : '') + '" data-sobun="1" data-i="' + i + '" style="margin:3px 5px 0 0">✂️ 소분 요청' + (on ? ' ✓' : '') + '</button>'
+        + (on ? '<button class="ordb2" data-sobun="0" data-i="' + i + '" style="margin:3px 5px 0 0">소분 안 함</button>' : '')
         + '</div>';
     }
     if(!c.p && S(r.name)){
@@ -1756,9 +1855,16 @@ async function submit(){
         + '\n\n이 수량이 맞으면 [확인],\n잘못 담으신 것이면 [취소] 후 그 줄을 지워주세요.')) return;
     }
   }
+  /* 🏢 사업자가 여럿인 업체 — 아직 안 골랐으면 여기서 «이 사업자로 발주 맞으실까요?» */
+  if(!master && ALTS.length && altPickGet() == null){
+    const got = await chooseBiz();
+    if(got == null) return;
+    const mb = document.getElementById('ordme');
+    if(mb && window.__bindMe){ mb.outerHTML = meCard(); window.__bindMe(); }
+  }
   const ask = master
     ? ('[' + FOR.name + '] 발주 ' + items.length + '건을 넣고 당일 시트로 바로 보낼까요?\n\n보낸 뒤에는 그 줄을 고치거나 취소할 수 없습니다.')
-    : (items.length + '건을 발주로 넣을까요?\n\n넣으신 뒤에도 저희가 처리에 들어가기 전까지는 취소하실 수 있습니다.');
+    : ((ALTS.length ? '🏢 발주 사업자: ' + bizNow() + '\n\n' : '') + items.length + '건을 발주로 넣을까요?\n\n넣으신 뒤에도 저희가 처리에 들어가기 전까지는 취소하실 수 있습니다.');
   if(!confirm(ask)) return;
   sb.disabled = true; sb.textContent = '보내는 중…'; if(msg) msg.textContent = '';
   try{
@@ -1770,7 +1876,16 @@ async function submit(){
       req.forName = FOR.name; req.forAddr = outAddr(FOR.name, FOR.addr); req.forPhone = FOR.phone || '';
       req.andPush = true;
       const ap = Object.keys(APPROVED).map(k => APPROVED[k]);
-      if(ap.length) req.approved = ap;              // ✅ 마스터 승인 — 서버도 이 이름만 재고 없음 검사에서 뺀다
+      /* 🧑‍💼 마스터 발주는 재고 없음 검사를 통째로 건너뛴다 (2026-11-03 홍팀장) — 서버(Edge doSubmit)는
+         승인 목록에 든 이름만 재고 0 검사에서 빼므로, 이번 발주의 상품 이름을 전부 실어 보낸다.
+         화면의 재고 표시와 서버의 수량 웹 잔여가 어긋나도(화면 «정상»인데 서버가 막던 사고) 마스터는 안 막힌다. */
+      items.forEach(it => S(it.prod).split(' / ').forEach(part => {
+        const nm = S(part).replace(/\s*[xX×]\s*\d+.*$/, '');
+        if(nm && ap.indexOf(nm) < 0) ap.push(nm);
+        const fp = nm ? findProd(nm).p : null;
+        if(fp && ap.indexOf(fp.name) < 0) ap.push(fp.name);
+      }));
+      if(ap.length) req.approved = ap;              // ✅ 마스터 승인 — 서버도 이 이름은 재고 없음 검사에서 뺀다
     } else if(altOf()) req.asBiz = altOf().name;   // 🏢 추가 사업자로 넣기
     /* 🔴 같은 발주가 두 번 들어가는 것을 서버가 막으면 `dup` 으로 돌아온다 (2026-08-26).
        조용히 넘어가지도, 조용히 또 넣지도 않는다 — 이미 접수된 발주번호를 보여주고 사람이 정한다. */
@@ -1803,11 +1918,7 @@ async function submit(){
       FOR = null; saveFor();
       const fb = document.getElementById('ordfor');
       if(fb){ fb.outerHTML = forCard(); bindFor(); }
-    } else if(ASBIZ){
-      ASBIZ = '';                                   // 🏢 다음 발주는 기본 사업자로
-      const mb = document.getElementById('ordme');
-      if(mb && window.__bindMe){ mb.outerHTML = meCard(); window.__bindMe(); }
-    }
+    }                                               // 🏢 고른 사업자는 그대로 둔다(2026-10-30) — 다음 발주도 같은 사업자
     paint();
     if(master){
       const p = j.push || {};
@@ -2360,6 +2471,26 @@ function qtyCells(no, r){
         + '" data-name="' + esc(p.name) + '" inputmode="numeric" value="' + esc(p.qty) + '">' : '')
     + '</span>').join('');
 }
+/* 📦 합포장 후보 = 아직 접수인 줄 중 받는분·주소·연락처(+송장명·주문처 연락처)가 같은 줄이 2개 이상 (2026-10-27 홍팀장).
+   서버 doMerge 와 같은 열쇠. 몇 줄이 합쳐지는지 돌려준다(0이면 버튼 없음). */
+function mergeable(list){
+  const m = new Map();
+  list.filter(r => r.state === '접수').forEach(r => {
+    const k = [S(r.biz), D(r.otel), S(r.rcv).replace(/\s+/g, ''), S(r.addr).replace(/\s+/g, ''), D(r.tel)].join('\u0001');
+    if(!m.has(k)) m.set(k, []);
+    m.get(k).push(r);
+  });
+  /* 🔴 같은 상품이 여러 줄 = 박스 한도·무료배송으로 일부러 나눈 줄 → 후보에서 뺀다 (O261027-023 홍가리비 x 10 × 13줄을 띄웠다).
+     무료배송은 서버(doMerge)가 한 번 더 뺀다. */
+  const nm = p => pkey(S(p).replace(/\s*[xX×]\s*\d+.*$/, ''));
+  let n = 0;
+  m.forEach(g => {
+    const cnt = {}; g.forEach(r => { const k = nm(r.prod); cnt[k] = (cnt[k] || 0) + 1; });
+    const ok = g.filter(r => S(r.prod).indexOf(' / ') >= 0 || cnt[nm(r.prod)] === 1);
+    if(ok.length > 1) n += ok.length - 1;
+  });
+  return n;
+}
 function orderCard(no, list, master){
   let h = '';
   {
@@ -2407,6 +2538,7 @@ function orderCard(no, list, master){
           ? (sent
               ? '<button class="ordb2 done" disabled>✅ 당일 시트로 보냈습니다</button>'
               : (live.length ? '<button class="ordb2 pri" data-opush="' + esc(no) + '">📤 당일 시트로 보내기</button>' : ''))
+            + (!sent && mergeable(list) ? '<button class="ordb2" data-omerge="' + esc(no) + '" title="받는분·주소·연락처가 같은 접수 줄을 한 줄(A x 2 / B x 1)로 합칩니다">📦 합포장</button>' : '')
           : '')
       + (EDIT_NO === no
           ? '<button class="ordb2 pri" data-osave="' + esc(no) + '">💾 수정 완료</button>'
@@ -2745,14 +2877,20 @@ setInterval(pollClaims, 300000);
 document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(pollClaims, 600); });
 
 // ── 엑셀 양식 · 붙여넣기 ─────────────────────────────────────────
-function template(){
-  const rows = [HEADS, ['', '(카탈로그에 있는 상품명 그대로)', '1', '홍길동', '서울시 ○○구 ○○로 12, 101동 202호', '010-0000-0000', '부재시 경비실']];
-  const csv = '﻿' + rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\r\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
-  a.download = '마스터유통_발주양식.csv';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+/* 📥 발주 양식은 엑셀 통합 문서(.xlsx)로 준다 (홍팀장 2026-11-04 — CSV 말고).
+   예시 줄 문구는 rowsFromCells 가 걸러내는 기준이라 바꾸면 안 된다. */
+async function template(){
+  const rows = [HEADS, ['', '(카탈로그에 있는 상품명 그대로)', 1, '홍길동', '서울시 ○○구 ○○로 12, 101동 202호', '010-0000-0000', '부재시 경비실']];
+  try{
+    const X = await loadXlsx();
+    const ws = X.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:36},{wch:6},{wch:12},{wch:40},{wch:16},{wch:20}];
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, '발주양식');
+    X.writeFile(wb, '마스터유통_발주양식.xlsx');
+  }catch(e){
+    alert('엑셀 양식을 만들지 못했습니다. 새로고침 후 다시 눌러 주세요.');
+  }
 }
 /* ══════════════════════════════════════════════════════════════════
    🔄 업체 양식 그대로 변환 (마스터 대신 발주 전용) — 홍팀장 2026-08-24
@@ -3020,9 +3158,9 @@ function headerItems(raw){
        배수로 안 쓰면 절반만 나간다(전체 규칙 「옵션 배수 × 수량」과 같은 셈). 뒤에 (뼈,머리 포함)이 붙어 있어도 뗀다.
        ⚠️ 「*숫자」「×숫자」가 맨 끝일 때만 — 이름 한가운데의 3x4 같은 규격은 건드리지 않는다. */
     let nmMult = 0;
-    { const bone = hasBone(nm), core = bone ? stripBone(nm) : nm;
+    { const bone = hasBone(nm), so = hasSobun(nm), core = (bone || so) ? stripBone(nm) : nm;
       const tm = core.match(/\s*[*×]\s*(\d{1,3})\s*$/);
-      if(tm){ nmMult = parseInt(tm[1], 10) || 0; nm = withBone(core.slice(0, tm.index).trim(), bone); } }
+      if(tm){ nmMult = parseInt(tm[1], 10) || 0; nm = withSobun(withBone(core.slice(0, tm.index).trim(), bone), so); } }
     // 🐟 홍어면 어느 칸에 적혀 있든 삭힘정도를 찾아 이름 뒤에 붙인다 (전체 규칙)
     if(needAge(nm) && !ageOf(nm)){
       const age = ageFromOpt(fin) || ageFromOpt(op);
@@ -3668,20 +3806,17 @@ function bind(){
   function bindMe(){
     window.__bindMe = bindMe;
     const sel = $$('ord_asbiz');
-    if(sel) sel.onchange = () => { ASBIZ = sel.value; redrawMe(); paint(); };
-    const ad = $$('ord_altadd');
-    if(ad) ad.onclick = async () => {
-      if(!confirm(ALT_NOTICE + '\n\n담당자와 이야기가 되셨으면 [확인]을 눌러 사업자를 추가하세요.')) return;
-      const nm = S(prompt('추가할 사업자명 (사업자등록증의 상호 그대로)') || '');
-      if(!nm) return;
-      const ph = S(prompt('이 사업자의 주문처 연락처 (비우면 지금 연락처를 씁니다)') || '');
+    if(sel) sel.onchange = () => { ASBIZ = sel.value; altPickSet(sel.value); redrawMe(); paint(); toast('발주 사업자: ' + bizNow() + ' — 다음 발주에도 유지됩니다'); };
+    const aps = $$('ord_altphsave');
+    if(aps) aps.onclick = async () => {
+      const a = altOf(); if(!a) return;
+      const msg = $$('ord_altphmsg');
       try{
-        const j = await api('altbizadd', {token: ME.token, name: nm, phone: ph});
+        const j = await api('altbizphone', {token: ME.token, name: a.name, phone: S($$('ord_altph').value)});
         ALTS = (j && j.list) || ALTS;
-        if(ALTS.some(a => pkey(a.name) === pkey(nm))) ASBIZ = nm;
         redrawMe(); paint();
-        toast('사업자를 추가했습니다 — 지금 ' + nm + ' 로 발주합니다');
-      }catch(e){ alert(e.message || '추가하지 못했습니다'); }
+        toast(a.name + ' 연락처를 저장했습니다');
+      }catch(e){ if(msg) msg.textContent = e.message || '저장하지 못했습니다'; }
     };
     const ed = $$('ord_edit');
     if(ed) ed.onclick = () => { EDIT = true; redrawMe(); };
@@ -3787,6 +3922,16 @@ document.addEventListener('click', e => {
     }
     return;
   }
+  /* ✂️ 소분 요청 넣기/빼기 — 이름 끝 「(소분 요청 드립니다)」만 갈아 끼운다 (홍팀장 2026-11-06) */
+  const sb = e.target.closest && e.target.closest('[data-sobun]');
+  if(sb){
+    const i = +sb.getAttribute('data-i');
+    if(ROWS[i]){
+      ROWS[i].name = withSobun(S(ROWS[i].name), sb.getAttribute('data-sobun') === '1');
+      saveDraft(); paint();
+    }
+    return;
+  }
   const pick = e.target.closest && e.target.closest('[data-pick]');
   if(pick){
     const i = +pick.getAttribute('data-i');
@@ -3823,8 +3968,9 @@ document.addEventListener('click', e => {
       // 🐟 업체가 적어 온 삭힘정도는 상품을 바꿔도 살린다 — 여기서 날아가던 것이었다 (홍팀장 2026-09-02)
       hit.forEach(j => {
         // 🦴 (뼈,머리 포함) 도 같은 식으로 살린다 — 카드에서 「뼈·머리 포함」을 골랐거나 원래 적혀 있었으면
-        ROWS[j].name = withBone(withAge(nm, needAge(nm) ? ageOf(S(ROWS[j].name)) : ''),
-                                canBone(nm) && (hasBone(nm) || hasBone(S(ROWS[j].name))));
+        ROWS[j].name = withSobun(withBone(withAge(nm, needAge(nm) ? ageOf(S(ROWS[j].name)) : ''),
+                                canBone(nm) && (hasBone(nm) || hasBone(S(ROWS[j].name)))),
+                                needSobun(nm) && (hasSobun(nm) || hasSobun(S(ROWS[j].name))));   // ✂️ 적어 온 소분 요청도 살린다
         delete FIND[j];
       });
       // 🏷 고른 선택을 업체 별칭으로 남긴다 — 다음에 같은 이름이 오면 저절로 이 상품이 된다
@@ -3937,6 +4083,17 @@ document.addEventListener('click', e => {
       .catch(err => { alert(err.message || '보내지 못했습니다'); op.disabled = false; op.textContent = '📤 당일 시트로 보내기'; });
     return;
   }
+  /* 📦 합포장 — 같은 집으로 가는 접수 줄을 한 줄로. 나머지 줄은 서버가 취소+메모로 남긴다 (2026-10-27 홍팀장) */
+  const omg = e.target.closest && e.target.closest('[data-omerge]');
+  if(omg){
+    const no = omg.getAttribute('data-omerge');
+    if(!confirm('📦 ' + no + '\n\n받는분·주소·연락처가 같은 접수 줄을 한 줄로 합칩니다 (A x 2 / B x 1).\n합쳐진 나머지 줄은 취소로 남습니다.\n\n창고가 다른 상품이면 합포장이 안 됩니다 — 확인하셨나요?')) return;
+    omg.disabled = true; omg.textContent = '합치는 중…';
+    api('merge', {token: ME.token, orderNo: no})
+      .then(j => { toast('📦 ' + no + ' — ' + (j.lines || []).join(' · ')); reloadOrders(); })
+      .catch(err => { alert(err.message || '합치지 못했습니다'); omg.disabled = false; omg.textContent = '📦 합포장'; });
+    return;
+  }
   /* 📤 한번에 보내기 — 묶음마다 [📤 당일 시트로 보내기]를 누른 것과 똑같이 하나씩 차례로 보낸다.
      동시에 쏘지 않는다(시트 줄이 엉키지 않게). 보낸 묶음은 서버가 완료로 잠가 업체 화면에도 🔒·발주 확인됨으로 뜬다. */
   const opa = e.target.closest && e.target.closest('[data-opushall]');
@@ -4004,7 +4161,7 @@ document.addEventListener('click', e => {
       const prod = qs.length ? qs.map(q => itemText(q.getAttribute('data-name'), S(q.value))).join(' / ') : undefined;
       return {seq, prod, rcv:g('rcv'), addr:g('addr'), tel:(fmtTel(g('tel')) || S(g('tel'))), msg:g('msg')};
     });
-    const badQ = edits.find(x => x.prod !== undefined && !/^(.+ x [1-9]\d*( \(뼈,머리 포함\))?)( \/ .+ x [1-9]\d*( \(뼈,머리 포함\))?)*$/.test(x.prod));
+    const badQ = edits.find(x => x.prod !== undefined && !/^(.+ x [1-9]\d*( \(뼈,머리 포함\))?( \(소분 요청 드립니다\))?)( \/ .+ x [1-9]\d*( \(뼈,머리 포함\))?( \(소분 요청 드립니다\))?)*$/.test(x.prod));
     if(badQ){ alert('수량은 1 이상 숫자로 넣어주세요.'); return; }
     const bad = edits.find(x => !x.rcv || !x.addr || !x.tel);
     if(bad){ alert('성함 · 주소 · 연락처는 비울 수 없습니다.'); return; }

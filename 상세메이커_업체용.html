@@ -7,6 +7,7 @@
 <link rel="icon" href="data:,">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@900&family=Black+Han+Sans&display=swap">
 <style id="dm-style">
 @font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFLight.ttf') format('truetype');font-weight:300;font-display:swap}
 @font-face{font-family:'Gmarket';src:url('fonts/GmarketSansTTFMedium.ttf') format('truetype');font-weight:500;font-display:swap}
@@ -289,7 +290,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <input id="dm-prodname" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="소스 생성하면 자동 입력 (직접 수정 가능)" oninput="DM.setProd()">
       <div class="dm-h3">② 브랜드명 <span style="font-weight:400;color:#aaa;font-size:11px">(헤더·푸터 공통)</span></div>
       <input id="dm-brand" style="width:100%;border:1px solid #ccc;border-radius:6px;padding:9px;font-family:inherit" placeholder="예: 주식회사 마스터" oninput="DM.render()">
-      <div class="dm-h3">③ 사진 선택 <span style="font-weight:400;color:#aaa;font-size:11px">(클릭 on/off · 드래그 순서 · 첫장 히어로)</span></div>
+      <div class="dm-h3">③ 사진 선택 <span style="font-weight:400;color:#aaa;font-size:11px">(클릭 on/off · 드래그 순서 · 1번=실물 · 3번=히어로 · 끝 2장=중량·포장)</span></div>
       <button class="dm-mb" style="border-color:#0d6efd;color:#0d6efd;margin-bottom:6px" onclick="document.getElementById('dm-file').click()">＋ 내 사진 추가 (당일·최근 사진)</button>
       <button class="dm-mb" style="border-color:#2C7A4B;color:#2C7A4B;margin-bottom:6px" onclick="DM.dedupCurrent()">🧹 비슷한 사진 자동 거르기</button>
       <input type="file" id="dm-file" accept="image/*" multiple style="display:none" onchange="DM.addFiles(this.files); this.value='';">
@@ -316,6 +317,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
         <span class="dm-sp"></span>
         <!-- 🎨 검은 바(#161616) 위인데 글씨가 #444 라 안 보였다 (홍팀장 2026-09-03). 밝은 색으로. -->
         <label style="font-size:12px;color:#e8e8e8;font-weight:700;display:flex;align-items:center;gap:5px;margin-right:6px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="dm-notice-on" onchange="DM.toggleNotice()" style="accent-color:#2BB3A3;width:15px;height:15px;cursor:pointer"> 제품 상세 정보</label>
+        <button class="dm-ab" style="background:#7a4a2e" id="dm-posterb" onclick="DM.togglePoster()">🪧 한 장 요약 보기</button>
         <button class="dm-ab" style="background:#555" id="dm-edb" onclick="DM.toggleEdit()">✏️ 수정</button>
         <button class="dm-ab" style="background:#2C7A4B" onclick="DM.copyHtml()">📋 HTML 복사</button>
         <button class="dm-ab" style="background:#C0392B" onclick="DM.saveJpg('single')" title="전체를 JPG 한 장으로 (아주 길면 모바일에서 안 보일 수 있어요)">🖼️ JPG 한 장</button>
@@ -374,6 +376,7 @@ document.addEventListener('click',function(e){var m=document.getElementById('hel
 </script>
 <script>
 /* ===== 🎨 상세 메이커 (DM) — masterc 소스 → 마스터/새벽소리 상세페이지 ===== */
+</script><script src="dm-ss.js?v=20261104a"></script><script>
 const DM=(function(){
   const FONT_BASE="https://chanwha0221-cmyk.github.io/baljuseo/fonts/";
   // 🦀 강경준 모드 고정 상단 배너 (게구쟁이 브랜드 인트로 — 항상 맨 위에 깔림)
@@ -403,7 +406,7 @@ const DM=(function(){
   ];
   // 🥩 강경준 고기 모드 고정 아웃트로 배너 (맨 아래)
   const GOGI_OUTRO='https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/014.jpg';
-  let MODE='master',DATA=null,PHOTOS=[],dragI=null,editing=false,NOTICE_ON=false;
+  let MODE='master',DATA=null,PHOTOS=[],dragI=null,editing=false,NOTICE_ON=false,POSTER=false;
   try{ NOTICE_ON=(localStorage.getItem('dm_notice_on')==='1'); }catch(e){}
   const $=id=>document.getElementById(id);
   const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -575,7 +578,7 @@ const DM=(function(){
   }
   function buildHtml(){
     if(!DATA)return'<div class="dm-empty">소스를 붙여넣고<br>[⚡ 상세페이지 생성]을 누르세요</div>';
-    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':MODE==='gsg'?'강경준 수산물':''));if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);if(MODE==='gsg')return buildGkj(brand,GSG_BANNERS);let h='';
+    const ph=selImgs();let pi=1;const brand=(($('dm-brand')&&$('dm-brand').value.trim())||(MODE==='gkj'?'강경준 수산물':MODE==='gogi'?'강경준 고기':MODE==='gsg'?'강경준 수산물':''));if(MODE==='master'&&window.DM_SS){return POSTER?window.DM_SS.poster(DATA,ph):window.DM_SS.build(DATA,ph,brand,noticeHtml);}if(MODE==='gkj')return buildGkj(brand);if(MODE==='gogi')return buildGogi(brand);if(MODE==='gsg')return buildGkj(brand,GSG_BANNERS);let h='';
     h+=`<div class="hero" style="${ph[0]?`background-image:url('${esc(ph[0])}')`:'background:linear-gradient(160deg,var(--dark),var(--red))'}">${brand?`<div class="brand">${esc(brand)}</div>`:''}<h1>${esc(DATA.title)}</h1>${DATA.subtitle?`<div class="sub">${esc(DATA.subtitle)}</div>`:''}</div>`;
     let badges=[];const sp=DATA.sections.find(s=>s.block.type==='spec');
     if(sp)sp.block.rows.forEach(([k,v])=>{if(/원산지|생물|중량|사이즈|구성/.test(k)&&v)badges.push(v.split('/')[0].trim());});
@@ -613,6 +616,7 @@ const DM=(function(){
       }
     }
   }
+  function togglePoster(){ if(!DATA){alert('먼저 생성하세요.');return;} if(editing)toggleEdit(); POSTER=!POSTER; const b=$('dm-posterb'); if(b)b.textContent=POSTER?'📜 긴 상세 보기':'🪧 한 장 요약 보기'; $('dm-page').innerHTML=''; render(); }
   function setProd(){ if(!DATA) return; const v=($('dm-prodname')?$('dm-prodname').value:'').trim(); DATA.title=v; if(DATA.notice&&DATA.notice[0]&&DATA.notice[0][0]==='제품명') DATA.notice[0][1]=v; const pf=$('dm-th-prefix'); if(pf) pf.value=v.replace(/\n/g,' ').slice(0,40); render(); }
   // ===== 비슷한 사진 자동 거르기 (average hash) =====
   function _aHash(u){ return new Promise(function(res){ const img=new Image(); img.crossOrigin='anonymous';
@@ -640,7 +644,7 @@ const DM=(function(){
     drawThumbs(); render();
     if(typeof toast==='function') toast('비슷한 사진 '+off+'장 껐어요 (썸네일 클릭하면 다시 켜짐)');
   }
-  function drawThumbs(){const firstOn=PHOTOS.findIndex(p=>p.on),onC=PHOTOS.filter(p=>p.on).length;
+  function drawThumbs(){const _ons=PHOTOS.map((p,i)=>p.on?i:-1).filter(i=>i>=0),firstOn=(_ons.length>=3?_ons[2]:(_ons[0]==null?-1:_ons[0])),onC=_ons.length;
     $('dm-thumbs').innerHTML=PHOTOS.map((p,i)=>{const up=p.url.startsWith('data:');const thumb=up?p.url:weserv(p.url)+'&w=160&h=120&fit=cover';return `<div class="dm-th ${p.on?'':'off'} ${i===firstOn?'hero':''}" draggable="true" onclick="DM.toggle(${i})" ondragstart="DM.drag(${i})" ondragover="event.preventDefault()" ondrop="DM.drop(${i})"><img src="${thumb}" referrerpolicy="no-referrer"><span class="n">${i+1}</span>${up?'<span style="position:absolute;top:1px;right:2px;background:rgba(13,110,253,.9);color:#fff;font-size:8px;font-weight:700;padding:0 3px;border-radius:5px">내</span>':''}${i===firstOn?'<span class="tg">히어로</span>':''}</div>`;}).join('');
     $('dm-photohint').textContent=`선택 ${onC}장 / 전체 ${PHOTOS.length}장`;
   }
@@ -658,7 +662,7 @@ const DM=(function(){
       imgs=[...new Set([...picked,...tail])];
     }
     const n=imgs.length;
-    PHOTOS=imgs.map((u,i)=>({url:u, on:(i<10 || i>=n-2)}));   // 기본: 앞10 + 끝2(중량·포장)
+    const _onSet=new Set(); if(n<=18){imgs.forEach((u,i)=>_onSet.add(i));}else{for(let i=0;i<16;i++)_onSet.add(Math.round(i*(n-3)/15));_onSet.add(n-2);_onSet.add(n-1);} PHOTOS=imgs.map((u,i)=>({url:u, on:_onSet.has(i)}));   // 기본: 앞10 + 끝2(중량·포장)
     const _pn=$('dm-prodname'); if(_pn) _pn.value=DATA.title||'';
     const _pf=$('dm-th-prefix'); if(_pf) _pf.value=(DATA.title||'').replace(/\n/g,' ').slice(0,40);
     drawThumbs(); render(); renderNoticeEditor();
@@ -667,7 +671,7 @@ const DM=(function(){
   function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
   function drag(i){dragI=i;}
   function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
-  const EDSEL='#dm-page :is(h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv)';
+  const EDSEL='#dm-page :is(.ss-ed,h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv)';
   function toggleEdit(){editing=!editing;document.querySelectorAll(EDSEL).forEach(e=>e.contentEditable=editing);$('dm').classList.toggle('editing',editing);$('dm-edb').textContent=editing?'✅ 완료':'✏️ 수정';}
   function toggleNotice(){ NOTICE_ON=$('dm-notice-on')?$('dm-notice-on').checked:!NOTICE_ON; try{localStorage.setItem('dm_notice_on',NOTICE_ON?'1':'0');}catch(e){} render(); renderNoticeEditor(); }
   async function saveJpg(mode){
@@ -695,7 +699,7 @@ const DM=(function(){
       const c=await html2canvas(clone,{scale:RSCALE,backgroundColor:'#ffffff',width:860,windowWidth:860,useCORS:true});
       // 📱 모바일 대응: 초장문 한 장짜리 JPG는 폰에서 디코딩 실패(안 뜨거나 흐릿) — 업계 표준대로 세로 분할 저장 (2026-07-08)
       const SLICE=5000; // 캔버스 px (scale2 → 원본 860 기준 2500px 단위)
-      const base=(DATA.title||'상세').replace(/[\\/:*?"<>|]/g,'')+'_상세';
+      const base=(DATA.title||'상세').replace(/[\\/:*?"<>|]/g,'')+(POSTER?'_한장요약':'_상세');
       /* 🔽 저장 — 🔴 앵커를 **문서에 붙였다가** 눌러야 한다 (2026-10-22 아크미소프트 문의:
            「한 장짜리는 저장됐다고만 뜨고 다운로드 폴더에 없다」 · 「4장짜리인데 1장만 저장된다」).
            떼어 둔 a 를 click() 하면 브라우저가 무시하는 경우가 있고, 연속 저장에서는 두 번째부터 막힌다.
@@ -741,7 +745,7 @@ const DM=(function(){
     const dmStyle=document.getElementById('dm-style').textContent;
     const theme=dmStyle.split('/* 상세 테마')[1]||'';
     const css=theme.replace(/#dm-page/g,'#page');
-    const full=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+    const full=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@900&family=Black+Han+Sans&display=swap"><style>
 @font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFLight.ttf');font-weight:300}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFMedium.ttf');font-weight:500}@font-face{font-family:'Gmarket';src:url('${FONT_BASE}GmarketSansTTFBold.ttf');font-weight:700}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Gmarket','Malgun Gothic',sans-serif}#page{max-width:860px;margin:0 auto;${vars}}
 /* 상세 테마${css}</style></head><body><div id="page" data-mode="${MODE}" spellcheck="false">${$('dm-page').innerHTML}</div></body></html>`;
@@ -786,7 +790,7 @@ const DM=(function(){
     });
   }
   { const _nc=$('dm-notice-on'); if(_nc) _nc.checked=NOTICE_ON; }
-  return {generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
+  return {togglePoster,generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
 })();
 </script>
 <script>

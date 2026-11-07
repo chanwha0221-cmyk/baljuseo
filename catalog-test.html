@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.200</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.216</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -984,10 +984,13 @@ function buildDayGroup(){
        🔴 그래서 오늘 수량이 잡힌 줄(total>0)은 품절 딱지를 뗀다 — 그 뒤 아래 판정이 다시 «다 나감(문의)» 이든 «소량» 이든 정한다.
           «꺼둠»·«역마진 보류» 는 지금 상태를 보고 찍는 것이라 건드리지 않는다. */
     if(r.total>0&&MCEXC.get(pkey(r.n))==='품절')MCEXC.delete(pkey(r.n));
-    if(r.zero){
-      if(!r.hold&&r.total>0&&r.remain<=0)MCZERO.set(pkey(r.n),1);
-      else MCEXC.set(pkey(r.n),r.hold?'역마진 보류':'꺼둠');
-    }
+    /* 📞 등록이 켜져 있어도 오늘 잡힌 수량이 다 나갔으면(총>0·잔여 0) «재고 문의» — 발주 불가 (2026-10-29 홍팀장 활 숫게 90/90) */
+    /* 🙋 우리가 잡아 둔 몫(수량 패널: 잡은 것 − 시트에 나간 것)이 남았으면 masterc 잔여가 0 이어도 발주 가능 —
+       masterc 는 우리가 잡은 것까지 «판매» 로 세서 잔여 0·등록 꺼짐이 된다 (2026-11-02 홍팀장 활 골뱅이). 서버 qtyZeroSet 도 같은 값. */
+    const own=r.hold?0:(+(((SNAP&&SNAP.qtyD)||{})[pkey(r.n)])||0);
+    if(own>0&&!(r.remain>0)){ MCZERO.delete(pkey(r.n)); if(own<DAY_LOW_N)DAYLOW.set(pkey(r.n),1); }
+    else if(!r.hold&&r.total>0&&r.remain<=0)MCZERO.set(pkey(r.n),1);
+    else if(r.zero)MCEXC.set(pkey(r.n),r.hold?'역마진 보류':'꺼둠');
     /* 🟡 당일 소량 — 잔여 1~29개 (2026-09-29 홍팀장 "15/30 이런 거 소량 남아있는 건 소량으로").
        파는 건 여전히 등록 토글이 정한다 — 이건 딱지만, 발주는 된다. 수량을 모르면(total 0) 안 붙인다. */
     if(!r.zero&&r.total>0&&r.remain>0&&r.remain<DAY_LOW_N)DAYLOW.set(pkey(r.n),1);
@@ -1707,6 +1710,25 @@ async function ghPutProposal(token,doc,note){
    · [바꾸기] 를 누르면 서버가 새 슬러그를 발급한다 → **이전 주소는 그 순간부터 막힌다**(ppk 가 거절).
    · 🔴 슬러그는 주소에만 산다. 소스에 안 박는다 — 이 사이트는 저장소가 private 이어도 전체 공개다(08-27 사고).
    · ⚠️ 한 번도 안 바꿨으면 슬러그가 없고, 그동안은 예전처럼 그냥 열린다(돌아다니는 메일 주소를 안 끊는다). */
+/* ⏰ 위쪽 줄에 지금 단가 주소·마지막 교체일·복사 버튼 (2026-11-02 홍팀장 「주소 바뀌면 나는 알아야 하니까 여기서 보고 복사」).
+   2주 지나면 서버 ppkey 가 이 호출에서 새 주소로 바꾼다 — 바뀐 날은 빨갛게 띄워 거래처에 다시 보내게 한다. */
+async function ppBarLoad(){
+  const el=$('ppbar'); if(!el)return;
+  try{
+    const j=await api('ppkey',{token:ME.token});
+    if(!j||!j.ok)throw new Error((j&&j.error)||'');
+    if(!j.k){ el.innerHTML='🔗 단가 주소 잠금 안 켜짐 — [🔗 단가 주소]에서 바꾸면 시작됩니다'; return; }
+    const url=location.origin+location.pathname.replace(/[^/]*$/,'')+'allproduct/partners.html?k='+j.k;
+    const md=t=>{const d=new Date(t+9*3600000);return String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');};
+    const dayNo=t=>Math.floor((t+9*3600000)/86400000);
+    const ago=dayNo(Date.now())-dayNo(j.at);
+    el.innerHTML=(ago===0?'<b style="color:#b91c1c">🆕 오늘 주소 교체됨 — 거래처에 새 주소를 보내세요</b>':'🔗 단가 주소')
+      +' · 마지막 교체 <b>'+md(j.at)+'</b>'+(ago>0?' ('+ago+'일 전)':'')+' · 다음 교체 <b>'+md(j.at+(j.rollMs||14*86400000))+'</b>'
+      +'<a href="'+esc(url)+'" target="_blank" rel="noopener" title="'+esc(url)+'" style="color:var(--muted);white-space:nowrap">…?k='+esc(j.k)+'</a>'
+      +'<button class="ubtn cpbtn" data-cp="'+esc(url)+'" data-cpmsg="단가 주소 복사됨" title="지금 단가 주소를 복사합니다">📋 복사</button>';
+    if(j.rolled)toast('🔄 2주가 지나 단가 주소를 새로 바꿨습니다 — 이전 주소는 막혔습니다');
+  }catch(e){ el.innerHTML='🔗 단가 주소를 읽지 못했습니다 — [🔗 단가 주소] 버튼으로 확인하세요'; }
+}
 async function ppKeyPanel(btn){
   const old=btn.textContent; btn.disabled=true; btn.textContent='⏳ 확인 중…';
   try{
@@ -1734,6 +1756,7 @@ async function ppKeyPanel(btn){
     const nu=base+'?k='+r.k;
     try{ await navigator.clipboard.writeText(nu); }catch(e){}
     toast('🔗 주소를 바꿨습니다 — 이전 주소는 막혔습니다');
+    ppBarLoad();
     alert('새 주소입니다 (복사해 뒀습니다)\n\n'+nu+'\n\n이전 주소는 지금부터 막혔습니다.');
   }catch(e){ alert('실패했습니다 — '+(e&&e.message||e)); }
   finally{ btn.disabled=false; btn.textContent=old; }
@@ -1863,7 +1886,10 @@ function card(p,extra,top,foot){
      🔐 [업체 전용 상품]으로 그 업체에 열어 준 상품은 재고 0 이어도 발주담기를 살려 둔다
         (2026-10-01 참조은수산 — 활 새우·구십미전복을 열어 줬는데 카드가 「재고 없음」 이라 담지를 못했다.
          서버(doSubmit)·발주 화면(order.js zeroNow)은 이미 업체 전용을 빼 주고 있었고 카드만 빠져 있었다). */
-  const zq=!day&&isZeroQ(p.name)&&!(typeof vonlyOpen==='function'&&vonlyOpen(p.name));
+  const zq0=isZeroQ(p.name)&&!(typeof vonlyOpen==='function'&&vonlyOpen(p.name));
+  const zq=!day&&zq0;
+  /* 📞 당일 재고 문의 = 오늘 수량 다 나감 → 담기 막고 문의로 (2026-10-29 홍팀장 「소량은 발주 가능, 재고 문의는 발주 불가」) */
+  const dq=day&&zq0;
   const hot=((!!TINT[pkey(p.name)]||isLowQ(p.name)||zq)&&!day)||(day&&DAYLOW.has(pkey(p.name)));
   // ⭐추천상품은 목록에서도 배지를 단다. 추천 화면에서 넘어온 배지(top)가 있으면 그걸 쓴다(중복 방지).
   const rc=RECMAP[pkey(p.name)];
@@ -1872,7 +1898,7 @@ function card(p,extra,top,foot){
     /* 🔔 예외로 감출 때 그 시점 단가를 같이 보내려고 카드에 지금 단가를 달아둔다 (2026-09-09) */
     +' data-price="'+((p.price&&p.price.cur!=null)?p.price.cur:'')+'">'+thumb+'<div class="bd">'
     +(top||'')+recBadge
-    +(zq?'<span class="hotb">🚫 재고 없음</span>':hot?'<span class="hotb">🟡 소량</span>':'')
+    +(zq?'<span class="hotb">🚫 재고 없음</span>':dq?'<span class="hotb">📞 재고 문의</span>':hot?'<span class="hotb">🟡 소량</span>':'')
     +(bt?'<button class="whb" data-wh="'+esc(p.effWh||'')+'" title="이 창고 상품만 보기">📦 '+esc(bt)+'</button>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
     +tagRow(p,taxc)
@@ -1892,8 +1918,8 @@ function card(p,extra,top,foot){
                    +'">계속 감추기</button></div>' : '')
            /* 🚫 재고 없음 — 담기 대신 문의로 보낸다. 받아놓고 «못 보낸다» 하는 것이 제일 나쁘다(2026-09-29 홍팀장).
               🟡 소량(20개 미만)은 2026-09-29부터 그냥 담긴다 — 딱지만 붙는다. */
-           :zq
-             ?'<div class="lowq">🚫 <b>재고 없음</b><br>수량은 문의해 주세요 — <b>010-2455-4156 홍찬화 팀장</b>'
+           :(zq||dq)
+             ?'<div class="lowq">'+(dq?'📞 <b>재고 문의</b>':'🚫 <b>재고 없음</b>')+'<br>수량은 문의해 주세요 — <b>010-2455-4156 홍찬화 팀장</b>'
               +'<a class="lowqb" href="tel:01024554156">📞 수량 문의</a></div>'
              :'<button class="ordb" data-ord="'+esc(p.name)+'">+ 발주담기</button>')
     /* 🖼 상세페이지 만들기 — 발주담기 바로 밑, **상품마다** (홍팀장 2026-09-03)
@@ -1941,6 +1967,9 @@ function card(p,extra,top,foot){
               +opts.map(c=>'<option'+(c===cur?' selected':'')+'>'+esc(c)+'</option>').join('')
               +'</select>';
           })():'')
+    /* ✂️ 소분 상품 지정 — 마스터에게만 */
+    +(amMasterC()?(function(){const on=(window.SOBUN_LIST||[]).some(x=>pkey(x)===pkey(p.name));
+        return '<button class="excb" data-sobunp="'+esc(p.name)+'" data-sobunon="'+(on?'1':'0')+'" title="지정하면 업체가 이 상품을 발주할 때 「소분 요청」 경고와 버튼이 뜹니다">'+(on?'✂️ 소분 상품 ✓ (해제)':'✂️ 소분 상품 지정')+'</button>';})():'')
     +(foot||'')
     +'</div></div>';
 }
@@ -2131,6 +2160,17 @@ document.addEventListener('click',e=>{
     setExc(nm,false,'').catch(err=>{alert(err.message||'처리하지 못했습니다');exg.disabled=false;exg.textContent='↩ 되돌리기';});
     return;
   }
+  /* ✂️ 소분 상품 지정/해제 — 마스터 전용. 지정하면 업체 발주 화면에 「소분 요청」 경고·버튼이 뜬다 (2026-11-06) */
+  const sbp=e.target.closest('[data-sobunp]');
+  if(sbp){
+    e.stopPropagation();
+    const nm=sbp.getAttribute('data-sobunp'),on=sbp.getAttribute('data-sobunon')!=='1';
+    sbp.disabled=true;
+    api('sobunset',{token:ME.token,name:nm,on})
+      .then(j=>{window.SOBUN_LIST=j.list||[];toast((on?'✂️ 소분 상품 지정: ':'✂️ 소분 상품 해제: ')+nm);render();})
+      .catch(err=>{alert('저장하지 못했습니다.\n\n'+(err.message||err));sbp.disabled=false;});
+    return;
+  }
   // 🏷 카테고리 칸은 클릭이 카드(상품 상세 링크)로 새지 않게 막는다
   if(e.target.closest('[data-catsel]')){ e.stopPropagation(); return; }
   const w=e.target.closest('.whb');
@@ -2247,6 +2287,9 @@ async function startCatalog(){
     // 🙈 숨긴 창고 — 스냅샷에 실려 온다. 스냅샷을 못 받았으면 따로 묻는다(못 물으면 마지막에 받아 둔 목록)
     if(SNAP&&Array.isArray(SNAP.hideWh))setHideWh(SNAP.hideWh);
     else if(ME&&ME.token){try{setHideWh((await api('hidewh',{token:ME.token})).list||[]);}catch(e){}}
+    /* ✂️ 소분 상품 (2026-11-06) — 발주 화면(order.js)이 이 목록으로 「소분 요청」 경고·버튼을 띄운다. 스냅샷에 실려 온다. */
+    if(SNAP&&Array.isArray(SNAP.sobun))window.SOBUN_LIST=SNAP.sobun;
+    else if(ME&&ME.token){try{window.SOBUN_LIST=(await api('sobun',{token:ME.token})).list||[];}catch(e){window.SOBUN_LIST=window.SOBUN_LIST||[];}}
     /* 🔐 이 업체에게만 열어준 상품 (2026-09-09) — 서버가 내 계정 것만 걸러서 보낸다.
        카탈로그 상품 목록에는 안 올라가고, 발주 화면(order.js)의 검색·후보에서만 쓴다. */
     window.VONLY=(SNAP&&SNAP.vonly)?SNAP.vonly.map(r=>({name:String(r[1]||'').trim(),wh:String(r[2]||'').trim(),note:String(r[3]||'').trim()})).filter(x=>x.name):[];
@@ -3488,7 +3531,7 @@ window.addEventListener('hashchange',renderRoute);
       누를지 말지는 쓰는 사람이 정한다. (임시저장이 있어도 믿고 날릴 일은 아니다)
    🔴 실패하면 조용히 넘어간다 — 버전 확인이 안 된다고 카탈로그를 못 쓰게 하면 안 된다. */
 const MYVER=(document.title.match(/v[\d.]+/)||['v0'])[0];
-const FORCEVER='20261006-2';   // ⚠️ force.txt 와 같은 값 — 발주 읽는 법을 바꿔 배포할 때 둘 다 올린다
+const FORCEVER='20261106-1';   // ⚠️ force.txt 와 같은 값 — 발주 읽는 법을 바꿔 배포할 때 둘 다 올린다
 let VERBAR=false;
 function showVerBar(live){
   if(VERBAR)return; VERBAR=true;
@@ -3770,7 +3813,7 @@ function lowmVisible(rows){
 async function loadLowm(){
   const j=await api('lowmargin',{token:ME.token,max:LOWM_MAX});
   j.all=j.rows.length; j.rows=lowmVisible(j.rows);
-  j.loss=lowmLoss(j.rows,j.urgentMax);
+  j.loss=lowmLoss(j.rows);
   lowmBadge(j.rows.length,j.loss.length);
   return j;
 }
@@ -3778,20 +3821,10 @@ async function loadLowm(){
    판정은 공급가 — 원가 칸 아님(mc-day.js 09-29, mc-watch.js lossCheck 와 같은 기준). 저마진 자료(마진율 8% 이하) 안에서 고른다. */
 /* 🔴 긴급 = 서버가 정한다(urgent): 👌괜찮음 아닌 것 중 역마진, 또는 마진율 6% 미만이면서 새로 들어왔거나 값이 바뀐 것 (10-16 홍팀장
    「6% 밑으로는 다 체크 / 괜찮음 누른 건 계속 안 물어봐도 됨 / 변경 있는 상품만 하나씩 — 한 번에 잔뜩 만들지 말고」) */
-/* 🟢 base(공급가 칸) 는 «마지막 딸깍 때 판매가 − 마진규칙» 으로 역산된 값이다 (2026-11-07 실측:
-   석박지 44,000→43,000 · 활 흰다리새우 10,000→9,500 · 흑산도 홍어 32,500→31,500).
-   그래서 특별단가로 판매가만 내리면 원가와 상관없이 반드시 sell < base 가 되어 역마진으로 잡힌다 —
-   저마진 화면의 [💾 단가 저장] 이 바로 그 일을 하는 버튼이라, 쓸수록 빨간 탭에 쌓였다.
-   홍팀장 2026-11-07 「역마진 구조 아니고, 공급가 변경되어도 역마진 아니면 보여줄 필요 없잖아」
-   → 마진율이 긴급 기준(6%) 이상이고 판매가가 원가보다 높으면 뺀다.
-   🔴 원가 칸만 보고 판정하지는 않는다 — 원가가 잘못 뜨는 일이 있다(2026-09-29 알배기암게 공급가
-      12,000 인데 원가 칸이 14,000 으로 떠서 마진 -1,000 으로 보였다). 그런 경우엔 마진율도 같이
-      낮게 나오므로 이 조건에 걸리지 않고 그대로 잡힌다. */
-function lowmSafe(r,uMax){ return +r.cost>0 && +r.sell>+r.cost && +r.rate>=(+uMax||6); }
-function lowmLoss(rows,uMax){return rows.filter(r=>lowmSafe(r,uMax)?false:(r.urgent!=null?!!r.urgent:(!r.okd&&+r.base>0&&+r.sell>0&&+r.sell<+r.base)));}
+function lowmLoss(rows){return rows.filter(r=>r.urgent!=null?!!r.urgent:(!r.okd&&+r.base>0&&+r.sell>0&&+r.sell<+r.base));}
 /* 👌 괜찮음 — 이 상품은 마진을 다시 묻지 않는다(연어처럼 서비스로 파는 것). 다시 누르면 취소. */
 function lowmOk(btn,n,on){
-  if(on&&!confirm('👌 '+n+'\n\n앞으로 이 상품은 마진을 묻지 않습니다(당일 역마진 숨김도 안 합니다).\n진행할까요?'))return;
+  if(on&&!confirm('👌 '+n+'\n\n앞으로 이 상품은 마진을 묻지 않습니다.\n(역마진이 되면 괜찮음과 상관없이 다시 뜹니다)\n진행할까요?'))return;
   btn.disabled=true;
   api('lowmok',{token:ME.token,n,on}).then(j=>{
     if(!j||!j.ok){btn.disabled=false;alert('저장하지 못했습니다 — '+((j&&j.error)||'알 수 없음'));return;}
@@ -3802,10 +3835,13 @@ function lowmOk(btn,n,on){
 /* 👌 전체 괜찮음 (2026-10-19 홍팀장 「전체 괜찮음 버튼 하나만」) — 지금 확인할 상품 목록 전부를 한 번에.
    서버(lowmok)가 목록을 읽고 고쳐 쓰므로 동시에 쏘지 않고 하나씩 보낸다. */
 function lowmOkAll(btn){
-  const names=[...document.querySelectorAll('tr[data-lowm]')].map(tr=>tr.dataset.lowm).filter(Boolean);
-  if(!names.length){toast('괜찮음 할 상품이 없습니다');return;}
+  /* 🔴 역마진(판매가 < 공급가)은 괜찮음 대상이 아니다 (2026-10-27 — 10-19 전체 괜찮음에 역마진 전복이 섞여 공급가 밑으로 10개 팔림). 단가를 고쳐야 빠진다 */
+  const all=[...document.querySelectorAll('tr[data-lowm]')];
+  const names=all.filter(tr=>tr.dataset.loss!=='1').map(tr=>tr.dataset.lowm).filter(Boolean);
+  const lossN=all.length-names.length;
+  if(!names.length){toast(lossN?'🔴 역마진 '+lossN+'개는 괜찮음이 안 됩니다 — 새 판매가로 고쳐 주세요':'괜찮음 할 상품이 없습니다');return;}
   if(!confirm('👌 지금 목록 '+names.length+'개 전부 «괜찮음»\n\n'+names.slice(0,15).map(n=>'· '+n).join('\n')+(names.length>15?'\n…':'')
-    +'\n\n앞으로 이 상품들은 마진을 묻지 않습니다. 진행할까요?'))return;
+    +(lossN?'\n\n🔴 역마진 '+lossN+'개는 빼고 합니다 — 단가를 고쳐야 빠집니다.':'')+'\n\n앞으로 이 상품들은 마진을 묻지 않습니다. 진행할까요?'))return;
   btn.disabled=true;
   let ok=0;const fail=[];
   (async()=>{
@@ -3838,7 +3874,7 @@ function lowmGo(to){const cur=location.hash.replace(/^#/,'');if(cur===to)renderR
 function renderLowm(j,lossOnly){
   const won=n=>Math.round(+n||0).toLocaleString();
   const ago=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'없음';
-  const loss=j.loss||lowmLoss(j.rows,j.urgentMax), rows=lossOnly?loss:j.rows;
+  const loss=j.loss||lowmLoss(j.rows), rows=lossOnly?loss:j.rows;
   let h=lossOnly
     ? subHead('🔴 지금 바로 확인할 상품','<b>역마진</b>(판매가 &lt; 공급가) + <b>마진율 '+(j.urgentMax||6)+'% 미만</b> 중 새로 생기거나 값이 바뀐 것 '+loss.length+'개 — 최근 등장 순. 처음부터 있던 저마진은 안 묻습니다 · <b>[👌 괜찮음]</b> 누른 상품은 다시 안 묻습니다 · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
         +'<br>✏️ 상시는 «새 판매가»에 넣고 <b>[💾 단가 저장]</b> → masterc 특별단가(전체)로 저장. 🐟 당일도 «새 판매가» → [💾 단가 저장] 하면 특별단가 + <b>오늘 당일 등록가</b>까지 같이 고칩니다. 역마진 당일은 <b>업체 화면에서 숨겨 두고</b>, 단가를 고치거나 <b>[✅ 이 가격으로 노출]</b>을 누르면 다시 보입니다. 🔒 마스터에게만 보입니다.')
@@ -3858,7 +3894,8 @@ function renderLowm(j,lossOnly){
   if(!rows.length)return h+bar('')+'<div class="empty">'+(lossOnly?'✅ 지금 확인할 상품이 없습니다.':'마진율 '+j.max+'% 이하 상품이 없습니다.')+'</div>';
   const cols=lossOnly?['등장','구분','창고','상품명','판매가','공급가','새 판매가','원가','택배비','마진','마진율','']:['등장','구분','창고','상품명','판매가','새 판매가','원가','택배비','마진','마진율',''];
   const hm=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}):'';
-  const okBtn=r=>r.ok?'<button class="ubtn" style="font-size:11.5px" title="다시 확인 대상으로" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',false)">👌 괜찮음 ✓</button>':'<button class="ubtn" style="font-size:11.5px" title="이 상품은 마진을 다시 묻지 않습니다" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',true)">👌 괜찮음</button>';
+  /* 🔴 역마진 줄엔 [👌 괜찮음] 없음 — 괜찮음을 눌러도 역마진이면 계속 뜬다 (2026-10-27 홍팀장 「어떤 장사꾼이 역마진을 보고 상품이 나가냐」) */
+  const okBtn=r=>(+r.base>0&&+r.sell<+r.base)?'<span style="font-size:11.5px;color:#b91c1c;font-weight:700;white-space:nowrap">🔴 단가 수정</span>':r.ok?'<button class="ubtn" style="font-size:11.5px" title="다시 확인 대상으로" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',false)">👌 괜찮음 ✓</button>':'<button class="ubtn" style="font-size:11.5px" title="이 상품은 마진을 다시 묻지 않습니다" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',true)">👌 괜찮음</button>';
   const inCell=r=>'<input class="lowm-in" inputmode="numeric" placeholder="'+won(r.sell)+'" oninput="lowmCalc(this)" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit">';
   const okAllBtn=lossOnly?'<button class="ubtn" style="font-weight:800" onclick="lowmOkAll(this)">👌 전체 괜찮음 '+rows.length+'</button>':'';
   h+=bar(saveBtn+okAllBtn)
@@ -3866,7 +3903,7 @@ function renderLowm(j,lossOnly){
     +'<table style="border-collapse:collapse;width:100%"><thead><tr>'
     +cols.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+'">'+t+'</th>').join('')
     +'</tr></thead><tbody>'
-    +rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'">'
+    +rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(+r.base>0&&+r.sell<+r.base?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'">'
       +'<td style="'+td+';text-align:left;font-size:12px;color:'+(r.urgent?'#b91c1c;font-weight:700':'var(--muted)')+'">'+hm(r.at)+'</td>'
       +'<td style="'+td+';text-align:left">'+(r.k==='당일'?'🐟 당일':'상시')+'</td>'
       +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
@@ -3930,7 +3967,7 @@ function renderUser(){
   if(!ME)return;
   /* 💸 저마진 — 마스터만, 위쪽 작은 버튼(아래 userbar). 개수는 뒤에서 받아 버튼 옆 숫자로 (실패해도 화면은 그대로)
      🔴 메뉴 큰 칸에 두지 말 것 (2026-10-06 홍팀장 「나만 볼 건데 대문짝만하게 올렸냐」) */
-  {if(ME.master&&ME.token)api('lowmargin',{token:ME.token,max:LOWM_MAX}).then(j=>{const go=()=>{if(typeof ALL!=='undefined'&&ALL.length){const v=lowmVisible(j.rows);lowmBadge(v.length,lowmLoss(v,j.urgentMax).length);}else setTimeout(go,1500);};go();}).catch(()=>{});}
+  {if(ME.master&&ME.token)api('lowmargin',{token:ME.token,max:LOWM_MAX}).then(j=>{const go=()=>{if(typeof ALL!=='undefined'&&ALL.length){const v=lowmVisible(j.rows);lowmBadge(v.length,lowmLoss(v).length);}else setTimeout(go,1500);};go();}).catch(()=>{});}
   if(ME.master&&ME.token)loadNpDrafts();   // 📝 검토요청(신상품 소식글 초안) 개수 — 소식글 메뉴에 «검토 N»
   // 발주 내역은 웹앱이 붙어 있을 때만
   const mo=$('mbOrders');
@@ -3944,7 +3981,8 @@ function renderUser(){
   /* 🔗 업체에 카탈로그 주소를 줄 때 쓰는 복사 버튼 — 마스터에게만 보인다 (홍팀장 2026-08-31).
      주소는 일부러 하드코딩이다. 로컬 파일·테스트 사본에서 눌러도 항상 라이브 주소가 나가야 한다.
      클릭 처리는 .cpbtn 공용 핸들러가 맡는다(모양은 .ubtn 이 이긴다 — 선언이 뒤라서). */
-  $('userbar').innerHTML='<span class="uname">'+esc(ME.name||ME.id)+'</span>'
+  $('userbar').innerHTML=(ME.master?'<div id="ppbar" style="width:0;min-width:100%;display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);min-height:26px"></div>':'')
+    +'<span class="uname">'+esc(ME.name||ME.id)+'</span>'
     +(ME.master?'<button class="ubtn cpbtn" data-cp="https://chanwha0221-cmyk.github.io/baljuseo/catalog.html" data-cpmsg="카탈로그 주소 복사됨" title="업체에 보낼 카탈로그 주소를 복사합니다">🔗 카탈로그 주소 복사</button>':'')
     /* 👤 업체 계정 관리 — 마스터에게만 (홍팀장 2026-08-31 지적: "그런 화면이 있는 줄도 몰랐다").
        어디에서도 링크가 걸려 있지 않아 주소를 아는 사람만 쓰는 화면이었다. 매일 보는 자리에 박는다.
@@ -3970,6 +4008,7 @@ function renderUser(){
   { const e=$('ub_exp'); if(e)e.onclick=updateProposal; }   // 🔄 제안서 업데이트 — 마스터에게만 있는 버튼이라 존재 확인 후 붙인다
   { const e=$('ub_spec'); if(e)e.onclick=specSync; }        // 📝 스펙 최신화 — 마스터 전용
   { const e=$('ub_ppk'); if(e)e.onclick=function(){ppKeyPanel(this);}; }   // 🔗 단가 주소 — 마스터만 (10-23)
+  ppBarLoad();
   { const e=$('ub_watch'); if(e)e.onclick=()=>{ const w=window.open('https://masterc.kr/board_eJGl96#mcwatch','mcwatch'); if(!w)toast('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요'); }; }   // 👀 변동 감시 — 마스터 전용
   { const e=$('ub_lowm'); if(e)e.onclick=(ev)=>{const to=(ev&&ev.target&&ev.target.id==='lossBadge')?'lowmloss':'lowm';lowmGo(to);}; }   // 💸 저마진 — 마스터 전용 (🔴 동그라미를 누르면 «지금 바로 확인할 상품»)
   { const e=$('ub_xls'); if(e)e.onclick=downloadPriceXlsx; } // 📥 상품·단가 엑셀 — 허용된 업체에게만 있는 버튼

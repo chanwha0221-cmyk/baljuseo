@@ -69,7 +69,8 @@ function pp(cl,pr,qty){
   if(norm(pn).includes('골뱅이')&&(norm(pn).includes('급냉')||norm(pn).includes('자숙')||norm(pn).includes('어묵')))return{name:pn,qty,maxB:999}; // 급냉·자숙·어묵탕 골뱅이는 활 골뱅이 아님 — 그대로 (2026-07-29)
   if(norm(pn).includes('골뱅이'))return{name:'동해 활 골뱅이 1kg',qty:Math.round(qty*wi),maxB:999};
   if(norm(pn).includes('거북손')&&norm(pn).includes('1kg'))return{name:'연안 거북손 500g',qty:qty*2,maxB:999};
-  if(norm(pn).includes('석화')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
+  // 「제철 석화굴」은 따로 있는 상품 — 국내산 석화로 바꾸지 않는다 (2026-10-29 엄지손수산)
+  if(norm(pn).includes('석화')&&!norm(pn).includes('석화굴')){const sw=wm?wm[0]:'';return{name:('국내산 석화 '+sw).trim(),qty,maxB:qty>=2?1:999};}
   if(norm(pn).includes('새꼬막'))return{name:pn,qty,maxB:qty>=2?1:999};
   if(norm(pn).includes('박달홍게'))return{name:pn,qty,maxB:1};
   if(norm(pn).includes('생대구'))return{name:pn,qty,maxB:6};

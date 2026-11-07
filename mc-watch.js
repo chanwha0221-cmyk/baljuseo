@@ -18,6 +18,7 @@
      · 🔴 매 확인 끝에 서버(lowmq)의 «지금 바로 확인할 상품» 중 안 물어본 것을 한 개씩 확인창으로 묻는다 (lossAsk, 10-16).
        기준 = 역마진(판매가 < 공급가) + 마진율 6% 미만 중 새로 생기거나 값이 바뀐 것, 👌괜찮음 제외 — 서버 한 곳에서 정한다.
        마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) — 카탈로그 저마진·월 시트 Q열과 같은 식. 원가는 이 창 밖으로 안 나간다.
+     · 📝 스펙 최신화 자동 (2026-11-04 홍팀장) — 서울 시간 08:30~15:30, 30분마다 한 번(spec-sync.js). 바뀐 스펙만 고친다.
    🔴 masterc 에 쓰는 건 위 당일 자동 등록(daily_save) 하나뿐이다. 우리 서버로 보내는 저장은 30% 넘게 줄면 서버가 거절한다.
    ════════════════════════════════════════════════════════════════ */
 (function () {
@@ -52,6 +53,7 @@
       + '마지막 확인: ' + (S.lastCheck ? hm(new Date(S.lastCheck)) : '아직') + '\n'
       + '마지막 카탈로그 반영: ' + (S.lastPush ? hm(new Date(S.lastPush)) : '아직') + '  (오늘 ' + S.pushes + '번)\n'
       + (S.loss && S.loss.length ? '🔴 지금 역마진(판매가 < 공급가) ' + S.loss.length + '개: ' + S.loss.slice(0, 6).map(function (x) { return x.n + '(' + x.how + ')'; }).join(', ') + (S.loss.length > 6 ? ' …' : '') + '\n' : '✅ 역마진 없음\n')
+      + '📝 스펙 최신화: ' + (S.specMsg || '아직 (08:30~15:30 30분마다)') + '\n'
       + (S.lastMsg ? '\n' + S.lastMsg : '');
     document.title = (S.err ? '⚠️ ' : '👀 ') + '변동 감시' + (S.lastPush ? ' · ' + hm(new Date(S.lastPush)) + ' 반영' : '');
   }
@@ -148,8 +150,17 @@
       }
     } catch (e) { dayTxt = '당일 못 보냄: ' + (e && e.message ? e.message : e); }
 
+    /* 📋 ※ 스펙 — 스펙이 아직 없는 상품만 masterc 상세에서 긁어 보낸다(mc-spec.js, mc-list·mc-day 와 같은 것).
+       (2026-10-27 홍팀장 「보내기를 안 누르는 시스템을 만든 건데」 — 감시 창엔 이 단계가 빠져 있어서 새 상품 카드 스펙이 비었다) */
+    var specTxt = '';
+    try {
+      if (!window.MCSPEC) await new Promise(function (res, rej) { var s = document.createElement('script'); s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/mc-spec.js?v=' + Date.now(); s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+      var sr = await window.MCSPEC.run(EDGE, KEY);
+      if (sr.need) specTxt = ' · 📋 스펙 ' + sr.saved + '개 채움' + (sr.miss ? '(상세에 스펙 없는 것 ' + sr.miss + ')' : '');
+    } catch (e) { specTxt = ' · ⚠️ 스펙 못 채움: ' + (e && e.message ? e.message : e); }
+
     // 💸 저마진 알림은 lossAsk(서버 lowmq 긴급 목록)가 맡는다 — 옛 lowmCheck(8% 이하 새것 전부)는 안 부른다 (10-16)
-    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt;
+    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt + specTxt;
   }
 
   /* ── 🐟 당일 자동 등록 — mc-day.js ① 과 같은 규칙·같은 요청(daily_save · 규칙가 · 오늘만) ── */
@@ -326,8 +337,46 @@
     }, 50);
   }
 
+  /* 📝 스펙 최신화 자동 — 08:30, 09:00 … 15:30. 창이 늦게 열렸으면 지금 칸을 바로 돌리고, 같은 칸은 두 번 안 돈다.
+     마지막 칸(15:30)은 5분 안에만 시작한다. 보내기(tick)와 겹치면 MC_SPEC 저장이 서로 덮으니 끝나길 기다렸다 다음 1분에 본다. */
+  var SPEC_SLOT_KEY = 'mcw_spec_slot_v1', busy = false;
+  function specSlot() {
+    var p = {}; new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+      .formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; });
+    var t = (+p.hour % 24) * 60 + (+p.minute);
+    if (t < 510 || t > 935) return '';
+    return p.year + p.month + p.day + '|' + (Math.floor(t / 30) * 30);
+  }
+  function specLib() {
+    if (window.SPECSYNC) return Promise.resolve();
+    return new Promise(function (res, rej) { var s = document.createElement('script'); s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/spec-sync.js?v=' + Date.now(); s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  }
+  async function specTick() {
+    var slot = specSlot();
+    if (!slot || busy) return;
+    var last = ''; try { last = localStorage.getItem(SPEC_SLOT_KEY) || ''; } catch (e) {}
+    if (last === slot) return;
+    try { localStorage.setItem(SPEC_SLOT_KEY, slot); } catch (e) {}
+    busy = true;
+    try {
+      await specLib();
+      var R = await window.SPECSYNC.run(function () {});
+      S.specMsg = hm() + ' ' + R.total + '건 대조, ' + R.fixed.length + '건 고침' + (R.firstRun ? ' (첫 실행 기준 잡음)' : '') + (R.fail.length ? ' · 실패 ' + R.fail.length + '건' : '');
+      log('📝 스펙 최신화 — ' + S.specMsg + (R.fixed.length ? '\n' + R.fixed.map(function (f) { return '■ ' + f.name + '\n   ' + f.ch.join('\n   '); }).join('\n') : ''));
+      if (R.fixed.length) notify('📝 스펙 ' + R.fixed.length + '건 고침', R.fixed.slice(0, 5).map(function (f) { return f.name; }).join('\n'));
+    } catch (e) {
+      var m = (e && e.message) ? e.message : String(e);
+      S.specMsg = hm() + ' ⚠️ 실패: ' + m;
+      log('⚠️ 스펙 최신화 실패: ' + m); notify('⚠️ 스펙 최신화 실패', m);
+    }
+    busy = false;
+    paint();
+  }
+
   async function tick(force) {
     // ⏰ 시간 제한 없음 (2026-10-15 홍팀장 「시간은 상관없을 거 같은데, 열려 있으면 계속 감시해」) — inHours 는 안 쓴다
+    if (busy) return;
+    busy = true;
     try {
       var s = await signature();
       S.lastCheck = Date.now(); S.err = '';
@@ -348,6 +397,7 @@
     }
     paint();
     await npDetailFill();
+    busy = false;
     lossAsk(await urgentList());
   }
 
@@ -355,4 +405,5 @@
   paint();
   tick(true);
   setInterval(function () { tick(false); }, CHECK_MS);
+  setInterval(specTick, 60 * 1000);
 })();

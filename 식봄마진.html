@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>식봄 마진판 v1.2</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 🛒 식봄 마진판 (2026-11-03 홍팀장 「식봄 상품 리스트로 수수료 8% 계산했을 때 마진·마진율 볼 수 있는 사이트」)
+   ▸ 원가 = masterc 딸깍 자료(Supabase `mcget`) — 도구시트 전체상품원가는 낡아서 안 쓴다(서버 doMcCost 주석과 같은 기준).
+   ▸ 식봄 상품 목록·원가 매칭 = Supabase 메일설정 저장소(`mailset`)의 sikbom_list / sikbom_map — 집·회사 PC 같은 값.
+   ▸ 이름이 다르면 마음대로 고르지 않는다 — 「원가 매칭 필요」로 띄워 팀장님이 고른다(2026-11-03 「원가 어떤걸루 매칭할지 물어봐야지」).
+   ▸ 🔴 원가는 이 파일에 박지 않는다 — 공개 레포다. 카탈로그에 마스터로 로그인한 브라우저에서만 읽힌다. */
+:root{
+  --bg:#f3f5f6; --panel:#ffffff; --ink:#15232b; --sub:#5d6e77; --line:#d9e0e3;
+  --accent:#0d6e7a; --accent-soft:#e1f0f1;
+  --good:#1f7a43; --warn:#a86a00; --bad:#c0352b; --bad-soft:#fbe7e5; --warn-soft:#fbf0dc;
+  --f-body:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1719; --panel:#162124; --ink:#e4ecee; --sub:#93a5ab; --line:#2a3a3e;
+  --accent:#4fb8c4; --accent-soft:#163338; --good:#5cc685; --warn:#e0a63f; --bad:#ef6f62; --bad-soft:#3a1d1a; --warn-soft:#352a14; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 16px 48px;display:grid;gap:18px}
+h1{font-size:22px;margin:0}
+.top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:end;justify-content:space-between}
+.top p{margin:4px 0 0;color:var(--sub);font-size:13px;max-width:70ch}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.receipt{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.cell{display:grid;gap:2px;min-width:0}
+.cell .lab{font-size:12px;color:var(--sub)}
+.cell .val{font-family:var(--f-num);font-variant-numeric:tabular-nums;font-size:20px;font-weight:600;white-space:nowrap}
+.cell .op{font-size:11.5px;color:var(--sub)}
+.cell.hero{background:var(--accent-soft);border-radius:8px;padding:10px 12px;margin:-10px -6px}
+.cell.hero .val{font-size:26px;color:var(--accent)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bar input[type=search]{flex:1;min-width:180px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink)}
+.chip{font:inherit;font-size:13px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.up{font-size:13px;padding:7px 12px;border:1px dashed var(--accent);border-radius:7px;color:var(--accent);cursor:pointer}
+.up input{display:none}
+.tbl{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:760px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+td:first-child{white-space:normal;min-width:200px}
+th{font-size:12px;color:var(--sub);font-weight:500;background:var(--panel)}
+th button{all:unset;cursor:pointer}
+th button[data-dir]::after{content:attr(data-dir);margin-left:3px;color:var(--accent)}
+tr.off td{color:var(--sub)}
+tr.loss{background:var(--bad-soft)}
+.rate{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+.rbar{width:70px;height:6px;border-radius:3px;background:var(--line);position:relative;overflow:hidden}
+.rbar i{position:absolute;left:0;top:0;bottom:0;background:var(--good)}
+.loss .rbar i{background:var(--bad)} .low .rbar i{background:var(--warn)}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;margin-left:4px;vertical-align:1px;background:var(--line);color:var(--sub)}
+.ours{display:block;font-size:11.5px;color:var(--sub)}
+.ours button{all:unset;cursor:pointer;color:var(--accent);margin-left:6px;font-size:11px}
+.neg{color:var(--bad);font-weight:600}
+.need{background:var(--warn-soft);border:1px solid var(--warn);border-radius:10px;padding:14px;display:grid;gap:10px}
+.need h2{font-size:15px;margin:0;color:var(--warn)}
+.need .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.need .row b{min-width:200px}
+.need input{font:inherit;padding:6px 9px;border:1px solid var(--line);border-radius:6px;min-width:260px;flex:1;background:var(--panel);color:var(--ink)}
+.btn{font:inherit;font-size:13px;padding:6px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--panel);cursor:pointer}
+.note{font-size:12.5px;color:var(--sub);display:grid;gap:4px}
+.note b{color:var(--ink)}
+.msg{font-size:13px;color:var(--accent)}
+.fix{background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:16px;display:grid;gap:12px}
+.fix h2{font-size:15px;margin:0}
+.fix .steps{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--accent)}
+.fix table{min-width:640px}
+.up2{color:var(--good);font-weight:600}
+.err{background:var(--bad-soft);color:var(--bad);border-radius:8px;padding:12px 14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>식봄 마진판</h1>
+      <p>식봄 판매가에서 수수료 <b>8%</b>와 원가를 빼서 상품별 마진·마진율을 봅니다. 원가는 <b>masterc 원가</b>(딸깍으로 보낸 최신값)입니다. 이름이 다른 상품은 아래에서 우리 상품을 골라 주면 기억합니다.</p>
+    </div>
+    <label class="up" for="file">새 식봄 상품 엑셀 올리기<input id="file" type="file" accept=".xlsx,.xls"></label>
+  </div>
+  <div id="err" class="err" hidden></div>
+  <div class="receipt" id="sum"></div>
+  <div class="need" id="need" hidden></div>
+  <!-- 🔧 역마진 수정 → 식봄 「판매가 일괄 수정」 양식 (2026-11-03 홍팀장 「마진 최소 12% 이상, 12% 걸린 시점에서 십단위 반올림해서 100원 단위,
+       양식 파일 넣고 역마진 수정 버튼 → 최종 파일 생성하면 식봄에 바로 넣을 수 있게」).
+       🔴 올린 양식 파일을 그대로 열어 D(정가)·F(판매단가) 칸만 바꾼다 — 나머지는 한 글자도 안 건드린다(식봄이 그대로 받게). -->
+  <div class="fix">
+    <h2>식봄 판매가 일괄 수정 — 마진 12% 미만 올리기</h2>
+    <div class="steps">
+      <label class="up" for="bulk">① 판매가 일괄 수정 양식 넣기<input id="bulk" type="file" accept=".xlsx"></label>
+      <button class="btn" id="b-fix" disabled>② 역마진 수정</button>
+      <button class="btn" id="b-out" disabled>③ 최종 파일 생성</button>
+      <span class="msg" id="b-msg">식봄 [판매가 일괄 수정]에서 받은 양식 파일을 넣어 주세요.</span>
+    </div>
+    <div id="b-list"></div>
+  </div>
+  <div class="bar">
+    <input id="q" type="search" placeholder="상품명 찾기">
+    <button class="chip" id="f-on" aria-pressed="true">판매중만</button>
+    <span id="whs" class="bar"></span>
+    <button class="chip" id="f-loss" aria-pressed="false">12% 미만만</button>
+    <span class="msg" id="msg"></span>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr>
+      <th><button data-k="n">식봄 상품명 / 우리 상품</button></th><th><button data-k="wh">창고</button></th>
+      <th><button data-k="p">판매가</button></th><th><button data-k="fee">수수료 8%</button></th>
+      <th><button data-k="c">원가</button></th><th><button data-k="m">마진</button></th><th><button data-k="r" data-dir="↑">마진율</button></th>
+    </tr></thead>
+    <tbody id="tb"></tbody>
+  </table></div>
+  <div class="note">
+    <div><b>계산식</b> 마진 = 판매가 − 판매가×8% − 원가 · 마진율 = 마진 ÷ 판매가. 합계는 각 상품 1개씩 팔았을 때 기준입니다.</div>
+    <div><b>판매가 올리기</b> 마진율 12% 미만인 상품만 올립니다. 새 판매가 = 원가 ÷ (1 − 8% − 12%)를 십의 자리에서 반올림한 100원 단위이고, 반올림해서 12% 밑이면 100원씩 올려 12%를 넘깁니다. 정가가 새 판매가보다 낮으면 정가도 같이 올립니다. 내리는 상품은 없습니다.</div>
+    <div><b>빠진 것</b> 택배비·부가세는 넣지 않았습니다. 수량별 판매가가 걸린 상품은 첫 단가로 계산합니다. 원가 매칭이 안 된 상품은 합계에서 빠집니다.</div>
+    <div id="src"></div>
+  </div>
+</div>
+<datalist id="ourNames"></datalist>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+const FEE=0.08, MIN_RATE=0.12;   // 🔴 마진 최소 12% (2026-11-03 홍팀장)
+const API='https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api';
+/* 처음 한 번만 쓰는 씨앗 — 2026-11-03 식봄 다운로드(상품코드·상품명·판매가·창고·판매여부. 원가 없음).
+   Supabase 에 목록이 없을 때만 쓰고, 쓰자마자 Supabase 로 올린다. 그 뒤로는 Supabase 가 원본이다. */
+const SEED=[["MASTER_mqyyngdb_658","피카츄 돈까스 1kg 10개입",3040,"하남","y"],["MASTER_mq0ifsq1_1311","연안 해삼 500g",8700,"인천","n"],["MASTER_mq0ifsq1_1157","연안 강도다리세꼬시 200g",15400,"인천","y"],["MASTER_mq0ifsq1_1210","연안 대광어회 200g",17300,"인천","y"],["MASTER_mq0ifsq1_1215","연안 대왕가리비 1kg",19200,"인천","y"],["MASTER_mq0ifsq1_1312","연안 홍합 5kg",11000,"인천","y"],["MASTER_mq0ifsq1_1224","연안 멍게 1kg",4500,"인천","y"],["MASTER_mq0ifsq1_1169","연안 급냉 대암게 1kg",28000,"인천","y"],["MASTER_mq0ifsq1_1194","연안 급냉 풀도다리 1kg",15400,"인천","y"],["MASTER_mq0ifsq1_1241","연안 범게 1kg",12800,"인천","y"],["MASTER_mq0ifsq1_1174","연안 급냉 소숫게 1kg",9400,"인천","y"],["MASTER_mq0ifsq1_1172","연안 급냉 봄 소암게 1kg",17900,"인천","y"],["MASTER_mq0ifsq1_1195","연안 급냉 호래기 500g",9600,"인천","y"],["MASTER_mq0ifsq1_1159","연안 거북손 500g",8300,"인천","y"],["MASTER_mq0ifsq1_1225","연안 메로 스테이크 200g",12200,"인천","y"],["MASTER_mpqbjezu_1638","초벌 고창 풍천 장어 1kg",24300,"동해","y"],["MASTER_mpqbjezu_581","랍스터 테일 1미",10300,"동해","y"],["MASTER_mpqbjezu_876","부산 원조 상천 사각어묵 2kg",8700,"동해","y"],["MASTER_mpqbjezu_1373","원조 부산 어묵 2.5kg",8500,"동해","y"],["MASTER_mpqbjezu_189","국내산 돈두 슬라이스 1kg",13400,"동해","y"],["MASTER_mpqbjezu_1418","자숙문어 900g급",18300,"동해","y"],["MASTER_mpma0uqr_2007","한입 오징어 500g",4500,"동해","y"],["MASTER_mpma0uqr_2024","햇 반건조한치 5미",6800,"동해","y"],["MASTER_mpma0uqr_1100","알도루묵 1팩",13000,"동해","n"],["MASTER_mpm94lqe_496","대왕 선동 활 쭈꾸미 1kg",12500,"동해","y"],["MASTER_mpm8zws8_273","급냉 골뱅이 1kg",4000,"동해","n"],["MASTER_mpgn1784_1427","자연산 반건조 바다송어 중 1미",3000,"동해","y"],["MASTER_mpggg0a3_2091","횟감 단새우 500g",10900,"동해","y"],["MASTER_mpggg0a3_1846","특가 한돈 등뼈 3kg",7500,"동해","y"]];
+/* 팀장님이 정해 준 매칭 — Supabase 에 없으면 한 번 올린다 */
+const SEED_MAP={'MASTER_mqyyngdb_658':'맛상 삐카돈까스 1kg'};
+const $=id=>document.getElementById(id);
+const key=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+const won=v=>Math.round(v).toLocaleString('ko-KR');
+const pct=v=>(v*100).toFixed(1)+'%';
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let LIST=null, MAP={}, MC={}, MCAT=0, ROWS=[];
+let st={q:'',on:true,loss:false,wh:'',k:'r',dir:1};
+
+function tok(){ try{ const a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null'); return (a&&a.token)||''; }catch(e){ return ''; } }
+async function sb(action,data){
+  const t=tok();
+  if(!t) throw new Error('이 브라우저에서 카탈로그에 마스터로 로그인한 뒤 새로고침해 주세요.');
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action,token:t},data||{}))});
+  let j=null; try{ j=JSON.parse(await r.text()); }catch(e){}
+  if(!j) throw new Error('서버 응답을 읽지 못했습니다. 잠시 후 새로고침해 주세요.');
+  if(!j.ok) throw new Error(j.error||'요청이 거절됐습니다.');
+  return j;
+}
+async function saveKey(k,v){ await sb('mailset',{k,v:JSON.stringify(v)}); }
+
+function compute(){
+  ROWS=(LIST.rows||[]).map(([code,n,p,wh,on])=>{
+    const to=MAP[code]||MAP[n]||'';
+    const hit=MC[key(to||n)];
+    const c=hit?hit.cost:null, fee=p*FEE, m=c==null?null:p-fee-c;
+    return {code,n,p:+p||0,wh,on:on!=='n',ours:hit?hit.n:'',manual:!!to,c,fee,m,r:(m==null||!p)?null:m/p};
+  });
+}
+function view(){
+  const q=key(st.q);
+  return ROWS.filter(x=>x.c!=null&&(!st.on||x.on)&&(!st.wh||x.wh===st.wh)&&(!st.loss||x.r<MIN_RATE)&&(!q||key(x.n).includes(q)||key(x.ours).includes(q)));
+}
+function render(){
+  const v=view();
+  const S=v.reduce((a,x)=>(a.p+=x.p,a.fee+=x.fee,a.c+=x.c,a.m+=x.m,a),{p:0,fee:0,c:0,m:0});
+  const avg=v.length?v.reduce((a,x)=>a+x.r,0)/v.length:0;
+  const need=ROWS.filter(x=>x.c==null&&(!st.on||x.on));
+  $('sum').innerHTML=[
+    ['상품',v.length+'개','적자 '+v.filter(x=>x.m<0).length+'개'+(need.length?' · 매칭 필요 '+need.length+'개':'')],
+    ['판매가 합계',won(S.p),'원'],['수수료 8%','−'+won(S.fee),'원'],['원가 합계','−'+won(S.c),'원'],
+    ['마진 합계',won(S.m),'원','hero'],['마진율 (합계 기준)',pct(S.p?S.m/S.p:0),'상품별 평균 '+pct(avg),'hero'],
+  ].map(([l,val,op,h])=>'<div class="cell'+(h?' hero':'')+'"><span class="lab">'+l+'</span><span class="val">'+val+'</span><span class="op">'+op+'</span></div>').join('');
+  $('need').hidden=!need.length;
+  $('need').innerHTML='<h2>원가 매칭 필요 '+need.length+'개 — 우리 상품명을 골라 주세요</h2>'+need.map(x=>
+    '<div class="row"><b>'+esc(x.n)+'</b><input list="ourNames" data-code="'+esc(x.code)+'" placeholder="우리 상품명 (masterc 이름) 검색"><button class="btn" data-save="'+esc(x.code)+'">매칭 저장</button></div>').join('');
+  const s=[...v].sort((a,b)=>{const A=a[st.k],B=b[st.k];return (typeof A==='string'?A.localeCompare(B,'ko'):A-B)*st.dir;});
+  $('tb').innerHTML=s.map(x=>{
+    const cls=(x.m<0?'loss':x.r<MIN_RATE?'low':'')+(x.on?'':' off');
+    const w=Math.max(0,Math.min(1,Math.abs(x.r)/0.3))*100;
+    const ours=(x.ours&&key(x.ours)!==key(x.n))||x.manual?'<span class="ours">↳ '+esc(x.ours)+(x.manual?' <button data-unmap="'+esc(x.code)+'">매칭 풀기</button>':'')+'</span>':'';
+    return '<tr class="'+cls+'"><td>'+esc(x.n)+(x.on?'':'<span class="tag">판매중지</span>')+ours+'</td><td>'+esc(x.wh)+'</td>'
+      +'<td class="num">'+won(x.p)+'</td><td class="num">'+won(x.fee)+'</td><td class="num">'+won(x.c)+'</td>'
+      +'<td class="num'+(x.m<0?' neg':'')+'">'+won(x.m)+'</td>'
+      +'<td><span class="rate"><span class="num'+(x.m<0?' neg':'')+'">'+pct(x.r)+'</span><span class="rbar"><i style="width:'+w+'%"></i></span></span></td></tr>';
+  }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--sub)">조건에 맞는 상품이 없습니다.</td></tr>';
+  document.querySelectorAll('th button').forEach(b=>{ if(b.dataset.k===st.k) b.dataset.dir=st.dir>0?'↑':'↓'; else delete b.dataset.dir; });
+  const d=t=>t?new Date(t).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+  $('src').innerHTML='<b>데이터</b> 식봄 목록 '+esc(LIST.file||'')+' ('+d(LIST.at)+' 저장) · masterc 원가 '+d(MCAT)+' 딸깍 기준 '+Object.keys(MC).length.toLocaleString()+'개';
+}
+function chips(){
+  const whs=[...new Set(ROWS.map(x=>x.wh))].filter(Boolean);
+  $('whs').innerHTML=['',...whs].map(w=>'<button class="chip" data-wh="'+esc(w)+'" aria-pressed="'+(st.wh===w)+'">'+(w||'전체 창고')+'</button>').join('');
+}
+function all(){ compute(); chips(); render(); if(typeof BULK!=="undefined"&&BULK) bulkList(); }
+
+async function boot(){
+  try{
+    const [ms,mc]=await Promise.all([sb('mailset',{}),sb('mcget',{full:1})]);
+    MCAT=mc.at||0; MC={};
+    (mc.rows||[]).forEach(r=>{ const c=Number(r.cost)||0; if(r.n&&c>0) MC[key(r.n)]={n:r.n,cost:c}; });
+    if(!Object.keys(MC).length) throw new Error('masterc 원가가 비어 있습니다. masterc 에서 [📤 상시 보내기] 딸깍을 한 번 해 주세요.');
+    $('ourNames').innerHTML=Object.values(MC).map(o=>'<option value="'+esc(o.n)+'">').join('');
+    const set=ms.set||{};
+    try{ LIST=JSON.parse(set.sikbom_list||'null'); }catch(e){ LIST=null; }
+    try{ MAP=JSON.parse(set.sikbom_map||'{}')||{}; }catch(e){ MAP={}; }
+    if(!LIST||!LIST.rows||!LIST.rows.length){ LIST={at:Date.now(),file:'식봄 상품리스트 2026-11-03',rows:SEED}; await saveKey('sikbom_list',LIST); }
+    let mapNew=false; for(const k in SEED_MAP) if(MAP[k]===undefined){ MAP[k]=SEED_MAP[k]; mapNew=true; }
+    if(mapNew) await saveKey('sikbom_map',MAP);
+    all();
+  }catch(e){ $('err').hidden=false; $('err').textContent=e.message; }
+}
+
+$('q').addEventListener('input',e=>{st.q=e.target.value;render();});
+$('f-on').addEventListener('click',e=>{st.on=!st.on;e.target.setAttribute('aria-pressed',st.on);render();});
+$('f-loss').addEventListener('click',e=>{st.loss=!st.loss;e.target.setAttribute('aria-pressed',st.loss);render();});
+$('whs').addEventListener('click',e=>{const b=e.target.closest('[data-wh]');if(!b)return;st.wh=b.dataset.wh;chips();render();});
+document.querySelector('thead').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(st.k===b.dataset.k)st.dir*=-1;else{st.k=b.dataset.k;st.dir=1;} render();});
+document.addEventListener('click',async e=>{
+  const s=e.target.closest('[data-save]'), u=e.target.closest('[data-unmap]');
+  if(!s&&!u) return;
+  const code=(s||u).getAttribute(s?'data-save':'data-unmap');
+  let to='';
+  if(s){ to=(document.querySelector('input[data-code="'+CSS.escape(code)+'"]')||{}).value||'';
+    if(!MC[key(to)]){ $('msg').textContent='「'+to+'」 은 masterc 원가 목록에 없는 이름입니다. 목록에서 골라 주세요.'; return; } }
+  const prev=MAP[code];
+  if(to) MAP[code]=MC[key(to)].n; else MAP[code]='';
+  try{ await saveKey('sikbom_map',MAP); $('msg').textContent=to?'매칭 저장됨 → '+MAP[code]:'매칭을 풀었습니다'; all(); }
+  catch(err){ MAP[code]=prev; $('msg').textContent='저장 실패: '+err.message; }
+});
+/* 새 식봄 엑셀 — 머리글에 상품명·판매단가가 있는 줄을 찾아 읽고 Supabase 에 통째로 바꿔 저장 */
+$('file').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  try{
+    if(!window.XLSX) throw new Error('엑셀 읽기 도구를 못 불러왔습니다. 새로고침 후 다시 올려 주세요.');
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+    const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==='상품명')&&r.some(c=>/^판매단가/.test(String(c))));
+    if(hi<0) throw new Error('「상품명」·「판매단가」 머리글을 못 찾았습니다. 식봄에서 받은 상품 리스트 파일인지 확인해 주세요.');
+    const H=rows[hi].map(c=>String(c).replace(/\s+/g,''));
+    const ix=p=>H.findIndex(h=>p.test(h));
+    const iCode=ix(/^상품코드$/), iN=ix(/^상품명$/), iP=ix(/^판매단가/), iW=ix(/^택배배송비명/), iO=ix(/판매여부/);
+    const list=rows.slice(hi+1).filter(r=>String(r[iN]).trim()).map(r=>{
+      const tier=String(r[iP]).split('//')[0].split(',');
+      return [String(iCode>=0?r[iCode]:'').trim()||String(r[iN]).trim(),String(r[iN]).trim(),
+        Number(String(tier[tier.length-1]).replace(/[^\d.]/g,''))||0,String(r[iW]).split('_')[0],
+        (iO>=0&&String(r[iO]).trim().toLowerCase()==='n')?'n':'y'];
+    });
+    if(!list.length) throw new Error('상품이 한 줄도 없습니다.');
+    LIST={at:Date.now(),file:f.name,rows:list};
+    await saveKey('sikbom_list',LIST);
+    all(); $('msg').textContent=list.length+'개 상품을 읽어 저장했습니다.';
+  }catch(err){ $('msg').textContent=err.message; }
+  e.target.value='';
+});
+/* ══ 🔧 역마진 수정 ══════════════════════════════════════════════════════
+   양식 = 식봄 「판매가 일괄 수정」 다운로드 파일. 5행 머리글(상품no·상품코드·상품명·정가·수량별 판매단가 설정·판매단가…), 7행부터 상품.
+   칸은 전부 inlineStr — 그 칸의 글자만 바꾼다. 원가 찾기는 위 표와 같다(매칭 저장 → 이름 같음). */
+let BULK=null;   // {name, zip, sheetPath, xml, rows:[{r, no, code, n, list, tier, sell, ...}]}
+/* 12% 걸리는 값 → 십의 자리 반올림(100원 단위). 반올림으로 12% 밑이 되면 100원씩 올려 12%를 넘긴다
+   (2026-11-03 홍팀장 「12% 넘기게」 — 소숫게·호래기·세꼬시가 반올림만으론 11.8%였다). */
+function newPrice(c){ let p=Math.round(c/(1-FEE-MIN_RATE)/100)*100; while((p*(1-FEE)-c)/p<MIN_RATE) p+=100; return p; }
+function costOf(code,n){ const to=MAP[code]||MAP[n]||''; const h=MC[key(to||n)]; return h?h.cost:null; }
+function cellTxt(xml,ref){
+  const m=xml.match(new RegExp('<c r="'+ref+'"[^>]*?(?:/>|>([\\s\\S]*?)</c>)'));
+  if(!m||!m[1]) return '';
+  const t=m[1].match(/<t[^>]*>([\s\S]*?)<\/t>/)||m[1].match(/<v>([\s\S]*?)<\/v>/);
+  return t?t[1].replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"'):'';
+}
+function setCell(xml,ref,val){
+  const re=new RegExp('<c r="'+ref+'"([^>]*?)(?:/>|>[\\s\\S]*?</c>)');
+  if(!re.test(xml)) throw new Error(ref+' 칸을 찾지 못했습니다.');
+  return xml.replace(re,(all,attrs)=>{ attrs=attrs.replace(/\s*t="[^"]*"/,''); return '<c r="'+ref+'"'+attrs+' t="inlineStr"><is><t>'+val+'</t></is></c>'; });
+}
+$('bulk').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    if(!window.JSZip) throw new Error('파일 도구를 못 불러왔습니다. 새로고침 후 다시 넣어 주세요.');
+    const zip=await JSZip.loadAsync(await f.arrayBuffer());
+    const sheetPath=Object.keys(zip.files).filter(k=>/^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort()[0];
+    if(!sheetPath) throw new Error('엑셀 시트를 찾지 못했습니다.');
+    const xml=await zip.file(sheetPath).async('string');
+    if(cellTxt(xml,'B5')!=='상품코드'||cellTxt(xml,'D5')!=='정가'||cellTxt(xml,'F5')!=='판매단가')
+      throw new Error('식봄 「판매가 일괄 수정」 양식이 아닙니다 (5행 머리글: 상품no·상품코드·상품명·정가·수량별 판매단가 설정·판매단가).');
+    const rows=[];
+    for(const m of xml.matchAll(/<row r="(\d+)"/g)){
+      const r=+m[1]; if(r<7) continue;
+      const n=cellTxt(xml,'C'+r); if(!n) continue;
+      const code=cellTxt(xml,'B'+r), tier=cellTxt(xml,'E'+r).trim().toLowerCase()==='y';
+      const sell=Number(String(cellTxt(xml,'F'+r)).split('//')[0].split(',').pop())||0;
+      rows.push({r,code,n,list:Number(cellTxt(xml,'D'+r))||0,tier,sell,wt:cellTxt(xml,'G'+r).trim().toLowerCase()==='y'});
+    }
+    if(!rows.length) throw new Error('양식에 상품이 한 줄도 없습니다.');
+    BULK={name:f.name,zip,sheetPath,xml,rows,fixed:false};
+    $('b-fix').disabled=false; $('b-out').disabled=true;
+    $('b-msg').textContent=f.name+' — '+rows.length+'개 상품을 읽었습니다. [② 역마진 수정]을 눌러 주세요.';
+    bulkList();
+  }catch(err){ BULK=null; $('b-fix').disabled=true; $('b-out').disabled=true; $('b-msg').textContent=err.message; $('b-list').innerHTML=''; }
+  e.target.value='';
+});
+function bulkPlan(){
+  BULK.rows.forEach(x=>{
+    x.c=costOf(x.code,x.n); x.np=null; x.nl=null; x.why='';
+    if(x.c==null){ x.why='원가 매칭 필요'; return; }
+    x.rate=x.sell?(x.sell*(1-FEE)-x.c)/x.sell:0;
+    if(x.rate>=MIN_RATE){ x.why='OK'; return; }
+    if(x.tier){ x.why='수량별 판매가 — 식봄에서 직접'; return; }
+    if(x.wt){ x.why='중량단가 상품 — 식봄에서 직접'; return; }
+    x.np=newPrice(x.c); x.nl=Math.max(x.list,x.np); x.why='올림';
+    x.nrate=(x.np*(1-FEE)-x.c)/x.np;
+  });
+}
+function bulkList(){
+  if(!BULK){ $('b-list').innerHTML=''; return; }
+  bulkPlan();
+  const ch=BULK.rows.filter(x=>x.np!=null), skip=BULK.rows.filter(x=>x.why!=='OK'&&x.np==null);
+  let h='';
+  if(BULK.fixed){
+    h+='<div class="tbl"><table><thead><tr><th>상품명</th><th>창고</th><th>원가</th><th>판매가</th><th>새 판매가</th><th>정가 → 새 정가</th><th>마진율</th></tr></thead><tbody>'
+      +(ch.map(x=>'<tr><td>'+esc(x.n)+'</td><td>'+esc((ROWS.find(o=>o.code===x.code)||{}).wh||'')+'</td><td class="num">'+won(x.c)+'</td><td class="num">'+won(x.sell)+'</td><td class="num up2">'+won(x.np)+'</td><td class="num">'+won(x.list)+' → '+won(x.nl)+'</td><td class="num">'+pct(x.rate)+' → <b>'+pct(x.nrate)+'</b></td></tr>').join('')
+        ||'<tr><td colspan="7" style="text-align:center;color:var(--sub)">마진 12% 미만 상품이 없습니다 — 고칠 것이 없습니다.</td></tr>')
+      +'</tbody></table></div>';
+  }
+  if(skip.length) h+='<div class="note"><div><b>못 고친 '+skip.length+'개</b> '+skip.map(x=>esc(x.n)+' ('+x.why+')').join(' · ')+'</div></div>';
+  $('b-list').innerHTML=h;
+}
+$('b-fix').addEventListener('click',()=>{
+  if(!BULK) return;
+  BULK.fixed=true; bulkList();
+  const n=BULK.rows.filter(x=>x.np!=null).length;
+  $('b-out').disabled=!n;
+  $('b-msg').textContent=n?n+'개 상품 판매가를 올립니다. 확인하고 [③ 최종 파일 생성]을 눌러 주세요.':'올릴 상품이 없습니다.';
+});
+$('b-out').addEventListener('click',async()=>{
+  if(!BULK||!BULK.fixed) return;
+  try{
+    let xml=BULK.xml; const ch=BULK.rows.filter(x=>x.np!=null);
+    for(const x of ch){ xml=setCell(xml,'F'+x.r,String(x.np)); xml=setCell(xml,'D'+x.r,String(x.nl)); }
+    BULK.zip.file(BULK.sheetPath,xml);
+    const blob=await BULK.zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',compression:'DEFLATE'});
+    const d=new Date(Date.now()+9*3600000).toISOString().slice(0,10).replace(/-/g,'');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=BULK.name.replace(/\.xlsx$/i,'')+'_역마진수정_'+d+'.xlsx';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    BULK.zip.file(BULK.sheetPath,BULK.xml);   // 원본으로 되돌려 둔다 — 다시 눌러도 같은 결과
+    $('b-msg').textContent='파일을 만들었습니다 ('+ch.length+'개 수정) — 식봄 [판매가 일괄 수정]에 그대로 올리면 됩니다.';
+  }catch(err){ $('b-msg').textContent='파일을 만들지 못했습니다: '+err.message; }
+});
+boot();
+</script>
+</body>
+</html>

@@ -27,6 +27,7 @@
     return spec;
   }
   window.MCSPEC = {
+    lines: linesOf,   // spec-sync.js 가 같은 규칙으로 읽으라고 내놓는다
     run: async function (API, KEY) {
       var nj = await (await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'mcspecneed', key: KEY }) })).json();

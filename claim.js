@@ -421,7 +421,76 @@ function listHtml(master){
   return h;
 }
 
-/* ✏️ 클레임 고치기 칸 — [✏️ 수정] 을 누르면 펼쳐진다. 유형·사진은 못 바꾼다(새로 올리는 게 맞다). */
+/* 📷 수정 칸의 사진 (2026-10-29 홍팀장 「사진도 추가 삭제 가능하도록」) — [✏️ 수정] 을 펼칠 때 받아 와서
+      칸별로 ✕ 지우기·📷 추가. [💾 수정 저장] 때 고친 묶음을 통째로 보낸다(서버가 0장이면 막는다). */
+var EDIMG = {};     // 클레임 id → { 슬롯키: [{name, b64}] } (펼친 것만)
+function drawEdImgs(id){
+  var box = $c('cledimg_' + id), im = EDIMG[id];
+  if(!box || !im) return;
+  var c = null; for(var i=0;i<MINE.length;i++) if(S(MINE[i].id) === id) c = MINE[i];
+  var hs = $c('cledit_' + id) && $c('cledit_' + id).querySelector('[data-ed="how"]');
+  var keys = slotsFor(typeOf(S(c && c.type)), hs ? hs.value : S(c && c.how));
+  Object.keys(im).forEach(function(k){ if(keys.indexOf(k) < 0) keys.push(k); });
+  box.innerHTML = '<div style="font-size:12.5px;font-weight:800;margin-bottom:6px">📷 사진</div>'
+    + keys.map(function(k){
+      var fs = im[k] || [];
+      return '<div style="margin-bottom:9px;padding-bottom:7px;border-bottom:1px dashed var(--line)">'
+        + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+        +   '<b style="font-size:12.5px">'+E(slotName(k))+'</b>'
+        +   '<span style="font-size:12px;color:'+(fs.length?'var(--muted)':'#c0392b')+'">'+(fs.length ? fs.length+'장' : '없음')+'</span>'
+        +   '<button class="ordb2" type="button" data-edadd="'+E(k)+'" style="margin-left:auto;white-space:nowrap">📷 추가</button>'
+        + '</div>'
+        + (fs.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' + fs.map(function(f, j){
+            return '<div style="position:relative">'
+              + '<img src="'+S(f.b64)+'" style="width:84px;height:84px;object-fit:cover;border-radius:7px;border:1px solid var(--line)">'
+              + '<button class="orddel" type="button" data-eddel="'+E(k)+'|'+j+'" title="이 사진 지우기" style="position:absolute;top:2px;right:2px">✕</button>'
+              + '</div>';
+          }).join('') + '</div>' : '')
+        + '</div>';
+    }).join('');
+  box.querySelectorAll('[data-eddel]').forEach(function(b){
+    b.onclick = function(){
+      var p = b.getAttribute('data-eddel').split('|'), k = p[0], j = +p[1];
+      (im[k] || []).splice(j, 1);
+      if(im[k] && !im[k].length) delete im[k];
+      drawEdImgs(id);
+    };
+  });
+  box.querySelectorAll('[data-edadd]').forEach(function(b){
+    b.onclick = function(){
+      var k = b.getAttribute('data-edadd');
+      var inp = document.createElement('input');
+      inp.type='file'; inp.accept='image/*'; inp.multiple=true;
+      inp.onchange = async function(){
+        var fs = Array.prototype.slice.call(inp.files||[]);
+        if(!fs.length) return;
+        b.disabled = true; b.textContent = '⏳ 넣는 중…';
+        try{
+          var out = im[k] || [];
+          for(var i=0;i<fs.length;i++) out.push({ name: fs[i].name, b64: await shrink(fs[i]) });
+          im[k] = out;
+        }catch(e){ alert(e.message || '사진을 넣지 못했습니다'); }
+        drawEdImgs(id);
+      };
+      inp.click();
+    };
+  });
+}
+async function openEdImgs(id){
+  var box = $c('cledimg_' + id);
+  if(!box || EDIMG[id]) { drawEdImgs(id); return; }
+  box.innerHTML = '<div class="hint">⏳ 사진을 불러오는 중입니다…</div>';
+  try{
+    var j = await api('claimimgs', { token: ME.token, id: id });
+    if(!j || !j.ok) throw new Error((j && j.error) || '사진을 불러오지 못했습니다');
+    var im = {}, src = j.imgs || {};
+    for(var k in src) im[k] = (src[k] || []).map(function(f){ return { name: S(f.name), b64: S(f.b64) }; });
+    EDIMG[id] = im;
+    drawEdImgs(id);
+  }catch(e){ box.innerHTML = '<div class="hint" style="color:#c0392b">'+E(e.message||String(e))+' — 사진은 이번 저장에서 그대로 둡니다.</div>'; }
+}
+
+/* ✏️ 클레임 고치기 칸 — [✏️ 수정] 을 누르면 펼쳐진다. 유형은 못 바꾼다(새로 올리는 게 맞다), 사진은 추가·삭제 된다(10-29). */
 function editHtml(c){
   var id = E(S(c.id));
   var how = HOWS.map(function(x){ return '<option'+(x===S(c.how)?' selected':'')+'>'+E(x)+'</option>'; }).join('');
@@ -438,6 +507,7 @@ function editHtml(c){
     +   '<select data-ed="how" class="ordin" style="flex:0 0 170px">'+how+'</select>'
     +   '<input data-ed="amt" class="ordin" style="flex:0 0 170px" inputmode="numeric" placeholder="환불금액 (숫자만)" value="'+E(S(c.amt).replace(/[^\d]/g,''))+'">'
     + '</div>'
+    + '<div id="cledimg_'+id+'" style="margin-top:10px"></div>'
     + '<div style="display:flex;gap:7px;margin-top:9px"><button class="ordb2 pri" type="button" data-edsave="'+id+'">💾 수정 저장</button>'
     +   '<button class="ordb2" type="button" data-edopen="'+id+'">취소</button></div>'
     + '</div>';
@@ -662,17 +732,32 @@ var CLAIM = {
       };
     });
     box.querySelectorAll('[data-edopen]').forEach(function(b){
-      b.onclick = function(){ var w = $c('cledit_' + b.getAttribute('data-edopen')); if(w) w.style.display = (w.style.display === 'none') ? '' : 'none'; };
+      b.onclick = function(){
+        var id = b.getAttribute('data-edopen'), w = $c('cledit_' + id);
+        if(!w) return;
+        var open = w.style.display === 'none';
+        w.style.display = open ? '' : 'none';
+        if(open) openEdImgs(id); else delete EDIMG[id];      // 취소하면 고친 사진도 버린다
+      };
+    });
+    box.querySelectorAll('[data-ed="how"]').forEach(function(s){
+      s.addEventListener('change', function(){ var w = s.closest('[id^="cledit_"]'); if(w) drawEdImgs(w.id.slice(7)); });   // 환불로 바꾸면 환불 내역 칸이 뜬다
     });
     box.querySelectorAll('[data-edsave]').forEach(function(b){
       b.onclick = async function(){
         var id = b.getAttribute('data-edsave'), w = $c('cledit_' + id), d = {};
         w.querySelectorAll('[data-ed]').forEach(function(x){ d[x.getAttribute('data-ed')] = T(x.value); });
         if(isRefund(d.how) && !d.amt){ alert('환불금액을 적어주세요.'); return; }
+        if(EDIMG[id]){
+          var n = 0; for(var k in EDIMG[id]) n += EDIMG[id][k].length;
+          if(!n){ alert('사진을 전부 지울 수는 없습니다. 한 장 이상 남겨 주세요.'); return; }
+          d.imgs = EDIMG[id];
+        }
         b.disabled = true; b.textContent = '저장 중…';
         try{
           var j = await api('claimedit', { token: ME.token, id: id, claim: d });
           if(!j || !j.ok) throw new Error((j && j.error) || '고치지 못했습니다');
+          delete EDIMG[id];
           await CLAIM.reload(master);
           if(typeof toast === 'function') toast('✏️ 클레임을 고쳤습니다');
         }catch(e){ alert(e.message || '고치지 못했습니다'); b.disabled = false; b.textContent = '💾 수정 저장'; }

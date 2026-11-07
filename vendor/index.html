@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v3.6</title>
+<title>외부 업체 등록 도구 v3.7</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -79,7 +79,7 @@ details.extra .form-grid{margin-top:10px}
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v3.6 통합등록</span>
+  <span class="ver">v3.7 통합등록</span>
   <span class="subtitle">사업자등록증 + 업체자료 조합 → 리모컨 붙여넣기</span>
 </header>
 <div class="main">
@@ -107,6 +107,16 @@ details.extra .form-grid{margin-top:10px}
         <textarea id="vendorBox" placeholder="예시 (받은 그대로 OK · 자동 파싱):&#10;업체명 : 필름&#10;담당자 : 이윤석&#10;아이디 : dldbstjr76&#10;연락처 : 010-3794-6086&#10;이메일 : dldbstjr7676@gmail.com&#10;계산서 발행할 이메일 주소 : tax@film.co.kr  (선택)"></textarea>
         <div class="parse-status" id="vendorStatus">붙여넣으면 자동 파싱</div>
       </div>
+    </div>
+  </div>
+
+  <!-- 🏢 사업자 하나 더 (2026-10-30 홍팀장) — 같은 업체가 사업자를 여러 개 쓸 때.
+       담당자·메일·아이디는 그대로, 사업자등록 정보만 다르다 → 리모컨의 기존 줄을 통째로 붙여넣고 ① 칸에 새 등록증만 넣으면 그 칸들만 바뀐다. -->
+  <div class="panel" style="margin-top:12px">
+    <div class="panel-head">🏢 사업자 하나 더 — 리모컨 기존 업체 줄 붙여넣기 (선택)</div>
+    <div class="panel-body">
+      <textarea id="baseBox" style="min-height:56px" placeholder="리모컨에서 그 업체 줄을 통째로 복사해 붙여넣기 → 아래 칸이 전부 채워짐&#10;그다음 ① 칸에 새 사업자등록증 6줄을 넣으면 사업자명·사업자번호·대표자·주소·업태·종목만 바뀌고 담당자·메일·아이디는 그대로"></textarea>
+      <div class="parse-status" id="baseStatus">붙여넣으면 자동으로 칸을 채움 — 사업자등록 칸은 ① 칸 값이 이김</div>
     </div>
   </div>
 
@@ -420,6 +430,29 @@ function parseVendorBox(){
   status.textContent = msg;
   status.className = filled ? 'parse-status ok' : 'parse-status warn';
 }
+
+// ========== 🏢 리모컨 기존 줄 → 칸 채우기 (사업자만 바꿀 때) ==========
+// 리모컨 줄 = COLS 24칸(활성여부 포함). 앞에 행번호·체크칸이 하나 더 붙어 오면 떼고 맞춘다.
+function parseBaseBox(){
+  const text = document.getElementById('baseBox').value.replace(/\r/g,'');
+  const status = document.getElementById('baseStatus');
+  const line = text.split('\n').find(l => l.includes('\t'));
+  if (!line) { status.textContent = text.trim() ? '⚠️ 칸 구분(탭)이 없음 — 리모컨에서 줄을 통째로 복사해 주세요' : '붙여넣으면 자동으로 칸을 채움 — 사업자등록 칸은 ① 칸 값이 이김'; status.className = text.trim() ? 'parse-status warn' : 'parse-status'; return; }
+  let c = line.split('\t');
+  while (c.length > COLS.length && (/^\s*(\d+|TRUE|FALSE)?\s*$/i.test(c[0]))) c = c.slice(1);
+  COLS.forEach(([, id], i) => {
+    const v = (c[i] || '').trim();
+    if (id === 'active') { document.getElementById('active').checked = !/^false$/i.test(v); return; }
+    if (v || id !== 'cycle') setField(id, v);
+  });
+  // 등록증 칸이 이미 있으면 사업자등록 칸은 그걸로 다시 덮는다
+  if (document.getElementById('certBox').value.trim()) parseCertBox();
+  updateBiznoBadge();
+  const off = c.length !== COLS.length ? ' · ⚠️ 칸 수 ' + c.length + '(기대 ' + COLS.length + ') — 아래 미리보기에서 밀림 확인' : '';
+  status.textContent = '✅ 기존 줄로 채움 (' + (g('chName') || g('bizName')) + ')' + (document.getElementById('certBox').value.trim() ? ' · 사업자등록 칸은 ① 등록증으로 바꿈' : ' · 이제 ① 칸에 새 등록증을 넣으세요') + off;
+  status.className = off ? 'parse-status warn' : 'parse-status ok';
+}
+document.getElementById('baseBox').addEventListener('input', () => setTimeout(parseBaseBox, 200));
 
 let certTimer = null, vendorTimer = null;
 document.getElementById('certBox').addEventListener('input', () => { clearTimeout(certTimer); certTimer = setTimeout(parseCertBox, 300); });

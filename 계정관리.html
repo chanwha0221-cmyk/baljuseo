@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>마스터 유통 · 업체 계정 관리 v1.3</title>
+<title>마스터 유통 · 업체 계정 관리 v1.4</title>
 </head>
 <body>
 <!--
@@ -130,7 +130,7 @@ td.mut{color:var(--muted);font-size:12.5px}
 
 <div class="wrap" id="app" style="display:none">
   <div class="head">
-    <h1>👤 업체 계정 관리</h1><span class="ver" id="ver">v1.3</span>
+    <h1>👤 업체 계정 관리</h1><span class="ver" id="ver">v1.4</span>
     <span class="sp"></span>
     <span class="ver" id="who"></span>
     <button class="btn" id="reload">🔄 새로고침</button>
@@ -188,7 +188,7 @@ td.mut{color:var(--muted);font-size:12.5px}
     <!-- 🏢 추가 사업자 (2026-09-30 홍팀장 — 영성: 사업자 둘로 다 발주). 발주 화면에서 고르면 이 이름이 정산업체로 들어간다. -->
     <div class="fld"><label>🏢 추가 사업자 (한 줄에 하나 · <code>사업자명 | 연락처 | 주소</code>, 연락처·주소는 생략 가능)</label>
       <textarea id="d_alts" placeholder="예) 영성수산 | 010-0000-0000"></textarea>
-      <div class="hint">여기 적힌 사업자는 그 업체 발주 화면 「발주 사업자」에서 고를 수 있고, 고르면 <b>정산업체명</b>이 이 이름으로 들어갑니다. 업체가 [➕ 사업자 추가]로 넣은 것도 여기 뜹니다 — 틀리면 고치거나 지우세요.</div>
+      <div class="hint">여기 적힌 사업자는 그 업체 발주 화면 「발주 사업자」에서 고를 수 있고, 고르면 <b>정산업체명</b>이 이 이름으로 들어갑니다. 🔐 사업자 추가는 <b>여기서만</b>(마스터) — 업체 화면엔 «담당자에게 요청» 안내만 나갑니다(2026-10-30). 업체는 처음 발주 때 「이 사업자로 발주 맞으실까요?」로 한 번 고르고, 그 뒤엔 계속 유지됩니다.</div>
     </div>
     <div class="msg" id="d_msg"></div>
     <div class="meta" id="d_meta"></div>

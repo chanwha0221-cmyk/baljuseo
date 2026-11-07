@@ -83,12 +83,15 @@
     <button class="btn ghost sm" onclick="loadAll()">새로고침</button>
   </div>
 
-  <!-- 📑 상단 섹션 탭 -->
+  <!-- 📑 상단 섹션 탭 (2026-10-29 홍팀장 「발굴명단에서 업체 선택하면 바로 메일링, 히스토리는 탭 하나 더 만들어 안 보이게」) -->
   <div class="tabbar">
-    
+    <button class="tab active" type="button" data-sec="compose">✉️ 메일 작성</button>
+    <button class="tab" type="button" data-sec="balgul">🎯 발굴 명단 <span class="badge green" id="bg-tabn" style="margin-left:6px">…</span></button>
+    <button class="tab" type="button" data-sec="hist">📋 발송 히스토리</button>
   </div>
 
   <div id="tab-manage">
+  <div id="sec-compose">
   <!-- ⚡ 2026-08-11 사장님 지시: 이 도구의 목적은 '중복 발송 거르기' 하나. 메일주소·보낸날짜만 위에 두고 나머지는 접는다. -->
   <div class="card" id="quick-card">
     <h2>📧 이 주소로 보낸 적 있나?</h2>
@@ -126,6 +129,11 @@
                ⚠️ 메일 본문과 **같은 슬롯**을 쓴다: (업체명)·(보고온곳)을 바꾸면 여기 문구도 같이 바뀐다. -->
           <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)">
             <label>📱 메일 확인 요청 카톡·문자 <span class="muted">(메일 보낸 뒤 한 통)</span></label>
+            <!-- 📞 발굴 명단에 휴대폰 번호가 있는 곳만 뜬다 (홍팀장 2026-11-04) — 복사해서 카톡 친구 추가 -->
+            <div id="ping-phone" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;border-radius:8px;background:#fff4d6;font-size:14px">
+              <span>📞 <span id="ping-phone-name"></span> 휴대폰 <b id="ping-phone-no" style="font-size:15px"></b></span>
+              <button class="btn brand sm" type="button" onclick="copyPingPhone()">📋 번호 복사</button>
+            </div>
             <textarea id="tpl-ping" style="min-height:120px;line-height:1.6"></textarea>
             <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
               <button class="btn brand" type="button" onclick="copyText('tpl-ping')">📋 복사</button>
@@ -211,8 +219,53 @@
     </div>
   </div>
 
+  </div><!-- /sec-compose -->
+
+  <!-- 🎯 발굴 명단 — 공정위 통신판매사업자에서 뽑은 34,000여 곳 (2026-10-29).
+       ⚠️ 아래 «발굴 대상»은 이메일이 있는 곳만 올라온다. 이 탭은 **이메일이 없어도** 다 보여준다 —
+          홍팀장이 도메인으로 직접 들어가 보고 판단하기 때문이다(「사이트도 내가 들어가서 직접 확인」).
+       데이터는 balgul-list.json (탭을 처음 열 때만 받는다 · 3MB라 미리 받지 않는다). -->
+  <div id="sec-balgul" hidden>
+  <div class="card">
+    <h2>🎯 발굴 명단 <span class="badge green" id="bg-cnt">0</span>
+      <span class="muted" style="font-weight:400;font-size:12px">— 공정위 통신판매사업자 · 상호에 식품·수산·지역명이 든 업체. 도메인을 눌러 직접 보고, 쓸 곳은 [✉ 메일 쓰기]</span>
+      <div class="muted" id="bg-foot" style="font-weight:400;font-size:12px;margin-top:5px"></div></h2>
+    <div style="display:flex;gap:8px;align-items:center;margin:4px 0 10px;flex-wrap:wrap">
+      <input id="bg-q" placeholder="🔎 상호 · 대표자 · 도메인으로 찾기" style="flex:1;min-width:240px;font-size:14px">
+      <select id="bg-rg" style="font-size:14px"><option value="">전체 지역</option></select>
+      <button class="btn ghost sm" type="button" id="bg-own" aria-pressed="false">자체몰</button>
+      <button class="btn ghost sm" type="button" id="bg-pf" aria-pressed="false">플랫폼입점</button>
+      <button class="btn ghost sm" type="button" id="bg-ct" aria-pressed="false">연락처 있음</button>
+      <button class="btn ghost sm" type="button" id="bg-new" aria-pressed="false">안 보낸 곳만</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="bg-table">
+        <thead><tr>
+          <th>상호</th><th>대표자</th><th>지역</th><th>유형</th><th>취급품목</th><th>도메인</th><th>연락처</th><th>신고일</th><th></th>
+        </tr></thead>
+        <tbody id="bg-body"></tbody>
+      </table>
+    </div>
+    <div id="bg-pager" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:12px"></div>
+    <details id="bg-undo" style="margin-top:10px;display:none"></details>
+    <!-- 🔎 메일 쓴 곳·지운 곳 찾기 (홍팀장 2026-11-03 「팔팔푸드 정보가 없어져서 메일보내기를 다시 누를 수가 없다」
+         「보낸곳 검색도 하게 해놔」). [↩ 방금 지운 곳]은 새로고침하면 사라진다 — 이건 bg_hide 전체에서 찾으니
+         어제·다른 PC에서 뺀 곳도 찾아서 되살린다. -->
+    <details id="bg-hid" style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:13px;font-weight:600">🔎 메일 쓴 곳·지운 곳 찾아서 되살리기 <span class="muted" id="bg-hid-n" style="font-weight:400"></span></summary>
+      <div style="margin-top:8px">
+        <input id="bg-hid-q" placeholder="상호 · 대표자 · 도메인 · 메일주소 (예: 팔팔푸드)" style="width:100%;max-width:420px;font-size:14px;box-sizing:border-box">
+        <div id="bg-hid-body" style="margin-top:8px"></div>
+      </div>
+    </details>
+    <div class="empty" id="bg-empty" style="display:none">조건에 맞는 업체가 없습니다.</div>
+  </div>
+  </div><!-- /sec-balgul -->
+
   <!-- 📋 전체 업체 — 메일 작성 바로 밑 (홍팀장 2026-09-11). 예전엔 «펼치기» 안에 접혀 있어서
-       [기록]을 눌러도 어디로 갔는지 안 보였다. 한 줄에 한 업체, 보낸날짜·마지막연락 머리글을 누르면 정렬. -->
+       [기록]을 눌러도 어디로 갔는지 안 보였다. 한 줄에 한 업체, 보낸날짜·마지막연락 머리글을 누르면 정렬.
+       🔁 2026-10-29 «발송 히스토리» 탭으로 옮겼다 — 평소엔 안 보이게. -->
+  <div id="sec-hist" hidden>
   <div class="card">
     <h2>전체 업체 <span class="badge green" id="total-count">0</span> <span class="muted" style="font-weight:400;font-size:12px">— 지난 담당자 발송분까지 합친 전체 목록 (어느 줄이든 수정·삭제 가능)</span>
       <!-- 👤 퇴사자 담당 승계 (2026-09-21) — 담당 칸이 지금 담당자 목록(PEOPLE)에 없는 줄을 내 담당으로 넘긴다. 넘길 게 없으면 버튼 자체가 안 뜬다. -->
@@ -234,31 +287,11 @@
     </div>
     <div class="empty" id="empty" style="display:none">아직 등록된 업체가 없어요.</div>
   </div>
+  </div><!-- /sec-hist -->
 
-  <!-- 🎯 발굴 대상 A — 신규발굴_데이터.js 에서 '농수산' 취급으로 걸러낸 175곳 (홍팀장 2026-09-04)
-       상호로 네이버·구글을 바로 열어 뭘 파는 곳인지 확인하고, 보낸 곳은 아래로 내린다.
-       진행상태(보냄/삭제)는 '메일설정' 탭에 적는다 — 브라우저에 두면 집·회사 PC가 따로 논다. -->
-  <div class="card" id="pros-card" style="display:none">
-    <h2>🎯 발굴 대상 <span class="badge green" id="pros-left">0</span>
-      <span class="muted" style="font-weight:400">— 상호로 검색해 보고, 메일 보낸 곳은 [보냄]을 누르면 아래로 내려갑니다</span>
-      <div class="muted" id="pros-note" style="font-weight:400;font-size:12px;margin-top:5px"></div></h2>
-    <!-- 📂 명단 파일 넣기 — 공정위에서 지역별로 받아온 자료를 그대로 올린다 (홍팀장 2026-09-07)
-         🔴 넣자마자 저장하지 않는다. 몇 건이 새로 붙는지 먼저 보여주고 [합치기]를 눌러야 저장된다.
-            이미 ✕한 곳·이미 보낸 곳·이미 명단에 있는 곳은 여기서 미리 걸러서 숫자로 알린다. -->
-    <div class="ct-bulk" style="margin:0 0 12px">
-      <button class="btn brand" id="pros-pick">📂 명단 파일 넣기</button>
-      <input type="file" id="pros-file" accept=".csv,.tsv,.txt,.xlsx,.xls" style="display:none">
-      <span class="muted" style="align-self:center;font-size:12px">공정위 통신판매사업자 파일 그대로 · 지역별로 나눠 넣어도 됩니다</span>
-    </div>
-    <div id="pros-import" style="margin-bottom:12px"></div>
-    <div id="pros-list"></div>
-    <!-- 📄 게시판식 쪽 넘기기 — 한 쪽 5곳 (홍팀장 2026-09-11 "5개씩, 게시판처럼 1 2 3") -->
-    <div id="pros-pager" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:12px"></div>
-    <details id="pros-done-wrap" style="margin-top:12px">
-      <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--sub)">✉ 보낸 곳 <span id="pros-done-n">0</span>곳 (펼치기)</summary>
-      <div id="pros-done" style="margin-top:8px;opacity:.65"></div>
-    </details>
-  </div>
+  <!-- 🗑 옛 「🎯 발굴 대상」(신규발굴_데이터.js 2,742곳 중 '농수산' 175곳)은 2026-11-02 홍팀장 지시로 삭제.
+       거기서 쓰던 «상호로 네이버·구글 검색»만 위 발굴 명단 줄로 옮겼다.
+       원본 자료는 드라이브 claude\발굴\신규발굴_데이터.js 로 옮겨뒀다(웹에 메일주소가 공개돼 있어 repo 에서 뺌). -->
   </div><!-- /tab-manage -->
 
   
@@ -286,8 +319,8 @@
 <div class="toast" id="toast"></div>
 
 <script src="sheets-proxy.js"></script>
-<!-- 🎯 발굴 명단 원본 (window.PROSPECTS) — 발굴 대상 목록이 여기서 나온다 -->
-<script src="신규발굴_데이터.js"></script>
+<!-- 🗑 신규발굴_데이터.js (window.PROSPECTS) 제거 — 「발굴 대상」과 함께 2026-11-02 삭제 -->
+<script>window.PROSPECTS=[];</script>
 <script>
 // ───────────────────────────────────────────────────────────
 //  인증 / 시트 / 드라이브 / AI  — 마찬 비서(secretary.html) 패턴 재활용
@@ -516,9 +549,37 @@ function qFind(q){
   l.sort((a,b)=>{const da=daysSince(a[4]),db=daysSince(b[4]); if(da==null)return 1; if(db==null)return -1; return da-db;});
   return l;
 }
+/* 📞 메일 보낸 뒤 카톡 넣을 휴대폰 번호 (홍팀장 2026-11-04 「카톡 보낼 수 있는 핸드폰 번호도 있으면 카톡 문자 쪽에 끌고 와라」).
+   발굴 명단(balgul-list.json)의 전화 칸에서 01X 만 쓴다 — 유선·070 은 카톡이 안 되니 안 띄운다.
+   🔴 [기록]을 누르면 메일 칸이 비지만 번호는 그때 필요하다 → 메일 칸이 비는 것으로는 안 지운다. 다른 주소를 넣어야 바뀐다. */
+let PING_MAIL=null;
+function mobileOf(raw){
+  for(const t of String(raw||'').split(/[,\/;|]/)){
+    const d=t.replace(/\D/g,'');
+    if(/^01[016789]\d{7,8}$/.test(d)) return d.slice(0,3)+'-'+d.slice(3,d.length-4)+'-'+d.slice(-4);
+  }
+  return '';
+}
+function setPingPhone(name,raw){
+  const no=mobileOf(raw), box=$('ping-phone');
+  $('ping-phone-name').textContent=no?(name||''):'';
+  $('ping-phone-no').textContent=no;
+  box.style.display=no?'flex':'none';
+}
+function copyPingPhone(){ navigator.clipboard.writeText($('ping-phone-no').textContent).then(()=>toast('📞 번호 복사됨 — 카톡 친구 추가에 붙여넣으세요')); }
+function pingLookup(q){
+  const key=String(q||'').trim().toLowerCase();
+  if(key===PING_MAIL)return;
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(key)){ PING_MAIL=key; setPingPhone('',''); return; }
+  if(!BG){ setPingPhone('',''); bgLoad().then(()=>{ if(BG&&String(($('q-mail').value||'')).trim().toLowerCase()===key)pingLookup(key); }); return; }
+  PING_MAIL=key;
+  const hit=BG.rows.find(r=>String(r[7]||'').trim().toLowerCase()===key&&mobileOf(r[6]));
+  setPingPhone(hit?hit[0]:'',hit?hit[6]:'');
+}
 function quickCheck(){
   const q=($('q-mail').value||'').trim(), box=$('q-result');
   if(!q){ box.innerHTML='메일주소를 입력하세요'; box.style.background='#f4f6f9'; box.style.color=''; return null; }
+  pingLookup(q);
   const l=qFind(q);
   if(!l.length){
     box.innerHTML='✅ 처음 보는 곳 — <b>보낸 적 없음</b>';
@@ -617,6 +678,11 @@ async function loadAll(){
     /* 🔎 '무엇을 보고'는 그날 내내 같은 문장이라 이 기기에 기억해뒀다가 되살린다
        (업체명은 매번 바뀌니 기억하지 않는다 — 남아 있으면 남의 이름으로 나간다) */
     try{ const s=localStorage.getItem('mailing_source'); if(s && $('source-text') && !$('source-text').value) $('source-text').value=s; }catch(e){}
+    /* 🔗 카탈로그 주소는 한 번 넣으면 그대로 박아둔다 (홍팀장 2026-11-03 「왜 자꾸만 초기화 되냐 한번 넣으면 링크 날아갈때까지 그냥 박아둬」).
+       예전엔 이 기기에 적어두기만 하고 열 때 되살리지 않아서 새로고침마다 빈칸이었다.
+       🔴 원본 = 메일설정(SET.caturl, Supabase) — 집·회사 PC 어디서 열어도 같은 주소. 없으면 이 기기 기억값.
+       🔴 빈칸은 저장하지 않는다 — 실수로 지워도 안 날아간다. 새 주소를 붙여넣으면 그걸로 바뀐다. */
+    try{ const c=(SET.caturl||'').trim()||localStorage.getItem('mailing_caturl')||''; if(c && $('caturl-text') && !$('caturl-text').value) $('caturl-text').value=c; }catch(e){}
     restampCompany();   // 🏢 동기화 끝나기 전에 업체명을 먼저 적어놨으면 여기서 다시 꽂는다
     renderTplButtons();
     loadCard();          // 📇 명함 (담당자별)
@@ -638,8 +704,8 @@ async function loadAll(){
     DATA.forEach(r=>{ if(!r[8]) r[8]='홍찬화'; });   // 담당 비어있던 옛 행 = 찬화 것
     // 🔀 옛 원비 탭 흡수는 껐다 (2026-09-15) — 이미 합쳐져 있고, 읽기 실패 순간 이 흡수가 목록을 4줄로 덮었다. 원비 탭은 백업으로 둔다.
     render();
-    await prosLoadAdded();   // 📂 올려둔 명단(시트 '발굴명단')을 먼저 읽어야 합쳐서 보인다
-    renderPros();            // 🎯 발굴 대상 — 설정(진행상태)을 읽은 뒤라야 보낸 곳이 갈린다
+    /* 🗑 「발굴 대상」 삭제(2026-11-02) — prosLoadAdded 가 프록시로 시트를 읽느라
+       매 동기화마다 17~45초를 잡아먹던 자리라 호출도 같이 뺐다. */
     setStatus('동기화됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){ setStatus('오류: '+e.message); console.error(e); toast('동기화 실패 — 콘솔 확인'); }
 }
@@ -967,7 +1033,7 @@ function prosHide(name,on){
 }
 // 저장이 아직 안 끝났는데 창을 닫으려 하면 붙잡는다
 let MAILTO_GO=false;   // 썬더버드를 부르는 그 순간만 켠다 — openCompose 참고
-window.addEventListener('beforeunload',e=>{ if(MAILTO_GO) return; if(hideTimer||saveTimer){ e.preventDefault(); e.returnValue=''; } });
+window.addEventListener('beforeunload',e=>{ if(MAILTO_GO) return; if(hideTimer||saveTimer||(typeof bgHideTimer!=='undefined'&&bgHideTimer)){ e.preventDefault(); e.returnValue=''; } });
 /* ✉ 보냄 — 메일링 관리 목록에 기록한다.
    이래야 ①위 [이 주소로 보낸 적 있나?]에 걸리고 ②2주 뒤 추가연락 대상에 뜨고 ③회신 추적이 된다.
 
@@ -1400,8 +1466,17 @@ function stampSlots(){
     const has=SLOT_FIELDS.some(id=>hasSlot(sl,SLOT_ORIG[id]));
     h.textContent = !v ? sl.idle : (has ? '넣었습니다.' : sl.miss);
     h.style.color = (v && !has) ? 'var(--red)' : '';
+    if(sl.key==='caturl'){ if(v) caturlKeep(v); return; }          // 🔗 빈칸으로 덮지 않는다
     if(sl.remember) try{ localStorage.setItem(sl.remember, v); }catch(e){}
   });
+}
+/* 🔗 카탈로그 주소 박아두기 — 이 기기 + 메일설정(서버) 둘 다. 서버는 붙여넣기 끝나고 1.5초 뒤 한 번만. */
+let CATURL_T=null;
+function caturlKeep(v){
+  try{ localStorage.setItem('mailing_caturl', v); }catch(e){}
+  if(!SET_OK || (SET.caturl||'')===v) return;
+  clearTimeout(CATURL_T);
+  CATURL_T=setTimeout(async()=>{ try{ await setSetting('caturl', v); }catch(e){ console.warn('카탈로그 주소 서버 저장 실패(이 기기엔 남음)',e); } },1500);
 }
 /* 저장용 원문 — 채운 값이 빠지고 태그가 들어간 상태 */
 function rawOf(id){
@@ -1550,6 +1625,286 @@ async function copyPreview(){
 
 // ─── 추가연락 초안 (채널별 톤) ───
 
+/* ══ 📑 섹션 탭 ═══════════════════════════════════════════════════════════
+   홍팀장 2026-10-29: 「메일 보낸 히스토리는 탭 하나 더 만들어서 안 보이게 만들어도 되니까
+   발굴명단에서 업체 선택하면 바로 메일링 할 수 있게」 */
+const SECS={compose:['sec-compose'], balgul:['sec-balgul'], hist:['sec-hist']};
+let SEC='compose';
+function showSec(k){
+  if(!SECS[k])return;
+  SEC=k;
+  Object.keys(SECS).forEach(n=>SECS[n].forEach(id=>{ const e=$(id); if(e)e.hidden=(n!==k); }));
+  document.querySelectorAll('.tab[data-sec]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-sec')===k));
+  if(k==='balgul')bgLoad();
+  try{ localStorage.setItem('mailing_sec',k); }catch(e){}
+}
+document.querySelectorAll('.tab[data-sec]').forEach(b=>b.addEventListener('click',()=>showSec(b.getAttribute('data-sec'))));
+
+/* ══ 🎯 발굴 명단 ════════════════════════════════════════════════════════
+   balgul-list.json = [상호,대표자,지역코드,유형(0자체몰/1플랫폼),도메인,신고일,전화,이메일]
+   🔴 이메일이 없어도 다 보여준다 — 홍팀장이 도메인으로 직접 들어가 보고 판단한다.
+   🔴 도메인은 손으로 적은 칸이라 「a.com,b.com」·「오픈마켓(smartstore…/id)」처럼 섞여 온다.
+      bgUrl() 이 그걸 눌러서 바로 열리는 주소 하나로 만든다. */
+let BG=null, BG_PAGE=1, BG_FILT=[];
+const BG_PER=20;
+const bgSt={q:'',rg:'',own:false,pf:false,ct:false,onlyNew:false};
+let bgLoading=false;
+/* 🗑 지운 곳 — 홍팀장 2026-10-29 「삭제한 건 다시는 가져 오지 마라」.
+   🔴 설정(메일설정 탭)에 남긴다. 브라우저에 두면 집·회사 PC가 따로 놀고,
+      명단 파일(balgul-list.json)을 다시 만들어도 이 목록이 정본이라 되살아나지 않는다.
+   🔴 열쇠는 «상호+대표자» — 34,000곳이라 같은 상호가 여럿 있다.
+   🔴 ✕ 하나마다 저장하면 프록시 왕복(7~90초)에 묶인다 → 화면 먼저, 저장은 1.5초 뒤 한 번에. */
+const BG_HIDE='bg_hide';
+const bgKey=r=>pkeyN(r[0])+'\u0001'+pkeyN(r[1]);
+const bgHideSet=()=>new Set(String(SET[BG_HIDE]||'').split('\n').filter(Boolean));
+let bgHideTimer=null, BG_LASTDEL=[];
+/* ✉ 메일 쓰기로 넘긴 곳도 같은 목록에 넣어 명단에서 뺀다 (2026-11-03 홍팀장 「메일 보낸 업체도 없어져야 다음 걸
+   하지 — 휴지통이랑 메일 쓰기 하면 저장하고 리스트에서 없애는 걸로」). 같은 bg_hide 에 남기므로 집·회사·출장 PC
+   어디서 열어도 안 올라온다. 잘못 눌렀으면 아래 [↩ 되돌리기]에 ✉ 표시로 남는다. */
+function bgDel(r,why){
+  const s=bgHideSet();
+  s.add(bgKey(r));
+  SET[BG_HIDE]=[...s].join('\n');
+  BG_LASTDEL.unshift({k:bgKey(r),name:(why==='mail'?'✉ ':'')+r[0]});
+  if(BG_LASTDEL.length>30)BG_LASTDEL.pop();
+  bgRender();
+  setStatus((why==='mail'?'✉ 메일 쓴 곳 — 명단에서 뺌, 잠시 후 저장':'🗑 지움 — 잠시 후 저장'));
+  bgSaveHide();
+}
+function bgUndo(k){
+  const s=bgHideSet();
+  s.delete(k);
+  SET[BG_HIDE]=[...s].join('\n');
+  BG_LASTDEL=BG_LASTDEL.filter(x=>x.k!==k);
+  bgRender();
+  bgSaveHide();
+}
+function bgSaveHide(){
+  clearTimeout(bgHideTimer);
+  bgHideTimer=setTimeout(async()=>{
+    bgHideTimer=null;
+    try{
+      setStatus('저장 중…');
+      await setSetting(BG_HIDE,SET[BG_HIDE]);
+      setStatus('저장됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
+    }catch(e){
+      setStatus('⚠️ 저장 실패');
+      toast('지운 목록을 저장하지 못했습니다 — 새로고침 후 다시 지워주세요');
+    }
+  },1500);
+}
+async function bgLoad(){
+  if(BG||bgLoading)return;
+  bgLoading=true;
+  $('bg-foot').textContent='명단을 받고 있습니다…';
+  try{
+    const r=await fetch('balgul-list.json',{cache:'no-cache'});
+    BG=await r.json();
+    const sel=$('bg-rg');
+    BG.regions.map((n,i)=>[n,i]).filter(x=>x[0])
+      .sort((a,b)=>a[0].localeCompare(b[0],'ko'))
+      .forEach(([n,i])=>{ const o=document.createElement('option'); o.value=i; o.textContent=n; sel.appendChild(o); });
+    $('bg-tabn').textContent=BG.rows.length.toLocaleString();
+    bgRender();
+  }catch(e){
+    $('bg-foot').textContent='⚠️ 명단을 못 받았습니다 — 새로고침해 주세요.';
+  }
+  bgLoading=false;
+}
+/* 눌러서 열리는 주소로 — 괄호 안 주소, 쉼표로 둘 적힌 것, http 없는 것 다 처리 */
+function bgUrl(raw){
+  let u=String(raw||'').trim();
+  const inPar=u.match(/\(([^)]*[a-z0-9-]+\.[a-z]{2,}[^)]*)\)/i);
+  if(inPar)u=inPar[1].trim();
+  u=u.split(/[,\s]+/).find(x=>/[a-z0-9-]+\.[a-z]{2,}/i.test(x))||'';
+  if(!u)return '';
+  u=u.replace(/^[^a-z0-9]+/i,'');
+  if(!/^https?:\/\//i.test(u))u='http://'+u;
+  return u;
+}
+/* 🚫 업종 아님 자동 제외 (2026-11-03 홍팀장 「foodfact.kr·9988.market 이딴 것도 리스트에 있다, 분석해서 다음에는 절대 빼도록」)
+   명단은 «상호에 식품·수산·지역명이 든 통신판매업체» 라서, 지역명·「푸드」 한 글자로 걸려 들어온 엉뚱한 업체가 섞인다.
+   ① 비식품 업종 단어(판촉·팩트·펜션·에어컨·휴대폰…)가 상호에 있고 «확실한 식품 단어»(수산·농산·정육…)가 없으면 뺀다
+      — 「푸드팩트」 는 푸드가 있어도 팩트로 빠진다. 「특허받은홍어」 처럼 식품 단어가 같이 있으면 남긴다.
+   ② 취급품목에 건강/식품도 없고, 상호·도메인 어디에도 식품 흔적이 없으면 뺀다 — 「9988판촉마켓(종합몰)」 같은 곳.
+   2026-11-03 실측: 27,053곳 중 ①837 + ②4,615 제외. 표본 검수에서 식품 업체 섞임 없음(참치·한라봉·수제청·장터는 식품 단어에 넣어 살림).
+   🔴 규칙은 이 페이지에 있으므로 balgul-list.json 을 다시 만들어도 그대로 걸린다. 빠지면 안 되는 곳이 빠지면 STRONG 에 단어를 더할 것. */
+const BG_STRONG=/식품|수산|농산|축산|축협|수협|농협|어촌|어장|어업|양식장|해산|해물|건어|젓갈|김치|반찬|정육|한우|한돈|육가공|고기|미트|홍어|전복|굴비|멸치|새우|게장|꽃게|대게|오징어|문어|낙지|장어|생선|활어|횟집|회센터|미역|다시마|해조|떡|과일|과수|농장|농원|목장|영농|농업|특산|미곡|잡곡|버섯|인삼|홍삼|산삼|양봉|한과|두부|된장|간장|고추장|참기름|천일염|염전|베이커리|제과|국밥|떡볶이|치킨|만두|국수|냉면|순대|족발|곱창|갈비|불고기|도시락|밀키트|청과|야채|채소|사과|감귤|한라봉|딸기|포도|복숭아|토마토|고구마|감자|마늘|양파|호두|대추|곶감|약초|참치|수제청|장터|식자재|식재료|farm|fish/i;
+const BG_FOOD=/식품|수산|농산|축산|축협|수협|농협|어촌|어장|어업|양식장|해산|해물|건어|젓갈|김치|반찬|정육|한우|한돈|육가공|고기|미트|홍어|전복|굴비|멸치|새우|게장|꽃게|대게|오징어|문어|낙지|장어|생선|활어|횟집|회센터|미역|다시마|해조|떡|과일|과수|농장|농원|목장|영농|농업|특산|미곡|잡곡|버섯|인삼|홍삼|산삼|양봉|한과|두부|된장|간장|고추장|참기름|천일염|염전|베이커리|제과|국밥|떡볶이|치킨|만두|국수|냉면|순대|족발|곱창|갈비|불고기|도시락|밀키트|청과|야채|채소|사과|감귤|한라봉|딸기|포도|복숭아|토마토|고구마|감자|마늘|양파|호두|대추|곶감|약초|참치|수제청|장터|식자재|식재료|farm|fish|푸드|food|쌀|꿀|김$|김 |차$|커피|빵|밥|면$|배$|밤$|쑥|팜|sea|마트|상회|상사|유통|물산|바다|맛|찬$|요리|주방|키친|산지|다방/i;
+const BG_JUNK=/팩트|판촉|기념품|굿즈|에어컨|청소|대출|렌탈|렌트카|이사짐|용달|부동산|학원|교육원|아카데미|인테리어|가구|침구|철물|설비|광고|디자인|스튜디오|호텔|펜션|팬션|크루즈|유람선|케이블카|여행사|투어|약국|병원|의원|세무|법무|보험|캐피탈|엔터테인|소프트|웹개발|컨설팅|마케팅|매거진|미디어|뉴스|신문|안마|게임|펫|반려|창업센터|정수기|보일러|냉동설비|냉난방|자동차|모터스|카센터|타이어|휴대폰|핸드폰|컴퓨터|전자|조명|간판|인쇄|포장재|화원|꽃집|플라워|골프|낚시|캠핑|스포츠|헬스|요가|뷰티|화장품|미용|네일|의류|패션|신발|안경|시계|주얼리|문구|완구/i;
+const BG_GIFT_DOM=/gift|goods|souvenir|promo/i;
+function bgNotFood(r){
+  const nm=String(r[0]||''), dom=String(r[4]||'');
+  if(BG_JUNK.test(nm)&&!BG_STRONG.test(nm))return true;
+  /* 복지·공공 기관 (2026-11-04 홍팀장 — 인천계양지역자활센터 「이새끼들은 왜 넣은거야」). 품목에 건강/식품이 있어도, 상호에 식품 단어가 있어도 뺀다 — 위탁 받아 팔 곳이 아니다. */
+  if(/자활|시니어클럽|보호작업장|직업재활|복지관|사회복지|장애인|학교$|협회|협의회|사단법인|재단법인|\(사\)|\(재\)|공공급식/.test(nm))return true;
+  const ct=(BG.cats&&BG.cats[r[8]])||'';
+  /* ③ 판촉·기념품 선물몰 (2026-11-03 홍팀장 「yhallgift.kr(연흥상사) 나랑은 상관없는 사이트다」)
+     상호는 «상사·물산·유통» 뿐이라 ②의 약한 식품 단어(상사·유통…)에 걸려 살아남았다. 도메인이 gift·goods 인데
+     식품 흔적이 하나도 없으면 뺀다. 「바다기프트」·「foodgift」·「ocean__gift」 처럼 식품 단서가 있거나
+     취급품목에 건강/식품이 있으면 남긴다. 실측: 21,601곳 중 20곳 제외(전부 판촉·잡화몰). */
+  if(BG_GIFT_DOM.test(dom)&&ct.indexOf('건강/식품')<0&&!BG_STRONG.test(nm)&&!BG_STRONG.test(dom)
+     &&!/바다|sea|푸드|food|맛|선물/i.test(nm)&&!/sea|food|bada|fish|farm|tomato|fruit|meat|rice/i.test(dom))return true;
+  /* ④ 취급품목이 비식품이라고 적힌 곳 (2026-11-04 홍팀장 — 노을상사 noeul.shop 「카테고리부터 의류 패션인데 왜 넣어놨어」).
+     약한 단어(상사·물산·유통·바다…)가 품목을 이기고 살려 줬다. 이제 품목에 건강/식품 없이 의류·가전·컴퓨터·가구·자동차·완구·레저가 있으면 뺀다.
+     상호에 강한 식품 단어(수산·농산·해물…)가 있으면 남긴다 — 도메인은 안 본다(냉열시스템·물산이 farm 으로 살아남았다).
+     레저 + 영농·농원·농업·어촌 = 체험마을이라 뺀다. 「종합몰」·「기타」만 적힌 곳은 품목으로 판단 못 하니 그대로 둔다. */
+  if(ct.indexOf('건강/식품')<0&&/의류|가전|컴퓨터|가구|자동차|완구|레저/.test(ct)
+     &&(!BG_STRONG.test(nm)||(ct.indexOf('레저')>=0&&/영농|농원|농업|어촌/.test(nm))))return true;
+  /* ⑤ 상호가 기계·설비 쪽 (2026-11-04 홍팀장 — 지지푸드시스템 ggkorea.kr 「포장용기 만드는 기계 만드는 회사」).
+     「푸드」·「바다」 같은 약한 단어로 살아남았다. 품목에 건강/식품이 있거나 상호에 강한 식품 단어가 있으면 남긴다. */
+  if(ct.indexOf('건강/식품')<0&&!BG_STRONG.test(nm)&&/시스템|기계|머신|포장용기|포장상회|공업|산업|테크|메카|전기|통신|물류|화학/.test(nm))return true;
+  return !(ct.indexOf('건강/식품')>=0||BG_FOOD.test(nm)||BG_FOOD.test(dom));
+}
+function bgRender(){
+  if(!BG)return;
+  const q=bgSt.q.trim().toLowerCase();
+  /* 안 보낸 곳만 — 메일링 목록(DATA)의 연락처·업체명과 겹치는 곳을 뺀다 */
+  const sentMail=new Set(), sentName=new Set();
+  if(bgSt.onlyNew)DATA.forEach(r=>{ if(r[2])sentMail.add(pkeyN(r[2])); if(r[0])sentName.add(pkeyN(r[0])); });
+  const hid=bgHideSet();
+  let nf=0;
+  BG_FILT=BG.rows.filter(r=>{
+    if(hid.has(bgKey(r)))return false;        // 🗑 지운 곳은 영영 안 올라온다
+    if(bgNotFood(r)){ nf++; return false; }    // 🚫 업종 아님 — 위 규칙
+    if(bgSt.rg!==''&&String(r[2])!==bgSt.rg)return false;
+    if(bgSt.own&&!bgSt.pf&&r[3]!==0)return false;
+    if(bgSt.pf&&!bgSt.own&&r[3]!==1)return false;
+    if(bgSt.ct&&!(r[6]||r[7]))return false;
+    if(bgSt.onlyNew&&((r[7]&&sentMail.has(pkeyN(r[7])))||sentName.has(pkeyN(r[0]))))return false;
+    if(q&&!((r[0]||'').toLowerCase().includes(q)||(r[1]||'').toLowerCase().includes(q)||(r[4]||'').toLowerCase().includes(q)))return false;
+    return true;
+  });
+  const withCt=BG.rows.filter(r=>r[6]||r[7]).length;
+  $('bg-cnt').textContent=BG_FILT.length.toLocaleString();
+  /* 🚧 검증 중이면 숫자 대신 사유를 띄운다 — 업종이 안 맞는 곳이 섞인 채로 보게 두지 않는다 */
+  $('bg-foot').innerHTML=BG.note
+    ? '<span style="color:var(--red);font-weight:600">'+esc(BG.note)+'</span>'
+    : '전체 <b>'+BG.rows.length.toLocaleString()+'</b>곳 · 연락처 확보 <b>'+withCt.toLocaleString()
+      +'</b>곳 · 갱신 '+esc(BG.at)
+      +(hid.size?' · 🗑 지운 곳·✉ 메일 쓴 곳 <b>'+hid.size.toLocaleString()+'</b>곳 (목록에 안 올라옵니다)':'')
+      +(nf?' · 🚫 업종 아님 자동 제외 <b>'+nf.toLocaleString()+'</b>곳':'');
+  /* 실수로 지웠을 때만 쓰는 되돌리기 — 이번에 지운 것만 보인다(새로고침하면 사라진다) */
+  const un=$('bg-undo');
+  if(un){
+    un.innerHTML=BG_LASTDEL.length
+      ? '<summary style="cursor:pointer;font-size:12.5px;color:var(--sub)">↩ 방금 지운 '+BG_LASTDEL.length+'곳 되돌리기</summary><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">'
+        +BG_LASTDEL.map(x=>'<button class="btn sm ghost" data-bg="undo" data-k="'+esc(x.k)+'">↩ '+esc(x.name)+'</button>').join('')+'</div>'
+      : '';
+    un.style.display=BG_LASTDEL.length?'':'none';
+  }
+  const pages=Math.max(1,Math.ceil(BG_FILT.length/BG_PER));
+  if(BG_PAGE>pages)BG_PAGE=pages;
+  if(BG_PAGE<1)BG_PAGE=1;
+  const from=(BG_PAGE-1)*BG_PER;
+  const page=BG_FILT.slice(from,from+BG_PER);
+  $('bg-empty').style.display=BG_FILT.length?'none':'';
+  if(BG.note)$('bg-empty').textContent=BG.note;
+  $('bg-body').innerHTML=page.map((r,idx)=>{
+    const url=bgUrl(r[4]);
+    const shown=String(r[4]||'').replace(/^https?:\/\//i,'').slice(0,46);
+    const site=url
+      ? '<a href="'+esc(url)+'" target="_blank" rel="noopener" title="'+esc(r[4])+'" style="color:var(--blue);text-decoration:none">'+esc(shown)+' ↗</a>'
+      : '<span class="muted">'+esc(shown||'—')+'</span>';
+    const ct=[];
+    if(r[6])ct.push('<span>'+esc(r[6])+'</span>');
+    if(r[7])ct.push('<span style="color:var(--blue)">'+esc(r[7])+'</span>');
+    return '<tr>'
+      +'<td><b>'+esc(r[0])+'</b></td>'
+      +'<td class="muted">'+esc(r[1]||'—')+'</td>'
+      +'<td class="muted" style="white-space:nowrap">'+esc(BG.regions[r[2]]||'—')+'</td>'
+      +'<td>'+(r[3]===0?'<span class="pill">자체몰</span>':'<span class="muted" style="font-size:11.5px">플랫폼</span>')+'</td>'
+      /* 🏷 공정위 신고 취급품목 — 뭘 파는 곳인지 유일한 근거다(없는 곳도 많다) */
+      +'<td style="font-size:11px;max-width:150px;color:var(--sub)">'+esc((BG.cats&&BG.cats[r[8]])||'')+'</td>'
+      +'<td style="font-size:11.5px;max-width:260px;word-break:break-all">'+site+'</td>'
+      +'<td style="font-size:11.5px;line-height:1.5">'+(ct.length?ct.join('<br>'):'<span class="muted">—</span>')+'</td>'
+      +'<td class="muted" style="font-size:11.5px;white-space:nowrap">'+esc(r[5]||'')+'</td>'
+      +'<td style="white-space:nowrap">'
+        /* 🔎 상호로 바로 검색 — 옛 「발굴 대상」에서 가져왔다(홍팀장 2026-11-02).
+           뭘 파는 곳인지는 결국 눈으로 봐야 한다. 도메인이 죽었을 때도 이쪽으로 확인된다. */
+        +'<a class="btn sm ghost" href="https://search.naver.com/search.naver?query='+encodeURIComponent(r[0]||'')+'" target="_blank" rel="noopener" title="네이버에서 이 업체 검색" style="text-decoration:none">N</a> '
+        +'<a class="btn sm ghost" href="https://www.google.com/search?q='+encodeURIComponent(r[0]||'')+'" target="_blank" rel="noopener" title="구글에서 이 업체 검색" style="text-decoration:none">G</a> '
+        +'<button class="btn sm brand" title="메일 작성으로 넘기고 이 업체는 명단에서 뺍니다" data-bg="mail" data-i="'+(from+idx)+'">✉ 메일 쓰기</button> '
+        +'<button class="btn sm ghost" title="목록에서 영영 지웁니다" style="color:var(--red)" data-bg="del" data-i="'+(from+idx)+'">🗑</button>'
+      +'</td>'
+      +'</tr>';
+  }).join('');
+  $('bg-pager').innerHTML=pages<=1?'':
+      '<button class="btn sm ghost" data-bg="page" data-p="'+(BG_PAGE-1)+'"'+(BG_PAGE<=1?' disabled':'')+'>‹</button>'
+    + pagerNums(BG_PAGE,pages).map(n=>'<button class="btn sm '+(n===BG_PAGE?'brand':'ghost')+'" data-bg="page" data-p="'+n+'">'+n+'</button>').join('')
+    + '<button class="btn sm ghost" data-bg="page" data-p="'+(BG_PAGE+1)+'"'+(BG_PAGE>=pages?' disabled':'')+'>›</button>'
+    + '<span class="muted" style="margin-left:8px;font-size:12px">'+BG_PAGE+' / '+pages+' 쪽</span>';
+  bgHidRender();
+}
+/* 🔎 숨긴 곳(bg_hide) 찾기 — 명단(BG.rows)에서 열쇠가 숨김 목록에 있는 줄만 골라 검색.
+   ✉ = 메일링 목록(DATA)에 그 메일주소·업체명이 있는 곳(보낸 곳), 🗑 = 그 외(지운 곳). */
+let BG_HID_Q='';
+function bgHidRender(){
+  const box=$('bg-hid-body'); if(!box||!BG)return;
+  const hid=bgHideSet();
+  $('bg-hid-n').textContent=hid.size?'('+hid.size.toLocaleString()+'곳)':'(없음)';
+  const q=pkeyN(BG_HID_Q);
+  if(!q){ box.innerHTML='<div class="muted" style="font-size:12.5px">위 칸에 업체명을 치면 명단에서 뺀 곳 중에서 찾아 줍니다.</div>'; return; }
+  const sentMail=new Set(), sentName=new Set();
+  DATA.forEach(r=>{ if(r[2])sentMail.add(pkeyN(r[2])); if(r[0])sentName.add(pkeyN(r[0])); });
+  const hits=BG.rows.filter(r=>hid.has(bgKey(r)) && [r[0],r[1],r[4],r[7]].some(v=>pkeyN(v).includes(q))).slice(0,50);
+  if(!hits.length){ box.innerHTML='<div class="muted" style="font-size:12.5px">「'+esc(BG_HID_Q)+'」 — 뺀 곳 중에 없습니다. (지금 명단에 그대로 있을 수 있어요 — 위 검색칸에서 찾아보세요)</div>'; return; }
+  box.innerHTML='<table style="font-size:12.5px"><tbody>'+hits.map(r=>{
+    const sent=(r[7]&&sentMail.has(pkeyN(r[7])))||sentName.has(pkeyN(r[0]));
+    return '<tr><td>'+(sent?'<span class="badge green">✉ 보낸 곳</span>':'<span class="badge">🗑 지운 곳</span>')+'</td>'
+      +'<td><b>'+esc(r[0])+'</b></td><td class="muted">'+esc(r[1]||'—')+'</td>'
+      +'<td style="word-break:break-all">'+esc(String(r[4]||'').replace(/^https?:\/\//i,'').slice(0,40))+'</td>'
+      +'<td style="color:var(--blue)">'+esc(r[7]||'')+'</td>'
+      +'<td style="white-space:nowrap"><button class="btn sm brand" data-bg="restore" data-k="'+esc(bgKey(r))+'">↩ 되살리기</button></td></tr>';
+  }).join('')+'</tbody></table>';
+}
+/* ✉ 메일 쓰기 — 업체명·메일주소를 꽂고 메일 작성 탭으로 넘긴다 (기록은 홍팀장이 [기록]으로) */
+function bgToMail(r){
+  $('company-name').value=r[0]||'';
+  if(r[7])$('q-mail').value=r[7];
+  PING_MAIL=String(r[7]||'').trim().toLowerCase();
+  setPingPhone(r[0],r[6]);
+  /* 🔎 「무엇을 보고」 = «업체명 자사몰» 로 매번 새로 쓴다 (2026-11-03 홍팀장 「'업체명' 자사몰 보고로 변경해 줘야지」).
+     예전엔 칸이 비어 있을 때만 도메인으로 채워서, 앞 업체 문구(「…식품의 하늘 사이트…」)가 다음 업체 메일에 그대로 남았다.
+     주식회사·(주) 는 떼고 부른다 — 「주식회사 푸드하늘 자사몰」보다 「푸드하늘 자사몰」이 자연스럽다. */
+  const src=$('source-text');
+  if(src){
+    const nm=String(r[0]||'').replace(/주식회사|유한회사|농업회사법인|영농조합법인|\(주\)|㈜/g,'').replace(/\s+/g,' ').trim();
+    if(nm)src.value='운영하고 계신 '+nm+' '+(r[3]===0?'자사몰':'스토어')+' 보고 상품 제안드리고 싶어';
+  }
+  if(typeof stampSlots==='function')stampSlots();
+  if(r[7]&&typeof quickCheck==='function')quickCheck();
+  showSec('compose');
+  window.scrollTo({top:0,behavior:'smooth'});
+  toast(r[0]+(r[7]?' — 업체명·메일주소를 꽂았습니다':' — 업체명을 꽂았습니다 (메일주소는 직접 확인)'));
+}
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-bg]'); if(!b)return;
+  const a=b.getAttribute('data-bg');
+  if(a==='page'){ BG_PAGE=parseInt(b.getAttribute('data-p'),10)||1; bgRender(); window.scrollTo({top:$('bg-table').offsetTop-80,behavior:'smooth'}); }
+  else if(a==='mail'){ const r=BG_FILT[parseInt(b.getAttribute('data-i'),10)]; if(r){ bgToMail(r); bgDel(r,'mail'); } }
+  else if(a==='del'){ const r=BG_FILT[parseInt(b.getAttribute('data-i'),10)]; if(r)bgDel(r); }
+  else if(a==='undo'){ bgUndo(b.getAttribute('data-k')); }
+  else if(a==='restore'){ const k=b.getAttribute('data-k'); const r=BG.rows.find(x=>bgKey(x)===k); bgUndo(k); toast('↩ '+((r&&r[0])||'')+' — 명단으로 되살렸습니다'); }
+});
+(function(){
+  let t;
+  $('bg-q').addEventListener('input',e=>{ bgSt.q=e.target.value; clearTimeout(t); t=setTimeout(()=>{BG_PAGE=1;bgRender();},200); });
+  let th;
+  $('bg-hid-q').addEventListener('input',e=>{ BG_HID_Q=e.target.value; clearTimeout(th); th=setTimeout(bgHidRender,200); });
+  $('bg-rg').addEventListener('change',e=>{ bgSt.rg=e.target.value; BG_PAGE=1; bgRender(); });
+  [['bg-own','own'],['bg-pf','pf'],['bg-ct','ct'],['bg-new','onlyNew']].forEach(([id,key])=>{
+    $(id).addEventListener('click',()=>{
+      bgSt[key]=!bgSt[key];
+      const e=$(id);
+      e.setAttribute('aria-pressed',String(bgSt[key]));
+      e.classList.toggle('brand',bgSt[key]);
+      e.classList.toggle('ghost',!bgSt[key]);
+      BG_PAGE=1; bgRender();
+    });
+  });
+})();
+
 // init
 $('q-date').value=todayKST();
 // 👥 작성자 선택 — 서명·명함만 바뀌고 목록은 항상 통합 (2026-08-11)
@@ -1558,6 +1913,12 @@ document.title='신규업체 메일링 — '+PERSON;
   PEOPLE.forEach(p=>{ const o=document.createElement('option'); o.value=p; o.textContent=p; if(p===PERSON)o.selected=true; sel.appendChild(o); });
 })();
 loadAll();
+/* 마지막으로 보던 탭으로 — 발굴 명단을 보다가 새로고침했을 때 메일작성으로 튕기지 않게 */
+(function(){
+  let k='compose';
+  try{ k=localStorage.getItem('mailing_sec')||'compose'; }catch(e){}
+  showSec(SECS[k]?k:'compose');
+})();
 </script>
 
 </body>
