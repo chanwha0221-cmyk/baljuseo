@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.217</title>
+<title>마스터 유통 카탈로그 v23.218</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1161,10 +1161,26 @@ function parseGrid(grid){
     out=out.map(g=>Object.assign(g,{products:g.products.filter(p=>!dk.has(pkey(p.name)))})).filter(g=>g.products.length);
     out.unshift(day);
   }
+  /* 🆕 오늘 안 나온 출시·당일 상품 — 마스터만, 「📞 재고 문의」 카드로 (2026-11-08 홍팀장 「업체엔 안 보이더라도 출시 상품은
+     마스터 로그인한 사람한테는 보이게 — 수량요청으로」). 일요일 김장생새우 1kg 이 당일 목록에 없어 카드가 없었고 소식글 상품 버튼도 못 붙었다.
+     서버가 본 적 있는 당일 상품(30일) + 변동사항 「출시」 를 dayGhost 로 마스터에게만 싣는다. 이미 카드가 있는 이름은 건너뛴다. */
+  if(ME&&ME.master){
+    const have=new Set();out.forEach(g=>g.products.forEach(p=>have.add(pkey(p.name))));
+    const gp=[];
+    ((SNAP&&SNAP.dayGhost)||[]).forEach(r=>{
+      if(!r||!r.n||have.has(pkey(r.n)))return;
+      have.add(pkey(r.n)); MCZERO.set(pkey(r.n),1);
+      gp.push({name:r.n,url:(+r.srl>0?('https://masterc.kr/board_eJGl96?p='+r.srl):''),
+        price:{old:null,cur:(+r.price>0?+r.price:null),dir:''},
+        ship:(/무료/.test(String(r.ship||''))?0:(+r.ship_n>0?+r.ship_n:-1)),
+        courier:r.courier||'',tax:r.tax||'',cut:r.cut||'',ref:'',exp:r.exp||'',srcWh:r.wh||'',ghost:1});
+    });
+    if(gp.length)out.push({wh:'🆕 오늘 미판매',products:gp,mixed:true});
+  }
   /* 🏷 특별단가 «전체» (2026-10-06 홍팀장) — masterc #special 에서 업체 지정 없이 켜둔 것. 상시·당일 딸깍이 같이 보낸다.
      카드 가격을 이 값으로 덮고 🏷 딱지를 단다(tagRow). 월 시트 원가표(mccost)·저마진도 같은 값을 쓴다. */
   MKSRL=new Map();   // 🖼 상품명 → masterc 새 상세 srl (상세페이지 만들기가 연다)
-  ((SNAP&&SNAP.mc)||[]).concat((SNAP&&SNAP.mcDay)||[]).forEach(r=>{if(r&&r.n&&+r.srl>0)MKSRL.set(pkey(r.n),+r.srl);});
+  ((SNAP&&SNAP.mc)||[]).concat((SNAP&&SNAP.mcDay)||[],(SNAP&&SNAP.dayGhost)||[]).forEach(r=>{if(r&&r.n&&+r.srl>0&&!MKSRL.has(pkey(r.n)))MKSRL.set(pkey(r.n),+r.srl);});
   const spc=new Map(((SNAP&&SNAP.mcSpc)||[]).map(r=>[pkey(r.n),+r.price||0]));
   /* 🔴 오늘 당일 등록가가 걸려 있으면 그게 먼저다 (2026-10-15 연안 오육미전복 — masterc 는 오늘 등록가 39,500 으로 파는데
      카탈로그만 특별단가 43,500 을 띄웠다. masterc 판매가 근거 how:'daily'). 특별단가는 등록이 끝난 다음 날부터. */
@@ -1880,9 +1896,10 @@ function card(p,extra,top,foot){
         (2026-10-01 참조은수산 — 활 새우·구십미전복을 열어 줬는데 카드가 「재고 없음」 이라 담지를 못했다.
          서버(doSubmit)·발주 화면(order.js zeroNow)은 이미 업체 전용을 빼 주고 있었고 카드만 빠져 있었다). */
   const zq0=isZeroQ(p.name)&&!(typeof vonlyOpen==='function'&&vonlyOpen(p.name));
-  const zq=!day&&zq0;
-  /* 📞 당일 재고 문의 = 오늘 수량 다 나감 → 담기 막고 문의로 (2026-10-29 홍팀장 「소량은 발주 가능, 재고 문의는 발주 불가」) */
-  const dq=day&&zq0;
+  const zq=!day&&!p.ghost&&zq0;
+  /* 📞 당일 재고 문의 = 오늘 수량 다 나감 → 담기 막고 문의로 (2026-10-29 홍팀장 「소량은 발주 가능, 재고 문의는 발주 불가」)
+     🆕 마스터 전용 «오늘 미판매» 카드(p.ghost)도 재고 문의로 (2026-11-08) */
+  const dq=(day||!!p.ghost)&&zq0;
   const hot=((!!TINT[pkey(p.name)]||isLowQ(p.name)||zq)&&!day)||(day&&DAYLOW.has(pkey(p.name)));
   // ⭐추천상품은 목록에서도 배지를 단다. 추천 화면에서 넘어온 배지(top)가 있으면 그걸 쓴다(중복 방지).
   const rc=RECMAP[pkey(p.name)];
