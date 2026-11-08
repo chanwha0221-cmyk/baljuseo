@@ -446,4 +446,17 @@
   tick(true);
   setInterval(function () { tick(false); }, CHECK_MS);
   setInterval(specTick, 60 * 1000);
+  /* 🔄 새 코드가 올라오면 스스로 새로고침 (2026-11-08 홍팀장 「맨날 할 필요 없다고 하는데 왜 맨날 안 되냐」).
+       켜 둔 창은 처음 불러온 코드로만 돌아서, 고쳐 올려도 홍팀장이 창을 새로고침하기 전엔 옛 코드였다.
+       10분마다 mc-watch.js 를 다시 받아 처음 것과 다르면, 돌고 있는 일이 없을 때 창을 새로고침한다(#mcwatch 가 남아 있어 다시 감시가 켜진다). */
+  var SELF = 'https://chanwha0221-cmyk.github.io/baljuseo/mc-watch.js';
+  function selfSig() { return fetch(SELF + '?v=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) { return t ? hash(t) : ''; }); }
+  var bootSig = '';
+  selfSig().then(function (s) { bootSig = s; }, function () {});
+  setInterval(function () {
+    if (!bootSig || busy) return;
+    selfSig().then(function (s) {
+      if (s && s !== bootSig && !busy) { log('🔄 감시 코드가 새로 올라와 창을 새로고침합니다'); setTimeout(function () { location.reload(); }, 1500); }
+    }, function () {});
+  }, 10 * 60 * 1000);
 })();
