@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>식봄 마진판 v1.3</title>
+<title>식봄 마진판 v1.4</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 /* 🛒 식봄 마진판 (2026-11-03 홍팀장 「식봄 상품 리스트로 수수료 8% 계산했을 때 마진·마진율 볼 수 있는 사이트」)
@@ -88,8 +88,13 @@ tr.loss{background:var(--bad-soft)}
 .sold .ok h2{color:var(--good)}
 .nb td,.nb th{text-align:left}
 .nb td.num,.nb th.num{text-align:right}
-.nb select{font:inherit;font-size:12px;max-width:260px;padding:3px 5px;border:1px solid var(--line);border-radius:5px;background:var(--panel);color:var(--ink)}
-.nb select.miss{border-color:var(--bad)}
+.nb .catin{font:inherit;font-size:12px;width:280px;padding:4px 7px;border:1px solid var(--line);border-radius:5px;background:var(--panel);color:var(--ink)}
+.nb .catin.miss{border-color:var(--bad)}
+#catpop{position:absolute;z-index:50;max-height:300px;overflow:auto;min-width:300px;background:var(--panel);border:1px solid var(--accent);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:12.5px}
+#catpop div{padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--line)}
+#catpop div:hover,#catpop div.on{background:var(--accent-soft)}
+#catpop small{color:var(--sub);margin-left:6px}
+#catpop .hint{cursor:default;color:var(--sub)}
 .nb tr.unchk td{color:var(--sub);opacity:.6}
 .fix input[type=text]{font:inherit;padding:6px 9px;border:1px solid var(--line);border-radius:6px;min-width:220px;background:var(--panel);color:var(--ink)}
 </style>
@@ -532,7 +537,7 @@ function nbRender(){
     return '<tr class="'+(on?'':'unchk')+'"><td><input type="checkbox" data-nbk="'+esc(k)+'"'+(on?' checked':'')+'></td><td>'+esc(x.n)+'</td>'
       +'<td class="num">'+won(x.c)+'</td><td class="num"><b>'+won(x.p)+'</b></td><td class="num">'+pct(x.rate)+'</td><td>'+(x.tax==='y'?'과세':'면세')+'</td>'
       +'<td>'+esc(x.size)+'</td><td>'+esc(x.org)+'</td>'
-      +'<td><select data-nbcat="'+esc(k)+'"'+(x.cat?'':' class="miss"')+'>'+CAT_OPTS.replace('value="'+esc(x.cat)+'"','value="'+esc(x.cat)+'" selected')+'</select></td></tr>';
+      +'<td><input class="catin'+(x.cat?'':' miss')+'" data-nbcat="'+esc(k)+'" value="'+esc(catLabel(x.cat))+'" placeholder="🔍 카테고리 검색 (예: 양고기)" autocomplete="off"></td></tr>';
   }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--sub)">이 창고엔 새로 올릴 상시 상품이 없습니다.</td></tr>';
   const sel=NB.rows.filter(x=>!NB.off.has(key(x.n)));
   const noCat=sel.filter(x=>!x.cat).length;
@@ -544,9 +549,49 @@ function nbRender(){
 }
 $('nb-whs').addEventListener('click',e=>{ const b=e.target.closest('[data-nbwh]'); if(!b) return; NB.wh=b.dataset.nbwh; NB.off=new Set(); nbRender(); });
 $('nb-tb').addEventListener('change',e=>{
-  const c=e.target.closest('[data-nbk]'), s=e.target.closest('[data-nbcat]');
+  const c=e.target.closest('[data-nbk]');
   if(c){ c.checked?NB.off.delete(c.dataset.nbk):NB.off.add(c.dataset.nbk); nbRender(); }
-  if(s){ NB.cat[s.dataset.nbcat]=s.value; nbRender(); }
+});
+/* 🔍 카테고리 검색 (2026-11-08 홍팀장 「양고기 넣으면 그게 맞는 카테고리만 볼 수 있게」)
+   카테고리 이름에 그 글자가 있으면 + 흔히 쓰는 말(양고기→양, 한우→소고기 …)로도 찾는다. 상품명 규칙이 고르는 칸을 맨 위에. */
+const CAT_LIST=[]; for(const a in CATS) for(const b in CATS[a]) for(const c of CATS[a][b]) CAT_LIST.push({p:a+'|'+b+'|'+c,a,b,c,h:(a+b+c).replace(/\s+/g,'')});
+function catLabel(p){ if(!p) return ''; const [a,b,c]=p.split('|'); return b+' › '+c+'  ('+a+')'; }
+const CAT_ALIAS=[[/양고기|양갈비|램|양꼬치|양 /,['양 원물','양 세절']],[/소고기|한우|육우|우육|소 /,['소고기']],[/돼지|한돈|돈육|삼겹|목살/,['돼지고기']],
+  [/닭|치킨|계육/,['닭고기']],[/오리/,['오리']],[/염소/,['염소']],[/생선|물고기|선어/,['생선류']],[/조개|패류/,['조개류']],[/게$|꽃게|대게|홍게/,['새우.게.해산물']],
+  [/새우/,['새우']],[/젓갈|젓/,['젓갈류']],[/과일/,['과일']],[/야채|채소|나물/,['채소']],[/소스|양념/,['소스','양념']],[/면|국수/,['국수','면류']],[/떡/,['떡']],[/김치/,['김치']],
+  [/해산물|수산/,['생선.해산물.건어물']],[/건어물|마른/,['건어물']],[/간편|밀키트|냉동식품/,['냉장.냉동.간편식']],[/탕|국|찌개/,['찌개.국.탕류']]];
+function catSearch(q){
+  const qk=String(q||'').replace(/\s+/g,''); const out=[], seen=new Set();
+  const add=it=>{ if(it&&!seen.has(it.p)){ seen.add(it.p); out.push(it); } };
+  if(!qk) return CAT_LIST.slice();
+  const g=catGuess(q); if(g) add(CAT_LIST.find(x=>x.p===g));
+  CAT_LIST.forEach(x=>{ if(x.h.includes(qk)||(x.c.length>1&&qk.includes(x.c.replace(/\s+/g,'')))) add(x); });
+  CAT_ALIAS.forEach(([re,terms])=>{ if(re.test(q)) CAT_LIST.forEach(x=>{ if(terms.some(t=>(x.a+'|'+x.b+'|'+x.c).includes(t))) add(x); }); });
+  return out;
+}
+const POP=document.createElement('div'); POP.id='catpop'; POP.hidden=true; document.body.appendChild(POP);
+let POP_IN=null;
+function popShow(inp){
+  POP_IN=inp; const q=inp.value.includes('›')?'':inp.value;
+  const list=catSearch(q), shown=list.slice(0,80);
+  POP.innerHTML=(shown.length?shown.map(x=>'<div data-p="'+esc(x.p)+'">'+esc(x.b+' › '+x.c)+'<small>'+esc(x.a)+'</small></div>').join(''):'<div class="hint">맞는 카테고리가 없습니다 — 다른 말로 찾아 보세요.</div>')
+    +(list.length>shown.length?'<div class="hint">'+(list.length-shown.length)+'개 더 — 검색어를 넣어 좁혀 주세요.</div>':'');
+  const r=inp.getBoundingClientRect(); POP.style.left=(r.left+scrollX)+'px'; POP.style.top=(r.bottom+scrollY+2)+'px'; POP.hidden=false;
+}
+$('nb-tb').addEventListener('focusin',e=>{ const i=e.target.closest('.catin'); if(i){ i.select(); popShow(i); } });
+$('nb-tb').addEventListener('input',e=>{ const i=e.target.closest('.catin'); if(i) popShow(i); });
+$('nb-tb').addEventListener('focusout',e=>{ if(e.target.closest('.catin')) setTimeout(()=>{ POP.hidden=true; },150); });
+$('nb-tb').addEventListener('keydown',e=>{
+  const i=e.target.closest('.catin'); if(!i||POP.hidden) return;
+  const items=[...POP.querySelectorAll('[data-p]')]; if(!items.length) return;
+  let k=items.findIndex(d=>d.classList.contains('on'));
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); if(k>=0) items[k].classList.remove('on'); k=e.key==='ArrowDown'?Math.min(items.length-1,k+1):Math.max(0,k-1); items[k].classList.add('on'); items[k].scrollIntoView({block:'nearest'}); }
+  else if(e.key==='Enter'){ e.preventDefault(); (items[k>=0?k:0]).dispatchEvent(new MouseEvent('mousedown',{bubbles:true})); }
+  else if(e.key==='Escape'){ POP.hidden=true; }
+});
+POP.addEventListener('mousedown',e=>{
+  const d=e.target.closest('[data-p]'); if(!d||!POP_IN) return; e.preventDefault();
+  NB.cat[POP_IN.dataset.nbcat]=d.dataset.p; POP.hidden=true; POP_IN=null; nbRender();
 });
 $('nb-all').addEventListener('click',()=>{ if(!NB.wh) return; const any=NB.rows.some(x=>!NB.off.has(key(x.n))); NB.off=any?new Set(NB.rows.map(x=>key(x.n))):new Set(); nbRender(); });
 $('nb-ship').addEventListener('change',async e=>{
