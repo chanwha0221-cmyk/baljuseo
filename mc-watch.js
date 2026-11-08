@@ -64,6 +64,34 @@
   function edge(body) {
     return fetch(EDGE, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); });
   }
+  /* 📷 상품명 → 새 상세 srl (게시판 제목 «[창고] 상품명» 완전일치 → 옛 글번호 → a=remap). 찾으면 30일, 못 찾으면 6시간 기억. */
+  var SRLC_KEY = 'mcw_srl_find_v1';
+  function srlCache() { try { return JSON.parse(localStorage.getItem(SRLC_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  async function findSrl(name) {
+    var k = String(name || '').replace(/\s+/g, '').toLowerCase();
+    if (!k) return 0;
+    var c = srlCache(), hit = c[k], now = Date.now();
+    if (hit && ((hit.s > 0 && now - hit.at < 30 * 86400000) || (!hit.s && now - hit.at < 6 * 3600000))) return hit.s || 0;
+    var s = 0;
+    try {
+      var h = await (await fetch('/index.php?mid=board_eJGl96&search_target=title&search_keyword=' + encodeURIComponent(name), { credentials: 'same-origin', cache: 'no-store' })).text();
+      var d = new DOMParser().parseFromString(h, 'text/html');
+      var docs = [];
+      [].forEach.call(d.querySelectorAll('a'), function (a) {
+        var t = String(a.textContent || '').replace(/^\s*\[[^\]]*\]\s*/, '').replace(/\s+/g, '').toLowerCase();
+        if (t !== k) return;   // 🔴 상품명 완전일치만 (한 글자라도 다르면 다른 상품)
+        var m = String(a.getAttribute('href') || '').match(/(?:document_srl=|\/)(\d{4,})(?:[^\d]|$)/);
+        if (m && docs.indexOf(m[1]) < 0) docs.push(m[1]);
+      });
+      for (var i = 0; i < docs.length && !s; i++) {
+        var j = await get('board_eJGl96', 'remap', '&doc=' + docs[i]);
+        if (j && j.ok && +j.srl > 0) s = +j.srl;
+      }
+    } catch (e) { return 0; }   // 못 읽은 건 기억하지 않는다 — 다음에 다시
+    c[k] = { s: s, at: now };
+    try { localStorage.setItem(SRLC_KEY, JSON.stringify(c)); } catch (e) {}
+    return s;
+  }
   function needLogin(j) { return j && j.ok === false && j.login === false; }
   function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; } return String(h) + ':' + s.length; }
   function shipNum(s) { s = String(s == null ? '' : s); var m = s.replace(/,/g, '').match(/\d+/); return m ? +m[0] : 0; }
@@ -139,7 +167,19 @@
         [].concat(L.items || [], L.today || []).forEach(function (p) {
           im[String(p.n).replace(/\s+/g, '').toLowerCase()] = { img: p.img, srl: p.srl, ship_n: p.ship_n, courier: p.courier };
         });
-        var ditems = (Q.cands || []).filter(function (r) { return r.k === 'day'; }).map(function (r) {
+        /* 📷 상품리스트에 없는 당일 상품(등록 꺼둠 등)도 글번호를 찾아 사진·상세를 붙인다 (2026-11-08 홍팀장 「연안 끝판왕문어 3kg
+             왜 사진도 없고 글도 없냐 — 이런 거 놓치지 말고」). 상품리스트 today 엔 등록 켠 것만 와서 srl 0 → 카탈로그가 죽은 옛 링크·사진 없음.
+             게시판 제목 검색(「[창고] 상품명」 완전일치) → 옛 글번호 → a=remap 으로 새 상세 srl. 찾은 것·못 찾은 것 모두 기억해 매번 안 찾는다. */
+        var dayRows = (Q.cands || []).filter(function (r) { return r.k === 'day'; });
+        var noSrl = dayRows.filter(function (r) { var m = im[String(r.n).replace(/\s+/g, '').toLowerCase()]; return !(m && +m.srl > 0); });
+        for (var si = 0; si < noSrl.length && si < 15; si++) {
+          var fs = await findSrl(noSrl[si].n);
+          if (fs > 0) {
+            var fk = String(noSrl[si].n).replace(/\s+/g, '').toLowerCase();
+            im[fk] = Object.assign({}, im[fk] || {}, { srl: fs, img: (im[fk] && im[fk].img) || ('/xd/thumbs/' + fs + '.jpg') });
+          }
+        }
+        var ditems = dayRows.map(function (r) {
           var m = im[String(r.n).replace(/\s+/g, '').toLowerCase()] || {};
           return { n: r.n, wh: r.wh, qid: r.qid, sell: r.sell, sug: r.sug, base: r.base, cost: r.cost, ship: r.ship, ship_n: m.ship_n,
                    tax: r.tax, courier: r.courier || r.cou || m.courier || '', cut: r.cut, exp: r.exp, img: m.img, srl: m.srl,

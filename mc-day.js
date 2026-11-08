@@ -33,6 +33,33 @@
       .then(function (r) { return r.json(); });
   }
   function won(n) { return String(Math.round(+n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  /* 📷 상품명 → 새 상세 srl (2026-11-08, mc-watch.js findSrl 과 같은 규칙) — 상품리스트에 없는 당일 상품(등록 꺼둠 등)도
+       사진·상세를 붙인다. 게시판 제목 «[창고] 상품명» 완전일치 → 옛 글번호 → a=remap. 결과는 mc-watch 와 같은 캐시를 쓴다. */
+  async function findSrl(name) {
+    var k = String(name || '').replace(/\s+/g, '').toLowerCase();
+    if (!k) return 0;
+    var c = {}; try { c = JSON.parse(localStorage.getItem('mcw_srl_find_v1') || '{}') || {}; } catch (e) {}
+    var hit = c[k], now = Date.now();
+    if (hit && ((hit.s > 0 && now - hit.at < 30 * 86400000) || (!hit.s && now - hit.at < 6 * 3600000))) return hit.s || 0;
+    var s = 0;
+    try {
+      var h = await (await fetch('/index.php?mid=board_eJGl96&search_target=title&search_keyword=' + encodeURIComponent(name), { credentials: 'same-origin', cache: 'no-store' })).text();
+      var d = new DOMParser().parseFromString(h, 'text/html'), docs = [];
+      [].forEach.call(d.querySelectorAll('a'), function (a) {
+        var t = String(a.textContent || '').replace(/^\s*\[[^\]]*\]\s*/, '').replace(/\s+/g, '').toLowerCase();
+        if (t !== k) return;
+        var m = String(a.getAttribute('href') || '').match(/(?:document_srl=|\/)(\d{4,})(?:[^\d]|$)/);
+        if (m && docs.indexOf(m[1]) < 0) docs.push(m[1]);
+      });
+      for (var i = 0; i < docs.length && !s; i++) {
+        var j = await (await fetch('/xd/api.php?mid=board_eJGl96&a=remap&doc=' + docs[i], { credentials: 'same-origin', cache: 'no-store' })).json();
+        if (j && j.ok && +j.srl > 0) s = +j.srl;
+      }
+    } catch (e) { return 0; }
+    c[k] = { s: s, at: now };
+    try { localStorage.setItem('mcw_srl_find_v1', JSON.stringify(c)); } catch (e) {}
+    return s;
+  }
 
   try {
     var Q = await cand();
@@ -86,7 +113,16 @@
     [].concat((L && L.items) || [], (L && L.today) || []).forEach(function (p) {
       im[String(p.n).replace(/\s+/g, '').toLowerCase()] = { img: p.img, srl: p.srl, ship_n: p.ship_n, courier: p.courier };
     });
-    var items = (Q.cands || []).filter(function (r) { return r.k === 'day'; }).map(function (r) {
+    var dayRows = (Q.cands || []).filter(function (r) { return r.k === 'day'; });
+    var noSrl = dayRows.filter(function (r) { var m = im[String(r.n).replace(/\s+/g, '').toLowerCase()]; return !(m && +m.srl > 0); });
+    for (var si = 0; si < noSrl.length && si < 20; si++) {
+      var fs = await findSrl(noSrl[si].n);
+      if (fs > 0) {
+        var fk = String(noSrl[si].n).replace(/\s+/g, '').toLowerCase();
+        im[fk] = Object.assign({}, im[fk] || {}, { srl: fs, img: (im[fk] && im[fk].img) || ('/xd/thumbs/' + fs + '.jpg') });
+      }
+    }
+    var items = dayRows.map(function (r) {
       var m = im[String(r.n).replace(/\s+/g, '').toLowerCase()] || {};
       /* 🚚 택배사 (2026-09-29 홍팀장 「택배사 문의 많다, 노출할 수 있게」) — 당일 자료(daily_cand)에 택배사가
          들어오면 그걸, 아직 없으면 상품리스트에 같은 이름이 있을 때 그 택배사를 쓴다. */
