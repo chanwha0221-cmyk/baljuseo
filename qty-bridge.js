@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-08a';
+  var QTYB_VER = '2026-11-08b';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -1333,6 +1333,8 @@
       '  max-height:82vh;display:flex;flex-direction:column;background:#fff;border:1px solid #d6dbe3;',
       '  border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18);z-index:99999;font:13px/1.55 Pretendard,',
       '  -apple-system,"Malgun Gothic",sans-serif;color:#1f2530}',
+      /* 접으면 위쪽 오른편에 작게 — 아래에 두면 맨 밑 줄의 잡기·대기 칸을 가린다(2026-11-08 홍팀장) */
+      '#' + PANEL_ID + '.mini{top:8px;bottom:auto;width:auto;max-height:none}',
       '#' + PANEL_ID + ' .hd{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #eceff4;',
       '  background:#f7f9fc;border-radius:12px 12px 0 0}',
       '#' + PANEL_ID + ' .hd b{font-size:14px}',
@@ -1482,10 +1484,11 @@
          페이지가 새로 뜰 때마다 패널이 펼쳐진 채로 올라와서 매번 다시 접어야 했다. */
     (function () {
       var b = p.querySelector('.bd');
-      try { if (localStorage.getItem('qtybMin') === '1') b.style.display = 'none'; } catch (e) {}
+      try { if (localStorage.getItem('qtybMin') === '1') { b.style.display = 'none'; p.classList.add('mini'); } } catch (e) {}
       el('qtyb-min').onclick = function () {
         var hide = b.style.display !== 'none';
         b.style.display = hide ? 'none' : '';
+        p.classList.toggle('mini', hide);
         try { localStorage.setItem('qtybMin', hide ? '1' : '0'); } catch (e) {}
       };
     })();
