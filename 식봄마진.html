@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>식봄 마진판 v1.6</title>
+<title>식봄 마진판 v1.7</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 /* 🛒 식봄 마진판 (2026-11-03 홍팀장 「식봄 상품 리스트로 수수료 8% 계산했을 때 마진·마진율 볼 수 있는 사이트」)
@@ -155,6 +155,18 @@ tr.loss{background:var(--bad-soft)}
       <span class="msg" id="b-msg">식봄 [판매가 일괄 수정]에서 받은 양식 파일을 넣어 주세요.</span>
     </div>
     <div id="b-list"></div>
+  </div>
+  <!-- 🚫 품절 적용 파일 → 식봄 「상품 일괄 수정」 양식 (2026-11-08 홍팀장 「상품 전체 리스트 파일을 주면 품절 상품 적용 파일을 만들어,
+       그대로 다시 식봄에 넣으면 저것들 품절되게」). 🔴 판매여부(AB) 칸만 바꾼다 — 나머지는 한 글자도 안 건드린다. -->
+  <div class="fix">
+    <h2>식봄 품절 적용 — 재고 없는 상품 판매중지</h2>
+    <div class="steps">
+      <label class="up" for="so">① 상품 일괄 수정 양식 넣기<input id="so" type="file" accept=".xlsx"></label>
+      <label style="font-size:13px"><input type="checkbox" id="so-back"> 판매중지인데 재고 있는 상품은 다시 판매중으로</label>
+      <button class="btn" id="so-out" disabled>② 품절 적용 파일 만들기</button>
+      <span class="msg" id="so-msg">식봄 [상품 일괄 수정]에서 <b>전체 상품을 선택</b>해 받은 양식을 넣어 주세요.</span>
+    </div>
+    <div id="so-list"></div>
   </div>
   <div class="bar">
     <input id="q" type="search" placeholder="상품명 찾기">
@@ -442,6 +454,67 @@ $('b-out').addEventListener('click',async()=>{
     BULK.zip.file(BULK.sheetPath,BULK.xml);   // 원본으로 되돌려 둔다 — 다시 눌러도 같은 결과
     $('b-msg').textContent='파일을 만들었습니다 ('+ch.length+'개 수정) — 식봄 [판매가 일괄 수정]에 그대로 올리면 됩니다.';
   }catch(err){ $('b-msg').textContent='파일을 만들지 못했습니다: '+err.message; }
+});
+/* ══ 🚫 품절 적용 (상품 일괄 수정 양식) ══════════════════════════════════════
+   양식 = 식봄 「상품 일괄 수정」 다운로드. 5행 머리글(상품 고유키·상품코드·…·상품명(F)·…·판매여부(AB)), 7행부터 상품, 칸은 inlineStr.
+   판정은 위 🚫 칸과 같다(stockOf) — 상품명은 매칭 저장한 이름(MAP)도 본다. */
+let SO=null;
+function soPlan(){
+  const back=$('so-back').checked;
+  SO.rows.forEach(x=>{
+    const code=x.code, to=MAP[code]||MAP[x.n]||'', s=stockOf(to||x.n);
+    x.stock=s; x.to=x.on;
+    if(x.on==='y'&&(s==='zero'||s==='gone')) x.to='n';
+    else if(back&&x.on==='n'&&s==='ok') x.to='y';
+  });
+}
+function soList(){
+  if(!SO){ $('so-list').innerHTML=''; $('so-out').disabled=true; return; }
+  soPlan();
+  const ch=SO.rows.filter(x=>x.to!==x.on);
+  $('so-out').disabled=!ch.length;
+  $('so-list').innerHTML=ch.length?'<div class="tbl"><table><thead><tr><th>상품명</th><th>우리 재고</th><th>판매여부</th></tr></thead><tbody>'
+    +ch.map(x=>'<tr><td>'+esc(x.n)+'</td><td style="text-align:left">'+(x.stock==='ok'?'✅ 재고 있음':x.stock==='zero'?'🚫 재고 0':'🚫 masterc 목록에 없음')+'</td><td>'+(x.on==='y'?'판매중':'판매중지')+' → <b>'+(x.to==='y'?'판매중':'판매중지')+'</b></td></tr>').join('')
+    +'</tbody></table></div>':'<div class="note">바꿀 상품이 없습니다 — 양식 안 '+SO.rows.length+'개 모두 지금 상태가 맞습니다.</div>';
+  $('so-msg').textContent=SO.name+' — 상품 '+SO.rows.length+'개 중 '+ch.length+'개 판매여부를 바꿉니다.'+(SO.rows.length<5?' ⚠️ 양식에 상품이 '+SO.rows.length+'개뿐입니다 — 식봄에서 전체 선택하고 받았는지 확인하세요.':'');
+}
+$('so').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    if(!window.JSZip) throw new Error('파일 도구를 못 불러왔습니다. 새로고침 후 다시 넣어 주세요.');
+    if(!STK) throw new Error('우리 재고 자료를 못 읽었습니다. 새로고침 후 다시 넣어 주세요.');
+    const zip=await JSZip.loadAsync(await f.arrayBuffer());
+    const sheetPath=Object.keys(zip.files).filter(k=>/^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort()[0];
+    const xml=await zip.file(sheetPath).async('string');
+    if(cellTxt(xml,'F5')!=='상품명'||cellTxt(xml,'AB5')!=='판매여부')
+      throw new Error('식봄 「상품 일괄 수정」 양식이 아닙니다 (5행 머리글: F 상품명 · AB 판매여부).');
+    const rows=[];
+    for(const m of xml.matchAll(/<row r="(\d+)"/g)){
+      const r=+m[1]; if(r<7) continue;
+      const n=cellTxt(xml,'F'+r); if(!n) continue;
+      rows.push({r,code:cellTxt(xml,'B'+r),n,on:cellTxt(xml,'AB'+r).trim().toLowerCase()==='n'?'n':'y'});
+    }
+    if(!rows.length) throw new Error('양식에 상품이 한 줄도 없습니다.');
+    SO={name:f.name,zip,sheetPath,xml,rows};
+    soList();
+  }catch(err){ SO=null; soList(); $('so-msg').textContent=err.message; }
+  e.target.value='';
+});
+$('so-back').addEventListener('change',()=>{ if(SO) soList(); });
+$('so-out').addEventListener('click',async()=>{
+  if(!SO) return;
+  try{
+    soPlan();
+    let xml=SO.xml; const ch=SO.rows.filter(x=>x.to!==x.on);
+    for(const x of ch) xml=setCell(xml,'AB'+x.r,x.to);
+    SO.zip.file(SO.sheetPath,xml);
+    const blob=await SO.zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',compression:'DEFLATE'});
+    SO.zip.file(SO.sheetPath,SO.xml);   // 원본으로 되돌려 둔다
+    const d=new Date(Date.now()+9*3600000).toISOString().slice(0,10).replace(/-/g,'');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=SO.name.replace(/\.xlsx$/i,'')+'_품절적용_'+d+'.xlsx';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    $('so-msg').textContent='파일을 만들었습니다 ('+ch.length+'개 판매여부 변경) — 식봄 [상품 일괄 수정]에 그대로 올리면 됩니다.';
+  }catch(err){ $('so-msg').textContent='파일을 만들지 못했습니다: '+err.message; }
 });
 /* ══ 🗂 탭 ══ */
 document.querySelector('.tabs').addEventListener('click',e=>{
