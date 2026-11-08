@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>식봄 마진판 v1.2</title>
+<title>식봄 마진판 v1.3</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 /* 🛒 식봄 마진판 (2026-11-03 홍팀장 「식봄 상품 리스트로 수수료 8% 계산했을 때 마진·마진율 볼 수 있는 사이트」)
@@ -77,6 +77,21 @@ tr.loss{background:var(--bad-soft)}
 .fix table{min-width:640px}
 .up2{color:var(--good);font-weight:600}
 .err{background:var(--bad-soft);color:var(--bad);border-radius:8px;padding:12px 14px}
+[hidden]{display:none!important}
+/* 🗂 탭 (2026-11-08) */
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line)}
+.tabs button{font:inherit;font-size:14px;padding:9px 14px;border:0;border-bottom:2px solid transparent;background:none;color:var(--sub);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.sold{background:var(--bad-soft);border:1px solid var(--bad);border-radius:10px;padding:14px;display:grid;gap:8px}
+.sold h2{font-size:15px;margin:0;color:var(--bad)}
+.sold ul{margin:0;padding-left:18px;display:grid;gap:2px}
+.sold .ok h2{color:var(--good)}
+.nb td,.nb th{text-align:left}
+.nb td.num,.nb th.num{text-align:right}
+.nb select{font:inherit;font-size:12px;max-width:260px;padding:3px 5px;border:1px solid var(--line);border-radius:5px;background:var(--panel);color:var(--ink)}
+.nb select.miss{border-color:var(--bad)}
+.nb tr.unchk td{color:var(--sub);opacity:.6}
+.fix input[type=text]{font:inherit;padding:6px 9px;border:1px solid var(--line);border-radius:6px;min-width:220px;background:var(--panel);color:var(--ink)}
 </style>
 </head>
 <body>
@@ -89,6 +104,36 @@ tr.loss{background:var(--bad-soft)}
     <label class="up" for="file">새 식봄 상품 엑셀 올리기<input id="file" type="file" accept=".xlsx,.xls"></label>
   </div>
   <div id="err" class="err" hidden></div>
+  <div class="tabs" role="tablist">
+    <button role="tab" data-tab="margin" aria-selected="true">📊 마진판</button>
+    <button role="tab" data-tab="bulk" aria-selected="false">📦 대량 등록 양식 생성</button>
+  </div>
+  <!-- 📦 대량 등록 양식 생성 (2026-11-08 홍팀장 「창고명 누르면 그 창고 대량 등록 가능한 상시 상품만, 체크 박스 기본 체크, 풀면 양식에서 빼고, 마진 12%」) -->
+  <section id="t-bulk" hidden style="display:grid;gap:14px">
+    <div class="fix">
+      <h2>식봄 상품 대량 등록 양식 만들기 — 창고별</h2>
+      <div class="note">
+        <div>창고를 누르면 그 창고 <b>상시 상품 중 식봄에 아직 없고, 재고가 있고, 원가가 있는 것</b>만 나옵니다. 체크된 상품만 양식에 들어갑니다.</div>
+        <div><b>가격</b> 매입단가 = masterc 원가 · 판매단가·정가 = 수수료 8% 빼고 마진 <b>12%</b> 이상(위 마진판과 같은 공식, 100원 단위). 기초재고량은 999.</div>
+        <div><b>카테고리</b> 상품명으로 골라 넣었습니다 — 빨간 칸은 못 고른 것이라 직접 골라야 양식에 들어갑니다.</div>
+      </div>
+      <div id="nb-whs" class="bar"></div>
+      <div class="steps">
+        <label>택배 배송비명 <input type="text" id="nb-ship" placeholder="식봄 [배송 정보 설정]에 있는 이름"></label>
+        <button class="btn ghost" id="nb-all">전체 선택 / 해제</button>
+        <button class="btn" id="nb-out" disabled>📥 대량 등록 양식 만들기</button>
+        <span class="msg" id="nb-msg">창고를 골라 주세요.</span>
+      </div>
+      <div class="tbl nb"><table>
+        <thead><tr><th>✔</th><th>상품명</th><th class="num">원가</th><th class="num">식봄 판매가</th><th class="num">마진율</th><th>과세</th><th>판매규격</th><th>원산지</th><th>카테고리</th></tr></thead>
+        <tbody id="nb-tb"><tr><td colspan="9" style="text-align:center;color:var(--sub)">창고를 골라 주세요.</td></tr></tbody>
+      </table></div>
+      <div class="note" id="nb-skip"></div>
+    </div>
+  </section>
+  <section id="t-margin" style="display:grid;gap:18px">
+  <!-- 🚫 식봄에서 품절 걸어야 할 상품 (2026-11-08 홍팀장 「상품리스트 넣었을 때 우리 지금 재고 없는 상품은 품절 걸어야 한다고 알려주는 기능」) -->
+  <div class="sold" id="sold" hidden></div>
   <div class="receipt" id="sum"></div>
   <div class="need" id="need" hidden></div>
   <!-- 🔧 역마진 수정 → 식봄 「판매가 일괄 수정」 양식 (2026-11-03 홍팀장 「마진 최소 12% 이상, 12% 걸린 시점에서 십단위 반올림해서 100원 단위,
@@ -125,6 +170,7 @@ tr.loss{background:var(--bad-soft)}
     <div><b>빠진 것</b> 택배비·부가세는 넣지 않았습니다. 수량별 판매가가 걸린 상품은 첫 단가로 계산합니다. 원가 매칭이 안 된 상품은 합계에서 빠집니다.</div>
     <div id="src"></div>
   </div>
+  </section>
 </div>
 <datalist id="ourNames"></datalist>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -142,7 +188,7 @@ const key=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 const won=v=>Math.round(v).toLocaleString('ko-KR');
 const pct=v=>(v*100).toFixed(1)+'%';
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let LIST=null, MAP={}, MC={}, MCAT=0, ROWS=[];
+let LIST=null, MAP={}, MC={}, MCAT=0, ROWS=[], MCROWS=[], STK=null, SHIP={};
 let st={q:'',on:true,loss:false,wh:'',k:'r',dir:1};
 
 function tok(){ try{ const a=JSON.parse(localStorage.getItem('catalog_auth_v1')||'null'); return (a&&a.token)||''; }catch(e){ return ''; } }
@@ -162,8 +208,29 @@ function compute(){
     const to=MAP[code]||MAP[n]||'';
     const hit=MC[key(to||n)];
     const c=hit?hit.cost:null, fee=p*FEE, m=c==null?null:p-fee-c;
-    return {code,n,p:+p||0,wh,on:on!=='n',ours:hit?hit.n:'',manual:!!to,c,fee,m,r:(m==null||!p)?null:m/p};
+    return {code,n,p:+p||0,wh,on:on!=='n',ours:hit?hit.n:'',manual:!!to,c,fee,m,r:(m==null||!p)?null:m/p,stock:stockOf(to||n)};
   });
+}
+/* 📦 우리 재고 — 카탈로그와 같은 자료(Supabase 카탈로그 사본). 'ok' 팔 수 있음 / 'zero' 재고 없음 / 'gone' 목록에 없음(품절로 빠짐·단종) / '' 모름
+   (2026-11-08 홍팀장 「상품리스트 넣었을 때 우리 지금 재고 없는 상품은 품절 걸어야 한다고 알려주는 기능」).
+   원가 매칭 필요로 뜨던 사각어묵·부산 어묵·돈두 슬라이스·단새우 500g 은 이름이 틀린 게 아니라 masterc 상품리스트에서 품절로 빠진 것이었다. */
+function stockOf(n){
+  if(!STK) return '';
+  const k=key(n);
+  if(STK.list[k]) return (STK.list[k].zero||STK.z.has(k))?'zero':'ok';
+  if(STK.day[k]){ const d=STK.day[k]; return (!d.hold&&d.on&&(+d.remain>0||STK.d[k]>0))?'ok':'zero'; }
+  if(STK.z.has(k)) return 'zero';
+  return 'gone';
+}
+function soldPanel(){
+  const el=$('sold'); if(!STK){ el.hidden=true; return; }
+  const need=ROWS.filter(x=>x.on&&(x.stock==='zero'||x.stock==='gone'));
+  const back=ROWS.filter(x=>!x.on&&x.stock==='ok');
+  el.hidden=!need.length&&!back.length;
+  el.innerHTML=(need.length?'<h2>🚫 식봄에서 품절 걸어야 할 상품 '+need.length+'개 — 지금 우리 재고가 없습니다</h2><ul>'
+      +need.map(x=>'<li><b>'+esc(x.n)+'</b> · '+esc(x.wh)+' — '+(x.stock==='zero'?'재고 0':'masterc 상품리스트에 없음(품절·단종)')+'</li>').join('')+'</ul>':'')
+    +(back.length?'<div class="ok"><h2>✅ 판매중지인데 지금 재고 있는 상품 '+back.length+'개 — 다시 열어도 됩니다</h2><ul>'
+      +back.map(x=>'<li>'+esc(x.n)+' · '+esc(x.wh)+'</li>').join('')+'</ul></div>':'');
 }
 function view(){
   const q=key(st.q);
@@ -173,7 +240,7 @@ function render(){
   const v=view();
   const S=v.reduce((a,x)=>(a.p+=x.p,a.fee+=x.fee,a.c+=x.c,a.m+=x.m,a),{p:0,fee:0,c:0,m:0});
   const avg=v.length?v.reduce((a,x)=>a+x.r,0)/v.length:0;
-  const need=ROWS.filter(x=>x.c==null&&(!st.on||x.on));
+  const need=ROWS.filter(x=>x.c==null&&(!st.on||x.on)&&x.stock!=='zero'&&x.stock!=='gone');   // 품절로 빠진 건 위 🚫 칸에서 본다
   $('sum').innerHTML=[
     ['상품',v.length+'개','적자 '+v.filter(x=>x.m<0).length+'개'+(need.length?' · 매칭 필요 '+need.length+'개':'')],
     ['판매가 합계',won(S.p),'원'],['수수료 8%','−'+won(S.fee),'원'],['원가 합계','−'+won(S.c),'원'],
@@ -200,18 +267,27 @@ function chips(){
   const whs=[...new Set(ROWS.map(x=>x.wh))].filter(Boolean);
   $('whs').innerHTML=['',...whs].map(w=>'<button class="chip" data-wh="'+esc(w)+'" aria-pressed="'+(st.wh===w)+'">'+(w||'전체 창고')+'</button>').join('');
 }
-function all(){ compute(); chips(); render(); if(typeof BULK!=="undefined"&&BULK) bulkList(); }
+function all(){ compute(); chips(); render(); soldPanel(); if(typeof BULK!=="undefined"&&BULK) bulkList(); if(NB.wh) nbRender(); else nbChips(); }
 
 async function boot(){
   try{
-    const [ms,mc]=await Promise.all([sb('mailset',{}),sb('mcget',{full:1})]);
-    MCAT=mc.at||0; MC={};
+    const [ms,mc,cat]=await Promise.all([sb('mailset',{}),sb('mcget',{full:1}),sb('catalog',{}).catch(()=>null)]);
+    MCAT=mc.at||0; MC={}; MCROWS=mc.rows||[];
     (mc.rows||[]).forEach(r=>{ const c=Number(r.cost)||0; if(r.n&&c>0) MC[key(r.n)]={n:r.n,cost:c}; });
+    if(cat){
+      const today=new Date(Date.now()+9*3600000).toISOString().slice(0,10).replace(/-/g,'');
+      STK={list:{},day:{},z:new Set((cat.qtyZ||[]).map(key)),d:{},spec:{}};
+      (cat.mc||[]).forEach(p=>{ if(p&&p.n) STK.list[key(p.n)]=p; });
+      if(!cat.mcDayDay||String(cat.mcDayDay)===today) (cat.mcDay||[]).forEach(r=>{ if(r&&r.n) STK.day[key(r.n)]=r; });
+      Object.keys(cat.qtyD||{}).forEach(k=>{ STK.d[key(k)]=+cat.qtyD[k]||0; });
+      (cat.media||[]).forEach(r=>{ if(r&&r[0]&&r[3]) STK.spec[key(r[0])]=String(r[3]); });
+    }
     if(!Object.keys(MC).length) throw new Error('masterc 원가가 비어 있습니다. masterc 에서 [📤 상시 보내기] 딸깍을 한 번 해 주세요.');
     $('ourNames').innerHTML=Object.values(MC).map(o=>'<option value="'+esc(o.n)+'">').join('');
     const set=ms.set||{};
     try{ LIST=JSON.parse(set.sikbom_list||'null'); }catch(e){ LIST=null; }
     try{ MAP=JSON.parse(set.sikbom_map||'{}')||{}; }catch(e){ MAP={}; }
+    try{ SHIP=JSON.parse(set.sikbom_ship||'{}')||{}; }catch(e){ SHIP={}; }
     if(!LIST||!LIST.rows||!LIST.rows.length){ LIST={at:Date.now(),file:'식봄 상품리스트 2026-11-03',rows:SEED}; await saveKey('sikbom_list',LIST); }
     let mapNew=false; for(const k in SEED_MAP) if(MAP[k]===undefined){ MAP[k]=SEED_MAP[k]; mapNew=true; }
     if(mapNew) await saveKey('sikbom_map',MAP);
@@ -253,8 +329,12 @@ $('file').addEventListener('change',async e=>{
       const tier=String(r[iP]).split('//')[0].split(',');
       return [String(iCode>=0?r[iCode]:'').trim()||String(r[iN]).trim(),String(r[iN]).trim(),
         Number(String(tier[tier.length-1]).replace(/[^\d.]/g,''))||0,String(r[iW]).split('_')[0],
-        (iO>=0&&String(r[iO]).trim().toLowerCase()==='n')?'n':'y'];
+        (iO>=0&&String(r[iO]).trim().toLowerCase()==='n')?'n':'y',
+        String(iW>=0?r[iW]:'').trim()];   // 택배배송비명 원문 — 대량 등록 양식의 창고별 기본값
     });
+    // 🚚 창고 → 식봄 택배배송비명 (처음 본 것만 채운다 — 손으로 고친 값은 안 덮는다)
+    let shipNew=false; list.forEach(x=>{ if(x[3]&&x[5]&&!SHIP[x[3]]){ SHIP[x[3]]=x[5]; shipNew=true; } });
+    if(shipNew) await saveKey('sikbom_ship',SHIP);
     if(!list.length) throw new Error('상품이 한 줄도 없습니다.');
     LIST={at:Date.now(),file:f.name,rows:list};
     await saveKey('sikbom_list',LIST);
@@ -354,6 +434,166 @@ $('b-out').addEventListener('click',async()=>{
     BULK.zip.file(BULK.sheetPath,BULK.xml);   // 원본으로 되돌려 둔다 — 다시 눌러도 같은 결과
     $('b-msg').textContent='파일을 만들었습니다 ('+ch.length+'개 수정) — 식봄 [판매가 일괄 수정]에 그대로 올리면 됩니다.';
   }catch(err){ $('b-msg').textContent='파일을 만들지 못했습니다: '+err.message; }
+});
+/* ══ 🗂 탭 ══ */
+document.querySelector('.tabs').addEventListener('click',e=>{
+  const b=e.target.closest('[data-tab]'); if(!b) return;
+  document.querySelectorAll('.tabs [data-tab]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));
+  $('t-margin').hidden=b.dataset.tab!=='margin'; $('t-bulk').hidden=b.dataset.tab!=='bulk';
+  if(b.dataset.tab==='bulk') nbChips();
+});
+
+/* ══ 📦 식봄 대량 등록 양식 생성 (2026-11-08 홍팀장) ══════════════════════════
+   ▸ 양식 = 식봄 「상품 대량 등록 엑셀양식」 ver.2026-08-21 그대로(sikbom/bulk-template.xlsx). 6행 머리글, 8행부터 상품, 8~10행 예시는 지운다.
+   ▸ 후보 = 고른 창고의 masterc 상시 상품 중 — 식봄에 이미 있는 이름(매칭 포함) 빼고, 재고 없음 빼고, 원가 없는 것 빼고.
+   ▸ 카테고리 B·C·D 는 양식의 드롭다운 목록과 글자까지 같아야 한다 → 아래 CATS(양식 「상품 카테고리」 시트에서 뽑음) 안에서만 고른다. */
+const CATS={"채소.과일":{"신선채소":["쌈채소","열매채소","잎줄기채소","뿌리채소","마늘.생강","콩나물.새싹"],"냉동채소.건조채소":["냉동채소","건조채소","삶은채소","염장채소"],"버섯류":["표고버섯","목이버섯","석이버섯","영지버섯","느타리버섯","팽이버섯","송이버섯"],"신선과일":["사과.배","토마토","제철과일","외국과일"],"냉동과일.건조과일":["냉동과일","건조과일"]},"쌀.잡곡.견과":{"국내쌀.수입쌀":["국내쌀","수입쌀"],"잡곡류":["콩","팥","찹쌀","현미","흑미","보리","참깨","들깨","기타"],"견과류":["땅콩","아몬드","호두","잣","밤","기타"]},"돼지고기":{"원물 국내산":["안심","돈사골","등심","뒷다리","앞다리","껍데기","돈등뼈","항정살","등심덧살","갈매기살","특수부위(기타)","지방","사태살","삼겹살","미추리","등갈비","갈비","목심"],"세절 국내산":["뒷다리","앞다리","다짐육(민찌)","등심","삼겹살","항정살","등심덧살","갈매기살","특수부위(기타)","돈갈비","돈등뼈","목심","안심","사태살","돈사골","내장","머릿고기","족발","선지","부산물 기타","양념육"],"원물 수입산":["삼겹살","이겹살","등갈비","돈목전지","목심","항정살","등심덧살","갈매기살","특수부위(기타)","돈등뼈","갈비","등심","앞다리","뒷다리"],"세절 수입산":["돈목전지","삼겹살","이겹살","등갈비","갈비","항정살","등심덧살","갈매기살","특수부위(기타)","앞다리","뒷다리","목심","사태살","등심","돈등뼈","다짐육(민찌)","돈사골","내장","머릿고기","족발","선지","부산물 기타","양념육"]},"소고기":{"원물 수입산":["갈비(립)","부채살","살치살","토시살","안창살","특수부위(기타)","목심","안심","등심","채끝","우둔(홍두깨살)","차돌양지","사태살","갈비살(늑간)","스지","삼겹양지"],"세절 수입산":["내장","머릿고기","우족","부산물 기타","삼겹양지","다짐육(민찌)","차돌양지","우둔(홍두깨살)","소전각","목심","볼살","부채살","양지","갈비","살치살","토시살","안창살","특수부위(기타)","사태살","설도","초밥용","안심","등심","채끝","스지","잡뼈","양념육","불고기용","선물세트"],"원물 육우":["내장","머릿고기","우족","부산물 기타","사골","잡뼈","사태살","다짐육(민찌)","목심","우둔(홍두깨살)","양지","설도","전각","차돌박이","살치살","토시살","안창살","특수부위(기타)","갈비","등심","안심","채끝"],"세절 육우":["내장","머릿고기","우족","부산물 기타","사골","잡뼈","사태살","다짐육(민찌)","목심","우둔(홍두깨살)","양지","설도","전각","차돌박이","살치살","토시살","안창살","특수부위(기타)","갈비","등심","안심","채끝","양념육","불고기용"],"원물 한우":["내장","머릿고기","우족","부산물 기타","사골","잡뼈","사태살","다짐육(민찌)","목심","우둔(홍두깨살)","양지","설도","전각","차돌박이","살치살","토시살","안창살","특수부위(기타)","갈비","등심","안심","채끝"],"세절 한우":["내장","머릿고기","우족","부산물 기타","사골","잡뼈","사태살","다짐육(민찌)","목심","우둔(홍두깨살)","양지","설도","전각","차돌박이","살치살","토시살","안창살","특수부위(기타)","갈비","등심","안심","채끝","양념육","불고기용","선물세트","세절육 기타","국거리용"]},"닭고기":{"원물 국내산":["염지닭","통닭"],"세절 국내산":["근위","날개","닭가슴살","닭다리살","닭발","봉","윙","조각.절단 계육","목살","북채","안심","장각","양념육","특수부위","염통","다짐육(민찌)"],"원물 수입산":["순살통닭","통닭"],"세절 수입산":["닭가슴살","조각.절단 계육","닭다리살","통날개","닭발","윙스틱","미들윙","북채","장각","양념육","특수부위","염통","다짐육(민찌)"]},"오리.양.염소":{"오리 원물":["생오리","양념오리"],"오리 세절":["생오리","양념오리"],"양 원물":["갈비살.늑간","꼬치","앞다리","뒷다리","사각갈비(어깨)","숄더랙","숏로인","신장(콩팥)","다짐육","양부채살","양정육","어깨살","제비추리","티본","프렌치랙","플랩"],"양 세절":["갈비살.늑간","꼬치","앞다리","뒷다리","사각갈비(어깨)","숄더랙","숏로인","신장(콩팥)","다짐육","양부채살","양정육","어깨살","제비추리","티본","프렌치랙","플랩"],"염소 원물":["지육"],"염소 세절":["지육"]},"계란.알류":{"일반란":["2XL(왕란)","XL(특란)","L(대란)","M(중란)","S(소란)","수입계란","일반란기타"],"가공란":["깐계란","깐메추리알","구운란","훈제란","반숙란","가공란기타","액란","지단"]},"생선.해산물.건어물":{"생선류":["고등어","동태","삼치","갈치","꽁치","조기","코다리","장어","기타"],"오징어.낙지.초밥용":["오징어","낙지","문어","쭈꾸미","한치","초밥용"],"조개류":["전복","소라","바지락","홍합","기타"],"새우.게.해산물":["새우","게","기타 해산물"],"날치알.명란알.기타 알류":["날치알","명란알","기타 알류"],"멸치.어포.건어물":["멸치","건새우","건오징어","쥐포","어포","기타 건어물"],"미역.다시마.파래":["미역","다시마","파래"]},"냉장.냉동.간편식":{"볶음밥.샐러드":["볶음밥","샐러드"],"찌개.국.탕류":["찌개","국","탕"],"햄.소시지.어묵.맛살":["햄","소시지","어묵","맛살"],"돈까스.만두.치킨":["돈까스","생선까스","만두","치킨"],"튀김류.냉동식품":["감자튀김","고로케","새우튀김","오징어튀김","동그랑땡","기타 튀김"],"분식류":["떡볶이","떡국","순대","수제비","유부","기타"],"치즈.유가공품":["치즈","크림치즈","유가공품"],"훈제.식육가공류":["훈제","베이컨","꼬치","식육가공"]},"반찬류":{"김치":["국내산 김치","수입산 김치"],"젓갈류":["오징어젓","낙지젓","꼴뚜기젓","창란젓","조개젓","기타"],"조림류":["조림"],"무침류":["채소무침","수산무침"],"절임류":["고추","깻잎","마늘","생강","무","단무지","피클","기타"]},"소스.양념.육수":{"우동.국수.냉면.기타 육수":["우동용","국수용","냉면용","가쓰오부시","기타 육수"],"케찹.스파게티.피자소스":["케찹","스파게티","피자소스"],"마요네즈.드레싱":["마요네즈","드레싱"],"머스타드.칠리.데리야끼":["머스타드","칠리","살사","핫소스","데리야끼"],"불고기.스테이크.바비큐":["불고기","갈비","스테이크","바비큐"],"돈까스.닭소스":["돈까스","닭소스"],"기타 소스류":["기타 소스류"]},"장류.조미료.식용유":{"간장.고추장.초고추장":["간장","고추장","초고추장"],"된장.쌈장.청국장.춘장":["된장","쌈장","청국장","춘장"],"식용유.참기름.들기름.고추기름":["식용유","참기름","들기름","고추기름"],"식초.요리술.액젓":["식초","요리술","액젓"],"설탕.물엿.올리고당":["설탕","물엿","올리고당"],"소금.다시다.미원":["소금","다시다","미원","기타조미료"],"고춧가루.후추.와사비.겨자.향신료":["고춧가루","후추","와사비","겨자","향신료"],"기타 분말":["기타 분말"]},"캔.통조림":{"참치.닭가슴살":["참치","닭가슴살"],"수산물.골뱅이.번데기":["고등어","꽁치","골뱅이","번데기","기타"],"돈육통조림.스팸":["국내산","수입산"],"과일통조림":["파인애플","오렌지.밀감","황도","후르츠","올리브","농축액","체리","기타"],"농산통조림":["피클","옥수수","콩","죽순","버섯","기타"]},"면류.가공식품":{"봉지라면.컵라면":["봉지라면","컵라면","라면스프"],"국수.냉면.우동류":["국수","냉면","우동류"],"파스타.당면.쫄면.기타":["파스타","당면","쫄면","기타"],"밀가루.요리가루.전분":["밀가루","부침가루","튀김가루","빵가루","요리가루","전분","콩가루","기타 분말"],"즉석밥.카레.짜장.스프":["즉석밥","누룽지","카레","하이라이스","짜장","스프","죽"],"두부.묵.곤약":["두부","묵","곤약"],"김.돌자반.부각.튀각":["조미김","생김","김가루","돌자반","부각","튀각"],"잼.꿀.버터.시럽":["잼","꿀","버터","시럽"],"빵.떡":["빵","떡"]},"스낵.안주류":{"일반스낵.강냉이.씨리얼":["일반스낵","강냉이","씨리얼"],"안주 스낵류.너트.육포":["안주 스낵","안주 견과","안주 건어물"],"캔디.젤리.초코렛.껌":["캔디","젤리","초코렛","껌"]},"커피.차.음료.생수":{"커피":["캔커피","커피믹스","원두커피","분말커피","프리마"],"보리차.옥수수차":["보리차","옥수수차"],"녹차.홍차.둥글레차":["녹차","홍차","둥글레차","메밀차"],"율무차.유자차.허브티":["율무차","유자차","허브티"],"핫초코.아이스티.분말음료":["핫초코","아이스티","분말음료"],"전통차.한방재":["전통차","한방재"],"기타 차":["기타 차"],"생수":["생수"],"탄산음료.이온음료":["콜라","사이다","환타","기타 탄산","이온음료"],"과일음료":["오렌지","사과","배","포도","매실","스무디","기타"],"우유.라떼류.요구르트.두유":["우유","라떼류","요구르트","두유"],"식혜.알로에.홍초.기타 음료":["식혜","알로에","홍초","비타민","숙취해소","기타 음료"]},"일반용품":{"휴지.티슈.키친타올.냅킨":["화장지","점보롤","미용티슈","물티슈","키친타올","냅킨"],"욕실용품":["구강용품","욕실비품"],"세탁세제.청소세제":["세탁세제","청소세제"],"방향.탈취.살충제":["방향제","탈취제","살충제"],"부탄가스.탄류.가스점화기":["부탄가스","탄류","가스점화기"],"문구류":["가위.칼","건전지","테이프","멀티탭","기타 문구류"],"기타 일반용품":["기타 일반용품"]},"주방용품":{"주방세제":["소용량","대용량"],"지퍼백.랩.호일.비닐장갑":["지퍼백","크린백","롤백","랩","호일","비닐장갑"],"고무장갑.수세미.행주":["고무장갑","수세미","행주"],"주방위생용품":["앞치마","장화","주방모자","기타"],"조리기구.보조도구":["칼","가위","집게","오프너","뒤집개","기타"],"식기.보관용기":["식기","보관용기"]},"포장용기.일회용품":{"일회용 용기.컵":["일회용 그릇","일회용 접시","일회용 도시락","일회용 컵","일회용 병","기타 포장용기"],"숟가락.젓가락.꼬지.빨대":["숟가락","젓가락","포크","꼬지","이쑤시개","빨대"],"봉투.박스.종이":["비닐봉투","김장봉투","종이봉투","박스","종이","기타"],"면장갑.특수장갑":["면장갑","특수장갑"],"일회용품 케이스":["휴지케이스"],"기타 일회용품":["기타 일회용품"]}};
+const SEA='생선.해산물.건어물';
+/* 상품명 → 카테고리. 위에서부터 처음 맞는 것. 못 맞추면 '' (빨간 칸 — 직접 고른다) */
+const CAT_RULES=[
+  [/탕|국밥|찌개|전골|곰탕|해신탕/, '냉장.냉동.간편식|찌개.국.탕류|탕'],
+  [/떡볶이/, '냉장.냉동.간편식|분식류|떡볶이'], [/순대/, '냉장.냉동.간편식|분식류|순대'],
+  [/어묵/, '냉장.냉동.간편식|햄.소시지.어묵.맛살|어묵'], [/맛살/, '냉장.냉동.간편식|햄.소시지.어묵.맛살|맛살'],
+  [/생선까스/, '냉장.냉동.간편식|돈까스.만두.치킨|생선까스'], [/돈까스|돈가스|카츠/, '냉장.냉동.간편식|돈까스.만두.치킨|돈까스'],
+  [/만두/, '냉장.냉동.간편식|돈까스.만두.치킨|만두'], [/치킨/, '냉장.냉동.간편식|돈까스.만두.치킨|치킨'],
+  [/꼬치/, '냉장.냉동.간편식|훈제.식육가공류|꼬치'], [/훈제/, '냉장.냉동.간편식|훈제.식육가공류|훈제'],
+  [/김치|석박지|깍두기|총각|갓김치/, '반찬류|김치|국내산 김치'], [/오징어젓/, '반찬류|젓갈류|오징어젓'], [/낙지젓/, '반찬류|젓갈류|낙지젓'],
+  [/창란/, '반찬류|젓갈류|창란젓'], [/게장|젓갈|젓$|무침/, '반찬류|젓갈류|기타'],
+  [/명란/, SEA+'|날치알.명란알.기타 알류|명란알'], [/날치알/, SEA+'|날치알.명란알.기타 알류|날치알'],
+  [/멸치/, SEA+'|멸치.어포.건어물|멸치'], [/쥐포/, SEA+'|멸치.어포.건어물|쥐포'], [/새우포|건새우|보리새우/, SEA+'|멸치.어포.건어물|건새우'],
+  [/미역/, SEA+'|미역.다시마.파래|미역'], [/다시마/, SEA+'|미역.다시마.파래|다시마'], [/파래|매생이/, SEA+'|미역.다시마.파래|파래'],
+  [/랍스터|가재/, SEA+'|새우.게.해산물|기타 해산물'], [/새우|대하/, SEA+'|새우.게.해산물|새우'],
+  [/게(?!장)|킹크랩|크랩/, SEA+'|새우.게.해산물|게'],
+  [/문어/, SEA+'|오징어.낙지.초밥용|문어'], [/낙지/, SEA+'|오징어.낙지.초밥용|낙지'], [/쭈꾸미|주꾸미/, SEA+'|오징어.낙지.초밥용|쭈꾸미'],
+  [/한치/, SEA+'|오징어.낙지.초밥용|한치'], [/오징어/, SEA+'|오징어.낙지.초밥용|오징어'],
+  [/전복/, SEA+'|조개류|전복'], [/소라/, SEA+'|조개류|소라'], [/바지락/, SEA+'|조개류|바지락'], [/홍합|담치/, SEA+'|조개류|홍합'],
+  [/가리비|조개|꼬막|굴|키조개|백합|대합|모시|생합|맛조개|명주/, SEA+'|조개류|기타'],
+  [/멍게|해삼|거북손|미더덕|오만둥이|성게|개불|골뱅이|호래기|해물|해파리/, SEA+'|새우.게.해산물|기타 해산물'],
+  [/고등어/, SEA+'|생선류|고등어'], [/동태|명태/, SEA+'|생선류|동태'], [/삼치/, SEA+'|생선류|삼치'], [/갈치/, SEA+'|생선류|갈치'],
+  [/꽁치/, SEA+'|생선류|꽁치'], [/조기|굴비/, SEA+'|생선류|조기'], [/코다리/, SEA+'|생선류|코다리'], [/장어/, SEA+'|생선류|장어'],
+  [/광어|우럭|도다리|민어|병어|방어|연어|참치|대구|가자미|박대|도루묵|양미리|임연수|아귀|곰치|송어|메로|홍어|볼락|숭어|전어|돔|청어|과메기|열기|서대|황태|북어|생선|회\b|세꼬시/, SEA+'|생선류|기타'],
+  [/한우.*(국거리)/, '소고기|세절 한우|국거리용'], [/한우.*(등심)/, '소고기|세절 한우|등심'], [/한우.*(사골)/, '소고기|세절 한우|사골'],
+  [/한우.*(우족)/, '소고기|세절 한우|우족'], [/한우.*(곱창|대창|막창|양$)/, '소고기|세절 한우|내장'], [/한우.*(불고기)/, '소고기|세절 한우|불고기용'],
+  [/한우.*(선물)/, '소고기|세절 한우|선물세트'], [/한우/, '소고기|세절 한우|특수부위(기타)'],
+  [/la갈비|LA갈비|꽃갈비/, '소고기|세절 수입산|갈비'], [/곱창|대창|막창/, '소고기|세절 수입산|내장'], [/차돌/, '소고기|세절 수입산|차돌양지'],
+  [/우삼겹/, '소고기|세절 수입산|삼겹양지'], [/꽃등심|등심/, '소고기|세절 수입산|등심'], [/소고기|우족|사골|국거리/, '소고기|세절 수입산|특수부위(기타)'],
+  [/삼겹/, '돼지고기|세절 국내산|삼겹살'], [/항정/, '돼지고기|세절 국내산|항정살'], [/목살|목심/, '돼지고기|세절 국내산|목심'],
+  [/등뼈/, '돼지고기|세절 국내산|돈등뼈'], [/족발/, '돼지고기|세절 국내산|족발'], [/돈두|머릿고기|머리고기/, '돼지고기|세절 국내산|머릿고기'],
+  [/등갈비/, '돼지고기|원물 국내산|등갈비'], [/갈매기/, '돼지고기|세절 국내산|갈매기살'], [/앞다리/, '돼지고기|세절 국내산|앞다리'],
+  [/뒷다리/, '돼지고기|세절 국내산|뒷다리'], [/한돈|돼지|돈갈비/, '돼지고기|세절 국내산|특수부위(기타)'],
+  [/닭발/, '닭고기|세절 국내산|닭발'], [/닭가슴/, '닭고기|세절 국내산|닭가슴살'], [/닭다리|북채/, '닭고기|세절 국내산|닭다리살'], [/닭/, '닭고기|세절 국내산|조각.절단 계육'],
+  [/오리/, '오리.양.염소|오리 세절|생오리'], [/염소/, '오리.양.염소|염소 세절|지육'], [/양고기|양갈비|램/, '오리.양.염소|양 세절|양정육'],
+  [/계란|달걀/, '계란.알류|일반란|일반란기타'], [/메추리알/, '계란.알류|가공란|깐메추리알'],
+  [/떡/, '면류.가공식품|빵.떡|떡'], [/두부/, '면류.가공식품|두부.묵.곤약|두부'], [/김$|김 |곱창김|조미김/, '면류.가공식품|김.돌자반.부각.튀각|조미김'],
+  [/사과|배$|배 /, '채소.과일|신선과일|사과.배'], [/망고|키위|레몬|오렌지|자몽|바나나|체리/, '채소.과일|신선과일|외국과일'],
+  [/귤|감귤|한라봉|천혜향|레드향|샤인|포도|딸기|참외|수박|복숭아|자두|감$|홍시|곶감|밤/, '채소.과일|신선과일|제철과일'],
+  [/버섯/, '채소.과일|버섯류|느타리버섯'], [/로메인|상추|깻잎|쌈/, '채소.과일|신선채소|쌈채소'], [/마늘|생강/, '채소.과일|신선채소|마늘.생강'],
+  [/배추|대파|파$|시금치|부추|양배추/, '채소.과일|신선채소|잎줄기채소'], [/무$|감자|고구마|당근|양파|우엉|연근/, '채소.과일|신선채소|뿌리채소'],
+  [/고추|오이|호박|가지|토마토|파프리카/, '채소.과일|신선채소|열매채소'],
+];
+function catOk(p){ const [a,b,c]=p.split('|'); return !!(CATS[a]&&CATS[a][b]&&CATS[a][b].indexOf(c)>=0); }
+function catGuess(n){ for(const [re,p] of CAT_RULES){ if(re.test(n)&&catOk(p)) return p; } return ''; }
+const CAT_OPTS=(()=>{ let h='<option value="">— 카테고리 고르기 —</option>'; for(const a in CATS){ h+='<optgroup label="'+esc(a)+'">'; for(const b in CATS[a]) for(const c of CATS[a][b]) h+='<option value="'+esc(a+'|'+b+'|'+c)+'">'+esc(b+' › '+c)+'</option>'; h+='</optgroup>'; } return h; })();
+/* 판매규격 — 상품명 맨 뒤 무게(1kg·500g·2.5kg), 없으면 개수(5미·20마리·10개입·1팩), 그것도 없으면 1팩 */
+function specSize(n){
+  const w=[...String(n).matchAll(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l)\b/gi)]; if(w.length){ const m=w[w.length-1]; return m[1]+m[2].toLowerCase(); }
+  const c=[...String(n).matchAll(/(\d+)\s*(미|마리|개입|개|팩|박스|세트|구|봉|장|팩)/g)]; if(c.length){ const m=c[c.length-1]; return m[1]+m[2]; }
+  return '1팩';
+}
+function originOf(n){
+  const s=(STK&&STK.spec[key(n)])||''; const m=s.match(/원산지\s*[:：]\s*([^\n※]+)/);
+  const v=m?m[1].trim().replace(/\s+/g,' '):''; return v&&v.length<=40?v:'상품 상세정보 참고';
+}
+const NB={wh:'',rows:[],off:new Set(),cat:{}};
+function nbRegistered(){ const s=new Set(); (LIST&&LIST.rows||[]).forEach(r=>{ s.add(key(r[1])); }); Object.values(MAP).forEach(v=>{ if(v) s.add(key(v)); }); return s; }
+function nbChips(){
+  if(!MCROWS.length){ $('nb-whs').innerHTML=''; return; }
+  const cnt={}; MCROWS.forEach(r=>{ const w=String(r.wh||'').trim(); if(w) cnt[w]=(cnt[w]||0)+1; });
+  $('nb-whs').innerHTML=Object.keys(cnt).sort((a,b)=>a.localeCompare(b,'ko')).map(w=>'<button class="chip" data-nbwh="'+esc(w)+'" aria-pressed="'+(NB.wh===w)+'">'+esc(w)+' <span style="opacity:.6">'+cnt[w]+'</span></button>').join('');
+}
+function nbRender(){
+  nbChips();
+  const reg=nbRegistered(), skip={reg:[],zero:[],cost:[]};
+  NB.rows=[];
+  MCROWS.filter(r=>String(r.wh||'').trim()===NB.wh).forEach(r=>{
+    const k=key(r.n), c=Number(r.cost)||0, s=stockOf(r.n);
+    if(reg.has(k)) return skip.reg.push(r.n);
+    if(s==='zero') return skip.zero.push(r.n);
+    if(!(c>0)) return skip.cost.push(r.n);
+    const p=newPrice(c);
+    NB.rows.push({n:r.n,c,p,rate:(p*(1-FEE)-c)/p,tax:/과세/.test(String(r.tax||''))?'y':'n',size:specSize(r.n),org:originOf(r.n),cat:(k in NB.cat)?NB.cat[k]:catGuess(r.n)});
+  });
+  NB.rows.sort((a,b)=>a.n.localeCompare(b.n,'ko'));
+  $('nb-ship').value=SHIP[NB.wh]||'';
+  $('nb-tb').innerHTML=NB.rows.map(x=>{
+    const k=key(x.n), on=!NB.off.has(k);
+    return '<tr class="'+(on?'':'unchk')+'"><td><input type="checkbox" data-nbk="'+esc(k)+'"'+(on?' checked':'')+'></td><td>'+esc(x.n)+'</td>'
+      +'<td class="num">'+won(x.c)+'</td><td class="num"><b>'+won(x.p)+'</b></td><td class="num">'+pct(x.rate)+'</td><td>'+(x.tax==='y'?'과세':'면세')+'</td>'
+      +'<td>'+esc(x.size)+'</td><td>'+esc(x.org)+'</td>'
+      +'<td><select data-nbcat="'+esc(k)+'"'+(x.cat?'':' class="miss"')+'>'+CAT_OPTS.replace('value="'+esc(x.cat)+'"','value="'+esc(x.cat)+'" selected')+'</select></td></tr>';
+  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--sub)">이 창고엔 새로 올릴 상시 상품이 없습니다.</td></tr>';
+  const sel=NB.rows.filter(x=>!NB.off.has(key(x.n)));
+  const noCat=sel.filter(x=>!x.cat).length;
+  $('nb-out').disabled=!sel.length;
+  $('nb-out').textContent='📥 대량 등록 양식 만들기 ('+sel.length+'개)';
+  $('nb-msg').textContent=NB.wh+' — 후보 '+NB.rows.length+'개 · 체크 '+sel.length+'개'+(noCat?' · ⚠️ 카테고리 비어 있는 '+noCat+'개는 양식에서 빠집니다':'');
+  $('nb-skip').innerHTML=[['이미 식봄에 있음',skip.reg],['재고 없음',skip.zero],['원가 없음',skip.cost]].filter(a=>a[1].length)
+    .map(a=>'<div><b>빠진 것 · '+a[0]+' '+a[1].length+'개</b> '+a[1].map(esc).join(' · ')+'</div>').join('');
+}
+$('nb-whs').addEventListener('click',e=>{ const b=e.target.closest('[data-nbwh]'); if(!b) return; NB.wh=b.dataset.nbwh; NB.off=new Set(); nbRender(); });
+$('nb-tb').addEventListener('change',e=>{
+  const c=e.target.closest('[data-nbk]'), s=e.target.closest('[data-nbcat]');
+  if(c){ c.checked?NB.off.delete(c.dataset.nbk):NB.off.add(c.dataset.nbk); nbRender(); }
+  if(s){ NB.cat[s.dataset.nbcat]=s.value; nbRender(); }
+});
+$('nb-all').addEventListener('click',()=>{ if(!NB.wh) return; const any=NB.rows.some(x=>!NB.off.has(key(x.n))); NB.off=any?new Set(NB.rows.map(x=>key(x.n))):new Set(); nbRender(); });
+$('nb-ship').addEventListener('change',async e=>{
+  if(!NB.wh) return; const v=e.target.value.trim(); if((SHIP[NB.wh]||'')===v) return;
+  SHIP[NB.wh]=v; try{ await saveKey('sikbom_ship',SHIP); $('nb-msg').textContent=NB.wh+' 택배 배송비명 저장: '+(v||'(비움)'); }catch(err){ $('nb-msg').textContent='저장 실패: '+err.message; }
+});
+function xmlEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+$('nb-out').addEventListener('click',async()=>{
+  try{
+    const ship=$('nb-ship').value.trim();
+    if(!ship) throw new Error('택배 배송비명을 넣어 주세요 — 식봄 [상품관리 › 배송 정보 설정]에 있는 이름 그대로입니다(예: 동해_신선택배비 4000원).');
+    const sel=NB.rows.filter(x=>!NB.off.has(key(x.n))&&x.cat);
+    if(!sel.length) throw new Error('양식에 넣을 상품이 없습니다 (체크했고 카테고리가 있는 상품만 들어갑니다).');
+    if(!window.JSZip) throw new Error('파일 도구를 못 불러왔습니다. 새로고침 후 다시 눌러 주세요.');
+    const buf=await (await fetch('sikbom/bulk-template.xlsx?v='+Date.now(),{cache:'no-store'})).arrayBuffer();
+    const zip=await JSZip.loadAsync(buf);
+    const path='xl/worksheets/sheet1.xml';
+    let xml=await zip.file(path).async('string');
+    // 빈 줄(11행) 칸 모양 = 새 줄의 틀
+    const r11=(xml.match(/<row r="11"[^>]*>[\s\S]*?<\/row>/)||[])[0];
+    if(!r11) throw new Error('양식 모양이 예상과 다릅니다 (11행을 못 찾음).');
+    const rowAttr=(r11.match(/<row r="11"([^>]*)>/)||[])[1]||'';
+    const styles={}; for(const m of r11.matchAll(/<c r="([A-Z]+)11"([^>]*?)(?:\/>|>[\s\S]*?<\/c>)/g)) styles[m[1]]=(m[2].match(/\ss="\d+"/)||[''])[0];
+    const COLS=[]; for(let i=0;i<33;i++) COLS.push(i<26?String.fromCharCode(65+i):'A'+String.fromCharCode(65+i-26));   // A..AG
+    function rowXml(r,v){
+      return '<row r="'+r+'"'+rowAttr+'>'+COLS.map(c=>{
+        const s=styles[c]||'', val=v[c];
+        if(val===undefined||val==='') return styles[c]!==undefined?'<c r="'+c+r+'"'+s+'/>':'';
+        if(typeof val==='number') return '<c r="'+c+r+'"'+s+'><v>'+val+'</v></c>';
+        return '<c r="'+c+r+'"'+s+' t="inlineStr"><is><t xml:space="preserve">'+xmlEsc(val)+'</t></is></c>';
+      }).join('')+'</row>';
+    }
+    const last=Math.max(10,7+sel.length);
+    for(let r=8;r<=last;r++){
+      const x=sel[r-8];
+      let v={};
+      if(x){ const [c1,c2,c3]=x.cat.split('|');
+        v={B:c1,C:c2,D:c3,E:x.n,F:x.size,G:'1팩',K:x.org,L:ship,M:'y',N:x.c,O:x.p,P:'n',Q:x.p,R:'n',S:'n',U:'n',W:'n',Y:1,Z:x.tax,AA:999,AD:'n'}; }
+      const re=new RegExp('<row r="'+r+'"[^>]*>[\\s\\S]*?</row>|<row r="'+r+'"[^>]*/>');
+      if(!re.test(xml)) throw new Error(r+'행을 못 찾았습니다.');
+      xml=xml.replace(re,rowXml(r,v));
+    }
+    zip.file(path,xml);
+    const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',compression:'DEFLATE'});
+    const d=new Date(Date.now()+9*3600000).toISOString().slice(0,10).replace(/-/g,'');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='식봄_대량등록_'+NB.wh+'_'+d+'.xlsx';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    $('nb-msg').textContent='양식을 만들었습니다 — '+sel.length+'개 상품 ('+NB.wh+'). 식봄 [상품 대량 등록]에 그대로 올리면 됩니다.';
+  }catch(err){ $('nb-msg').textContent=err.message; }
 });
 boot();
 </script>
