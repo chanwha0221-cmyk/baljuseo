@@ -25,6 +25,11 @@ window.DM_SS = (function () {
     '#dm-page .ss .ss-weight{font-size:58px;color:#5e4a3a;margin-bottom:24px}',
     '#dm-page .ss .ss-pill{display:inline-block;background:#2a2320;color:#fff;font-size:29px;font-weight:500;padding:12px 40px;border-radius:40px}',
     '#dm-page .ss .ss-quote{font-size:31px;line-height:1.5;color:#4a3a2c;margin-top:34px;font-weight:500}',
+    /* 맨 위 두 줄 (2026-11-08) */
+    '#dm-page .ss .ss-top{background:#fff;padding:72px 40px 60px;text-align:center}',
+    '#dm-page .ss .ss-top h1{font-size:54px;font-weight:800;color:#1d1d1d;letter-spacing:-1.5px;line-height:1.25;margin:0}',
+    '#dm-page .ss .ss-top .ss-t2{font-size:32px;color:#3a3a3a;line-height:1.5;margin-top:20px}',
+    '#dm-page .ss .ss-top .ss-tb{font-size:26px;color:#7a6a5a;margin-bottom:14px}',
     /* 아이콘 칸 */
     '#dm-page .ss .ss-icons{background:#f5f5f3;padding:76px 36px;display:flex;flex-wrap:wrap;justify-content:center}',
     '#dm-page .ss .ss-ic{width:50%;text-align:center;padding:24px 8px}',
@@ -162,13 +167,12 @@ window.DM_SS = (function () {
   function build(DATA, photos, brand, noticeHtml) {
     var d = read(DATA), P = split(photos), np = nameParts(DATA.title), mid = P.mid.slice(), h = '';
     var sub = DATA.subtitle || '';
-    /* 1 히어로 */
-    h += '<div class="ss"><div class="ss-hero">';
-    if (brand) h += '<div class="ss-serif ss-ed" style="font-size:34px;margin-bottom:8px">' + esc(brand) + '</div>';
-    h += '<h1 class="ss-serif ss-ed" style="font-size:' + heroSize(np.name) + 'px">' + esc(np.name) + '</h1>';
-    if (np.weight) h += '<div class="ss-serif ss-weight ss-ed">' + esc(np.weight) + '</div>';
-    if (d.origin.length) h += '<span class="ss-pill ss-ed">' + esc(d.origin.slice(0, 2).join(' / ')) + '</span>';
-    if (sub) h += '<div class="ss-quote ss-ed">“' + esc(sub) + '”</div>';
+    /* 1 맨 위 = 상품 글 첫 두 줄(제목·부제) 그대로, 적당한 크기로 (2026-11-08 홍팀장 「상단이 조금 어색한데
+         그냥 내용 맨위에 저 두칸 적당한 사이즈로 넣어줘라」) — 예전 베이지 큰 명조 제목·검은 원산지 알약·따옴표 부제는 뺐다 */
+    h += '<div class="ss"><div class="ss-top">';
+    if (brand) h += '<div class="ss-tb ss-ed">' + esc(brand) + '</div>';
+    h += '<h1 class="ss-ed">' + esc(DATA.title || '') + '</h1>';
+    if (sub) h += '<div class="ss-t2 ss-ed">' + esc(sub) + '</div>';
     h += '</div>' + ph(P.hero, '', 'height:680px');
     /* 아이콘 4칸 — 스펙에 있는 것만 */
     var ics = [];

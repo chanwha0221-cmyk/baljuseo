@@ -262,7 +262,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.13</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.14</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -376,7 +376,7 @@ document.addEventListener('click',function(e){var m=document.getElementById('hel
 </script>
 <script>
 /* ===== 🎨 상세 메이커 (DM) — masterc 소스 → 마스터/새벽소리 상세페이지 ===== */
-</script><script src="dm-ss.js?v=20261104a"></script><script>
+</script><script src="dm-ss.js?v=20261108a"></script><script>
 const DM=(function(){
   const FONT_BASE="https://chanwha0221-cmyk.github.io/baljuseo/fonts/";
   // 🦀 강경준 모드 고정 상단 배너 (게구쟁이 브랜드 인트로 — 항상 맨 위에 깔림)
@@ -449,6 +449,9 @@ const DM=(function(){
     txt=decodeEnt(txt);
     txt=txt.replace(/[▶▷►]?\s*전체\s*사진\s*(일괄\s*)?다운(로드)?/g,' ');  // '전체 사진 다운로드' 문구 제거
     let lines=txt.split('\n').map(l=>l.replace(/ /g,' ').replace(/\s+/g,' ').trim()).filter(l=>l&&l!=='/'&&!/사진\s*(일괄\s*)?다운|^[▶▷►]?\s*전체\s*사진\s*$|^[▶▷►]?\s*(일괄\s*)?다운로드\s*$|^[▶▷►]\s*전체/.test(l));
+    /* 🙈 판매사 안내 줄은 상세페이지에 안 싣는다 (2026-11-08 홍팀장 「★ 네이버 노출 플랫폼 판매가 : 7,900원 이상 / 그 외에는 자유 판매가능합니다
+         — 같이 판매하는 업체에는 알려야 하지만 상세페이지에는 굳이 알릴 필요 없다」) */
+    lines=lines.filter(l=>!/판매가\s*[:：]|노출\s*플랫폼|자유\s*판매|최저\s*판매|판매\s*가능합니다|판매가능합니다/.test(l));
     let title=cleanTitle(lines[0]||''),subtitle='',i=1;
     if(lines[1]&&!/^[○※]|^Q[.\s]|^A[.\s]/.test(lines[1])){subtitle=lines[1];i=2;}
     let sections=[],cur=null;
