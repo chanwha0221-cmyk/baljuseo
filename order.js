@@ -454,6 +454,16 @@ function vonly(){ try{ return (window.VONLY||[]).filter(o=>o&&o.name); }catch(e)
       「오늘 판매하지 않습니다」라는 **차단 문구**가 떠서 업체가 놀랐다. 열어준 물건은 발주가 돼야 한다. */
 const VONLY_NOTE = '금일 인상 및 소량 입고 상품이라 카탈로그에는 노출하지 않았습니다. 발주 후 담당에게 수량 공유 주시면 감사 드리겠습니다.';
 const vonlyOpen = name => { const k = pkey(S(name)); return vonly().some(o => pkey(o.name) === k); };
+/* 🧑‍💼 마스터 대신 발주 — 카탈로그 카드가 없어도 수량 웹에 있는 상품명이면 그 이름으로 받는다 (2026-11-08 홍팀장
+   「국내산 돈두 슬라이스 왜 발주 안 되냐 — 내가 넣겠다 하면 되게 하라니까, 당일 시트에서 한 번 거를 수 있어」).
+   재고 0 이라 masterc 가 상품리스트·원가표에서 아예 빼 버린 상품은 카드가 없어 「카탈로그에 없는 상품명」 이 됐다.
+   🔴 이름은 수량 웹(QTY_SNAP 재고 0 목록)과 공백만 빼고 완전일치일 때만 — 비슷한 이름은 여전히 안 붙인다. 업체 화면은 그대로 막힌다. */
+function qtyKnown(raw){
+  if(!amMaster()) return null;
+  const k = pkey(S(raw));
+  const z = (typeof SNAP !== 'undefined' && SNAP && SNAP.qtyZ) || [];
+  return (k && z.some(x => pkey(x) === k)) ? {name:S(raw), group:'', qtyOnly:true} : null;
+}
 function offcat(raw){
   const k = pkey(S(raw));
   const v = vonly().find(o => pkey(o.name) === k);
@@ -484,7 +494,7 @@ function findProd(raw){
   const idx = prodIndex();
   const t = S(raw);
   if(!t) return {p:null, cands:[]};
-  const hit = k => idx.get(pkey(k)) || offcat(k);
+  const hit = k => idx.get(pkey(k)) || offcat(k) || qtyKnown(k);
   let p = hit(t);
   if(p) return {p, cands:[]};
   const x = stripTailX(t);                                  // ✂️ 「… 15kg x」 꼬리부터 떼고 다시 찾는다
