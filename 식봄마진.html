@@ -523,7 +523,7 @@ function nbRender(){
     if(s==='zero') return skip.zero.push(r.n);
     if(!(c>0)) return skip.cost.push(r.n);
     const p=newPrice(c);
-    NB.rows.push({n:r.n,c,p,rate:(p*(1-FEE)-c)/p,tax:/과세/.test(String(r.tax||''))?'y':'n',size:specSize(r.n),org:originOf(r.n),cat:(k in NB.cat)?NB.cat[k]:catGuess(r.n)});
+    NB.rows.push({n:r.n,srl:+r.srl||0,c,p,rate:(p*(1-FEE)-c)/p,tax:/과세/.test(String(r.tax||''))?'y':'n',size:specSize(r.n),org:originOf(r.n),cat:(k in NB.cat)?NB.cat[k]:catGuess(r.n)});
   });
   NB.rows.sort((a,b)=>a.n.localeCompare(b.n,'ko'));
   $('nb-ship').value=SHIP[NB.wh]||'';
@@ -584,7 +584,8 @@ $('nb-out').addEventListener('click',async()=>{
       const x=sel[r-8];
       let v={};
       if(x){ const [c1,c2,c3]=x.cat.split('|');
-        v={B:c1,C:c2,D:c3,E:x.n,F:x.size,G:'1팩',K:x.org,L:ship,M:'y',N:x.c,O:x.p,P:'n',Q:x.p,R:'n',S:'n',U:'n',W:'n',Y:1,Z:x.tax,AA:999,AD:'n'}; }
+        // A 상품코드 — 양식 안내: 「이미지 대량 등록 시 필수, ERP 코드가 없으면 중복 안 되는 임의 코드」 → masterc 글번호로
+        v={A:x.srl?('MASTER_'+x.srl):'',B:c1,C:c2,D:c3,E:x.n,F:x.size,G:'1팩',K:x.org,L:ship,M:'y',N:x.c,O:x.p,P:'n',Q:x.p,R:'n',S:'n',U:'n',W:'n',Y:1,Z:x.tax,AA:999,AD:'n'}; }
       const re=new RegExp('<row r="'+r+'"[^>]*>[\\s\\S]*?</row>|<row r="'+r+'"[^>]*/>');
       if(!re.test(xml)) throw new Error(r+'행을 못 찾았습니다.');
       xml=xml.replace(re,rowXml(r,v));
