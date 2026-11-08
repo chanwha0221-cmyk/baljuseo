@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>식봄 마진판 v1.4</title>
+<title>식봄 마진판 v1.5</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 /* 🛒 식봄 마진판 (2026-11-03 홍팀장 「식봄 상품 리스트로 수수료 8% 계산했을 때 마진·마진율 볼 수 있는 사이트」)
@@ -90,6 +90,8 @@ tr.loss{background:var(--bad-soft)}
 .nb td.num,.nb th.num{text-align:right}
 .nb .catin{font:inherit;font-size:12px;width:280px;padding:4px 7px;border:1px solid var(--line);border-radius:5px;background:var(--panel);color:var(--ink)}
 .nb .catin.miss{border-color:var(--bad)}
+.nb .wtin{font:inherit;font-size:12px;width:80px;padding:4px 7px;border:1px solid var(--line);border-radius:5px;background:var(--panel);color:var(--ink)}
+.nb .wtin.miss{border-color:var(--bad);background:var(--bad-soft)}
 #catpop{position:absolute;z-index:50;max-height:300px;overflow:auto;min-width:300px;background:var(--panel);border:1px solid var(--accent);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:12.5px}
 #catpop div{padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--line)}
 #catpop div:hover,#catpop div.on{background:var(--accent-soft)}
@@ -130,8 +132,8 @@ tr.loss{background:var(--bad-soft)}
         <span class="msg" id="nb-msg">창고를 골라 주세요.</span>
       </div>
       <div class="tbl nb"><table>
-        <thead><tr><th>✔</th><th>상품명</th><th class="num">원가</th><th class="num">식봄 판매가</th><th class="num">마진율</th><th>과세</th><th>판매규격</th><th>원산지</th><th>카테고리</th></tr></thead>
-        <tbody id="nb-tb"><tr><td colspan="9" style="text-align:center;color:var(--sub)">창고를 골라 주세요.</td></tr></tbody>
+        <thead><tr><th>✔</th><th>상품명</th><th class="num">원가</th><th class="num">식봄 판매가</th><th class="num">마진율</th><th>과세</th><th>판매규격</th><th>판매중량</th><th>원산지</th><th>카테고리</th></tr></thead>
+        <tbody id="nb-tb"><tr><td colspan="10" style="text-align:center;color:var(--sub)">창고를 골라 주세요.</td></tr></tbody>
       </table></div>
       <div class="note" id="nb-skip"></div>
     </div>
@@ -507,11 +509,19 @@ function specSize(n){
   const c=[...String(n).matchAll(/(\d+)\s*(미|마리|개입|개|팩|박스|세트|구|봉|장|팩)/g)]; if(c.length){ const m=c[c.length-1]; return m[1]+m[2]; }
   return '1팩';
 }
+/* ⚖️ 판매중량 (H열) — 식봄 택배배송비가 「중량별 배송비」면 필수 (2026-11-08 첫 업로드 19건 전부 오류).
+   상품명 맨 뒤 무게(kg·g) → 없으면 스펙 「중량/사이즈」 줄의 무게 → 그래도 없으면 '' (빨간 칸 — 직접 넣어야 양식에 들어간다) */
+function weightOf(n){
+  const pick=s=>{ const w=[...String(s||'').matchAll(/(\d+(?:\.\d+)?)\s*(kg|g)(?![a-z])/gi)]; if(!w.length) return ''; const m=w[w.length-1]; return m[1]+m[2].toLowerCase(); };
+  const a=pick(n); if(a) return a;
+  const s=(STK&&STK.spec[key(n)])||''; const line=(s.split('\n').find(l=>/중량/.test(l))||'');
+  return pick(line);
+}
 function originOf(n){
   const s=(STK&&STK.spec[key(n)])||''; const m=s.match(/원산지\s*[:：]\s*([^\n※]+)/);
   const v=m?m[1].trim().replace(/\s+/g,' '):''; return v&&v.length<=40?v:'상품 상세정보 참고';
 }
-const NB={wh:'',rows:[],off:new Set(),cat:{}};
+const NB={wh:'',rows:[],off:new Set(),cat:{},wt:{}};
 function nbRegistered(){ const s=new Set(); (LIST&&LIST.rows||[]).forEach(r=>{ s.add(key(r[1])); }); Object.values(MAP).forEach(v=>{ if(v) s.add(key(v)); }); return s; }
 function nbChips(){
   if(!MCROWS.length){ $('nb-whs').innerHTML=''; return; }
@@ -528,7 +538,7 @@ function nbRender(){
     if(s==='zero') return skip.zero.push(r.n);
     if(!(c>0)) return skip.cost.push(r.n);
     const p=newPrice(c);
-    NB.rows.push({n:r.n,srl:+r.srl||0,c,p,rate:(p*(1-FEE)-c)/p,tax:/과세/.test(String(r.tax||''))?'y':'n',size:specSize(r.n),org:originOf(r.n),cat:(k in NB.cat)?NB.cat[k]:catGuess(r.n)});
+    NB.rows.push({n:r.n,srl:+r.srl||0,c,p,rate:(p*(1-FEE)-c)/p,tax:/과세/.test(String(r.tax||''))?'y':'n',size:specSize(r.n),wt:(k in NB.wt)?NB.wt[k]:weightOf(r.n),org:originOf(r.n),cat:(k in NB.cat)?NB.cat[k]:catGuess(r.n)});
   });
   NB.rows.sort((a,b)=>a.n.localeCompare(b.n,'ko'));
   $('nb-ship').value=SHIP[NB.wh]||'';
@@ -536,21 +546,25 @@ function nbRender(){
     const k=key(x.n), on=!NB.off.has(k);
     return '<tr class="'+(on?'':'unchk')+'"><td><input type="checkbox" data-nbk="'+esc(k)+'"'+(on?' checked':'')+'></td><td>'+esc(x.n)+'</td>'
       +'<td class="num">'+won(x.c)+'</td><td class="num"><b>'+won(x.p)+'</b></td><td class="num">'+pct(x.rate)+'</td><td>'+(x.tax==='y'?'과세':'면세')+'</td>'
-      +'<td>'+esc(x.size)+'</td><td>'+esc(x.org)+'</td>'
+      +'<td>'+esc(x.size)+'</td><td><input class="wtin'+(x.wt?'':' miss')+'" data-nbwt="'+esc(k)+'" value="'+esc(x.wt)+'" placeholder="예: 1kg"></td><td>'+esc(x.org)+'</td>'
       +'<td><input class="catin'+(x.cat?'':' miss')+'" data-nbcat="'+esc(k)+'" value="'+esc(catLabel(x.cat))+'" placeholder="🔍 카테고리 검색 (예: 양고기)" autocomplete="off"></td></tr>';
-  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--sub)">이 창고엔 새로 올릴 상시 상품이 없습니다.</td></tr>';
+  }).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--sub)">이 창고엔 새로 올릴 상시 상품이 없습니다.</td></tr>';
   const sel=NB.rows.filter(x=>!NB.off.has(key(x.n)));
-  const noCat=sel.filter(x=>!x.cat).length;
-  $('nb-out').disabled=!sel.length;
-  $('nb-out').textContent='📥 대량 등록 양식 만들기 ('+sel.length+'개)';
-  $('nb-msg').textContent=NB.wh+' — 후보 '+NB.rows.length+'개 · 체크 '+sel.length+'개'+(noCat?' · ⚠️ 카테고리 비어 있는 '+noCat+'개는 양식에서 빠집니다':'');
+  const noCat=sel.filter(x=>!x.cat), noWt=sel.filter(x=>!x.wt);
+  const ok=sel.filter(x=>x.cat&&x.wt).length;
+  $('nb-out').disabled=!ok;
+  $('nb-out').textContent='📥 대량 등록 양식 만들기 ('+ok+'개)';
+  $('nb-msg').innerHTML=esc(NB.wh)+' — 후보 '+NB.rows.length+'개 · 체크 '+sel.length+'개'
+    +(noCat.length?' · ⚠️ 카테고리 비어 있는 '+noCat.length+'개':'')
+    +(noWt.length?'<br><b style="color:var(--bad)">⚖️ 판매중량 확인 안 된 '+noWt.length+'개 — 빨간 칸에 무게를 넣어야 양식에 들어갑니다:</b> '+noWt.map(x=>esc(x.n)).join(' · '):'');
   $('nb-skip').innerHTML=[['이미 식봄에 있음',skip.reg],['재고 없음',skip.zero],['원가 없음',skip.cost]].filter(a=>a[1].length)
     .map(a=>'<div><b>빠진 것 · '+a[0]+' '+a[1].length+'개</b> '+a[1].map(esc).join(' · ')+'</div>').join('');
 }
 $('nb-whs').addEventListener('click',e=>{ const b=e.target.closest('[data-nbwh]'); if(!b) return; NB.wh=b.dataset.nbwh; NB.off=new Set(); nbRender(); });
 $('nb-tb').addEventListener('change',e=>{
-  const c=e.target.closest('[data-nbk]');
+  const c=e.target.closest('[data-nbk]'), w=e.target.closest('[data-nbwt]');
   if(c){ c.checked?NB.off.delete(c.dataset.nbk):NB.off.add(c.dataset.nbk); nbRender(); }
+  if(w){ const v=w.value.trim().replace(/\s+/g,''); NB.wt[w.dataset.nbwt]=/^\d+(\.\d+)?(kg|g)$/i.test(v)?v.toLowerCase():''; if(v&&!NB.wt[w.dataset.nbwt]) alert('판매중량은 「1kg」·「500g」처럼 숫자+kg/g 로 넣어 주세요.'); nbRender(); }
 });
 /* 🔍 카테고리 검색 (2026-11-08 홍팀장 「양고기 넣으면 그게 맞는 카테고리만 볼 수 있게」)
    카테고리 이름에 그 글자가 있으면 + 흔히 쓰는 말(양고기→양, 한우→소고기 …)로도 찾는다. 상품명 규칙이 고르는 칸을 맨 위에. */
@@ -603,8 +617,8 @@ $('nb-out').addEventListener('click',async()=>{
   try{
     const ship=$('nb-ship').value.trim();
     if(!ship) throw new Error('택배 배송비명을 넣어 주세요 — 식봄 [상품관리 › 배송 정보 설정]에 있는 이름 그대로입니다(예: 동해_신선택배비 4000원).');
-    const sel=NB.rows.filter(x=>!NB.off.has(key(x.n))&&x.cat);
-    if(!sel.length) throw new Error('양식에 넣을 상품이 없습니다 (체크했고 카테고리가 있는 상품만 들어갑니다).');
+    const sel=NB.rows.filter(x=>!NB.off.has(key(x.n))&&x.cat&&x.wt);
+    if(!sel.length) throw new Error('양식에 넣을 상품이 없습니다 (체크했고 카테고리·판매중량이 있는 상품만 들어갑니다).');
     if(!window.JSZip) throw new Error('파일 도구를 못 불러왔습니다. 새로고침 후 다시 눌러 주세요.');
     const buf=await (await fetch('sikbom/bulk-template.xlsx?v='+Date.now(),{cache:'no-store'})).arrayBuffer();
     const zip=await JSZip.loadAsync(buf);
@@ -630,7 +644,7 @@ $('nb-out').addEventListener('click',async()=>{
       let v={};
       if(x){ const [c1,c2,c3]=x.cat.split('|');
         // A 상품코드 — 양식 안내: 「이미지 대량 등록 시 필수, ERP 코드가 없으면 중복 안 되는 임의 코드」 → masterc 글번호로
-        v={A:x.srl?('MASTER_'+x.srl):'',B:c1,C:c2,D:c3,E:x.n,F:x.size,G:'1팩',K:x.org,L:ship,M:'y',N:x.c,O:x.p,P:'n',Q:x.p,R:'n',S:'n',U:'n',W:'n',Y:1,Z:x.tax,AA:999,AD:'n'}; }
+        v={A:x.srl?('MASTER_'+x.srl):'',B:c1,C:c2,D:c3,E:x.n,F:x.size,G:'1팩',H:x.wt,K:x.org,L:ship,M:'y',N:x.c,O:x.p,P:'n',Q:x.p,R:'n',S:'n',U:'n',W:'n',Y:1,Z:x.tax,AA:999,AD:'n'}; }
       const re=new RegExp('<row r="'+r+'"[^>]*>[\\s\\S]*?</row>|<row r="'+r+'"[^>]*/>');
       if(!re.test(xml)) throw new Error(r+'행을 못 찾았습니다.');
       xml=xml.replace(re,rowXml(r,v));
