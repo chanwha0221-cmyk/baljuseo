@@ -459,7 +459,7 @@ function run(){
   const m = matchAll(sIn, inDeps0, refs, LINKS);
   const B = buildBlocks(sIn, inDeps0, m, refs);
   const refPaid = refs.filter((r, ri) => m.rUsed[ri]).reduce((s,r) => s+r.amt, 0);   // 입금과 짝지은 환불만 입금에서 뺌
-  const blocks = B.blocks, skipDeps = [...used.slice(0, d0), ...B.skipDeps];
+  const blocks = tailMerge(B.blocks), skipDeps = [...used.slice(0, d0), ...B.skipDeps];
   const inDeps = inDeps0.filter(d => !B.skipDeps.includes(d));
   const autoS = sIn[B.startIdx] ? sIn[B.startIdx].date : null;
   $('startSel').innerHTML = `<option value="">자동${autoS ? ' ('+kDate(autoS)+'부터)' : ''}</option>` +
@@ -470,10 +470,29 @@ function run(){
   const setTotal = inR.reduce((s,r) => s+r.amt, 0), depTotal = inDeps.reduce((s,d) => s+d.amt, 0) - refPaid;
   const skipped = [...settles.filter(s => !sIn.includes(s)), ...B.skipped];
   CUR = {vendor:$('vendor').value.trim() || '(업체명)', honor:$('honor').value.trim(), blocks, skipped, skipDeps,
-         setTotal, depTotal, net:setTotal - depTotal, bad:blocks.filter(b => ['short','unpaid','missing'].includes(b.st)).reduce((s,b) => s+b.diff, 0), firstBad:blocks.findIndex(b => b.st === 'short' || b.st === 'unpaid' || b.st === 'missing'),
+         setTotal, depTotal, net:setTotal - depTotal, bad:blocks.filter(b => ['short','unpaid','missing','tail'].includes(b.st)).reduce((s,b) => s+b.diff, 0), firstBad:blocks.findIndex(b => ['short','unpaid','missing','tail'].includes(b.st)),
          refPaid, lastDep: inDeps.length ? inDeps[inDeps.length-1].date : null, nDep:inDeps.length, nSet:inR.length,
          allDeps:used, pickS:pick || '', pickD:dpick === undefined ? '' : String(dpick)};
   render();
+}
+/* 🧾 첫 안 맞는 줄부터 끝까지 = 한 덩어리 (홍팀장 26-11-09 «3일~5일 더한 게 1,200원 차이 난다고 억지로 맞추지 말고
+   2일부터 6일까지 정산 얼마, 3일에 얼마 입금, 그러니까 총 미정산은 이거라고 정리해»).
+   딱 맞은 줄(✅) 뒤에서 처음 어긋난 곳부터는 정산은 날짜별로 다 깔고, 그 기간 입금을 다 모아 «정산 합계 − 입금 합계 = 미정산» 한 줄.
+   ±10% 근사 매칭(덜/더 들어옴)으로 아무 입금에나 갖다 붙이지 않는다. 짝 없는 환불(참고 줄)은 덩어리 뒤에 그대로 둔다. */
+function tailMerge(blocks){
+  const i = blocks.findIndex(b => ['short','over','unpaid','missing','nomatch'].includes(b.st));
+  if(i < 0) return blocks;
+  const tail = blocks.slice(i), keep = tail.filter(b => b.st === 'refund'), part = tail.filter(b => b.st !== 'refund');
+  const rs = part.flatMap(b => b.rs || []).sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const deps = part.flatMap(b => b.dep ? (b.dep.parts || [b.dep]) : []).sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const refs = part.map(b => b.ref).filter(Boolean);
+  const amt = rs.reduce((s,r) => s+r.amt, 0), depAmt = deps.reduce((s,d) => s+d.amt, 0), refAmt = refs.reduce((s,r) => s+r.amt, 0);
+  const dep = deps.length ? (deps.length > 1 ? {date:deps[deps.length-1].date, name:deps[0].name, amt:depAmt, parts:deps} : deps[0]) : null;
+  const ref = refs.length ? {date:refs[refs.length-1].date, amt:refAmt} : null;
+  const diff = amt - (depAmt - refAmt);
+  const t = {from: rs.length ? rs[0].date : (dep ? dep.date : ''), to: rs.length ? rs[rs.length-1].date : '', n:rs.length, rs, amt, dep, ref, diff,
+             st: diff > 0 ? 'tail' : diff < 0 ? 'over' : 'ok', tail:true};
+  return [...blocks.slice(0, i), t, ...keep];
 }
 function startPick(v){ $('startSel').dataset.pick = v; run(); }
 function depPick(v){ $('depSel').dataset.pick = v; run(); }
@@ -493,8 +512,8 @@ function startHere(i){
 }
 function startAuto(){ delete $('startSel').dataset.pick; delete $('depSel').dataset.pick; PICK = {d:[], s:[]}; run(); }
 
-const ST_TXT = {ok:'일치', short:'덜 들어옴', over:'더 들어옴', unpaid:'미입금', missing:'입금 내역 없음', nomatch:'맞는 정산 없음', refunded:'환불로 정리', refund:'환불'};
-const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌', missing:'❌', nomatch:'🔵', refunded:'↩', refund:'↩'};
+const ST_TXT = {ok:'일치', short:'덜 들어옴', over:'더 들어옴', unpaid:'미입금', missing:'입금 내역 없음', nomatch:'맞는 정산 없음', refunded:'환불로 정리', refund:'환불', tail:'미정산'};
+const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌', missing:'❌', nomatch:'🔵', refunded:'↩', refund:'↩', tail:'❌'};
 const setLabel = b => b.n ? rangeLabel(b) : '-';
 const diffTxt = b => b.diff == null ? '-' : b.diff === 0 ? '0' : (b.diff > 0 ? won(b.diff) : '+' + won(-b.diff));
 // 입금일·실 입금액 칸: 입금 한 줄 + 짝지은 환불 한 줄(−)
@@ -549,12 +568,21 @@ function rowBtn(b, i){
   return head;
 }
 
+// 🧾 미정산 덩어리 한 줄 — «11월 2일 ~ 6일 정산 197,300원 중 11월 3일 100,000원 입금, 미정산 97,300원입니다.»
+function tailLine(b){
+  const per = b.n ? `${rangeLabel(b)} 정산 ${won(b.amt)}원` : '';
+  const ds = b.dep ? (b.dep.parts || [b.dep]).map(d => `${kDate(d.date)} ${won(d.amt)}원`).join(', ') : '';
+  const got = b.dep ? `${per ? ' 중 ' : ''}${ds} 입금${b.ref ? `(환불 ${won(b.ref.amt)}원 제외)` : ''}` : (per ? ' 중 입금 내역 없음' : '');
+  return `${per}${got}, 미정산 ${won(b.diff)}원입니다.`;
+}
 // 업체에 나가는 문구 — 사실만, 정중하게. 탓하는 말·재촉하는 말 넣지 말 것.
 function buildMsg(){
   const c = CUR;
   const co = coName();
   const hi = `안녕하세요${c.honor ? ' '+c.honor+'님' : ''}${co ? ', '+co+'입니다.' : '.'}`;
   if(c.firstBad < 0) return `${hi}\n${c.vendor} 정산 건 입금 모두 확인되었습니다.\n감사합니다.`;
+  const tb = c.blocks[c.firstBad];
+  if(tb.tail) return `${hi}\n\n${tailLine(tb)}\n확인 후 입금 부탁드립니다.\n\n이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
   // 금액 = 입금 확인 안 된 정산(입금 내역 없음·미입금·덜 들어옴) 합. 맞는 정산 없는 입금은 따로 물어본다.
   const odd = c.blocks.filter(b => b.st === 'nomatch');
   return `${hi}\n\n${kDate(c.blocks[c.firstBad].from)}분부터 ${won(c.bad)}원 입금 확인이 안 됩니다.\n` +
@@ -583,8 +611,8 @@ function tableDraw(x, L, y, cols, rows){        // rows: {vals:[[줄…]…], bg
   return y;
 }
 function tableHeight(rows){ return rows.reduce((s,r) => s + Math.max(...r.vals.map(v => v.length))*20 + 16, 0); }
-const BG = {ok:'#fff', short:'#fff6e0', over:'#eef4ff', unpaid:'#fdecec', missing:'#fdecec', nomatch:'#eef4ff', refunded:'#f5f0ff', refund:'#f5f0ff', head:'#eef0f3'};
-const blockColors = (b, withDep) => { const red = (b.st==='short'||b.st==='unpaid'||b.st==='missing') ? '#b3261e' : b.st==='ok' ? '#2d7a3a' : '#1b4fb3';
+const BG = {ok:'#fff', short:'#fff6e0', over:'#eef4ff', unpaid:'#fdecec', missing:'#fdecec', nomatch:'#eef4ff', refunded:'#f5f0ff', refund:'#f5f0ff', tail:'#fdecec', head:'#eef0f3'};
+const blockColors = (b, withDep) => { const red = (b.st==='short'||b.st==='unpaid'||b.st==='missing'||b.st==='tail') ? '#b3261e' : b.st==='ok' ? '#2d7a3a' : '#1b4fb3';
   const n = withDep ? 6 : 5; const a = Array(n).fill(null); a[n-2] = b.st==='ok'?null:red; a[n-1] = red; return a; };
 // 이미지용 줄: 날짜별 줄(입금 칸 비움) + 합계 줄(굵게, 입금·차액)
 const blockImgRows = (b, withDep, cut) => blockLines(b).map((ln, k) => ln.day
@@ -611,7 +639,7 @@ function drawImg(){
   x.fillStyle = '#111'; x.font = FONT('bold', 20); x.fillText('입금 확인 요청', L, 32);
   x.font = FONT('normal', 14); x.fillStyle = '#444';
   x.fillText(`${c.vendor}${c.honor?' · '+c.honor+'님':''}`, L, 60);
-  x.fillText(show.length ? `${kDate(show[0].from)}분부터 ${won(c.bad)}원 입금 확인이 안 됩니다.` : '정산 건 입금이 모두 확인되었습니다.', L, 84);
+  x.fillText(show.length ? (show[0].tail ? tailLine(show[0]) : `${kDate(show[0].from)}분부터 ${won(c.bad)}원 입금 확인이 안 됩니다.`) : '정산 건 입금이 모두 확인되었습니다.', L, 84);
   if(!show.length) return footer(x, L, 84);
   footer(x, L, tableDraw(x, L, top, cols, rows));
 }
