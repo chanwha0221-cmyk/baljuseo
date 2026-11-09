@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.220</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.221</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3855,7 +3855,7 @@ async function loadLowm(){
    🔴 원가 칸만 보고 판정하지는 않는다 — 원가가 잘못 뜨는 일이 있다(2026-09-29 알배기암게 공급가
       12,000 인데 원가 칸이 14,000 으로 떠서 마진 -1,000 으로 보였다). 그런 경우엔 마진율도 같이
       낮게 나오므로 이 조건에 걸리지 않고 그대로 잡힌다. */
-function lowmSafe(r,uMax){ return +r.cost>0 && +r.sell>+r.cost && +r.rate>=(+uMax||6); }
+function lowmSafe(r,uMax){ return !r.inv && +r.cost>0 && +r.sell>+r.cost && +r.rate>=(+uMax||6); }   // ⚖️ 규격 역전(inv)은 마진과 상관없이 확인 대상 (11-09)
 function lowmLoss(rows,uMax){return rows.filter(r=>lowmSafe(r,uMax)?false:(r.urgent!=null?!!r.urgent:(!r.okd&&+r.base>0&&+r.sell>0&&+r.sell<+r.base)));}
 /* 👌 괜찮음 — 이 상품은 마진을 다시 묻지 않는다(연어처럼 서비스로 파는 것). 다시 누르면 취소. */
 function lowmOk(btn,n,on){
@@ -3911,7 +3911,7 @@ function renderLowm(j,lossOnly){
   const ago=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'없음';
   const loss=j.loss||lowmLoss(j.rows,j.urgentMax), rows=lossOnly?loss:j.rows;
   let h=lossOnly
-    ? subHead('🔴 지금 바로 확인할 상품','<b>역마진</b>(판매가 &lt; 공급가) + <b>마진율 '+(j.urgentMax||6)+'% 미만</b> 중 새로 생기거나 값이 바뀐 것 '+loss.length+'개 — 최근 등장 순. 처음부터 있던 저마진은 안 묻습니다 · <b>[👌 괜찮음]</b> 누른 상품은 다시 안 묻습니다 · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
+    ? subHead('🔴 지금 바로 확인할 상품','<b>역마진</b>(판매가 &lt; 공급가) + <b>마진율 '+(j.urgentMax||6)+'% 미만</b> 중 새로 생기거나 값이 바뀐 것 + <b>⚖️ 규격 역전</b>(작은 규격이 큰 규격보다 비쌈 — 옛 특별단가·등록가가 남은 것) '+loss.length+'개 — 최근 등장 순. 처음부터 있던 저마진은 안 묻습니다 · <b>[👌 괜찮음]</b> 누른 상품은 다시 안 묻습니다 · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
         +'<br>✏️ 상시는 «새 판매가»에 넣고 <b>[💾 단가 저장]</b> → masterc 특별단가(전체)로 저장. 🐟 당일도 «새 판매가» → [💾 단가 저장] 하면 특별단가 + <b>오늘 당일 등록가</b>까지 같이 고칩니다. 역마진 당일은 <b>업체 화면에서 숨겨 두고</b>, 단가를 고치거나 <b>[✅ 이 가격으로 노출]</b>을 누르면 다시 보입니다. 🔒 마스터에게만 보입니다.')
     : subHead('💸 저마진 상품','마진율 '+j.max+'% 이하 · 최근 저마진으로 등장한 순 · 카탈로그에 떠 있는 것 '+j.rows.length+'개'+(j.all>j.rows.length?' (품절·재고 없음·예외로 안 보이는 '+(j.all-j.rows.length)+'개 뺌)':'')+' ·마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
         +'<br>✏️ «새 판매가» 칸에 넣고 <b>[💾 단가 저장]</b>을 누르면 <b>masterc 특별단가(전체)</b>로 저장됩니다 — 리모컨 가격표에 실려 그 값으로 정산되고, 카탈로그에도 바로 보냅니다. masterc 창이 잠깐 열렸다 닫힙니다. 🔒 마스터에게만 보입니다.');
@@ -3942,7 +3942,8 @@ function renderLowm(j,lossOnly){
       +'<td style="'+td+';text-align:left;font-size:12px;color:'+(r.urgent?'#b91c1c;font-weight:700':'var(--muted)')+'">'+hm(r.at)+'</td>'
       +'<td style="'+td+';text-align:left">'+(r.k==='당일'?'🐟 당일':'상시')+'</td>'
       +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
-      +'<td style="'+td+';text-align:left;white-space:normal">'+esc(r.n)+' <button class="cpbtn" data-cp="'+esc(r.n)+'" title="상품명 복사">📋</button></td>'
+      +'<td style="'+td+';text-align:left;white-space:normal">'+esc(r.n)+' <button class="cpbtn" data-cp="'+esc(r.n)+'" title="상품명 복사">📋</button>'
+        +(r.inv?'<br><span style="font-size:11.5px;color:#b91c1c;font-weight:700">⚖️ 규격 역전 — '+esc(r.inv)+' '+won(r.invSell)+'원보다 비쌈</span>':'')+'</td>'
       +'<td style="'+td+'">'+won(r.sell)+'</td>'
       +(lossOnly?'<td style="'+td+';color:#b91c1c;font-weight:700">'+won(r.base)+'</td>':'')
       +'<td style="'+td+'">'+inCell(r)+(lossOnly&&r.k==='당일'&&r.hold?'<br><span style="font-size:11.5px;color:#b91c1c;font-weight:700">🙈 업체 화면 숨김</span> <button class="ubtn" style="font-size:11.5px;margin-top:3px" onclick="dayOk(this,'+esc(JSON.stringify(r.n))+')">✅ 이 가격으로 노출</button>':'')+'</td>'
