@@ -205,18 +205,24 @@ function parseRefunds(text){
   return out;
 }
 // 환불 시트엔 여러 업체가 섞여 온다 → 채널명 고르기. 처음엔 업체명과 겹치는 것만 켬, 손으로 바꾼 건 기억.
+/* 환불 켜기 기본값 (홍팀장 26-11-09 «환불내역 넣어놨는데 왜 적용 안되냐»): 입금자가 «IBK» 처럼 업체명이 아니면
+   업체 칸도 IBK 가 되어 «감탄상회» 환불이 전부 꺼졌다. → 업체 칸과 맞는 환불 이름이 하나라도 있으면 그것만,
+   하나도 안 맞으면 붙여넣은 환불을 전부 켠다(이 업체 보려고 넣은 환불이다). */
+let REF_NAMES = [];
 function refOn(n){
   const k = JSON.parse(ls('ipg_refon')||'{}'); if(n in k) return k[n];
   const v = $('vendor').value.trim(); if(!v) return true;
-  return n.includes(v) || v.includes(n);
+  const hit = x => x.includes(v) || v.includes(x);
+  return hit(n) || !REF_NAMES.some(hit);
 }
 function renderRefNames(refs){
   const names = [...new Set(refs.map(r => r.name))];
+  REF_NAMES = names;
   $('refNames').innerHTML = !names.length ? '' :
     '<span class="hint">이 업체 환불만 켜기: </span>' + names.map(n =>
       `<label><input type="checkbox" data-n="${esc(n)}" ${refOn(n)?'checked':''} onchange="refToggle(this)"> ${esc(n)}</label>`).join('');
 }
-function refToggle(el){ const k = JSON.parse(ls('ipg_refon')||'{}'); k[el.dataset.n] = el.checked; ls('ipg_refon', JSON.stringify(k)); }
+function refToggle(el){ const k = JSON.parse(ls('ipg_refon')||'{}'); k[el.dataset.n] = el.checked; ls('ipg_refon', JSON.stringify(k)); run(); }
 // 「김철수(샘플상회」 → 「샘플상회」 (괄호 안이 업체명인 경우)
 function vendorFromPayer(n){ const m = String(n||'').match(/\(([^)]+)\)?/); return m ? m[1].trim() : String(n||'').trim(); }
 
