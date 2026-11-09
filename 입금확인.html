@@ -38,7 +38,8 @@
   tr.ok td:nth-child(n+5){color:#2d7a3a}
   tr.short td{background:#fff6e0}
   tr.short td:nth-child(n+5){color:#b3261e;font-weight:bold}
-  tr.over td,tr.nomatch td{background:#eef4ff}
+  tr.over td,tr.nomatch td,tr.open td{background:#eef4ff}
+  tr.open td:nth-child(n+5){color:#1b4fb3;font-weight:bold}
   tr.refunded td,tr.refund td{background:#f5f0ff;color:#5b3fa0}
   tr.over td:nth-child(n+5),tr.nomatch td:nth-child(n+5){color:#1b4fb3;font-weight:bold}
   tr.unpaid td,tr.missing td{background:#fdecec;color:#b3261e}
@@ -459,14 +460,33 @@ function run(){
   const m = matchAll(sIn, inDeps0, refs, LINKS);
   const B = buildBlocks(sIn, inDeps0, m, refs);
   const refPaid = refs.filter((r, ri) => m.rUsed[ri]).reduce((s,r) => s+r.amt, 0);   // 입금과 짝지은 환불만 입금에서 뺌
-  const blocks = tailMerge(B.blocks), skipDeps = [...used.slice(0, d0), ...B.skipDeps];
+  const blocks = tailMerge(B.blocks);
+  /* ↘ 시작 차액 (홍팀장 26-11-09 «저기서부터 +잡고 시작하면 되잖아, 4만원 더 입금했네 라고 시작하면 되는데 쌩까니까
+     마지막에 이만큼 더 넣었다고 잘못 잡히잖아»). 자동 시작일 때 첫 일치 앞의 정산·입금을 접어 버리지 않고
+     «시작 차액» 한 줄로 맨 위에 깔고, 그 ± 를 뒤 미정산 덩어리와 전체 합계까지 끌고 간다.
+     사람이 시작점을 고른 경우(⤒ 여기부터·드롭다운)는 «위는 맞은 것» 이라는 뜻이니 예전처럼 접는다. */
+  let openB = null;
+  if(!pick && !(dpick !== undefined && dpick !== '') && (B.skipped.length || B.skipDeps.length)){
+    const rs = B.skipped, ds = B.skipDeps;
+    const amt = rs.reduce((s,r) => s+r.amt, 0), dAmt = ds.reduce((s,d) => s+d.amt, 0);
+    const dep = ds.length ? (ds.length > 1 ? {date:ds[ds.length-1].date, name:ds[0].name, amt:dAmt, parts:ds} : ds[0]) : null;
+    openB = {from: rs.length ? rs[0].date : '', to: rs.length ? rs[rs.length-1].date : '', n:rs.length, rs, amt, dep, diff:amt - dAmt, st:'open', open:true};
+    blocks.unshift(openB);
+    const tb = blocks.find(b => b.tail);
+    if(tb && openB.diff){
+      tb.carry = openB.diff; tb.diff += openB.diff;
+      tb.st = tb.diff > 0 ? 'tail' : tb.diff < 0 ? 'over' : 'ok';
+    }
+    B.skipped = []; B.skipDeps = [];
+  }
+  const skipDeps = [...used.slice(0, d0), ...B.skipDeps];
   const inDeps = inDeps0.filter(d => !B.skipDeps.includes(d));
   const autoS = sIn[B.startIdx] ? sIn[B.startIdx].date : null;
   $('startSel').innerHTML = `<option value="">자동${autoS ? ' ('+kDate(autoS)+'부터)' : ''}</option>` +
     settles.map(s => `<option value="${s.date}"${pick===s.date?' selected':''}>${kDate(s.date)}부터</option>`).join('');
   $('depSel').innerHTML = `<option value="">자동 (맞는 정산 없는 앞쪽 입금은 뺌)</option>` +
     used.map((d, i) => `<option value="${i}"${dpick===String(i)?' selected':''}>${kDate(d.date)} ${won(d.amt)}부터</option>`).join('');
-  const inR = sIn.slice(B.startIdx);
+  const inR = openB ? sIn : sIn.slice(B.startIdx);
   const setTotal = inR.reduce((s,r) => s+r.amt, 0), depTotal = inDeps.reduce((s,d) => s+d.amt, 0) - refPaid;
   const skipped = [...settles.filter(s => !sIn.includes(s)), ...B.skipped];
   CUR = {vendor:$('vendor').value.trim() || '(업체명)', honor:$('honor').value.trim(), blocks, skipped, skipDeps,
@@ -512,14 +532,16 @@ function startHere(i){
 }
 function startAuto(){ delete $('startSel').dataset.pick; delete $('depSel').dataset.pick; PICK = {d:[], s:[]}; run(); }
 
-const ST_TXT = {ok:'일치', short:'덜 들어옴', over:'더 들어옴', unpaid:'미입금', missing:'입금 내역 없음', nomatch:'맞는 정산 없음', refunded:'환불로 정리', refund:'환불', tail:'미정산'};
-const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌', missing:'❌', nomatch:'🔵', refunded:'↩', refund:'↩', tail:'❌'};
+const ST_TXT = {ok:'일치', short:'덜 들어옴', over:'더 들어옴', unpaid:'미입금', missing:'입금 내역 없음', nomatch:'맞는 정산 없음', refunded:'환불로 정리', refund:'환불', tail:'미정산', open:'시작 차액'};
+const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌', missing:'❌', nomatch:'🔵', refunded:'↩', refund:'↩', tail:'❌', open:'↘'};
+// 미정산 덩어리에 끌고 온 시작 차액 — 음수 = 앞에서 더 들어온 돈(빼 줌), 양수 = 앞에서 덜 들어온 돈(더함)
+const carryTxt = b => b.carry < 0 ? '앞서 더 들어온 ' + won(-b.carry) + '원 뺌' : '앞서 덜 들어온 ' + won(b.carry) + '원 더함';
 const setLabel = b => b.n ? rangeLabel(b) : '-';
 const diffTxt = b => b.diff == null ? '-' : b.diff === 0 ? '0' : (b.diff > 0 ? won(b.diff) : '+' + won(-b.diff));
 // 입금일·실 입금액 칸: 입금 한 줄 + 짝지은 환불 한 줄(−)
 // 입금 여러 건을 한 정산에 붙였으면 건별로 깔고 맨 아래 합계 한 줄
-const depDates = b => { const a = []; if(b.dep){ if(b.dep.parts){ b.dep.parts.forEach(p => a.push(kDate(p.date))); a.push(b.dep.parts.length + '건 합계'); } else a.push(kDate(b.dep.date)); } if(b.ref) a.push('↩ ' + kDate(b.ref.date) + ' 환불'); return a.length ? a : ['-']; };
-const depAmts = b => { const a = []; if(b.dep){ if(b.dep.parts){ b.dep.parts.forEach(p => a.push(won(p.amt))); a.push(won(b.dep.amt)); } else a.push(won(b.dep.amt)); } if(b.ref) a.push('−' + won(b.ref.amt)); return a.length ? a : ['-']; };
+const depDates = b => { const a = []; if(b.dep){ if(b.dep.parts){ b.dep.parts.forEach(p => a.push(kDate(p.date))); a.push(b.dep.parts.length + '건 합계'); } else a.push(kDate(b.dep.date)); } if(b.ref) a.push('↩ ' + kDate(b.ref.date) + ' 환불'); if(b.carry) a.push('↘ 시작 차액'); return a.length ? a : ['-']; };
+const depAmts = b => { const a = []; if(b.dep){ if(b.dep.parts){ b.dep.parts.forEach(p => a.push(won(p.amt))); a.push(won(b.dep.amt)); } else a.push(won(b.dep.amt)); } if(b.ref) a.push('−' + won(b.ref.amt)); if(b.carry) a.push((b.carry < 0 ? '+' : '−') + won(Math.abs(b.carry))); return a.length ? a : ['-']; };
 /* 정산은 뭉뚱그리지 않는다 (홍팀장 26-10-29): 여러 날이면 그날그날 줄을 깔고,
    그 아래 «기간 합계» 줄 한 칸에 실 입금액·차액을 붙인다. 하루짜리는 한 줄. */
 const blockLines = b => b.n > 1
@@ -573,7 +595,7 @@ function tailLine(b){
   const per = b.n ? `${rangeLabel(b)} 정산 ${won(b.amt)}원` : '';
   const ds = b.dep ? (b.dep.parts || [b.dep]).map(d => `${kDate(d.date)} ${won(d.amt)}원`).join(', ') : '';
   const got = b.dep ? `${per ? ' 중 ' : ''}${ds} 입금${b.ref ? `(환불 ${won(b.ref.amt)}원 제외)` : ''}` : (per ? ' 중 입금 내역 없음' : '');
-  return `${per}${got}, 미정산 ${won(b.diff)}원입니다.`;
+  return `${per}${got}${b.carry ? `, ${carryTxt(b)}` : ''}, 미정산 ${won(b.diff)}원입니다.`;
 }
 // 업체에 나가는 문구 — 사실만, 정중하게. 탓하는 말·재촉하는 말 넣지 말 것.
 function buildMsg(){
@@ -611,7 +633,7 @@ function tableDraw(x, L, y, cols, rows){        // rows: {vals:[[줄…]…], bg
   return y;
 }
 function tableHeight(rows){ return rows.reduce((s,r) => s + Math.max(...r.vals.map(v => v.length))*20 + 16, 0); }
-const BG = {ok:'#fff', short:'#fff6e0', over:'#eef4ff', unpaid:'#fdecec', missing:'#fdecec', nomatch:'#eef4ff', refunded:'#f5f0ff', refund:'#f5f0ff', tail:'#fdecec', head:'#eef0f3'};
+const BG = {ok:'#fff', short:'#fff6e0', over:'#eef4ff', unpaid:'#fdecec', missing:'#fdecec', nomatch:'#eef4ff', refunded:'#f5f0ff', refund:'#f5f0ff', tail:'#fdecec', open:'#eef4ff', head:'#eef0f3'};
 const blockColors = (b, withDep) => { const red = (b.st==='short'||b.st==='unpaid'||b.st==='missing'||b.st==='tail') ? '#b3261e' : b.st==='ok' ? '#2d7a3a' : '#1b4fb3';
   const n = withDep ? 6 : 5; const a = Array(n).fill(null); a[n-2] = b.st==='ok'?null:red; a[n-1] = red; return a; };
 // 이미지용 줄: 날짜별 줄(입금 칸 비움) + 합계 줄(굵게, 입금·차액)
