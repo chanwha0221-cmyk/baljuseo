@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-08b';
+  var QTYB_VER = '2026-11-10a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -347,6 +347,11 @@
       .replace(/\s+/g, '')
       .toUpperCase();
   }
+  /* ✂️ 수량 웹 줄 이름 꼬리말(🔒 수량최신화 전 · 품절 · 안 풀림)을 뗀다 (2026-11-10 — 📌 수동 잡기 칸에
+        「동해 활 골뱅이 1kg 품절 안 풀림 x 85」 로 들어가 키가 «…1KG품절안풀림» 이 되어 수량 웹 줄을 영영 못 찾았다) */
+  function dropTail(s) {
+    return String(s == null ? '' : s).replace(/\s*🔒?\s*(수량최신화\s*전)?\s*(품절)?\s*(안\s*풀림)?\s*$/, '');
+  }
   function num(t) {
     var m = String(t == null ? '' : t).replace(/,/g, '').match(/-?\d+/);
     return m ? parseInt(m[0], 10) : 0;
@@ -668,6 +673,7 @@
         nm = m[1]; q = num(m[2]);
       }
       if (!nm || !q) { bad.push(s); return; }
+      nm = dropTail(nm) || nm;
       var k = nk(nm);
       map[k] = (map[k] || 0) + q;
       map['#raw:' + k] = nm.trim();
@@ -1970,7 +1976,19 @@
   function loadWatch() {
     try {
       var o = JSON.parse(localStorage.getItem('qtybWatch') || 'null');
-      if (o && o.list && o.list.length && (!o.until || Date.now() < o.until)) return o.list;
+      if (o && o.list && o.list.length && (!o.until || Date.now() < o.until)) {
+        /* ✂️ 꼬리말 붙은 옛 키(…품절안풀림)는 제 키로 고치고 같은 상품은 큰 수량 한 줄로 (2026-11-10) */
+        var by = {}, out = [];
+        o.list.forEach(function (w) {
+          if (!w || !w.key) return;
+          var ck = nk(dropTail(w.name || '')) || w.key;
+          if (ck !== w.key && /품절안풀림$|수량최신화전$|안풀림$/.test(w.key)) w.key = ck;
+          var p = by[w.key];
+          if (p) { if ((w.avg || 0) > (p.avg || 0)) p.avg = w.avg; if (!w.notBefore) delete p.notBefore; return; }
+          by[w.key] = w; out.push(w);
+        });
+        return out;
+      }
     } catch (e) {}
     return null;
   }
@@ -2307,6 +2325,28 @@
           }).catch(function (e) { log.push('⚠️ ' + x.name + ' — 실패: ' + (e.message || e)); });
         });
       }, Promise.resolve()).then(function () {
+        /* ⏳ 못 잡은 몫은 대기라도 건다 (2026-11-10 홍팀장 「못잡았으면 대기라도 잡아야 되는데 그것도 못해」) —
+              잠긴 줄(품절·안 풀림·수량최신화 전)·잔여 0·잔여 모자람 전부. 대기 목표 = 수동 수량 − 여유(잡음−나감).
+              🔴 do=wait 의 qty 는 회사 대기 «총량» — 이미 그만큼 걸려 있으면 안 보내고, 모자라면 목표로 올린다(차액만 추가).
+              나중에 1초 감시가 잡으면 받은 만큼 대기를 무른다(두 번 받지 않게, 기존 감시 동작). */
+        return wait.reduce(function (pr, x) {
+          return pr.then(function () {
+            var row = IDX[x.key];
+            if (!row || !row.co) { log.push('⚠️ ' + x.name + ' — 수량 웹 줄이 없어 대기 못 검'); return; }
+            return freshRow(row).then(function (f) {
+              var short = Math.max(0, x.qty - Math.max(0, f.mine - f.used));
+              if (!short) return;
+              if (f.wait >= short) { log.push('⏳ ' + x.name + ' — 대기 ' + f.wait + '개 이미 걸려 있음'); return; }
+              return qpost({ do: 'wait', tab: whTab(row), nkey: row.key, co: row.co, qty: short })
+                .then(function () { return freshRow(row); })
+                .then(function (g) {
+                  log.push((g.wait >= short ? '⏳ ' : '⚠️ ') + hm + ' ' + x.name + ' 대기 ' + f.wait + ' → ' + g.wait + '개'
+                    + (g.wait >= short ? '' : ' (목표 ' + short + ' — 수량 웹에서 확인)'));
+                });
+            }).catch(function (e) { log.push('⚠️ ' + x.name + ' — 대기 실패: ' + (e.message || e)); });
+          });
+        }, Promise.resolve());
+      }).then(function () {
         dropFromGrabBox(done);
         if (wait.length) {
           preWatch(wait.map(function (x) { return { key: x.key, name: x.name, avg: x.qty, outToday: 0, fast: 1 }; }));
