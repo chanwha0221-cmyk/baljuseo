@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-10c';
+  var QTYB_VER = '2026-11-10d';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -3830,7 +3830,31 @@
     idx: function () { return IDX; },
     stockPush: stockPush, stockRows: stockRows
   };
+  /* 🧾 업체DB(계산서) → Supabase BIZ_DB (2026-11-10 홍팀장 「업체명 넣으면 사업자번호 나오게」).
+     외부유통 현황(mastercco-ext)이 같은 사이트라 그 로그인 토큰(rk_token)으로 읽힌다. 6시간에 한 번, 조용히.
+     거래명세서.html 이 업체명으로 사업자번호를 찾을 때 쓴다(Edge bizget). 실패해도 패널엔 아무 영향 없다. */
+  function bizSync() {
+    try {
+      var tok = localStorage.getItem('rk_token'); if (!tok) return;
+      var last = +localStorage.getItem('qtyb_biz_at') || 0; if (Date.now() - last < 6 * 3600000) return;
+      localStorage.setItem('qtyb_biz_at', String(Date.now()));
+      fetch('/mastercco-ext/api/public/index.php?r=' + encodeURIComponent('/tax-db'), { headers: { Authorization: 'Bearer ' + tok } })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          var items = (j && j.data && j.data.items) || [];
+          var rows = items.filter(function (x) { return String(x.is_active) !== '0'; }).map(function (x) {
+            return { n: x.company_name, a: x.company_abbr_name, b: x.business_name, no: x.business_number, ceo: x.ceo_name,
+                     addr: x.biz_addr, type: x.biz_type, item: x.biz_item, mail: x.tax_email };
+          });
+          if (rows.length < 50) { localStorage.removeItem('qtyb_biz_at'); return; }
+          return fetch('https://yzttmdrlujgstfjsbser.supabase.co/functions/v1/api', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'bizput', key: 'mc-zq3px7mypqwbfs3cfkjg', rows: rows }) });
+        })
+        .catch(function () { localStorage.removeItem('qtyb_biz_at'); });
+    } catch (e) {}
+  }
   build();
+  bizSync();
   stockTimer();
   dedupTimer();
 })();

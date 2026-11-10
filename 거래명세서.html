@@ -61,6 +61,7 @@
     <label>사업자번호</label><input type="text" id="buyerBn" placeholder="000-00-00000" style="width:140px">
     <label>박스당 택배비</label><input type="number" id="ship" value="4000" style="width:90px">
   </div>
+  <div id="bizHit" class="hint" style="min-height:16px"></div>
   <textarea id="src" placeholder="2026-10-27	운송장	마스터	행복한밥상	이성	왕 바지락 1kg x 7	씨제이대한통운	6011-...	받는분	010-...	29,900	29,900"></textarea>
   <div class="row">
     <button id="go">명세서 만들기</button>
@@ -361,11 +362,32 @@ $('clr').onclick = clearAll;
 try{ localStorage.removeItem('gms_src'); localStorage.removeItem('gms_manual'); }catch(e){}   // 예전에 남겨 둔 내용도 지운다
 clearAll();
 
+/* 🧾 업체명 → 사업자번호 (2026-11-10 홍팀장). 외부유통 「업체DB(계산서)」 사본(Edge bizget, 수량 웹 패널이 6시간마다 올림).
+   딱 맞는 이름이 하나면 바로 채우고, 비슷한 게 여럿이면 아래에 후보를 띄워 누르게 한다. 못 찾으면 예전처럼 이 브라우저 기억값. */
+let bizT = 0, bizSeq = 0;
+function bizLookup(){
+  clearTimeout(bizT);
+  bizT = setTimeout(async () => {
+    const q = $('buyer').value.trim(), my = ++bizSeq, box = $('bizHit');
+    if(q.length < 2){ box.innerHTML = ''; return; }
+    let j = null;
+    try{ j = await (await fetch(API, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({action:'bizget', q})})).json(); }catch(e){}
+    if(my !== bizSeq) return;
+    const rows = (j && j.rows) || [];
+    const ex = rows.filter(r => r.exact);
+    const pick = ex.length === 1 ? ex[0] : (rows.length === 1 ? rows[0] : null);
+    if(pick){ $('buyerBn').value = pick.no; box.innerHTML = `<span style="color:#1b5e20">✅ 업체DB: ${esc(pick.b || pick.n)} · ${esc(pick.no)}${pick.ceo ? ' · 대표 ' + esc(pick.ceo) : ''}</span>`; if(LAST) render(); return; }
+    if(!rows.length){ box.innerHTML = '<span style="color:#b45309">업체DB에 없는 이름 — 사업자번호를 직접 넣어 주세요(이 브라우저가 기억)</span>'; return; }
+    box.innerHTML = '여러 곳: ' + rows.map((r, i) => `<button class="sub" data-i="${i}" style="padding:2px 8px;font-size:12px;margin:2px">${esc(r.n)}${r.b && r.b !== r.n ? ' (' + esc(r.b) + ')' : ''} ${esc(r.no)}</button>`).join('');
+    box.querySelectorAll('button').forEach(b => b.onclick = () => { const r = rows[+b.dataset.i]; $('buyer').value = r.n; $('buyerBn').value = r.no; box.innerHTML = `<span style="color:#1b5e20">✅ 업체DB: ${esc(r.b || r.n)} · ${esc(r.no)}</span>`; if(LAST) render(); });
+  }, 300);
+}
 $('go').onclick = build;
-$('buyer').onchange = loadBn;
+$('buyer').onchange = () => { loadBn(); bizLookup(); };
+$('buyer').oninput = bizLookup;
 if(ls('gms_ship')) $('ship').value = ls('gms_ship');
 if(ls('gms_buyer')) $('buyer').value = ls('gms_buyer');
-loadBn();
+loadBn(); bizLookup();
 </script>
 </body>
 </html>
