@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-10b';
+  var QTYB_VER = '2026-11-10c';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -2332,7 +2332,14 @@
         return wait.reduce(function (pr, x) {
           return pr.then(function () {
             var row = IDX[x.key];
-            if (!row || !row.co) { log.push('⚠️ ' + x.name + ' — 수량 웹 줄이 없어 대기 못 검'); return; }
+            if (!row) { log.push('⚠️ ' + x.name + ' — 수량 웹 줄이 없어 대기 못 검'); return; }
+            /* 🔒 잠긴 줄은 우리 칸이 없어 co 가 비어 온다 — 다른 줄의 우리 회사 값을 쓴다 */
+            if (!row.co) {
+              var anyCo = '';
+              Object.keys(IDX).some(function (kk) { if (IDX[kk] && IDX[kk].co) { anyCo = IDX[kk].co; return true; } return false; });
+              if (!anyCo) { log.push('⚠️ ' + x.name + ' — 우리 회사 칸을 못 찾아 대기 못 검'); return; }
+              row = Object.assign({}, row, { co: anyCo });
+            }
             return freshRow(row).then(function (f) {
               var short = Math.max(0, x.qty - Math.max(0, f.mine - f.used));
               if (!short) return;
