@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-10a';
+  var QTYB_VER = '2026-11-10b';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -350,7 +350,7 @@
   /* ✂️ 수량 웹 줄 이름 꼬리말(🔒 수량최신화 전 · 품절 · 안 풀림)을 뗀다 (2026-11-10 — 📌 수동 잡기 칸에
         「동해 활 골뱅이 1kg 품절 안 풀림 x 85」 로 들어가 키가 «…1KG품절안풀림» 이 되어 수량 웹 줄을 영영 못 찾았다) */
   function dropTail(s) {
-    return String(s == null ? '' : s).replace(/\s*🔒?\s*(수량최신화\s*전)?\s*(품절)?\s*(안\s*풀림)?\s*$/, '');
+    return String(s == null ? '' : s).replace(/(?:\s*(?:🔒|수량최신화\s*전|품절|안\s*풀림))+\s*$/, '');
   }
   function num(t) {
     var m = String(t == null ? '' : t).replace(/,/g, '').match(/-?\d+/);
@@ -2217,7 +2217,7 @@
     var ta = el('qtyb-grabin'); if (!ta || !list || !list.length) return;
     var lines = String(ta.value || '').split(/\r?\n/).filter(function (s) { return s.trim(); });
     list.forEach(function (x) {
-      var nm = String(x.name || '').replace(/\s*🔒?\s*(수량최신화\s*전)?\s*(품절)?\s*(안\s*풀림)?\s*$/, '');
+      var nm = dropTail(x.name || '');
       if (nk(nm) !== x.key && nk(x.name) === x.key) nm = x.name;
       var q = x.qty, keep = [];
       lines.forEach(function (ln) {
