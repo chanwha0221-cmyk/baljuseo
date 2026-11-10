@@ -19,7 +19,8 @@
        기준 = 역마진(판매가 < 공급가) + 마진율 6% 미만 중 새로 생기거나 값이 바뀐 것, 👌괜찮음 제외 — 서버 한 곳에서 정한다.
        마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) — 카탈로그 저마진·월 시트 Q열과 같은 식. 원가는 이 창 밖으로 안 나간다.
      · 📝 스펙 최신화 자동 (2026-11-04 홍팀장) — 서울 시간 08:30~15:30, 30분마다 한 번(spec-sync.js). 바뀐 스펙만 고친다.
-   🔴 masterc 에 쓰는 건 위 당일 자동 등록(daily_save) 하나뿐이다. 우리 서버로 보내는 저장은 30% 넘게 줄면 서버가 거절한다.
+     · 🧾 꺼진 당일 리모컨가 맞춤 (2026-11-10) — 등록 꺼진 당일의 리모컨 공급가가 규칙가와 다르면 특별단가(전체)=규칙가 (rkSync).
+   🔴 masterc 에 쓰는 건 당일 자동 등록(daily_save)과 리모컨 맞춤(special_bulk, 내가 넣은 것만 고침) 둘이다. 우리 서버로 보내는 저장은 30% 넘게 줄면 서버가 거절한다.
    ════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -128,6 +129,9 @@
     var L = await get('machan_list', 'list');
     if (needLogin(L) || !L.ok) throw new Error('상품리스트를 못 읽었습니다(로그인 확인)');
     var C = await get('machan_admin', 'cost');
+    var rkTxt = '';
+    try { var rk = await rkSync(C); rkTxt = rk.txt; if (rk.wrote) C = await get('machan_admin', 'cost'); }
+    catch (e) { rkTxt = ' · ⚠️ 리모컨 맞춤 실패: ' + (e && e.message ? e.message : e); }
     var items = (L.items || []).map(function (p) {
       return { n: p.n, nk: p.nk, srl: p.srl, img: p.img, price: p.price, wh: p.wh, grp: p.grp, ship: p.ship, ship_n: p.ship_n,
                tax: p.tax, courier: p.courier, cut: p.cut, exp: p.exp, stock: p.stock, bund: p.bund, k: p.k };
@@ -200,7 +204,67 @@
     } catch (e) { specTxt = ' · ⚠️ 스펙 못 채움: ' + (e && e.message ? e.message : e); }
 
     // 💸 저마진 알림은 lossAsk(서버 lowmq 긴급 목록)가 맡는다 — 옛 lowmCheck(8% 이하 새것 전부)는 안 부른다 (10-16)
-    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt + specTxt;
+    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt + specTxt + rkTxt;
+  }
+
+  /* ── 🧾 꺼진 당일 상품 리모컨가 맞추기 (2026-11-10 홍팀장 「리모컨은 그냥 베이스인데 정보 날아오면 다 맞춰놔야 —
+        안 파는 거니까 안 바꿔 해 놓으면 오늘 재고 잡고 팔 건데」) ──
+     masterc 는 [등록]·특별단가 때만 리모컨에 가격을 쓴다. 등록이 꺼진 당일(잔여 0 등)은 마지막 등록가에 멈춰서
+     공급가가 올라도 옛값으로 정산됐다(생물 알도루묵 1팩: 공급가 20,000 · 규칙가 21,000 인데 리모컨 18,000).
+     · 대상 = 당일 · 등록 꺼짐(how off) · 리모컨 공급가 ≠ 웹 판매가(규칙가) · 규칙가 ≥ 공급가 · 사람이 건 특별단가 없음
+       → 특별단가(전체)를 규칙가로 넣는다. 등록이 아니라 판매사 화면엔 안 나간다.
+     · 내가 넣은 특별단가는 localStorage 에 기억하고, 규칙가가 바뀌면 같이 따라 고친다(상시로 돌아가도 규칙가 = 같은 값이라 무해).
+     · 사람이 건 특별단가는 절대 안 건드린다. 규칙가 < 공급가(역마진)는 넣지 않는다 — 확인창(lossAsk)이 맡는다.
+     · 넣은 뒤 원가표를 다시 읽어 리모컨이 실제로 바뀌었는지 기록에 남긴다. */
+  var RKAUTO_KEY = 'mcw_rk_auto_v1';
+  function rkAuto() { try { return JSON.parse(localStorage.getItem(RKAUTO_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  function nkey(s) { return String(s || '').replace(/\s+/g, '').toUpperCase(); }
+  async function rkSync(C) {
+    if (!C || !C.ok) return { txt: '', wrote: 0 };
+    var Sp = await get('machan_admin', 'special_list');
+    if (!Sp || !Sp.ok) return { txt: ' · ⚠️ 리모컨 맞춤: 특별단가를 못 읽음', wrote: 0 };
+    var mine = rkAuto(), won = function (n) { return Math.round(+n || 0).toLocaleString(); };
+    var spc = {};
+    (Sp.rows || []).forEach(function (r) { if (+r.member_srl === 0 && r.active === 'Y' && +r.price > 0) spc[nkey(r.item)] = r; });
+    var todo = [];
+    // ① 꺼진 당일 — 리모컨이 규칙가와 다르다
+    (C.rows || []).forEach(function (r) {
+      if (r.k !== 'day' || r.how !== 'off') return;
+      var k = nkey(r.n), sell = +r.sell || 0, base = +r.base || 0, rk = +r.rk_supply || 0;
+      if (!sell || !base || sell < base || rk === sell) return;
+      if (spc[k] && !mine[k]) return;                       // 사람이 건 특별단가
+      if (spc[k] && +spc[k].price === sell) return;         // 이미 넣었는데 리모컨만 안 바뀐 것 — 다시 안 쓴다
+      todo.push({ wh: r.wh, item: r.n, price: sell, k: k, was: rk, base: base, why: '리모컨 ' + won(rk) + ' → ' + won(sell) });
+    });
+    // ② 내가 넣은 특별단가가 규칙가에서 벗어났다(공급가가 또 바뀜) → 따라 고친다
+    Object.keys(mine).forEach(function (k) {
+      var s = spc[k]; if (!s) { delete mine[k]; return; }
+      var rule = +s.rule || 0, base = +s.base || 0;
+      if (!rule || rule === +s.price || (base && rule < base)) return;
+      if (todo.some(function (t) { return t.k === k; })) return;
+      todo.push({ wh: s.wh, item: s.item, price: rule, k: k, was: +s.price, base: base, why: '규칙가 바뀜 ' + won(s.price) + ' → ' + won(rule) });
+    });
+    if (!todo.length) { try { localStorage.setItem(RKAUTO_KEY, JSON.stringify(mine)); } catch (e) {} return { txt: '', wrote: 0 }; }
+    todo = todo.slice(0, 20);
+    var fd = new FormData(); fd.append('a', 'special_bulk');
+    fd.append('rows', JSON.stringify(todo.map(function (t) { return { wh: t.wh, item: t.item, price: t.price }; })));
+    var x = await fetch('/xd/api.php?mid=machan_admin', { method: 'POST', credentials: 'same-origin', cache: 'no-store', body: fd }).then(function (r) { return r.json(); });
+    if (!x || !x.ok) throw new Error((x && x.msg) || 'masterc 가 특별단가 저장을 거절했습니다');
+    todo.forEach(function (t) { mine[t.k] = t.price; });
+    try { localStorage.setItem(RKAUTO_KEY, JSON.stringify(mine)); } catch (e) {}
+    // 리모컨에 실제로 실렸는지 다시 읽어 본다
+    var C2 = null; try { C2 = await get('machan_admin', 'cost'); } catch (e) {}
+    var now = {}; ((C2 && C2.rows) || []).forEach(function (r) { now[nkey(r.n)] = r; });
+    var bad = [];
+    var lines = todo.map(function (t) {
+      var r = now[t.k], rk = r ? +r.rk_supply || 0 : -1;
+      if (rk !== t.price) bad.push(t.item);
+      return '· ' + t.item + ' (' + t.wh + ') ' + t.why + ' · 공급가 ' + won(t.base) + (rk === t.price ? ' ✅ 리모컨 반영' : ' ⚠️ 리모컨 ' + (rk < 0 ? '못 읽음' : won(rk)));
+    });
+    log('🧾 꺼진 당일 리모컨가 맞춤 ' + todo.length + '개 (특별단가 전체 = 규칙가)\n' + lines.join('\n'));
+    notify('🧾 리모컨가 맞춤 ' + todo.length + '개', todo.slice(0, 5).map(function (t) { return t.item + ' ' + won(t.price); }).join('\n'));
+    if (bad.length) notify('⚠️ 리모컨이 안 바뀐 상품 ' + bad.length + '개', bad.slice(0, 5).join('\n'));
+    return { txt: ' · 🧾 리모컨 맞춤 ' + todo.length + '개' + (bad.length ? '(⚠️ 안 바뀜 ' + bad.length + ')' : ''), wrote: todo.length };
   }
 
   /* ── 🐟 당일 자동 등록 — mc-day.js ① 과 같은 규칙·같은 요청(daily_save · 규칙가 · 오늘만) ── */
