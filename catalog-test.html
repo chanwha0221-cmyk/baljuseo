@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.222</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.223</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3532,7 +3532,7 @@ async function renderRoute(){
     else if(v==='orders'){subV.innerHTML=await ORDER.orders();ORDER.ordersBind();}
     // 📮 클레임 — 업체는 등록+내 목록, 마스터는 들어온 클레임+[확인] (2026-08-31)
     else if(v==='claim'){subV.innerHTML=CLAIM.view();await CLAIM.bind();}
-    else if((v==='lowm'||v==='lowmloss')&&ME&&ME.master){subV.innerHTML=renderLowm(await loadLowm(),v==='lowmloss');}
+    else if((v==='lowm'||v==='lowmloss'||v==='lowmhigh')&&ME&&ME.master){subV.innerHTML=renderLowm(await loadLowm(),v==='lowmloss'?true:v==='lowmhigh'?'high':false);}
     else if(v==='tools'&&ME&&ME.master){subV.innerHTML=renderTools();}
     else{location.hash='';}
   }catch(e){
@@ -3842,6 +3842,9 @@ function lowmVisible(rows){
 }
 async function loadLowm(){
   const j=await api('lowmargin',{token:ME.token,max:LOWM_MAX});
+  /* 📈 고마진(서버 high:1, 마진율 ≥ highMin) 은 저마진 목록과 따로 — «📈 고마진» 탭 (2026-11-10 홍팀장 「역마진이나 너무 고마진이면 이렇다고 항시 보여줘라」) */
+  j.high=lowmVisible(j.rows.filter(r=>r.high)).sort((a,b)=>b.rate-a.rate);
+  j.rows=j.rows.filter(r=>!r.high);
   j.all=j.rows.length; j.rows=lowmVisible(j.rows);
   j.loss=lowmLoss(j.rows,j.urgentMax);
   lowmBadge(j.rows.length,j.loss.length);
@@ -3860,8 +3863,19 @@ async function loadLowm(){
    🔴 원가 칸만 보고 판정하지는 않는다 — 원가가 잘못 뜨는 일이 있다(2026-09-29 알배기암게 공급가
       12,000 인데 원가 칸이 14,000 으로 떠서 마진 -1,000 으로 보였다). 그런 경우엔 마진율도 같이
       낮게 나오므로 이 조건에 걸리지 않고 그대로 잡힌다. */
+/* 🔴 역마진 = 판매가 < 공급가 또는 판매가 < 원가 (원가는 masterc 받은 값 그대로, 11-10) */
+function lowmIsLoss(r){ return +r.sell>0&&((+r.base>0&&+r.sell<+r.base)||(+r.cost>0&&+r.sell<+r.cost)); }
+/* 💬 이 줄이 왜 떴는지 한 줄 — 역마진·고마진·규격 역전은 항상 보인다 (11-10) */
+function lowmWhy(r,won,uMax){
+  const out=[];
+  if(+r.cost>0&&+r.sell<+r.cost)out.push('🔴 역마진 — 판매가 '+won(r.sell)+' &lt; 원가 '+won(r.cost)+' · 1개 팔 때마다 '+won(r.cost-r.sell)+'원 밑짐');
+  else if(+r.base>0&&+r.sell<+r.base&&!lowmSafe(r,uMax))out.push('🔴 판매가 '+won(r.sell)+' &lt; 공급가 '+won(r.base)+(+r.cost>0?' (원가 '+won(r.cost)+' 대비 마진 '+won(r.sell-r.cost)+'원)':''));
+  if(r.high)out.push('📈 고마진 '+r.rate+'% — 원가 '+won(r.cost)+'원(masterc 값 그대로) 대비 마진 '+won(r.margin)+'원 · 원가·판매가가 맞는지 확인');
+  if(r.inv)out.push('⚖️ 규격 역전 — '+esc(r.inv)+' '+won(r.invSell)+'원보다 비쌈');
+  return out.length?'<br>'+out.map(t=>'<span style="font-size:11.5px;color:'+(t.indexOf('📈')===0?'#1d4ed8':'#b91c1c')+';font-weight:700">'+t+'</span>').join('<br>'):'';
+}
 function lowmSafe(r,uMax){ return !r.inv && +r.cost>0 && +r.sell>+r.cost && +r.rate>=(+uMax||6); }   // ⚖️ 규격 역전(inv)은 마진과 상관없이 확인 대상 (11-09)
-function lowmLoss(rows,uMax){return rows.filter(r=>lowmSafe(r,uMax)?false:(r.urgent!=null?!!r.urgent:(!r.okd&&+r.base>0&&+r.sell>0&&+r.sell<+r.base)));}
+function lowmLoss(rows,uMax){return rows.filter(r=>lowmSafe(r,uMax)?false:(r.urgent!=null?!!r.urgent:(!r.okd&&lowmIsLoss(r))));}
 /* 👌 괜찮음 — 이 상품은 마진을 다시 묻지 않는다(연어처럼 서비스로 파는 것). 다시 누르면 취소. */
 function lowmOk(btn,n,on){
   if(on&&!confirm('👌 '+n+'\n\n앞으로 이 상품은 마진을 묻지 않습니다.\n(역마진이 되면 괜찮음과 상관없이 다시 뜹니다)\n진행할까요?'))return;
@@ -3902,7 +3916,7 @@ function dayOk(btn,n){
   api('dayok',{token:ME.token,n}).then(j=>{
     if(!j||!j.ok){btn.disabled=false;btn.textContent='✅ 이 가격으로 노출';alert('노출하지 못했습니다 — '+((j&&j.error)||'알 수 없음'));return;}
     toast(n+' — 업체 화면에 노출');
-    api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(/^lowm(loss)?$/.test(location.hash.replace(/^#/,'')))renderRoute(); });
+    api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(/^lowm(loss|high)?$/.test(location.hash.replace(/^#/,'')))renderRoute(); });
   }).catch(e=>{btn.disabled=false;btn.textContent='✅ 이 가격으로 노출';alert('노출하지 못했습니다 — '+(e&&e.message||e));});
 }
 function lowmBadge(n,loss){
@@ -3914,8 +3928,13 @@ function lowmGo(to){const cur=location.hash.replace(/^#/,'');if(cur===to)renderR
 function renderLowm(j,lossOnly){
   const won=n=>Math.round(+n||0).toLocaleString();
   const ago=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'없음';
-  const loss=j.loss||lowmLoss(j.rows,j.urgentMax), rows=lossOnly?loss:j.rows;
-  let h=lossOnly
+  const highOnly=lossOnly==='high'; if(highOnly)lossOnly=false;
+  const high=j.high||[];
+  const loss=j.loss||lowmLoss(j.rows,j.urgentMax), rows=highOnly?high:lossOnly?loss:j.rows;
+  let h=highOnly
+    ? subHead('📈 고마진 상품','마진율 <b>'+(j.highMin||30)+'% 이상</b> '+high.length+'개 — 마진율 높은 순 · 마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 원가는 masterc 에서 받은 값 그대로입니다(우리는 원가를 안 고칩니다). 원가가 잘못 들어왔거나 판매가가 너무 높게 남은 건 아닌지 확인용 · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
+        +'<br>✏️ 판매가를 고치려면 «새 판매가» → <b>[💾 단가 저장]</b>(masterc 특별단가 전체). 🔒 마스터에게만 보입니다.')
+    : lossOnly
     ? subHead('🔴 지금 바로 확인할 상품','<b>역마진</b>(판매가 &lt; 공급가) + <b>마진율 '+(j.urgentMax||6)+'% 미만</b> 중 새로 생기거나 값이 바뀐 것 + <b>⚖️ 규격 역전</b>(작은 규격이 큰 규격보다 비쌈 — 옛 특별단가·등록가가 남은 것) '+loss.length+'개 — 최근 등장 순. 처음부터 있던 저마진은 안 묻습니다 · <b>[👌 괜찮음]</b> 누른 상품은 다시 안 묻습니다 · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
         +'<br>✏️ 상시는 «새 판매가»에 넣고 <b>[💾 단가 저장]</b> → masterc 특별단가(전체)로 저장. 🐟 당일도 «새 판매가» → [💾 단가 저장] 하면 특별단가 + <b>오늘 당일 등록가</b>까지 같이 고칩니다. 역마진 당일은 <b>업체 화면에서 숨겨 두고</b>, 단가를 고치거나 <b>[✅ 이 가격으로 노출]</b>을 누르면 다시 보입니다. 🔒 마스터에게만 보입니다.')
     : subHead('💸 저마진 상품','마진율 '+j.max+'% 이하 · 최근 저마진으로 등장한 순 · 카탈로그에 떠 있는 것 '+j.rows.length+'개'+(j.all>j.rows.length?' (품절·재고 없음·예외로 안 보이는 '+(j.all-j.rows.length)+'개 뺌)':'')+' ·마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
@@ -3928,14 +3947,15 @@ function renderLowm(j,lossOnly){
   const dayLink='<a class="ubtn" href="https://masterc.kr/machan_admin#daily" target="_blank" rel="noopener" style="text-decoration:none">🐟 masterc 당일상품</a>';
   /* 🔴 탭 두 개 — 특별단가 보기 옆 (2026-10-16 홍팀장 그림의 동그라미 자리) */
   const tabSt=on=>'font-weight:800;'+(on?'background:var(--text,#1f2937);color:#fff;border-color:transparent':'');
-  const tabs='<button class="ubtn" onclick="lowmGo(\'lowm\')" style="'+tabSt(!lossOnly)+'">💸 저마진 전체 '+j.rows.length+'</button>'
-    +'<button class="ubtn" onclick="lowmGo(\'lowmloss\')" style="'+tabSt(lossOnly)+(loss.length&&!lossOnly?';color:#b91c1c;border-color:#b91c1c':'')+'">🔴 지금 바로 확인할 상품 '+loss.length+'</button>';
+  const tabs='<button class="ubtn" onclick="lowmGo(\'lowm\')" style="'+tabSt(!lossOnly&&!highOnly)+'">💸 저마진 전체 '+j.rows.length+'</button>'
+    +'<button class="ubtn" onclick="lowmGo(\'lowmloss\')" style="'+tabSt(lossOnly)+(loss.length&&!lossOnly?';color:#b91c1c;border-color:#b91c1c':'')+'">🔴 지금 바로 확인할 상품 '+loss.length+'</button>'
+    +'<button class="ubtn" onclick="lowmGo(\'lowmhigh\')" style="'+tabSt(highOnly)+(high.length&&!highOnly?';color:#1d4ed8;border-color:#1d4ed8':'')+'">📈 고마진 '+high.length+'</button>';
   const bar=extra=>'<div style="display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap">'+extra+spcLink+(lossOnly?dayLink:'')+tabs+'<span class="lowm-msg" style="font-size:12.5px;color:var(--muted)"></span></div>';
-  if(!rows.length)return h+bar('')+'<div class="empty">'+(lossOnly?'✅ 지금 확인할 상품이 없습니다.':'마진율 '+j.max+'% 이하 상품이 없습니다.')+'</div>';
+  if(!rows.length)return h+bar('')+'<div class="empty">'+(highOnly?'마진율 '+(j.highMin||30)+'% 이상 상품이 없습니다.':lossOnly?'✅ 지금 확인할 상품이 없습니다.':'마진율 '+j.max+'% 이하 상품이 없습니다.')+'</div>';
   const cols=lossOnly?['등장','구분','창고','상품명','판매가','공급가','새 판매가','원가','택배비','마진','마진율','']:['등장','구분','창고','상품명','판매가','새 판매가','원가','택배비','마진','마진율',''];
   const hm=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}):'';
   /* 🔴 역마진 줄엔 [👌 괜찮음] 없음 — 괜찮음을 눌러도 역마진이면 계속 뜬다 (2026-10-27 홍팀장 「어떤 장사꾼이 역마진을 보고 상품이 나가냐」) */
-  const okBtn=r=>(+r.base>0&&+r.sell<+r.base)?'<span style="font-size:11.5px;color:#b91c1c;font-weight:700;white-space:nowrap">🔴 단가 수정</span>':r.ok?'<button class="ubtn" style="font-size:11.5px" title="다시 확인 대상으로" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',false)">👌 괜찮음 ✓</button>':'<button class="ubtn" style="font-size:11.5px" title="이 상품은 마진을 다시 묻지 않습니다" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',true)">👌 괜찮음</button>';
+  const okBtn=r=>highOnly?'':lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?'<span style="font-size:11.5px;color:#b91c1c;font-weight:700;white-space:nowrap">🔴 단가 수정</span>':r.ok?'<button class="ubtn" style="font-size:11.5px" title="다시 확인 대상으로" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',false)">👌 괜찮음 ✓</button>':'<button class="ubtn" style="font-size:11.5px" title="이 상품은 마진을 다시 묻지 않습니다" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',true)">👌 괜찮음</button>';
   const inCell=r=>'<input class="lowm-in" inputmode="numeric" placeholder="'+won(r.sell)+'" oninput="lowmCalc(this)" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit">';
   const okAllBtn=lossOnly?'<button class="ubtn" style="font-weight:800" onclick="lowmOkAll(this)">👌 전체 괜찮음 '+rows.length+'</button>':'';
   h+=bar(saveBtn+okAllBtn)
@@ -3943,18 +3963,18 @@ function renderLowm(j,lossOnly){
     +'<table style="border-collapse:collapse;width:100%"><thead><tr>'
     +cols.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+'">'+t+'</th>').join('')
     +'</tr></thead><tbody>'
-    +rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(+r.base>0&&+r.sell<+r.base?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'">'
+    +rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'">'
       +'<td style="'+td+';text-align:left;font-size:12px;color:'+(r.urgent?'#b91c1c;font-weight:700':'var(--muted)')+'">'+hm(r.at)+'</td>'
       +'<td style="'+td+';text-align:left">'+(r.k==='당일'?'🐟 당일':'상시')+'</td>'
       +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
       +'<td style="'+td+';text-align:left;white-space:normal">'+esc(r.n)+' <button class="cpbtn" data-cp="'+esc(r.n)+'" title="상품명 복사">📋</button>'
-        +(r.inv?'<br><span style="font-size:11.5px;color:#b91c1c;font-weight:700">⚖️ 규격 역전 — '+esc(r.inv)+' '+won(r.invSell)+'원보다 비쌈</span>':'')+'</td>'
+        +lowmWhy(r,won,j.urgentMax)+'</td>'
       +'<td style="'+td+'">'+won(r.sell)+'</td>'
       +(lossOnly?'<td style="'+td+';color:#b91c1c;font-weight:700">'+won(r.base)+'</td>':'')
       +'<td style="'+td+'">'+inCell(r)+(lossOnly&&r.k==='당일'&&r.hold?'<br><span style="font-size:11.5px;color:#b91c1c;font-weight:700">🙈 업체 화면 숨김</span> <button class="ubtn" style="font-size:11.5px;margin-top:3px" onclick="dayOk(this,'+esc(JSON.stringify(r.n))+')">✅ 이 가격으로 노출</button>':'')+'</td>'
       +'<td style="'+td+'">'+won(r.cost)+'</td><td style="'+td+'">'+won(r.ship)+'</td>'
       +'<td class="lowm-mg" style="'+td+(r.margin<0?';color:#b91c1c;font-weight:700':'')+'">'+won(r.margin)+'</td>'
-      +'<td class="lowm-rt" style="'+td+';font-weight:800;color:'+(r.rate<0?'#b91c1c':'#b45309')+'">'+r.rate+'%</td>'
+      +'<td class="lowm-rt" style="'+td+';font-weight:800;color:'+(r.rate<0?'#b91c1c':r.high?'#1d4ed8':'#b45309')+'">'+r.rate+'%</td>'
       +'<td style="'+td+'">'+okBtn(r)+'</td>'
       +'</tr>').join('')
     +'</tbody></table></div>'
@@ -4000,7 +4020,7 @@ function lowmSave(btn){
     if(!d.ok){ if(msg)msg.textContent='⚠️ 저장하지 못했습니다 — '+(d.error||'알 수 없음'); alert('masterc 특별단가 저장 실패: '+(d.error||'알 수 없음')); return; }
     if(msg)msg.textContent='✅ masterc 특별단가(전체) '+d.n+'건 저장'+(d.spc>=0?' · 카탈로그 반영 중…':' · ⚠️ 카탈로그로는 못 보냄 — 상시 딸깍 필요')+(d.day?' '+String(d.day).replace(/\n/g,' '):'');
     toast('특별단가 '+d.n+'건 저장 — 리모컨·카탈로그 반영');
-    api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(/^lowm(loss)?$/.test(location.hash.replace(/^#/,'')))renderRoute(); });
+    api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(/^lowm(loss|high)?$/.test(location.hash.replace(/^#/,'')))renderRoute(); });
   }
   window.addEventListener('message',onMsg);
 }
@@ -4008,7 +4028,7 @@ function renderUser(){
   if(!ME)return;
   /* 💸 저마진 — 마스터만, 위쪽 작은 버튼(아래 userbar). 개수는 뒤에서 받아 버튼 옆 숫자로 (실패해도 화면은 그대로)
      🔴 메뉴 큰 칸에 두지 말 것 (2026-10-06 홍팀장 「나만 볼 건데 대문짝만하게 올렸냐」) */
-  {if(ME.master&&ME.token)api('lowmargin',{token:ME.token,max:LOWM_MAX}).then(j=>{const go=()=>{if(typeof ALL!=='undefined'&&ALL.length){const v=lowmVisible(j.rows);lowmBadge(v.length,lowmLoss(v,j.urgentMax).length);}else setTimeout(go,1500);};go();}).catch(()=>{});}
+  {if(ME.master&&ME.token)api('lowmargin',{token:ME.token,max:LOWM_MAX}).then(j=>{const go=()=>{if(typeof ALL!=='undefined'&&ALL.length){const v=lowmVisible(j.rows.filter(r=>!r.high));lowmBadge(v.length,lowmLoss(v,j.urgentMax).length);}else setTimeout(go,1500);};go();}).catch(()=>{});}
   if(ME.master&&ME.token)loadNpDrafts();   // 📝 검토요청(신상품 소식글 초안) 개수 — 소식글 메뉴에 «검토 N»
   // 발주 내역은 웹앱이 붙어 있을 때만
   const mo=$('mbOrders');
