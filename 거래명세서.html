@@ -70,6 +70,24 @@
   </div>
   <div id="warn" class="warn"></div>
 </div>
+<!-- 📋 상품 줄만 붙여넣기 — 「상품명 x 수량 (메모)」 한 줄 = 택배 1건. 상품별 단가 + 건당 배송비 (2026-11-10 홍팀장) -->
+<div class="panel">
+  <h1>📋 상품 줄 붙여넣기 <span class="hint">한 줄 = 택배 1건 · 상품별 단가랑 건당 배송비만 넣으면 됨 · 공급받는자는 맨 위 칸</span></h1>
+  <div class="row">
+    <label>거래일자</label><input type="date" id="lDate">
+    <label>건당 배송비</label><input type="text" id="lShip" inputmode="numeric" style="width:90px">
+  </div>
+  <textarea id="lSrc" placeholder="여수 파김치 1kg x 5 (소분 포장 요청드립니다)&#10;여수 갓김치 2kg x 7 (소분 요청드립니다)"></textarea>
+  <table style="font-size:13px;margin-top:8px">
+    <thead><tr><th>상품명</th><th style="width:70px">택배 건수</th><th style="width:70px">총 수량</th><th style="width:110px">단가 (VAT 포함)</th><th style="width:110px">상품 금액</th></tr></thead>
+    <tbody id="lRows"><tr><td colspan="5" class="hint" style="text-align:center">위에 줄을 붙여넣으면 상품별로 묶여서 나옵니다</td></tr></tbody>
+  </table>
+  <div class="row">
+    <button id="lGo">명세서 만들기</button>
+    <span id="lSum" style="font-size:14px;font-weight:bold"></span>
+  </div>
+  <div id="lWarn" class="warn"></div>
+</div>
 <!-- ✍️ 정산서 없이 계산서 먼저 끊을 때 — 상품명·수량·단가를 손으로 넣는다 (2026-10-30 홍팀장) -->
 <div class="panel">
   <h1>✍️ 직접 입력 <span class="hint">정산서(운송장) 없이 먼저 명세서가 필요할 때 — 위 공급받는자·박스당 택배비 그대로 씀</span></h1>
@@ -275,12 +293,68 @@ function mBuild(){
 $('mAdd').onclick = () => mRow();
 $('mGo').onclick = mBuild;
 $('mDate').onchange = mCalc;
+/* 📋 상품 줄 붙여넣기 — 줄마다 「상품명 x 수량」, 한 줄 = 택배 1건. 단가는 상품명별로 이 브라우저에 기억한다. */
+function lPrices(){ try{ return JSON.parse(ls('gms_lprice')||'{}'); }catch(e){ return {}; } }
+function lParse(){
+  const g = {}, bad = [];
+  $('lSrc').value.split(/\r?\n/).forEach((line, i) => {
+    if(!line.trim()) return;
+    let s = line;
+    if(s.includes('\t')) s = s.split('\t').find(c => /[xX×]\s*\d+/.test(c)) || s.split('\t')[0];   // 시트에서 줄째 복사해도 상품 칸만
+    const it = parseItem(s);
+    if(!it.name){ bad.push(`${i+1}번째 줄: 상품명 없음 → 건너뜀`); return; }
+    if(!/[xX×]\s*\d+/.test(s)) bad.push(`${i+1}번째 줄 「${it.name}」: 수량(x N)이 없어 1개로 봄`);
+    const r = g[nkey(it.name)] ||= {name: it.name, qty: 0, boxes: 0};
+    r.qty += it.qty; r.boxes++;
+  });
+  return {rows: Object.values(g), bad};
+}
+function lDraw(){
+  const {rows, bad} = lParse(), P = lPrices();
+  const keep = {}; $('lRows').querySelectorAll('.lu').forEach(i => keep[i.dataset.k] = i.value);
+  if(!rows.length){ $('lRows').innerHTML = '<tr><td colspan="5" class="hint" style="text-align:center">위에 줄을 붙여넣으면 상품별로 묶여서 나옵니다</td></tr>'; lCalc(); $('lWarn').textContent = bad.join('\n'); return; }
+  $('lRows').innerHTML = rows.map(r => { const k = nkey(r.name), v = keep[k] != null ? keep[k] : (P[k] ? won(P[k]) : '');
+    return `<tr><td>${esc(r.name)}</td><td class="n" style="text-align:right">${r.boxes}건</td><td style="text-align:right">${won(r.qty)}</td>`
+      + `<td><input type="text" class="lu" data-k="${esc(k)}" inputmode="numeric" style="width:100%;text-align:right" value="${esc(v)}" placeholder="단가"></td>`
+      + `<td class="la" style="text-align:right">-</td></tr>`; }).join('');
+  $('lRows').querySelectorAll('.lu').forEach(i => i.oninput = lCalc);
+  $('lWarn').textContent = bad.join('\n');
+  lCalc();
+}
+function lCalc(){
+  const {rows} = lParse(), fee = num($('lShip').value);
+  const U = {}; $('lRows').querySelectorAll('.lu').forEach(i => U[i.dataset.k] = num(i.value));
+  let goods = 0, boxes = 0;
+  const tds = $('lRows').querySelectorAll('.la');
+  rows.forEach((r, i) => { const a = (U[nkey(r.name)] || 0) * r.qty; goods += a; boxes += r.boxes; if(tds[i]) tds[i].textContent = U[nkey(r.name)] ? won(a) : '-'; });
+  $('lSum').textContent = rows.length ? `상품 ${won(goods)} + 배송비 ${won(fee)}×${boxes}건 ${won(fee*boxes)} = 합계 ${won(goods + fee*boxes)}원` : '';
+}
+function lBuild(){
+  const {rows, bad} = lParse(), fee = num($('lShip').value), P = lPrices();
+  const U = {}; $('lRows').querySelectorAll('.lu').forEach(i => U[i.dataset.k] = num(i.value));
+  if(!rows.length){ $('lWarn').textContent = '붙여넣은 줄이 없습니다.'; return; }
+  const miss = rows.filter(r => !U[nkey(r.name)]).map(r => r.name);
+  $('lWarn').textContent = bad.concat(miss.length ? ['🔴 단가 비어 있음(0원으로 계산): ' + miss.join(', ')] : []).join('\n');
+  const d = {items:{}, boxes:0};
+  rows.forEach(r => { const u = U[nkey(r.name)] || 0; if(u) P[nkey(r.name)] = u;
+    d.items[nkey(r.name)] = {name: r.name, unit: u, qty: r.qty, boxes: r.boxes, fee}; d.boxes += r.boxes; });
+  ls('gms_lprice', JSON.stringify(P)); ls('gms_lship', $('lShip').value); ls('gms_buyer', $('buyer').value); saveBn();
+  const date = $('lDate').value || new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'});
+  LAST = {sheets: [[date, d]], ship: fee};
+  render();
+  $('out').scrollIntoView({behavior: 'smooth'});
+}
+$('lSrc').oninput = lDraw;
+$('lShip').oninput = lCalc;
+$('lGo').onclick = lBuild;
+$('lShip').value = ls('gms_lship') || '4,000';
 /* 🗑 내용 지우기 — 붙여넣은 줄·직접 입력 줄·만든 명세서를 비운다. 새로고침해도 처음엔 빈 화면(2026-10-30 홍팀장 「새로고침 할 때마다 내용이 차 있다」).
    공급받는자·사업자번호·박스당 택배비·면세/과세 고친 것은 남긴다(내용이 아니라 설정). */
 function clearAll(){
   $('src').value = ''; $('warn').textContent = ''; $('mWarn').textContent = ''; $('taxWarn').textContent = '';
   $('mRows').innerHTML = ''; [{}, {}, {}].forEach(mRow);
   $('mDate').value = new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'});
+  $('lSrc').value = ''; $('lWarn').textContent = ''; $('lDate').value = $('mDate').value; lDraw();
   $('out').innerHTML = ''; LAST = null;
 }
 $('clr').onclick = clearAll;
