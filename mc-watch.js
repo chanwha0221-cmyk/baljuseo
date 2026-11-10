@@ -219,7 +219,11 @@
   var RKAUTO_KEY = 'mcw_rk_auto_v1';
   function rkAuto() { try { return JSON.parse(localStorage.getItem(RKAUTO_KEY) || '{}') || {}; } catch (e) { return {}; } }
   function nkey(s) { return String(s || '').replace(/\s+/g, '').toUpperCase(); }
+  /* 🛑 꺼 둠 (2026-11-10 11:15 실측) — 특별단가(전체)를 넣어도 꺼진 당일 줄 리모컨(rk_supply)은 안 바뀌었다
+        (양미리 9,500 · 끝판왕문어 79,000 그대로). 리모컨에 쓰는 길은 [등록](daily_save)뿐 — 등록하면 판매사 화면에 나가서 홍팀장 결정 대기. */
+  var RK_ON = false;
   async function rkSync(C) {
+    if (!RK_ON) return { txt: '', wrote: 0 };
     if (!C || !C.ok) return { txt: '', wrote: 0 };
     var Sp = await get('machan_admin', 'special_list');
     if (!Sp || !Sp.ok) return { txt: ' · ⚠️ 리모컨 맞춤: 특별단가를 못 읽음', wrote: 0 };
