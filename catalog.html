@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.223</title>
+<title>마스터 유통 카탈로그 v23.224</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3525,7 +3525,7 @@ async function renderRoute(){
     else if(v==='orders'){subV.innerHTML=await ORDER.orders();ORDER.ordersBind();}
     // 📮 클레임 — 업체는 등록+내 목록, 마스터는 들어온 클레임+[확인] (2026-08-31)
     else if(v==='claim'){subV.innerHTML=CLAIM.view();await CLAIM.bind();}
-    else if((v==='lowm'||v==='lowmloss'||v==='lowmhigh')&&ME&&ME.master){subV.innerHTML=renderLowm(await loadLowm(),v==='lowmloss'?true:v==='lowmhigh'?'high':false);}
+    else if((v==='lowm'||v==='lowmloss'||v==='lowmhigh'||v==='lowmok')&&ME&&ME.master){subV.innerHTML=renderLowm(await loadLowm(),v==='lowmloss'?true:v==='lowmhigh'?'high':v==='lowmok'?'ok':false);}
     else if(v==='tools'&&ME&&ME.master){subV.innerHTML=renderTools();}
     else{location.hash='';}
   }catch(e){
@@ -3909,7 +3909,7 @@ function dayOk(btn,n){
   api('dayok',{token:ME.token,n}).then(j=>{
     if(!j||!j.ok){btn.disabled=false;btn.textContent='✅ 이 가격으로 노출';alert('노출하지 못했습니다 — '+((j&&j.error)||'알 수 없음'));return;}
     toast(n+' — 업체 화면에 노출');
-    api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(/^lowm(loss|high)?$/.test(location.hash.replace(/^#/,'')))renderRoute(); });
+    api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(/^lowm(loss|high|ok)?$/.test(location.hash.replace(/^#/,'')))renderRoute(); });
   }).catch(e=>{btn.disabled=false;btn.textContent='✅ 이 가격으로 노출';alert('노출하지 못했습니다 — '+(e&&e.message||e));});
 }
 function lowmBadge(n,loss){
@@ -3921,7 +3921,8 @@ function lowmGo(to){const cur=location.hash.replace(/^#/,'');if(cur===to)renderR
 function renderLowm(j,lossOnly){
   const won=n=>Math.round(+n||0).toLocaleString();
   const ago=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'없음';
-  const highOnly=lossOnly==='high'; if(highOnly)lossOnly=false;
+  const highOnly=lossOnly==='high', okOnly=lossOnly==='ok'; if(highOnly||okOnly)lossOnly=false;
+  const okRows=j.okRows||[];
   const high=j.high||[];
   const loss=j.loss||lowmLoss(j.rows,j.urgentMax), rows=highOnly?high:lossOnly?loss:j.rows;
   let h=highOnly
@@ -3940,10 +3941,37 @@ function renderLowm(j,lossOnly){
   const dayLink='<a class="ubtn" href="https://masterc.kr/machan_admin#daily" target="_blank" rel="noopener" style="text-decoration:none">🐟 masterc 당일상품</a>';
   /* 🔴 탭 두 개 — 특별단가 보기 옆 (2026-10-16 홍팀장 그림의 동그라미 자리) */
   const tabSt=on=>'font-weight:800;'+(on?'background:var(--text,#1f2937);color:#fff;border-color:transparent':'');
-  const tabs='<button class="ubtn" onclick="lowmGo(\'lowm\')" style="'+tabSt(!lossOnly&&!highOnly)+'">💸 저마진 전체 '+j.rows.length+'</button>'
+  const tabs='<button class="ubtn" onclick="lowmGo(\'lowm\')" style="'+tabSt(!lossOnly&&!highOnly&&!okOnly)+'">💸 저마진 전체 '+j.rows.length+'</button>'
     +'<button class="ubtn" onclick="lowmGo(\'lowmloss\')" style="'+tabSt(lossOnly)+(loss.length&&!lossOnly?';color:#b91c1c;border-color:#b91c1c':'')+'">🔴 지금 바로 확인할 상품 '+loss.length+'</button>'
-    +'<button class="ubtn" onclick="lowmGo(\'lowmhigh\')" style="'+tabSt(highOnly)+(high.length&&!highOnly?';color:#1d4ed8;border-color:#1d4ed8':'')+'">📈 고마진 '+high.length+'</button>';
+    +'<button class="ubtn" onclick="lowmGo(\'lowmhigh\')" style="'+tabSt(highOnly)+(high.length&&!highOnly?';color:#1d4ed8;border-color:#1d4ed8':'')+'">📈 고마진 '+high.length+'</button>'
+    +'<button class="ubtn" onclick="lowmGo(\'lowmok\')" style="'+tabSt(okOnly)+'">👌 괜찮음 '+okRows.length+'</button>';
   const bar=extra=>'<div style="display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap">'+extra+spcLink+(lossOnly?dayLink:'')+tabs+'<span class="lowm-msg" style="font-size:12.5px;color:var(--muted)"></span></div>';
+  /* 👌 괜찮음 목록 (2026-11-10 홍팀장 「괜찮음 걸어둔 것도 리스트 만들어 — 한 번씩 보고 검토하게」)
+     서버 okRows = LOWM_OK 전부 + 지금 값. [↩ 괜찮음 취소] 하면 다시 확인 대상(저마진·긴급)으로 돌아간다. */
+  if(okOnly){
+    h=subHead('👌 괜찮음 걸어둔 상품','[👌 괜찮음]을 눌러 «마진 다시 안 묻기»로 둔 상품 '+okRows.length+'개 — 누른 순(최근 먼저) · 지금 판매가·원가·마진율로 다시 계산해 보여줍니다 · 원가는 masterc 값 그대로 · 🔴 역마진은 괜찮음이 안 먹어 빨간 탭에 계속 뜹니다'
+      +'<br>↩ <b>[괜찮음 취소]</b>를 누르면 다시 저마진 확인 대상이 됩니다. 🔒 마스터에게만 보입니다.')+bar('');
+    if(!okRows.length)return h+'<div class="empty">괜찮음 걸어둔 상품이 없습니다.</div>';
+    const day=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',year:'2-digit',month:'numeric',day:'numeric'}):'';
+    const oc=['누른 날','구분','창고','상품명','판매가','원가','택배비','마진','마진율',''];
+    return h+'<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px">'
+      +'<table style="border-collapse:collapse;width:100%"><thead><tr>'+oc.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+'">'+t+'</th>').join('')+'</tr></thead><tbody>'
+      +okRows.map(r=>{
+        const note=r.gone?'<br><span style="font-size:11.5px;color:var(--muted)">지금 상품 목록에 없음(품절·내림)</span>'
+          :r.loss?'<br><span style="font-size:11.5px;color:#b91c1c;font-weight:700">🔴 지금 역마진 — 괜찮음 안 먹음, 빨간 탭에 뜸</span>'
+          :(r.rate!=null&&r.rate>=(j.highMin||30))?'<br><span style="font-size:11.5px;color:#1d4ed8;font-weight:700">📈 지금 고마진</span>'
+          :(r.rate!=null&&r.rate>j.max)?'<br><span style="font-size:11.5px;color:#065f46;font-weight:700">✅ 지금은 저마진 아님('+j.max+'% 초과) — 취소해도 됨</span>':'';
+        const nb=v=>v==null?'-':won(v);
+        return '<tr><td style="'+td+';text-align:left;font-size:12px;color:var(--muted)">'+day(r.at)+'</td>'
+          +'<td style="'+td+';text-align:left">'+(r.gone?'-':r.k==='당일'?'🐟 당일':'상시')+'</td>'
+          +'<td style="'+td+';text-align:left">'+esc(r.wh||'')+'</td>'
+          +'<td style="'+td+';text-align:left;white-space:normal">'+esc(r.n)+' <button class="cpbtn" data-cp="'+esc(r.n)+'" title="상품명 복사">📋</button>'+note+'</td>'
+          +'<td style="'+td+'">'+(r.gone?'-':won(r.sell))+'</td><td style="'+td+'">'+(r.gone?'-':nb(r.cost))+'</td><td style="'+td+'">'+(r.gone?'-':won(r.ship))+'</td>'
+          +'<td style="'+td+(r.margin<0?';color:#b91c1c;font-weight:700':'')+'">'+(r.gone?'-':nb(r.margin))+'</td>'
+          +'<td style="'+td+';font-weight:800;color:'+(r.rate!=null&&r.rate<0?'#b91c1c':'#b45309')+'">'+(r.rate==null?'-':r.rate+'%')+'</td>'
+          +'<td style="'+td+'"><button class="ubtn" style="font-size:11.5px" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',false)">↩ 괜찮음 취소</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
   if(!rows.length)return h+bar('')+'<div class="empty">'+(highOnly?'마진율 '+(j.highMin||30)+'% 이상 상품이 없습니다.':lossOnly?'✅ 지금 확인할 상품이 없습니다.':'마진율 '+j.max+'% 이하 상품이 없습니다.')+'</div>';
   const cols=lossOnly?['등장','구분','창고','상품명','판매가','공급가','새 판매가','원가','택배비','마진','마진율','']:['등장','구분','창고','상품명','판매가','새 판매가','원가','택배비','마진','마진율',''];
   const hm=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}):'';
@@ -4013,7 +4041,7 @@ function lowmSave(btn){
     if(!d.ok){ if(msg)msg.textContent='⚠️ 저장하지 못했습니다 — '+(d.error||'알 수 없음'); alert('masterc 특별단가 저장 실패: '+(d.error||'알 수 없음')); return; }
     if(msg)msg.textContent='✅ masterc 특별단가(전체) '+d.n+'건 저장'+(d.spc>=0?' · 카탈로그 반영 중…':' · ⚠️ 카탈로그로는 못 보냄 — 상시 딸깍 필요')+(d.day?' '+String(d.day).replace(/\n/g,' '):'');
     toast('특별단가 '+d.n+'건 저장 — 리모컨·카탈로그 반영');
-    api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(/^lowm(loss|high)?$/.test(location.hash.replace(/^#/,'')))renderRoute(); });
+    api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(/^lowm(loss|high|ok)?$/.test(location.hash.replace(/^#/,'')))renderRoute(); });
   }
   window.addEventListener('message',onMsg);
 }
