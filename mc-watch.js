@@ -132,12 +132,16 @@
     if (needLogin(L) || !L.ok) throw new Error('상품리스트를 못 읽었습니다(로그인 확인)');
     var C = await get('machan_admin', 'cost');
     var rkTxt = rkCheck(C);
+    /* 🧾 등록 꺼진 당일 = 리모컨 공급가로 — 상품리스트 카드·원가표 판매가도 (2026-11-10 끝판왕문어 카드가 상품리스트 67,000 에서 왔다) */
+    var rkOff = {};
+    ((C && C.ok && C.rows) || []).forEach(function (r) { if (r.k === 'day' && r.how === 'off' && +r.rk_supply > 0) rkOff[String(r.n).replace(/\s+/g, '').toLowerCase()] = +r.rk_supply; });
+    var rkOf = function (n) { return rkOff[String(n).replace(/\s+/g, '').toLowerCase()] || 0; };
     var items = (L.items || []).map(function (p) {
-      return { n: p.n, nk: p.nk, srl: p.srl, img: p.img, price: p.price, wh: p.wh, grp: p.grp, ship: p.ship, ship_n: p.ship_n,
+      return { n: p.n, nk: p.nk, srl: p.srl, img: p.img, price: rkOf(p.n) || p.price, wh: p.wh, grp: p.grp, ship: p.ship, ship_n: p.ship_n,
                tax: p.tax, courier: p.courier, cut: p.cut, exp: p.exp, stock: p.stock, bund: p.bund, k: p.k };
     });
     var costs = (C && C.ok ? (C.rows || []) : []).map(function (r) {
-      return { n: r.n, sell: r.sell, cost: r.cost, base: r.base, margin: r.margin, how: r.how, remain: r.remain };
+      return { n: r.n, sell: rkOf(r.n) || r.sell, cost: r.cost, base: r.base, margin: r.margin, how: r.how, remain: r.remain };
     });
     var G = null; try { G = await get('machan_chg', 'changes', '&days=14'); } catch (e) {}
     var chg = (G && G.ok ? (G.rows || []) : []).filter(function (r) { return r.mine; }).map(function (r) {
