@@ -83,8 +83,14 @@
           var L = null; try { L = await (await fetch('/xd/api.php?mid=machan_list&a=list', { credentials: 'same-origin', cache: 'no-store' })).json(); } catch (e) {}
           var im = {};
           [].concat((L && L.items) || [], (L && L.today) || []).forEach(function (p) { im[key(p.n)] = { img: p.img, srl: p.srl, ship_n: p.ship_n, courier: p.courier }; });
+          // 🧾 등록 안 된 당일 = 리모컨 공급가로 (2026-11-10, mc-watch·mc-day 와 같은 규칙)
+          var rkm = {};
+          try { var CC = await (await fetch('/xd/api.php?mid=machan_admin&a=cost', { credentials: 'same-origin', cache: 'no-store' })).json();
+                ((CC && CC.rows) || []).forEach(function (x) { if (x.k === 'day' && +x.rk_supply > 0) rkm[key(x.n)] = +x.rk_supply; }); } catch (e) {}
           var items = ((Q2 && Q2.cands) || []).filter(function (r) { return r.k === 'day'; }).map(function (r) {
             var m = im[key(r.n)] || {};
+            var rk = !r.reg ? rkm[key(r.n)] : 0;
+            if (rk) r = Object.assign({}, r, { sell: rk, sug: rk });
             return { n: r.n, wh: r.wh, qid: r.qid, sell: r.sell, sug: r.sug, base: r.base, cost: r.cost, ship: r.ship, ship_n: m.ship_n,
                      tax: r.tax, courier: r.courier || r.cou || m.courier || '', cut: r.cut, exp: r.exp, img: m.img, srl: m.srl,
                      total: r.total, sold: r.sold, remain: r.remain, reg: r.reg };
