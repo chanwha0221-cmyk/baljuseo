@@ -228,6 +228,9 @@
     ((C && C.ok && C.rows) || []).forEach(function (r) {
       var rk = +r.rk_supply || 0, sell = +r.sell || 0, cost = +r.cost || 0;
       if (!rk || !sell || rk === sell) return;
+      /* 잔여 있는 미등록 당일은 곧 자동 등록되며 리모컨이 맞춰진다 — 잡지 않는다 (11-10 투뿔나인 보섭스테이크: 창고가 11:45 공급가를 올리고
+         등록 전 몇 분 리모컨 9,000 / 판매가 9,500 으로 보였다. 홍팀장 「평소 규칙이라 굳이 잡을 필요가 없다」) */
+      if (r.k === 'day' && r.how === 'off' && +r.remain > 0) return;
       bad.push({ n: r.n, wh: r.wh, k: r.k === 'day' ? '당일' : '상시', how: r.how, rk: rk, sell: sell, cost: cost,
                  loss: cost > 0 && rk < cost, key: r.n + '|' + rk + '|' + sell + '|' + cost });
     });
