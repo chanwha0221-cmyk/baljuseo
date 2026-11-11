@@ -242,10 +242,15 @@
          등록 전 몇 분 리모컨 9,000 / 판매가 9,500 으로 보였다. 홍팀장 「평소 규칙이라 굳이 잡을 필요가 없다」) */
       if (r.k === 'day' && r.how === 'off' && +r.remain > 0) return;
       bad.push({ n: r.n, wh: r.wh, k: r.k === 'day' ? '당일' : '상시', how: r.how, rk: rk, sell: sell, cost: cost,
+                 base: +r.base || 0, ship: shipNum(r.ship), remain: +r.remain || 0,
                  loss: cost > 0 && rk < cost, key: r.n + '|' + rk + '|' + sell + '|' + cost });
     });
     bad.sort(function (a, b) { return (b.loss - a.loss) || ((a.rk - a.sell) - (b.rk - b.sell)); });
     S.rk = bad;
+    /* 📋 카탈로그 저마진 «🚨 리모컨≠판매가» 탭으로 지금 걸린 전체를 보낸다 — 빈 목록도(다 맞으면 탭이 비어야 한다) (11-10) */
+    if (C && C.ok) edge({ action: 'mcrk', key: KEY, rows: bad.map(function (x) {
+      return { n: x.n, wh: x.wh, k: x.k, how: x.how, rk: x.rk, sell: x.sell, cost: x.cost, base: x.base, ship: x.ship, remain: x.remain };
+    }) }).catch(function () {});
     var seen = {}; try { seen = JSON.parse(localStorage.getItem(RKSEEN_KEY) || '{}') || {}; } catch (e) {}
     var fresh = bad.filter(function (x) { return !seen[x.key]; });
     var keep = {}; bad.forEach(function (x) { keep[x.key] = 1; });
@@ -261,7 +266,7 @@
         fresh.slice(0, 5).map(function (x) { return x.n + ' 리모컨 ' + won(x.rk) + ' / 판매 ' + won(x.sell); }).join('\n'));
       setTimeout(function () {
         if (confirm('🚨 리모컨 공급가가 웹 판매가와 다릅니다 — 정산은 리모컨 값으로 잡힙니다. 손으로 고쳐 주세요.\n\n' + txt
-          + '\n\n[확인] masterc 관리 › 당일상품 열기\n[취소] 닫기')) window.open('https://masterc.kr/machan_admin#daily', 'mc_admin');
+          + '\n\n[확인] 카탈로그 저마진 «🚨 리모컨≠판매가» 열기 — 거기서 바로 고침\n[취소] 닫기')) window.open('https://chanwha0221-cmyk.github.io/baljuseo/catalog.html#lowmrk', 'catalog_lowm');
       }, 80);
     }
     return bad.length ? ' · 🚨 리모컨≠판매가 ' + bad.length + '개' : '';
