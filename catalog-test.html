@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.225</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.226</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3970,7 +3970,7 @@ function renderLowm(j,lossOnly){
         const day=r.k==='당일', loss=+r.cost>0&&+r.rk<+r.cost, mg=+r.sell-(+r.cost||0), rate=Math.round((+r.sell-(+r.cost||0))/(+r.sell+(+r.ship||0))*1000)/10;
         const note=(loss?'<br><span style="font-size:11.5px;color:#b91c1c;font-weight:700">🔴 리모컨이 원가보다 낮음 — 1개당 '+won(r.cost-r.rk)+'원 밑짐</span>':'')
           +(day&&r.how==='off'?'<br><span style="font-size:11.5px;color:#b45309;font-weight:700">⚠️ 당일 등록 꺼짐 — 저장하면 오늘 당일로 등록되어 판매사 화면에 나갈 수 있음</span>':'');
-        return '<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(day?1:0)+'" data-loss="'+(loss?1:0)+'" data-sell="'+(+r.rk||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'">'
+        return '<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(day?1:0)+'" data-loss="'+(loss?1:0)+'" data-sell="'+(+r.sell||0)+'" data-rk="'+(+r.rk||0)+'" data-force="1" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'">'
           +'<td style="'+td+';text-align:left">'+(day?'🐟 당일':'상시')+'</td>'
           +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
           +'<td style="'+td+';text-align:left;white-space:normal">'+esc(r.n)+' <button class="cpbtn" data-cp="'+esc(r.n)+'" title="상품명 복사">📋</button>'+note+'</td>'
@@ -4055,11 +4055,16 @@ function lowmCalc(inp){
 function lowmSave(btn){
   const rows=[...document.querySelectorAll('tr[data-lowm]')].map(tr=>{
     const inp=tr.querySelector('.lowm-in'); const v=parseInt(String(inp&&inp.value||'').replace(/[^0-9]/g,''),10);
-    return (v>0&&v!==+tr.dataset.sell)?{n:tr.dataset.lowm,wh:tr.dataset.wh||'',price:v,old:+tr.dataset.sell,day:tr.dataset.day==='1'}:null;
+    /* 2026-11-11 홍팀장 「저장 눌렀는데 저장이 안 된다」 — 「리모컨 ≠ 판매가」 탭은 data-sell 에 «리모컨 값»이
+       들어가 있어서, 판매가를 리모컨 값에 맞추려고 그 숫자를 넣으면 v === dataset.sell 이 되어 «바꾼 단가가
+       없습니다»로 튕겼다(연안 끝판왕문어 3kg 79,000). → 그 탭은 비교 기준을 현재 판매가로 바꾸고,
+       data-force 줄은 값이 같아도 보낸다(판매가는 그대로 두고 리모컨만 맞추는 것도 그 탭이 하는 일이라서). */
+    const force=tr.dataset.force==='1';
+    return (v>0&&(force||v!==+tr.dataset.sell))?{n:tr.dataset.lowm,wh:tr.dataset.wh||'',price:v,old:+tr.dataset.sell,day:tr.dataset.day==='1'}:null;
   }).filter(Boolean);
   const msg=document.querySelector('.lowm-msg');
   if(!rows.length){if(msg)msg.textContent='바꾼 단가가 없습니다.';return;}
-  if(!confirm('masterc 특별단가(전체 업체)로 저장합니다 — '+rows.length+'건\n\n'+rows.map(r=>'· '+r.n+'  '+r.old.toLocaleString()+' → '+r.price.toLocaleString()+(r.price>r.old?' (인상)':' (인하)')).join('\n')
+  if(!confirm('masterc 특별단가(전체 업체)로 저장합니다 — '+rows.length+'건\n\n'+rows.map(r=>'· '+r.n+'  '+r.old.toLocaleString()+' → '+r.price.toLocaleString()+(r.price===r.old?' (그대로 — 리모컨만 맞춤)':r.price>r.old?' (인상)':' (인하)')).join('\n')
     +'\n\n리모컨 가격표에 실려 이 값으로 정산되고, 카탈로그에도 바로 반영됩니다.'+(rows.some(r=>r.day)?'\n🐟 당일 상품은 오늘 당일 등록가도 같은 값으로 고칩니다(등록 기간은 그대로).':'')))return;
   const w=window.open('https://masterc.kr/board_eJGl96#spcsave','spcsave');
   if(!w){ alert('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요.'); return; }
