@@ -221,9 +221,21 @@ function applyAlias(rows){
         qmsg = ' (' + src + 'kg ÷ ' + unit + 'kg = x ' + r.qty + ')';
       }
     }
+    /* 🔢 원문 끝 개수(「…야채풀세트 2세트」)를 별칭이 버리면 수량이 조용히 반이 된다 (2026-11-12 대상수산 김정웅 —
+       2세트가 1개로 나갈 뻔했다, 홍팀장 「물어보기라도 했어야지」). 곱할지 말지는 사람이 고른다 — 그 줄을 막고 묻는다. */
+    const cn = cntOf(raw);
+    if(cn.n > 1 && cntOf(r.name).n !== cn.n){
+      r._cnt = cn.n; r._cntU = cn.u;
+      qmsg += ' ⚠️ 원문 ' + cn.n + cn.u + ' — 수량 확인 필요';
+    }
     done.push(raw + ' → ' + r.name + qmsg);
   });
   return done;
+}
+/* 원문 이름 끝의 개수 — 「2세트」「3팩」「2개」 (「10개입」은 한 팩 안의 개수라 뺀다) */
+function cntOf(s){
+  const m = stripAge(stripBone(S(s))).match(/(\d{1,3})\s*(세트|SET|팩|박스|봉|통|마리|EA|개)(?!입)\s*$/i);
+  return m ? { n: parseInt(m[1], 10) || 0, u: m[2] } : { n: 0, u: '' };
 }
 /* ⚖️ 원문 무게 vs 상품 규격이 어긋나나 (2026-10-01 대상수산 — 09-17에 이어 두 번째 「임금님 전복」 사고).
    둘 다 무게가 적혀 있는데 원문이 규격보다 작거나(1k → 2kg), 나눠 떨어지지 않으면(2k → 1.5kg) 어긋난 것이다.
@@ -695,6 +707,7 @@ function checkRow(r){
   // 카탈로그에도 이름이 있는 상품을 도구로 열어둔 경우(=예외로 빼둔 것을 다시 연 것)도 같은 안내
   else if(p && vonlyOpen(p.name)) warns.push('ℹ️ ' + VONLY_NOTE);
 
+  if(r._cnt > 1) errs.push('🔢 원문은 「' + S(r._raw) + '」 — ' + r._cnt + (r._cntU || '') + '를 어떻게 넣을지 아래에서 골라주세요.');
   const q0 = parseInt(D(r.qty), 10);
   const nx = tailMult(r.name);                     // ✖ 상품명 끝 *2 — 수량 칸이 비어 있으면 1건으로 본다
   if(!S(r.qty) && !nx) errs.push('수량을 넣어주세요.');
@@ -1554,6 +1567,14 @@ function rowHtml(r, i){
     if(c.errs.length) h += '<div class="orderr">⚠️ ' + c.errs.map(esc).join('<br>⚠️ ') + '</div>';
     if(c.warns.length) h += '<div class="ordwarn">' + c.warns.map(esc).join('<br>') + '</div>';
     /* ✅ 마스터 승인 버튼 — 사유를 확인창으로 한 번 더 보여 주고 누르면 이 상품을 넣을 수 있게 된다 */
+    /* 🔢 원문 개수 확인 — 별칭이 「2세트」를 떼어 낸 줄 */
+    if(r._cnt > 1){
+      const b = parseInt(D(r.qty), 10) > 0 ? parseInt(D(r.qty), 10) : 1;
+      h += '<div class="ordcand">'
+        + '<button class="ordb2 pri" data-cnt="mul" data-i="' + i + '" style="margin:3px 5px 0 0">✖ 수량 ' + (b * r._cnt) + '개로 (' + b + ' × ' + r._cnt + ')</button>'
+        + '<button class="ordb2" data-cnt="keep" data-i="' + i + '" style="margin:3px 5px 0 0">수량 ' + b + '개 그대로</button>'
+        + '</div>';
+    }
     if(c.apprWhy && c.p) h += '<div class="ordcand"><button class="ordb2' + (apprOk(c.p) ? '' : ' pri') + '" data-appr="' + i
       + '" style="margin:3px 5px 0 0">' + (apprOk(c.p) ? '↩ 승인 취소' : '✅ 발주 승인') + '</button></div>';
     /* 🐟 삭힘정도 고르기 — 고른 단계는 상품명 뒤에 (중수) 로 붙어 당일 시트까지 그대로 나간다.
@@ -3883,6 +3904,7 @@ document.addEventListener('input', e => {
   const i = +el.getAttribute('data-i'), f = el.getAttribute('data-f');
   if(!ROWS[i]) return;
   ROWS[i][f] = el.value;
+  if(f === 'qty' && ROWS[i]._cnt){ delete ROWS[i]._cnt; delete ROWS[i]._cntU; }   // 🔢 수량을 손으로 고쳤으면 그게 답이다
   clearTimeout(tmr);
   tmr = setTimeout(() => {
     const pos = el.selectionStart, id = i + '|' + f;
@@ -3909,6 +3931,20 @@ document.addEventListener('click', e => {
       if(APPROVED[k]) delete APPROVED[k];
       else if(confirm('「' + c.p.name + '」\n\n막힌 사유 : ' + c.apprWhy + '\n\n그래도 이 상품을 발주로 넣을까요?')) APPROVED[k] = c.p.name;
       paint();
+    }
+    return;
+  }
+  /* 🔢 원문 개수 — 곱하기 / 그대로 (2026-11-12) */
+  const cb = e.target.closest && e.target.closest('[data-cnt]');
+  if(cb){
+    const i = +cb.getAttribute('data-i');
+    if(ROWS[i] && ROWS[i]._cnt > 1){
+      if(cb.getAttribute('data-cnt') === 'mul'){
+        const b = parseInt(D(ROWS[i].qty), 10) > 0 ? parseInt(D(ROWS[i].qty), 10) : 1;
+        ROWS[i].qty = String(b * ROWS[i]._cnt);
+      }
+      delete ROWS[i]._cnt; delete ROWS[i]._cntU;
+      saveDraft(); paint();
     }
     return;
   }
