@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-10d';
+  var QTYB_VER = '2026-11-12a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -865,25 +865,47 @@
     /* 🔴 단, 잔여가 남아 있는 줄은 증량요청을 걸 수 없다 — 수량 웹 규칙(「잔여가 남아 있으면 증량요청을 못 건다」,
           서버 morelib.php 도 거절). 2026-09-29 급냉 갑오징어 1kg : 총 50 · 잔여 50 인데 「품절 안 풀림」 이라
           잡기도 안 열리고 증량도 거절됐다. 이런 줄은 아래 잠긴 줄 규칙(대기)으로 간다. */
+    /* 🔴 2026-11-12 홍팀장 (동해 활 골뱅이 1kg) : 「증량 안 됐으면 대기라도 걸어야지, 이러면 우선순위 또 밀리잖아」
+          13:40 에 건 대기 26(9 받음)을 15:27 에 무르고 증량 17 로 «옮겼다»(10-26 fromWait) → 증량은 거부, 대기는 줄 맨 뒤로.
+          → 대기는 절대 무르지 않는다. 증량은 대기 «위에 더» 건다. 둘 다 받으면 dedupRun 이 남은 쪽을 무른다.
+          대기는 언제나 모자란 몫(hole)만큼 걸려 있어야 한다 — 증량이 걸려 있든 거부됐든. */
+    var wFreeS = (wa && wa.pend) ? freeOf(wa.qty) : 0;
+    var addWS = Math.max(0, hole - wFreeS);
     if (row.stuck && kstNow() >= OPEN_HOUR && !(row.left > 0)) {
       var mFree = (mo && mo.pend) ? freeOf(mo.qty) : 0;
       if (mo && mo.no && !mo.pend) {
-        r.hunt = hole; r.act = 'hunt';
-        r.why = base + ' · ' + OPEN_HOUR + '시 지나도 안 풀림 · 증량 거부됨 → 포기(업체 안내)' + (mo.ans ? ' 「' + mo.ans + '」' : '');
+        if (addWS) {
+          r.wait = addWS; r.haveW = (wa && wa.pend) ? wa.qty : 0; r.act = 'wait';
+          r.why = base + ' · ' + OPEN_HOUR + '시 지나도 안 풀림 · 증량 거부됨 → 대기라도 걸어 둠(줄 순서 지키기)'
+            + (wFreeS ? (' · 걸어 둔 ' + wFreeS + '개 빼고 ' + addWS + '개 추가') : '') + (mo.ans ? ' 「' + mo.ans + '」' : '');
+        } else {
+          r.hunt = hole; r.act = 'hunt';
+          r.why = base + ' · ' + OPEN_HOUR + '시 지나도 안 풀림 · 증량 거부 + 대기 ' + wa.qty + '개 걸어 둠(아직 못 받음)' + (mo.ans ? ' 「' + mo.ans + '」' : '');
+        }
       } else if (mFree >= hole) {
-        r.act = 'moreP';
-        r.why = base + ' · ' + OPEN_HOUR + '시 지나도 안 풀림 · 증량 ' + mo.qty + '개 요청해 두고 답 기다림';
+        if (addWS) {
+          r.wait = addWS; r.haveW = (wa && wa.pend) ? wa.qty : 0; r.act = 'wait';
+          r.why = base + ' · 증량 ' + mo.qty + '개 답 기다림 · 대기도 같이 걸어 둠(줄 순서 지키기)';
+        } else {
+          r.act = 'moreP';
+          r.why = base + ' · ' + OPEN_HOUR + '시 지나도 안 풀림 · 증량 ' + mo.qty + '개 · 대기 ' + wa.qty + '개 걸어 두고 답 기다림';
+        }
       } else {
         r.more = hole - mFree; r.haveM = (mo && mo.pend) ? mo.qty : 0;
+        if (addWS) { r.wait = addWS; r.haveW = (wa && wa.pend) ? wa.qty : 0; }
         r.act = 'more';
-        r.fromWait = true;   // ⇄ 걸어 둔 대기는 증량으로 옮긴다 — 둘 다 살려 두면 두 번 받는다(2026-10-26)
-        r.why = base + ' · ' + OPEN_HOUR + '시 지나도 안 풀림 → 대기 말고 증량요청으로 빨리 확인'
-          + (mFree ? (' · 걸어 둔 증량 ' + mFree + '개 빼고 ' + r.more + '개 추가') : '');
+        r.why = base + ' · ' + OPEN_HOUR + '시 지나도 안 풀림 → 증량요청으로 빨리 확인 + 대기도 유지'
+          + (mFree ? (' · 걸어 둔 증량 ' + mFree + '개 빼고 ' + r.more + '개 추가') : '')
+          + (addWS ? (' · 대기 ' + addWS + '개 추가') : '');
       }
       return r;
     }
 
-    if (mo && mo.no && wa && wa.pend) {
+    if (mo && mo.no && !mo.pend && wa && wa.pend && addWS && !row.stuck) {
+      // 증량은 까였고 대기가 모자라게 걸려 있다 → 모자란 만큼 대기 추가(11-12)
+      r.wait = addWS; r.haveW = wa.qty; r.act = r.set ? 'set+wait' : 'wait';
+      r.why = base + ' · 증량 거부됨 → 걸어 둔 대기 ' + wFreeS + '개 빼고 ' + addWS + '개 추가';
+    } else if (mo && mo.no && wa && wa.pend) {
       // 갓성비 암게 꼴 — 증량은 까였고 대기는 걸어 뒀지만 아직 못 받았다
       r.hunt = hole;
       r.act = 'hunt';
@@ -899,8 +921,8 @@
         r.hunt = hole; r.act = 'hunt';
         r.why = base + ' · 증량 거부됨' + (row.stuck ? ' · 오늘 안 나오는 줄' : '') + (mo.ans ? ' 「' + mo.ans + '」' : '');
       }
-    } else if (mo && mo.pend && freeOf(mo.qty) >= hole) {
-      // 걸어 둔 증량요청이 지금 부족분을 이미 덮는다 → 그대로 기다린다
+    } else if (mo && mo.pend && freeOf(mo.qty) >= hole && !(addWS && !row.stuck)) {
+      // 걸어 둔 증량요청이 지금 부족분을 이미 덮고, 대기도 덮였다(또는 대기 무의미한 안 풀림 줄) → 그대로 기다린다
       r.act = 'moreP';
       r.why = base + ' · 증량 ' + mo.qty + '개 요청해 두고 답 기다림';
     } else if ((mo && mo.pend) || (wa && wa.pend)) {
@@ -910,7 +932,8 @@
          🔴 걸어 둔 것을 무시하고 새로 부족분 전체를 거는 것도, 걸려 있다고 아무것도 안 하는 것도 틀렸다. */
       var haveW = (wa && wa.pend) ? freeOf(wa.qty) : 0;
       var haveM = (mo && mo.pend) ? freeOf(mo.qty) : 0;
-      var addW = (wa && wa.pend) ? Math.max(0, hole - haveW) : 0;
+      // 🔴 11-12 : 증량만 걸려 있어도 대기는 모자란 몫만큼 같이 건다(줄 순서 지키기) — 안 풀림 줄만 예외
+      var addW = ((wa && wa.pend) || !row.stuck) ? Math.max(0, hole - haveW) : 0;
       var addM = (mo && mo.pend) ? Math.max(0, hole - haveM) : 0;
       if (!addW && !addM) {
         r.act = (haveM ? 'moreP' : 'waitP');
@@ -977,9 +1000,10 @@
         r.why = base + ' · 총 ' + row.total + '개 중 ' + hole + '개라 누가 풀면 받을 만함';
       } else {
         r.more = hole; r.act = r.set ? 'set+more' : 'more';
+        r.wait = hole;   // 🔴 11-12 : 증량이 거부돼도 줄 앞자리는 남게 대기도 같이 건다(둘 다 받으면 dedupRun 이 무름)
         r.why = base + (row.total > 0
-          ? (' · 총 ' + row.total + '개 중 ' + hole + '개(' + Math.round(share * 100) + '%) — 대기로는 못 메움')
-          : ' · 총수량을 몰라 대기가 의미 없음');
+          ? (' · 총 ' + row.total + '개 중 ' + hole + '개(' + Math.round(share * 100) + '%) — 증량요청 + 대기도 같이')
+          : ' · 총수량을 몰라 증량요청 + 대기도 같이');
       }
     }
     return r;
@@ -1738,20 +1762,35 @@
             else if (((idx.stuck && nowH >= OPEN_HOUR) || soon) && !(idx.left > 0)) {
               /* 대기로는 안 올 물건 — 증량요청이 걸려 있어야 한다. 걸어 둔 대기는 세지 않는다. */
               var why0 = idx.stuck && nowH >= OPEN_HOUR ? OPEN_HOUR + '시 지나도 안 풀림' : '마감(' + cut + '시) 1시간 안';
-              if (refused) chk = '증량 거부 — 업체 안내';
-              else if (mq >= gap) chk = '증량 ' + mq + ' 걸림';
-              /* ⇄ fromWait — 걸어 둔 대기는 증량으로 «옮긴다»(대기를 무르고 증량). 둘 다 살려 두면 두 번 받는다(2026-10-26 자반 고등어) */
-              else { act = { t: 'more', n: gap - mq, fromWait: wq > 0 }; chk = '🔴 증량요청 ' + act.n + '개 필요 (' + why0 + (wq ? ' · 대기 ' + wq + '개는 증량으로 옮김' : '') + ')'; bad = true; }
-            } else if (wq + mq >= gap) chk = (wq ? '대기 ' + wq : '') + (wq && mq ? ' · ' : '') + (mq ? '증량 ' + mq : '') + ' 걸림'
+              /* 🔴 11-12 홍팀장 「증량 안 됐으면 대기라도 걸어야지, 우선순위 밀리잖아」 — 대기는 무르지 않는다(옛 fromWait 폐기).
+                    증량은 대기 위에 더 걸고, 대기는 모자란 몫만큼 늘 걸어 둔다. 둘 다 받으면 dedupRun 이 무른다. */
+              var wNeed = Math.max(0, gap - wq);
+              if (refused) {
+                if (wNeed) { act = { t: 'wait', n: wNeed }; chk = '🔴 증량 거부 — 대기 ' + wNeed + '개라도 걸기'; bad = true; }
+                else chk = '증량 거부 · 대기 ' + wq + ' 걸림 — 못 받으면 업체 안내';
+              }
+              else if (mq >= gap) {
+                if (wNeed) { act = { t: 'wait', n: wNeed }; chk = '🔴 증량 ' + mq + ' 답 기다림 — 대기 ' + wNeed + '개도 같이'; bad = true; }
+                else chk = '증량 ' + mq + ' · 대기 ' + wq + ' 걸림';
+              }
+              else { act = { t: 'more', n: gap - mq, w: wNeed }; chk = '🔴 증량요청 ' + act.n + '개' + (wNeed ? ' + 대기 ' + wNeed + '개' : '') + ' 필요 (' + why0 + ')'; bad = true; }
+            } else if (wq >= gap) chk = '대기 ' + wq + (mq ? ' · 증량 ' + mq : '') + ' 걸림'
                 + (idx.locked && idx.left > 0 ? ' (잔여 ' + idx.left + ' 남아 증량 불가 — 안 풀리면 관리팀 문의)' : '');
+            else if (mq + wq >= gap) {
+              // 🔴 11-12 : 증량으로 덮였어도 대기는 모자란 몫만큼 같이 걸어 둔다(증량 거부되면 줄 맨 뒤로 밀린다)
+              act = { t: 'wait', n: gap - wq };
+              chk = '🔴 증량 ' + mq + ' 답 기다림 — 대기 ' + act.n + '개도 같이';
+              bad = true;
+            }
             else {
               var n0 = gap - wq - mq;
               /* 무엇을 걸까 — 당일 대조(judge)와 같은 기준 : 잠긴 줄·아직 안 열린 줄은 대기,
                  그 밖엔 총수량 대비 비중이 작으면 대기, 크면 증량요청. 증량이 거부된 상품은 대기로. */
               var share = idx.total > 0 ? (n0 / idx.total) : 1;
               var useWait = refused || isSumae(idx) || idx.locked || idx.left > 0 || (idx.closed && !idx.stuck) || (n0 <= WAIT_MAX && share <= WAIT_SHARE);
-              act = { t: useWait ? 'wait' : 'more', n: n0 };
-              chk = '🔴 ' + (wq + mq ? '대기·증량 ' + (wq + mq) + '개뿐 — ' : '안 걸림 — ') + (useWait ? '대기 ' : '증량요청 ') + n0 + '개 필요';
+              act = useWait ? { t: 'wait', n: n0 } : { t: 'more', n: n0, w: Math.max(0, gap - wq) };   // 증량이면 대기도 같이(11-12)
+              chk = '🔴 ' + (wq + mq ? '대기·증량 ' + (wq + mq) + '개뿐 — ' : '안 걸림 — ') + (useWait ? '대기 ' : '증량요청 ') + n0 + '개'
+                + (!useWait && act.w ? ' + 대기 ' + act.w + '개' : '') + ' 필요';
               bad = true;
             }
             return { key: k, name: no.map[k].name, wh: idx ? idx.wh : (o ? o.wh : ''),
@@ -1795,7 +1834,7 @@
           var ag = el('qtyb-actgo');
           if (ag) ag.onclick = function () {
             if (!autoAct && !confirm('수량 웹에 실제로 겁니다 — ' + acts.length + '건\n\n'
-                + acts.map(function (r) { return '· [' + (r.act.t === 'more' ? '증량요청' : '대기') + '] ' + r.name + ' ' + r.act.n + '개'; }).join('\n')
+                + acts.map(function (r) { return '· [' + (r.act.t === 'more' ? '증량요청' : '대기') + '] ' + r.name + ' ' + r.act.n + '개' + (r.act.t === 'more' && r.act.w ? ' + 대기 ' + r.act.w + '개' : ''); }).join('\n')
                 + '\n\n증량요청 사유 : ' + WHY_DEFAULT)) return;
             var bb = this; bb.disabled = true;
             var done = [], fail = [];
@@ -1810,12 +1849,15 @@
               }
               var r = acts[i];
               bb.textContent = '거는 중 ' + (i + 1) + '/' + acts.length;
-              var x = { row: r.idx, wait: r.act.t === 'wait' ? r.act.n : 0, more: r.act.t === 'more' ? r.act.n : 0, haveW: r.wq, haveM: r.mq, fromWait: !!r.act.fromWait };
-              (r.act.t === 'more' ? actMore(x, WHY_DEFAULT) : actWait(x)).then(function (res) {
-                if (res && res.skip) done.push('· ' + esc(r.name) + ' — 건너뜀: ' + esc(res.skip));
+              var x = { row: r.idx, wait: r.act.t === 'wait' ? r.act.n : (r.act.w || 0), more: r.act.t === 'more' ? r.act.n : 0, haveW: r.wq, haveM: r.mq };
+              /* 대기 먼저(줄 자리부터 잡는다), 그다음 증량 — 대기는 절대 무르지 않는다(11-12) */
+              var wRes = null;
+              (x.wait ? actWait(x).then(function (a) { wRes = a; }, function (e) { wRes = { skip: '대기 실패: ' + (e && e.message ? e.message : e) }; }) : Promise.resolve())
+              .then(function () { return r.act.t === 'more' ? actMore(x, WHY_DEFAULT) : (wRes || { skip: '걸 것 없음' }); }).then(function (res) {
+                var wTxt = (r.act.t === 'more' && x.wait) ? (wRes && wRes.skip ? ' · 대기 건너뜀: ' + esc(wRes.skip) : ' · 대기 ' + x.wait + '개' + (wRes && wRes.now != null ? ' (합계 ' + wRes.now + ')' : '')) : '';
+                if (res && res.skip) done.push('· ' + esc(r.name) + ' — 건너뜀: ' + esc(res.skip) + wTxt);
                 else done.push('· ' + esc(r.name) + ' — ' + (r.act.t === 'more' ? '증량요청 ' : '대기 ') + r.act.n + '개'
-                  + (res && res.moved ? ' (대기 ' + res.moved + '개 무르고 옮김)' : '')
-                  + (res && res.now != null ? ' (대기 합계 ' + res.now + ')' : ''));
+                  + (res && res.now != null ? ' (대기 합계 ' + res.now + ')' : '') + wTxt);
               }, function (e) {
                 fail.push('· ' + esc(r.name) + ' — ' + esc(e && e.message ? e.message : e));
               }).then(function () { setTimeout(function () { step(i + 1); }, 320); });
@@ -3516,7 +3558,7 @@
           '<input class="wq" data-wk="' + esc(x.row.key) + '" type="number" min="0" value="' + waitNow(x.row.key) + '" ' +
           'style="width:46px;border:1px solid #cfd6e0;border-radius:5px;padding:2px 4px;font:12px Pretendard,sans-serif" title="걸어 둘 대기 총량">' +
           ' <button class="wgo" data-wk="' + esc(x.row.key) + '" style="font-size:11px;padding:2px 6px">걸기</button>' +
-          (waitNow(x.row.key) > 0 ? '<br><button class="w2m" data-wk="' + esc(x.row.key) + '" style="font-size:11px;padding:2px 6px;margin-top:3px" title="걸어 둔 대기를 줄이고 그만큼 증량요청으로">⇄ 증량</button>' : '') +
+          (waitNow(x.row.key) > 0 ? '<br><button class="w2m" data-wk="' + esc(x.row.key) + '" style="font-size:11px;padding:2px 6px;margin-top:3px" title="대기는 그대로 두고 증량요청을 더 건다">＋ 증량</button>' : '') +
           '</td>' +
         '<td>' + (x.more || '') + '</td>' +
         '<td class="mut">' + esc(x.row.dlRaw.replace(/^.*?:\s*/, '')) + (ml != null && ml <= 120 ? ' <b>' + ml + '분</b>' : '') + '</td>' +
@@ -3590,13 +3632,18 @@
         freshRow(x.row).then(function (f) {
           if (!f.wait) { alert('걸려 있는 대기가 없습니다.'); return; }
           if (f.left > 0) { alert('잔여 ' + f.left + '개가 남아 있어 증량요청을 걸 수 없습니다(수량 웹 규칙) — 대기를 그대로 둡니다.'); return; }
+          /* 🔴 2026-11-12 홍팀장 「증량 안 됐으면 대기라도 걸어야지, 우선순위 밀리잖아」 — 대기는 줄이지 않는다.
+                증량만 «더» 건다. 둘 다 받으면 dedupRun 이 남은 쪽을 무른다(10-26). */
           var s = prompt(x.row.name + '\n\n지금 대기 ' + f.wait + '개' + (f.more ? ' · 답 기다리는 증량 ' + f.more + '개' : '')
-            + '\n몇 개를 증량으로 돌릴까요? (그만큼 대기는 줄어듭니다)', String(f.wait));
+            + '\n증량요청 몇 개를 더 걸까요? (대기는 그대로 둡니다 — 줄 자리 유지)', String(f.wait));
           if (s == null) return;
           var n = parseInt(s, 10);
           if (isNaN(n) || n <= 0) return;
-          if (n > f.wait) n = f.wait;
           var why = (el('qtyb-why') && el('qtyb-why').value.trim()) || WHY_DEFAULT;
+          return qpost({ do: 'more', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: f.more + n, why: why })
+            .then(function () { alert('대기 ' + f.wait + '개는 그대로, 증량요청 ' + (f.more + n) + '개로 걸었습니다.'); })
+            .then(function () { return loadMy().then(function () { run(); }); });
+          /* (옛 전환 코드 — 대기를 줄이고 증량. 11-12 폐기, 안 탄다) */
           return qpost({ do: 'wait', tab: whTab(x.row), nkey: x.row.key, co: x.row.co, qty: f.wait - n })
             .then(function () { return freshRow(x.row); })
             .then(function (g) {
