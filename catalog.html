@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.227</title>
+<title>마스터 유통 카탈로그 v23.228</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3931,6 +3931,7 @@ function renderLowm(j,lossOnly){
         +'<br>✏️ 판매가를 고치려면 «새 판매가» → <b>[💾 단가 저장]</b>(masterc 특별단가 전체). 🔒 마스터에게만 보입니다.')
     : lossOnly
     ? subHead('🔴 지금 바로 확인할 상품','<b>역마진</b>(판매가 &lt; 공급가) + <b>마진율 '+(j.urgentMax||6)+'% 미만</b> 중 새로 생기거나 값이 바뀐 것 + <b>⚖️ 규격 역전</b>(작은 규격이 큰 규격보다 비쌈 — 옛 특별단가·등록가가 남은 것) '+loss.length+'개 — 최근 등장 순. 처음부터 있던 저마진은 안 묻습니다 · <b>[👌 괜찮음]</b> 누른 상품은 다시 안 묻습니다 · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
+        +'<br>💾 새 판매가를 비워 두고 <b>[💾 단가 저장]</b> = <b>지금 가격 그대로 확인</b> — 특별단가는 안 만들고, 판매가·원가·공급가가 바뀌면 다시 뜹니다(괜찮음은 영구).'
         +'<br>✏️ 상시는 «새 판매가»에 넣고 <b>[💾 단가 저장]</b> → masterc 특별단가(전체)로 저장. 🐟 당일도 «새 판매가» → [💾 단가 저장] 하면 특별단가 + <b>오늘 당일 등록가</b>까지 같이 고칩니다. 역마진 당일은 <b>업체 화면에서 숨겨 두고</b>, 단가를 고치거나 <b>[✅ 이 가격으로 노출]</b>을 누르면 다시 보입니다. 🔒 마스터에게만 보입니다.')
     : subHead('💸 저마진 상품','마진율 '+j.max+'% 이하 · 최근 저마진으로 등장한 순 · 카탈로그에 떠 있는 것 '+j.rows.length+'개'+(j.all>j.rows.length?' (품절·재고 없음·예외로 안 보이는 '+(j.all-j.rows.length)+'개 뺌)':'')+' ·마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
         +'<br>✏️ «새 판매가» 칸에 넣고 <b>[💾 단가 저장]</b>을 누르면 <b>masterc 특별단가(전체)</b>로 저장됩니다 — 리모컨 가격표에 실려 그 값으로 정산되고, 카탈로그에도 바로 보냅니다. masterc 창이 잠깐 열렸다 닫힙니다. 🔒 마스터에게만 보입니다.');
@@ -4012,7 +4013,7 @@ function renderLowm(j,lossOnly){
     +'<table style="border-collapse:collapse;width:100%"><thead><tr>'
     +cols.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+'">'+t+'</th>').join('')
     +'</tr></thead><tbody>'
-    +rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'">'
+    +rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'"'+(lossOnly?' data-ack="1"':'')+'>'
       +'<td style="'+td+';text-align:left;font-size:12px;color:'+(r.urgent?'#b91c1c;font-weight:700':'var(--muted)')+'">'+hm(r.at)+'</td>'
       +'<td style="'+td+';text-align:left">'+(r.k==='당일'?'🐟 당일':'상시')+'</td>'
       +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
@@ -4056,10 +4057,31 @@ function lowmSave(btn){
     return (v>0&&(force||v!==+tr.dataset.sell))?{n:tr.dataset.lowm,wh:tr.dataset.wh||'',price:v,old:+tr.dataset.sell,day:tr.dataset.day==='1'}:null;
   }).filter(Boolean);
   const msg=document.querySelector('.lowm-msg');
-  if(!rows.length){if(msg)msg.textContent='바꾼 단가가 없습니다.';return;}
+  /* 💾 그대로 두고 저장 = «이 가격으로 확인» (2026-11-13 홍팀장 「괜찮음은 또 떠도 안 알려주잖아 — 이 정도까진 이번 주 버티겠다는 뜻으로
+     단가 저장 그냥 누를 수 있게」). 🔴 지금 바로 확인할 상품 탭에서 새 판매가를 안 넣은(또는 같은 값) 줄은 특별단가를 안 만들고
+     Edge lowmack 으로 «지금 값에서만» 안 묻게 한다 — 판매가·원가·공급가가 바뀌면 다시 뜬다. 🔴 역마진 줄은 빼고(단가를 고쳐야 빠짐). */
+  const saveSet=new Set(rows.map(r=>r.n));
+  const ackTr=[...document.querySelectorAll('tr[data-lowm][data-ack="1"]')].filter(tr=>!saveSet.has(tr.dataset.lowm));
+  const ack=ackTr.filter(tr=>tr.dataset.loss!=='1').map(tr=>tr.dataset.lowm);
+  const ackLoss=ackTr.length-ack.length;
+  const sendAck=()=>api('lowmack',{token:ME.token,names:ack}).then(j=>{
+    if(!j||!j.ok){alert('확인 처리 실패 — '+((j&&j.error)||'알 수 없음'));return;}
+    toast('💾 '+j.n+'개 — 이 가격으로 확인, 값 바뀌면 다시 뜹니다');
+    if(!rows.length)renderRoute();
+  }).catch(e=>alert('확인 처리 실패 — '+(e&&e.message||e)));
+  if(!rows.length){
+    if(!ack.length){if(msg)msg.textContent=ackLoss?'🔴 역마진은 그대로 저장이 안 됩니다 — 새 판매가를 넣어 주세요.':'바꾼 단가가 없습니다.';return;}
+    if(!confirm('💾 지금 가격 그대로 확인 — '+ack.length+'개\n\n'+ack.map(n=>'· '+n).join('\n')
+      +'\n\n특별단가는 안 만듭니다. 지금 값에서는 다시 안 묻고,\n판매가·원가·공급가가 바뀌면 다시 뜹니다.'+(ackLoss?'\n🔴 역마진 '+ackLoss+'개는 빼고 합니다 — 단가를 고쳐야 빠집니다.':'')))return;
+    if(msg)msg.textContent='확인 처리 중…';
+    sendAck();
+    return;
+  }
   if(!confirm('masterc 특별단가(전체 업체)로 저장합니다 — '+rows.length+'건\n\n'+rows.map(r=>'· '+r.n+'  '+r.old.toLocaleString()+' → '+r.price.toLocaleString()+(r.price===r.old?' (그대로 — 리모컨만 맞춤)':r.price>r.old?' (인상)':' (인하)')).join('\n')
-    +'\n\n리모컨 가격표에 실려 이 값으로 정산되고, 카탈로그에도 바로 반영됩니다.'+(rows.some(r=>r.day)?'\n🐟 당일 상품은 오늘 당일 등록가도 같은 값으로 고칩니다(등록 기간은 그대로).':'')))return;
+    +'\n\n리모컨 가격표에 실려 이 값으로 정산되고, 카탈로그에도 바로 반영됩니다.'+(rows.some(r=>r.day)?'\n🐟 당일 상품은 오늘 당일 등록가도 같은 값으로 고칩니다(등록 기간은 그대로).':'')
+    +(ack.length?'\n\n💾 나머지 '+ack.length+'개는 지금 가격 그대로 확인(값 바뀌면 다시 뜸):\n'+ack.map(n=>'· '+n).join('\n'):'')))return;
   const w=window.open('https://masterc.kr/board_eJGl96#spcsave','spcsave');
+  if(w&&ack.length)sendAck();
   if(!w){ alert('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요.'); return; }
   const btns=document.querySelectorAll('button[onclick^="lowmSave"]');
   btns.forEach(b=>b.disabled=true);
