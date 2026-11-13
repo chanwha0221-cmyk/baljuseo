@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.229</title>
+<title>마스터 유통 카탈로그 v23.230</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -4038,7 +4038,7 @@ function renderLowm(j,lossOnly){
     +'<table style="border-collapse:collapse;width:100%"><thead><tr>'
     +cols.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+'">'+t+'</th>').join('')
     +'</tr></thead><tbody>'
-    +rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'"'+(lossOnly?' data-ack="1"':'')+'>'
+    +rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'"'+(lossOnly?' data-lowmack="1"':'')+'>'
       +'<td style="'+td+';text-align:left;font-size:12px;color:'+(r.urgent?'#b91c1c;font-weight:700':'var(--muted)')+'">'+hm(r.at)+'</td>'
       +'<td style="'+td+';text-align:left">'+(r.k==='당일'?'🐟 당일':'상시')+'</td>'
       +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
@@ -4086,7 +4086,7 @@ function lowmSave(btn){
      단가 저장 그냥 누를 수 있게」). 🔴 지금 바로 확인할 상품 탭에서 새 판매가를 안 넣은(또는 같은 값) 줄은 특별단가를 안 만들고
      Edge lowmack 으로 «지금 값에서만» 안 묻게 한다 — 판매가·원가·공급가가 바뀌면 다시 뜬다. 🔴 역마진 줄은 빼고(단가를 고쳐야 빠짐). */
   const saveSet=new Set(rows.map(r=>r.n));
-  const ackTr=[...document.querySelectorAll('tr[data-lowm][data-ack="1"]')].filter(tr=>!saveSet.has(tr.dataset.lowm));
+  const ackTr=[...document.querySelectorAll('tr[data-lowm][data-lowmack="1"]')].filter(tr=>!saveSet.has(tr.dataset.lowm));
   const ack=ackTr.filter(tr=>tr.dataset.loss!=='1').map(tr=>tr.dataset.lowm);
   const ackLoss=ackTr.length-ack.length;
   const sendAck=()=>api('lowmack',{token:ME.token,names:ack}).then(j=>{
