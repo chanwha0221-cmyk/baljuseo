@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-12a';
+  var QTYB_VER = '2026-11-13a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -2042,6 +2042,7 @@
      · 연어·홍어는 대조와 같은 규칙으로 대표 줄(몸뱃살연어 1kg 등)에 합쳐서 센다.
      · 넉넉(안 잡아도 되는 상품)·잠긴 줄(품절·안 풀림)·총수량 0·당일 상품·잡기 칸 없는 줄은 뺀다.
      잡은 것은 다음 날 대조에서 «잡아 둔 여유» 로 먼저 쓰이고, 안 나가면 마감 1시간 전 「풀어야」 경고가 뜬다. */
+  var SAENG_MIN_DAYS = 2, SAENG_MIN_AVG = 5;   // 🐟 생물: 6일 중 2일 이상 나갔고 나간 날 평균 5개 이상이면 잡는다
   var PRE_DAYS = 6, PRE_MIN_LINES = 30, PRE_UNTIL_H = 10, PRE_EVERY_MS = 5 * 60000;
   /* ⚡ 📌 지금 잡기 감시는 10초마다, 그 상품 창고만 캐시 없이 다시 읽는다 (2026-10-27 홍팀장 「바지락 400개 팔고 50개밖에 못 나간다 —
         나왔음요 튀어나오자마자 목숨 걸고 수량 잡아야 한다」). 5분 간격 + 18곳 전부 긁기(30초)로는 늦다.
@@ -2527,9 +2528,46 @@
           foldAlias(m);
           return m;
         }) : [];
+        /* 🏷 날마다 이름 앞 창고명이 붙었다 빠졌다 한다(11-09 「생물 호래기 500g」 / 11-10~ 「연안 생물 호래기 500g」).
+              수량 웹에 없는 이름이면, 그 이름으로 끝나는 수량 웹 줄이 딱 하나일 때 그 줄로 합친다(앞 머리 6자 이내만). */
+        if (avgOk) {
+          var idxKeys = Object.keys(IDX);
+          per.forEach(function (m) {
+            Object.keys(m).forEach(function (k) {
+              if (k.indexOf('#raw:') === 0 || IDX[k]) return;
+              var hit = idxKeys.filter(function (ik) { return ik.length > k.length && ik.length - k.length <= 6 && ik.slice(-k.length) === k; });
+              if (hit.length !== 1) return;
+              var to = hit[0];
+              m[to] = (m[to] || 0) + m[k];
+              if (!m['#raw:' + to]) m['#raw:' + to] = IDX[to].name || m['#raw:' + k];
+              delete m[k]; delete m['#raw:' + k];
+            });
+          });
+        }
         var keys = avgOk ? Object.keys(per[0]).filter(function (k) {
           return k.indexOf('#raw:') !== 0 && per.every(function (m) { return (m[k] || 0) > 0; });
         }) : [];
+        /* 🐟 생물은 따로 (2026-11-13 홍팀장 「생물은 안 나와서 못 팔 수도 있는데, 나오면 수량 어느 정도 나가는 건 잡아줘야지」) —
+              대상수산이 나와야 파는 호래기처럼 «매일» 이 안 된다. 6일 중 SAENG_MIN_DAYS 일 이상 나갔고
+              나간 날 평균이 SAENG_MIN_AVG 개 이상이면 대상, 평균은 나간 날만으로 낸다(안 나온 날 0 을 섞지 않는다). */
+        var saeng = {};
+        if (avgOk) {
+          var seen = {};
+          per.forEach(function (m) { Object.keys(m).forEach(function (k) { if (k.indexOf('#raw:') !== 0) seen[k] = 1; }); });
+          Object.keys(seen).forEach(function (k) {
+            if (keys.indexOf(k) >= 0) return;
+            var raw = '';
+            per.some(function (m) { raw = m['#raw:' + k] || ''; return raw; });
+            if (!/생물/.test(raw || k)) return;
+            var sold = per.filter(function (m) { return (m[k] || 0) > 0; });
+            if (sold.length < SAENG_MIN_DAYS) return;
+            var seq = per.map(function (m) { return m[k] || 0; }).filter(function (q) { return q > 0; }).reverse();
+            var est = preEstimate(seq);
+            if (est.adj < SAENG_MIN_AVG) return;
+            saeng[k] = { raw: raw, seq: seq, est: est };
+            keys.push(k);
+          });
+        }
         // 📦 재고 없음에만 있는 상품도 대상에 넣는다(평균 0 + 재고 없음 수량)
         Object.keys(none).forEach(function (k) { if (k.indexOf('#raw:') !== 0 && none[k] > 0 && keys.indexOf(k) < 0) keys.push(k); });
         // ✍️ 손으로 추가한 상품도 대상에 넣는다(평균·재고 없음에 없어도)
@@ -2537,10 +2575,11 @@
         var items = [], skip = [];
         var NOSEQ = { raw: 0, adj: 0, cap: 0, med: 0 };
         keys.forEach(function (k) {
-          var row = IDX[k], nm = (avgOk && per[0]['#raw:' + k]) || none['#raw:' + k] || manMap['#raw:' + k] || k;
+          var sg = saeng[k];
+          var row = IDX[k], nm = (avgOk && per[0]['#raw:' + k]) || (sg && sg.raw) || none['#raw:' + k] || manMap['#raw:' + k] || k;
           var daily = avgOk && per.every(function (m) { return (m[k] || 0) > 0; });
-          var seq = daily ? per.map(function (m) { return m[k]; }).reverse() : [];   // 오래된 날 → 최근
-          var est = daily ? preEstimate(seq) : NOSEQ;
+          var seq = daily ? per.map(function (m) { return m[k]; }).reverse() : (sg ? sg.seq : []);   // 오래된 날 → 최근
+          var est = daily ? preEstimate(seq) : (sg ? sg.est : NOSEQ);
           var nq = none[k] || 0, mq = manMap[k] || 0;
           // 오늘 시트로 나간 수 — «이미 쓴 몫» 은 사용 칸보다 시트가 정본이다(CLAUDE.md 재고 규칙)
           var outToday = (avgOk && days[0].tab === todayTab()) ? (per[0][k] || 0) : 0;
@@ -2580,7 +2619,7 @@
     var dayTxt = days.map(function (t) { return t.tab; }).reverse().join('·');
     var nNone = items.filter(function (x) { return x.none > 0; }).length;
     var h = '<div style="background:#eef4ff;border:1px solid #c7d9f5;border-radius:9px;padding:9px 11px;margin:8px 0;font-size:13px">'
-      + '🌙 <b>내일 몫 미리 잡기 — 검산</b> · 최근 6일(' + esc(dayTxt || '-') + ') 매일 나간 상품 + 재고 없음 주문 ' + nNone + '개 상품 · 모두 ' + items.length + '개<br>'
+      + '🌙 <b>내일 몫 미리 잡기 — 검산</b> · 최근 6일(' + esc(dayTxt || '-') + ') 매일 나간 상품 + 🐟 생물(6일 중 ' + SAENG_MIN_DAYS + '일↑·나간 날 평균 ' + SAENG_MIN_AVG + '개↑, 나간 날만 평균) + 재고 없음 주문 ' + nNone + '개 상품 · 모두 ' + items.length + '개<br>'
       + '<span class="mut">빨간 숫자 = 특판처럼 튄 날(6일 중앙값의 2배 넘음) — 제안 수량에선 중앙값×2 로 깎아 셉니다. '
       + '<b>내일 몫 = 제안(평균) + 재고 없음</b> — 재고 없음은 오늘 못 나가 내일 나갈 주문이라 평균과 따로 더합니다. «내일 몫» 칸을 고치면 그 수로 잡습니다.</span></div>'
       + '<div class="tw"><table><thead><tr><th>잡기</th><th>상품명</th><th>날짜별</th><th>그냥 평균</th><th>제안</th><th>재고 없음</th><th>안 쓴 여유</th><th>잔여</th><th>내일 몫</th><th>상태</th></tr></thead><tbody>'
