@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-13a';
+  var QTYB_VER = '2026-11-13b';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -1644,12 +1644,22 @@
         SHEET_DONE = Object.keys(done.map)
           .map(function (k) { return done.map[k].name + '\t' + done.map[k].qty; }).join('\n');
         var dEl = el('qtyb-done'); if (dEl) dEl.value = SHEET_DONE;
-        el('qtyb-in').value = Object.keys(need.map)
-          .map(function (k) { return need.map[k].name + '\t' + need.map[k].qty; }).join('\n');
-        needSave(el('qtyb-in').value);
+        if (Object.keys(need.map).length) {           // 비었으면 칸을 안 지운다(손으로 넣어 둔 것 보존)
+          el('qtyb-in').value = Object.keys(need.map)
+            .map(function (k) { return need.map[k].name + '\t' + need.map[k].qty; }).join('\n');
+          needSave(el('qtyb-in').value);
+        }
         stat('당일 ' + need.lines + '줄 · 상품 ' + Object.keys(need.map).length + '개 · '
            + (DONE_OK ? (day + ' 나간 것 ' + Object.keys(done.map).length + '개') : ('⚠️ ' + day + ' 시트 못 읽음')));
         b.disabled = false; b.textContent = old;
+        /* 당일 탭에 가져올 주문이 없으면 «필요수량을 붙여넣어 주세요» 가 떠서 칸이 비었던 줄 알았다(2026-11-13 홍팀장 「가끔 이거 왜 뜨냐」).
+           그 경우는 따로 알린다 — 칸에 손으로 넣었으면 [✍️ 수동 대조] 를 누르면 된다. */
+        if (!Object.keys(need.map).length) {
+          el('qtyb-out').innerHTML = '<div class="warn">📄 「당일」 탭에 가져올 주문이 없습니다 (' + (need.lines || 0) + '줄 읽음'
+            + (CFG.mark ? ' · 메시지 열 «' + esc(CFG.mark) + '» 에 적힌 주문은 뺌' : '') + ').<br>'
+            + '칸에 상품·수량을 직접 넣었으면 <b>✍️ 수동 대조</b> 를 누르세요.</div>';
+          return;
+        }
         run();                                  // 바로 대조까지 간다
       }, function (e) {
         b.disabled = false; b.textContent = old;
