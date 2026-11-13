@@ -241,6 +241,10 @@
       /* 잔여 있는 미등록 당일은 곧 자동 등록되며 리모컨이 맞춰진다 — 잡지 않는다 (11-10 투뿔나인 보섭스테이크: 창고가 11:45 공급가를 올리고
          등록 전 몇 분 리모컨 9,000 / 판매가 9,500 으로 보였다. 홍팀장 「평소 규칙이라 굳이 잡을 필요가 없다」) */
       if (r.k === 'day' && r.how === 'off' && +r.remain > 0) return;
+      /* 재고 0 당일은 발주가 막혀 정산될 게 없고, 등록가·특별단가를 고쳐도 masterc 가 리모컨에 안 쓴다 — 잡지 않는다
+         (11-13 특S급 초박달홍게 2.5kg: 등록가·특별단가 39,000 으로 고쳤는데 total 0·remain 0 이라 리모컨 38,000 그대로 → 계속 떠서
+         홍팀장 「수정하는데 왜 계속 뜨냐」). 재고 들어와 등록되면 리모컨이 맞춰지고, 그래도 다르면 그때 다시 잡힌다. */
+      if (r.k === 'day' && !(+r.remain > 0)) return;
       bad.push({ n: r.n, wh: r.wh, k: r.k === 'day' ? '당일' : '상시', how: r.how, rk: rk, sell: sell, cost: cost,
                  base: +r.base || 0, ship: shipNum(r.ship), remain: +r.remain || 0,
                  loss: cost > 0 && rk < cost, key: r.n + '|' + rk + '|' + sell + '|' + cost });
