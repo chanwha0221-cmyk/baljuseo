@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.232</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.233</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3932,7 +3932,7 @@ function lowmPoll(){
     /* 단, 리모컨 값으로도 마진이 남으면(리모컨 마진율 ≥ 긴급 기준) 띠는 안 띄운다 — 탭에만 남김
        (11-13 특S급 초박달홍게: 리모컨 38,000 · 원가 35,000 = 마진 남는데 고쳐도 계속 떠서 「왜 계속 뜨냐」) */
     const uMax=+j.urgentMax||6;
-    const rk=(j.rkRows||[]).filter(r=>+r.cost>0&&(+r.rk<+r.cost||(+r.rk-+r.cost)/(+r.rk+(+r.ship||0))*100<uMax))
+    const rk=(j.rkRows||[]).filter(r=>!rkWaitOf(r)&&+r.cost>0&&(+r.rk<+r.cost||(+r.rk-+r.cost)/(+r.rk+(+r.ship||0))*100<uMax))
       .map(r=>'🚨'+r.n+(+r.rk<+r.cost?'(리모컨 역마진)':'(리모컨 저마진)'));
     const names=loss.map(r=>r.n).concat(rk);
     document.title=document.title.replace(/^🔴\d+ /,'');
@@ -3945,6 +3945,11 @@ function lowmPoll(){
     LOWM_KNOWN=new Set(names);
   };go();}).catch(()=>{});
 }
+/* ⏳ 리모컨 반영 시간 밖에 저장한 줄 (2026-11-13 깐 바지락 17:35 저장 → masterc 「리모컨 반영 시간 08:00~16:10」 밖이라 리모컨이 다음 날 바뀜.
+   홍팀장 「저장했다가 그때 반영할게요를 하든가 그냥 계속 저래 뜨면」). 감시 창이 r.wait(다음 반영 시각)를 싣고,
+   감시가 돌기 전엔 방금 저장한 이름을 브라우저에 20시간 기억한다. 이런 줄은 알림에서 빼고 목록엔 «⏳ 반영 예정»으로. */
+function rkWaitLocal(){let o={};try{o=JSON.parse(localStorage.getItem('rk_wait_v1')||'{}')||{};}catch(e){}const now=Date.now();Object.keys(o).forEach(k=>{if(!(now-(+o[k].at||0)<20*3600e3))delete o[k];});return o;}
+function rkWaitOf(r){if(r.wait)return r.wait;const w=rkWaitLocal()[r.n];return w?(w.win?'반영 시간('+w.win+') 시작 때':'다음 반영 때'):'';}
 function lowmAlertBar(names,to){
   let b=$('lowmAlert');
   if(!b){b=document.createElement('div');b.id='lowmAlert';b.style.cssText='position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:9999;background:#b91c1c;color:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);font-weight:700;font-size:14px;display:flex;gap:10px;align-items:center;max-width:92vw';document.body.appendChild(b);}
@@ -3989,7 +3994,7 @@ function renderLowm(j,lossOnly){
     +'<button class="ubtn" onclick="lowmGo(\'lowmloss\')" style="'+tabSt(lossOnly)+(loss.length&&!lossOnly?';color:#b91c1c;border-color:#b91c1c':'')+'">🔴 지금 바로 확인할 상품 '+loss.length+'</button>'
     +'<button class="ubtn" onclick="lowmGo(\'lowmhigh\')" style="'+tabSt(highOnly)+(high.length&&!highOnly?';color:#1d4ed8;border-color:#1d4ed8':'')+'">📈 고마진 '+high.length+'</button>'
     +'<button class="ubtn" onclick="lowmGo(\'lowmok\')" style="'+tabSt(okOnly)+'">👌 괜찮음 '+okRows.length+'</button>'
-    +'<button class="ubtn" onclick="lowmGo(\'lowmrk\')" style="'+tabSt(rkOnly)+(rkRows.length&&!rkOnly?';color:#b91c1c;border-color:#b91c1c':'')+'">🚨 리모컨≠판매가 '+rkRows.length+'</button>';
+    +'<button class="ubtn" onclick="lowmGo(\'lowmrk\')" style="'+tabSt(rkOnly)+(rkRows.some(r=>!rkWaitOf(r))&&!rkOnly?';color:#b91c1c;border-color:#b91c1c':'')+'">🚨 리모컨≠판매가 '+rkRows.length+'</button>';
   const bar=extra=>'<div style="display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap">'+extra+spcLink+(lossOnly?dayLink:'')+tabs+'<span class="lowm-msg" style="font-size:12.5px;color:var(--muted)"></span></div>';
   /* 👌 괜찮음 목록 (2026-11-10 홍팀장 「괜찮음 걸어둔 것도 리스트 만들어 — 한 번씩 보고 검토하게」)
      서버 okRows = LOWM_OK 전부 + 지금 값. [↩ 괜찮음 취소] 하면 다시 확인 대상(저마진·긴급)으로 돌아간다. */
@@ -4004,7 +4009,8 @@ function renderLowm(j,lossOnly){
       +'<table style="border-collapse:collapse;width:100%"><thead><tr>'+rc.map((t,i)=>'<th style="'+th+(i<3?';text-align:left':'')+'">'+t+'</th>').join('')+'</tr></thead><tbody>'
       +rkRows.map(r=>{
         const day=r.k==='당일', loss=+r.cost>0&&+r.rk<+r.cost, mg=+r.sell-(+r.cost||0), rate=Math.round((+r.sell-(+r.cost||0))/(+r.sell+(+r.ship||0))*1000)/10;
-        const note=(loss?'<br><span style="font-size:11.5px;color:#b91c1c;font-weight:700">🔴 리모컨이 원가보다 낮음 — 1개당 '+won(r.cost-r.rk)+'원 밑짐</span>':'')
+        const wt=rkWaitOf(r);
+        const note=(wt?'<br><span style="font-size:11.5px;color:#15803d;font-weight:700">⏳ 저장 완료 — 리모컨은 '+esc(wt)+' 반영 예정 (masterc 리모컨 반영 시간 밖에 저장)</span>':'')+(loss?'<br><span style="font-size:11.5px;color:#b91c1c;font-weight:700">🔴 리모컨이 원가보다 낮음 — 1개당 '+won(r.cost-r.rk)+'원 밑짐</span>':'')
           +(day&&r.how==='off'?'<br><span style="font-size:11.5px;color:#b45309;font-weight:700">⚠️ 당일 등록 꺼짐 — 저장하면 오늘 당일로 등록되어 판매사 화면에 나갈 수 있음</span>':'');
         return '<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(day?1:0)+'" data-loss="'+(loss?1:0)+'" data-sell="'+(+r.sell||0)+'" data-rk="'+(+r.rk||0)+'" data-force="1" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'">'
           +'<td style="'+td+';text-align:left">'+(day?'🐟 당일':'상시')+'</td>'
@@ -4137,7 +4143,10 @@ function lowmSave(btn){
     done();
     if(!d.ok){ if(msg)msg.textContent='⚠️ 저장하지 못했습니다 — '+(d.error||'알 수 없음'); alert('masterc 특별단가 저장 실패: '+(d.error||'알 수 없음')); return; }
     if(msg)msg.textContent='✅ masterc 특별단가(전체) '+d.n+'건 저장'+(d.spc>=0?' · 카탈로그 반영 중…':' · ⚠️ 카탈로그로는 못 보냄 — 상시 딸깍 필요')+(d.day?' '+String(d.day).replace(/\n/g,' '):'');
-    toast('특별단가 '+d.n+'건 저장 — 리모컨·카탈로그 반영');
+    if(d.rk&&d.rk.wait){ const o=rkWaitLocal(); rows.forEach(r=>{o[r.n]={at:Date.now(),win:String(d.rk.win||'')};}); try{localStorage.setItem('rk_wait_v1',JSON.stringify(o));}catch(e){}
+      if(msg)msg.textContent+=' · ⏳ 리모컨은 반영 시간('+(d.rk.win||'')+') 밖이라 다음 반영 때 들어갑니다';
+      toast('특별단가 '+d.n+'건 저장 — 리모컨은 반영 시간('+(d.rk.win||'')+') 시작 때 들어갑니다'); }
+    else toast('특별단가 '+d.n+'건 저장 — 리모컨·카탈로그 반영');
     api('catalog',{token:ME.token,fresh:1}).catch(()=>{}).then(()=>{ if(/^lowm(loss|high|ok|rk)?$/.test(location.hash.replace(/^#/,'')))renderRoute(); });
   }
   window.addEventListener('message',onMsg);

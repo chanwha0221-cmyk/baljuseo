@@ -131,7 +131,7 @@
     var L = await get('machan_list', 'list');
     if (needLogin(L) || !L.ok) throw new Error('상품리스트를 못 읽었습니다(로그인 확인)');
     var C = await get('machan_admin', 'cost');
-    var rkTxt = rkCheck(C);
+    var rkTxt = rkCheck(C, await rkWaitCtx());
     /* 🧾 등록 꺼진 당일 = 리모컨 공급가로 — 상품리스트 카드·원가표 판매가도 (2026-11-10 끝판왕문어 카드가 상품리스트 67,000 에서 왔다) */
     var rkOff = {};
     ((C && C.ok && C.rows) || []).forEach(function (r) { if (r.k === 'day' && r.how === 'off' && +r.rk_supply > 0) rkOff[String(r.n).replace(/\s+/g, '').toLowerCase()] = +r.rk_supply; });
@@ -232,7 +232,25 @@
      대상 = 리모컨 공급가 있음 + 웹 판매가와 다름. 리모컨 < 원가 = 🔴 역마진(정산이 원가보다 낮게 잡힘), 그 밖 = 🟠 리모컨 낮음/높음.
      새로 생기거나 값이 바뀐 줄만 알림·확인창, 지금 걸린 전체는 상태 칸에 늘 보인다. */
   var RKSEEN_KEY = 'mcw_rk_seen_v1';
-  function rkCheck(C) {
+  /* ⏳ 리모컨 반영 시간 밖에 저장한 특별단가 = «다음 반영 때 들어감» (2026-11-13 깐 바지락 500g: 17:35 에 10,000 저장 →
+        masterc 설정 「리모컨 반영 시간 08:00~16:10」 밖이라 리모컨 9,000 그대로 → 계속 떠서 홍팀장 「저장했다가 그때 반영할게요를 하든가」).
+     대상 = 반영 시간 꺼짐(rk_win_open false) + 특별단가(전체) 값 = 웹 판매가 + 그 특별단가를 마지막 반영(rk_last.at) 뒤에 고침.
+     이런 줄은 목록엔 «⏳ HH:MM 반영 예정»으로 남기고 알림·확인창은 안 띄운다. */
+  async function rkWaitCtx() {
+    try {
+      var St = await get('machan_admin', 'settings');
+      if (!St || !St.ok || !St.rk_win_on || St.rk_win_open) return null;
+      var Sp = await get('machan_admin', 'special_list');
+      var spc = {};
+      ((Sp && Sp.ok && Sp.rows) || []).forEach(function (r) {
+        if (+r.member_srl === 0 && r.active === 'Y' && +r.price > 0) spc[String(r.item).replace(/\s+/g, '').toLowerCase()] = { price: +r.price, at: String(r.upd_dt || r.reg_dt || '') };
+      });
+      var from = String(St.rk_win_from || '08:00');
+      var now = new Date(Date.now() + 9 * 3600e3).toISOString().slice(11, 16);   // 서울 HH:MM
+      return { spc: spc, last: String((St.rk_last && St.rk_last.at) || ''), label: (now < from ? '오늘 ' : '내일 ') + from };
+    } catch (e) { return null; }
+  }
+  function rkCheck(C, W) {
     var won = function (n) { return Math.round(+n || 0).toLocaleString(); };
     var bad = [];
     ((C && C.ok && C.rows) || []).forEach(function (r) {
@@ -245,18 +263,20 @@
          (11-13 특S급 초박달홍게 2.5kg: 등록가·특별단가 39,000 으로 고쳤는데 total 0·remain 0 이라 리모컨 38,000 그대로 → 계속 떠서
          홍팀장 「수정하는데 왜 계속 뜨냐」). 재고 들어와 등록되면 리모컨이 맞춰지고, 그래도 다르면 그때 다시 잡힌다. */
       if (r.k === 'day' && !(+r.remain > 0)) return;
+      var sp = W && W.spc[String(r.n).replace(/\s+/g, '').toLowerCase()];
+      var wait = (sp && sp.price === sell && W.last && sp.at > W.last) ? W.label : '';
       bad.push({ n: r.n, wh: r.wh, k: r.k === 'day' ? '당일' : '상시', how: r.how, rk: rk, sell: sell, cost: cost,
-                 base: +r.base || 0, ship: shipNum(r.ship), remain: +r.remain || 0,
+                 base: +r.base || 0, ship: shipNum(r.ship), remain: +r.remain || 0, wait: wait,
                  loss: cost > 0 && rk < cost, key: r.n + '|' + rk + '|' + sell + '|' + cost });
     });
     bad.sort(function (a, b) { return (b.loss - a.loss) || ((a.rk - a.sell) - (b.rk - b.sell)); });
     S.rk = bad;
     /* 📋 카탈로그 저마진 «🚨 리모컨≠판매가» 탭으로 지금 걸린 전체를 보낸다 — 빈 목록도(다 맞으면 탭이 비어야 한다) (11-10) */
     if (C && C.ok) edge({ action: 'mcrk', key: KEY, rows: bad.map(function (x) {
-      return { n: x.n, wh: x.wh, k: x.k, how: x.how, rk: x.rk, sell: x.sell, cost: x.cost, base: x.base, ship: x.ship, remain: x.remain };
+      return { n: x.n, wh: x.wh, k: x.k, how: x.how, rk: x.rk, sell: x.sell, cost: x.cost, base: x.base, ship: x.ship, remain: x.remain, wait: x.wait };
     }) }).catch(function () {});
     var seen = {}; try { seen = JSON.parse(localStorage.getItem(RKSEEN_KEY) || '{}') || {}; } catch (e) {}
-    var fresh = bad.filter(function (x) { return !seen[x.key]; });
+    var fresh = bad.filter(function (x) { return !seen[x.key] && !x.wait; });
     var keep = {}; bad.forEach(function (x) { keep[x.key] = 1; });
     try { localStorage.setItem(RKSEEN_KEY, JSON.stringify(keep)); } catch (e) {}
     if (fresh.length) {
