@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.233</title>
+<title>마스터 유통 카탈로그 v23.234</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3598,7 +3598,10 @@ async function checkVer(){
     if(!r.ok)return;
     const live=(await r.text()).trim();
     if(!/^v[\d.]+$/.test(live))return;      // 404 페이지 본문 같은 게 오면 무시
-    if(live!==MYVER)showVerBar(live);
+    /* 🔢 더 «높은» 버전일 때만 띄운다 (2026-11-14 v23.233 배포에 version.txt 를 안 올려 «v23.233 → v23.232» 거꾸로 뜸) */
+    const vn=s=>s.replace(/^v/,'').split('.').map(Number), a=vn(live), b=vn(MYVER);
+    let newer=false; for(let i=0;i<Math.max(a.length,b.length);i++){const x=a[i]||0,y=b[i]||0; if(x!==y){newer=x>y;break;}}
+    if(newer)showVerBar(live);
   }catch(e){}
 }
 
