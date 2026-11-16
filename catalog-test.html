@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.235</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.236</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3942,7 +3942,10 @@ function lowmPoll(){
     if(names.length)document.title='🔴'+names.length+' '+document.title;
     /* 한 번 띄운 건 새로고침해도 다시 안 띄운다(브라우저에 기억) — 목록에서 빠졌다가 다시 들어오면 그때 또 알림 */
     let seen={};try{seen=JSON.parse(localStorage.getItem('lowm_bar_seen_v1')||'{}')||{};}catch(e){}
-    const fresh=names.filter(n=>!seen[n]&&(!LOWM_KNOWN||!LOWM_KNOWN.has(n)));
+    /* 🔴 단, 역마진(판매가·리모컨 < 원가, 판매가 < 공급가)은 고칠 때까지 화면 열 때마다 띄운다 (2026-11-16 타코 문어 500g:
+       판매가 4,000 < 원가 6,000 — 마찬 사이트는 계속 경고하는데 카탈로그 띠는 한 번 보고 나니 다시 안 떠서 「카탈로그엔 왜 안 뜨냐」) */
+    const hard=new Set(loss.filter(r=>lowmIsLoss(r)).map(r=>r.n).concat(rk.filter(n=>/리모컨 역마진/.test(n))));
+    const fresh=names.filter(n=>(!LOWM_KNOWN&&hard.has(n))||(!seen[n]&&(!LOWM_KNOWN||!LOWM_KNOWN.has(n))));
     if(fresh.length&&(LOWM_KNOWN||!/^#?lowm/.test(location.hash)))lowmAlertBar(fresh,fresh.every(n=>n.startsWith('🚨'))?'lowmrk':'lowmloss');
     const keep={};names.forEach(n=>keep[n]=1);try{localStorage.setItem('lowm_bar_seen_v1',JSON.stringify(keep));}catch(e){}
     LOWM_KNOWN=new Set(names);
