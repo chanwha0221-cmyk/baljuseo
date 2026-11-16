@@ -3200,6 +3200,19 @@ function headerItems(raw){
           아크미처럼 상품명 칸에 이미 우리 이름이 적혀 있고, 옵션 칸은 긴 설명문인 경우다. */
     let nm = (RULE.optMode !== 'parse' && op && !DEFAULT_OPT.test(op) && nm0.indexOf(op) < 0)
       ? (nm0 + ' ' + op) : nm0;
+    /* 📦 상품명 한 칸에 합포장 「A x 1 / B x 1」 (홍팀장 2026-11-16 가족농수산) — 꼬리 x N 떼기 **전에** 상품별 줄로 푼다.
+       뒤에서 꼬리를 먼저 떼면 「A x 1 / B」 한 상품이 돼서 못 찾는다. 받는분·주소가 같으니 발주서에서 다시 합포장으로 묶인다. */
+    { const hp = S(nm0).split(/\s+\/\s+/), hm = hp.map(t => t.match(/^(.*?\S)\s*[xX×*]\s*(\d{1,3})\s*$/));
+      const st0 = stIdx >= 0 ? S(c[stIdx]) : '';
+      if(hp.length > 1 && hm.every(Boolean) && !/취소|반품|교환/.test(st0)){
+        const bq = parseInt(S(g('qty')).replace(/[^\d]/g, ''), 10) || 1;
+        let ad = g('addr'); const zp = S(g('zip')).replace(/[^\d]/g, '');
+        if(zp && ad && ad.indexOf(zp) < 0) ad = '(' + zp + ')' + ad;
+        hm.forEach(m => out.push({ biz:bizCell(g('biz')), name:S(m[1]), qty:String((parseInt(m[2], 10) || 1) * bq), rcv:rcvName(g('rcv')), addr:ad,
+          tel:fmtTel(g('tel')) || g('tel'), msg:g('msg'), otel:fmtTel(g('otel')) || g('otel') }));
+        out.hapN = (out.hapN || 0) + 1;
+        continue;
+      } }
     /* ✖ 이름 **끝**에 붙은 배수 — 「강화 사자발 약쑥 떡 12개*2」 = 12개들이 두 개 (홍팀장 2026-09-11 아크미).
        이름 칸에 우리 상품명을 적어 오는 업체는 배수도 거기 붙여 온다. 떼지 않으면 상품을 못 찾고,
        배수로 안 쓰면 절반만 나간다(전체 규칙 「옵션 배수 × 수량」과 같은 셈). 뒤에 (뼈,머리 포함)이 붙어 있어도 뗀다.
@@ -3361,7 +3374,8 @@ function runConvert(append){
         고르는 칸이 아예 없으므로 "골라주세요" 같은 말이 뜨면 안 된다 (홍팀장 2026-09-01). */
   const master = amMaster();
   const notes = [];
-  if(hapSp.n) notes.push('<div class="ordrecon ok">📦 <b>한 칸에 적힌 합포장 ' + hapSp.n + '건을 상품별 줄로 풀었습니다</b> — 받는분·주소가 같아서 발주서에서는 다시 합포장으로 묶여 나갑니다.</div>');
+  const hapN = hapSp.n + ((hd && hd.hapN) || 0);
+  if(hapN) notes.push('<div class="ordrecon ok">📦 <b>한 칸에 적힌 합포장 ' + hapN + '건을 상품별 줄로 풀었습니다</b> — 받는분·주소가 같아서 발주서에서는 다시 합포장으로 묶여 나갑니다.</div>');
   const whoLine = who => master ? '위에서 고른 <b>' + esc(who) + '</b>' : '로그인하신 <b>' + esc(who) + '</b>';
   if(byHead){
     const who = orderer();
