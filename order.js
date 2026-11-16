@@ -190,6 +190,22 @@ async function loadVAlias(){
 }
 window.loadVAlias = loadVAlias;
 function aliasReady(){ return !!VALIAS_FOR && VALIAS_FOR === aliasWho(); }
+/* 📦 업체가 합포장을 상품명 한 칸에 적어 온 것 — 「A 2kg x 1 / B 2.5kg x 1」 (홍팀장 2026-11-16, 가족농수산).
+   한 상품으로 읽으면 상품을 못 찾는다. 상품마다 한 줄로 풀어 넣고, 받는분·주소가 같으니 발주서에서 다시 합포장으로 묶인다.
+   🔴 ` / `(앞뒤 띄어쓰기)로 나뉘고 **조각마다 끝에 x 수량**이 있을 때만 푼다 — 이름 속 「3/4」 같은 건 건드리지 않는다.
+   수량 칸이 2 이상이면 조각 수량에 곱한다(같은 묶음을 그만큼). */
+function splitHapRows(rows){
+  const out = []; let n = 0;
+  (rows || []).forEach(r => {
+    const parts = S(r.name).split(/\s+\/\s+/);
+    const its = parts.map(t => t.match(/^(.*?\S)\s*[xX×*]\s*(\d{1,3})\s*$/));
+    if(parts.length < 2 || its.some(m => !m)){ out.push(r); return; }
+    const mul = parseInt(D(r.qty), 10) > 1 ? parseInt(D(r.qty), 10) : 1;
+    its.forEach(m => out.push(Object.assign({}, r, { name: S(m[1]), qty: String((parseInt(m[2], 10) || 1) * mul) })));
+    n++;
+  });
+  return { rows: out, n };
+}
 /* 들어온 줄에 별칭을 입힌다. 바꾼 목록을 돌려줘서 화면에 그대로 적는다. */
 function applyAlias(rows){
   const done = [];
@@ -3332,6 +3348,7 @@ function runConvert(append){
     }
   }
 
+  const hapSp = splitHapRows(got.rows); got.rows = hapSp.rows;   // 📦 한 칸에 적힌 합포장을 상품별 줄로
   // 기존 줄 중 빈 줄은 버리고 채운다(처음 화면의 빈 3줄이 그대로 남지 않게)
   const keep = append ? ROWS.filter(x => FIELDS.some(f => S(x[f]))) : [];
   ROWS = keep.concat(got.rows);
@@ -3344,6 +3361,7 @@ function runConvert(append){
         고르는 칸이 아예 없으므로 "골라주세요" 같은 말이 뜨면 안 된다 (홍팀장 2026-09-01). */
   const master = amMaster();
   const notes = [];
+  if(hapSp.n) notes.push('<div class="ordrecon ok">📦 <b>한 칸에 적힌 합포장 ' + hapSp.n + '건을 상품별 줄로 풀었습니다</b> — 받는분·주소가 같아서 발주서에서는 다시 합포장으로 묶여 나갑니다.</div>');
   const whoLine = who => master ? '위에서 고른 <b>' + esc(who) + '</b>' : '로그인하신 <b>' + esc(who) + '</b>';
   if(byHead){
     const who = orderer();
@@ -3755,7 +3773,7 @@ function bind(){
     if(!file) return;
     const btn = $$('ord_pick'); if(btn){ btn.disabled = true; btn.textContent = '읽는 중…'; }
     try{
-      const got = await readFile(file);
+      let got = await readFile(file);
       // 🔄 우리 양식이 아니면 칸 순서대로 읽지 않고 변환기로 넘긴다 (foreign 주석 참고)
       if(foreign(got)){
         openConvert();
@@ -3765,6 +3783,7 @@ function bind(){
       }
       if(!got.length){ alert('가져올 내용이 없습니다. 첫 줄은 머리글이어도 되고, 업체명 / 상품명 / 수량 / 성함 / 주소 / 연락처 / 배송메시지 순서로 넣어주세요.'); }
       else{
+        got = splitHapRows(got).rows;          // 📦 한 칸에 적힌 합포장을 상품별 줄로
         ROWS = ROWS.filter(r => FIELDS.some(f => S(r[f]))).concat(got);
         const al = applyAlias(got);            // 🏷 전에 골라 둔 이름은 바로 붙인다
         OPEN = -1; paint();
@@ -3818,13 +3837,14 @@ function bind(){
   on('ord_ptno', () => { $$('ord_pastebox').style.display = 'none'; $$('ord_pt').value = ''; });
   on('ord_ptok', () => {
     const raw = $$('ord_pt').value;
-    const got = parsePaste(raw);
+    let got = parsePaste(raw);
     if(foreign(got)){
       $$('ord_pt').value = ''; $$('ord_pastebox').style.display = 'none';
       openConvert(); $$('ord_cv').value = raw; runConvert(false); autoNote();
       return;
     }
     if(!got.length){ toast('가져올 내용이 없습니다'); return; }
+    got = splitHapRows(got).rows;              // 📦 한 칸에 적힌 합포장을 상품별 줄로
     ROWS = ROWS.filter(r => FIELDS.some(f => S(r[f]))).concat(got);
     const al = applyAlias(got);                // 🏷 전에 골라 둔 이름은 바로 붙인다
     $$('ord_pt').value = ''; $$('ord_pastebox').style.display = 'none';
