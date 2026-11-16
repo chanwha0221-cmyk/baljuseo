@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.239</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.240</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -4012,7 +4012,7 @@ function renderLowm(j,lossOnly){
     if(!rkRows.length)return h+'<div class="empty">✅ 리모컨과 판매가가 다른 상품이 없습니다.</div>';
     const rc=['구분','창고','상품명','리모컨(정산)','웹 판매가','차이','맞출 값','원가','택배비','마진','마진율'];
     return h+'<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px">'
-      +'<table style="border-collapse:collapse;width:100%"><thead><tr>'+rc.map((t,i)=>'<th style="'+th+(i<3?';text-align:left':'')+'">'+t+'</th>').join('')+'</tr></thead><tbody>'
+      +'<table style="border-collapse:collapse;width:100%"><thead><tr>'+rc.map((t,i)=>'<th style="'+th+(i<3?';text-align:left':'')+';cursor:pointer" onclick="lowmSort(this)" title="눌러서 정렬">'+t+'</th>').join('')+'</tr></thead><tbody>'
       +rkRows.map(r=>{
         const day=r.k==='당일', loss=+r.cost>0&&+r.rk<+r.cost, mg=+r.sell-(+r.cost||0), rate=Math.round((+r.sell-(+r.cost||0))/(+r.sell+(+r.ship||0))*1000)/10;
         const wt=rkWaitOf(r);
@@ -4038,7 +4038,7 @@ function renderLowm(j,lossOnly){
     const day=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',year:'2-digit',month:'numeric',day:'numeric'}):'';
     const oc=['누른 날','구분','창고','상품명','판매가','원가','택배비','마진','마진율',''];
     return h+'<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px">'
-      +'<table style="border-collapse:collapse;width:100%"><thead><tr>'+oc.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+'">'+t+'</th>').join('')+'</tr></thead><tbody>'
+      +'<table style="border-collapse:collapse;width:100%"><thead><tr>'+oc.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+';cursor:pointer" onclick="lowmSort(this)" title="눌러서 정렬">'+t+'</th>').join('')+'</tr></thead><tbody>'
       +okRows.map(r=>{
         const note=r.gone?'<br><span style="font-size:11.5px;color:var(--muted)">지금 상품 목록에 없음(품절·내림)</span>'
           :r.loss?'<br><span style="font-size:11.5px;color:#b91c1c;font-weight:700">🔴 지금 역마진 — 괜찮음 안 먹음, 빨간 탭에 뜸</span>'
@@ -4065,7 +4065,7 @@ function renderLowm(j,lossOnly){
   h+=bar(saveBtn+okAllBtn)
     +'<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px">'
     +'<table style="border-collapse:collapse;width:100%"><thead><tr>'
-    +cols.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+'">'+t+'</th>').join('')
+    +cols.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+';cursor:pointer" onclick="lowmSort(this)" title="눌러서 정렬">'+t+'</th>').join('')
     +'</tr></thead><tbody>'
     +rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'"'+(lossOnly?' data-lowmack="1"':'')+'>'
       +'<td style="'+td+';text-align:left;font-size:12px;color:'+(r.urgent?'#b91c1c;font-weight:700':'var(--muted)')+'">'+hm(r.at)+'</td>'
@@ -4098,7 +4098,37 @@ function lowmKeep(inp){
   try{ localStorage.setItem(LOWM_DRAFT_KEY,JSON.stringify(o)); }catch(e){}
 }
 function lowmDraftDrop(names){ const o=lowmDraftAll(); (names||[]).forEach(n=>delete o[n]); try{ localStorage.setItem(LOWM_DRAFT_KEY,JSON.stringify(o)); }catch(e){} }
-function lowmDraftCalc(){ const o=lowmDraftAll(); document.querySelectorAll('tr[data-lowm] .lowm-in').forEach(inp=>{ const tr=inp.closest('tr'); if(tr&&o[tr.dataset.lowm])lowmCalc(inp); }); }
+/* ↕ 머리글 눌러 정렬 (2026-11-17 홍팀장 「여기 정렬기능도 넣어주고」) — 줄을 옮기기만 해서 넣던 «새 판매가»는 그대로 남는다.
+   한 번 = 큰 것부터, 또 누르면 작은 것부터. 화면(탭)마다 마지막 정렬을 기억해 다시 그려도 유지. */
+function lowmSortVal(td){
+  if(!td)return '';
+  const inp=td.querySelector('input'); let t=inp?(inp.value||inp.placeholder||''):td.textContent;
+  t=String(t).trim().split('\n')[0];
+  const m=t.replace(/[,원%\s]/g,'').match(/^[+-]?\d+(\.\d+)?$/);
+  if(m)return +m[0];
+  const d=t.match(/^(\d+)\.\s*(\d+)\.\s*(\d+):(\d+)/); if(d)return ((+d[1])*100+(+d[2]))*10000+(+d[3])*100+(+d[4]);
+  const d2=t.match(/^(\d+)\.\s*(\d+)\.\s*(\d+)\./); if(d2)return (+d2[1])*10000+(+d2[2])*100+(+d2[3]);
+  return t;
+}
+function lowmSort(th,dir){
+  const table=th.closest('table'), tb=table&&table.tBodies[0]; if(!tb)return;
+  const idx=th.cellIndex; if(!String(th.textContent).replace(/[▲▼\s]/g,''))return;
+  dir=dir||(th.dataset.dir==='desc'?'asc':'desc');
+  table.querySelectorAll('th').forEach(h=>{ delete h.dataset.dir; h.textContent=h.textContent.replace(/ [▲▼]$/,''); });
+  th.dataset.dir=dir; th.textContent+=dir==='desc'?' ▼':' ▲';
+  const rows=[...tb.rows];
+  rows.sort((a,b)=>{ const x=lowmSortVal(a.cells[idx]), y=lowmSortVal(b.cells[idx]);
+    const c=(typeof x==='number'&&typeof y==='number')?x-y:(typeof x==='number'?-1:typeof y==='number'?1:String(x).localeCompare(String(y),'ko'));
+    return dir==='desc'?-c:c; });
+  rows.forEach(r=>tb.appendChild(r));
+  try{ const o=JSON.parse(sessionStorage.getItem('lowm_sort_v1')||'{}'); o[location.hash]={i:idx,d:dir}; sessionStorage.setItem('lowm_sort_v1',JSON.stringify(o)); }catch(e){}
+}
+function lowmSortRestore(){
+  try{ const s=JSON.parse(sessionStorage.getItem('lowm_sort_v1')||'{}')[location.hash]; if(!s)return;
+    const h=document.querySelector('th[onclick^="lowmSort"]'); const th=h&&h.parentNode.cells[s.i];
+    if(th)lowmSort(th,s.d); }catch(e){}
+}
+function lowmDraftCalc(){ lowmSortRestore(); const o=lowmDraftAll(); document.querySelectorAll('tr[data-lowm] .lowm-in').forEach(inp=>{ const tr=inp.closest('tr'); if(tr&&o[tr.dataset.lowm])lowmCalc(inp); }); }
 /* ✏️ 새 판매가를 넣으면 그 줄 마진·마진율을 바로 다시 센다 (저장 전 검산용) */
 function lowmCalc(inp){
   const tr=inp.closest('tr'); if(!tr)return;
