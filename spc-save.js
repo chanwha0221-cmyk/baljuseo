@@ -101,6 +101,7 @@
         } catch (e) { dayTxt = '\n⚠️ 당일 등록가는 못 고쳤습니다 — ' + ((e && e.message) || e); }
       }
 
+      try { sessionStorage.removeItem('spcsave_rows_v1'); window.name = ''; } catch (e) {}
       tell({ ok: true, n: x.n || list.length, rk: x.rk || null, spc: spcN, rows: list, day: dayTxt });
       say('✅ masterc 특별단가(전체) ' + (x.n || list.length) + '개 저장'
         + (spcN >= 0 ? '\n카탈로그에도 보냈습니다 (특별단가 ' + spcN + '개)' : '\n⚠️ 카탈로그로는 못 보냈습니다 — 상시 딸깍을 눌러주세요') + dayTxt
@@ -113,11 +114,37 @@
     }
   }
 
+  /* 🔐 로그인부터 본다 (2026-11-17 홍팀장 「로그인 안 하고 저장 누르면 로그인 하고 나서 멈춤」).
+     로그인이 풀려 있으면 저장을 시도하지 않고 카탈로그에 알린 뒤 기다린다 — 이 창에서 로그인하면
+     창 이름(spcsave…) 덕에 dm-bridge 가 다시 이 파일을 불러 이어서 저장한다. 받은 줄은 이 창(sessionStorage)에도 남겨 둔다. */
+  var SS = 'spcsave_rows_v1';
+  function keep(rows) { try { sessionStorage.setItem(SS, JSON.stringify({ rows: rows, at: Date.now() })); } catch (e) {} }
+  function kept() { try { var o = JSON.parse(sessionStorage.getItem(SS) || 'null'); return o && Date.now() - o.at < 3600000 ? o.rows : null; } catch (e) { return null; } }
+  function drop() { try { sessionStorage.removeItem(SS); } catch (e) {} }
+  function loggedIn() {
+    return fetch('/xd/api.php?mid=machan_admin&a=special_list', { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { return r.json(); }).then(function (j) { return !!(j && j.ok); }).catch(function () { return false; });
+  }
+  function needLogin() {
+    say('🔐 masterc 로그인이 풀려 있습니다.\n이 창에서 로그인하세요 — 로그인하면 카탈로그에서 넣은 단가 그대로 이어서 저장합니다(다시 넣을 필요 없음).');
+    tell({ login: true });
+  }
+
   var got = false;
+  function go(rows) {
+    if (got) return; got = true; keep(rows);
+    loggedIn().then(function (ok) {
+      if (!ok) { got = false; needLogin(); return; }
+      run(rows);
+    });
+  }
   window.addEventListener('message', function (ev) {
     if (ev.origin !== TARGET || !ev.data || ev.data.type !== 'spcsave-rows' || got) return;
-    got = true; run(ev.data.rows);
+    go(ev.data.rows);
   });
+  var prev = kept();
   tell({ ready: true });
-  setTimeout(function () { if (!got) say('⚠️ 카탈로그에서 저장할 값을 못 받았습니다 — 카탈로그 저마진 화면에서 다시 눌러주세요.'); }, 15000);
+  // 로그인 화면을 거쳐 돌아온 경우 — 카탈로그를 안 기다리고 받아 둔 줄로 바로 잇는다(카탈로그가 또 보내도 got 으로 무시)
+  if (prev && prev.length) go(prev);
+  setTimeout(function () { if (!got) say('⚠️ 카탈로그에서 저장할 값을 못 받았습니다 — 로그인돼 있는지 보고, 카탈로그 저마진 화면의 [🔁 masterc 창 다시 열기]를 눌러주세요.'); }, 15000);
 })();

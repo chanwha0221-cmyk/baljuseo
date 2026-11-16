@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.238</title>
+<title>마스터 유통 카탈로그 v23.239</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -4018,7 +4018,7 @@ function renderLowm(j,lossOnly){
           +'<td style="'+td+';font-weight:800;color:'+(loss?'#b91c1c':'#b45309')+'">'+won(r.rk)+'</td>'
           +'<td style="'+td+'">'+won(r.sell)+'</td>'
           +'<td style="'+td+'">'+(r.rk>r.sell?'+':'')+won(r.rk-r.sell)+'</td>'
-          +'<td style="'+td+'"><input class="lowm-in" inputmode="numeric" value="'+(+r.sell||0)+'" oninput="lowmCalc(this)" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit"></td>'
+          +'<td style="'+td+'"><input class="lowm-in" inputmode="numeric" value="'+(lowmDraftOf(r.n)||+r.sell||0)+'" oninput="lowmCalc(this);lowmKeep(this)" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit"></td>'
           +'<td style="'+td+'">'+won(r.cost)+'</td><td style="'+td+'">'+won(r.ship)+'</td>'
           +'<td class="lowm-mg" style="'+td+(mg<0?';color:#b91c1c;font-weight:700':'')+'">'+won(mg)+'</td>'
           +'<td class="lowm-rt" style="'+td+';font-weight:800;color:'+(rate<0?'#b91c1c':'#b45309')+'">'+rate+'%</td></tr>';
@@ -4053,7 +4053,7 @@ function renderLowm(j,lossOnly){
   const hm=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}):'';
   /* 🔴 역마진 줄엔 [👌 괜찮음] 없음 — 괜찮음을 눌러도 역마진이면 계속 뜬다 (2026-10-27 홍팀장 「어떤 장사꾼이 역마진을 보고 상품이 나가냐」) */
   const okBtn=r=>highOnly?'':lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?'<span style="font-size:11.5px;color:#b91c1c;font-weight:700;white-space:nowrap">🔴 단가 수정</span>':r.ok?'<button class="ubtn" style="font-size:11.5px" title="다시 확인 대상으로" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',false)">👌 괜찮음 ✓</button>':'<button class="ubtn" style="font-size:11.5px" title="이 상품은 마진을 다시 묻지 않습니다" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',true)">👌 괜찮음</button>';
-  const inCell=r=>'<input class="lowm-in" inputmode="numeric" placeholder="'+won(r.sell)+'" oninput="lowmCalc(this)" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit">';
+  const inCell=r=>'<input class="lowm-in" inputmode="numeric" placeholder="'+won(r.sell)+'" value="'+(lowmDraftOf(r.n)||'')+'" oninput="lowmCalc(this);lowmKeep(this)" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit">';
   const okAllBtn=lossOnly?'<button class="ubtn" style="font-weight:800" onclick="lowmOkAll(this)">👌 전체 괜찮음 '+rows.length+'</button>':'';
   h+=bar(saveBtn+okAllBtn)
     +'<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px">'
@@ -4076,8 +4076,22 @@ function renderLowm(j,lossOnly){
       +'</tr>').join('')
     +'</tbody></table></div>'
     +'<div style="margin-top:8px">'+saveBtn+'</div>';
+  setTimeout(lowmDraftCalc,0);
   return h;
 }
+/* 💾 적어 둔 새 판매가 기억 (2026-11-17 홍팀장 「로그인 안 하고 저장 누르면 로그인 하고 나서 멈춤 — 다시 다 단가 넣어야 한다」)
+   손으로 넣은 값만 이 브라우저에 하루 동안 남긴다. 저장이 성공한 상품만 지운다 — 실패·멈춤·새로고침해도 칸에 다시 채워진다. */
+const LOWM_DRAFT_KEY='lowm_draft_v1';
+function lowmDraftAll(){ try{ const o=JSON.parse(localStorage.getItem(LOWM_DRAFT_KEY)||'{}'), now=Date.now(); Object.keys(o).forEach(k=>{ if(!o[k]||now-(+o[k].at||0)>86400000)delete o[k]; }); return o; }catch(e){ return {}; } }
+function lowmDraftOf(n){ const d=lowmDraftAll()[n]; return d&&+d.v>0?+d.v:0; }
+function lowmKeep(inp){
+  const tr=inp.closest('tr'); if(!tr||!tr.dataset.lowm)return;
+  const v=parseInt(String(inp.value).replace(/[^0-9]/g,''),10), o=lowmDraftAll();
+  if(v>0)o[tr.dataset.lowm]={v,at:Date.now()}; else delete o[tr.dataset.lowm];
+  try{ localStorage.setItem(LOWM_DRAFT_KEY,JSON.stringify(o)); }catch(e){}
+}
+function lowmDraftDrop(names){ const o=lowmDraftAll(); (names||[]).forEach(n=>delete o[n]); try{ localStorage.setItem(LOWM_DRAFT_KEY,JSON.stringify(o)); }catch(e){} }
+function lowmDraftCalc(){ const o=lowmDraftAll(); document.querySelectorAll('tr[data-lowm] .lowm-in').forEach(inp=>{ const tr=inp.closest('tr'); if(tr&&o[tr.dataset.lowm])lowmCalc(inp); }); }
 /* ✏️ 새 판매가를 넣으면 그 줄 마진·마진율을 바로 다시 센다 (저장 전 검산용) */
 function lowmCalc(inp){
   const tr=inp.closest('tr'); if(!tr)return;
@@ -4130,20 +4144,45 @@ function lowmSave(btn){
   /* 🔁 창 이름을 매번 새로 (2026-11-14 통통 하프셀 «새 판매가 넣고 저장했는데 안 먹힘» — masterc 특별단가에 기록 없음).
      같은 이름 'spcsave' 로 열면, 실패해서 안 닫힌 옛 저장 창이 남아 있을 때 그 창의 # 만 바뀌고 다시 로드되지 않아
      spc-save.js 가 안 돌았다(ready 안 옴 → 2분 뒤 «응답 없음»). */
-  const w=window.open('https://masterc.kr/board_eJGl96#spcsave','spcsave'+Date.now());
-  if(w&&ack.length)sendAck();
-  if(!w){ alert('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요.'); return; }
+  /* 🔐 로그인 풀린 채로 누르면 (2026-11-17 홍팀장 「로그인 하고 나서 그냥 여기서 멈춤」): 로그인하면서 주소 끝 #spcsave 가 떨어져 저장 스크립트가 안 깨어났다.
+     → ① 창 이름(spcsave…)은 로그인으로 페이지가 바뀌어도 남는다 — dm-bridge 가 이름으로도 깨어난다
+       ② 여기선 10분 동안 기다리며 «준비됨»이 오는 창(ev.source)에 줄을 보낸다
+       ③ 25초 안에 안 깨어나면 [🔁 masterc 창 다시 열기] — 입력한 단가 그대로 다시 보낸다(다시 칠 필요 없음) */
+  const W={w:window.open('https://masterc.kr/board_eJGl96#spcsave','spcsave'+Date.now()), sent:null, ready:false};
+  if(W.w&&ack.length)sendAck();
+  if(!W.w){ alert('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요.'); return; }
   const btns=document.querySelectorAll('button[onclick^="lowmSave"]');
   btns.forEach(b=>b.disabled=true);
   if(msg)msg.textContent='masterc 에 저장 중… (열린 창이 저장하고 닫힙니다)';
-  const done=()=>{ clearTimeout(t); window.removeEventListener('message',onMsg); btns.forEach(b=>b.disabled=false); };
-  const t=setTimeout(()=>{ done(); if(msg)msg.textContent='⚠️ masterc 응답이 없습니다 — 열린 masterc 창을 확인하세요(로그인 풀림 등). 저장됐는지는 [🏷 특별단가 보기]에서 확인.'; },120000);
+  const payload={type:'spcsave-rows',rows:rows.map(r=>({n:r.n,wh:r.wh,price:r.price,day:!!r.day}))};
+  const reopenBtn='<button class="ubtn" style="font-size:12px;font-weight:800" data-lowmreopen="1">🔁 masterc 창 다시 열기</button>';
+  const stuck=why=>{ if(!msg)return; msg.innerHTML='🔐 '+why+' — masterc 창에서 로그인하면 그대로 이어서 저장합니다. 로그인했는데 안 넘어가면 '+reopenBtn+' (넣은 단가는 그대로 다시 보냅니다)';
+    const b=msg.querySelector('[data-lowmreopen]'); if(b)b.onclick=reopen; };
+  function reopen(){
+    try{ if(W.w&&!W.w.closed)W.w.close(); }catch(e){}
+    W.w=window.open('https://masterc.kr/board_eJGl96#spcsave','spcsave'+Date.now()); W.sent=null; W.ready=false;
+    if(!W.w){ alert('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러주세요.'); return; }
+    if(msg)msg.textContent='masterc 에 저장 중… (다시 연 창이 저장하고 닫힙니다)';
+    clearTimeout(t2); t2=setTimeout(()=>{ if(!W.ready)stuck('masterc 창이 아직 저장을 시작하지 못했습니다'); },25000);
+  }
+  const done=()=>{ clearTimeout(t); clearTimeout(t2); window.removeEventListener('message',onMsg); btns.forEach(b=>b.disabled=false); };
+  const t=setTimeout(()=>{ done(); if(msg)msg.innerHTML='⚠️ masterc 응답이 없습니다 — 넣은 단가는 칸에 남아 있으니 로그인 확인 후 [💾 단가 저장]을 다시 누르세요. 저장됐는지는 [🏷 특별단가 보기]에서 확인.'; },600000);
+  let t2=setTimeout(()=>{ if(!W.ready)stuck('masterc 로그인이 필요해 보입니다'); },25000);
   function onMsg(ev){
     if(ev.origin!=='https://masterc.kr'||!ev.data||ev.data.type!=='spcsave')return;
     const d=ev.data;
-    if(d.ready){ try{ w.postMessage({type:'spcsave-rows',rows:rows.map(r=>({n:r.n,wh:r.wh,price:r.price,day:!!r.day}))},'https://masterc.kr'); }catch(e){} return; }
+    if(d.login){ W.ready=true; stuck('masterc 로그인이 풀려 있습니다'); return; }
+    if(d.ready){
+      // 한 번 보낸 창이 아닌 다른 창이면 보내지 않는다(같은 값 두 번 저장 방지). 다시 열기를 누르면 새 창으로 넘어간다.
+      if(W.sent&&W.sent!==ev.source)return;
+      W.ready=true; W.sent=ev.source;
+      try{ ev.source.postMessage(payload,'https://masterc.kr'); }catch(e){}
+      if(msg)msg.textContent='masterc 에 저장 중… (열린 창이 저장하고 닫힙니다)';
+      return;
+    }
     done();
-    if(!d.ok){ if(msg)msg.textContent='⚠️ 저장하지 못했습니다 — '+(d.error||'알 수 없음'); alert('masterc 특별단가 저장 실패: '+(d.error||'알 수 없음')); return; }
+    if(!d.ok){ if(msg)msg.textContent='⚠️ 저장하지 못했습니다 — '+(d.error||'알 수 없음')+' · 넣은 단가는 칸에 남아 있습니다'; alert('masterc 특별단가 저장 실패: '+(d.error||'알 수 없음')+'\n\n넣은 단가는 그대로 남아 있습니다 — 로그인 확인 후 다시 저장하세요.'); return; }
+    lowmDraftDrop(rows.map(r=>r.n));
     if(msg)msg.textContent='✅ masterc 특별단가(전체) '+d.n+'건 저장'+(d.spc>=0?' · 카탈로그 반영 중…':' · ⚠️ 카탈로그로는 못 보냄 — 상시 딸깍 필요')+(d.day?' '+String(d.day).replace(/\n/g,' '):'');
     if(d.rk&&d.rk.wait){ const o=rkWaitLocal(); rows.forEach(r=>{o[r.n]={at:Date.now(),win:String(d.rk.win||'')};}); try{localStorage.setItem('rk_wait_v1',JSON.stringify(o));}catch(e){}
       if(msg)msg.textContent+=' · ⏳ 리모컨은 반영 시간('+(d.rk.win||'')+') 밖이라 다음 반영 때 들어갑니다';

@@ -39,8 +39,11 @@
   document.head.appendChild(s);
 })();
 /* 🏷 #spcsave — 카탈로그 저마진 [💾 단가 저장] 이 이 게시판을 새 창으로 연다 (2026-10-15 홍팀장). spc-save.js 가 masterc 특별단가(전체)에 저장한다. */
+/* 🔐 2026-11-17: 로그인 풀린 채로 열리면 로그인하면서 주소 끝 #spcsave 가 떨어진다 → 창 이름(카탈로그가 'spcsave'+시각으로 연다)으로도 깨어난다.
+   창 이름은 같은 창이 로그인 화면을 거쳐 돌아와도 남는다. */
 (function () {
-  if (String(location.hash || '').indexOf('spcsave') < 0) return;
+  var byName = /^spcsave\d+$/.test(String(window.name || ''));
+  if (String(location.hash || '').indexOf('spcsave') < 0 && !byName) return;
   var s = document.createElement('script');
   s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/spc-save.js?v=' + Date.now();
   document.head.appendChild(s);
