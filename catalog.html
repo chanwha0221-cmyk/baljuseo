@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.240</title>
+<title>마스터 유통 카탈로그 v23.241</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3837,12 +3837,17 @@ function lowmVisible(rows){
   return rows.filter(r=>r.hold||(on.has(pkey(r.n))&&!(typeof isZeroQ==='function'&&isZeroQ(r.n))));
 }
 async function loadLowm(){
-  const j=await api('lowmargin',{token:ME.token,max:LOWM_MAX});
+  const j=await api('lowmargin',{token:ME.token,max:LOWM_MAX,all:1});   // 📋 all:1 = 전체 상품 마진(allRows)도 같이 (11-17)
   /* 📈 고마진(서버 high:1, 마진율 ≥ highMin) 은 저마진 목록과 따로 — «📈 고마진» 탭 (2026-11-10 홍팀장 「역마진이나 너무 고마진이면 이렇다고 항시 보여줘라」) */
   j.high=lowmVisible(j.rows.filter(r=>r.high)).sort((a,b)=>b.rate-a.rate);
   j.rows=j.rows.filter(r=>!r.high);
   j.all=j.rows.length; j.rows=lowmVisible(j.rows);
   j.loss=lowmLoss(j.rows,j.urgentMax);
+  /* 📋 전체 마진 (2026-11-17 홍팀장 「저마진 상품 → 마진으로, 전체 상품 마진 볼 수 있게 + 검색, 저마진 상품은 위로」)
+     저마진(지금까지 목록, 최근 등장 순)을 맨 위에, 나머지 전체 상품은 마진율 낮은 순으로 아래에. 고마진도 포함(전체니까). */
+  { const lowSet=new Set(j.rows.map(r=>pkey(r.n)));
+    const rest=lowmVisible(j.allRows||[]).filter(r=>!lowSet.has(pkey(r.n))).sort((a,b)=>a.rate-b.rate);
+    j.every=j.rows.map(r=>Object.assign({},r,{low:1})).concat(rest); }
   lowmBadge(j.rows.length,j.loss.length);
   return j;
 }
@@ -3971,7 +3976,8 @@ function renderLowm(j,lossOnly){
   const rkRows=j.rkRows||[];
   const okRows=j.okRows||[];
   const high=j.high||[];
-  const loss=j.loss||lowmLoss(j.rows,j.urgentMax), rows=highOnly?high:lossOnly?loss:j.rows;
+  const loss=j.loss||lowmLoss(j.rows,j.urgentMax), rows=highOnly?high:lossOnly?loss:(j.every||j.rows);
+  const everyN=(j.every||j.rows).length;
   let h=highOnly
     ? subHead('📈 고마진 상품','마진율 <b>'+(j.highMin||30)+'% 이상</b> '+high.length+'개 — 마진율 높은 순 · 마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 원가는 masterc 에서 받은 값 그대로입니다(우리는 원가를 안 고칩니다). 원가가 잘못 들어왔거나 판매가가 너무 높게 남은 건 아닌지 확인용 · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
         +'<br>✏️ 판매가를 고치려면 «새 판매가» → <b>[💾 단가 저장]</b>(masterc 특별단가 전체). 🔒 마스터에게만 보입니다.')
@@ -3979,7 +3985,7 @@ function renderLowm(j,lossOnly){
     ? subHead('🔴 지금 바로 확인할 상품','<b>역마진</b>(판매가 &lt; 공급가) + <b>마진율 '+(j.urgentMax||6)+'% 미만</b> 중 새로 생기거나 값이 바뀐 것 + <b>⚖️ 규격 역전</b>(작은 규격이 큰 규격보다 비쌈 — 옛 특별단가·등록가가 남은 것) '+loss.length+'개 — 최근 등장 순. 처음부터 있던 저마진은 안 묻습니다 · <b>[👌 괜찮음]</b> 누른 상품은 다시 안 묻습니다 · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
         +'<br>💾 새 판매가를 비워 두고 <b>[💾 단가 저장]</b> = <b>지금 가격 그대로 확인</b> — 특별단가는 안 만들고, 판매가·원가·공급가가 바뀌면 다시 뜹니다(괜찮음은 영구).'
         +'<br>✏️ 상시는 «새 판매가»에 넣고 <b>[💾 단가 저장]</b> → masterc 특별단가(전체)로 저장. 🐟 당일도 «새 판매가» → [💾 단가 저장] 하면 특별단가 + <b>오늘 당일 등록가</b>까지 같이 고칩니다. 역마진 당일은 <b>업체 화면에서 숨겨 두고</b>, 단가를 고치거나 <b>[✅ 이 가격으로 노출]</b>을 누르면 다시 보입니다. 🔒 마스터에게만 보입니다.')
-    : subHead('💸 저마진 상품','마진율 '+j.max+'% 이하 · 최근 저마진으로 등장한 순 · 카탈로그에 떠 있는 것 '+j.rows.length+'개'+(j.all>j.rows.length?' (품절·재고 없음·예외로 안 보이는 '+(j.all-j.rows.length)+'개 뺌)':'')+' ·마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
+    : subHead('💸 마진 — 전체 상품','카탈로그에 떠 있는 상품 '+everyN+'개 · <b style="color:#b45309">저마진(마진율 '+j.max+'% 이하) '+j.rows.length+'개를 맨 위</b>에(최근 등장 순, 주황 바탕), 나머지는 마진율 낮은 순 · 머리글을 누르면 정렬, 🔎 칸으로 검색 · 마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) · 상시 딸깍 '+ago(j.at)+' / 당일 딸깍 '+ago(j.dayAt)
         +'<br>✏️ «새 판매가» 칸에 넣고 <b>[💾 단가 저장]</b>을 누르면 <b>masterc 특별단가(전체)</b>로 저장됩니다 — 리모컨 가격표에 실려 그 값으로 정산되고, 카탈로그에도 바로 보냅니다. masterc 창이 잠깐 열렸다 닫힙니다. 🔒 마스터에게만 보입니다.');
   const th='padding:7px 8px;border-bottom:2px solid var(--line);text-align:right;white-space:nowrap;font-size:12px;color:var(--muted)';
   const td='padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:13px';
@@ -3989,12 +3995,13 @@ function renderLowm(j,lossOnly){
   const dayLink='<a class="ubtn" href="https://masterc.kr/machan_admin#daily" target="_blank" rel="noopener" style="text-decoration:none">🐟 masterc 당일상품</a>';
   /* 🔴 탭 두 개 — 특별단가 보기 옆 (2026-10-16 홍팀장 그림의 동그라미 자리) */
   const tabSt=on=>'font-weight:800;'+(on?'background:var(--text,#1f2937);color:#fff;border-color:transparent':'');
-  const tabs='<button class="ubtn" onclick="lowmGo(\'lowm\')" style="'+tabSt(!lossOnly&&!highOnly&&!okOnly&&!rkOnly)+'">💸 저마진 전체 '+j.rows.length+'</button>'
+  const tabs='<button class="ubtn" onclick="lowmGo(\'lowm\')" style="'+tabSt(!lossOnly&&!highOnly&&!okOnly&&!rkOnly)+'">💸 전체 마진 '+everyN+' <span style="color:#b45309">(저마진 '+j.rows.length+')</span></button>'
     +'<button class="ubtn" onclick="lowmGo(\'lowmloss\')" style="'+tabSt(lossOnly)+(loss.length&&!lossOnly?';color:#b91c1c;border-color:#b91c1c':'')+'">🔴 지금 바로 확인할 상품 '+loss.length+'</button>'
     +'<button class="ubtn" onclick="lowmGo(\'lowmhigh\')" style="'+tabSt(highOnly)+(high.length&&!highOnly?';color:#1d4ed8;border-color:#1d4ed8':'')+'">📈 고마진 '+high.length+'</button>'
     +'<button class="ubtn" onclick="lowmGo(\'lowmok\')" style="'+tabSt(okOnly)+'">👌 괜찮음 '+okRows.length+'</button>'
     +'<button class="ubtn" onclick="lowmGo(\'lowmrk\')" style="'+tabSt(rkOnly)+(rkRows.some(r=>!rkWaitOf(r))&&!rkOnly?';color:#b91c1c;border-color:#b91c1c':'')+'">🚨 리모컨≠판매가 '+rkRows.length+'</button>';
-  const bar=extra=>'<div style="display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap">'+extra+spcLink+(lossOnly?dayLink:'')+tabs+'<span class="lowm-msg" style="font-size:12.5px;color:var(--muted)"></span></div>';
+  const bar=extra=>'<div style="display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap">'+extra+spcLink+(lossOnly?dayLink:'')+tabs
+    +'<input class="lowm-q" type="search" placeholder="🔎 상품명·창고 검색" oninput="lowmFilter(this.value)" style="width:190px;border:1px solid var(--line);border-radius:8px;padding:5px 9px;font:inherit;font-size:13px">'+'<span class="lowm-msg" style="font-size:12.5px;color:var(--muted)"></span></div>';
   /* 👌 괜찮음 목록 (2026-11-10 홍팀장 「괜찮음 걸어둔 것도 리스트 만들어 — 한 번씩 보고 검토하게」)
      서버 okRows = LOWM_OK 전부 + 지금 값. [↩ 괜찮음 취소] 하면 다시 확인 대상(저마진·긴급)으로 돌아간다. */
   /* 🚨 리모컨 공급가 ≠ 웹 판매가 (2026-11-10 홍팀장 「6개가 뭐가 다른지 리스트를 알려줘야 수정을 할 거 아녀 — 저마진에 섹션 하나 넣어」)
@@ -4060,7 +4067,7 @@ function renderLowm(j,lossOnly){
     +'<table style="border-collapse:collapse;width:100%"><thead><tr>'
     +cols.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+';cursor:pointer" onclick="lowmSort(this)" title="눌러서 정렬">'+t+'</th>').join('')
     +'</tr></thead><tbody>'
-    +rows.map(r=>'<tr data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'"'+(lossOnly?' data-lowmack="1"':'')+'>'
+    +rows.map(r=>'<tr'+(r.low&&!lossOnly&&!highOnly?' style="background:#fff7ed"':'')+' data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'"'+(lossOnly?' data-lowmack="1"':'')+'>'
       +'<td style="'+td+';text-align:left;font-size:12px;color:'+(r.urgent?'#b91c1c;font-weight:700':'var(--muted)')+'">'+hm(r.at)+'</td>'
       +'<td style="'+td+';text-align:left">'+(r.k==='당일'?'🐟 당일':'상시')+'</td>'
       +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
@@ -4072,7 +4079,7 @@ function renderLowm(j,lossOnly){
       +'<td style="'+td+'">'+won(r.cost)+'</td><td style="'+td+'">'+won(r.ship)+'</td>'
       +'<td class="lowm-mg" style="'+td+(r.margin<0?';color:#b91c1c;font-weight:700':'')+'">'+won(r.margin)+'</td>'
       +'<td class="lowm-rt" style="'+td+';font-weight:800;color:'+(r.rate<0?'#b91c1c':r.high?'#1d4ed8':'#b45309')+'">'+r.rate+'%</td>'
-      +'<td style="'+td+'">'+okBtn(r)+'</td>'
+      +'<td style="'+td+'">'+((r.low||lossOnly||highOnly)?okBtn(r):'')+'</td>'
       +'</tr>').join('')
     +'</tbody></table></div>'
     +'<div style="margin-top:8px">'+saveBtn+'</div>';
@@ -4121,7 +4128,15 @@ function lowmSortRestore(){
     const h=document.querySelector('th[onclick^="lowmSort"]'); const th=h&&h.parentNode.cells[s.i];
     if(th)lowmSort(th,s.d); }catch(e){}
 }
-function lowmDraftCalc(){ lowmSortRestore(); const o=lowmDraftAll(); document.querySelectorAll('tr[data-lowm] .lowm-in').forEach(inp=>{ const tr=inp.closest('tr'); if(tr&&o[tr.dataset.lowm])lowmCalc(inp); }); }
+/* 🔎 검색 — 상품명·창고(공백 무시). 화면을 다시 그려도 검색어 유지(이 탭 동안). */
+function lowmFilter(q){
+  try{ sessionStorage.setItem('lowm_q_v1',q||''); }catch(e){}
+  const k=String(q||'').replace(/\s+/g,'').toLowerCase();
+  document.querySelectorAll('th[onclick^="lowmSort"]').forEach(h=>{ const tb=h.closest('table').tBodies[0]; if(!tb)return;
+    [...tb.rows].forEach(tr=>{ tr.style.display=!k||tr.textContent.replace(/\s+/g,'').toLowerCase().includes(k)?'':'none'; }); });
+}
+function lowmFilterRestore(){ let q='';try{ q=sessionStorage.getItem('lowm_q_v1')||''; }catch(e){} const i=document.querySelector('.lowm-q'); if(i&&q){ i.value=q; lowmFilter(q); } }
+function lowmDraftCalc(){ lowmSortRestore(); lowmFilterRestore(); const o=lowmDraftAll(); document.querySelectorAll('tr[data-lowm] .lowm-in').forEach(inp=>{ const tr=inp.closest('tr'); if(tr&&o[tr.dataset.lowm])lowmCalc(inp); }); }
 /* ✏️ 새 판매가를 넣으면 그 줄 마진·마진율을 바로 다시 센다 (저장 전 검산용) */
 function lowmCalc(inp){
   const tr=inp.closest('tr'); if(!tr)return;
@@ -4252,7 +4267,7 @@ function renderUser(){
     /* 🔗 단가 주소 (2026-10-23 홍팀장 「일주일에 한 번씩 url 변경 버튼 누르면 이전 주소로는 단가 못 보게」) — 마스터만 */
     +(ME.master?'<button class="ubtn" id="ub_ppk" title="단가가 보이는 상품목록(partners) 주소를 봅니다. 바꾸면 이전 주소는 즉시 막힙니다.">🔗 단가 주소</button>':'')
     +(ME.master?'<button class="ubtn" id="ub_spec" title="masterc 상세에서 고친 스펙(미수·구성 등)을 카드에 맞춥니다. masterc 창이 잠깐 열립니다(로그인 필요)">📝 스펙 최신화</button>':'')
-    +(ME.master?'<button class="ubtn" id="ub_lowm" title="마진율 8% 이하로 카탈로그에 떠 있는 상품 (마스터만)">💸 저마진 <b id="lowmBadge" style="display:none;color:#b91c1c"></b><span class="nbadge" id="lossBadge" style="display:none"></span></button>':'')
+    +(ME.master?'<button class="ubtn" id="ub_lowm" title="전체 상품 마진 — 저마진(8% 이하)이 맨 위, 검색·정렬 (마스터만). 숫자 = 저마진 개수">💸 마진 <b id="lowmBadge" style="display:none;color:#b91c1c"></b><span class="nbadge" id="lossBadge" style="display:none"></span></button>':'')
     /* 👀 변동 감시 (2026-10-15 홍팀장) — masterc 창 하나를 열어 두면 5분마다 변동을 보고 카탈로그를 갱신한다(mc-watch.js). 같은 이름 창이라 두 번 눌러도 하나만 뜬다. */
     +(ME.master?'<button class="ubtn" id="ub_watch" title="masterc 변동사항·특별단가·당일가가 바뀌면 카탈로그를 자동 갱신하고, 새 저마진 상품은 확인창으로 알립니다. 열린 masterc 창을 닫지 마세요(PC·크롬이 켜져 있어야 돕니다)">👀 변동 감시</button>':'')
     /* 🛠 상품 관리 (2026-10-19) — 예전 상품도구(media-updater) 화면을 카탈로그 안에서. 추천상품·공지는 각 게시판 위에서 쓴다 */
