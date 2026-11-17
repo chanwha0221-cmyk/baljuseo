@@ -77,7 +77,16 @@
         deps = deps.concat(await depList(dash(ymd(s)), dash(ymd(e))));
         s = new Date(e); s.setDate(s.getDate() + 1);
       }
-      return { id: id, top: top, sum: acc, days: days, hist: hist, lastDone: lastDone, depFrom: ymd(from), deps: deps };
+      /* 환불 = 그룹웨어 «입금요청»(gw2/payreq.php) 중 지급 끝난 것 (홍팀장 26-11-17 «환불내역 여기 다 있어»). 업체 고르기는 도구가(이름 맞추기) */
+      var refs = [];
+      try {
+        var pr = await fetch('/gw2/payreq.php?a=list&co=board_xjVk44', { method: 'POST', credentials: 'same-origin', headers: { 'X-GW2': '1', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ st: ymd(from), ed: ymd(now), q: '', un: 0, all: 1 }) }).then(function (r) { return r.json(); });
+        if (pr.ok) refs = (pr.rows || []).filter(function (x) { return x.paid && +x.amt > 0; }).map(function (x) {
+          return { id: x.id, dt: x.pd || x.d, req: x.d, co: x.co || '', hd: x.hd || '', tg: x.tg || '', rs: x.rs || '', amt: +x.amt };
+        });
+      } catch (e) {}
+      return { id: id, top: top, sum: acc, days: days, hist: hist, lastDone: lastDone, depFrom: ymd(from), deps: deps, refs: refs };
     },
     /* 미정산 기간 (홍팀장 26-11-17 «미정산 기간이랑 정렬 기능도») — 거래처 목록엔 첫 미정산일이 없어서 달력을 거꾸로 훑는다.
        이번 달부터 한 달씩, 모은 미정산 합이 미수금에 닿으면 멈춘다(최대 14달). */
