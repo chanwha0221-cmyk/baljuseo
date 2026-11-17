@@ -1028,10 +1028,13 @@ function abAnchor(v, deps){
     if(dis.reduce((s,i) => s + D[i].amt, 0) !== p.ids.reduce((s,i) => s + S[i].amt, 0)) return;   // ±10% 근사 짝은 닻이 못 됨
     const lastS = Math.max(...p.ids), lastD = Math.max(...dis);
     if(S[lastS].date >= first || p.ids.some(i => !S[i].h)) return;   // 미정산 날을 먹은 짝은 닻이 아님
-    if(!best || lastS > best.s) best = {s:lastS, d:lastD, from:S[Math.min(...p.ids)].date, to:S[lastS].date, deps:dis.map(i => D[i])};
+    if(!best || lastS > best.s) best = {s:lastS, d:lastD, ids:p.ids.slice().sort((a,b) => a-b), dis:dis.slice().sort((a,b) => a-b), from:S[Math.min(...p.ids)].date, to:S[lastS].date, deps:dis.map(i => D[i])};
   });
   if(!best) return null;
-  return {settles:S.slice(best.s + 1), deps:D.slice(best.d + 1).map(x => x.src), anchor:best};
+  /* 닻 짝도 대조표 맨 위에 «딱 맞음»으로 깐다 (홍팀장 26-11-17 «22일부터 갑자기 안 넣었다고 하니까 이상하다, 그 전 한 건만 더 올려서
+     여기까진 됐는데 갑자기 이게 입금이 안 됐어 라고 보여줘야»). 칠하기는 미정산 날만 하니 이미 칠한 닻 날은 다시 안 칠한다. */
+  const pre = best.ids.map(i => S[i]), preD = best.dis.map(i => D[i].src);
+  return {settles:[...pre, ...S.slice(best.s + 1)], deps:[...preD, ...D.slice(best.d + 1).map(x => x.src)], anchor:best};
 }
 function abFill(){
   const {c, v} = AB.cur;
@@ -1063,7 +1066,8 @@ function abAddAlias(){
 // 칠할 것 = 차액 0 으로 딱 맞은 구간(환불로 0 이 된 구간 포함). 시작 차액 줄은 빼고, 입금일 = 그 구간 마지막 입금일
 function abReady(){
   if(!CUR) return [];
-  return CUR.blocks.filter(b => !b.open && b.diff === 0 && b.rs && b.rs.length && b.dep);
+  const un = AB.cur ? new Set(AB.cur.v.days.map(d => dashD(d.date))) : null;   // 맨 위에 깐 닻 줄(이미 칠한 날)은 칠할 것에서 뺀다
+  return CUR.blocks.filter(b => !b.open && b.diff === 0 && b.rs && b.rs.length && b.dep && (!un || b.rs.some(r => un.has(r.date))));
 }
 function abApplyDraw(){
   const el = $('abApply');
@@ -1101,6 +1105,7 @@ function abRecent(){
     return `${per(x.from, x.to, x.n)} ${won(x.sAmt)} · ${gap(x.sAmt, x.dAmt)}${w}`;
   };
   const tag = d => {
+    if(anc.has(d.id)) return '⚓ 시작점 · ' + hist(d);
     if(used.has(d.id)){
       const b = cur[d.dt.slice(0,10) + '|' + d.amt];
       const what = b ? `${per(b.from, b.to, b.n)} ${won(b.amt)} · ${gap(b.amt, b.dep.amt - (b.ref ? b.ref.amt : 0))}` : '';
