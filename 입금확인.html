@@ -982,6 +982,16 @@ function abAnchor(v, deps){
     .sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
   const D = deps.map(d => ({date:d.dt.slice(0,10), amt:d.amt, name:d.name, src:d}));
   const m = matchAll(S, D, [], []);
+  /* 입금마다 «몇 일 ~ 몇 일 몫» (홍팀장 26-11-17 «11월 3일 입금액이 몇일부터 몇일까지인지 알려줘, 밑에 것들도») — 최근 입금 내역 표가 쓴다 */
+  const map = {};
+  m.pair.forEach((p, di) => {
+    if(!p || p.merged || !p.ids || !p.ids.length) return;
+    const dis = [...(p.merge || []), di], ids = p.ids.slice().sort((a,b) => a-b);
+    const sAmt = ids.reduce((s,i) => s + S[i].amt, 0), dAmt = dis.reduce((s,i) => s + D[i].amt, 0);
+    const info = {from:S[ids[0]].date, to:S[ids[ids.length-1]].date, n:ids.length, sAmt, dAmt, with:dis.length > 1 ? dis.map(i => D[i].src.id) : null};
+    dis.forEach(i => map[D[i].src.id] = info);
+  });
+  if(AB.cur) AB.cur.depMap = map;
   let best = null;
   m.pair.forEach((p, di) => {
     if(!p || p.merged || !p.ids || !p.ids.length) return;
@@ -1050,7 +1060,25 @@ function abRecent(){
   const all = v.deps.filter(d => abHit(d.name, c)).sort((a,b) => a.dt < b.dt ? 1 : a.dt > b.dt ? -1 : 0);
   const used = new Set(AB.cur.deps.map(d => d.id));
   const anc = new Set(AB.cur.anchor ? AB.cur.anchor.deps.map(d => d.src && d.src.id) : []);
-  const tag = d => used.has(d.id) ? '<b style="color:#1b4fb3">이번 대조</b>' : anc.has(d.id) ? '⚓ 시작점 (지난 정산 몫)' : '<span class="hint">그 전 (칠한 정산 몫)</span>';
+  // 이번 대조 입금 → 대조표 구간(흐름 줄) / 지난 입금 → 지난 정산과 짝지은 구간
+  const cur = {};
+  (CUR ? CUR.blocks : []).forEach(b => { if(!b.dep) return; (b.dep.parts || [b.dep]).forEach(p => cur[p.date + '|' + p.amt] = b); });
+  const per = (from, to, n) => from ? rangeLabel({from, to, n: from === to ? 1 : n || 2}) + ' 몫' : '정산 없음';
+  const gap = (s, d) => s === d ? '<span style="color:#2d7a3a">딱 맞음</span>' : s > d ? `<span style="color:#b3261e">${won(s - d)} 덜</span>` : `<span style="color:#1b4fb3">${won(d - s)} 더</span>`;
+  const hist = d => {
+    const x = (AB.cur.depMap || {})[d.id];
+    if(!x) return '<span class="hint">짝 못 찾음</span>';
+    const w = x.with ? ` <span class="hint">(입금 ${x.with.length}건 합 ${won(x.dAmt)})</span>` : '';
+    return `${per(x.from, x.to, x.n)} ${won(x.sAmt)} · ${gap(x.sAmt, x.dAmt)}${w}`;
+  };
+  const tag = d => {
+    if(used.has(d.id)){
+      const b = cur[d.dt.slice(0,10) + '|' + d.amt];
+      const what = b ? `${per(b.from, b.to, b.n)} ${won(b.amt)} · ${gap(b.amt, b.dep.amt - (b.ref ? b.ref.amt : 0))}` : '';
+      return `<b style="color:#1b4fb3">이번 대조</b> ${what}`;
+    }
+    return (anc.has(d.id) ? '⚓ 시작점 · ' : '<span class="hint">지난 정산</span> · ') + hist(d);
+  };
   return `<details open style="margin-top:10px"><summary style="cursor:pointer;font-weight:bold">💳 최근 입금 내역 — ${all.length}건 · ${won(all.reduce((s,d) => s+d.amt, 0))}원 <span class="hint">(${dashD(v.depFrom)} ~ 오늘)</span></summary>` +
     (all.length ? `<table class="res" style="margin-top:6px;background:#fff"><thead><tr><th>입금일시</th><th>입금자</th><th>금액</th><th>대조</th></tr></thead><tbody>` +
       all.map(d => `<tr><td class="c">${esc(d.dt.slice(0,16))}</td><td>${esc(d.name)}</td><td class="n">${won(d.amt)}</td><td class="c">${tag(d)}</td></tr>`).join('') + '</tbody></table>'
