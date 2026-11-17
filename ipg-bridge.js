@@ -48,31 +48,34 @@
     },
     vendor: async function (q) {
       var id = +q.id, now = new Date(), y = now.getFullYear(), m = now.getMonth() + 1;
-      var days = [], done = [], top = null, acc = 0;
-      for (var k = 0; k < 13; k++) {
+      var days = [], done = [], hist = [], top = null, acc = 0;
+      /* 지난 정산(이미 칠한 날)도 첫 미정산 45일 전까지 가져온다 (홍팀장 26-11-17 «대조 시작은 입금액·정산액이 딱 맞는 날짜 기준»).
+         도구가 그 안에서 «입금 = 정산 구간» 딱 맞은 마지막 지점을 찾아 거기 다음부터 대조한다. */
+      var HIST = 45;
+      for (var k = 0; k < 14; k++) {
         var c = await api('/clients/' + id + '/settlement-calendar?year=' + y + '&month=' + m);
         if (top === null) top = +c.unpaid_amt || 0;
         (c.days || []).forEach(function (d) {
           if (+d.unpaid_amt) { days.push({ date: d.date, amt: +d.unpaid_amt, tot: +d.total_amt }); acc += +d.unpaid_amt; }
-          else if (+d.total_amt) done.push(d.date);
+          else if (+d.total_amt) { done.push(d.date); hist.push({ date: d.date, amt: +d.total_amt }); }
         });
-        var minU = days.length ? days.reduce(function (a, d) { return d.date < a ? d.date : a; }, '99999999') : null;
-        if (acc >= top && (!minU || done.some(function (d) { return d < minU; }))) break;
+        var minU = days.length ? days.reduce(function (a, d) { return d.date < a ? d.date : a; }, '99999999') : ymd(now);
+        var edge = toD(minU); edge.setDate(edge.getDate() - HIST);
+        if (acc >= top && new Date(y, m - 1, 1) <= edge) break;
         m--; if (!m) { m = 12; y--; }
       }
       days.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
       var first = days.length ? days[0].date : null;
       var lastDone = first ? done.filter(function (d) { return d < first; }).sort().pop() || null : null;
-      // 입금은 «마지막으로 칠한 날 다음 날»부터 — 그날 입금은 이미 칠한 날 몫이다. 칠한 날이 없으면 첫 미정산 14일 전부터
-      var from = lastDone ? toD(lastDone) : first ? toD(first) : new Date(now.getTime() - 30 * 864e5);
-      from.setDate(from.getDate() + (lastDone ? 1 : -14));
+      var from = toD(first || ymd(now)); from.setDate(from.getDate() - HIST);
+      hist = hist.filter(function (d) { return d.date >= ymd(from); }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
       var deps = [], s = new Date(from);
       while (s <= now) {
         var e = new Date(s); e.setDate(e.getDate() + 60); if (e > now) e = new Date(now);
         deps = deps.concat(await depList(dash(ymd(s)), dash(ymd(e))));
         s = new Date(e); s.setDate(s.getDate() + 1);
       }
-      return { id: id, top: top, sum: acc, days: days, lastDone: lastDone, depFrom: ymd(from), deps: deps };
+      return { id: id, top: top, sum: acc, days: days, hist: hist, lastDone: lastDone, depFrom: ymd(from), deps: deps };
     },
     apply: async function (q) {
       var id = +q.id, out = [];
