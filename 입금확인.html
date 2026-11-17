@@ -394,14 +394,14 @@ function matchAll(settles, deps, refs = [], links = []){
    첫 «맞은» 정산보다 앞의 정산·입금은 «대조 시작 전»(이번에 안 붙인 옛 입금·옛 정산 몫)으로 접는다. */
 function buildBlocks(settles, deps, m, refs = []){
   const firstHit = m.used.indexOf(true);
-  const startIdx = firstHit < 0 ? 0 : firstHit;
+  const startIdx = (AB_FULL || firstHit < 0) ? 0 : firstHit;   // 보드 자동 대조면 전부 미정산 — 앞을 접지 않는다
   const startDate = settles[startIdx] ? settles[startIdx].date : '0000';
   const lastDep = deps.length ? deps[deps.length-1].date : '0000';
   const items = [], skipped = settles.slice(0, startIdx).filter((s, i) => !m.used[i]), skipDeps = [];
   m.pair.forEach((p, di) => {
     const d = deps[di];
     if(!p){
-      if(d.date < startDate) skipDeps.push(d);
+      if(d.date < startDate && !AB_FULL) skipDeps.push(d);
       else items.push({key:d.date + '~', blk:{n:0, amt:0, dep:d, diff:-d.amt, st:'nomatch'}});
       return;
     }
@@ -456,6 +456,7 @@ function linkBar(){
     (can ? '' : ' <span class="hint">입금과 정산을 하나씩은 골라야 묶입니다</span>');
 }
 let CUR = null;
+let AB_FULL = false;   // 🔄 보드 자동 대조 중 — 정산달력 미정산 전부가 대상(시작점 자동 접기 안 함). 사람이 시작점을 고르거나 [대조하기]를 누르면 꺼짐
 function run(){
   const warns = [];
   const deps = parseDeposits($('dep').value, warns);
@@ -581,12 +582,13 @@ function segMerge(part){
   return t;
 }
 const lastTail = blocks => { for(let i = blocks.length - 1; i >= 0; i--) if(blocks[i].tail) return blocks[i]; return null; };   // 시작 차액·짝 없는 환불은 맨 마지막 구간(지금 미정산)에 얹는다
-function startPick(v){ $('startSel').dataset.pick = v; run(); }
-function depPick(v){ $('depSel').dataset.pick = v; run(); }
+function startPick(v){ AB_FULL = false; $('startSel').dataset.pick = v; run(); }
+function depPick(v){ AB_FULL = false; $('depSel').dataset.pick = v; run(); }
 /* ⤒ 여기부터 — 표에서 줄을 찍어 대조 시작점을 잡는다 (홍팀장 26-11-07 «이 입금이랑 이 입금은 맞았다를
    지정하면 그 밑에서부터 맞추되»). 위 드롭다운 두 개를 한 번에 세팅하는 것과 같다. 찍은 줄 위는
    «대조 시작 전»으로 접히고, 아래 구간은 그대로 자동 대조 + 수동 연결이 먹는다. */
 function startHere(i){
+  AB_FULL = false;
   const b = CUR.blocks[i];
   if(b.n && b.from) $('startSel').dataset.pick = b.from;
   if(b.dep){
@@ -856,7 +858,7 @@ $('honor').value = ls('ipg_honor') || '';
 // 보내는 회사명: 저장값 → 배포 페이지가 붙여 준 ?co= → 기본 주소면 마스터 유통
 { const sv = ls('ipg_co'); $('company').value = sv !== null ? sv : (QS.get('co') || (UID ? '' : '마스터 유통')); }
 $('company').addEventListener('input', () => { ls('ipg_co', $('company').value); if(CUR) render(); });
-$('go').onclick = () => { delete $('startSel').dataset.pick; delete $('depSel').dataset.pick; run(); };   // 새로 대조할 땐 시작점 다시 자동
+$('go').onclick = () => { AB_FULL = false; delete $('startSel').dataset.pick; delete $('depSel').dataset.pick; run(); };   // 새로 대조할 땐 시작점 다시 자동
 $('honor').addEventListener('change', () => { if(CUR){ CUR.honor = $('honor').value.trim(); ls('ipg_honor', $('honor').value); render(); } });
 
 /* ── 🔄 보드 연결 (리모컨 없이, 2026-11-17) ──
@@ -944,7 +946,10 @@ function abFill(){
   $('vendor').value = c.ch || c.name;
   const m = String(c.contact||'').match(/^([가-힣])[가-힣]{1,3}\s*(대표|사장|팀장|실장|과장|부장|이사)?/);
   if(m) $('honor').value = m[1] + (m[2] || '대표');
-  delete $('startSel').dataset.pick; delete $('depSel').dataset.pick; PICK = {d:[], s:[]};
+  /* 시작점은 자동으로 찾지 않는다 — 정산달력이 이미 «여기부터 미정산»을 알려 준다(칠한 날 다음 입금부터 가져옴).
+     자동으로 두면 ±10% 근사 짝을 기준으로 첫 날을 «시작 차액»으로 접어 버린다(엉클 11/02 실측). */
+  PICK = {d:[], s:[]}; AB_FULL = true;
+  delete $('startSel').dataset.pick; delete $('depSel').dataset.pick;
   run();
 }
 function abAddAlias(){
