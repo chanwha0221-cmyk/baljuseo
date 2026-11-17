@@ -57,6 +57,18 @@
 </style>
 </head>
 <body>
+<!-- 🔄 리모컨 없이 (2026-11-17 홍팀장): 외부유통 보드 정산달력(미정산) + 그룹웨어 입금 내역(gw2/dep.php)을 자동으로 불러와
+     아래 ①② 칸을 채우고 대조한다. 딱 맞은 날짜는 [✅ 진행]을 눌러야 정산달력에 «입금»으로 칠한다(누르기 전엔 아무것도 안 바뀜). -->
+<div class="panel" id="abPanel">
+  <h1>🔄 미정산 업체 <span class="hint">외부유통 보드 정산달력 + 그룹웨어 입금 내역 자동 대조</span></h1>
+  <div class="row">
+    <button onclick="abConnect()">🔌 보드 연결 · 미정산 불러오기</button>
+    <input type="text" id="abQ" placeholder="업체 찾기" oninput="abDraw()" style="width:160px">
+    <span id="abStat" class="hint"></span>
+  </div>
+  <div class="hint">처음 한 번 보드 창이 따로 열립니다(닫지 말고 두기). 업체 [입금 확인]을 누르면 아래 ①입금 ②정산 칸이 자동으로 채워지고 대조표가 나옵니다.</div>
+  <div id="abList" style="max-height:340px;overflow-y:auto;margin-top:8px"></div>
+</div>
 <div class="panel">
   <h1>💰 입금 확인 <span class="hint">(초안)</span></h1>
   <div class="row">
@@ -94,6 +106,7 @@
 
 <div class="panel" id="resPanel" style="display:none">
   <h3 style="margin-top:0">대조 결과 — <span id="rVendor"></span> <button class="mini" onclick="copyText(CUR.vendor,'업체명')">📋</button></h3>
+  <div id="abApply" style="display:none;margin:8px 0 12px;padding:10px 12px;border:2px solid #2d7a3a;border-radius:8px;background:#f1faf3;font-size:13px"></div>
   <div class="sum" id="sum"></div>
   <div class="row">
     <button onclick="copyImg('full')">📋 대조표 이미지 복사</button>
@@ -845,6 +858,137 @@ $('honor').value = ls('ipg_honor') || '';
 $('company').addEventListener('input', () => { ls('ipg_co', $('company').value); if(CUR) render(); });
 $('go').onclick = () => { delete $('startSel').dataset.pick; delete $('depSel').dataset.pick; run(); };   // 새로 대조할 땐 시작점 다시 자동
 $('honor').addEventListener('change', () => { if(CUR){ CUR.honor = $('honor').value.trim(); ls('ipg_honor', $('honor').value); render(); } });
+
+/* ── 🔄 보드 연결 (리모컨 없이, 2026-11-17) ──
+   외부유통 보드를 «ipgbridge» 창으로 열면 확장(마스터 수량대조 1.6.0+)이 ipg-bridge.js 를 꽂는다.
+   그 창이 보드 로그인 + 그룹웨어 쿠키로 미정산·입금을 읽어 보내 주고, [✅ 진행] 때만 정산달력을 칠한다. */
+const BR_URL = 'https://service.masterc.co.kr/mastercco-ext/', BR_O = 'https://service.masterc.co.kr';
+let BR = null, BR_OK = false, RID = 0;
+const WAIT = {}, AB = {list:[], cur:null, busy:false};
+window.addEventListener('message', ev => {
+  if(ev.origin !== BR_O || !ev.data || ev.data.ipgb !== 2) return;
+  const w = WAIT[ev.data.rid]; if(w){ delete WAIT[ev.data.rid]; w(ev.data); }
+});
+function abStat(t, bad){ $('abStat').innerHTML = t; $('abStat').style.color = bad ? '#c0262d' : '#777'; }
+function brSend(cmd, extra = {}, ms = 180000){
+  return new Promise((res, rej) => {
+    if(!BR || BR.closed) return rej(new Error('보드 창이 닫혔습니다 — [🔌 보드 연결]을 다시 눌러 주세요'));
+    const rid = ++RID, t = setTimeout(() => { delete WAIT[rid]; rej(new Error('응답 없음')); }, ms);
+    WAIT[rid] = d => { clearTimeout(t); d.err ? rej(new Error(d.err)) : res(d.data !== undefined ? d.data : d); };
+    BR.postMessage({ipgb:1, rid, cmd, ...extra}, BR_O);
+  });
+}
+async function brOpen(){
+  if(BR && !BR.closed && BR_OK) return true;
+  BR_OK = false;
+  if(!BR || BR.closed) BR = window.open(BR_URL, 'ipgbridge', 'width=1000,height=760');
+  if(!BR){ abStat('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시', 1); return false; }
+  abStat('보드 창 여는 중…');
+  for(let i = 0; i < 300; i++){
+    try{ const d = await brSend('ping', {}, 1500); if(d.pong){ BR_OK = true; return true; } if(i === 6) abStat('열린 보드 창에서 로그인해 주세요', 1); }
+    catch(e){ if(BR.closed){ abStat('보드 창이 닫혔습니다', 1); return false; }
+      if(i === 20) abStat('보드 창이 대답이 없습니다 — 크롬 확장 «마스터 수량대조»가 1.6.0 인지 확인(chrome://extensions → 🔄)', 1); }
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  return false;
+}
+async function abConnect(){
+  if(!(await brOpen())) return;
+  abStat('미정산 업체 불러오는 중…');
+  try{ AB.list = await brSend('list'); abStat(`미수 남은 곳 <b>${AB.list.length}</b>곳 · 합계 <b>${won(AB.list.reduce((s,c) => s+c.unpaid, 0))}</b>원`); abDraw(); window.focus(); }
+  catch(e){ abStat(esc(e.message), 1); }
+}
+function abDraw(){
+  const q = $('abQ').value.trim();
+  const rows = AB.list.filter(c => !q || [c.name, c.ch, c.biz, c.alias].some(x => String(x||'').includes(q)));
+  $('abList').innerHTML = !AB.list.length ? '' : `<table class="res"><thead><tr><th>업체</th><th>정산주기</th><th>최근 입금일</th><th>미수금</th><th>상태</th><th></th></tr></thead><tbody>` +
+    rows.map(c => `<tr${AB.cur && AB.cur.c.id === c.id ? ' style="background:#eef4ff"' : ''}><td>${esc(c.ch || c.name)}${c.ch && c.name !== c.ch ? ' <span class="hint">'+esc(c.name)+'</span>' : ''}</td>
+      <td class="c">${esc(c.cyc||'')}</td><td class="c">${esc(c.last||'-')}</td><td class="n"><b>${won(c.unpaid)}</b></td>
+      <td class="c" style="color:${c.st==='위험'?'#c0262d':c.st==='주의'?'#b36b00':'#2d7a3a'}">${esc(c.st||'')}</td>
+      <td class="c"><button class="mini" onclick="abPick(${c.id})">입금 확인</button></td></tr>`).join('') + '</tbody></table>';
+}
+// 입금자 이름 맞추기 — 업체명·채널명·사업자명·별칭 + 이 업체에 직접 넣은 입금자명(브라우저 저장)
+const abNorm = s => String(s||'').replace(/\(주\)|주식회사|㈜|\s/g, '').toLowerCase();
+const abAliasKey = id => 'ipg_alias_' + id;
+const abAliases = id => (localStorage.getItem(abAliasKey(id)) || '').split(',').map(s => s.trim()).filter(Boolean);
+function abHit(name, c){
+  const keys = [c.name, c.ch, c.biz, c.alias, ...abAliases(c.id)].map(abNorm).filter(k => k.length >= 2);
+  const dn = abNorm(name), outer = abNorm(String(name||'').split('(')[0]), inner = abNorm(vendorFromPayer(name));
+  return keys.some(k => dn.includes(k) || (outer.length >= 3 && k.includes(outer)) || (inner.length >= 3 && k.includes(inner)));
+}
+const dashD = s => s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8);
+async function abPick(id){
+  if(AB.busy) return;
+  const c = AB.list.find(x => x.id === id) || (AB.cur && AB.cur.c.id === id ? AB.cur.c : null); if(!c) return;
+  if(!(await brOpen())) return;
+  AB.busy = true; abStat(`${esc(c.ch || c.name)} 정산달력·입금 내역 불러오는 중…`);
+  try{
+    const v = await brSend('vendor', {id});
+    AB.cur = {c, v};
+    abFill();
+    abStat(`${esc(c.ch || c.name)} — 미정산 ${v.days.length}일 ${won(v.sum)}원 · 입금 ${CUR ? CUR.nDep : 0}건 (${dashD(v.depFrom)}부터)` + (v.sum !== v.top ? ` <span style="color:#c0262d">⚠ 달력 합 ${won(v.sum)} ≠ 미수금 ${won(v.top)}</span>` : ''));
+    abDraw();
+    $('resPanel').scrollIntoView({behavior:'smooth'});
+  }catch(e){ abStat(esc(e.message), 1); }
+  AB.busy = false;
+}
+function abFill(){
+  const {c, v} = AB.cur;
+  const deps = v.deps.filter(d => abHit(d.name, c));
+  AB.cur.deps = deps;
+  AB.cur.others = [...new Set(v.deps.filter(d => !abHit(d.name, c)).map(d => d.name))];
+  $('dep').value = deps.map(d => `${d.dt}\t${d.name}\t${won(d.amt)}`).join('\n');
+  gridClear(); gridBuild(Math.max(ROWS, v.days.length));
+  v.days.forEach((d, i) => { cell(i,0).value = dashD(d.date); cell(i,2).value = won(d.amt); });
+  gridSave();
+  $('vendor').value = c.ch || c.name;
+  const m = String(c.contact||'').match(/^([가-힣])[가-힣]{1,3}\s*(대표|사장|팀장|실장|과장|부장|이사)?/);
+  if(m) $('honor').value = m[1] + (m[2] || '대표');
+  delete $('startSel').dataset.pick; delete $('depSel').dataset.pick; PICK = {d:[], s:[]};
+  run();
+}
+function abAddAlias(){
+  const id = AB.cur.c.id, v = prompt('이 업체 입금자명 (쉼표로 여러 개) — 다음부터 자동으로 잡습니다', abAliases(id).join(', '));
+  if(v === null) return;
+  localStorage.setItem(abAliasKey(id), v); abFill();
+}
+// 칠할 것 = 차액 0 으로 딱 맞은 구간(환불로 0 이 된 구간 포함). 시작 차액 줄은 빼고, 입금일 = 그 구간 마지막 입금일
+function abReady(){
+  if(!CUR) return [];
+  return CUR.blocks.filter(b => !b.open && b.diff === 0 && b.rs && b.rs.length && b.dep);
+}
+function abApplyDraw(){
+  const el = $('abApply');
+  if(!AB.cur || !CUR || CUR.vendor !== ($('vendor').value.trim() || '(업체명)') || abNorm(CUR.vendor) !== abNorm(AB.cur.c.ch || AB.cur.c.name)){ el.style.display = 'none'; return; }
+  const bs = abReady(), n = bs.reduce((s,b) => s + b.rs.length, 0), amt = bs.reduce((s,b) => s + b.amt, 0);
+  const lastD = b => { const p = b.dep.parts || [b.dep]; return p[p.length-1].date; };
+  el.style.display = '';
+  el.innerHTML = `<b>✅ 정산달력에 «입금»으로 칠할 것 — ${n}일 · ${won(amt)}원</b> <span class="hint">(딱 맞은 구간만. 안 맞는 줄은 그대로 미정산)</span>` +
+    (bs.length ? '<div style="margin:6px 0 8px;line-height:1.7">' + bs.map(b => `· ${rangeLabel(b)} ${won(b.amt)}원 ← ${(b.dep.parts || [b.dep]).map(d => kDate(d.date)+' '+won(d.amt)).join(' + ')}${b.ref ? ' (환불 '+won(b.ref.amt)+' 뺌)' : ''} → 입금일자 ${kDate(lastD(b))}`).join('<br>') + '</div>'
+      : '<div class="hint" style="margin:6px 0">딱 맞은 구간이 없습니다 — 칠할 게 없습니다.</div>') +
+    `<button onclick="abApply()"${bs.length ? '' : ' disabled'} style="background:#2d7a3a">✅ 진행 — 정산달력에 입금 처리</button> ` +
+    `<button class="mini" onclick="abAddAlias()">🏷 입금자명 추가</button> ` +
+    `<span class="hint">입금자로 잡은 이름: ${esc([...new Set(AB.cur.deps.map(d => d.name))].join(', ') || '없음')}</span>`;
+}
+async function abApply(){
+  const bs = abReady(); if(!bs.length || AB.busy) return;
+  const items = [];
+  bs.forEach(b => { const p = b.dep.parts || [b.dep], dd = p[p.length-1].date.replace(/-/g,''); b.rs.forEach(r => items.push({date:r.date.replace(/-/g,''), dep_dt:dd})); });
+  const amt = bs.reduce((s,b) => s + b.amt, 0);
+  if(!confirm(`${AB.cur.c.ch || AB.cur.c.name}\n정산달력 ${items.length}일 · ${won(amt)}원을 «입금»으로 칠합니다.\n(${items.map(x => x.date.slice(4,6)+'/'+x.date.slice(6)).join(', ')})\n\n진행할까요?`)) return;
+  AB.busy = true; abStat('정산달력 칠하는 중…');
+  try{
+    const r = await brSend('apply', {id:AB.cur.c.id, items});
+    const bad = r.filter(x => x.err || !x.updated);
+    AB.busy = false;
+    toast(bad.length ? `⚠ ${r.length - bad.length}일 처리 · ${bad.length}일 못 함` : `✅ ${r.length}일 입금 처리 완료`);
+    if(bad.length) alert('못 칠한 날:\n' + bad.map(x => x.date + ' — ' + (x.err || '바꿀 수 있는 건이 없음')).join('\n'));
+    // 다시 불러와서 남은 미정산으로 대조표·메시지 갱신
+    const c = AB.cur.c; AB.list = await brSend('list').catch(() => AB.list);
+    await abPick(c.id);
+  }catch(e){ AB.busy = false; abStat(esc(e.message), 1); }
+}
+{ const _render = render; render = function(){ _render(); abApplyDraw(); }; }
 </script>
 </body>
 </html>

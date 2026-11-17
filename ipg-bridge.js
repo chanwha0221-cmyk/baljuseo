@@ -1,0 +1,101 @@
+/* 💰 입금확인 다리 — 외부유통 보드 창(ipgbridge)에 확장이 꽂는다 (2026-11-17 홍팀장 «리모컨 없앤다»).
+   입금확인.html(github.io)이 postMessage 로 부탁하면, 이 창의 로그인(보드 api 토큰 + 그룹웨어 쿠키)으로 대신 읽고 칠한다.
+     ping   → pong (준비됐으면)
+     list   → 미수금 있는 거래처 목록
+     vendor → 그 거래처 미정산 날짜(정산달력) + 그 기간 입금 내역(gw2/dep.php, 입금자 전부 — 이름 고르기는 도구가)
+     apply  → 고른 날짜를 정산달력에 «입금»(adj_chk 2)으로 칠함, 입금일자(dep_dt) 같이
+   🔴 받는 곳은 도구 주소(TOOL) 하나뿐, 할 수 있는 일은 위 넷뿐. 칠하기는 도구에서 사람이 [진행] 눌렀을 때만 온다. */
+(function () {
+  if (window.__ipgb) return; window.__ipgb = 1;
+  var TOOL = 'https://chanwha0221-cmyk.github.io';
+  var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  var ymd = function (d) { return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); };
+  var dash = function (s) { return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8); };
+  var toD = function (s) { return new Date(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8)); };
+  var ok = false;
+
+  // 작은 표시 — 이 창이 다리라는 걸 사람이 알게
+  function badge(t, bad) {
+    var b = document.getElementById('ipgb-badge');
+    if (!b) { b = document.createElement('div'); b.id = 'ipgb-badge'; b.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:99999;padding:8px 12px;border-radius:8px;font:13px "Malgun Gothic",sans-serif;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25)'; document.body.appendChild(b); }
+    b.style.background = bad ? '#c0262d' : '#1b4fb3'; b.textContent = '💰 입금확인 연결 창 — ' + t;
+  }
+
+  (async function wait() {
+    for (var i = 0; i < 600; i++) {
+      try { if (typeof api === 'function') { await api('/auth/me'); ok = true; badge('연결됨 (닫지 마세요)'); return; } } catch (e) { if (i === 3) badge('보드에 로그인해 주세요', true); }
+      await sleep(1000);
+    }
+  })();
+
+  async function depList(st, ed) {
+    var r = await fetch('/gw2/dep.php?a=list', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-GW2': '1' },
+      body: JSON.stringify({ st: st + ' 00:00', ed: ed + ' 23:59', acct: '', name: '', ty: '0' }) });
+    var j = await r.json();
+    if (!j.ok) throw new Error('입금 내역을 못 읽었습니다 — ' + (j.why || '그룹웨어 로그인 확인'));
+    return (j.rows || []).filter(function (x) { return x.io === 'IN' && String(x.hid) !== '1'; })
+      .map(function (x) { return { id: x.id, dt: x.dt, name: x.name, amt: +x.amount, memo: x.memo || '' }; });
+  }
+
+  var CMD = {
+    list: async function () {
+      var j = await api('/clients?size=0&sort=month_sales&direction=DESC');
+      return (j.items || []).filter(function (c) { return +c.unpaid_amount > 0; }).map(function (c) {
+        return { id: c.id, name: c.client_name, ch: c.channel_name, biz: c.business_name, alias: c.channel_alias, cyc: c.settlement_cycle,
+                 last: c.last_payment_date, unpaid: +c.unpaid_amount, st: c.receivable_status, contact: c.contact_name, dist: c.external_distributor_name };
+      }).sort(function (a, b) { return b.unpaid - a.unpaid; });
+    },
+    vendor: async function (q) {
+      var id = +q.id, now = new Date(), y = now.getFullYear(), m = now.getMonth() + 1;
+      var days = [], done = [], top = null, acc = 0;
+      for (var k = 0; k < 13; k++) {
+        var c = await api('/clients/' + id + '/settlement-calendar?year=' + y + '&month=' + m);
+        if (top === null) top = +c.unpaid_amt || 0;
+        (c.days || []).forEach(function (d) {
+          if (+d.unpaid_amt) { days.push({ date: d.date, amt: +d.unpaid_amt, tot: +d.total_amt }); acc += +d.unpaid_amt; }
+          else if (+d.total_amt) done.push(d.date);
+        });
+        var minU = days.length ? days.reduce(function (a, d) { return d.date < a ? d.date : a; }, '99999999') : null;
+        if (acc >= top && (!minU || done.some(function (d) { return d < minU; }))) break;
+        m--; if (!m) { m = 12; y--; }
+      }
+      days.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+      var first = days.length ? days[0].date : null;
+      var lastDone = first ? done.filter(function (d) { return d < first; }).sort().pop() || null : null;
+      // 입금은 «마지막으로 칠한 날 다음 날»부터 — 그날 입금은 이미 칠한 날 몫이다. 칠한 날이 없으면 첫 미정산 14일 전부터
+      var from = lastDone ? toD(lastDone) : first ? toD(first) : new Date(now.getTime() - 30 * 864e5);
+      from.setDate(from.getDate() + (lastDone ? 1 : -14));
+      var deps = [], s = new Date(from);
+      while (s <= now) {
+        var e = new Date(s); e.setDate(e.getDate() + 60); if (e > now) e = new Date(now);
+        deps = deps.concat(await depList(dash(ymd(s)), dash(ymd(e))));
+        s = new Date(e); s.setDate(s.getDate() + 1);
+      }
+      return { id: id, top: top, sum: acc, days: days, lastDone: lastDone, depFrom: ymd(from), deps: deps };
+    },
+    apply: async function (q) {
+      var id = +q.id, out = [];
+      for (var i = 0; i < (q.items || []).length; i++) {
+        var it = q.items[i];
+        if (!/^\d{8}$/.test(it.date) || !/^\d{8}$/.test(it.dep_dt)) { out.push({ date: it.date, err: '날짜 형식' }); continue; }
+        try {
+          var r = await api('/clients/' + id + '/settlement-calendar/day-status', { method: 'PATCH', body: JSON.stringify({ date: it.date, adj_chk: '2', dep_dt: it.dep_dt }) });
+          out.push({ date: it.date, updated: r.updated || 0 });
+        } catch (e) { out.push({ date: it.date, err: e.message || String(e) }); }
+      }
+      return out;
+    }
+  };
+
+  window.addEventListener('message', async function (ev) {
+    if (ev.origin !== TOOL || !ev.data || ev.data.ipgb !== 1) return;
+    var d = ev.data, reply = function (m) { try { ev.source.postMessage(Object.assign({ ipgb: 2, rid: d.rid }, m), TOOL); } catch (e) {} };
+    if (d.cmd === 'ping') { reply({ pong: ok }); return; }
+    if (!ok) { reply({ err: '보드에 로그인해 주세요 (연결 창)' }); return; }
+    if (!CMD[d.cmd]) { reply({ err: '모르는 부탁' }); return; }
+    badge('작업 중…');
+    try { reply({ data: await CMD[d.cmd](d) }); badge('연결됨 (닫지 마세요)'); }
+    catch (e) { reply({ err: e.message || String(e) }); badge('오류 — ' + (e.message || e), true); }
+  });
+})();
