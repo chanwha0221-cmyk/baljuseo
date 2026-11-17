@@ -934,17 +934,46 @@ async function brCall(cmd, extra = {}){
 async function abConnect(){
   if(!(await brOpen())) return;
   abStat('미정산 업체 불러오는 중…');
-  try{ AB.list = await brCall('list'); abStat(`미수 남은 곳 <b>${AB.list.length}</b>곳 · 합계 <b>${won(AB.list.reduce((s,c) => s+c.unpaid, 0))}</b>원`); abDraw(); window.focus(); }
+  try{ AB.list = await brCall('list'); abStat(`미수 남은 곳 <b>${AB.list.length}</b>곳 · 합계 <b>${won(AB.list.reduce((s,c) => s+c.unpaid, 0))}</b>원`); abDraw(); window.focus(); abSpans(); }
   catch(e){ abStat(esc(e.message), 1); }
 }
+/* 📅 미정산 기간 — 목록이 뜬 뒤 업체마다 달력을 훑어 채운다(5곳씩 동시에). 업체 목록을 다시 불러와도 받아 둔 건 그대로 쓴다 */
+AB.span = {};
+async function abSpans(){
+  const todo = AB.list.filter(c => !AB.span[c.id]).map(c => c.id);
+  let i = 0;
+  const one = async () => { while(i < todo.length){ const id = todo[i++]; try{ AB.span[id] = await brSend('span', {id}, 60000); }catch(e){ AB.span[id] = {err:1}; } abDraw(); } };
+  await Promise.all([one(), one(), one(), one(), one()]);
+}
+const abDays = s => s ? Math.floor((Date.now() - new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8)).getTime()) / 864e5) : null;
+const abMD = s => (+s.slice(4,6)) + '/' + (+s.slice(6,8));
+function abSpanTxt(c){
+  const s = AB.span[c.id];
+  if(!s) return '<span class="hint">…</span>';
+  if(s.err || !s.first) return '<span class="hint">-</span>';
+  const d = abDays(s.first);
+  return `${abMD(s.first)}${s.last !== s.first ? ' ~ ' + abMD(s.last) : ''} <span style="color:${d >= 30 ? '#c0262d' : d >= 14 ? '#b36b00' : '#777'}">(${d}일째${s.full ? '' : '+'})</span> <span class="hint">${s.n}일</span>`;
+}
+// ↕ 정렬 — 칸 머리 누르면 그 순서, 다시 누르면 거꾸로. 기본 미수금 많은 순
+AB.sort = {k:'unpaid', d:-1};
+const AB_SORT = {
+  name: c => c.ch || c.name, cyc: c => c.cyc || '', last: c => c.last || '', unpaid: c => c.unpaid,
+  span: c => { const s = AB.span[c.id]; return s && s.first ? -abDays(s.first) : 1e9; },   // 오래된 미정산 먼저(오름차순일 때)
+  st: c => ({'위험':0, '주의':1, '정상':2})[c.st] ?? 3
+};
+function abSort(k){ AB.sort = AB.sort.k === k ? {k, d:-AB.sort.d} : {k, d: k === 'unpaid' ? -1 : 1}; abDraw(); }
 function abDraw(){
-  const q = $('abQ').value.trim();
-  const rows = AB.list.filter(c => !q || [c.name, c.ch, c.biz, c.alias].some(x => String(x||'').includes(q)));
-  $('abList').innerHTML = !AB.list.length ? '' : `<table class="res"><thead><tr><th>업체</th><th>정산주기</th><th>최근 입금일</th><th>미수금</th><th>상태</th><th></th></tr></thead><tbody>` +
+  const q = $('abQ').value.trim(), f = AB_SORT[AB.sort.k], d = AB.sort.d;
+  const rows = AB.list.filter(c => !q || [c.name, c.ch, c.biz, c.alias].some(x => String(x||'').includes(q)))
+    .slice().sort((a, b) => { const x = f(a), y = f(b); return (x < y ? -1 : x > y ? 1 : 0) * d || b.unpaid - a.unpaid; });
+  const th = (k, t) => `<th style="cursor:pointer;white-space:nowrap" onclick="abSort('${k}')">${t}${AB.sort.k === k ? (AB.sort.d > 0 ? ' ▲' : ' ▼') : ' <span class="hint">↕</span>'}</th>`;
+  const box = $('abList'), top = box.scrollTop;
+  box.innerHTML = !AB.list.length ? '' : `<table class="res"><thead><tr>${th('name','업체')}${th('cyc','정산주기')}${th('last','최근 입금일')}${th('span','미정산 기간')}${th('unpaid','미수금')}${th('st','상태')}<th></th></tr></thead><tbody>` +
     rows.map(c => `<tr${AB.cur && AB.cur.c.id === c.id ? ' style="background:#eef4ff"' : ''}><td>${esc(c.ch || c.name)}${c.ch && c.name !== c.ch ? ' <span class="hint">'+esc(c.name)+'</span>' : ''}</td>
-      <td class="c">${esc(c.cyc||'')}</td><td class="c">${esc(c.last||'-')}</td><td class="n"><b>${won(c.unpaid)}</b></td>
+      <td class="c">${esc(c.cyc||'')}</td><td class="c">${esc(c.last||'-')}</td><td class="c" style="white-space:nowrap">${abSpanTxt(c)}</td><td class="n"><b>${won(c.unpaid)}</b></td>
       <td class="c" style="color:${c.st==='위험'?'#c0262d':c.st==='주의'?'#b36b00':'#2d7a3a'}">${esc(c.st||'')}</td>
       <td class="c"><button class="mini" onclick="abPick(${c.id})">입금 확인</button></td></tr>`).join('') + '</tbody></table>';
+  box.scrollTop = top;
 }
 // 입금자 이름 맞추기 — 업체명·채널명·사업자명·별칭 + 이 업체에 직접 넣은 입금자명(브라우저 저장)
 const abNorm = s => String(s||'').replace(/\(주\)|주식회사|㈜|\s/g, '').toLowerCase();
