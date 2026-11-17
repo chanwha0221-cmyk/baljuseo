@@ -909,8 +909,11 @@ async function brOpen(){
   if(BR && !BR.closed && BR_OK) return true;
   BR_OK = false;
   if(!BR || BR.closed){
-    BR = window.open(BR_URL, 'ipgbridge', 'width=1000,height=760');
+    /* 이미 떠 있는 연결 창이 있으면 새로 띄우지 않고 그 창을 새로고침 (홍팀장 26-11-17 «보드연결 할 때마다 창이 하나씩 더 생긴다»).
+       '' 로 열면 같은 이름 창을 그대로 돌려받는다(없으면 빈 창) → 주소를 다시 넣어 새로 읽힌다(다리도 최신으로). */
+    BR = window.open('', 'ipgbridge', 'width=1000,height=760');
     if(!BR){ abStat('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시', 1); return false; }
+    try{ BR.location.href = BR_URL; }catch(e){ BR = window.open(BR_URL, 'ipgbridge', 'width=1000,height=760'); }
     // 이미 열린 보드 창이 있으면 window.open 이 그 창을 다시 읽는다 — 다시 읽기 전 옛 다리가 pong 하고 사라지는 걸 피하려 잠깐 기다림(26-11-17 실측: 목록 부탁이 사라져 «불러오는 중» 멈춤)
     await new Promise(r => setTimeout(r, 3000));
   }

@@ -14,6 +14,8 @@
   var dash = function (s) { return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8); };
   var toD = function (s) { return new Date(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8)); };
   var ok = false;
+  /* 창 이름을 지킨다 — 보드가 이름을 지우면 입금확인이 이 창을 못 찾고 새 창을 또 띄운다(26-11-17 «창이 하나씩 더 생긴다») */
+  setInterval(function () { if (window.name !== 'ipgbridge') window.name = 'ipgbridge'; }, 1000);
 
   // 작은 표시 — 이 창이 다리라는 걸 사람이 알게
   function badge(t, bad) {
