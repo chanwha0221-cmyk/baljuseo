@@ -726,7 +726,7 @@ function drawImg(){
   if(SS) rows0 = [{vals:[['모두 합계'], [won(SS.tails.reduce((s,b)=>s+b.amt,0))], [''], [SS.tot > 0 ? won(SS.tot) : SS.tot < 0 ? '+'+won(-SS.tot) : '0'], [SS.tot > 0 ? '미정산' : SS.tot < 0 ? '더 들어옴' : '맞음']],
     bg: SS.tot > 0 ? BG.tail : BG.over, bold:true, colors:[null,null,null, SS.tot > 0 ? '#b3261e' : '#1b4fb3', SS.tot > 0 ? '#b3261e' : '#1b4fb3']}];
   const rows = [{vals:cols.map(co => [co.t]), bg:BG.head, bold:true},
-    ...show.flatMap(b => blockImgRows(b, false, false)), ...rows0];
+    ...show.flatMap(b => blockImgRows(SS && b.st === 'tail' ? {...b, st:'short'} : b, false, false)), ...rows0];   // 구간이 여럿이면 «미정산» 대신 «덜 들어옴»(결론은 맨 아래 합계)
   const H = show.length ? top + tableHeight(rows) + 50 : 130 + (hl.length - 1) * 20;
   const S = 2; cv.width = W*S; cv.height = H*S; cv.style.width = W+'px';
   x.setTransform(S,0,0,S,0,0); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.textBaseline = 'middle';
