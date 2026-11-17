@@ -1776,6 +1776,22 @@ function bgNotFood(r){
 const BG_ONE=/젓갈|젓$|한과|유과|약과|김치|떡|된장|간장|고추장|청국장|장류|참기름|들기름|기름집|방앗간|꿀|양봉|벌꿀|홍삼|인삼|산삼|흑삼|버섯|두부|식혜|막걸리|전통주|양조|주조|와이너리|와인|커피|로스터|빵|베이커리|제과|과자점|쿠키|도넛|마카롱|케이크|케익|떡볶이|만두|순대|족발|곱창|국밥|냉면|국수|반찬|도시락|밀키트|굴비|홍어|게장|미역|다시마|감귤|한라봉|천혜향|사과|딸기|포도|복숭아|토마토|고구마|감자|마늘|양파|대추|곶감|호두|잡곡|수제청|소금|천일염|염전|치즈|요거트|요구르트|누룽지|조청|식초|효소|장아찌|부각|강정|육포|어묵|돈까스|돈가스|떡갈비|훈제|명란|과메기|곰탕|사골|흑돼지|정육|한우|낙지|갈비/;
 const BG_MAKER=/농장|농원|목장|영농조합|농업회사|어업회사|영어조합|양식장|공방|명인|명가|할매|할머니|엄마|아빠|어머니|옛날|전통|손맛|본가|원조|제조|가공|협동조합/;
 const BG_SELLER=/마켓|market|마트|몰$|몰[\s(]|스토어|store|shop|커머스|commerce|유통|상사|무역|트레이딩|trading|종합|도매|식자재|컴퍼니|company|글로벌|global|플랫폼|셀러|위탁|공구|라이프|리빙|네트웍스|홀딩스|상회|물산|mall|딜|deal|셀렉|편집샵|구매대행/i;
+/* 🔗 주소 없는 곳 빼기 (2026-11-17 홍팀장 — 「smartstore.naver.com/daewoostore 처럼 뒤에 상세 주소 있는 애들만 진짜다.
+   smartstore.naver.com / coupang.com / 11st.co.kr / wemakeprice.com 이런 것들 다 빼라」).
+   도메인 칸의 주소 중 하나라도 «찾아 들어갈 수 있는 주소»면 남긴다:
+   · 자체 도메인(xxx.co.kr·xxx.cafe24.com 등) → 남김
+   · 플랫폼 주소(스마트스토어·쿠팡·11번가·옥션·지마켓·위메프·밴드·카카오…, 오타 nave·never 포함)는 뒤에 가게 주소가 붙어야 남김
+     — sell.smartstore.naver.com/#/home/dashboard·wing.coupang.com/tenants 같은 판매자센터 주소, 「네이버」·「오픈마켓」 같은 글자는 주소 아님
+   실측(업종 제외 뒤 21,137곳): 3,357곳 제외. */
+const BG_PF=/smartstore|storefarm|naver|nave\.|never\.com|coupang|auction\.|gmarket\.|11st\.|wemakeprice|interpark|tmon\.|ticketmonster|ssg\.com|kakao\.com|daum\.net|band\.us|idus\.com|facebook|instagram|epost\.go\.kr|lotteon|google\./i;
+const BG_PF_GEN=/^(tenants|home|main|index|login|search|d|d\.v2|me|vp|products?|shop|store|seller|info|dashboard|n|m|kr|ko|naver|sell|smartstore|channel|profile|join|signup|vendor-signup|business-registration)$/i;
+function bgHasAddr(r){
+  return String(r[4]||'').split(/[,\s]+/).map(p=>p.trim().replace(/^https?:\/\//i,'').replace(/^www\./i,'')).filter(p=>/\.[a-z]{2,}/i.test(p)).some(p=>{
+    const i=p.indexOf('/'), host=i<0?p:p.slice(0,i);
+    if(!BG_PF.test(host))return true;
+    return (i<0?'':p.slice(i+1)).split(/[\/?#&=)]+/).some(s=>s.length>=2&&!BG_PF_GEN.test(s)&&!/^\.+$/.test(s));
+  });
+}
 function bgKind(r){
   const nm=String(r[0]||''), ct=(BG.cats&&BG.cats[r[8]])||'';
   if(BG_SELLER.test(nm))return 'S';
@@ -1791,10 +1807,11 @@ function bgRender(){
   const sentMail=new Set(), sentName=new Set();
   if(bgSt.onlyNew)DATA.forEach(r=>{ if(r[2])sentMail.add(pkeyN(r[2])); if(r[0])sentName.add(pkeyN(r[0])); });
   const hid=bgHideSet();
-  let nf=0, mk=0;
+  let nf=0, mk=0, na=0;
   BG_FILT=BG.rows.filter(r=>{
     if(hid.has(bgKey(r)))return false;        // 🗑 지운 곳은 영영 안 올라온다
     if(bgNotFood(r)){ nf++; return false; }    // 🚫 업종 아님 — 위 규칙
+    if(!bgHasAddr(r)){ na++; return false; }   // 🔗 가게 주소 없음(맨 smartstore.naver.com·coupang.com 등)
     if(!q&&!bgSt.mk&&bgKind(r)==='M'){ mk++; return false; }   // 🏭 제조·단품 — 기본 숨김(검색할 땐 다 보임)
     if(bgSt.rg!==''&&String(r[2])!==bgSt.rg)return false;
     if(bgSt.own&&!bgSt.pf&&r[3]!==0)return false;
@@ -1815,6 +1832,7 @@ function bgRender(){
       +'</b>곳 · 갱신 '+esc(BG.at)
       +(hid.size?' · 🗑 지운 곳·✉ 메일 쓴 곳 <b>'+hid.size.toLocaleString()+'</b>곳 (목록에 안 올라옵니다)':'')
       +(nf?' · 🚫 업종 아님 자동 제외 <b>'+nf.toLocaleString()+'</b>곳':'')
+      +(na?' · 🔗 가게 주소 없음 제외 <b>'+na.toLocaleString()+'</b>곳':'')
       +(mk?' · 🏭 제조·단품 숨김 <b>'+mk.toLocaleString()+'</b>곳':'')
       +' · 🛒 위탁형(마켓·몰·유통·상사…)이 맨 위';
   /* 실수로 지웠을 때만 쓰는 되돌리기 — 이번에 지운 것만 보인다(새로고침하면 사라진다) */
