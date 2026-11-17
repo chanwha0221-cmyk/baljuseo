@@ -50,7 +50,7 @@
     },
     vendor: async function (q) {
       var id = +q.id, now = new Date(), y = now.getFullYear(), m = now.getMonth() + 1;
-      var days = [], done = [], hist = [], top = null, acc = 0;
+      var days = [], done = [], hist = [], top = +q.top || null, acc = 0;   // 목표 = 거래처 목록 미수금(달력 unpaid_amt 는 그 달 것)
       /* 지난 정산(이미 칠한 날)도 첫 미정산 45일 전까지 가져온다 (홍팀장 26-11-17 «대조 시작은 입금액·정산액이 딱 맞는 날짜 기준»).
          도구가 그 안에서 «입금 = 정산 구간» 딱 맞은 마지막 지점을 찾아 거기 다음부터 대조한다. */
       var HIST = 45;
@@ -82,7 +82,8 @@
     /* 미정산 기간 (홍팀장 26-11-17 «미정산 기간이랑 정렬 기능도») — 거래처 목록엔 첫 미정산일이 없어서 달력을 거꾸로 훑는다.
        이번 달부터 한 달씩, 모은 미정산 합이 미수금에 닿으면 멈춘다(최대 14달). */
     span: async function (q) {
-      var id = +q.id, now = new Date(), y = now.getFullYear(), m = now.getMonth() + 1, top = null, acc = 0, ds = [];
+      // 🔴 달력의 unpaid_amt 는 «그 달» 미정산이다 — 목표 합은 거래처 목록의 미수금(q.top)으로 (11월에 미정산 없는 메이크머닛이 빈칸 나온 사고)
+      var id = +q.id, now = new Date(), y = now.getFullYear(), m = now.getMonth() + 1, top = +q.top || null, acc = 0, ds = [];
       for (var k = 0; k < 14; k++) {
         var c = await api('/clients/' + id + '/settlement-calendar?year=' + y + '&month=' + m);
         if (top === null) top = +c.unpaid_amt || 0;

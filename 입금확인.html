@@ -942,7 +942,7 @@ AB.span = {};
 async function abSpans(){
   const todo = AB.list.filter(c => !AB.span[c.id]).map(c => c.id);
   let i = 0;
-  const one = async () => { while(i < todo.length){ const id = todo[i++]; try{ AB.span[id] = await brSend('span', {id}, 60000); }catch(e){ AB.span[id] = {err:1}; } abDraw(); } };
+  const one = async () => { while(i < todo.length){ const id = todo[i++]; try{ AB.span[id] = await brSend('span', {id, top:(AB.list.find(c => c.id === id) || {}).unpaid}, 60000); }catch(e){ AB.span[id] = {err:1}; } abDraw(); } };
   await Promise.all([one(), one(), one(), one(), one()]);
 }
 const abDays = s => s ? Math.floor((Date.now() - new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8)).getTime()) / 864e5) : null;
@@ -991,7 +991,7 @@ async function abPick(id){
   if(!(await brOpen())) return;
   AB.busy = true; abStat(`${esc(c.ch || c.name)} 정산달력·입금 내역 불러오는 중…`);
   try{
-    const v = await brCall('vendor', {id});
+    const v = await brCall('vendor', {id, top:c.unpaid});
     AB.cur = {c, v};
     abFill();
     abStat(`${esc(c.ch || c.name)} — 미정산 ${v.days.length}일 ${won(v.sum)}원 · 입금 ${CUR ? CUR.nDep : 0}건 (${dashD(v.depFrom)}부터)` + (v.sum !== v.top ? ` <span style="color:#c0262d">⚠ 달력 합 ${won(v.sum)} ≠ 미수금 ${won(v.top)}</span>` : ''));
