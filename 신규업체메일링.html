@@ -1785,9 +1785,14 @@ const BG_SELLER=/마켓|market|마트|몰$|몰[\s(]|스토어|store|shop|커머�
    실측(업종 제외 뒤 21,137곳): 3,357곳 제외. */
 const BG_PF=/smartstore|storefarm|naver|nave\.|never\.com|coupang|auction\.|gmarket\.|11st\.|wemakeprice|interpark|tmon\.|ticketmonster|ssg\.com|kakao\.com|daum\.net|band\.us|idus\.com|facebook|instagram|epost\.go\.kr|lotteon|google\./i;
 const BG_PF_GEN=/^(tenants|home|main|index|login|search|d|d\.v2|me|vp|products?|shop|store|seller|info|dashboard|n|m|kr|ko|naver|sell|smartstore|channel|profile|join|signup|vendor-signup|business-registration)$/i;
+/* 블로그·카페·밴드 주소만 있는 곳도 뺀다 (2026-11-17 홍팀장). cafe24(자체몰)는 카페 아님 — 남긴다. */
+const BG_BLOG=/(^|\.)(blog\.naver\.com|cafe\.naver\.com|cafe\.daum\.net|band\.us|tistory\.com|blog\.daum\.net)$|^(m\.)?(blog|cafe)\.(naver|daum)\./i;
+/* 📅 신고일 2024년 이후만 (2026-11-17 홍팀장 — 「예전 신고 업체는 폐업한 곳이 너무 많다, 2024~2026 업체만 추리자」). */
+const BG_FROM_YEAR='2024';
 function bgHasAddr(r){
   return String(r[4]||'').split(/[,\s]+/).map(p=>p.trim().replace(/^https?:\/\//i,'').replace(/^www\./i,'')).filter(p=>/\.[a-z]{2,}/i.test(p)).some(p=>{
     const i=p.indexOf('/'), host=i<0?p:p.slice(0,i);
+    if(BG_BLOG.test(host))return false;   // 블로그·카페·밴드는 주소로 안 친다(26-11-17)
     if(!BG_PF.test(host))return true;
     return (i<0?'':p.slice(i+1)).split(/[\/?#&=)]+/).some(s=>s.length>=2&&!BG_PF_GEN.test(s)&&!/^\.+$/.test(s));
   });
@@ -1807,11 +1812,12 @@ function bgRender(){
   const sentMail=new Set(), sentName=new Set();
   if(bgSt.onlyNew)DATA.forEach(r=>{ if(r[2])sentMail.add(pkeyN(r[2])); if(r[0])sentName.add(pkeyN(r[0])); });
   const hid=bgHideSet();
-  let nf=0, mk=0, na=0;
+  let nf=0, mk=0, na=0, old=0;
   BG_FILT=BG.rows.filter(r=>{
     if(hid.has(bgKey(r)))return false;        // 🗑 지운 곳은 영영 안 올라온다
     if(bgNotFood(r)){ nf++; return false; }    // 🚫 업종 아님 — 위 규칙
-    if(!bgHasAddr(r)){ na++; return false; }   // 🔗 가게 주소 없음(맨 smartstore.naver.com·coupang.com 등)
+    if(!bgHasAddr(r)){ na++; return false; }   // 🔗 가게 주소 없음(맨 smartstore.naver.com·coupang.com·블로그·카페·밴드)
+    if(String(r[5]||'').slice(0,4)<BG_FROM_YEAR){ old++; return false; }   // 📅 2024년 이전 신고 — 폐업 많음
     if(!q&&!bgSt.mk&&bgKind(r)==='M'){ mk++; return false; }   // 🏭 제조·단품 — 기본 숨김(검색할 땐 다 보임)
     if(bgSt.rg!==''&&String(r[2])!==bgSt.rg)return false;
     if(bgSt.own&&!bgSt.pf&&r[3]!==0)return false;
@@ -1833,6 +1839,7 @@ function bgRender(){
       +(hid.size?' · 🗑 지운 곳·✉ 메일 쓴 곳 <b>'+hid.size.toLocaleString()+'</b>곳 (목록에 안 올라옵니다)':'')
       +(nf?' · 🚫 업종 아님 자동 제외 <b>'+nf.toLocaleString()+'</b>곳':'')
       +(na?' · 🔗 가게 주소 없음 제외 <b>'+na.toLocaleString()+'</b>곳':'')
+      +(old?' · 📅 '+BG_FROM_YEAR+'년 이전 신고 제외 <b>'+old.toLocaleString()+'</b>곳':'')
       +(mk?' · 🏭 제조·단품 숨김 <b>'+mk.toLocaleString()+'</b>곳':'')
       +' · 🛒 위탁형(마켓·몰·유통·상사…)이 맨 위';
   /* 실수로 지웠을 때만 쓰는 되돌리기 — 이번에 지운 것만 보인다(새로고침하면 사라진다) */
