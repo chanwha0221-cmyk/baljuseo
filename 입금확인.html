@@ -478,7 +478,7 @@ function run(){
     const dep = ds.length ? (ds.length > 1 ? {date:ds[ds.length-1].date, name:ds[0].name, amt:dAmt, parts:ds} : ds[0]) : null;
     openB = {from: rs.length ? rs[0].date : '', to: rs.length ? rs[rs.length-1].date : '', n:rs.length, rs, amt, dep, diff:amt - dAmt, st:'open', open:true};
     blocks.unshift(openB);
-    const tb = blocks.find(b => b.tail);
+    const tb = lastTail(blocks);
     if(tb && openB.diff){
       tb.carry = openB.diff; tb.diff += openB.diff;
       tb.st = tb.diff > 0 ? 'tail' : tb.diff < 0 ? 'over' : 'ok';
@@ -493,7 +493,7 @@ function run(){
   if(lone.length){
     const lAmt = lone.reduce((s,b) => s+b.ref.amt, 0);
     refPaid += lAmt;
-    const tb = blocks.find(b => b.tail);
+    const tb = lastTail(blocks);
     if(tb){
       const parts = [...(tb.ref ? (tb.ref.parts || [tb.ref]) : []), ...lone.map(b => b.ref)].sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
       tb.ref = {date:parts[parts.length-1].date, amt:parts.reduce((s,r) => s+r.amt, 0), parts};
@@ -522,10 +522,23 @@ function run(){
    2일부터 6일까지 정산 얼마, 3일에 얼마 입금, 그러니까 총 미정산은 이거라고 정리해»).
    딱 맞은 줄(✅) 뒤에서 처음 어긋난 곳부터는 정산은 날짜별로 다 깔고, 그 기간 입금을 다 모아 «정산 합계 − 입금 합계 = 미정산» 한 줄.
    ±10% 근사 매칭(덜/더 들어옴)으로 아무 입금에나 갖다 붙이지 않는다. 짝 없는 환불(참고 줄)은 덩어리 뒤에 그대로 둔다. */
+/* 🧩 (홍팀장 26-11-17 «이걸 다 밑에 이지랄 하지 말고 날짜별로 비슷한 거에 붙여서 어디가 잘못됐는지 보여달라»)
+   첫 어긋난 줄부터 끝까지 통째로 묶었더니, 그 뒤에 딱 맞은 입금(10/26 594,200 = 10/6~10/23)까지 덩어리에 삼켜져
+   어디가 틀렸는지 안 보였다. → 딱 맞은 줄(✅)은 제자리에 두고, 그 «사이사이» 어긋난 줄들만 구간별로 묶는다.
+   예: 9/21~9/28 정산 865,800 ↔ 9/21·9/28 입금 1,186,200 = +320,400 더 들어옴 / 10/6~10/23 ✅ / 10/26~11/3 156,000 미입금. */
+const BAD_ST = ['short','over','unpaid','missing','nomatch'];
 function tailMerge(blocks){
-  const i = blocks.findIndex(b => ['short','over','unpaid','missing','nomatch'].includes(b.st));
-  if(i < 0) return blocks;
-  const tail = blocks.slice(i), keep = tail.filter(b => b.st === 'refund'), part = tail.filter(b => b.st !== 'refund');
+  const out = []; let seg = [], refs = [];
+  const flush = () => { if(seg.length) out.push(segMerge(seg)); out.push(...refs); seg = []; refs = []; };
+  blocks.forEach(b => {
+    if(BAD_ST.includes(b.st)) seg.push(b);
+    else if(b.st === 'refund' && seg.length) refs.push(b);   // 짝 없는 환불은 구간을 끊지 않고 그 구간 뒤에
+    else { flush(); out.push(b); }
+  });
+  flush();
+  return out;
+}
+function segMerge(part){
   const rs = part.flatMap(b => b.rs || []).sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
   const deps = part.flatMap(b => b.dep ? (b.dep.parts || [b.dep]) : []).sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
   const refs = part.map(b => b.ref).filter(Boolean);
@@ -535,8 +548,9 @@ function tailMerge(blocks){
   const diff = amt - (depAmt - refAmt);
   const t = {from: rs.length ? rs[0].date : (dep ? dep.date : ''), to: rs.length ? rs[rs.length-1].date : '', n:rs.length, rs, amt, dep, ref, diff,
              st: diff > 0 ? 'tail' : diff < 0 ? 'over' : 'ok', tail:true};
-  return [...blocks.slice(0, i), t, ...keep];
+  return t;
 }
+const lastTail = blocks => { for(let i = blocks.length - 1; i >= 0; i--) if(blocks[i].tail) return blocks[i]; return null; };   // 시작 차액·짝 없는 환불은 맨 마지막 구간(지금 미정산)에 얹는다
 function startPick(v){ $('startSel').dataset.pick = v; run(); }
 function depPick(v){ $('depSel').dataset.pick = v; run(); }
 /* ⤒ 여기부터 — 표에서 줄을 찍어 대조 시작점을 잡는다 (홍팀장 26-11-07 «이 입금이랑 이 입금은 맞았다를
@@ -618,7 +632,8 @@ function tailLine(b){
   const per = b.n ? `${rangeLabel(b)} 정산 ${won(b.amt)}원` : '';
   const ds = b.dep ? (b.dep.parts || [b.dep]).map(d => `${kDate(d.date)} ${won(d.amt)}원`).join(', ') : '';
   const got = b.dep ? `${per ? ' 중 ' : ''}${ds} 입금${b.ref ? `(환불 ${won(b.ref.amt)}원 제외)` : ''}` : (per ? ' 중 입금 내역 없음' : '');
-  return `${per}${got}${b.carry ? `, ${carryTxt(b)}` : ''}, 미정산 ${won(b.diff)}원입니다.`;
+  const end = b.diff > 0 ? `미정산 ${won(b.diff)}원입니다.` : b.diff < 0 ? `${won(-b.diff)}원 더 입금되었습니다.` : '정산 금액과 맞습니다.';
+  return `${per}${got}${b.carry ? `, ${carryTxt(b)}` : ''}, ${end}`;
 }
 // 업체에 나가는 문구 — 사실만, 정중하게. 탓하는 말·재촉하는 말 넣지 말 것.
 function buildMsg(){
@@ -627,6 +642,13 @@ function buildMsg(){
   const hi = `안녕하세요${c.honor ? ' '+c.honor+'님' : ''}${co ? ', '+co+'입니다.' : '.'}`;
   if(c.firstBad < 0) return `${hi}\n${c.vendor} 정산 건 입금 모두 확인되었습니다.\n감사합니다.`;
   const tb = c.blocks[c.firstBad];
+  // 구간이 여럿이면 구간마다 한 줄 + 합쳐서 얼마 (26-11-17)
+  const tails = c.blocks.filter(b => b.tail && b.diff);
+  if(tails.length > 1){
+    const tot = tails.reduce((s,b) => s + b.diff, 0);
+    return `${hi}\n\n` + tails.map(b => '· ' + tailLine(b)).join('\n') +
+      `\n\n${tot > 0 ? `합쳐서 미정산 ${won(tot)}원입니다.\n확인 후 입금 부탁드립니다.` : tot < 0 ? `합쳐서 ${won(-tot)}원 더 입금되었습니다.` : '합치면 정산 금액과 맞습니다.'}\n\n이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
+  }
   if(tb.tail) return `${hi}\n\n${tailLine(tb)}\n확인 후 입금 부탁드립니다.\n\n이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
   // 금액 = 입금 확인 안 된 정산(입금 내역 없음·미입금·덜 들어옴) 합. 맞는 정산 없는 입금은 따로 물어본다.
   const odd = c.blocks.filter(b => b.st === 'nomatch');
