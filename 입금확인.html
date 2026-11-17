@@ -501,6 +501,7 @@ function run(){
     const parts = [...(b.ref ? (b.ref.parts || [b.ref]) : []), r];
     b.ref = {date:r.date, amt:parts.reduce((s,x) => s+x.amt, 0), parts};
     if(b.open){ const tb = lastTail(blocks); if(tb && tb.carry){ tb.diff -= tb.carry; tb.carry = 0; tb.st = tb.diff > 0 ? 'tail' : tb.diff < 0 ? 'over' : 'ok'; } }
+    if(b.preDiff == null) b.preDiff = b.diff;   // 환불 전 차액(더 들어온 돈) — 표에 «+96,500 → 9/11 환불 → 0» 으로 보여 준다
     b.diff += r.amt; b.st = b.diff === 0 ? 'refunded' : b.diff > 0 ? (b.tail ? 'tail' : 'short') : 'over';
     refPaid += r.amt;
     blocks = blocks.filter(x => x !== rb);
@@ -590,6 +591,13 @@ const ST_ICON = {ok:'✅', short:'🟡', over:'🔵', unpaid:'❌', missing:'❌
 // 미정산 덩어리에 끌고 온 시작 차액 — 음수 = 앞에서 더 들어온 돈(빼 줌), 양수 = 앞에서 덜 들어온 돈(더함)
 const carryTxt = b => b.carry < 0 ? '앞서 더 들어온 ' + won(-b.carry) + '원 뺌' : '앞서 덜 들어온 ' + won(b.carry) + '원 더함';
 const setLabel = b => b.n ? rangeLabel(b) : '-';
+/* 환불로 0 이 된 구간은 «얼마 더 들어옴 → 언제 환불 → 0» 순서로 (홍팀장 26-11-17 «정산 신경 안 쓰는 대표가 봐도 알게»). 표·이미지 공용 */
+const diffLines = b => b.preDiff != null && b.ref
+  ? ['+' + won(-b.preDiff) + ' 더 들어옴', ...(b.ref.parts || [b.ref]).map(r => kDate(r.date) + ' 환불 −' + won(r.amt)), '→ ' + diffTxt(b)]
+  : [diffTxt(b)];
+const stLines = b => b.preDiff != null && b.ref && b.diff === 0
+  ? ['더 들어온 ' + won(-b.preDiff) + '원', (b.ref.parts || [b.ref]).map(r => kDate(r.date)).join('·') + ' 환불 완료', '정산 끝']
+  : [ST_TXT[b.st]];
 const diffTxt = b => b.diff == null ? '-' : b.diff === 0 ? '0' : (b.diff > 0 ? won(b.diff) : '+' + won(-b.diff));
 // 입금일·실 입금액 칸: 입금 한 줄 + 짝지은 환불 한 줄(−)
 // 입금 여러 건을 한 정산에 붙였으면 건별로 깔고 맨 아래 합계 한 줄
@@ -622,7 +630,7 @@ function render(){
       : `<tr class="${b.st}${b.n>1?' tot':''}${i===c.firstBad&&k===0?' cut':''}">
     <td class="c">${ln.vals[0]}</td><td class="n">${ln.vals[1]}</td>
     <td class="c">${depDates(b).join('<br>')}</td><td class="n">${depAmts(b).join('<br>')}</td>
-    <td class="n">${diffTxt(b)}</td><td class="c">${ST_ICON[b.st]} ${ST_TXT[b.st]}${rowBtn(b, i)}</td></tr>`).join('')).join('');
+    <td class="n">${diffLines(b).join('<br>')}</td><td class="c">${ST_ICON[b.st]} ${stLines(b).join('<br>')}${rowBtn(b, i)}</td></tr>`).join('')).join('');
   linkBar();
   $('msg').textContent = buildMsg();
   drawImg();
@@ -718,7 +726,7 @@ const blockColors = (b, withDep) => { const red = (b.st==='short'||b.st==='unpai
 // 이미지용 줄: 날짜별 줄(입금 칸 비움) + 합계 줄(굵게, 입금·차액)
 const blockImgRows = (b, withDep, cut) => blockLines(b).map((ln, k) => ln.day
   ? {vals:[[ln.vals[0]], [ln.vals[1]], ...Array(withDep ? 4 : 3).fill([''])], bg:'#fff', cut:cut&&k===0}
-  : {vals:[[ln.vals[0]], [ln.vals[1]], ...(withDep ? [depDates(b)] : []), depAmts(b), [diffTxt(b)], [ST_TXT[b.st]]],
+  : {vals:[[ln.vals[0]], [ln.vals[1]], ...(withDep ? [depDates(b)] : []), depAmts(b), diffLines(b), stLines(b)],
      bg:BG[b.st], bold:b.n>1, colors:blockColors(b, withDep), cut:cut&&k===0});
 function footer(x, L, y){
   const c = CUR;
@@ -731,7 +739,7 @@ function drawImg(){
   const c = CUR, cv = $('cv'), x = cv.getContext('2d');
   const SS = segSum();   // 구간이 여럿이면 그 구간들 전부 + 결론 한 줄(문구와 같은 말)
   const show = SS ? SS.tails : c.firstBad < 0 ? [] : c.blocks.slice(c.firstBad);
-  const cols = [{t:'정산일', w:190, a:'center'}, {t:'정산금액', w:100, a:'right'}, {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:90, a:'right'}, {t:'상태', w:84, a:'center'}];
+  const cols = [{t:'정산일', w:190, a:'center'}, {t:'정산금액', w:100, a:'right'}, {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:150, a:'right'}, {t:'상태', w:130, a:'center'}];
   const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0);
   // 머리말이 길면 줄을 나눈다(결론 문구가 표 폭을 넘김)
   const head = SS ? SS.concl : show.length ? (show[0].tail ? tailLine(show[0]) : `${kDate(show[0].from)}분부터 ${won(c.bad)}원 입금 확인이 안 됩니다.`) : '정산 건 입금이 모두 확인되었습니다.';
@@ -757,7 +765,7 @@ function drawImg(){
 function drawFull(){
   const c = CUR, cv = document.createElement('canvas'), x = cv.getContext('2d');
   const cols = [{t:'정산일', w:190, a:'center'}, {t:'정산금액', w:100, a:'right'}, {t:'입금일', w:90, a:'center'},
-                {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:90, a:'right'}, {t:'상태', w:84, a:'center'}];
+                {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:150, a:'right'}, {t:'상태', w:130, a:'center'}];
   const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0), top = 150;
   const rows = [{vals:cols.map(co => [co.t]), bg:BG.head, bold:true},
     ...c.blocks.flatMap((b, i) => blockImgRows(b, true, i===c.firstBad))];
