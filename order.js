@@ -3118,7 +3118,7 @@ function rcvName(v){
   return m ? S(m[1]) : s;
 }
 function headerItems(raw){
-  const lines = S(raw).split(/\r?\n/).filter(l => l.replace(/\t/g, '').trim());
+  const lines = joinQuoted(S(raw), '\t').split(/\r?\n/).filter(l => l.replace(/\t/g, '').trim());   // ↵ 따옴표 칸 안 줄바꿈은 한 줄로 (11-17 제이)
   if(lines.length < 2) return [];
   /* 📋 CSV 를 열어 붙여넣으면 큰따옴표가 그대로 따라온다 (홍팀장 2026-09-03 — 한상/대감 파일).
      「"부산광역시 … 1202호"」의 따옴표는 쉼표가 든 칸을 묶는 CSV 문법이지 주소의 일부가 아니다.
@@ -3139,6 +3139,16 @@ function headerItems(raw){
     if(has(HDR_MAP.name) && has(HDR_MAP.rcv) && (has(HDR_MAP.qty) || has(HDR_MAP.addr) || has(HDR_MAP.tel))){ hr = i; head = c; break; }
   }
   if(hr < 0) return [];
+  /* ↵ 따옴표 없이 쪼개진 줄 붙이기 (홍팀장 2026-11-17 제이 — 이미 쪼개진 채로 칸에 들어온 원문).
+     칸 수가 머리글보다 모자란 줄 + 다음 줄의 칸을 이어 붙여(쪼개진 칸은 띄어쓰기로) 머리글 칸 수를 안 넘으면 한 줄로 본다.
+     정상 표의 줄은 칸 수가 머리글과 같아서 안 걸린다. */
+  for(let i = hr + 1; i < lines.length - 1; i++){
+    const a = lines[i].split('\t'), b = lines[i + 1].split('\t');
+    if(a.length < head.length && b.length < head.length && a.length + b.length - 1 === head.length){   // 딱 맞을 때만(짧은 주문 두 줄을 잘못 붙이지 않게)
+      const m = a.slice(0, -1).concat([(a[a.length - 1] + ' ' + b[0]).trim()], b.slice(1));
+      lines.splice(i, 2, m.join('\t')); i--;
+    }
+  }
   /* 📑 이 업체 규칙이 있으면 그 칸 이름을 **먼저** 본다 (없으면 예전대로).
      규칙이 이기게 하는 이유: 아크미 파일엔 '상품명(수집)'과 '상품명'이 둘 다 있고,
      읽어야 하는 건 우리 카탈로그 이름이 적힌 '상품명' 쪽이다. */
@@ -3565,7 +3575,9 @@ async function fileToRaw(file){
     const wb = X.read(await file.arrayBuffer(), {type:'array'});
     const sh = wb.Sheets[wb.SheetNames[0]];
     const grid = X.utils.sheet_to_json(sh, {header:1, raw:false, defval:''});
-    return grid.map(r => (r || []).map(c => S(c)).join('\t'))
+    /* ↵ 칸 안 줄바꿈은 띄어쓰기로 (홍팀장 2026-11-17 제이 — 주소 칸 「…해모로아파트)↵105동507호」 가 줄을 둘로 쪼개
+       한 주문이 2건처럼 보였다). 줄을 나누는 건 행뿐이다. */
+    return grid.map(r => (r || []).map(c => S(c).replace(/\s*[\r\n]+\s*/g, ' ').replace(/\t/g, ' ')).join('\t'))
                .filter(l => l.replace(/\t/g, '').trim())      // 통째로 빈 줄은 버린다
                .join('\n');
   }
@@ -3585,10 +3597,32 @@ async function fileToRaw(file){
   raw = raw.replace(/^﻿/, '');
   const first = String(raw.split(/\r?\n/)[0] || '');
   // 첫 줄에 탭이 하나도 없고 쉼표가 둘 이상이면 쉼표 CSV 다 — 탭 파일에 섞인 쉼표를 오해하지 않는다
-  if(first.indexOf('\t') < 0 && (first.split(',').length - 1) >= 2){
+  const csv = first.indexOf('\t') < 0 && (first.split(',').length - 1) >= 2;
+  raw = joinQuoted(raw, csv ? ',' : '\t');   // 따옴표로 묶인 칸 안 줄바꿈 → 띄어쓰기 (11-17 제이)
+  if(csv){
     return raw.split(/\r?\n/).map(l => splitCsv(l).join('\t')).join('\n');
   }
   return raw;
+}
+/* ↵ 따옴표로 묶인 칸 안의 줄바꿈을 띄어쓰기로 (홍팀장 2026-11-17 제이 — 엑셀에서 복사·CSV 저장하면 줄바꿈 든 칸은
+   「"서울… 해모로아파트)↵105동507호"」처럼 따옴표로 묶여 온다. 줄로 자르면 한 주문이 둘로 갈렸다).
+   칸 맨 앞의 " 만 묶음 시작으로 본다 — 「12" 피자」 같은 글자 속 따옴표는 건드리지 않는다. 따옴표는 남겨 둔다(뒤에서 벗김). */
+function joinQuoted(raw, sep){
+  const s = String(raw || ''); if(s.indexOf('"') < 0) return s;
+  let out = '', q = false, start = true;
+  for(let i = 0; i < s.length; i++){
+    const ch = s[i];
+    if(q){
+      if(ch === '"'){ if(s[i+1] === '"'){ out += '""'; i++; continue; } q = false; out += ch; continue; }
+      if(ch === '\r') continue;
+      if(ch === '\n'){ out = out.replace(/\s+$/, '') + ' '; while(s[i+1] === ' ') i++; continue; }
+      out += ch; continue;
+    }
+    if(ch === '"' && start){ q = true; out += ch; start = false; continue; }
+    out += ch;
+    start = (ch === sep || ch === '\n');
+  }
+  return q ? s : out;   // 따옴표가 끝까지 안 닫히면 손대지 않는다(오판 방지)
 }
 function splitCsv(line){
   const out = []; let cur = '', q = false;
