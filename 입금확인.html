@@ -883,8 +883,12 @@ function brSend(cmd, extra = {}, ms = 180000){
 async function brOpen(){
   if(BR && !BR.closed && BR_OK) return true;
   BR_OK = false;
-  if(!BR || BR.closed) BR = window.open(BR_URL, 'ipgbridge', 'width=1000,height=760');
-  if(!BR){ abStat('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시', 1); return false; }
+  if(!BR || BR.closed){
+    BR = window.open(BR_URL, 'ipgbridge', 'width=1000,height=760');
+    if(!BR){ abStat('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시', 1); return false; }
+    // 이미 열린 보드 창이 있으면 window.open 이 그 창을 다시 읽는다 — 다시 읽기 전 옛 다리가 pong 하고 사라지는 걸 피하려 잠깐 기다림(26-11-17 실측: 목록 부탁이 사라져 «불러오는 중» 멈춤)
+    await new Promise(r => setTimeout(r, 3000));
+  }
   abStat('보드 창 여는 중…');
   for(let i = 0; i < 300; i++){
     try{ const d = await brSend('ping', {}, 1500); if(d.pong){ BR_OK = true; return true; } if(i === 6) abStat('열린 보드 창에서 로그인해 주세요', 1); }
@@ -894,10 +898,15 @@ async function brOpen(){
   }
   return false;
 }
+// 읽기 부탁은 45초 안에 답이 없으면 창을 다시 확인하고 한 번 더 (창이 새로 읽히는 사이 부탁이 사라질 수 있다)
+async function brCall(cmd, extra = {}){
+  try{ return await brSend(cmd, extra, 45000); }
+  catch(e){ if(!/응답 없음/.test(e.message)) throw e; BR_OK = false; if(!(await brOpen())) throw e; return await brSend(cmd, extra, 90000); }
+}
 async function abConnect(){
   if(!(await brOpen())) return;
   abStat('미정산 업체 불러오는 중…');
-  try{ AB.list = await brSend('list'); abStat(`미수 남은 곳 <b>${AB.list.length}</b>곳 · 합계 <b>${won(AB.list.reduce((s,c) => s+c.unpaid, 0))}</b>원`); abDraw(); window.focus(); }
+  try{ AB.list = await brCall('list'); abStat(`미수 남은 곳 <b>${AB.list.length}</b>곳 · 합계 <b>${won(AB.list.reduce((s,c) => s+c.unpaid, 0))}</b>원`); abDraw(); window.focus(); }
   catch(e){ abStat(esc(e.message), 1); }
 }
 function abDraw(){
@@ -925,7 +934,7 @@ async function abPick(id){
   if(!(await brOpen())) return;
   AB.busy = true; abStat(`${esc(c.ch || c.name)} 정산달력·입금 내역 불러오는 중…`);
   try{
-    const v = await brSend('vendor', {id});
+    const v = await brCall('vendor', {id});
     AB.cur = {c, v};
     abFill();
     abStat(`${esc(c.ch || c.name)} — 미정산 ${v.days.length}일 ${won(v.sum)}원 · 입금 ${CUR ? CUR.nDep : 0}건 (${dashD(v.depFrom)}부터)` + (v.sum !== v.top ? ` <span style="color:#c0262d">⚠ 달력 합 ${won(v.sum)} ≠ 미수금 ${won(v.top)}</span>` : ''));
@@ -989,7 +998,7 @@ async function abApply(){
     toast(bad.length ? `⚠ ${r.length - bad.length}일 처리 · ${bad.length}일 못 함` : `✅ ${r.length}일 입금 처리 완료`);
     if(bad.length) alert('못 칠한 날:\n' + bad.map(x => x.date + ' — ' + (x.err || '바꿀 수 있는 건이 없음')).join('\n'));
     // 다시 불러와서 남은 미정산으로 대조표·메시지 갱신
-    const c = AB.cur.c; AB.list = await brSend('list').catch(() => AB.list);
+    const c = AB.cur.c; AB.list = await brCall('list').catch(() => AB.list);
     await abPick(c.id);
   }catch(e){ AB.busy = false; abStat(esc(e.message), 1); }
 }
