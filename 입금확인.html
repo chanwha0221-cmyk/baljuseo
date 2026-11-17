@@ -1030,11 +1030,45 @@ function abAnchor(v, deps){
     if(S[lastS].date >= first || p.ids.some(i => !S[i].h)) return;   // 미정산 날을 먹은 짝은 닻이 아님
     if(!best || lastS > best.s) best = {s:lastS, d:lastD, ids:p.ids.slice().sort((a,b) => a-b), dis:dis.slice().sort((a,b) => a-b), from:S[Math.min(...p.ids)].date, to:S[lastS].date, deps:dis.map(i => D[i])};
   });
+  if(AB.cur) AB.cur.loose = best ? abLoose(S, D, m, best) : null;
   if(!best) return null;
   /* 닻 짝도 대조표 맨 위에 «딱 맞음»으로 깐다 (홍팀장 26-11-17 «22일부터 갑자기 안 넣었다고 하니까 이상하다, 그 전 한 건만 더 올려서
      여기까진 됐는데 갑자기 이게 입금이 안 됐어 라고 보여줘야»). 칠하기는 미정산 날만 하니 이미 칠한 닻 날은 다시 안 칠한다. */
   const pre = best.ids.map(i => S[i]), preD = best.dis.map(i => D[i].src);
   return {settles:[...pre, ...S.slice(best.s + 1)], deps:[...preD, ...D.slice(best.d + 1).map(x => x.src)], anchor:best};
+}
+/* ⚠ 지난 정산 돈 맞추기 (홍팀장 26-11-17 «짝 없음이라고 끝내 버리면 넘어갈 수가 없다, 짝이 없는데 정산 다 맞는다 하는 게 말이 안 된다»).
+   첫 «딱 맞은» 짝 ~ 닻까지 지난 정산 합과 입금 합을 비교한다. 다르면 더/덜 들어온 돈 → 환불했는지 확인하라고 띄운다.
+   짝 없는 입금마다 이유를 붙인다: ① 며칠 안에 같은 금액 입금이 또 있음 → 중복 입금 의심 ② 그 전 짝 없는 정산들 몫 + 남는 돈.
+   예: 감탄상회 9/14~10/23 정산 1,764,000 · 입금 2,084,400 → 320,400 더 (9/21 160,200 중복 · 9/28 1,026,000 = 9/21~28 정산 865,800 + 160,200) */
+function abLoose(S, D, m, best){
+  const usedS = new Set(), usedD = new Set(); let s0 = null, d0 = null;
+  m.pair.forEach((p, di) => {
+    if(!p || p.merged || !p.ids || !p.ids.length) return;
+    const dis = [...(p.merge || []), di];
+    dis.forEach(i => usedD.add(i)); p.ids.forEach(i => usedS.add(i));
+    const exact = dis.reduce((s,i) => s + D[i].amt, 0) === p.ids.reduce((s,i) => s + S[i].amt, 0);
+    if(exact && p.ids.every(i => S[i].h)){ const a = Math.min(...p.ids), b = Math.min(...dis); if(s0 === null || a < s0){ s0 = a; d0 = b; } }
+  });
+  if(s0 === null) return null;
+  const sR = [], dR = [];
+  for(let i = s0; i <= best.s; i++) sR.push(i);
+  for(let i = d0; i <= best.d; i++) dR.push(i);
+  const sAmt = sR.reduce((t,i) => t + S[i].amt, 0), dAmt = dR.reduce((t,i) => t + D[i].amt, 0);
+  const why = {};
+  const looseS = sR.filter(i => !usedS.has(i)), looseD = dR.filter(i => !usedD.has(i));
+  const day = s => new Date(s).getTime() / 864e5;
+  let k = 0;
+  looseD.forEach(di => {
+    const d = D[di];
+    const twin = dR.find(j => j !== di && D[j].amt === d.amt && Math.abs(day(D[j].date) - day(d.date)) <= 7);
+    if(twin !== undefined){ why[d.src.id] = `${kDate(D[twin].date)}에도 같은 ${won(d.amt)} 입금 → <b>중복 입금 의심</b>`; return; }
+    const mine = []; while(k < looseS.length && S[looseS[k]].date <= d.date) mine.push(looseS[k++]);
+    const t = mine.reduce((s,i) => s + S[i].amt, 0);
+    why[d.src.id] = !mine.length ? '맞는 정산 없음 → <b>더 들어온 돈</b>'
+      : `${rangeLabel({from:S[mine[0]].date, to:S[mine[mine.length-1]].date, n:mine.length})} 정산 ${won(t)}` + (t === d.amt ? ' · 딱 맞음' : t < d.amt ? ` + <b>${won(d.amt - t)} 더</b>` : ` · <b>${won(t - d.amt)} 덜</b>`);
+  });
+  return {from:S[s0].date, to:S[best.s].date, sAmt, dAmt, diff:dAmt - sAmt, n:looseD.length, why};
 }
 function abFill(){
   const {c, v} = AB.cur;
@@ -1077,7 +1111,12 @@ function abApplyDraw(){
   const an = AB.cur.anchor ? {...AB.cur.anchor, n: AB.cur.anchor.from === AB.cur.anchor.to ? 1 : 2} : null;
   const lastD = b => { const p = b.dep.parts || [b.dep]; return p[p.length-1].date; };
   el.style.display = '';
-  el.innerHTML = `<div style="margin-bottom:6px">⚓ 대조 시작: ${an ? `<b>${rangeLabel(an)}</b> 정산 = ${an.deps.map(d => kDate(d.date)+' '+won(d.amt)).join(' + ')} 입금 <b>딱 맞음</b> → 그 다음부터 대조` : '딱 맞은 지점을 못 찾음 — 마지막으로 칠한 날 다음 입금부터'}</div>` +
+  const lo = AB.cur.loose;
+  const loHtml = lo && lo.diff ? `<div style="margin-bottom:8px;padding:8px 10px;border:2px solid #c0262d;border-radius:6px;background:#fff4f4;line-height:1.6">` +
+    `⚠ <b>지난 정산 돈이 안 맞습니다</b> — ${rangeLabel({from:lo.from, to:lo.to, n:2})} 정산 <b>${won(lo.sAmt)}</b> · 입금 <b>${won(lo.dAmt)}</b> → ` +
+    `<b style="color:#c0262d">${won(Math.abs(lo.diff))}원 ${lo.diff > 0 ? '더 들어옴' : '덜 들어옴'}</b><br>` +
+    `<span class="hint">${lo.diff > 0 ? '환불했으면 통장 출금 내역 확인, 안 했으면 돌려줄 돈(또는 다음 정산에서 차감)입니다.' : '못 받은 돈입니다.'} 짝 없는 입금 ${lo.n}건 이유는 아래 «최근 입금 내역» 빨간 글씨.</span></div>` : '';
+  el.innerHTML = loHtml + `<div style="margin-bottom:6px">⚓ 대조 시작:${an ? `<b>${rangeLabel(an)}</b> 정산 = ${an.deps.map(d => kDate(d.date)+' '+won(d.amt)).join(' + ')} 입금 <b>딱 맞음</b> → 그 다음부터 대조` : '딱 맞은 지점을 못 찾음 — 마지막으로 칠한 날 다음 입금부터'}</div>` +
     `<b>✅ 정산달력에 «입금»으로 칠할 것 — ${n}일 · ${won(amt)}원</b> <span class="hint">(딱 맞은 구간만. 안 맞는 줄은 그대로 미정산)</span>` +
     (bs.length ? '<div style="margin:6px 0 8px;line-height:1.7">' + bs.map(b => `· ${rangeLabel(b)} ${won(b.amt)}원 ← ${(b.dep.parts || [b.dep]).map(d => kDate(d.date)+' '+won(d.amt)).join(' + ')}${b.ref ? ' (환불 '+won(b.ref.amt)+' 뺌)' : ''} → 입금일자 ${kDate(lastD(b))}`).join('<br>') + '</div>'
       : '<div class="hint" style="margin:6px 0">딱 맞은 구간이 없습니다 — 칠할 게 없습니다.</div>') +
@@ -1100,7 +1139,7 @@ function abRecent(){
   const gap = (s, d) => s === d ? '<span style="color:#2d7a3a">딱 맞음</span>' : s > d ? `<span style="color:#b3261e">${won(s - d)} 덜</span>` : `<span style="color:#1b4fb3">${won(d - s)} 더</span>`;
   const hist = d => {
     const x = (AB.cur.depMap || {})[d.id];
-    if(!x) return '<span class="hint">짝 못 찾음</span>';
+    if(!x){ const w = AB.cur.loose && AB.cur.loose.why[d.id]; return w ? `<span style="color:#c0262d">${w}</span>` : '<span class="hint">짝 못 찾음</span>'; }
     const w = x.with ? ` <span class="hint">(입금 ${x.with.length}건 합 ${won(x.dAmt)})</span>` : '';
     return `${per(x.from, x.to, x.n)} ${won(x.sAmt)} · ${gap(x.sAmt, x.dAmt)}${w}`;
   };
