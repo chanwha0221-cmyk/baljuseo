@@ -635,6 +635,25 @@ function tailLine(b){
   const end = b.diff > 0 ? `미정산 ${won(b.diff)}원입니다.` : b.diff < 0 ? `${won(-b.diff)}원 더 입금되었습니다.` : '정산 금액과 맞습니다.';
   return `${per}${got}${b.carry ? `, ${carryTxt(b)}` : ''}, ${end}`;
 }
+/* 🧾 구간이 여럿일 때 하나의 결론 (홍팀장 26-11-17 «위에선 다 입금해서 넘친다 하고 밑에선 15만원 더 입금하라 하면 이해하겠냐»).
+   구간 줄은 «덜/더 들어옴» 사실만 적고, 결론(입금 부탁 / 더 들어옴)은 전체 합 하나로만 말한다. 문구·이미지가 같은 걸 쓴다. */
+function segLine(b){
+  const per = b.n ? `${rangeLabel(b)} 정산 ${won(b.amt)}원` : '정산 없음';
+  const ds = b.dep ? (b.dep.parts || [b.dep]).map(d => `${kDate(d.date)} ${won(d.amt)}원`).join(' + ') + ' 입금' : '입금 없음';
+  const rf = b.ref ? ` (환불 ${won(b.ref.amt)}원 제외)` : '';
+  const cr = b.carry ? `, ${carryTxt(b)}` : '';
+  return `${per} / ${ds}${rf}${cr} → ${b.diff > 0 ? won(b.diff) + '원 덜 들어옴' : won(-b.diff) + '원 더 들어옴'}`;
+}
+function segSum(){
+  const tails = CUR.blocks.filter(b => b.tail && b.diff);
+  if(tails.length < 2) return null;
+  const tot = tails.reduce((s,b) => s + b.diff, 0);
+  const lack = tails.filter(b => b.diff > 0).map(b => rangeLabel(b) + '분');
+  const concl = tot > 0 ? `모두 합치면 미정산 ${won(tot)}원입니다.`
+    : tot < 0 ? `모두 합치면 ${won(-tot)}원 더 입금되었습니다${lack.length ? ` (${lack.join(', ')} 정산까지 빼고 남는 금액)` : ''}. 추가로 입금하실 금액은 없습니다.`
+    : '모두 합치면 정산 금액과 맞습니다. 추가로 입금하실 금액은 없습니다.';
+  return {tails, tot, lines: tails.map(segLine), concl};
+}
 // 업체에 나가는 문구 — 사실만, 정중하게. 탓하는 말·재촉하는 말 넣지 말 것.
 function buildMsg(){
   const c = CUR;
@@ -642,12 +661,11 @@ function buildMsg(){
   const hi = `안녕하세요${c.honor ? ' '+c.honor+'님' : ''}${co ? ', '+co+'입니다.' : '.'}`;
   if(c.firstBad < 0) return `${hi}\n${c.vendor} 정산 건 입금 모두 확인되었습니다.\n감사합니다.`;
   const tb = c.blocks[c.firstBad];
-  // 구간이 여럿이면 구간마다 한 줄 + 합쳐서 얼마 (26-11-17)
-  const tails = c.blocks.filter(b => b.tail && b.diff);
-  if(tails.length > 1){
-    const tot = tails.reduce((s,b) => s + b.diff, 0);
-    return `${hi}\n\n` + tails.map(b => '· ' + tailLine(b)).join('\n') +
-      `\n\n${tot > 0 ? `합쳐서 미정산 ${won(tot)}원입니다.\n확인 후 입금 부탁드립니다.` : tot < 0 ? `합쳐서 ${won(-tot)}원 더 입금되었습니다.` : '합치면 정산 금액과 맞습니다.'}\n\n이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
+  // 구간이 여럿이면 구간마다 한 줄 + 결론은 «전체 합» 하나 (26-11-17) — 이미지 머리말도 같은 결론(segSum)
+  const S = segSum();
+  if(S){
+    return `${hi}\n\n` + S.lines.map(t => '· ' + t).join('\n') + `\n\n${S.concl}` +
+      (S.tot > 0 ? '\n확인 후 입금 부탁드립니다.' : '') + `\n\n이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
   }
   if(tb.tail) return `${hi}\n\n${tailLine(tb)}\n확인 후 입금 부탁드립니다.\n\n이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
   // 금액 = 입금 확인 안 된 정산(입금 내역 없음·미입금·덜 들어옴) 합. 맞는 정산 없는 입금은 따로 물어본다.
@@ -695,19 +713,28 @@ function footer(x, L, y){
 // 작은 이미지 — 차액 난 곳부터 끝까지
 function drawImg(){
   const c = CUR, cv = $('cv'), x = cv.getContext('2d');
-  const show = c.firstBad < 0 ? [] : c.blocks.slice(c.firstBad);
+  const SS = segSum();   // 구간이 여럿이면 그 구간들 전부 + 결론 한 줄(문구와 같은 말)
+  const show = SS ? SS.tails : c.firstBad < 0 ? [] : c.blocks.slice(c.firstBad);
   const cols = [{t:'정산일', w:190, a:'center'}, {t:'정산금액', w:100, a:'right'}, {t:'실 입금액', w:100, a:'right'}, {t:'차액', w:90, a:'right'}, {t:'상태', w:84, a:'center'}];
-  const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0), top = 108;
+  const L = 24, W = L*2 + cols.reduce((s,co) => s+co.w, 0);
+  // 머리말이 길면 줄을 나눈다(결론 문구가 표 폭을 넘김)
+  const head = SS ? SS.concl : show.length ? (show[0].tail ? tailLine(show[0]) : `${kDate(show[0].from)}분부터 ${won(c.bad)}원 입금 확인이 안 됩니다.`) : '정산 건 입금이 모두 확인되었습니다.';
+  x.font = FONT('normal', 14);
+  const hl = []; { let cur = ''; head.split(' ').forEach(w => { const t = cur ? cur + ' ' + w : w; if(cur && x.measureText(t).width > W - L*2){ hl.push(cur); cur = w; } else cur = t; }); if(cur) hl.push(cur); }
+  const top = 108 + (hl.length - 1) * 20;
+  let rows0 = [];
+  if(SS) rows0 = [{vals:[['모두 합계'], [won(SS.tails.reduce((s,b)=>s+b.amt,0))], [''], [SS.tot > 0 ? won(SS.tot) : SS.tot < 0 ? '+'+won(-SS.tot) : '0'], [SS.tot > 0 ? '미정산' : SS.tot < 0 ? '더 들어옴' : '맞음']],
+    bg: SS.tot > 0 ? BG.tail : BG.over, bold:true, colors:[null,null,null, SS.tot > 0 ? '#b3261e' : '#1b4fb3', SS.tot > 0 ? '#b3261e' : '#1b4fb3']}];
   const rows = [{vals:cols.map(co => [co.t]), bg:BG.head, bold:true},
-    ...show.flatMap(b => blockImgRows(b, false, false))];
-  const H = show.length ? top + tableHeight(rows) + 50 : 130;
+    ...show.flatMap(b => blockImgRows(b, false, false)), ...rows0];
+  const H = show.length ? top + tableHeight(rows) + 50 : 130 + (hl.length - 1) * 20;
   const S = 2; cv.width = W*S; cv.height = H*S; cv.style.width = W+'px';
   x.setTransform(S,0,0,S,0,0); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.textBaseline = 'middle';
-  x.fillStyle = '#111'; x.font = FONT('bold', 20); x.fillText('입금 확인 요청', L, 32);
+  x.fillStyle = '#111'; x.font = FONT('bold', 20); x.fillText(SS && SS.tot <= 0 ? '입금 대조 결과' : '입금 확인 요청', L, 32);
   x.font = FONT('normal', 14); x.fillStyle = '#444';
   x.fillText(`${c.vendor}${c.honor?' · '+c.honor+'님':''}`, L, 60);
-  x.fillText(show.length ? (show[0].tail ? tailLine(show[0]) : `${kDate(show[0].from)}분부터 ${won(c.bad)}원 입금 확인이 안 됩니다.`) : '정산 건 입금이 모두 확인되었습니다.', L, 84);
-  if(!show.length) return footer(x, L, 84);
+  hl.forEach((t, i) => x.fillText(t, L, 84 + i * 20));
+  if(!show.length) return footer(x, L, 84 + (hl.length - 1) * 20);
   footer(x, L, tableDraw(x, L, top, cols, rows));
 }
 // 대조표 전체 이미지 — 화면 표와 같은 내용
