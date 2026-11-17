@@ -1040,7 +1040,22 @@ function abApplyDraw(){
       : '<div class="hint" style="margin:6px 0">딱 맞은 구간이 없습니다 — 칠할 게 없습니다.</div>') +
     `<button onclick="abApply()"${bs.length ? '' : ' disabled'} style="background:#2d7a3a">✅ 진행 — 정산달력에 입금 처리</button> ` +
     `<button class="mini" onclick="abAddAlias()">🏷 입금자명 추가</button> ` +
-    `<span class="hint">입금자로 잡은 이름: ${esc([...new Set(AB.cur.deps.map(d => d.name))].join(', ') || '없음')}</span>`;
+    `<span class="hint">입금자로 잡은 이름: ${esc([...new Set(AB.cur.deps.map(d => d.name))].join(', ') || '없음')}</span>` +
+    abRecent();
+}
+/* 💳 최근 입금 내역 (홍팀장 26-11-17 «최근 입금내역도 내놔») — 이 업체로 잡힌 입금 전부(가져온 기간 = 첫 미정산 45일 전 ~ 오늘), 최신 먼저.
+   어디에 쓰였는지 같이 적는다: 이번 대조 / ⚓ 시작점(지난 정산 몫) / 그 전(이미 칠한 정산 몫) */
+function abRecent(){
+  const {c, v} = AB.cur;
+  const all = v.deps.filter(d => abHit(d.name, c)).sort((a,b) => a.dt < b.dt ? 1 : a.dt > b.dt ? -1 : 0);
+  const used = new Set(AB.cur.deps.map(d => d.id));
+  const anc = new Set(AB.cur.anchor ? AB.cur.anchor.deps.map(d => d.src && d.src.id) : []);
+  const tag = d => used.has(d.id) ? '<b style="color:#1b4fb3">이번 대조</b>' : anc.has(d.id) ? '⚓ 시작점 (지난 정산 몫)' : '<span class="hint">그 전 (칠한 정산 몫)</span>';
+  return `<details open style="margin-top:10px"><summary style="cursor:pointer;font-weight:bold">💳 최근 입금 내역 — ${all.length}건 · ${won(all.reduce((s,d) => s+d.amt, 0))}원 <span class="hint">(${dashD(v.depFrom)} ~ 오늘)</span></summary>` +
+    (all.length ? `<table class="res" style="margin-top:6px;background:#fff"><thead><tr><th>입금일시</th><th>입금자</th><th>금액</th><th>대조</th></tr></thead><tbody>` +
+      all.map(d => `<tr><td class="c">${esc(d.dt.slice(0,16))}</td><td>${esc(d.name)}</td><td class="n">${won(d.amt)}</td><td class="c">${tag(d)}</td></tr>`).join('') + '</tbody></table>'
+      : '<div class="hint">이 기간 이 업체 입금이 없습니다 — 입금자명이 다르면 [🏷 입금자명 추가]</div>') +
+    (AB.cur.others && AB.cur.others.length ? `<div class="hint" style="margin-top:4px">같은 기간 다른 입금자 ${AB.cur.others.length}명은 뺐습니다.</div>` : '') + '</details>';
 }
 async function abApply(){
   const bs = abReady(); if(!bs.length || AB.busy) return;
