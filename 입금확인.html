@@ -718,6 +718,8 @@ function segSum(){
     : '모두 합치면 정산 금액과 맞습니다. 추가로 입금하실 금액은 없습니다.';
   return {tails, tot, lines: tails.map(segLine), concl};
 }
+// 입금 계좌 — 입금 부탁 문구마다 붙인다 (홍팀장 26-11-17)
+const ACCT = '입금 계좌: 기업은행 514-049965-04-014 주식회사 마스터';
 // 업체에 나가는 문구 — 사실만, 정중하게. 탓하는 말·재촉하는 말 넣지 말 것.
 function buildMsg(){
   const c = CUR;
@@ -729,13 +731,13 @@ function buildMsg(){
   const S = segSum();
   if(S){
     return `${hi}\n\n` + S.lines.map(t => '· ' + t).join('\n') + `\n\n${S.concl}` +
-      (S.tot > 0 ? '\n확인 후 입금 부탁드립니다.' : '') + `\n\n이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
+      (S.tot > 0 ? '\n확인 후 입금 부탁드립니다.\n'+ACCT : '') + `\n\n이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
   }
-  if(tb.tail) return `${hi}\n\n${tailLine(tb)}\n확인 후 입금 부탁드립니다.\n\n이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
+  if(tb.tail) return `${hi}\n\n${tailLine(tb)}\n확인 후 입금 부탁드립니다.\n${ACCT}\n\n이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
   // 금액 = 입금 확인 안 된 정산(입금 내역 없음·미입금·덜 들어옴) 합. 맞는 정산 없는 입금은 따로 물어본다.
   const odd = c.blocks.filter(b => b.st === 'nomatch');
   return `${hi}\n\n${kDate(c.blocks[c.firstBad].from)}분부터 ${won(c.bad)}원 입금 확인이 안 됩니다.\n` +
-    `확인 후 입금 부탁드립니다.\n\n` +
+    `확인 후 입금 부탁드립니다.\n${ACCT}\n\n` +
     (odd.length ? odd.map(b => `${kDate(b.dep.date)} ${won(b.dep.amt)}원`).join(', ') + ' 입금은 어느 정산분인지 확인이 어렵습니다. 알려주시면 반영하겠습니다.\n\n' : '') +
     `이미 입금하셨거나 내역이 다르면 말씀 부탁드립니다.\n감사합니다.`;
 }
