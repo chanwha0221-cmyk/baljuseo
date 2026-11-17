@@ -3144,7 +3144,8 @@ function headerItems(raw){
      정상 표의 줄은 칸 수가 머리글과 같아서 안 걸린다. */
   for(let i = hr + 1; i < lines.length - 1; i++){
     const a = lines[i].split('\t'), b = lines[i + 1].split('\t');
-    if(a.length < head.length && b.length < head.length && a.length + b.length - 1 === head.length){   // 딱 맞을 때만(짧은 주문 두 줄을 잘못 붙이지 않게)
+    const fit = a.length + b.length - 1, lastLn = i + 1 === lines.length - 1;   // 맨 끝 줄은 S() 가 끝 탭을 깎아 칸이 모자랄 수 있다
+    if(a.length < head.length && b.length < head.length && (fit === head.length || (lastLn && fit <= head.length))){   // 딱 맞을 때만(짧은 주문 두 줄을 잘못 붙이지 않게)
       const m = a.slice(0, -1).concat([(a[a.length - 1] + ' ' + b[0]).trim()], b.slice(1));
       lines.splice(i, 2, m.join('\t')); i--;
     }
