@@ -237,6 +237,7 @@
       <button class="btn ghost sm" type="button" id="bg-pf" aria-pressed="false">플랫폼입점</button>
       <button class="btn ghost sm" type="button" id="bg-ct" aria-pressed="false">연락처 있음</button>
       <button class="btn ghost sm" type="button" id="bg-new" aria-pressed="false">안 보낸 곳만</button>
+      <button class="btn ghost sm" type="button" id="bg-mk" aria-pressed="false" title="상호만 봐도 자기가 만든 한 가지(젓갈·한과·김치·농장…)를 파는 곳. 기본은 숨김">🏭 제조·단품도 보기</button>
     </div>
     <div style="overflow-x:auto">
       <table id="bg-table">
@@ -1647,7 +1648,7 @@ document.querySelectorAll('.tab[data-sec]').forEach(b=>b.addEventListener('click
       bgUrl() 이 그걸 눌러서 바로 열리는 주소 하나로 만든다. */
 let BG=null, BG_PAGE=1, BG_FILT=[];
 const BG_PER=20;
-const bgSt={q:'',rg:'',own:false,pf:false,ct:false,onlyNew:false};
+const bgSt={q:'',rg:'',own:false,pf:false,ct:false,onlyNew:false,mk:false};
 let bgLoading=false;
 /* 🗑 지운 곳 — 홍팀장 2026-10-29 「삭제한 건 다시는 가져 오지 마라」.
    🔴 설정(메일설정 탭)에 남긴다. 브라우저에 두면 집·회사 PC가 따로 놀고,
@@ -1756,6 +1757,26 @@ function bgNotFood(r){
   if(ct.indexOf('건강/식품')<0&&!BG_STRONG.test(nm)&&/시스템|기계|머신|포장용기|포장상회|공업|산업|테크|메카|전기|통신|물류|화학/.test(nm))return true;
   return !(ct.indexOf('건강/식품')>=0||BG_FOOD.test(nm)||BG_FOOD.test(dom));
 }
+/* 🏭 위탁형 vs 제조·단품 (2026-11-17 홍팀장 「자기가 제조한 상품 판매하기 급한 업체가 많다. 원하는 건 다른 위탁사에서도
+   상품을 받아 이미 팔고 있거나 준비 중인 업체. 김송순아마이젓갈·서산옛날생강한과·아빠김치는 이름만 봐도 젓갈·한과·김치 제조 판매」).
+   판단 근거는 상호·신고 취급품목뿐이라 «이름으로 보이는 것»만 가른다:
+   ① 🛒 위탁형(S) = 상호에 판매처 말(마켓·몰·스토어·유통·상사·무역·종합·식자재·상회·물산…) 또는 신고 품목 3개 이상
+      또는 «종합몰» 신고이면서 상호에 제조 신호가 없는 곳 → 맨 위
+   ② 보통(N) = 판단 못 함(○○식품·○○푸드·○○수산 등) → 그다음
+   ③ 🏭 제조·단품(M) = 상호에 한 품목(젓갈·한과·김치·떡·장류·꿀·반찬…)이나 생산자 꼴(농장·농원·영농조합·할매·엄마·옛날·전통…) → 기본 숨김
+   🔴 «○○수산·농수산·해산»은 품목 단어가 있어도 제조로 안 뺀다 — 수산은 우리 메인이고 대개 도매·유통이다.
+   2026-11-17 실측(업종 제외 뒤 21,172곳): 위탁형 약 5.4천 · 보통 8.6천 · 제조·단품 7.1천. */
+const BG_ONE=/젓갈|젓$|한과|유과|약과|김치|떡|된장|간장|고추장|청국장|장류|참기름|들기름|기름집|방앗간|꿀|양봉|벌꿀|홍삼|인삼|산삼|흑삼|버섯|두부|식혜|막걸리|전통주|양조|주조|와이너리|와인|커피|로스터|빵|베이커리|제과|과자점|쿠키|도넛|마카롱|케이크|케익|떡볶이|만두|순대|족발|곱창|국밥|냉면|국수|반찬|도시락|밀키트|굴비|홍어|게장|미역|다시마|감귤|한라봉|천혜향|사과|딸기|포도|복숭아|토마토|고구마|감자|마늘|양파|대추|곶감|호두|잡곡|수제청|소금|천일염|염전|치즈|요거트|요구르트|누룽지|조청|식초|효소|장아찌|부각|강정|육포|어묵|돈까스|돈가스|떡갈비|훈제|명란|과메기|곰탕|사골|흑돼지|정육|한우|낙지|갈비/;
+const BG_MAKER=/농장|농원|목장|영농조합|농업회사|어업회사|영어조합|양식장|공방|명인|명가|할매|할머니|엄마|아빠|어머니|옛날|전통|손맛|본가|원조|제조|가공|협동조합/;
+const BG_SELLER=/마켓|market|마트|몰$|몰[\s(]|스토어|store|shop|커머스|commerce|유통|상사|무역|트레이딩|trading|종합|도매|식자재|컴퍼니|company|글로벌|global|플랫폼|셀러|위탁|공구|라이프|리빙|네트웍스|홀딩스|상회|물산|mall|딜|deal|셀렉|편집샵|구매대행/i;
+function bgKind(r){
+  const nm=String(r[0]||''), ct=(BG.cats&&BG.cats[r[8]])||'';
+  if(BG_SELLER.test(nm))return 'S';
+  const maker=(BG_ONE.test(nm)&&!/수산|해산|수협/.test(nm))||BG_MAKER.test(nm);
+  if(maker)return 'M';
+  if(ct.split(',').filter(x=>x.trim()&&x.trim()!=='기타').length>=3||/종합몰/.test(ct))return 'S';
+  return 'N';
+}
 function bgRender(){
   if(!BG)return;
   const q=bgSt.q.trim().toLowerCase();
@@ -1763,10 +1784,11 @@ function bgRender(){
   const sentMail=new Set(), sentName=new Set();
   if(bgSt.onlyNew)DATA.forEach(r=>{ if(r[2])sentMail.add(pkeyN(r[2])); if(r[0])sentName.add(pkeyN(r[0])); });
   const hid=bgHideSet();
-  let nf=0;
+  let nf=0, mk=0;
   BG_FILT=BG.rows.filter(r=>{
     if(hid.has(bgKey(r)))return false;        // 🗑 지운 곳은 영영 안 올라온다
     if(bgNotFood(r)){ nf++; return false; }    // 🚫 업종 아님 — 위 규칙
+    if(!q&&!bgSt.mk&&bgKind(r)==='M'){ mk++; return false; }   // 🏭 제조·단품 — 기본 숨김(검색할 땐 다 보임)
     if(bgSt.rg!==''&&String(r[2])!==bgSt.rg)return false;
     if(bgSt.own&&!bgSt.pf&&r[3]!==0)return false;
     if(bgSt.pf&&!bgSt.own&&r[3]!==1)return false;
@@ -1775,6 +1797,8 @@ function bgRender(){
     if(q&&!((r[0]||'').toLowerCase().includes(q)||(r[1]||'').toLowerCase().includes(q)||(r[4]||'').toLowerCase().includes(q)))return false;
     return true;
   });
+  // 🛒 위탁형 먼저 → 보통 → 제조·단품(보기 켰을 때). 같은 무리 안에선 원래 순서
+  { const rk={S:0,N:1,M:2}; BG_FILT=BG_FILT.map((r,i)=>[rk[bgKind(r)],i,r]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]).map(x=>x[2]); }
   const withCt=BG.rows.filter(r=>r[6]||r[7]).length;
   $('bg-cnt').textContent=BG_FILT.length.toLocaleString();
   /* 🚧 검증 중이면 숫자 대신 사유를 띄운다 — 업종이 안 맞는 곳이 섞인 채로 보게 두지 않는다 */
@@ -1783,7 +1807,9 @@ function bgRender(){
     : '전체 <b>'+BG.rows.length.toLocaleString()+'</b>곳 · 연락처 확보 <b>'+withCt.toLocaleString()
       +'</b>곳 · 갱신 '+esc(BG.at)
       +(hid.size?' · 🗑 지운 곳·✉ 메일 쓴 곳 <b>'+hid.size.toLocaleString()+'</b>곳 (목록에 안 올라옵니다)':'')
-      +(nf?' · 🚫 업종 아님 자동 제외 <b>'+nf.toLocaleString()+'</b>곳':'');
+      +(nf?' · 🚫 업종 아님 자동 제외 <b>'+nf.toLocaleString()+'</b>곳':'')
+      +(mk?' · 🏭 제조·단품 숨김 <b>'+mk.toLocaleString()+'</b>곳':'')
+      +' · 🛒 위탁형(마켓·몰·유통·상사…)이 맨 위';
   /* 실수로 지웠을 때만 쓰는 되돌리기 — 이번에 지운 것만 보인다(새로고침하면 사라진다) */
   const un=$('bg-undo');
   if(un){
@@ -1893,7 +1919,7 @@ document.addEventListener('click',ev=>{
   let th;
   $('bg-hid-q').addEventListener('input',e=>{ BG_HID_Q=e.target.value; clearTimeout(th); th=setTimeout(bgHidRender,200); });
   $('bg-rg').addEventListener('change',e=>{ bgSt.rg=e.target.value; BG_PAGE=1; bgRender(); });
-  [['bg-own','own'],['bg-pf','pf'],['bg-ct','ct'],['bg-new','onlyNew']].forEach(([id,key])=>{
+  [['bg-own','own'],['bg-pf','pf'],['bg-ct','ct'],['bg-new','onlyNew'],['bg-mk','mk']].forEach(([id,key])=>{
     $(id).addEventListener('click',()=>{
       bgSt[key]=!bgSt[key];
       const e=$(id);
