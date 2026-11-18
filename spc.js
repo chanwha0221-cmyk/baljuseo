@@ -119,6 +119,13 @@
   /* 🔴 역마진 = 켜짐 · 지금 적용 중 · 특별단가 < 공급가(base) 또는 < 원가(마진 화면 원가, 카탈로그 LOWM_COSTMAP) — 업체별도 (11-18 「장기 특별단가도 역마진이면 바로」) */
   function costOf(n) { var m = window.LOWM_COSTMAP || {}; return +m[nk(n)] || 0; }
   function shipOf(n) { var m = window.LOWM_SHIPMAP || {}; return +m[nk(n)] || 0; }
+  /* 💰 마진 표 줄이 화면에 없을 때(특별단가 탭 [＋ 걸기]·검색·[수정]) — 마진 화면이 받아 둔 원가·택배비·판매가로 채운다
+     (11-18 홍팀장 「골뱅이 원가 안 보여?」 — 검색으로 고르면 원가가 비어서 공급가만 보고 마진을 잘못 말했다) */
+  function infoOf(n, day) {
+    var c = costOf(n); var s = (window.LOWM_SELLMAP || {})[nk(n)] || {};
+    if (!c && !s.sell) return day ? { day: true } : null;
+    return { sell: +s.sell || 0, cost: c, ship: shipOf(n), day: !!day || !!s.day, wh: s.wh || '' };
+  }
   function isLoss(r) {
     if (r.active !== 'Y' || r.per === 'past' || r.per === 'soon' || !(+r.price > 0)) return false;
     var c = costOf(r.item), p = +r.price;
@@ -263,7 +270,8 @@
     var info = n ? rowInfo(n) : null;
     F = { id: id || 0, n: n || '', wh: wh || (info && info.wh) || '', info: info, picks: [] };
     var ex = id && LIST ? LIST.filter(function (r) { return r.id === id; })[0] : null;
-    if (ex) { F.n = ex.item; F.wh = ex.wh; F.info = rowInfo(ex.item); }
+    if (ex) { F.n = ex.item; F.wh = ex.wh; F.info = rowInfo(ex.item) || infoOf(ex.item); }
+    if (!F.info && F.n) F.info = infoOf(F.n);
     var html = '<div style="display:flex;align-items:center;gap:8px"><b style="font-size:16px">🏷 ' + (ex ? '특별단가 수정 #' + ex.id : '특별단가 걸기') + '</b><span style="flex:1"></span><button class="ubtn" onclick="SPC.close()">✕</button></div>'
       + (F.n ? '' : lb('상품 찾기 (수량시트 상시·당일)') + '<input id="spcFind" type="search" placeholder="상품 이름으로 찾기" autocomplete="off" style="' + inSt + '" oninput="SPC.find(this.value)"><div id="spcFindL" style="max-height:200px;overflow:auto"></div>')
       + '<div style="display:grid;grid-template-columns:1fr 2fr;gap:0 10px">'
@@ -372,7 +380,7 @@
           var it = x.items[+b.dataset.i];
           document.getElementById('spcWh').value = it.wh; document.getElementById('spcItem').value = it.n;
           F.n = it.n; F.wh = it.wh; F.info = rowInfo(it.n); F.baseNote = '수량시트 공급가 ' + won(it.base) + (it.k === 'day' ? ' · 당일' : '') + ' · 잔여 ' + won(it.remain);
-          if (F.info) F.info.day = F.info.day || it.k === 'day'; else F.info = it.k === 'day' ? { day: true } : null;
+          if (F.info) F.info.day = F.info.day || it.k === 'day'; else F.info = infoOf(it.n, it.k === 'day');
           L.innerHTML = ''; document.getElementById('spcFind').value = ''; info0(); have(); document.getElementById('spcPrice').focus();
         }; });
       }).catch(function (e) { L.innerHTML = '<div style="padding:6px;color:#b91c1c">⚠️ ' + E(e.message === 'noconn' ? 'masterc 창이 닫혀 있습니다 — 창을 닫고 다시 열어 주세요' : e.message) + '</div>'; });
