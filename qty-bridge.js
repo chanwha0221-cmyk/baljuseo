@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-18b';
+  var QTYB_VER = '2026-11-18c';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -1068,13 +1068,20 @@
         그때 옛 숫자로 덮어쓰면 남이 잡은 걸 깎거나 우리 것을 두 번 잡는다. */
   function freshRow(row) {
     return qpost({ do: 'row', tab: whTab(row), nkey: row.key }).then(function (j) {
-      var mine = 0, wq = 0, mq = 0, wl = [], ml = [];
-      (j.cos || []).forEach(function (c) { if (c.me == 1 || c.co === row.co) mine = num(c.val); });
-      (j.waits || []).forEach(function (w) { if (w.mine == 1 || w.co === row.co) { wq += num(w.qty); wl.push(w); } });
+      var mine = 0, wq = 0, mq = 0, wl = [], ml = [], ahead = 0, aheadN = 0, meSeen = false, can = false;
+      (j.cos || []).forEach(function (c) { if (c.me == 1 || c.co === row.co) { mine = num(c.val); can = c.can == 1; } });
+      /* 대기 줄 순서 = 수량 웹이 주는 순서. 우리 첫 대기 앞에 선 남의 대기 수량·건수 (2026-11-18 호래기 6번째) */
+      (j.waits || []).forEach(function (w) {
+        if (w.mine == 1 || w.co === row.co) { wq += num(w.qty); wl.push(w); meSeen = true; }
+        else if (!meSeen) { ahead += num(w.qty); aheadN++; }
+      });
       (j.mores || []).forEach(function (m) { if (m.mine == 1 || m.co === row.co) { mq += (num(m.qty) || 1); ml.push(m); } });
       var used = (j.used && row.co && j.used[row.co] != null) ? num(j.used[row.co]) : 0;
       /* waitList·moreList = 내 대기·증량 «건» 들 — 무르기(unwait·unmore)는 건 번호(srl)로 한다 */
-      return { mine: mine, left: Math.max(0, num(j.remain)), wait: wq, more: mq, used: used, waitList: wl, moreList: ml };
+      return { mine: mine, left: Math.max(0, num(j.remain)), wait: wq, more: mq, used: used, waitList: wl, moreList: ml,
+               total: num(j.total), ahead: ahead, aheadN: aheadN,
+               /* 🔒 잡기 열림 = 우리 칸 can:1 + held 아님 (11-18 실측: 품절 안 풀림 멍게 = held 1·can 0·잔여 30 / 열린 생굴 = can 1) */
+               open: can && j.held != 1 };
     });
   }
 
@@ -2067,10 +2074,10 @@
         아침(06~16시)에 누르면 오늘 판이 바로 그 판인데 내일 06시까지 묶여, 09시대에 인천 연안 생물 호래기 50개가
         열렸다 닫히는 동안 감시가 한 번도 안 봤다. → 06~16시엔 지금부터, 그 밖(저녁·새벽)엔 다음 06시부터. */
   function dayWatchFrom() { var h = kstHour(); return (h >= 6 && h < 16) ? 0 : nextMorningMs(); }
-  /* ⛔ 대기·증량이 걸린 상품은 수동 잡기(📌)에서 뺀다 (2026-11-18 홍팀장 「대기랑 증량 걸어놓고 수동으로 계속 잡고 있으면
-        중복으로 잡을 수도 있잖아」) — 내 대기·증량이 하나라도 살아 있으면 감시도, 칸도, 지금 잡기도 안 한다. */
-  function heldBy(f) { return f && (f.wait > 0 || f.more > 0); }
-  function heldTxt(f) { return (f.wait ? '대기 ' + f.wait : '') + (f.wait && f.more ? '·' : '') + (f.more ? '증량 ' + f.more : ''); }
+  /* ⛔→🔁 2026-11-18 오전 「대기·증량 걸린 건 수동 잡기에서 빼라」를 넣었다가 같은 날 뒤집음 — 홍팀장 「8시 반부터 대기 켜 놓고
+        기다렸는데 남들이 다 잡아서 하나도 못 잡았다, 호래기는 대기도 6번째」. 대기만으로는 열리는 순간 직접 잡는 업체에 밀린다.
+        → 대기·증량이 걸려 있어도 열릴 때까지 감시하고, 잡으면 그만큼 대기·증량을 바로 무른다(unAfterGrab).
+          열렸다 다 나가면 감시를 접고 대기, 앞 대기가 많으면 증량까지(fallback). */
   function nextMorningMs() {
     var k = new Date(Date.now() + 9 * 3600000);
     return Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() + (k.getUTCHours() >= 6 ? 1 : 0), 6) - 9 * 3600000;
@@ -2122,6 +2129,42 @@
       return c ? Object.assign({}, row, { co: c }) : null;
     }
     function hotItems() { return left.filter(function (w) { return w.fast && !notYet(w) && IDX && IDX[w.key] && coRow(IDX[w.key]); }); }
+    /* 🔁 잡았으면 같은 몫의 내 대기·증량을 바로 무른다 (2026-11-18 홍팀장 「바로 무르면 되는데」) — 대기 먼저, 남으면 증량 */
+    function unAfterGrab(f, add) {
+      var un = Math.min(add, f.wait);
+      var p = (un > 0 && f.waitList.length)
+        ? unN('unwait', f.waitList, un).then(function () { log.push('·   대기 ' + un + '개 무름(두 번 받지 않게)'); }, function (e) { log.push('·   ⚠️ 대기 무르기 실패 — ' + (e.message || e) + ' · 수량 웹에서 대기 확인'); })
+        : Promise.resolve();
+      var um = Math.min(Math.max(0, add - un), f.more);
+      if (um > 0 && f.moreList.length)
+        p = p.then(function () { return unN('unmore', f.moreList, um); }).then(function () { log.push('·   증량 ' + um + '개 무름(두 번 받지 않게)'); }, function (e) { log.push('·   ⚠️ 증량 무르기 실패 — ' + (e.message || e) + ' · 수량 웹에서 증량 확인'); });
+      return p;
+    }
+    /* 🛑 열렸다가 다 팔렸으면 감시를 접고 대기·증량으로 넘긴다 (2026-11-18 홍팀장 「누가 한번 다 잡으면 더 들어와서 잡을 확률은
+          아주 희박 — 차라리 증량이나 대기를 걸어놓는 게 좋은데, 대기도 너무 많으면 차라리 증량을 요청」).
+          · 판정: 총수량 > 0 · 잔여 0 · 잠김 아님 (= 한 번 열렸고 남이 다 가져감)
+          · 모자란 몫만큼 대기(이미 그만큼 있으면 안 건다) — 🔴 대기는 무르지 않는다(11-12 규칙)
+          · 우리 대기 앞에 남의 대기가 AHEAD_MORE개 이상이면 증량도 같이 요청(증량 총량 = 모자란 몫) */
+    var AHEAD_MORE = 20;
+    function soldOut(f) { return f.total > 0 && f.left === 0 && f.open; }
+    function fallback(w, row, f, need) {
+      if (left.indexOf(w) < 0) return;                 // 1초·10초 감시가 같은 줄을 두 번 넘기지 않게
+      left.splice(left.indexOf(w), 1);
+      dropFromGrabBox([w.key]);
+      var hm = hhmm(), p = Promise.resolve(), msg = [];
+      if (f.wait < need)
+        p = p.then(function () { return qpost({ do: 'wait', tab: whTab(row), nkey: row.key, co: row.co, qty: need }); })
+          .then(function () { msg.push('대기 ' + f.wait + '→' + need); }, function (e) { msg.push('⚠️ 대기 실패(' + (e.message || e) + ')'); });
+      else msg.push('대기 ' + f.wait + ' 유지');
+      if (f.ahead >= AHEAD_MORE && f.more < need)
+        p = p.then(function () { return qpost({ do: 'more', tab: whTab(row), nkey: row.key, co: row.co, qty: need, why: '대기 앞 ' + f.aheadN + '곳 ' + f.ahead + '개 — 증량 부탁드립니다' }); })
+          .then(function () { msg.push('증량 ' + f.more + '→' + need + ' (앞 대기 ' + f.aheadN + '곳 ' + f.ahead + '개)'); }, function (e) { msg.push('⚠️ 증량 실패(' + (e.message || e) + ')'); });
+      return p.then(function () {
+        log.push('· 🛑 ' + hm + ' ' + w.name + ' — 총 ' + f.total + '개 다 나감, 감시 끝 → ' + msg.join(' · '));
+        try { if (window.Notification && Notification.permission === 'granted') new Notification('🛑 다 나갔습니다 — 대기·증량으로', { body: w.name + ' ' + msg.join(' · '), tag: 'qtyb-out' }); } catch (e) {}
+        paint(hm + ' ' + w.name + ' 다 나감 → 대기·증량');
+      });
+    }
     function ntCheck() {
       if (Date.now() - lastNt < NT_MS) return;
       lastNt = Date.now();
@@ -2155,19 +2198,19 @@
           var row = coRow(IDX[w.key]);
           if (!row) return;
           return freshRow(row).then(function (f) {
-            if (heldBy(f)) { if (left.indexOf(w) >= 0) left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); log.push('· ' + hhmm() + ' ' + w.name + ' — ' + heldTxt(f) + ' 걸려 있어 수동 잡기에서 뺌'); paint('대기·증량 걸린 것 뺌'); return; }
             var spare = Math.max(0, f.mine - Math.max(f.used, w.outToday || 0));
             var need = Math.max(0, w.avg - spare);
             if (!need) { if (left.indexOf(w) >= 0) left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); log.push('· ' + hhmm() + ' ' + w.name + ' — 여유 ' + spare + '개, 다 찼습니다'); paint('다 찼습니다'); return; }
+            /* 🔇 잠긴 동안엔 잡기(set)를 안 보낸다 — 읽기(do=row)만 1초마다. 예전엔 잔여가 보이면 잠겨 있어도 1초마다 set 을 던져 거절당했다 */
+            if (!f.open) return;
             var add = Math.min(need, f.left);
-            if (add <= 0) return;
+            if (add <= 0) { if (soldOut(f)) return fallback(w, row, f, need); return; }
             var hm = hhmm();
             return qpost({ do: 'set', tab: whTab(row), nkey: row.key, co: row.co, val: f.mine + add, name: row.name, how: 'pop' })
               .then(function () {
                 log.push('· 🔥 ' + hm + ' ' + w.name + ' ' + f.mine + ' → ' + (f.mine + add) + (add < need ? ' (잔여 부족, ' + (need - add) + '개 더 기다림)' : ''));
                 try { if (window.Notification && Notification.permission === 'granted') new Notification('📌 수량 잡았습니다', { body: w.name + ' ' + (f.mine + add) + '개 (' + hm + ')', tag: 'qtyb-grab' }); } catch (e) {}
-                var un = Math.min(add, f.wait);
-                if (un > 0 && f.waitList.length) return unN('unwait', f.waitList, un).then(function () { log.push('·   대기 ' + un + '개 무름(두 번 받지 않게)'); }, function (e) { log.push('·   ⚠️ 대기 무르기 실패 — ' + (e.message || e) + ' · 수량 웹에서 대기 확인'); });
+                return unAfterGrab(f, add);
               }).then(function () { paint(hm + ' 잡음'); });
           }).catch(function (e) { try { console.debug('[qtyb] 1초 감시 못 잡음', w.name, e && e.message || e); } catch (_) {} });   // 한 상품이 거절돼도 다음 상품은 본다
         });
@@ -2247,24 +2290,16 @@
           return pr.then(function () {
             var row = IDX[w.key];
             if (notYet(w)) return;                                                 // 당일 상품 — 내일 판부터
-            if (!row) return;
-            /* ⛔ 잠긴 줄도 대기·증량이 걸렸는지는 본다 — 걸려 있으면 열리기 전에 감시에서 뺀다 */
-            var rowCo = row.co ? row : (function () { var c = ''; Object.keys(IDX).some(function (kk) { if (IDX[kk] && IDX[kk].co) { c = IDX[kk].co; return true; } return false; }); return c ? Object.assign({}, row, { co: c }) : null; })();
-            var chk = rowCo ? freshRow(rowCo).then(function (f) {
-              if (!heldBy(f)) return false;
-              left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]);
-              log.push('· ' + hm + ' ' + w.name + ' — ' + heldTxt(f) + ' 걸려 있어 수동 잡기에서 뺌');
-              return true;
-            }, function () { return false; }) : Promise.resolve(false);
-            return chk.then(function (gone) {
-            if (gone) return;
-            if (row.free || row.locked || row.closed || !row.co) return;   // 아직 안 열림
+            if (left.indexOf(w) < 0) return;                                       // 1초 감시가 그 사이 처리함
+            if (!row || row.free || row.locked || row.closed || !row.co) return;   // 아직 안 열림
             return freshRow(row).then(function (f) {
+              if (left.indexOf(w) < 0) return;
               var spare = Math.max(0, f.mine - Math.max(f.used, w.outToday));
               var need = Math.max(0, w.avg - spare);
               if (!need) { left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); log.push('· ' + w.name + ' — 이미 여유 ' + spare + '개, 안 잡음'); return; }
               var add = Math.min(need, f.left);
-              if (add <= 0) return;                                              // 열렸는데 잔여 0 — 다음에
+              if (!f.open) return;
+              if (add <= 0) { if (soldOut(f)) return fallback(w, row, f, need); return; }   // 열렸는데 잔여 0 — 다 나갔으면 대기·증량으로
               return qpost({ do: 'set', tab: whTab(row), nkey: row.key, co: row.co, val: f.mine + add, name: row.name, how: 'pop' })
                 .then(function () {
                   log.push('· ' + hm + ' ' + w.name + ' ' + f.mine + ' → ' + (f.mine + add) + (add < need ? ' (잔여 부족, ' + (need - add) + '개 덜 잡음)' : ''));
@@ -2273,10 +2308,10 @@
                     if (window.Notification && Notification.permission === 'granted')
                       new Notification('📌 수량 잡았습니다', { body: w.name + ' ' + (f.mine + add) + '개 (' + hm + ')', tag: 'qtyb-grab' });
                   } catch (e) {}
-                  if (add >= need) { left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); }   // 덜 잡았으면 계속 기다린다
+                  if (add >= need && left.indexOf(w) >= 0) { left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); }   // 덜 잡았으면 계속 기다린다
+                  return unAfterGrab(f, add);
                 });
             }).catch(function (e) { log.push('· ' + w.name + ' — 실패: ' + (e.message || e)); });
-            });
           });
         }, Promise.resolve()).then(function () {
           paint(left.length ? hm + ' 확인 — ' + (anyFast() ? '⚡ ' + (FAST_MS / 1000) + '초 뒤' : '5분 뒤') + ' 다시 봅니다(' + untilTxt() + '까지)' : '다 잡았습니다');
@@ -2345,7 +2380,6 @@
         return pr.then(function () {
           var row = IDX[k]; if (!row || !row.co) return;
           return freshRow(row).then(function (f) {
-            if (heldBy(f)) { done.push(k); return; }      // ⛔ 대기·증량 걸린 줄은 칸에서 뺀다 (2026-11-18)
             if (row.kind && row.kind !== '상시') return;   // 🐟 당일 줄 — 오늘 여유로 내일 몫을 지우지 않는다
             if (Math.max(0, f.mine - f.used) >= pn.map[k]) done.push(k);
           }).catch(function () {});
@@ -2391,7 +2425,6 @@
       return now.reduce(function (pr, x) {
         return pr.then(function () {
           return freshRow(x.row).then(function (f) {
-            if (heldBy(f)) { done.push(x.key); log.push('⛔ ' + x.name + ' — ' + heldTxt(f) + ' 걸려 있어 수동 잡기에서 뺌(안 잡음)'); return; }
             var spare = Math.max(0, f.mine - f.used);
             var need = Math.max(0, x.qty - spare);
             if (!need) { done.push(x.key); log.push('✅ ' + x.name + ' — 이미 여유 ' + spare + '개, 안 잡음'); return; }
@@ -2431,20 +2464,17 @@
             return freshRow(row).then(function (f) {
               var short = Math.max(0, x.qty - Math.max(0, f.mine - f.used));
               if (!short) return;
-              /* ⛔ 이미 대기·증량이 걸려 있으면 그쪽에 맡기고 감시에서 뺀다 (2026-11-18) */
-              if (heldBy(f)) { x.held = 1; log.push('⛔ ' + x.name + ' — ' + heldTxt(f) + ' 걸려 있어 수동 잡기에서 뺌'); return; }
+              if (f.wait >= short) { log.push('⏳ ' + x.name + ' — 대기 ' + f.wait + '개 이미 걸려 있음 · 열리면 감시가 잡고 그만큼 무름'); return; }
               return qpost({ do: 'wait', tab: whTab(row), nkey: row.key, co: row.co, qty: short })
                 .then(function () { return freshRow(row); })
                 .then(function (g) {
-                  if (g.wait > 0) x.held = 1;   // 대기를 걸었으면 그 대기에 맡긴다 — 감시까지 돌리면 두 번 받을 수 있다
                   log.push((g.wait >= short ? '⏳ ' : '⚠️ ') + hm + ' ' + x.name + ' 대기 ' + f.wait + ' → ' + g.wait + '개'
-                    + (g.wait >= short ? ' — 대기에 맡기고 수동 잡기에서 뺌' : ' (목표 ' + short + ' — 수량 웹에서 확인)'));
+                    + (g.wait >= short ? '' : ' (목표 ' + short + ' — 수량 웹에서 확인)'));
                 });
             }).catch(function (e) { log.push('⚠️ ' + x.name + ' — 대기 실패: ' + (e.message || e)); });
           });
         }, Promise.resolve());
       }).then(function () {
-        wait = wait.filter(function (x) { if (x.held) { done.push(x.key); return false; } return true; });
         dropFromGrabBox(done);
         if (wait.length) {
           preWatch(wait.map(function (x) { return { key: x.key, name: x.name, avg: x.qty, outToday: 0, fast: 1 }; }));
