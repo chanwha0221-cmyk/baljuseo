@@ -112,7 +112,7 @@
       + vis.map(function (r) {
         var low = +r.base > 0 && +r.price < +r.base;
         return '<tr data-spcid="' + r.id + '" style="' + (r.per === 'past' ? 'background:#fff4f4' : r.active !== 'Y' ? 'opacity:.55' : '') + '">'
-          + '<td style="' + td + ';text-align:left;white-space:normal">' + E(r.item) + ' <button class="cpbtn" data-cp="' + E(r.item) + '" title="상품명 복사">📋</button></td>'
+          + '<td style="' + td + ';text-align:left;white-space:normal;min-width:170px">' + E(r.item) + ' <button class="cpbtn" data-cp="' + E(r.item) + '" title="상품명 복사">📋</button></td>'
           + '<td style="' + td + ';text-align:left">' + E(r.wh) + '</td>'
           + '<td style="' + td + ';text-align:left;white-space:normal">' + (+r.member_srl ? '<span style="color:#1d4ed8;font-weight:700">' + E(r.member_nick || r.member_srl) + (r.vendor && r.vendor !== r.member_nick ? ' · ' + E(r.vendor) : '') + '</span>' : '<span style="color:var(--muted);font-weight:700">전체</span>') + '</td>'
           + '<td style="' + td + ';font-weight:800' + (low ? ';color:#b91c1c' : '') + '">' + won(r.price) + (low ? '<br><span style="font-size:11px">공급가보다 낮음</span>' : '') + '</td>'
@@ -120,7 +120,7 @@
           + '<td style="' + td + ';color:var(--muted)">' + (r.rule == null ? '-' : won(r.rule)) + '</td>'
           + '<td style="' + td + ';text-align:left">' + (r.alive ? '<span style="color:#15803d;font-weight:700">시트에 있음</span>' : '<span style="color:#b91c1c;font-weight:700">시트에 없음</span>') + '</td>'
           + '<td style="' + td + ';text-align:left;font-size:12px">' + perTxt(r) + '</td>'
-          + '<td style="' + td + ';text-align:left;white-space:normal;font-size:12px">' + E(r.memo) + '</td>'
+          + '<td style="' + td + ';text-align:left;white-space:normal;font-size:12px;min-width:110px">' + E(r.memo) + '</td>'
           + '<td style="' + td + ';text-align:left;font-size:12px;color:var(--muted)">' + E(String(r.upd_dt || '').slice(5, 16)) + (r.reg_by ? '<br>' + E(String(r.reg_by).replace(/^\(주\)마스터\//, '')) : '') + '</td>'
           + '<td style="' + td + ';text-align:center"><button class="ubtn" style="font-size:11.5px;font-weight:800;' + (r.active === 'Y' ? 'background:#15803d;color:#fff;border-color:transparent' : '') + '" onclick="SPC.toggle(this,' + r.id + ')">' + (r.active === 'Y' ? '켬' : '꺼짐') + '</button></td>'
           + '<td style="' + td + '"><button class="ubtn" style="font-size:11.5px" onclick="SPC.edit(' + r.id + ')">수정</button> <button class="ubtn" style="font-size:11.5px;color:#b91c1c" onclick="SPC.del(this,' + r.id + ')">삭제</button></td></tr>';
@@ -159,7 +159,7 @@
   }
   function modal(html) {
     var m = document.getElementById('spcModal');
-    if (!m) { m = document.createElement('div'); m.id = 'spcModal'; m.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.35);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px'; m.addEventListener('click', function (e) { if (e.target === m) close(); }); document.body.appendChild(m); }
+    if (!m) { m = document.createElement('div'); m.id = 'spcModal'; m.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.35);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px'; m.addEventListener('click', function (e) { if (e.target === m) close(); }); document.body.appendChild(m); }
     m.innerHTML = '<div style="background:var(--card,#fff);color:var(--text);border-radius:14px;max-width:620px;width:100%;padding:18px 18px 14px;box-shadow:0 10px 40px rgba(0,0,0,.3)">' + html + '</div>';
     return m;
   }
@@ -249,7 +249,7 @@
         + (r.d_from || r.d_to ? ' · ' + E((r.d_from || '') + '~' + (r.d_to || '')) + (r.per === 'past' ? ' <span style="color:#b91c1c">기간 지남</span>' : '') : '')
         + (r.active !== 'Y' ? ' · <span style="color:var(--muted)">꺼짐</span>' : '') + (r.memo ? ' · ' + E(r.memo) : '') + '</span>'
         + '<button class="ubtn" style="font-size:11.5px" onclick="SPC.edit(' + r.id + ')">수정</button></div>'; }).join('')
-      + (F.id ? '' : '<div style="font-size:12px;color:#b45309;margin-top:4px">같은 상품·같은 업체로 또 저장하면 masterc 가 그 줄을 새 값으로 바꿉니다(전체끼리도 같음).</div>');
+      + (F.id ? '' : '<div style="font-size:12px;color:#b45309;margin-top:4px">같은 업체 줄을 고치려면 [수정]을 눌러 주세요.</div>');
   }
   var ft;
   function find(q) {

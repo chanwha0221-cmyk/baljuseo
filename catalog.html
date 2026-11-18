@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.242</title>
+<title>마스터 유통 카탈로그 v23.243</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3525,7 +3525,7 @@ async function renderRoute(){
     else if(v==='orders'){subV.innerHTML=await ORDER.orders();ORDER.ordersBind();}
     // 📮 클레임 — 업체는 등록+내 목록, 마스터는 들어온 클레임+[확인] (2026-08-31)
     else if(v==='claim'){subV.innerHTML=CLAIM.view();await CLAIM.bind();}
-    else if((v==='lowm'||v==='lowmloss'||v==='lowmhigh'||v==='lowmok'||v==='lowmrk')&&ME&&ME.master){subV.innerHTML=renderLowm(await loadLowm(),v==='lowmloss'?true:v==='lowmhigh'?'high':v==='lowmok'?'ok':v==='lowmrk'?'rk':false);}
+    else if((v==='lowm'||v==='lowmloss'||v==='lowmhigh'||v==='lowmok'||v==='lowmrk'||v==='lowmspc')&&ME&&ME.master){subV.innerHTML=renderLowm(await loadLowm(),v==='lowmloss'?true:v==='lowmhigh'?'high':v==='lowmok'?'ok':v==='lowmrk'?'rk':v==='lowmspc'?'spc':false);if(v==='lowmspc'&&window.SPC)SPC.bind();}
     else if(v==='tools'&&ME&&ME.master){subV.innerHTML=renderTools();}
     else{location.hash='';}
   }catch(e){
@@ -3972,7 +3972,7 @@ function lowmGo(to){const cur=location.hash.replace(/^#/,'');if(cur===to)renderR
 function renderLowm(j,lossOnly){
   const won=n=>Math.round(+n||0).toLocaleString();
   const ago=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'없음';
-  const highOnly=lossOnly==='high', okOnly=lossOnly==='ok', rkOnly=lossOnly==='rk'; if(highOnly||okOnly||rkOnly)lossOnly=false;
+  const highOnly=lossOnly==='high', okOnly=lossOnly==='ok', rkOnly=lossOnly==='rk', spcOnly=lossOnly==='spc'; if(highOnly||okOnly||rkOnly||spcOnly)lossOnly=false;
   const rkRows=j.rkRows||[];
   const okRows=j.okRows||[];
   const high=j.high||[];
@@ -3990,12 +3990,13 @@ function renderLowm(j,lossOnly){
   const th='padding:7px 8px;border-bottom:2px solid var(--line);text-align:right;white-space:nowrap;font-size:12px;color:var(--muted)';
   const td='padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:13px';
   const saveBtn='<button class="ubtn" onclick="lowmSave(this)" style="font-weight:800">💾 단가 저장</button>';
-  /* 🏷 고친 단가 목록 = masterc #special 그 자체 (2026-10-15 홍팀장 「저기 박았어야 했어」) — 따로 목록을 두지 않는다 */
-  const spcLink='<a class="ubtn" href="https://masterc.kr/machan_admin#special" target="_blank" rel="noopener" style="text-decoration:none">🏷 특별단가 보기 (masterc)</a>';
+  /* 🏷 특별단가 = masterc #special 을 카탈로그로 (2026-11-18 홍팀장 「마진 전체상품 안쪽에 특별단가 걸고 리스트 보는 것까지 따오자」).
+     정본은 그대로 masterc — spc.js 가 masterc 작은 창(spc-rpc.js)을 통해 읽고 쓴다. 옛 «특별단가 보기(masterc)» 링크 자리 = 탭. */
   const dayLink='<a class="ubtn" href="https://masterc.kr/machan_admin#daily" target="_blank" rel="noopener" style="text-decoration:none">🐟 masterc 당일상품</a>';
   /* 🔴 탭 두 개 — 특별단가 보기 옆 (2026-10-16 홍팀장 그림의 동그라미 자리) */
   const tabSt=on=>'font-weight:800;'+(on?'background:var(--text,#1f2937);color:#fff;border-color:transparent':'');
-  const tabs='<button class="ubtn" onclick="lowmGo(\'lowm\')" style="'+tabSt(!lossOnly&&!highOnly&&!okOnly&&!rkOnly)+'">💸 전체 마진 '+everyN+' <span style="color:#b45309">(저마진 '+j.rows.length+')</span></button>'
+  const spcLink='<button class="ubtn" onclick="lowmGo(\'lowmspc\')" style="'+tabSt(spcOnly)+(spcOnly?'':';color:#15803d;border-color:#15803d')+'">🏷 특별단가 <span id="spcN">'+(window.SPC?SPC.n():'')+'</span></button>';
+  const tabs='<button class="ubtn" onclick="lowmGo(\'lowm\')" style="'+tabSt(!lossOnly&&!highOnly&&!okOnly&&!rkOnly&&!spcOnly)+'">💸 전체 마진 '+everyN+' <span style="color:#b45309">(저마진 '+j.rows.length+')</span></button>'
     +'<button class="ubtn" onclick="lowmGo(\'lowmloss\')" style="'+tabSt(lossOnly)+(loss.length&&!lossOnly?';color:#b91c1c;border-color:#b91c1c':'')+'">🔴 지금 바로 확인할 상품 '+loss.length+'</button>'
     +'<button class="ubtn" onclick="lowmGo(\'lowmhigh\')" style="'+tabSt(highOnly)+(high.length&&!highOnly?';color:#1d4ed8;border-color:#1d4ed8':'')+'">📈 고마진 '+high.length+'</button>'
     +'<button class="ubtn" onclick="lowmGo(\'lowmok\')" style="'+tabSt(okOnly)+'">👌 괜찮음 '+okRows.length+'</button>'
@@ -4006,6 +4007,11 @@ function renderLowm(j,lossOnly){
      서버 okRows = LOWM_OK 전부 + 지금 값. [↩ 괜찮음 취소] 하면 다시 확인 대상(저마진·긴급)으로 돌아간다. */
   /* 🚨 리모컨 공급가 ≠ 웹 판매가 (2026-11-10 홍팀장 「6개가 뭐가 다른지 리스트를 알려줘야 수정을 할 거 아녀 — 저마진에 섹션 하나 넣어」)
      자료 = 변동 감시(mc-watch rkCheck → Edge mcrk). data-sell 에 리모컨 값을 넣어서, 칸에 미리 채운 웹 판매가로 [💾 단가 저장] 하면 그 값이 저장 대상이 된다. */
+  if(spcOnly){
+    h=subHead('🏷 특별단가','masterc #special 그대로 — <b>전체 업체</b>로 걸면 모두에게, <b>업체</b>를 고르면 그 업체가 로그인했을 때만 그 가격이 나갑니다(여러 업체·적용 기간 가능). 전체 업체 특별단가는 리모컨 가격표에 실려 그 값으로 정산되고 카탈로그에도 바로 반영됩니다.'
+      +'<br>✏️ 마진 표 줄 끝 <b>[🏷]</b>로도 그 상품에 바로 겁니다. 켬/끔·수정·삭제는 아래 표에서. masterc 작은 창이 연결용으로 열려 있어야 합니다(닫으면 다음에 다시 엽니다). 🔒 마스터에게만 보입니다.')+bar('');
+    return h+(window.SPC?SPC.view():'<div class="empty">특별단가 기능을 불러오지 못했습니다 — 새로고침해 주세요.</div>');
+  }
   if(rkOnly){
     h=subHead('🚨 리모컨 ≠ 판매가','리모컨 공급가와 웹 판매가가 다른 상품 '+rkRows.length+'개 — <b>정산은 리모컨 값</b>으로 잡힙니다 · 변동 감시 확인 '+ago(j.rkAt)
       +'<br>✏️ «맞출 값»에 웹 판매가를 미리 넣어 뒀습니다. 그대로 또는 고쳐서 <b>[💾 단가 저장]</b> → masterc 특별단가(전체). 맞춰지면 감시 창 다음 확인 때 목록에서 빠집니다. 🔒 마스터에게만 보입니다.')+bar(saveBtn);
@@ -4079,7 +4085,8 @@ function renderLowm(j,lossOnly){
       +'<td style="'+td+'">'+won(r.cost)+'</td><td style="'+td+'">'+won(r.ship)+'</td>'
       +'<td class="lowm-mg" style="'+td+(r.margin<0?';color:#b91c1c;font-weight:700':'')+'">'+won(r.margin)+'</td>'
       +'<td class="lowm-rt" style="'+td+';font-weight:800;color:'+(r.rate<0?'#b91c1c':r.high?'#1d4ed8':'#b45309')+'">'+r.rate+'%</td>'
-      +'<td style="'+td+'">'+((r.low||lossOnly||highOnly)?okBtn(r):'')+'</td>'
+      +'<td style="'+td+'">'+((r.low||lossOnly||highOnly)?okBtn(r):'')
+        +' <button class="ubtn" style="font-size:11.5px;color:#15803d;border-color:#15803d" title="이 상품에 특별단가 걸기(전체·업체별·기간)" onclick="SPC.form('+esc(JSON.stringify(r.n))+','+esc(JSON.stringify(r.wh||''))+')">🏷</button></td>'
       +'</tr>').join('')
     +'</tbody></table></div>'
     +'<div style="margin-top:8px">'+saveBtn+'</div>';
@@ -4526,5 +4533,7 @@ window.ORDER_NS='';
 document.write('<scr'+'ipt src="convert-core.js?'+v+'"><\/scr'+'ipt>');
 document.write('<scr'+'ipt src="order.js?'+v+'"><\/scr'+'ipt>');
 // 📮 클레임 — 2026-08-31 신설 (claimadd/claimlist/claimimgs/claimack)
-document.write('<scr'+'ipt src="claim.js?'+v+'"><\/scr'+'ipt>');})();</script>
+document.write('<scr'+'ipt src="claim.js?'+v+'"><\/scr'+'ipt>');
+// 🏷 특별단가 걸기·목록 (마진 화면 안) — 2026-11-18, masterc 작은 창(spc-rpc.js)을 통해 읽고 쓴다
+document.write('<scr'+'ipt src="spc.js?'+v+'"><\/scr'+'ipt>');})();</script>
 </body></html>
