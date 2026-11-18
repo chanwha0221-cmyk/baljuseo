@@ -87,10 +87,13 @@
   async function handle(m) {
     var a = m.a, d = m.data || {};
     if (a === 'day_price') return await dayPrice(d.n, d.price);
+    if (a === 'push_spc') { var n = await pushSpc(); return { ok: n >= 0, spc: n }; }
     if (READ[a]) return await get(a, d);
     if (!WRITE[a]) return { ok: false, msg: '안 받는 요청: ' + a };
+    // 여러 개 지울 땐 마지막 한 번만 카탈로그로 보낸다(_nopush) — masterc 로는 안 넘긴다
+    var nopush = +d._nopush === 1; d = Object.assign({}, d); delete d._nopush;
     var x = await post(a, d);
-    if (x && x.ok) { try { x.spc = await pushSpc(); } catch (e) { x.spc = -1; } }
+    if (x && x.ok && !nopush) { try { x.spc = await pushSpc(); } catch (e) { x.spc = -1; } }
     return x;
   }
 

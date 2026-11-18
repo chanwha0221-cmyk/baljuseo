@@ -114,7 +114,7 @@
   function perTxt(r) {
     if (!r.d_from && !r.d_to) return '<span style="color:var(--muted)">끝없이</span>';
     var chip = r.per === 'past' ? '<span style="color:#b91c1c;font-weight:700">기간 지남 · 지워 주세요</span>' : r.per === 'soon' ? '<span style="color:var(--muted);font-weight:700">예정</span>' : '<span style="color:#15803d;font-weight:700">적용 중</span>';
-    return E((r.d_from || '') + ' ~ ' + (r.d_to || '')) + '<br>' + chip;
+    return E((r.d_from || '') + '~' + (r.d_to || '')) + ' ' + chip;
   }
   /* 🔴 역마진 = 켜짐 · 지금 적용 중 · 특별단가 < 공급가(base) 또는 < 원가(마진 화면 원가, 카탈로그 LOWM_COSTMAP) — 업체별도 (11-18 「장기 특별단가도 역마진이면 바로」) */
   function costOf(n) { var m = window.LOWM_COSTMAP || {}; return +m[nk(n)] || 0; }
@@ -127,25 +127,39 @@
     if (c > 0 && (p - c) / p * 100 >= 6) return false;
     return +r.base > 0 && p < +r.base;
   }
+  /* 📏 한 줄 표 (11-18 홍팀장 「원가·마진 들어가서 스크롤 생기면 폰트를 줄여서 한 줄에 보이게」) — 칸은 전부 줄바꿈 없이,
+     그려진 뒤 표가 상자보다 넓으면 글자를 0.5px 씩 줄인다(최소 9px). 그래도 넘치면 그때만 가로 스크롤. */
+  function fit() {
+    var w = document.getElementById('spcWrap'), t = w && w.querySelector('table'); if (!t) return;
+    var fs = 13; t.style.fontSize = fs + 'px';
+    while (t.scrollWidth > w.clientWidth + 1 && fs > 9) { fs -= 0.5; t.style.fontSize = fs + 'px'; }
+  }
+  window.addEventListener('resize', function () { clearTimeout(fit.t); fit.t = setTimeout(fit, 150); });
+  var VIS = [];   // 지금 화면에 보이는 줄(거르기 적용) — «이 목록 전체 삭제» 대상
   function listHtml(rows, filt) {
-    var th = 'padding:7px 8px;border-bottom:2px solid var(--line);text-align:right;white-space:nowrap;font-size:12px;color:var(--muted);cursor:pointer';
-    var td = 'padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:13px';
+    var th = 'padding:6px 6px;border-bottom:2px solid var(--line);text-align:right;white-space:nowrap;font-size:.92em;color:var(--muted);cursor:pointer';
+    var td = 'padding:6px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap';
+    var sm = 'font-size:.85em';
     var vis = rows.filter(function (r) { return filt === 'all' ? !+r.member_srl : filt === 'mem' ? +r.member_srl : filt === 'past' ? r.per === 'past' || !r.alive : filt === 'loss' ? isLoss(r) : true; });
     vis.sort(function (a, b) { return (isLoss(b) - isLoss(a)) || ((b.per === 'past') - (a.per === 'past')) || String(b.upd_dt || '').localeCompare(String(a.upd_dt || '')); });
+    VIS = vis;
     /* 💰 원가·마진·마진율 (11-18 홍팀장 「역마진이라고 하는데 원가가 얼만지도 몰라」) — 마진 화면과 같은 식: (특별단가 − 원가) ÷ (특별단가 + 택배비) */
-    var cols = ['상품', '창고', '적용 업체', '특별단가', '원가', '마진', '마진율', '공급가', '규칙가', '상태', '적용 기간', '메모', '고친 때', '켬', ''];
+    var cols = ['', '상품', '창고', '적용 업체', '특별단가', '원가', '마진', '마진율', '공급가', '규칙가', '상태', '적용 기간', '메모', '고친 때', '켬', ''];
     if (!vis.length) return '<div class="empty">해당하는 특별단가가 없습니다.</div>';
-    return '<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px"><table style="border-collapse:collapse;width:100%"><thead><tr>'
-      + cols.map(function (t, i) { return '<th style="' + th + (i < 3 || i > 8 ? ';text-align:left' : '') + '" onclick="lowmSort(this)" title="눌러서 정렬">' + t + '</th>'; }).join('')
+    return '<div id="spcWrap" style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px"><table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr>'
+      + cols.map(function (t, i) {
+          if (i === 0) return '<th style="' + th + ';text-align:center;cursor:default"><input type="checkbox" title="보이는 줄 전부 고르기" onclick="SPC.selAll(this.checked)"></th>';
+          return '<th style="' + th + (i < 4 || i > 9 ? ';text-align:left' : '') + '" onclick="lowmSort(this)" title="눌러서 정렬">' + t + '</th>'; }).join('')
       + '</tr></thead><tbody>'
       + vis.map(function (r) {
         var low = +r.base > 0 && +r.price < +r.base, c = costOf(r.item), loss = isLoss(r);
         return '<tr data-spcid="' + r.id + '" style="' + (loss ? 'background:#fee2e2' : r.per === 'past' ? 'background:#fff4f4' : r.active !== 'Y' ? 'opacity:.55' : '') + '">'
-          + '<td style="' + td + ';text-align:left;white-space:normal;min-width:170px">' + E(r.item) + ' <button class="cpbtn" data-cp="' + E(r.item) + '" title="상품명 복사">📋</button></td>'
+          + '<td style="' + td + ';text-align:center"><input type="checkbox" class="spc-sel" value="' + r.id + '" onclick="SPC.selCount()"></td>'
+          + '<td style="' + td + ';text-align:left">' + E(r.item) + ' <button class="cpbtn" data-cp="' + E(r.item) + '" title="상품명 복사">📋</button></td>'
           + '<td style="' + td + ';text-align:left">' + E(r.wh) + '</td>'
-          + '<td style="' + td + ';text-align:left;white-space:normal">' + (+r.member_srl ? '<span style="color:#1d4ed8;font-weight:700">' + E(r.member_nick || r.member_srl) + (r.vendor && r.vendor !== r.member_nick ? ' · ' + E(r.vendor) : '') + '</span>' : '<span style="color:var(--muted);font-weight:700">전체</span>') + '</td>'
-          + '<td style="' + td + ';font-weight:800' + (loss || (c && +r.price < c) ? ';color:#b91c1c' : low ? ';color:#b45309' : '') + '">' + won(r.price)
-            + (c && +r.price < c ? '<br><span style="font-size:11px">🔴 원가보다 낮음</span>' : low ? '<br><span style="font-size:11px">' + (loss ? '🔴 ' : '') + '공급가보다 낮음</span>' : '') + '</td>'
+          + '<td style="' + td + ';text-align:left">' + (+r.member_srl ? '<span style="color:#1d4ed8;font-weight:700">' + E(r.member_nick || r.member_srl) + (r.vendor && r.vendor !== r.member_nick ? ' · ' + E(r.vendor) : '') + '</span>' : '<span style="color:var(--muted);font-weight:700">전체</span>') + '</td>'
+          + '<td style="' + td + ';font-weight:800' + (loss || (c && +r.price < c) ? ';color:#b91c1c' : low ? ';color:#b45309' : '') + '"'
+            + (c && +r.price < c ? ' title="원가보다 낮음"' : low ? ' title="공급가보다 낮음"' : '') + '>' + (loss || (c && +r.price < c) ? '🔴 ' : '') + won(r.price) + '</td>'
           + (function () {
               if (!c) return '<td style="' + td + ';color:var(--muted)" title="마진 화면에 원가가 없는 상품(품절·내림 등)">-</td><td style="' + td + ';color:var(--muted)">-</td><td style="' + td + ';color:var(--muted)">-</td>';
               var p = +r.price, sh = shipOf(r.item), mg = p - c, rt = Math.round(mg / (p + sh) * 1000) / 10;
@@ -156,12 +170,44 @@
           + '<td style="' + td + ';color:var(--muted)">' + (r.base == null ? '-' : won(r.base)) + '</td>'
           + '<td style="' + td + ';color:var(--muted)">' + (r.rule == null ? '-' : won(r.rule)) + '</td>'
           + '<td style="' + td + ';text-align:left">' + (r.alive ? '<span style="color:#15803d;font-weight:700">시트에 있음</span>' : '<span style="color:#b91c1c;font-weight:700">시트에 없음</span>') + '</td>'
-          + '<td style="' + td + ';text-align:left;font-size:12px">' + perTxt(r) + '</td>'
-          + '<td style="' + td + ';text-align:left;white-space:normal;font-size:12px;min-width:110px">' + E(r.memo) + '</td>'
-          + '<td style="' + td + ';text-align:left;font-size:12px;color:var(--muted)">' + E(String(r.upd_dt || '').slice(5, 16)) + (r.reg_by ? '<br>' + E(String(r.reg_by).replace(/^\(주\)마스터\//, '')) : '') + '</td>'
-          + '<td style="' + td + ';text-align:center"><button class="ubtn" style="font-size:11.5px;font-weight:800;' + (r.active === 'Y' ? 'background:#15803d;color:#fff;border-color:transparent' : '') + '" onclick="SPC.toggle(this,' + r.id + ')">' + (r.active === 'Y' ? '켬' : '꺼짐') + '</button></td>'
-          + '<td style="' + td + '"><button class="ubtn" style="font-size:11.5px" onclick="SPC.edit(' + r.id + ')">수정</button> <button class="ubtn" style="font-size:11.5px;color:#b91c1c" onclick="SPC.del(this,' + r.id + ')">삭제</button></td></tr>';
+          + '<td style="' + td + ';text-align:left;' + sm + '">' + perTxt(r) + '</td>'
+          + '<td style="' + td + ';text-align:left;' + sm + '">' + E(r.memo) + '</td>'
+          + '<td style="' + td + ';text-align:left;' + sm + ';color:var(--muted)">' + E(String(r.upd_dt || '').slice(5, 16)) + (r.reg_by ? ' ' + E(String(r.reg_by).replace(/^\(주\)마스터\//, '')) : '') + '</td>'
+          + '<td style="' + td + ';text-align:center"><button class="ubtn" style="font-size:.88em;font-weight:800;' + (r.active === 'Y' ? 'background:#15803d;color:#fff;border-color:transparent' : '') + '" onclick="SPC.toggle(this,' + r.id + ')">' + (r.active === 'Y' ? '켬' : '꺼짐') + '</button></td>'
+          + '<td style="' + td + '"><button class="ubtn" style="font-size:.88em" onclick="SPC.edit(' + r.id + ')">수정</button> <button class="ubtn" style="font-size:.88em;color:#b91c1c" onclick="SPC.del(this,' + r.id + ')">삭제</button></td></tr>';
       }).join('') + '</tbody></table></div>';
+  }
+  /* ☑ 고르기·여러 개 지우기 (11-18 홍팀장 「선택하는 기능이랑 전체 삭제」) — 「전체 삭제」 = 지금 거르기로 보이는 줄 전부(예: 기간 지남·시트에 없음 17) */
+  function selIds() { return [...document.querySelectorAll('#spcList .spc-sel:checked')].map(function (x) { return +x.value; }); }
+  function selCount() {
+    var n = selIds().length, b = document.getElementById('spcDelSel');
+    if (b) { b.textContent = '🗑 선택 삭제 ' + n; b.disabled = !n; }
+  }
+  function selAll(on) { document.querySelectorAll('#spcList .spc-sel').forEach(function (x) { if (x.closest('tr').style.display !== 'none') x.checked = on; }); selCount(); }
+  function delMany(ids, label) {
+    var rows = (LIST || []).filter(function (r) { return ids.indexOf(r.id) >= 0; });
+    if (!rows.length) { toast('지울 줄이 없습니다'); return; }
+    var all = rows.filter(function (r) { return !+r.member_srl; }).length;
+    if (!confirm('🗑 ' + label + ' — masterc 특별단가 ' + rows.length + '개를 지웁니다. 되돌릴 수 없습니다.\n\n'
+      + rows.slice(0, 20).map(function (r) { return '· ' + r.item + ' [' + (+r.member_srl ? r.member_nick : '전체') + '] ' + won(r.price); }).join('\n') + (rows.length > 20 ? '\n… 외 ' + (rows.length - 20) + '개' : '')
+      + (all ? '\n\n전체 업체 특별단가 ' + all + '개가 빠지면 그 상품은 규칙가로 돌아갑니다(리모컨·카탈로그도).' : ''))) return;
+    var ok = 0, bad = [], st = document.getElementById('spcBulkMsg');
+    (async function () {
+      for (var i = 0; i < rows.length; i++) {
+        if (st) st.textContent = '지우는 중… ' + (i + 1) + '/' + rows.length;
+        try {
+          var x = await call('special_del', { id: rows[i].id, _nopush: i < rows.length - 1 ? 1 : 0 }, true);
+          if (x && x.ok) ok++; else bad.push(rows[i].item + '(' + ((x && x.msg) || '거절') + ')');
+          if (x && x.login) { bad.push('— masterc 로그인이 풀려 멈춤'); break; }
+        } catch (e) { bad.push(rows[i].item + '(' + e.message + ')'); if (e.message === 'noconn' || /닫혔/.test(e.message)) break; }
+      }
+      if (ok && bad.length) { try { await call('push_spc', {}, false); } catch (e) {} }   // 마지막 줄이 실패해 카탈로그로 못 보냈으면 따로 한 번
+      try { api('catalog', { token: ME.token, fresh: 1 }).catch(function () {}); } catch (e) {}
+      toast('🗑 ' + ok + '개 지움' + (bad.length ? ' · 실패 ' + bad.length : ''));
+      if (bad.length) alert(ok + '개 지움 · 못 지운 것 ' + bad.length + '개\n\n' + bad.join('\n'));
+      try { await loadList(false); } catch (e) {}
+      drawList();
+    })();
   }
   var FILT = 'every';
   function drawList() {
@@ -171,8 +217,14 @@
     var fb = function (k, t) { return '<button class="ubtn" style="font-size:12px;font-weight:800;' + (FILT === k ? 'background:var(--text,#1f2937);color:#fff;border-color:transparent' : '') + (k === 'past' && cnt.past ? ';color:' + (FILT === k ? '#fff' : '#b91c1c') : '') + '" onclick="SPC.filt(\'' + k + '\')">' + t + ' ' + cnt[k] + '</button>'; };
     box.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px">' + fb('every', '전부') + (cnt.loss ? '<button class="ubtn" style="font-size:12px;font-weight:800;' + (FILT === 'loss' ? 'background:#b91c1c;color:#fff;border-color:transparent' : 'color:#b91c1c;border-color:#b91c1c') + '" onclick="SPC.filt(\'loss\')">🔴 역마진 ' + cnt.loss + '</button>' : '') + fb('all', '전체 업체') + fb('mem', '업체별') + fb('past', '⚠️ 기간 지남·시트에 없음')
       + '<span style="font-size:12px;color:var(--muted)">masterc 에서 ' + new Date(LIST_AT).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' }) + ' 읽음</span>'
-      + '<button class="ubtn" style="font-size:12px" onclick="SPC.reload(this)">↻ 새로 읽기</button></div>' + listHtml(LIST, FILT);
+      + '<button class="ubtn" style="font-size:12px" onclick="SPC.reload(this)">↻ 새로 읽기</button></div>';
+    var lh = listHtml(LIST, FILT);
+    box.innerHTML += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">'
+      + '<button id="spcDelSel" class="ubtn" style="font-size:12px;color:#b91c1c;border-color:#fca5a5" disabled onclick="SPC.delSel()">🗑 선택 삭제 0</button>'
+      + (VIS.length ? '<button class="ubtn" style="font-size:12px;color:#b91c1c;border-color:#fca5a5" onclick="SPC.delView()">🗑 이 목록 전체 삭제 ' + VIS.length + '</button>' : '')
+      + '<span id="spcBulkMsg" style="font-size:12px;color:var(--muted)"></span></div>' + lh;
     try { lowmDraftCalc(); } catch (e) {}
+    fit();
   }
   function view() {
     var n = LIST ? LIST.length : '';
@@ -356,7 +408,13 @@
   }
 
   window.SPC = {
-    view: view, bind: bind, prime: prime, form: form, close: close, calc: calc, vfill: vfill, pick: pick, find: find, save: save, toggle: toggle, del: del,
+    view: view, bind: bind, prime: prime, form: form, selAll: selAll, selCount: selCount,
+    delSel: function () { delMany(selIds(), '고른 것'); },
+    delView: function () {
+      /* 🔎 검색으로 가린 줄은 빼고 — 화면에 보이는 줄만 */
+      var shown = [...document.querySelectorAll('#spcList tr[data-spcid]')].filter(function (tr) { return tr.style.display !== 'none'; }).map(function (tr) { return +tr.dataset.spcid; });
+      delMany(shown, '이 목록 전체(' + ({ every: '전부', all: '전체 업체', mem: '업체별', past: '기간 지남·시트에 없음', loss: '역마진' }[FILT] || '') + ')');
+    }, close: close, calc: calc, vfill: vfill, pick: pick, find: find, save: save, toggle: toggle, del: del,
     unpick: function (s) { F.picks = F.picks.filter(function (x) { return x !== s; }); drawPicks(); },
     oneDay: function () { var t = today(); document.getElementById('spcFrom').value = t; document.getElementById('spcTo').value = t; },
     edit: function (id) {
