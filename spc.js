@@ -273,15 +273,20 @@
       + lb('판매가(원)') + '<input id="spcPrice" inputmode="numeric" value="' + (ex ? won(ex.price) : '') + '" placeholder="이 가격 그대로 나갑니다" style="' + inSt + ';font-weight:800;font-size:16px" oninput="SPC.calc()">'
       + '<div id="spcCalc" style="font-size:12.5px;margin-top:4px"></div>'
       + lb('적용 업체 — 비우면 전체 업체') + '<input id="spcVq" type="search" placeholder="업체 이름으로 찾기" autocomplete="off" style="' + inSt + '" oninput="SPC.vfill(this.value)">'
-      + '<div style="display:flex;gap:6px;margin-top:6px"><select id="spcV" style="' + inSt + ';flex:1"><option value="0">전체 업체</option></select>'
+      + '<div style="display:flex;gap:6px;margin-top:6px"><select id="spcV" onchange="SPC.calc()" style="' + inSt + ';flex:1"><option value="0">전체 업체</option></select>'
       + (ex ? '' : '<button class="ubtn" style="white-space:nowrap" onclick="SPC.pick()">＋ 이 업체 더하기</button>') + '</div>'
       + '<div id="spcPicks" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px"></div>'
-      + lb('적용 기간 — 비우면 끝없이') + '<div style="display:flex;gap:6px;align-items:center"><input id="spcFrom" type="date" value="' + E(ex && ex.d_from || '') + '" style="' + inSt + '"> ~ <input id="spcTo" type="date" value="' + E(ex && ex.d_to || '') + '" style="' + inSt + '">'
+      + lb('적용 기간 — 비우면 끝없이') + '<div style="display:flex;gap:6px;align-items:center"><input id="spcFrom" type="date" onchange="SPC.calc()" value="' + E(ex && ex.d_from || '') + '" style="' + inSt + '"> ~ <input id="spcTo" type="date" onchange="SPC.calc()" value="' + E(ex && ex.d_to || '') + '" style="' + inSt + '">'
       + '<button class="ubtn" style="white-space:nowrap" onclick="SPC.oneDay()">오늘 하루만</button></div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">'
       + '<div>' + lb('택배비 표기') + '<input id="spcShip" value="' + E(ex && ex.ship_txt || '') + '" placeholder="비우면 시트 값" style="' + inSt + '"></div>'
       + '<div>' + lb('메모') + '<input id="spcMemo" value="' + E(ex && ex.memo || '') + '" placeholder="예 : 9월 프로모션" style="' + inSt + '"></div></div>'
-      + '<label id="spcDayL" style="display:none;margin-top:10px;font-size:13px"><input type="checkbox" id="spcDay" checked> 🐟 오늘 당일 등록가도 같은 값으로 (당일은 등록가가 특별단가보다 먼저 나갑니다)</label>'
+      /* 🐟 당일 안내 (11-18 홍팀장 「당일은 특별단가가 적용이 안 된다는 거냐」) — 적용은 된다. 다만 masterc 는 «오늘 당일 등록가»가 걸린 날엔
+         그 값으로 판다(판매가 근거 daily, 10-15 오육미전복). 그래서 오늘부터 이 값으로 나가게 하려면 등록가도 같이 고친다. 전체 업체 + 기간 없음일 때만. */
+      + '<div id="spcDayL" style="display:none;margin-top:10px;font-size:13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 10px">'
+      + '<label><input type="checkbox" id="spcDay" checked> 🐟 <b>오늘 당일 등록가도 같은 값으로 고치기</b></label>'
+      + '<div style="font-size:12px;color:var(--muted);margin-top:3px">당일 상품도 특별단가는 걸립니다. 다만 오늘 당일 등록이 켜져 있으면 masterc 는 <b>오늘은 등록가</b>로 팝니다 — 등록가까지 같이 바꿔야 오늘부터 이 값으로 나갑니다.</div></div>'
+      + '<div id="spcDayN" style="display:none;margin-top:10px;font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px">🐟 업체·기간을 넣은 특별단가는 당일 등록가를 안 건드립니다 — 오늘 당일 등록이 켜져 있으면 오늘은 등록가로 나갑니다.</div>'
       + '<div id="spcHave" style="margin-top:12px"></div>'
       + '<div style="display:flex;gap:8px;align-items:center;margin-top:14px;border-top:1px solid var(--line);padding-top:12px">'
       + '<span class="spc-st" style="font-size:12.5px;color:#b45309;font-weight:700;display:none"></span><span id="spcMsg" style="font-size:12.5px;color:var(--muted)"></span><span style="flex:1"></span>'
@@ -308,7 +313,10 @@
     var v = parseInt(String((document.getElementById('spcPrice') || {}).value || '').replace(/[^0-9]/g, ''), 10);
     var pi = document.getElementById('spcPrice'); if (pi && v > 0) { var s = v.toLocaleString(); if (pi.value !== s) pi.value = s; }
     var i = F.info;
-    var dl = document.getElementById('spcDayL'); if (dl) dl.style.display = i && i.day ? '' : 'none';
+    var g = function (id) { return ((document.getElementById(id) || {}).value || '').trim(); };
+    var plain = !(+g('spcV')) && !(F.picks && F.picks.length) && !g('spcFrom') && !g('spcTo');   // 전체 업체 + 기간 없음
+    var dl = document.getElementById('spcDayL'); if (dl) dl.style.display = i && i.day && plain ? '' : 'none';
+    var dn = document.getElementById('spcDayN'); if (dn) dn.style.display = i && i.day && !plain ? '' : 'none';
     if (!(v > 0) || !i || !(i.cost > 0)) { el.textContent = ''; return; }
     var mg = v - i.cost, rate = Math.round(mg / (v + (i.ship || 0)) * 1000) / 10;
     el.innerHTML = '이 값이면 마진 <b style="color:' + (mg < 0 ? '#b91c1c' : '#065f46') + '">' + won(mg) + '원 · ' + rate + '%</b>' + (mg < 0 ? ' — 🔴 원가보다 낮습니다(1개당 ' + won(-mg) + '원 밑짐)' : '') + (i.sell ? ' · 지금보다 ' + (v > i.sell ? '+' : '') + won(v - i.sell) : '');
@@ -324,7 +332,7 @@
   }
   function pick() {
     var s = document.getElementById('spcV'); var v = +(s && s.value); if (!v) { toast('더할 업체를 목록에서 골라 주세요'); return; }
-    if (F.picks.indexOf(v) < 0) F.picks.push(v); s.value = '0'; drawPicks();
+    if (F.picks.indexOf(v) < 0) F.picks.push(v); s.value = '0'; drawPicks(); calc();
   }
   function drawPicks() {
     var b = document.getElementById('spcPicks'); if (!b) return;
@@ -415,8 +423,8 @@
       var shown = [...document.querySelectorAll('#spcList tr[data-spcid]')].filter(function (tr) { return tr.style.display !== 'none'; }).map(function (tr) { return +tr.dataset.spcid; });
       delMany(shown, '이 목록 전체(' + ({ every: '전부', all: '전체 업체', mem: '업체별', past: '기간 지남·시트에 없음', loss: '역마진' }[FILT] || '') + ')');
     }, close: close, calc: calc, vfill: vfill, pick: pick, find: find, save: save, toggle: toggle, del: del,
-    unpick: function (s) { F.picks = F.picks.filter(function (x) { return x !== s; }); drawPicks(); },
-    oneDay: function () { var t = today(); document.getElementById('spcFrom').value = t; document.getElementById('spcTo').value = t; },
+    unpick: function (s) { F.picks = F.picks.filter(function (x) { return x !== s; }); drawPicks(); calc(); },
+    oneDay: function () { var t = today(); document.getElementById('spcFrom').value = t; document.getElementById('spcTo').value = t; calc(); },
     edit: function (id) {
       if (LIST && LIST.some(function (r) { return r.id === id; })) { form('', '', id); return; }
       loadList(true).then(function () { form('', '', id); }).catch(function (e) { alert('⚠️ ' + e.message); });
