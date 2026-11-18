@@ -25,7 +25,7 @@
   (document.body || document.documentElement).appendChild(box);
   var nDone = 0;
   function say(m, bad) { box.style.background = bad ? '#b91c1c' : '#15803d'; box.textContent = m; }
-  function idle() { say('🏷 카탈로그 특별단가 연결 창\n열어 두면 카탈로그에서 특별단가를 걸고 볼 수 있습니다. 닫아도 카탈로그가 필요할 때 다시 엽니다.' + (nDone ? '\n처리 ' + nDone + '건' : '')); }
+  function idle() { say('🏷 카탈로그 특별단가 — masterc 에 다녀가는 창입니다. 일이 끝나면 저절로 닫힙니다.' + (nDone ? '\n처리 ' + nDone + '건' : '')); }
   idle();
   try { if (!/^spcrpc/.test(window.name)) window.name = 'spcrpc'; } catch (e) {}
 
@@ -116,8 +116,18 @@
       try { ev.source.postMessage({ type: 'spcrpc', id: m.id, res: { ok: false, msg: (e && e.message) || String(e) } }, TARGET); } catch (x) {}
     });
   });
+  /* 🧹 남지 않게 (11-18 「내가 안 닫으면 페이지 계속 생기더만」) — 보통은 카탈로그가 일 끝나고 닫는다.
+     카탈로그 탭이 닫혔거나 2분 동안 부탁이 없으면 스스로 닫는다. 로그인 화면(로그인 안 됨)일 땐 안 닫는다. */
+  var lastAt = Date.now(), needLogin = false;
+  window.addEventListener('message', function (ev) { if (ev.origin === TARGET) lastAt = Date.now(); }, true);
+  setInterval(function () {
+    var gone = true; try { gone = !window.opener || window.opener.closed; } catch (e) {}
+    if (needLogin) return;
+    if (gone || Date.now() - lastAt > 120000) { try { window.close(); } catch (e) {} }
+  }, 5000);
   // 처음 열렸거나 로그인 화면을 거쳐 돌아왔으면 카탈로그에 «준비됨»을 먼저 알린다
   loggedIn().then(function (ok) {
+    needLogin = !ok;
     if (!ok) say('🔐 masterc 로그인이 풀려 있습니다 — 이 창에서 로그인하세요. 로그인하면 카탈로그와 다시 이어집니다.', true);
     tell({ ready: true, login: !ok });
   });

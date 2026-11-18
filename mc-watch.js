@@ -132,6 +132,7 @@
     if (needLogin(L) || !L.ok) throw new Error('상품리스트를 못 읽었습니다(로그인 확인)');
     var C = await get('machan_admin', 'cost');
     var rkTxt = rkCheck(C, await rkWaitCtx());
+    var slTxt = ''; try { slTxt = await spcLossCheck(C); } catch (e) {}
     /* 🧾 등록 꺼진 당일 = 리모컨 공급가로 — 상품리스트 카드·원가표 판매가도 (2026-11-10 끝판왕문어 카드가 상품리스트 67,000 에서 왔다) */
     var rkOff = {};
     ((C && C.ok && C.rows) || []).forEach(function (r) { if (r.k === 'day' && r.how === 'off' && +r.rk_supply > 0) rkOff[String(r.n).replace(/\s+/g, '').toLowerCase()] = +r.rk_supply; });
@@ -215,7 +216,42 @@
     } catch (e) { specTxt = ' · ⚠️ 스펙 못 채움: ' + (e && e.message ? e.message : e); }
 
     // 💸 저마진 알림은 lossAsk(서버 lowmq 긴급 목록)가 맡는다 — 옛 lowmCheck(8% 이하 새것 전부)는 안 부른다 (10-16)
-    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt + specTxt + rkTxt;
+    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt + specTxt + rkTxt + slTxt;
+  }
+
+  /* 🏷 특별단가 역마진 (2026-11-18 홍팀장 「장기 특별단가도 역마진 시에는 바로 떠야 한다」)
+     업체별 특별단가는 카탈로그 판매가에 안 실려 저마진 감시에 안 걸렸다 — 공급가가 나중에 올라도 걸어 둔 값 그대로 나갔다.
+     켜짐 + 지금 적용 중(기간 지남·예정 제외) + 특별단가 < 공급가(base) 또는 < 원가(원가표) 를 전부 Edge mcspcloss 로 (빈 목록도 = 다 정상).
+     카탈로그는 2분 폴링에서 빨간 띠로 바로 알리고 «🔴 지금 바로 확인할 상품» 탭 맨 위에 올린다. 🔴 읽기만 — 특별단가는 안 건드린다. */
+  var SLSEEN_KEY = 'mcw_spcloss_seen_v1';
+  async function spcLossCheck(C) {
+    var Sp = await get('machan_admin', 'special_list');
+    if (!Sp || !Sp.ok) return '';
+    var cost = {};
+    ((C && C.ok && C.rows) || []).forEach(function (r) { if (+r.cost > 0) cost[String(r.n).replace(/\s+/g, '').toLowerCase()] = +r.cost; });
+    var won = function (n) { return Math.round(+n || 0).toLocaleString(); };
+    var bad = (Sp.rows || []).filter(function (r) {
+      if (r.active !== 'Y' || !(+r.price > 0) || r.per === 'past' || r.per === 'soon' || r.alive === false) return false;
+      var c = cost[String(r.item).replace(/\s+/g, '').toLowerCase()] || 0;
+      return (+r.base > 0 && +r.price < +r.base) || (c > 0 && +r.price < c);
+    }).map(function (r) {
+      return { id: r.id, n: r.item, wh: r.wh, who: +r.member_srl ? (r.member_nick || String(r.member_srl)) : '전체', price: +r.price, base: +r.base || 0,
+               cost: cost[String(r.item).replace(/\s+/g, '').toLowerCase()] || 0, from: r.d_from || '', to: r.d_to || '', upd: r.upd_dt || '' };
+    });
+    edge({ action: 'mcspcloss', key: KEY, rows: bad }).catch(function () {});
+    var seen = {}; try { seen = JSON.parse(localStorage.getItem(SLSEEN_KEY) || '{}') || {}; } catch (e) {}
+    var k = function (x) { return x.id + '|' + x.price + '|' + x.base + '|' + x.cost; };
+    var fresh = bad.filter(function (x) { return !seen[k(x)]; });
+    var keep = {}; bad.forEach(function (x) { keep[k(x)] = 1; });
+    try { localStorage.setItem(SLSEEN_KEY, JSON.stringify(keep)); } catch (e) {}
+    if (fresh.length) {
+      var txt = fresh.slice(0, 15).map(function (x) {
+        return '· 🔴 ' + x.n + ' [' + x.who + '] 특별단가 ' + won(x.price) + (x.cost && x.price < x.cost ? ' < 원가 ' + won(x.cost) : '') + (x.base && x.price < x.base ? ' < 공급가 ' + won(x.base) : '');
+      }).join('\n');
+      log('🏷 특별단가 역마진 ' + fresh.length + '개\n' + txt);
+      notify('🏷 특별단가 역마진 ' + fresh.length + '개', fresh.slice(0, 5).map(function (x) { return x.n + ' [' + x.who + '] ' + won(x.price); }).join('\n'));
+    }
+    return bad.length ? ' · 🏷 특별단가 역마진 ' + bad.length + '개' : '';
   }
 
   /* ── 🧾 꺼진 당일 상품 리모컨가 맞추기 (2026-11-10 홍팀장 「리모컨은 그냥 베이스인데 정보 날아오면 다 맞춰놔야 —

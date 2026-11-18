@@ -42,20 +42,32 @@
   function status(m) { document.querySelectorAll('.spc-st').forEach(function (el) { el.textContent = m || ''; el.style.display = m ? '' : 'none'; }); }
   function alive() { try { return W && !W.closed; } catch (e) { return false; } }
 
-  /* 연결 — 창이 있으면 핑만, 없으면 연다(🔴 클릭 안에서 불러야 팝업이 안 막힌다) */
+  /* 연결 — 단가 저장처럼 «잠깐 열었다 닫는» 창 (2026-11-18 홍팀장 「탭 하나 열어 두는 거 존나 불편 — 지금 단가 변경처럼 잠깐 열었다 닫는 방식으로,
+     내가 안 닫으면 페이지 계속 생기더만」). 부탁할 일이 있을 때만 열고, 일이 다 끝나면 1.5초 뒤 카탈로그가 닫는다.
+     창 이름은 매번 새로(spcrpc+시각) — 옛 창을 붙잡지 않는다. 로그인 대기 중엔 안 닫는다. (🔴 클릭 안에서 불러야 팝업이 안 막힌다) */
+  var closeT = null;
+  function closeSoon() {
+    clearTimeout(closeT);
+    closeT = setTimeout(function () {
+      if (Object.keys(calls).length || waiters.length || login) return;
+      try { if (W && !W.closed) W.close(); } catch (e) {}
+      W = null; ready = false;
+    }, 1500);
+  }
   function conn(open) {
+    clearTimeout(closeT);
     return new Promise(function (res, rej) {
       if (alive() && ready && !login) { res(); return; }
       if (!alive()) {
         if (!open) { rej(new Error('noconn')); return; }
         ready = false;
-        var w = window.open(URL_, 'spcrpc', 'width=520,height=260');
+        var w = window.open(URL_, 'spcrpc' + Date.now(), 'width=480,height=240');
         if (!w) { rej(new Error('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시 눌러 주세요')); return; }
         W = w;
         try { window.focus(); } catch (e) {}
       }
       waiters.push(res);
-      status('⏳ masterc 연결 중… (작은 창이 열립니다 — 닫지 말고 두세요)');
+      status('⏳ masterc 에 다녀오는 중… (작은 창이 잠깐 열렸다 닫힙니다)');
       var n = 0;
       var tick = setInterval(function () {
         if (ready && !login) { clearInterval(tick); return; }
@@ -72,17 +84,22 @@
         calls[id] = { ok: res, t: setTimeout(function () { delete calls[id]; res({ ok: false, msg: 'masterc 창 응답이 없습니다(60초)' }); }, 60000) };
         W.postMessage({ type: 'spcrpc-call', id: id, a: a, data: data || {} }, MC);
       });
-    });
+    }).then(function (r) { closeSoon(); return r; }, function (e) { closeSoon(); throw e; });
   }
+  /* 목록·업체는 이 탭(sessionStorage)에 기억 — 창을 매번 안 열게. 목록은 10분, 업체는 하루. 쓰기 뒤엔 새로 읽는다. */
+  function ssGet(k, ms) { try { var o = JSON.parse(sessionStorage.getItem(k) || 'null'); return o && Date.now() - o.at < ms ? o : null; } catch (e) { return null; } }
+  function ssSet(k, v) { try { sessionStorage.setItem(k, JSON.stringify({ at: Date.now(), v: v })); } catch (e) {} }
+  (function () { var o = ssGet('spc_list_v1', 6 * 3600e3); if (o) { LIST = o.v; LIST_AT = o.at; } var v = ssGet('spc_vendors_v1', 86400e3); if (v) VENDORS = v.v; })();
   function loadList(open) {
     return call('special_list', {}, open).then(function (j) {
       if (!j || !j.ok) throw new Error((j && j.msg) || '특별단가를 못 읽었습니다');
-      LIST = j.rows || []; LIST_AT = Date.now(); badge(); return LIST;
+      LIST = j.rows || []; LIST_AT = Date.now(); ssSet('spc_list_v1', LIST); badge(); return LIST;
     });
   }
+  function listFresh() { return LIST && Date.now() - LIST_AT < 600000; }
   function loadVendors(open) {
     if (VENDORS) return Promise.resolve(VENDORS);
-    return call('vendors', {}, open).then(function (j) { VENDORS = (j && j.ok && j.vendors) || []; return VENDORS; });
+    return call('vendors', {}, open).then(function (j) { VENDORS = (j && j.ok && j.vendors) || []; if (VENDORS.length) ssSet('spc_vendors_v1', VENDORS); return VENDORS; });
   }
   function badge() { var b = document.getElementById('spcN'); if (b) b.textContent = LIST ? String(LIST.length) : ''; }
   function vLabel(v) { return v.nick + (v.company && v.company !== v.nick ? ' (' + v.company + ')' : ''); }
@@ -99,23 +116,31 @@
     var chip = r.per === 'past' ? '<span style="color:#b91c1c;font-weight:700">기간 지남 · 지워 주세요</span>' : r.per === 'soon' ? '<span style="color:var(--muted);font-weight:700">예정</span>' : '<span style="color:#15803d;font-weight:700">적용 중</span>';
     return E((r.d_from || '') + ' ~ ' + (r.d_to || '')) + '<br>' + chip;
   }
+  /* 🔴 역마진 = 켜짐 · 지금 적용 중 · 특별단가 < 공급가(base) 또는 < 원가(마진 화면 원가, 카탈로그 LOWM_COSTMAP) — 업체별도 (11-18 「장기 특별단가도 역마진이면 바로」) */
+  function costOf(n) { var m = window.LOWM_COSTMAP || {}; return +m[nk(n)] || 0; }
+  function isLoss(r) {
+    if (r.active !== 'Y' || r.per === 'past' || r.per === 'soon' || !(+r.price > 0)) return false;
+    var c = costOf(r.item);
+    return (+r.base > 0 && +r.price < +r.base) || (c > 0 && +r.price < c);
+  }
   function listHtml(rows, filt) {
     var th = 'padding:7px 8px;border-bottom:2px solid var(--line);text-align:right;white-space:nowrap;font-size:12px;color:var(--muted);cursor:pointer';
     var td = 'padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:13px';
-    var vis = rows.filter(function (r) { return filt === 'all' ? !+r.member_srl : filt === 'mem' ? +r.member_srl : filt === 'past' ? r.per === 'past' || !r.alive : true; });
-    vis.sort(function (a, b) { return ((b.per === 'past') - (a.per === 'past')) || String(b.upd_dt || '').localeCompare(String(a.upd_dt || '')); });
+    var vis = rows.filter(function (r) { return filt === 'all' ? !+r.member_srl : filt === 'mem' ? +r.member_srl : filt === 'past' ? r.per === 'past' || !r.alive : filt === 'loss' ? isLoss(r) : true; });
+    vis.sort(function (a, b) { return (isLoss(b) - isLoss(a)) || ((b.per === 'past') - (a.per === 'past')) || String(b.upd_dt || '').localeCompare(String(a.upd_dt || '')); });
     var cols = ['상품', '창고', '적용 업체', '특별단가', '공급가', '규칙가', '상태', '적용 기간', '메모', '고친 때', '켬', ''];
     if (!vis.length) return '<div class="empty">해당하는 특별단가가 없습니다.</div>';
     return '<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px"><table style="border-collapse:collapse;width:100%"><thead><tr>'
       + cols.map(function (t, i) { return '<th style="' + th + (i < 3 || i > 5 ? ';text-align:left' : '') + '" onclick="lowmSort(this)" title="눌러서 정렬">' + t + '</th>'; }).join('')
       + '</tr></thead><tbody>'
       + vis.map(function (r) {
-        var low = +r.base > 0 && +r.price < +r.base;
-        return '<tr data-spcid="' + r.id + '" style="' + (r.per === 'past' ? 'background:#fff4f4' : r.active !== 'Y' ? 'opacity:.55' : '') + '">'
+        var low = +r.base > 0 && +r.price < +r.base, c = costOf(r.item), loss = isLoss(r);
+        return '<tr data-spcid="' + r.id + '" style="' + (loss ? 'background:#fee2e2' : r.per === 'past' ? 'background:#fff4f4' : r.active !== 'Y' ? 'opacity:.55' : '') + '">'
           + '<td style="' + td + ';text-align:left;white-space:normal;min-width:170px">' + E(r.item) + ' <button class="cpbtn" data-cp="' + E(r.item) + '" title="상품명 복사">📋</button></td>'
           + '<td style="' + td + ';text-align:left">' + E(r.wh) + '</td>'
           + '<td style="' + td + ';text-align:left;white-space:normal">' + (+r.member_srl ? '<span style="color:#1d4ed8;font-weight:700">' + E(r.member_nick || r.member_srl) + (r.vendor && r.vendor !== r.member_nick ? ' · ' + E(r.vendor) : '') + '</span>' : '<span style="color:var(--muted);font-weight:700">전체</span>') + '</td>'
-          + '<td style="' + td + ';font-weight:800' + (low ? ';color:#b91c1c' : '') + '">' + won(r.price) + (low ? '<br><span style="font-size:11px">공급가보다 낮음</span>' : '') + '</td>'
+          + '<td style="' + td + ';font-weight:800' + (low || (c && +r.price < c) ? ';color:#b91c1c' : '') + '">' + won(r.price)
+            + (c && +r.price < c ? '<br><span style="font-size:11px">🔴 원가 ' + won(c) + '보다 낮음</span>' : low ? '<br><span style="font-size:11px">' + (loss ? '🔴 ' : '') + '공급가보다 낮음</span>' : '') + '</td>'
           + '<td style="' + td + ';color:var(--muted)">' + (r.base == null ? '-' : won(r.base)) + '</td>'
           + '<td style="' + td + ';color:var(--muted)">' + (r.rule == null ? '-' : won(r.rule)) + '</td>'
           + '<td style="' + td + ';text-align:left">' + (r.alive ? '<span style="color:#15803d;font-weight:700">시트에 있음</span>' : '<span style="color:#b91c1c;font-weight:700">시트에 없음</span>') + '</td>'
@@ -130,9 +155,9 @@
   function drawList() {
     var box = document.getElementById('spcList'); if (!box || !LIST) return;
     var cnt = { every: LIST.length, all: LIST.filter(function (r) { return !+r.member_srl; }).length, mem: LIST.filter(function (r) { return +r.member_srl; }).length,
-      past: LIST.filter(function (r) { return r.per === 'past' || !r.alive; }).length };
+      past: LIST.filter(function (r) { return r.per === 'past' || !r.alive; }).length, loss: LIST.filter(isLoss).length };
     var fb = function (k, t) { return '<button class="ubtn" style="font-size:12px;font-weight:800;' + (FILT === k ? 'background:var(--text,#1f2937);color:#fff;border-color:transparent' : '') + (k === 'past' && cnt.past ? ';color:' + (FILT === k ? '#fff' : '#b91c1c') : '') + '" onclick="SPC.filt(\'' + k + '\')">' + t + ' ' + cnt[k] + '</button>'; };
-    box.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px">' + fb('every', '전부') + fb('all', '전체 업체') + fb('mem', '업체별') + fb('past', '⚠️ 기간 지남·시트에 없음')
+    box.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px">' + fb('every', '전부') + (cnt.loss ? '<button class="ubtn" style="font-size:12px;font-weight:800;' + (FILT === 'loss' ? 'background:#b91c1c;color:#fff;border-color:transparent' : 'color:#b91c1c;border-color:#b91c1c') + '" onclick="SPC.filt(\'loss\')">🔴 역마진 ' + cnt.loss + '</button>' : '') + fb('all', '전체 업체') + fb('mem', '업체별') + fb('past', '⚠️ 기간 지남·시트에 없음')
       + '<span style="font-size:12px;color:var(--muted)">masterc 에서 ' + new Date(LIST_AT).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' }) + ' 읽음</span>'
       + '<button class="ubtn" style="font-size:12px" onclick="SPC.reload(this)">↻ 새로 읽기</button></div>' + listHtml(LIST, FILT);
     try { lowmDraftCalc(); } catch (e) {}
@@ -143,12 +168,16 @@
       + '<button class="ubtn" style="font-weight:800;background:#15803d;color:#fff;border-color:transparent" onclick="SPC.form()">＋ 특별단가 걸기</button>'
       + '<a class="ubtn" href="' + MC + '/machan_admin#special" target="_blank" rel="noopener" style="text-decoration:none;font-size:12px">masterc 원래 화면</a>'
       + '<span class="spc-st" style="font-size:12.5px;color:#b45309;font-weight:700;display:none"></span></div>'
-      + '<div id="spcList">' + (alive() ? '<div class="empty">masterc 에서 특별단가 읽는 중…</div>'
-        : '<div class="empty">특별단가는 masterc 에서 바로 읽어 옵니다.<br><button class="ubtn" style="margin-top:10px;font-weight:800" onclick="SPC.reload(this)">🔌 masterc 연결해서 불러오기</button><br><span style="font-size:12px;color:var(--muted)">작은 masterc 창이 열립니다 — 닫지 말고 두면 다음부터 바로 뜹니다.</span></div>') + '</div>';
+      + '<div id="spcList">' + (LIST || alive() ? '<div class="empty">masterc 에서 특별단가 읽는 중…</div>'
+        : '<div class="empty">특별단가는 masterc 에서 바로 읽어 옵니다.<br><button class="ubtn" style="margin-top:10px;font-weight:800" onclick="SPC.reload(this)">🔄 masterc 에서 불러오기</button><br><span style="font-size:12px;color:var(--muted)">masterc 작은 창이 잠깐 열렸다 저절로 닫힙니다.</span></div>') + '</div>';
   }
+  function bindErr(e) { var b = document.getElementById('spcList'); if (b) b.innerHTML = '<div class="empty">⚠️ ' + E(e.message) + '<br><button class="ubtn" style="margin-top:10px" onclick="SPC.reload(this)">🔄 다시 불러오기</button></div>'; }
   function bind() {
-    if (alive()) loadList(false).then(drawList).catch(function (e) { var b = document.getElementById('spcList'); if (b) b.innerHTML = '<div class="empty">⚠️ ' + E(e.message) + '<br><button class="ubtn" style="margin-top:10px" onclick="SPC.reload(this)">🔌 다시 연결</button></div>'; });
+    if (LIST) drawList();                                   // 기억해 둔 목록부터 바로 보여 주고
+    if (alive()) loadList(false).then(drawList).catch(bindErr);   // 탭 누를 때 열어 둔 창이 있으면 새로 읽는다
   }
+  /* 탭 버튼 클릭 안에서 부른다 — 목록이 10분 넘게 묵었으면 창을 연다(클릭 안이라 팝업이 안 막힌다) */
+  function prime() { if (!listFresh()) conn(true).catch(function () {}); }
 
   /* ─────────────── 걸기·수정 창 ─────────────── */
   var F = null;   // { id, n, wh, sell, cost, ship, base, day, picks:[] }
@@ -197,7 +226,7 @@
     info0();
     var p = document.getElementById('spcPrice'); if (p && F.n) p.focus();
     // 업체 목록·이미 걸린 특별단가는 masterc 창에서 받아 온다 (이 클릭 안에서 연결)
-    Promise.all([loadVendors(true), LIST && Date.now() - LIST_AT < 60000 ? LIST : loadList(true)]).then(function () {
+    Promise.all([loadVendors(true), listFresh() ? LIST : loadList(true)]).then(function () {
       if (!F) return;
       vfill('');
       if (ex) { var s = document.getElementById('spcV'); if (s) { if (+ex.member_srl && ![...s.options].some(function (o) { return o.value === String(ex.member_srl); })) s.add(new Option(ex.member_nick || ex.member_srl, String(ex.member_srl))); s.value = String(+ex.member_srl || 0); } }
@@ -256,7 +285,7 @@
     clearTimeout(ft); var L = document.getElementById('spcFindL'); if (!L) return;
     if (!q.trim()) { L.innerHTML = ''; return; }
     ft = setTimeout(function () {
-      call('find', { q: q.trim() }, false).then(function (x) {
+      call('find', { q: q.trim() }, true).then(function (x) {
         if (!x || !x.ok || !x.items.length) { L.innerHTML = '<div style="padding:6px;color:var(--muted)">맞는 상품이 없습니다.</div>'; return; }
         L.innerHTML = x.items.map(function (it, i) { return '<button class="ubtn" style="display:block;width:100%;text-align:left;margin-top:3px" data-i="' + i + '">' + E(it.n) + ' <small style="color:var(--muted)">' + E(it.wh) + ' · 공급가 ' + won(it.base) + (it.k === 'day' ? ' · 당일' : '') + ' · 잔여 ' + won(it.remain) + '</small></button>'; }).join('');
         L.querySelectorAll('button[data-i]').forEach(function (b) { b.onclick = function () {
@@ -315,10 +344,13 @@
   }
 
   window.SPC = {
-    view: view, bind: bind, form: form, close: close, calc: calc, vfill: vfill, pick: pick, find: find, save: save, toggle: toggle, del: del,
+    view: view, bind: bind, prime: prime, form: form, close: close, calc: calc, vfill: vfill, pick: pick, find: find, save: save, toggle: toggle, del: del,
     unpick: function (s) { F.picks = F.picks.filter(function (x) { return x !== s; }); drawPicks(); },
     oneDay: function () { var t = today(); document.getElementById('spcFrom').value = t; document.getElementById('spcTo').value = t; },
-    edit: function (id) { form('', '', id); },
+    edit: function (id) {
+      if (LIST && LIST.some(function (r) { return r.id === id; })) { form('', '', id); return; }
+      loadList(true).then(function () { form('', '', id); }).catch(function (e) { alert('⚠️ ' + e.message); });
+    },
     filt: function (k) { FILT = k; drawList(); },
     reload: function (btn) { if (btn) btn.disabled = true; loadList(true).then(drawList).catch(function (e) { if (btn) btn.disabled = false; var b = document.getElementById('spcList'); if (b) b.innerHTML = '<div class="empty">⚠️ ' + E(e.message) + '<br><button class="ubtn" style="margin-top:10px" onclick="SPC.reload(this)">🔌 다시 연결</button></div>'; }); },
     n: function () { return LIST ? LIST.length : ''; },
