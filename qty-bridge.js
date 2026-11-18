@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-18a';
+  var QTYB_VER = '2026-11-18b';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -2111,7 +2111,17 @@
           · 06~19시만(밤엔 위 1분 확인이 맡는다). 창고 판 바뀜·잠김은 10초 확인(scanWatch)이 IDX 를 고친다. */
     var HOT_MS = 1000, BURST_MS = 250, BURST_FOR = 90000, NT_MS = 2000;
     var hotT = null, hotBusy = false, lastHot = 0, burstUntil = 0, lastNt = 0, ntTop = 0;
-    function hotItems() { return left.filter(function (w) { return w.fast && !notYet(w) && IDX && IDX[w.key] && IDX[w.key].co; }); }
+    /* 🔴 2026-11-18 통통 생굴 1kg(300개 열림 → 배들어오는날 205 등 다른 업체가 다 가져감, 우리 0) —
+          잠긴 줄은 우리 칸(co)이 비어 와서 1초 감시 대상에서 빠졌고, 10초 창고 긁기가 «열림» 을 볼 때까지 아무도 안 봤다.
+          → 잠긴 줄도 1초마다 do=row 로 보고, 잔여가 생기면 다른 줄의 우리 회사 값으로 바로 잡는다. */
+    function coRow(row) {
+      if (!row) return null;
+      if (row.co) return row;
+      var c = '';
+      Object.keys(IDX || {}).some(function (kk) { if (IDX[kk] && IDX[kk].co) { c = IDX[kk].co; return true; } return false; });
+      return c ? Object.assign({}, row, { co: c }) : null;
+    }
+    function hotItems() { return left.filter(function (w) { return w.fast && !notYet(w) && IDX && IDX[w.key] && coRow(IDX[w.key]); }); }
     function ntCheck() {
       if (Date.now() - lastNt < NT_MS) return;
       lastNt = Date.now();
@@ -2142,7 +2152,8 @@
       hotBusy = true; lastHot = Date.now();
       items.reduce(function (pr, w) {
         return pr.then(function () {
-          var row = IDX[w.key];
+          var row = coRow(IDX[w.key]);
+          if (!row) return;
           return freshRow(row).then(function (f) {
             if (heldBy(f)) { if (left.indexOf(w) >= 0) left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); log.push('· ' + hhmm() + ' ' + w.name + ' — ' + heldTxt(f) + ' 걸려 있어 수동 잡기에서 뺌'); paint('대기·증량 걸린 것 뺌'); return; }
             var spare = Math.max(0, f.mine - Math.max(f.used, w.outToday || 0));
@@ -2158,7 +2169,7 @@
                 var un = Math.min(add, f.wait);
                 if (un > 0 && f.waitList.length) return unN('unwait', f.waitList, un).then(function () { log.push('·   대기 ' + un + '개 무름(두 번 받지 않게)'); }, function (e) { log.push('·   ⚠️ 대기 무르기 실패 — ' + (e.message || e) + ' · 수량 웹에서 대기 확인'); });
               }).then(function () { paint(hm + ' 잡음'); });
-          });
+          }).catch(function (e) { try { console.debug('[qtyb] 1초 감시 못 잡음', w.name, e && e.message || e); } catch (_) {} });   // 한 상품이 거절돼도 다음 상품은 본다
         });
       /* 🔇 못 잡은 회차는 패널에 안 적는다 (2026-10-28 홍팀장 「못 구한 건 안 궁금하니까 메시지 띄우지 마」) —
          품절·안 풀림 줄은 열릴 때까지 1초마다 «품절·마감이거나 사다리타기 중» 으로 거절돼 「잡은 것」 칸이 같은 줄로 도배됐다.
