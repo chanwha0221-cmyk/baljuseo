@@ -285,8 +285,8 @@
          그 값으로 판다(판매가 근거 daily, 10-15 오육미전복). 그래서 오늘부터 이 값으로 나가게 하려면 등록가도 같이 고친다. 전체 업체 + 기간 없음일 때만. */
       + '<div id="spcDayL" style="display:none;margin-top:10px;font-size:13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 10px">'
       + '<label><input type="checkbox" id="spcDay" checked> 🐟 <b>오늘 당일 등록가도 같은 값으로 고치기</b></label>'
-      + '<div style="font-size:12px;color:var(--muted);margin-top:3px">당일 상품도 특별단가는 걸립니다. 다만 오늘 당일 등록이 켜져 있으면 masterc 는 <b>오늘은 등록가</b>로 팝니다 — 등록가까지 같이 바꿔야 오늘부터 이 값으로 나갑니다.</div></div>'
-      + '<div id="spcDayN" style="display:none;margin-top:10px;font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px">🐟 업체·기간을 넣은 특별단가는 당일 등록가를 안 건드립니다 — 오늘 당일 등록이 켜져 있으면 오늘은 등록가로 나갑니다.</div>'
+      + '<div id="spcDayT" style="font-size:12px;color:var(--muted);margin-top:3px"></div></div>'
+      + '<div id="spcDayN" style="display:none;margin-top:10px;font-size:12px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 10px">🐟 업체별 특별단가 — 당일 등록가는 <b>전 업체 공통</b>이라 안 건드립니다. 이 값은 고른 업체에게만 걸리고, 리모컨에는 그 거래처 고정가로 들어갑니다(masterc 설정 «리모컨 반영»).</div>'
       + '<div id="spcHave" style="margin-top:12px"></div>'
       + '<div style="display:flex;gap:8px;align-items:center;margin-top:14px;border-top:1px solid var(--line);padding-top:12px">'
       + '<span class="spc-st" style="font-size:12.5px;color:#b45309;font-weight:700;display:none"></span><span id="spcMsg" style="font-size:12.5px;color:var(--muted)"></span><span style="flex:1"></span>'
@@ -314,9 +314,17 @@
     var pi = document.getElementById('spcPrice'); if (pi && v > 0) { var s = v.toLocaleString(); if (pi.value !== s) pi.value = s; }
     var i = F.info;
     var g = function (id) { return ((document.getElementById(id) || {}).value || '').trim(); };
-    var plain = !(+g('spcV')) && !(F.picks && F.picks.length) && !g('spcFrom') && !g('spcTo');   // 전체 업체 + 기간 없음
-    var dl = document.getElementById('spcDayL'); if (dl) dl.style.display = i && i.day && plain ? '' : 'none';
-    var dn = document.getElementById('spcDayN'); if (dn) dn.style.display = i && i.day && !plain ? '' : 'none';
+    /* 🐟 당일 등록가 같이 고치기 = 전체 업체 + (기간 없음 또는 오늘이 기간 안) (11-18 홍팀장 「오늘 하루 4,000 원 — 오늘은 특별단가, 이후는 규칙대로」).
+       기간이 있으면 등록이 그 기간 안에 끝날 때만 서버(spc-rpc dayPrice)가 고친다 — 등록가가 특별단가보다 오래 남지 않게. 업체별은 안 건드린다(등록가는 전 업체 공통). */
+    var vend = !!(+g('spcV')) || !!(F.picks && F.picks.length), dF = g('spcFrom'), dT = g('spcTo'), td = today();
+    var inToday = (!dF || dF <= td) && (!dT || dT >= td);
+    var dayOk = !vend && inToday;
+    var dl = document.getElementById('spcDayL'); if (dl) dl.style.display = i && i.day && dayOk ? '' : 'none';
+    var dn = document.getElementById('spcDayN'); if (dn) dn.style.display = i && i.day && vend ? '' : 'none';
+    var dt = document.getElementById('spcDayT');
+    if (dt) dt.innerHTML = (dF || dT)
+      ? '오늘 당일 등록이 켜져 있으면 masterc 는 그날 <b>등록가</b>로 팝니다 — 등록가도 이 값으로 바꿔야 오늘 이 가격이 나갑니다. 오늘 등록이 <b>' + E(dT || '…') + '</b> 안에 끝나는 경우만 고치고, 그다음 날은 자동 등록이 <b>규칙가</b>로 다시 겁니다(특별단가도 기간이 끝나면 빠짐).'
+      : '오늘 당일 등록이 켜져 있으면 masterc 는 그날 <b>등록가</b>로 팝니다 — 등록가도 이 값으로 바꿔야 오늘부터 이 가격이 나갑니다(등록 기간은 그대로).';
     if (!(v > 0) || !i || !(i.cost > 0)) { el.textContent = ''; return; }
     var mg = v - i.cost, rate = Math.round(mg / (v + (i.ship || 0)) * 1000) / 10;
     el.innerHTML = '이 값이면 마진 <b style="color:' + (mg < 0 ? '#b91c1c' : '#065f46') + '">' + won(mg) + '원 · ' + rate + '%</b>' + (mg < 0 ? ' — 🔴 원가보다 낮습니다(1개당 ' + won(-mg) + '원 밑짐)' : '') + (i.sell ? ' · 지금보다 ' + (v > i.sell ? '+' : '') + won(v - i.sell) : '');
@@ -379,16 +387,18 @@
     var body = { id: F.id || 0, wh: wh, item: item, price: price, ship_txt: g('spcShip'), memo: g('spcMemo'), active: 'Y', member_srl: picks.length ? 0 : mem, d_from: dF, d_to: dT };
     if (!F.id && picks.length) { body.members = picks.join(','); body.member_srl = mem; }   // masterc 화면과 같은 모양(고른 칸 값 + members)
     var who = picks.length ? '업체 ' + picks.length + '곳' : mem ? (VENDORS || []).filter(function (v) { return v.srl === mem; }).map(vLabel)[0] || '업체' : '전체 업체';
-    var i = F.info, day = !!(i && i.day && !picks.length && !mem && !dF && !dT && (document.getElementById('spcDay') || {}).checked);
+    var td0 = today(), inT = (!dF || dF <= td0) && (!dT || dT >= td0);
+    var i = F.info, day = !!(i && i.day && !picks.length && !mem && inT && (document.getElementById('spcDay') || {}).checked);
     if (i && i.cost > 0 && price < i.cost && !confirm('🔴 원가(' + won(i.cost) + ')보다 낮습니다 — 1개당 ' + won(i.cost - price) + '원 밑집니다.\n그래도 저장할까요?')) return;
     if (!confirm('🏷 masterc 특별단가 ' + (F.id ? '수정' : '저장') + '\n\n' + item + ' (' + wh + ')\n' + won(price) + '원 · ' + who + (dF || dT ? ' · ' + dF + ' ~ ' + dT : ' · 기간 없음')
-      + (who === '전체 업체' ? '\n\n리모컨 가격표에 실려 이 값으로 정산되고, 카탈로그에도 바로 반영됩니다.' : '\n\n그 업체가 로그인했을 때만 이 가격이 보입니다.') + (day ? '\n🐟 오늘 당일 등록가도 같은 값으로 고칩니다.' : ''))) return;
+      + (who === '전체 업체' ? '\n\n리모컨 가격표에 실려 이 값으로 정산되고, 카탈로그에도 바로 반영됩니다.' : '\n\n그 업체가 로그인했을 때만 이 가격이 보입니다.') + (day ? '\n🐟 오늘 당일 등록가도 같은 값으로 고칩니다' + (dT ? '(오늘 등록이 ' + dT + ' 안에 끝날 때만 — 그다음 날은 규칙가로 돌아감).' : '.') : '')
+      + (dT ? '\n📅 ' + dT + ' 까지 — 그다음 날부터 이 특별단가는 빠지고 원래 가격으로 돌아갑니다.' : ''))) return;
     var btn = document.getElementById('spcSave'), msg = document.getElementById('spcMsg');
     btn.disabled = true; msg.textContent = 'masterc 에 저장 중…';
     call('special_save', body, true).then(function (x) {
       if (!x || !x.ok) throw new Error((x && x.msg) || '저장 거절');
       var t = '✅ 특별단가 ' + (F.id ? '수정' : '저장') + (body.members ? ' (업체 ' + picks.length + '곳)' : '');
-      return (day ? call('day_price', { n: item, price: price }, false).then(function (y) { return y && y.ok ? ' · 🐟 당일 등록가도 고침' + (y.pushed ? '' : '(카탈로그 당일은 감시 창이 보냄)') : ' · ⚠️ 당일 등록가는 못 고침 — ' + ((y && y.msg) || ''); }) : Promise.resolve(''))
+      return (day ? call('day_price', { n: item, price: price, d_to: dT }, false).then(function (y) { return y && y.skip ? ' · 🐟 ' + y.msg : y && y.ok ? ' · 🐟 당일 등록가도 고침' + (y.pushed ? '' : '(카탈로그 당일은 감시 창이 보냄)') : ' · ⚠️ 당일 등록가는 못 고침 — ' + ((y && y.msg) || ''); }) : Promise.resolve(''))
         .then(function (dt) {
           t += afterWrite(x, dt);
           if (who === '전체 업체' && x.rk && x.rk.wait) { try { var o = rkWaitLocal(); o[item] = { at: Date.now(), win: String(x.rk.win || '') }; localStorage.setItem('rk_wait_v1', JSON.stringify(o)); } catch (e) {} }

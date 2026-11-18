@@ -57,10 +57,19 @@
   }
 
   /* 🐟 당일 등록가를 같은 값으로 (spc-save.js 와 같은 요청 — daily_save, 기간 0 = 지금 기간 그대로) + 당일을 카탈로그로 다시 보냄 */
-  async function dayPrice(n, price) {
+  async function dayPrice(n, price, dTo) {
     var Q = await get('daily_cand');
     var c = ((Q && Q.cands) || []).filter(function (x) { return x.k === 'day' && nk(x.n) === nk(n); })[0];
     if (!c) return { ok: false, msg: '당일 목록에 없음' };
+    /* 📅 기간 있는 특별단가(예: 오늘 하루) — 등록가가 특별단가보다 오래 남으면 안 된다 (11-18 골뱅이 오늘 하루 4,000).
+       ① 오늘 등록이 없으면 새로 등록하지 않는다(판매사 화면에 새로 나가는 일이 된다) — 특별단가가 그대로 걸린다.
+       ② 등록 끝나는 날 > 특별단가 끝나는 날이면 안 고친다. */
+    var to = String(dTo || '').replace(/-/g, '');
+    if (to) {
+      if (!c.reg) return { ok: true, skip: 1, msg: '오늘 당일 등록이 없어 등록가는 안 건드림 — 특별단가가 그대로 걸림' };
+      var until = String(c.reg.until || '').replace(/-/g, '');
+      if (!until || until > to) return { ok: false, msg: '오늘 당일 등록이 ' + (until || '끝없이') + ' 까지라 특별단가 기간(' + to + ')보다 길어서 등록가는 안 고쳤습니다 — masterc 당일상품에서 직접' };
+    }
     var y = await post('daily_save', { wh: c.wh, item: c.n, price: String(Math.round(+price)), ship_txt: c.ship || '', tax: c.tax || '',
       memo: (c.reg && c.reg.memo) || '', days: c.reg ? '0' : '1' });
     if (!y || !y.ok) return { ok: false, msg: (y && y.msg) || '거절' };
@@ -86,7 +95,7 @@
 
   async function handle(m) {
     var a = m.a, d = m.data || {};
-    if (a === 'day_price') return await dayPrice(d.n, d.price);
+    if (a === 'day_price') return await dayPrice(d.n, d.price, d.d_to);
     if (a === 'push_spc') { var n = await pushSpc(); return { ok: n >= 0, spc: n }; }
     if (READ[a]) return await get(a, d);
     if (!WRITE[a]) return { ok: false, msg: '안 받는 요청: ' + a };
