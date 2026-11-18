@@ -70,9 +70,25 @@
   /* 📷 상품명 → 새 상세 srl (게시판 제목 «[창고] 상품명» 완전일치 → 옛 글번호 → a=remap). 찾으면 30일, 못 찾으면 6시간 기억. */
   var SRLC_KEY = 'mcw_srl_find_v1';
   function srlCache() { try { return JSON.parse(localStorage.getItem(SRLC_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  /* 📷 새 게시판 글 전체(품절 포함) — `a=catalog` (2026-11-18 홍팀장 「여기 있는데 왜 못 찾았냐」: 프리미엄 김장용 생새우 1kg 글 25443664).
+     옛 제목 검색은 새 글을 못 찾는다. 보낼 때마다 한 번 받아 ① 서버(mcposts)로 통째 보내고 ② findSrl 이 먼저 본다. */
+  var POSTS = null;
+  async function loadPosts() {
+    var j = await get('board_eJGl96', 'catalog');
+    if (!j || !j.ok || !Array.isArray(j.items)) return null;
+    POSTS = {};
+    j.items.forEach(function (it) {
+      var k = String(it && it.n || '').replace(/\s+/g, '').toLowerCase();
+      if (!k || !(+it.s > 0)) return;
+      if (POSTS[k] && POSTS[k].s > +it.s) return;
+      POSTS[k] = { n: it.n, s: +it.s, img: it.img || '', wh: (it.t && it.t[0]) || '' };
+    });
+    return POSTS;
+  }
   async function findSrl(name) {
     var k = String(name || '').replace(/\s+/g, '').toLowerCase();
     if (!k) return 0;
+    if (POSTS && POSTS[k]) return POSTS[k].s;   // 새 게시판 글 목록이 먼저 (11-18)
     var c = srlCache(), hit = c[k], now = Date.now();
     if (hit && ((hit.s > 0 && now - hit.at < 30 * 86400000) || (!hit.s && now - hit.at < 6 * 3600000))) return hit.s || 0;
     var s = 0;
@@ -149,6 +165,15 @@
       return { ap: r.ap, d: r.d, raw: r.raw, k: r.k, sale: r.sale, wh: r.wh, n: r.n, p: r.p, p0: r.p0, cou: r.cou, ship: r.ship,
                tax: r.tax, spec: r.spec, memo: r.memo, stock: r.stock };
     });
+    // 📷 글 목록부터 서버에 — 이 다음 mcpush 가 카탈로그를 새로 굽게 하니 «오늘 미판매» 카드 사진·글번호가 같이 실린다 (11-18)
+    var postTxt = '';
+    try {
+      var P = await loadPosts();
+      if (P) {
+        var pr = await edge({ action: 'mcposts', key: KEY, rows: Object.keys(P).map(function (k) { return P[k]; }) });
+        postTxt = pr && pr.ok ? ' · 📷 글 ' + pr.count + '개' : ' · ⚠️ 글 목록 못 보냄: ' + ((pr && pr.error) || '');
+      }
+    } catch (e) { postTxt = ' · ⚠️ 글 목록 못 읽음'; }
     var j = await edge({ action: 'mcpush', key: KEY, items: items, costs: costs, chg: chg });
     if (!j || !j.ok) throw new Error('상시 보내기 거절: ' + ((j && j.error) || '알 수 없음'));
 
@@ -216,7 +241,7 @@
     } catch (e) { specTxt = ' · ⚠️ 스펙 못 채움: ' + (e && e.message ? e.message : e); }
 
     // 💸 저마진 알림은 lossAsk(서버 lowmq 긴급 목록)가 맡는다 — 옛 lowmCheck(8% 이하 새것 전부)는 안 부른다 (10-16)
-    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt + specTxt + rkTxt + slTxt;
+    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt + specTxt + rkTxt + slTxt + postTxt;
   }
 
   /* 🏷 특별단가 역마진 (2026-11-18 홍팀장 「장기 특별단가도 역마진 시에는 바로 떠야 한다」)
