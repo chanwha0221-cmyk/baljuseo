@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-13b';
+  var QTYB_VER = '2026-11-18a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -2063,6 +2063,14 @@
   function kstHour() { return new Date(Date.now() + 9 * 3600000).getUTCHours(); }
   /* 🐟 🌙 에서 넘어온 당일 상품은 오늘 줄에 잡으면 안 된다 — 내일 몫인데 오늘 판 잔여에 잡힌다. 다음 날 06시부터 본다. */
   function notYet(w) { return !!(w && w.notBefore && Date.now() < w.notBefore); }
+  /* 🐟 당일 상품 감시 시작 시각 (2026-11-18 호래기 못 잡음) — 예전엔 🌙 를 언제 눌러도 «다음 날 06시» 였다.
+        아침(06~16시)에 누르면 오늘 판이 바로 그 판인데 내일 06시까지 묶여, 09시대에 인천 연안 생물 호래기 50개가
+        열렸다 닫히는 동안 감시가 한 번도 안 봤다. → 06~16시엔 지금부터, 그 밖(저녁·새벽)엔 다음 06시부터. */
+  function dayWatchFrom() { var h = kstHour(); return (h >= 6 && h < 16) ? 0 : nextMorningMs(); }
+  /* ⛔ 대기·증량이 걸린 상품은 수동 잡기(📌)에서 뺀다 (2026-11-18 홍팀장 「대기랑 증량 걸어놓고 수동으로 계속 잡고 있으면
+        중복으로 잡을 수도 있잖아」) — 내 대기·증량이 하나라도 살아 있으면 감시도, 칸도, 지금 잡기도 안 한다. */
+  function heldBy(f) { return f && (f.wait > 0 || f.more > 0); }
+  function heldTxt(f) { return (f.wait ? '대기 ' + f.wait : '') + (f.wait && f.more ? '·' : '') + (f.more ? '증량 ' + f.more : ''); }
   function nextMorningMs() {
     var k = new Date(Date.now() + 9 * 3600000);
     return Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() + (k.getUTCHours() >= 6 ? 1 : 0), 6) - 9 * 3600000;
@@ -2136,6 +2144,7 @@
         return pr.then(function () {
           var row = IDX[w.key];
           return freshRow(row).then(function (f) {
+            if (heldBy(f)) { if (left.indexOf(w) >= 0) left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); log.push('· ' + hhmm() + ' ' + w.name + ' — ' + heldTxt(f) + ' 걸려 있어 수동 잡기에서 뺌'); paint('대기·증량 걸린 것 뺌'); return; }
             var spare = Math.max(0, f.mine - Math.max(f.used, w.outToday || 0));
             var need = Math.max(0, w.avg - spare);
             if (!need) { if (left.indexOf(w) >= 0) left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); log.push('· ' + hhmm() + ' ' + w.name + ' — 여유 ' + spare + '개, 다 찼습니다'); paint('다 찼습니다'); return; }
@@ -2184,7 +2193,8 @@
       (more || []).forEach(function (w) {
         w.fast = 1;
         var old = left.filter(function (x) { return x.key === w.key; })[0];
-        if (old) { if (w.avg > old.avg) { old.avg = w.avg; n++; } old.fast = 1; }
+        /* 🔴 2026-11-18: 📌 로 다시 건 상품(notBefore 없음)은 옛 🌙 줄의 «내일 06시부터» 를 지운다 — 남겨 두면 지금 걸어도 하루 종일 안 본다 */
+        if (old) { if (w.avg > old.avg) { old.avg = w.avg; n++; } old.fast = 1; if (!w.notBefore) delete old.notBefore; }
         else { left.push(w); n++; }
         var k2 = new Date(Date.now() + 9 * 3600000);   // 📌 마감은 다음 날 19시
         until = Math.max(until, Date.UTC(k2.getUTCFullYear(), k2.getUTCMonth(), k2.getUTCDate() + 1, FAST_UNTIL_H) - 9 * 3600000);
@@ -2226,7 +2236,18 @@
           return pr.then(function () {
             var row = IDX[w.key];
             if (notYet(w)) return;                                                 // 당일 상품 — 내일 판부터
-            if (!row || row.free || row.locked || row.closed || !row.co) return;   // 아직 안 열림
+            if (!row) return;
+            /* ⛔ 잠긴 줄도 대기·증량이 걸렸는지는 본다 — 걸려 있으면 열리기 전에 감시에서 뺀다 */
+            var rowCo = row.co ? row : (function () { var c = ''; Object.keys(IDX).some(function (kk) { if (IDX[kk] && IDX[kk].co) { c = IDX[kk].co; return true; } return false; }); return c ? Object.assign({}, row, { co: c }) : null; })();
+            var chk = rowCo ? freshRow(rowCo).then(function (f) {
+              if (!heldBy(f)) return false;
+              left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]);
+              log.push('· ' + hm + ' ' + w.name + ' — ' + heldTxt(f) + ' 걸려 있어 수동 잡기에서 뺌');
+              return true;
+            }, function () { return false; }) : Promise.resolve(false);
+            return chk.then(function (gone) {
+            if (gone) return;
+            if (row.free || row.locked || row.closed || !row.co) return;   // 아직 안 열림
             return freshRow(row).then(function (f) {
               var spare = Math.max(0, f.mine - Math.max(f.used, w.outToday));
               var need = Math.max(0, w.avg - spare);
@@ -2244,6 +2265,7 @@
                   if (add >= need) { left.splice(left.indexOf(w), 1); dropFromGrabBox([w.key]); }   // 덜 잡았으면 계속 기다린다
                 });
             }).catch(function (e) { log.push('· ' + w.name + ' — 실패: ' + (e.message || e)); });
+            });
           });
         }, Promise.resolve()).then(function () {
           paint(left.length ? hm + ' 확인 — ' + (anyFast() ? '⚡ ' + (FAST_MS / 1000) + '초 뒤' : '5분 뒤') + ' 다시 봅니다(' + untilTxt() + '까지)' : '다 잡았습니다');
@@ -2311,8 +2333,9 @@
       return keys.reduce(function (pr, k) {
         return pr.then(function () {
           var row = IDX[k]; if (!row || !row.co) return;
-          if (row.kind && row.kind !== '상시') return;   // 🐟 당일 줄 — 오늘 여유로 내일 몫을 지우지 않는다
           return freshRow(row).then(function (f) {
+            if (heldBy(f)) { done.push(k); return; }      // ⛔ 대기·증량 걸린 줄은 칸에서 뺀다 (2026-11-18)
+            if (row.kind && row.kind !== '상시') return;   // 🐟 당일 줄 — 오늘 여유로 내일 몫을 지우지 않는다
             if (Math.max(0, f.mine - f.used) >= pn.map[k]) done.push(k);
           }).catch(function () {});
         });
@@ -2357,6 +2380,7 @@
       return now.reduce(function (pr, x) {
         return pr.then(function () {
           return freshRow(x.row).then(function (f) {
+            if (heldBy(f)) { done.push(x.key); log.push('⛔ ' + x.name + ' — ' + heldTxt(f) + ' 걸려 있어 수동 잡기에서 뺌(안 잡음)'); return; }
             var spare = Math.max(0, f.mine - f.used);
             var need = Math.max(0, x.qty - spare);
             if (!need) { done.push(x.key); log.push('✅ ' + x.name + ' — 이미 여유 ' + spare + '개, 안 잡음'); return; }
@@ -2396,17 +2420,20 @@
             return freshRow(row).then(function (f) {
               var short = Math.max(0, x.qty - Math.max(0, f.mine - f.used));
               if (!short) return;
-              if (f.wait >= short) { log.push('⏳ ' + x.name + ' — 대기 ' + f.wait + '개 이미 걸려 있음'); return; }
+              /* ⛔ 이미 대기·증량이 걸려 있으면 그쪽에 맡기고 감시에서 뺀다 (2026-11-18) */
+              if (heldBy(f)) { x.held = 1; log.push('⛔ ' + x.name + ' — ' + heldTxt(f) + ' 걸려 있어 수동 잡기에서 뺌'); return; }
               return qpost({ do: 'wait', tab: whTab(row), nkey: row.key, co: row.co, qty: short })
                 .then(function () { return freshRow(row); })
                 .then(function (g) {
+                  if (g.wait > 0) x.held = 1;   // 대기를 걸었으면 그 대기에 맡긴다 — 감시까지 돌리면 두 번 받을 수 있다
                   log.push((g.wait >= short ? '⏳ ' : '⚠️ ') + hm + ' ' + x.name + ' 대기 ' + f.wait + ' → ' + g.wait + '개'
-                    + (g.wait >= short ? '' : ' (목표 ' + short + ' — 수량 웹에서 확인)'));
+                    + (g.wait >= short ? ' — 대기에 맡기고 수동 잡기에서 뺌' : ' (목표 ' + short + ' — 수량 웹에서 확인)'));
                 });
             }).catch(function (e) { log.push('⚠️ ' + x.name + ' — 대기 실패: ' + (e.message || e)); });
           });
         }, Promise.resolve());
       }).then(function () {
+        wait = wait.filter(function (x) { if (x.held) { done.push(x.key); return false; } return true; });
         dropFromGrabBox(done);
         if (wait.length) {
           preWatch(wait.map(function (x) { return { key: x.key, name: x.name, avg: x.qty, outToday: 0, fast: 1 }; }));
@@ -2687,7 +2714,7 @@
         stat('🌙 미리 잡기 ' + now.length + '건' + (later.length ? ' · 수동 잡기로 ' + later.length + '건' : ''));
         if (later.length) {
           toGrabBox(later.map(function (x) { return { key: x.key, name: x.name, qty: x.target }; }));
-          preWatch(later.map(function (x) { return { key: x.key, name: x.name, avg: x.target, outToday: x.outToday, fast: 1, notBefore: x.day ? nextMorningMs() : 0 }; }));
+          preWatch(later.map(function (x) { return { key: x.key, name: x.name, avg: x.target, outToday: x.outToday, fast: 1, notBefore: x.day ? dayWatchFrom() : 0 }; }));
         }
       });
     };
