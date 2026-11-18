@@ -118,6 +118,7 @@
   }
   /* 🔴 역마진 = 켜짐 · 지금 적용 중 · 특별단가 < 공급가(base) 또는 < 원가(마진 화면 원가, 카탈로그 LOWM_COSTMAP) — 업체별도 (11-18 「장기 특별단가도 역마진이면 바로」) */
   function costOf(n) { var m = window.LOWM_COSTMAP || {}; return +m[nk(n)] || 0; }
+  function shipOf(n) { var m = window.LOWM_SHIPMAP || {}; return +m[nk(n)] || 0; }
   function isLoss(r) {
     if (r.active !== 'Y' || r.per === 'past' || r.per === 'soon' || !(+r.price > 0)) return false;
     var c = costOf(r.item), p = +r.price;
@@ -131,10 +132,11 @@
     var td = 'padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:13px';
     var vis = rows.filter(function (r) { return filt === 'all' ? !+r.member_srl : filt === 'mem' ? +r.member_srl : filt === 'past' ? r.per === 'past' || !r.alive : filt === 'loss' ? isLoss(r) : true; });
     vis.sort(function (a, b) { return (isLoss(b) - isLoss(a)) || ((b.per === 'past') - (a.per === 'past')) || String(b.upd_dt || '').localeCompare(String(a.upd_dt || '')); });
-    var cols = ['상품', '창고', '적용 업체', '특별단가', '공급가', '규칙가', '상태', '적용 기간', '메모', '고친 때', '켬', ''];
+    /* 💰 원가·마진·마진율 (11-18 홍팀장 「역마진이라고 하는데 원가가 얼만지도 몰라」) — 마진 화면과 같은 식: (특별단가 − 원가) ÷ (특별단가 + 택배비) */
+    var cols = ['상품', '창고', '적용 업체', '특별단가', '원가', '마진', '마진율', '공급가', '규칙가', '상태', '적용 기간', '메모', '고친 때', '켬', ''];
     if (!vis.length) return '<div class="empty">해당하는 특별단가가 없습니다.</div>';
     return '<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px"><table style="border-collapse:collapse;width:100%"><thead><tr>'
-      + cols.map(function (t, i) { return '<th style="' + th + (i < 3 || i > 5 ? ';text-align:left' : '') + '" onclick="lowmSort(this)" title="눌러서 정렬">' + t + '</th>'; }).join('')
+      + cols.map(function (t, i) { return '<th style="' + th + (i < 3 || i > 8 ? ';text-align:left' : '') + '" onclick="lowmSort(this)" title="눌러서 정렬">' + t + '</th>'; }).join('')
       + '</tr></thead><tbody>'
       + vis.map(function (r) {
         var low = +r.base > 0 && +r.price < +r.base, c = costOf(r.item), loss = isLoss(r);
@@ -143,7 +145,14 @@
           + '<td style="' + td + ';text-align:left">' + E(r.wh) + '</td>'
           + '<td style="' + td + ';text-align:left;white-space:normal">' + (+r.member_srl ? '<span style="color:#1d4ed8;font-weight:700">' + E(r.member_nick || r.member_srl) + (r.vendor && r.vendor !== r.member_nick ? ' · ' + E(r.vendor) : '') + '</span>' : '<span style="color:var(--muted);font-weight:700">전체</span>') + '</td>'
           + '<td style="' + td + ';font-weight:800' + (loss || (c && +r.price < c) ? ';color:#b91c1c' : low ? ';color:#b45309' : '') + '">' + won(r.price)
-            + (c && +r.price < c ? '<br><span style="font-size:11px">🔴 원가 ' + won(c) + '보다 낮음</span>' : low ? '<br><span style="font-size:11px">' + (loss ? '🔴 ' : '') + '공급가보다 낮음' + (c ? ' · 원가 ' + won(c) : '') + '</span>' : '') + '</td>'
+            + (c && +r.price < c ? '<br><span style="font-size:11px">🔴 원가보다 낮음</span>' : low ? '<br><span style="font-size:11px">' + (loss ? '🔴 ' : '') + '공급가보다 낮음</span>' : '') + '</td>'
+          + (function () {
+              if (!c) return '<td style="' + td + ';color:var(--muted)" title="마진 화면에 원가가 없는 상품(품절·내림 등)">-</td><td style="' + td + ';color:var(--muted)">-</td><td style="' + td + ';color:var(--muted)">-</td>';
+              var p = +r.price, sh = shipOf(r.item), mg = p - c, rt = Math.round(mg / (p + sh) * 1000) / 10;
+              var col = mg < 0 || rt < 0 ? '#b91c1c' : rt < 6 ? '#b45309' : '#065f46';
+              return '<td style="' + td + '">' + won(c) + '</td><td style="' + td + ';color:' + col + ';font-weight:700">' + won(mg) + '</td>'
+                + '<td style="' + td + ';color:' + col + ';font-weight:800">' + rt + '%</td>';
+            })()
           + '<td style="' + td + ';color:var(--muted)">' + (r.base == null ? '-' : won(r.base)) + '</td>'
           + '<td style="' + td + ';color:var(--muted)">' + (r.rule == null ? '-' : won(r.rule)) + '</td>'
           + '<td style="' + td + ';text-align:left">' + (r.alive ? '<span style="color:#15803d;font-weight:700">시트에 있음</span>' : '<span style="color:#b91c1c;font-weight:700">시트에 없음</span>') + '</td>'
