@@ -48,6 +48,15 @@
   s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/spc-save.js?v=' + Date.now();
   document.head.appendChild(s);
 })();
+/* 🏷 #spcrpc — 카탈로그 마진 화면의 특별단가 걸기·목록이 이 게시판을 작은 창으로 연다 (2026-11-18 홍팀장).
+   spc-rpc.js 가 열린 채로 masterc #special 요청(목록·저장·켜기/끄기·삭제)을 대신 보낸다. 창 이름(spcrpc)으로도 깨어난다 — 로그인 화면을 거쳐도 이어지게. */
+(function () {
+  var byName = /^spcrpc/.test(String(window.name || ''));
+  if (String(location.hash || '').indexOf('spcrpc') < 0 && !byName) return;
+  var s = document.createElement('script');
+  s.src = 'https://chanwha0221-cmyk.github.io/baljuseo/spc-rpc.js?v=' + Date.now();
+  document.head.appendChild(s);
+})();
 /* 🤖 #dmgo=<상세메이커 주소> — 카탈로그 카드 [상세페이지 만들기] 가 이 상품 글을 바로 연다 (2026-10-16 홍팀장).
    소스를 읽어 창 이름(window.name — 같은 창이 다른 사이트로 넘어가도 남는다)에 담고, 이 창을 상세메이커로 넘긴다.
    상세메이커가 열리자마자 그걸 꺼내 바로 만든다. 넘길 곳은 우리 상세메이커 주소로만 못 박는다. */
