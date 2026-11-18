@@ -120,8 +120,11 @@
   function costOf(n) { var m = window.LOWM_COSTMAP || {}; return +m[nk(n)] || 0; }
   function isLoss(r) {
     if (r.active !== 'Y' || r.per === 'past' || r.per === 'soon' || !(+r.price > 0)) return false;
-    var c = costOf(r.item);
-    return (+r.base > 0 && +r.price < +r.base) || (c > 0 && +r.price < c);
+    var c = costOf(r.item), p = +r.price;
+    if (c > 0 && p < c) return true;
+    /* 공급가(base)만 밑도는 건 원가 대비 마진율 6% 이상이면 역마진 아님 — 저마진 화면 lowmSafe 와 같은 규칙(11-07 홍팀장) */
+    if (c > 0 && (p - c) / p * 100 >= 6) return false;
+    return +r.base > 0 && p < +r.base;
   }
   function listHtml(rows, filt) {
     var th = 'padding:7px 8px;border-bottom:2px solid var(--line);text-align:right;white-space:nowrap;font-size:12px;color:var(--muted);cursor:pointer';
@@ -139,8 +142,8 @@
           + '<td style="' + td + ';text-align:left;white-space:normal;min-width:170px">' + E(r.item) + ' <button class="cpbtn" data-cp="' + E(r.item) + '" title="상품명 복사">📋</button></td>'
           + '<td style="' + td + ';text-align:left">' + E(r.wh) + '</td>'
           + '<td style="' + td + ';text-align:left;white-space:normal">' + (+r.member_srl ? '<span style="color:#1d4ed8;font-weight:700">' + E(r.member_nick || r.member_srl) + (r.vendor && r.vendor !== r.member_nick ? ' · ' + E(r.vendor) : '') + '</span>' : '<span style="color:var(--muted);font-weight:700">전체</span>') + '</td>'
-          + '<td style="' + td + ';font-weight:800' + (low || (c && +r.price < c) ? ';color:#b91c1c' : '') + '">' + won(r.price)
-            + (c && +r.price < c ? '<br><span style="font-size:11px">🔴 원가 ' + won(c) + '보다 낮음</span>' : low ? '<br><span style="font-size:11px">' + (loss ? '🔴 ' : '') + '공급가보다 낮음</span>' : '') + '</td>'
+          + '<td style="' + td + ';font-weight:800' + (loss || (c && +r.price < c) ? ';color:#b91c1c' : low ? ';color:#b45309' : '') + '">' + won(r.price)
+            + (c && +r.price < c ? '<br><span style="font-size:11px">🔴 원가 ' + won(c) + '보다 낮음</span>' : low ? '<br><span style="font-size:11px">' + (loss ? '🔴 ' : '') + '공급가보다 낮음' + (c ? ' · 원가 ' + won(c) : '') + '</span>' : '') + '</td>'
           + '<td style="' + td + ';color:var(--muted)">' + (r.base == null ? '-' : won(r.base)) + '</td>'
           + '<td style="' + td + ';color:var(--muted)">' + (r.rule == null ? '-' : won(r.rule)) + '</td>'
           + '<td style="' + td + ';text-align:left">' + (r.alive ? '<span style="color:#15803d;font-weight:700">시트에 있음</span>' : '<span style="color:#b91c1c;font-weight:700">시트에 없음</span>') + '</td>'

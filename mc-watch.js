@@ -232,8 +232,10 @@
     var won = function (n) { return Math.round(+n || 0).toLocaleString(); };
     var bad = (Sp.rows || []).filter(function (r) {
       if (r.active !== 'Y' || !(+r.price > 0) || r.per === 'past' || r.per === 'soon' || r.alive === false) return false;
-      var c = cost[String(r.item).replace(/\s+/g, '').toLowerCase()] || 0;
-      return (+r.base > 0 && +r.price < +r.base) || (c > 0 && +r.price < c);
+      var c = cost[String(r.item).replace(/\s+/g, '').toLowerCase()] || 0, p = +r.price;
+      if (c > 0 && p < c) return true;
+      if (c > 0 && (p - c) / p * 100 >= 6) return false;   // 공급가만 밑돌고 원가 대비 6% 이상 남으면 아님 (저마진 lowmSafe 와 같은 규칙)
+      return +r.base > 0 && p < +r.base;
     }).map(function (r) {
       return { id: r.id, n: r.item, wh: r.wh, who: +r.member_srl ? (r.member_nick || String(r.member_srl)) : '전체', price: +r.price, base: +r.base || 0,
                cost: cost[String(r.item).replace(/\s+/g, '').toLowerCase()] || 0, from: r.d_from || '', to: r.d_to || '', upd: r.upd_dt || '' };
