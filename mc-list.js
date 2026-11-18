@@ -39,7 +39,7 @@
     try {
       var S = await (await fetch('/xd/api.php?mid=machan_admin&a=special_list', { credentials: 'same-origin', cache: 'no-store' })).json();
       if (S && S.ok) {
-        var spc = (S.rows || []).filter(function (r) { return +r.member_srl === 0 && r.active === 'Y' && +r.price > 0; })
+        var spc = (S.rows || []).filter(function (r) { return +r.member_srl === 0 && r.active === 'Y' && +r.price > 0 && r.per !== 'past' && r.per !== 'soon'; })
           .map(function (r) { return { n: r.item, wh: r.wh, price: +r.price }; });
         var sj = await post({ action: 'mcspc', key: KEY, rows: spc });
         spcTxt = sj && sj.ok ? (spc.length ? '\n🏷 특별단가(전체) ' + spc.length + '개 적용' : '') : '\n⚠️ 특별단가를 못 보냈습니다';

@@ -116,7 +116,7 @@
     var Q = await get('machan_admin', 'daily_cand');
     var C = await get('machan_admin', 'cost');
     var a = (G.rows || []).map(function (r) { return [r.id, r.k, r.p, r.stock].join('|'); }).join(';');
-    var b = (Sp.rows || []).map(function (r) { return [r.id, r.price, r.active, r.upd_dt].join('|'); }).join(';');
+    var b = (Sp.rows || []).map(function (r) { return [r.id, r.price, r.active, r.upd_dt, r.per || ''].join('|'); }).join(';');   // per = 기간 시작·끝 날에도 바로 보내게
     // 🐟 아직 등록 안 한 당일(잔여 있음)도 지문에 넣는다 — 새 당일이 풀리면 30분 기다리지 않고 바로 등록·보내기
     var c = (Q.cands || []).filter(function (r) { return r.k === 'day' && (r.reg || r.remain > 0); })
       .map(function (r) { return r.reg ? [r.n, r.reg.price, r.reg.on, r.base].join('|') : [r.n, 'new', r.sug, r.base].join('|'); }).join(';');
@@ -155,7 +155,8 @@
     try {
       var Sp = await get('machan_admin', 'special_list');
       if (Sp && Sp.ok) {
-        var spc = (Sp.rows || []).filter(function (r) { return +r.member_srl === 0 && r.active === 'Y' && +r.price > 0; })
+        /* 📅 기간 지남(past)·아직 안 옴(soon)은 빼고 보낸다 (2026-11-18 — masterc 는 기간 밖엔 안 쓰는데 카탈로그엔 그 값이 떴다) */
+        var spc = (Sp.rows || []).filter(function (r) { return +r.member_srl === 0 && r.active === 'Y' && +r.price > 0 && r.per !== 'past' && r.per !== 'soon'; })
           .map(function (r) { return { n: r.item, wh: r.wh, price: +r.price }; });
         var sj = await edge({ action: 'mcspc', key: KEY, rows: spc });
         if (sj && sj.ok) spcN = spc.length;
@@ -243,7 +244,7 @@
       var Sp = await get('machan_admin', 'special_list');
       var spc = {};
       ((Sp && Sp.ok && Sp.rows) || []).forEach(function (r) {
-        if (+r.member_srl === 0 && r.active === 'Y' && +r.price > 0) spc[String(r.item).replace(/\s+/g, '').toLowerCase()] = { price: +r.price, at: String(r.upd_dt || r.reg_dt || '') };
+        if (+r.member_srl === 0 && r.active === 'Y' && +r.price > 0 && r.per !== 'past' && r.per !== 'soon') spc[String(r.item).replace(/\s+/g, '').toLowerCase()] = { price: +r.price, at: String(r.upd_dt || r.reg_dt || '') };
       });
       var from = String(St.rk_win_from || '08:00');
       var now = new Date(Date.now() + 9 * 3600e3).toISOString().slice(11, 16);   // 서울 HH:MM

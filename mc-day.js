@@ -148,7 +148,7 @@
     try {
       var S = await (await fetch('/xd/api.php?mid=machan_admin&a=special_list', { credentials: 'same-origin', cache: 'no-store' })).json();
       if (S && S.ok) {
-        var spc = (S.rows || []).filter(function (x) { return +x.member_srl === 0 && x.active === 'Y' && +x.price > 0; })
+        var spc = (S.rows || []).filter(function (x) { return +x.member_srl === 0 && x.active === 'Y' && +x.price > 0 && x.per !== 'past' && x.per !== 'soon'; })
           .map(function (x) { return { n: x.item, wh: x.wh, price: +x.price }; });
         var sj = await (await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'mcspc', key: KEY, rows: spc }) })).json();
