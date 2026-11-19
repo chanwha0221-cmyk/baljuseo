@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.259</title>
+<title>마스터 유통 카탈로그 v23.260</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -959,7 +959,7 @@ function buildDayGroup(){
   const day=String((SNAP&&SNAP.mcDayDay)||'');
   if(day&&day!==todayYmd())return null;        // 지난 날 자료는 안 쓴다
   const products=[];
-  DAYLOW=new Map();
+  DAYLOW=new Map(); RESTOCK=new Map();
   rows.forEach(r=>{
     if(!r||!r.n)return;
     /* 🚫 다 팔려서 0 이 된 것은 «감추지» 않는다 — 카드는 남기고 「문의」 로 보내고 발주만 막는다 (2026-10-23 홍팀장
@@ -988,6 +988,10 @@ function buildDayGroup(){
           업체한테는 재고 없음·문의라도 이런 상품도 있다고 안내돼야」, 국내산 생대구 2kg 71개 나왔는데 단가조차 안 떴다).
           → 단가 보이는 카드 + 「문의」, 발주만 막는다(MCZERO). 역마진 보류(hold)만 감춘다 — 원가 밑 단가가 업체에 보이면 안 된다. */
     else if(r.zero){ if(r.hold)MCEXC.set(pkey(r.n),'역마진 보류'); else MCZERO.set(pkey(r.n),1); }
+    /* 🕓 생물 장기 미입고 = 업체 화면에서 내린다 / 다시 수량이 잡히면 그날 🔁 재입고 (2026-11-19 홍팀장 「영업일 5일 지나도 안 나오면 노출 안 되게,
+       또 나오면 재입고로」). 판정은 서버 doMcDay(MC_DAY_SEEN 의 마지막 입고일) — 여기선 stale·restock 깃발만 본다. 우리 몫이 남았으면 내리지 않는다. */
+    if(r.stale&&!r.hold&&!(own>0)){ MCEXC.set(pkey(r.n),'장기 미입고'); MCZERO.set(pkey(r.n),1); }
+    if(r.restock)RESTOCK.set(pkey(r.n),1);
     /* 🟡 당일 소량 — 잔여 1~29개 (2026-09-29 홍팀장 "15/30 이런 거 소량 남아있는 건 소량으로").
        파는 건 여전히 등록 토글이 정한다 — 이건 딱지만, 발주는 된다. 수량을 모르면(total 0) 안 붙인다. */
     if(!r.zero&&r.total>0&&r.remain>0&&r.remain<DAY_LOW_N)DAYLOW.set(pkey(r.n),1);
@@ -1064,8 +1068,7 @@ function applyMc(groups){
     if(!r||!r.name)return;
     const k=pkey(r.name);
     if(seen[k])return; seen[k]=1;
-    // 🔴 «마감시간» 변동은 품절이 아니다 (10-16 과메기 등 11개가 마감시간 변경으로 품절 처리돼 업체 화면에서 사라졌다) — '품절'(일시품절 포함)만 본다
-    if(/품절/.test(r.kind||''))MCEXC.set(k,'품절');
+    /* 🗑 «품절» 로 감추던 것은 없앴다 (2026-11-19 홍팀장 「예외는 없애」) — 재고가 없으면 재고 없음·문의 카드로 보이고 발주만 막힌다(MCZERO). */
   });
   let hit=0;
   /* 🚚 masterc 상시 목록에 없는 카드(유통시트에서 온 것)인데 같은 이름이 당일 자료에 있으면 그 배송비를 쓴다
@@ -1390,6 +1393,7 @@ const isZeroQ=n=>MCZERO.has(pkey(n));
 /* 🟡 당일생물 소량 — 잔여 30개 미만(1~29). masterc 당일 딸깍의 자동 등록 기준(30)과 같은 수. */
 const DAY_LOW_N=30;
 let DAYLOW=new Map();
+let RESTOCK=new Map();           // 🔁 생물 재입고 (장기 미입고로 내려갔다가 오늘 다시 수량이 잡힌 것, 2026-11-19)
 const isExc=n=>EXC.has(pkey(n))||MCEXC.has(pkey(n));
 const mcExcWhy=n=>MCEXC.get(pkey(n))||'';
 const amMasterC=()=>!!(ME&&ME.master);
@@ -1465,7 +1469,7 @@ async function downloadPriceXlsx(){
     toast('엑셀 파일을 못 만들어 CSV 로 내려받았습니다 — 인터넷 상태를 확인해 주세요');
   }finally{ if(b){b.disabled=false;b.textContent=old;} }
 }
-const EXCWH='🚫 예외';
+const EXCWH='🙈 업체 화면에 안 보임';   // 예외 없앤 뒤(11-19) 남은 것: 역마진 보류·생물 장기 미입고
 /* 🙈 창고째 숨김 (2026-09-30 홍팀장 — 선물세트 시즌 끝. 리모컨 설정값을 바꾸면서 선물세트에 붙여 둔 마진이
       초기화된 단가로 노출되고 있다 → 「못 보게」, 코드에 박지 말고 버튼으로).
    마스터가 창고 배너의 [🙈 업체 화면에서 숨기기]를 누르면 서버(app_config HIDE_WH)에 저장된다.
@@ -1569,11 +1573,9 @@ function excGhosts(){
   return out;
 }
 async function loadExc(){
-  if(!API||!ME||!ME.token)return;
-  try{
-    const j=await api('excepts',{token:ME.token});
-    EXC=new Map((j.rows||[]).map(r=>[pkey(r.name),r]));
-  }catch(e){ /* 목록을 못 받으면 가리지 않는다 — 상품이 통째로 사라지는 것보다 낫다 */ }
+  /* 🗑 손으로 넣는 예외는 없앴다 (2026-11-19 홍팀장 「재고 없으면 수량 문의로 뜨고 소량도 안내하는데 예외가 있을 이유가 있냐 — 예외는 없애」).
+     서버 목록(excepts)은 지우지 않고 안 읽기만 한다 — 되살릴 일이 생기면 이 함수만 되돌리면 된다. */
+  EXC=new Map();
 }
 async function setExc(name,on,wh,p){
   const j=await api('exceptset',{token:ME.token,name,on,wh:wh||'',p:(p==null?'':p)});
@@ -1918,6 +1920,7 @@ function card(p,extra,top,foot){
     /* 🔔 예외로 감출 때 그 시점 단가를 같이 보내려고 카드에 지금 단가를 달아둔다 (2026-09-09) */
     +' data-price="'+((p.price&&p.price.cur!=null)?p.price.cur:'')+'">'+thumb+'<div class="bd">'
     +(top||'')+recBadge
+    +(day&&RESTOCK.has(pkey(p.name))?'<span class="recb news">🔁 재입고</span>':'')
     +(zq?'<span class="hotb">🚫 재고 없음</span>':dq?'<span class="hotb">📞 재고 문의</span>':hot?'<span class="hotb">🟡 소량</span>':'')
     +(bt?'<button class="whb" data-wh="'+esc(p.effWh||'')+'" title="이 창고 상품만 보기">📦 '+esc(bt)+'</button>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
@@ -1928,9 +1931,9 @@ function card(p,extra,top,foot){
     +(extra||'')
     // 🧾 발주담기 — 업체가 상품명을 타이핑하지 않게 하는 것이 이 버튼의 존재 이유다 (2026-08-20)
     // 🚫 예외로 뺀 상품은 담을 수 없다 — 대신 발주로도 못 나가게 (홍팀장 2026-08-28)
-    +(p.exc?'<div class="excnote">'+(mcExcWhy(p.name)==='꺼둠'?'🔌 꺼둠 — 관리화면(#daily)에서 꺼져 있어 업체 화면에 안 나갑니다 (켜고 다시 동기화하면 나갑니다)'
-                                    :mcExcWhy(p.name)==='품절'?'🚫 품절 — 변동사항에 품절로 올라와 감춰져 있습니다 (재입고되면 저절로 돌아옵니다)'
-                                    :'🚫 예외 — 업체 화면에서 감춰져 있습니다')+'</div>'
+    +(p.exc?'<div class="excnote">'+(mcExcWhy(p.name)==='장기 미입고'?'🕓 장기 미입고 — 영업일 5일 넘게 수량이 안 잡혀 업체 화면에서 내렸습니다 (수량 잡히면 🔁 재입고로 저절로 올라갑니다)'
+                                    :mcExcWhy(p.name)==='역마진 보류'?'🙈 역마진 보류 — 판매가가 공급가보다 낮아 업체 화면에서 감췄습니다 (단가 고치거나 [✅ 이 가격으로 노출])'
+                                    :'🙈 업체 화면에서 감춰져 있습니다')+'</div>'
              /* 🔔 감춰둔 사이에 시트가 움직였으면 마스터에게 알린다 — 계속 감출지 여기서 정한다 */
              +(amMasterC()&&excMoved(p)
                  ? '<div class="excmv">'+esc(excMoved(p).txt)
@@ -1961,9 +1964,7 @@ function card(p,extra,top,foot){
        풀어두면 다음 상시 딸깍이 «아직 소량인데 계속 열어둘까요» 하고 한 번 묻는다. */
     +(amMasterC()&&(isLowQ(p.name)||zq)
         ?'<button class="excb" data-keep="'+esc(p.name)+'">↩ '+(zq?'재고 없음':'소량')+' 딱지 떼기</button>':'')
-    +(amMasterC()&&!mcExcWhy(p.name)
-        ?'<button class="excb'+(p.exc?' off':'')+'" data-exc="'+esc(p.name)+'" data-excon="'+(p.exc?'0':'1')
-          +'" data-excwh="'+esc(p.effWh||p.group||'')+'">'+(p.exc?'↩ 판매 재개':'🚫 예외 등록')+'</button>':'')
+    /* (🚫 예외 등록 버튼은 2026-11-19 없앴다 — 홍팀장 「예외는 없애」) */
     /* 🖼 사진 바꾸기 — 마스터에게만. 게시판 첫 사진이 상품 사진이 아닐 때(민물장어 → 양식장 항공사진)
        카드를 보다가 바로 고치러 간다. 카탈로그는 사진 시트에 쓰지 않는다 —
        상품도구를 그 상품으로 열어줄 뿐이다(#photo=). 쓰기는 권한을 가진 도구 쪽에서만. */
@@ -2066,9 +2067,8 @@ function render(){
     items=g?g.products:[];
     /* 🔔 감춰둔 사이에 시트가 움직인 것 — 몇 건인지 맨 위에서 먼저 알린다 (홍팀장 2026-09-09) */
     const moved=items.filter(x=>excMoved(x)), needBase=excNeedBase();
-    bannerHtml='<div class="excbar">🚫 예외 상품 — 업체 화면에서는 보이지 않습니다.'
-      +'<div style="font-weight:600;font-size:12px;margin-top:3px">시트가 갱신돼도 계속 감춰집니다. '
-      +'입고가 되면 카드의 <b>[↩ 판매 재개]</b>를 누르세요. 단가·마감은 시트에 그대로 살아 있습니다.</div>'
+    bannerHtml='<div class="excbar">🙈 업체 화면에 안 보이는 상품 — 마스터만 봅니다.'
+      +'<div style="font-weight:600;font-size:12px;margin-top:3px">🙈 역마진 보류(단가 고치면 풀림) · 🕓 생물 장기 미입고(영업일 5일, 수량 잡히면 🔁 재입고로 저절로 올라감). 손으로 넣는 예외는 없앴습니다.</div>'
       +(moved.length
          ?'<div class="excalert">🔔 감춰둔 사이에 시트가 움직인 상품 <b>'+moved.length+'건</b> — '
           +'아래에서 <b>[↩ 판매 재개]</b> 할지 <b>[계속 감추기]</b> 할지 정하세요.'
@@ -3058,8 +3058,7 @@ function renderRecs(list){
      🔴 ALL 이 아직 안 채워졌을 때 돌면 추천 전부를 '없는 상품'으로 보고 통째로 예외 처리한다 — 반드시 가드. */
   if(ALL.length){
     const gone=list.filter(r=>!ALL.find(x=>pkey(x.name)===pkey(r.name)));
-    if(amMasterC())autoExcGone(gone);
-    else list=list.filter(r=>ALL.find(x=>pkey(x.name)===pkey(r.name)));
+    if(!amMasterC())list=list.filter(r=>ALL.find(x=>pkey(x.name)===pkey(r.name)));
   }
   let h=subHead('⭐ 추천상품','마스터 유통이 요즘 밀고 있는 상품입니다.')+(amMasterC()?muBox('rec','✏️ 추천상품 담기'):'');
   if(!list.length)return h+'<div class="empty">아직 등록된 추천상품이 없습니다.</div>';
