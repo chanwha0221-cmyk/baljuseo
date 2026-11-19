@@ -87,6 +87,7 @@
   <div class="tabbar">
     <button class="tab active" type="button" data-sec="compose">✉️ 메일 작성</button>
     <button class="tab" type="button" data-sec="balgul">🎯 발굴 명단 <span class="badge green" id="bg-tabn" style="margin-left:6px">…</span></button>
+    <button class="tab" type="button" data-sec="onnuri">🐟 꾹AI온누리몰</button>
     <button class="tab" type="button" data-sec="hist">📋 발송 히스토리</button>
   </div>
 
@@ -262,6 +263,21 @@
     <div class="empty" id="bg-empty" style="display:none">조건에 맞는 업체가 없습니다.</div>
   </div>
   </div><!-- /sec-balgul -->
+
+  <!-- 🐟 꾹AI온누리몰 수산 입점 상점 (2026-11-19 홍팀장 「신규업체 메일링에 꾹ai온누리몰 탭 만들어서 넣어놔」). 데이터 = onnuri-sellers.js -->
+  <div id="sec-onnuri" hidden>
+  <div class="card">
+    <h2>🐟 꾹AI온누리몰 · 수산 입점 상점 <span class="badge green" id="on-cnt">0</span>
+      <div class="muted" style="font-weight:400;font-size:12px;margin-top:5px">onnuri.ai 수산 카테고리 상품 2,066개를 판매 상점으로 묶은 27곳 (11-19 수집). 상품수 = 그 상점의 온누리몰 전체 상품 수. ✅ = 연락처 거의 확실 · ❓ = 같은 이름 다른 업체일 수 있음</div></h2>
+    <div style="display:flex;gap:8px;align-items:center;margin:4px 0 10px;flex-wrap:wrap">
+      <button class="btn ghost sm" type="button" id="on-ct" aria-pressed="true">연락처 있는 곳만</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table><thead><tr><th>상점</th><th>상품수</th><th>취급 예시</th><th>사업자번호</th><th>전화</th><th>이메일</th><th>메모</th><th></th></tr></thead>
+      <tbody id="on-body"></tbody></table>
+    </div>
+  </div>
+  </div><!-- /sec-onnuri -->
 
   <!-- 📋 전체 업체 — 메일 작성 바로 밑 (홍팀장 2026-09-11). 예전엔 «펼치기» 안에 접혀 있어서
        [기록]을 눌러도 어디로 갔는지 안 보였다. 한 줄에 한 업체, 보낸날짜·마지막연락 머리글을 누르면 정렬.
@@ -1629,7 +1645,7 @@ async function copyPreview(){
 /* ══ 📑 섹션 탭 ═══════════════════════════════════════════════════════════
    홍팀장 2026-10-29: 「메일 보낸 히스토리는 탭 하나 더 만들어서 안 보이게 만들어도 되니까
    발굴명단에서 업체 선택하면 바로 메일링 할 수 있게」 */
-const SECS={compose:['sec-compose'], balgul:['sec-balgul'], hist:['sec-hist']};
+const SECS={compose:['sec-compose'], balgul:['sec-balgul'], onnuri:['sec-onnuri'], hist:['sec-hist']};
 let SEC='compose';
 function showSec(k){
   if(!SECS[k])return;
@@ -1637,8 +1653,41 @@ function showSec(k){
   Object.keys(SECS).forEach(n=>SECS[n].forEach(id=>{ const e=$(id); if(e)e.hidden=(n!==k); }));
   document.querySelectorAll('.tab[data-sec]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-sec')===k));
   if(k==='balgul')bgLoad();
+  if(k==='onnuri')onLoad();
   try{ localStorage.setItem('mailing_sec',k); }catch(e){}
 }
+
+/* 🐟 꾹AI온누리몰 — onnuri-sellers.js 를 탭 열 때 한 번 받는다. [✉ 메일 쓰기] = 발굴 명단과 같은 bgToMail 로 메일 작성에 꽂고,
+   «무엇을 보고» 문구만 «꾹AI온누리몰에 입점하신 ○○ 스토어»로 바꾼다. 연락처 칸 옆엔 📋 복사(식별자 옆 복사 버튼 규칙). */
+let ON_ROWS=null, ON_CT=true;
+function onLoad(){
+  if(ON_ROWS){ onRender(); return; }
+  const s=document.createElement('script'); s.src='onnuri-sellers.js?'+Date.now();
+  s.onload=()=>{ ON_ROWS=window.ONNURI_SELLERS||[]; onRender(); };
+  s.onerror=()=>{ $('on-body').innerHTML='<tr><td colspan="8">목록을 못 읽었습니다 — 새로고침해 주세요.</td></tr>'; };
+  document.head.appendChild(s);
+}
+function onRender(){
+  const rows=(ON_ROWS||[]).filter(r=>!ON_CT||r[2]||r[3]);
+  $('on-cnt').textContent=rows.length+' / '+(ON_ROWS||[]).length;
+  const cp=v=>v?esc(v)+' <button class="btn sm ghost" title="복사" data-on="cp" data-v="'+esc(v)+'">📋</button>':'<span class="muted">-</span>';
+  $('on-body').innerHTML=rows.map(r=>{ const i=ON_ROWS.indexOf(r); return '<tr>'
+    +'<td><b>'+esc(r[0])+'</b> '+(r[2]||r[3]?(r[4]?'✅':'❓'):'')+' <button class="btn sm ghost" title="복사" data-on="cp" data-v="'+esc(r[0])+'">📋</button></td>'
+    +'<td style="text-align:right">'+Number(r[5]||0).toLocaleString()+'</td>'
+    +'<td style="font-size:12.5px">'+esc(r[6])+'</td>'
+    +'<td style="white-space:nowrap">'+cp(r[1])+'</td><td style="white-space:nowrap">'+cp(r[2])+'</td><td style="white-space:nowrap">'+cp(r[3])+'</td>'
+    +'<td style="font-size:12px;color:var(--sub)">'+esc(r[7])+'</td>'
+    +'<td>'+(r[3]?'<button class="btn sm brand" data-on="mail" data-i="'+i+'">✉ 메일 쓰기</button>':'')+'</td></tr>'; }).join('');
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-on]'); if(!b)return;
+  const k=b.getAttribute('data-on');
+  if(k==='cp'){ const v=b.getAttribute('data-v'); (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>{b.textContent='✓';setTimeout(()=>b.textContent='📋',900);},()=>prompt('복사',v)); }
+  if(k==='mail'){ const r=ON_ROWS[+b.getAttribute('data-i')]; if(!r)return;
+    bgToMail([r[0],'','',1,'','',r[2],r[3]]);
+    const src=$('source-text'); if(src){ const nm=String(r[0]).replace(/주식회사|유한회사|농업회사법인|\(주\)|㈜/g,'').trim(); src.value='꾹AI온누리몰에 입점하신 '+nm+' 스토어 보고 상품 제안드리고 싶어'; if(typeof stampSlots==='function')stampSlots(); } }
+});
+document.addEventListener('click',e=>{ if(e.target&&e.target.id==='on-ct'){ ON_CT=!ON_CT; e.target.setAttribute('aria-pressed',String(ON_CT)); onRender(); } });
 document.querySelectorAll('.tab[data-sec]').forEach(b=>b.addEventListener('click',()=>showSec(b.getAttribute('data-sec'))));
 
 /* ══ 🎯 발굴 명단 ════════════════════════════════════════════════════════
