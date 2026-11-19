@@ -273,7 +273,7 @@
       <button class="btn ghost sm" type="button" id="on-ct" aria-pressed="true">연락처 있는 곳만</button>
     </div>
     <div style="overflow-x:auto">
-      <table><thead><tr><th>상점</th><th>상품수</th><th>취급 예시</th><th>사업자번호</th><th>전화</th><th>이메일</th><th>메모</th><th></th></tr></thead>
+      <table><thead><tr><th>상점</th><th>상품수</th><th>취급 예시</th><th>사업자번호</th><th>전화</th><th>이메일</th><th>링크</th><th>메모</th><th></th></tr></thead>
       <tbody id="on-body"></tbody></table>
     </div>
   </div>
@@ -1676,6 +1676,9 @@ function onRender(){
     +'<td style="text-align:right">'+Number(r[5]||0).toLocaleString()+'</td>'
     +'<td style="font-size:12.5px">'+esc(r[6])+'</td>'
     +'<td style="white-space:nowrap">'+cp(r[1])+'</td><td style="white-space:nowrap">'+cp(r[2])+'</td><td style="white-space:nowrap">'+cp(r[3])+'</td>'
+    /* 🔗 링크 (11-19 홍팀장 「자사몰·판매링크 있으면 들어가서 확인하게 남겨줘」) — 🏪 온누리 상점 + 자사몰·오픈마켓 */
+    +'<td style="white-space:nowrap;font-size:12.5px">'+(r[8]?'<a href="https://onnuri.ai/market?k_shopno='+r[8]+'" target="_blank" rel="noopener">🏪 온누리</a>':'')
+      +String(r[9]||'').split(/\s+/).filter(Boolean).map(u=>{ let h=u; try{ h=new URL(u).hostname.replace(/^www\.|^m\./,''); }catch(e){} return '<br><a href="'+esc(u)+'" target="_blank" rel="noopener">🔗 '+esc(h)+'</a>'; }).join('')+'</td>'
     +'<td style="font-size:12px;color:var(--sub)">'+esc(r[7])+'</td>'
     +'<td>'+(r[3]?'<button class="btn sm brand" data-on="mail" data-i="'+i+'">✉ 메일 쓰기</button>':'')+'</td></tr>'; }).join('');
 }
