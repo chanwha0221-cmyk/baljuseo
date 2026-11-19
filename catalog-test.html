@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.256</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.258</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3300,8 +3300,14 @@ function renderNpDrafts(rows){
     +'<div style="font-size:12.5px;color:var(--muted)">신상품이 뜨면 초안이 자동으로 들어옵니다. 고쳐서 <b>[📤 올리기]</b>를 누르면 소식글로 올라가고 글 안 상품이 ⭐ 추천상품에 📰로 섭니다. 올린 글은 ✅ 완료로 남습니다. 🔒 마스터에게만 보입니다.</div>'
     +(wait.length?'':'<div class="empty" style="margin-top:8px">지금 검토할 초안이 없습니다.</div>')
     +(wait.length>NPW_SIZE?'<div style="font-weight:800;margin-top:10px">📝 검토 대기 '+wait.length+'건 · '+NPW_PAGE+'/'+wpages+' 쪽</div>':'')
+    /* 🗑 버리기 (2026-11-19 홍팀장 「삭제버튼도 만들어줘」) — ☑ 고른 것 / 이 쪽 전부 / 이 쪽부터 끝까지. 서버 npdraftdel ids 한 번에, ✅ 올린 글은 안 지움 */
+    +(wait.length?'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">'
+      +'<label style="font-size:12.5px;font-weight:700"><input type="checkbox" onchange="document.querySelectorAll(\'.npd-ck\').forEach(c=>c.checked=this.checked)"> 이 쪽 전부 고르기</label>'
+      +'<button class="ubtn" style="color:#b91c1c;font-weight:800" onclick="npDelSel()">🗑 고른 것 버리기</button>'
+      +(NPW_PAGE<wpages?'<button class="ubtn" style="color:#b91c1c" onclick="npDelFrom('+((NPW_PAGE)*NPW_SIZE)+')">🗑 '+(NPW_PAGE+1)+'쪽부터 끝까지 버리기 ('+(wait.length-NPW_PAGE*NPW_SIZE)+'건)</button>':'')
+      +'</div>':'')
     +wpart.map((r,i)=>'<details class="npd" data-npid="'+esc(String(r.id||''))+'" style="'+box+';border:2px solid #d97706">'
-      +'<summary style="cursor:pointer;font-weight:700"><span style="font-size:11px;font-weight:800;color:#fff;background:#d97706;padding:2px 7px;border-radius:5px;margin-right:6px">검토</span>'+(r.upd?'<span style="font-size:11px;font-weight:800;color:#fff;background:#2563eb;padding:2px 7px;border-radius:5px;margin-right:6px" title="신상품 자료가 업데이트되고 마진 20% 이상이라 다시 올라온 초안">🔄 업데이트</span>':'')+esc(String(r.title||r.name||''))+' <span style="font-weight:400;font-size:12px;color:var(--muted)">· '+esc(String(r.day||''))+' 출시</span></summary>'
+      +'<summary style="cursor:pointer;font-weight:700"><input type="checkbox" class="npd-ck" onclick="event.stopPropagation()" style="margin-right:6px;vertical-align:middle"><span style="font-size:11px;font-weight:800;color:#fff;background:#d97706;padding:2px 7px;border-radius:5px;margin-right:6px">검토</span>'+(r.upd?'<span style="font-size:11px;font-weight:800;color:#fff;background:#2563eb;padding:2px 7px;border-radius:5px;margin-right:6px" title="신상품 자료가 업데이트되고 마진 20% 이상이라 다시 올라온 초안">🔄 업데이트</span>':'')+esc(String(r.title||r.name||''))+' <span style="font-weight:400;font-size:12px;color:var(--muted)">· '+esc(String(r.day||''))+' 출시</span></summary>'
       +'<div style="margin-top:8px;display:grid;gap:6px">'
       +'<input class="npd-t" value="'+esc(String(r.title||''))+'" style="'+fld+'">'
       +'<textarea class="npd-b" rows="14" style="'+fld+';line-height:1.6">'+esc(String(r.body||''))+'</textarea>'
@@ -3418,6 +3424,13 @@ function npCopyShort(btn){
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(v).then(done,()=>{d.querySelector('.npd-s').select();document.execCommand('copy');done();});
   else{d.querySelector('.npd-s').select();document.execCommand('copy');done();}
 }
+function npDelIds(ids,msg){
+  if(!ids.length){toast('버릴 초안을 골라 주세요');return;}
+  if(!confirm(msg+'\n(같은 신상품으로 다시 만들어지지 않습니다)'))return;
+  api('npdraftdel',{token:ME.token,ids}).then(j=>{ if(!j||!j.ok)throw new Error((j&&j.error)||'못 지웠습니다'); NPDR=j.rows||[]; npBadge(); toast('🗑 초안 '+(j.n||0)+'건 버림'); renderRoute(); }).catch(e=>alert(e&&e.message||e));
+}
+function npDelSel(){ const ids=[...document.querySelectorAll('.npd-ck:checked')].map(c=>c.closest('[data-npid]')).filter(Boolean).map(d=>d.getAttribute('data-npid')); npDelIds(ids,'고른 초안 '+ids.length+'건을 버릴까요?'); }
+function npDelFrom(k){ const w=(NPDR||[]).filter(r=>!r.done).slice(k).map(r=>String(r.id||'')).filter(Boolean); npDelIds(w,'검토 대기 '+(k+1)+'번째부터 끝까지 '+w.length+'건을 버릴까요?'); }
 function npDel(btn){
   const d=btn.closest('[data-npid]'); if(!d)return;
   if(!confirm('이 초안을 버릴까요? (같은 신상품으로 다시 만들어지지 않습니다)'))return;
