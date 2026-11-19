@@ -86,7 +86,8 @@
   <!-- 📑 상단 섹션 탭 (2026-10-29 홍팀장 「발굴명단에서 업체 선택하면 바로 메일링, 히스토리는 탭 하나 더 만들어 안 보이게」) -->
   <div class="tabbar">
     <button class="tab active" type="button" data-sec="compose">✉️ 메일 작성</button>
-    <button class="tab" type="button" data-sec="balgul">🎯 발굴 명단 <span class="badge green" id="bg-tabn" style="margin-left:6px">…</span></button>
+    <!-- 🎯 발굴 명단 탭 삭제 (2026-11-19 홍팀장). 화면(sec-balgul)·코드는 남김 — bgToMail 을 몰 탭이 같이 쓴다 -->
+    <span id="bg-tabn" hidden></span>
     <button class="tab" type="button" data-sec="onnuri">🐟 꾹AI온누리몰</button>
     <button class="tab" type="button" data-sec="nuri">🛒 온누리마켓</button>
     <button class="tab" type="button" data-sec="hist">📋 발송 히스토리</button>
@@ -270,13 +271,31 @@
   <div class="card">
     <h2><span id="on-title">🐟 꾹AI온누리몰 · 수산 입점 상점</span> <span class="badge green" id="on-cnt">0</span>
       <div class="muted" id="on-desc" style="font-weight:400;font-size:12px;margin-top:5px"></div></h2>
+    <!-- 상단 버튼 (11-19 홍팀장): 🔍 중복업체 = masterc 보드 «거래처 중복검색»(전 채널 거래처·그룹 자회사·문제 업체)에 걸리는 곳 한 번에 빼기 / 🗑 이 탭 삭제 = 메일 다 돌린 뒤 -->
     <div style="display:flex;gap:8px;align-items:center;margin:4px 0 10px;flex-wrap:wrap">
       <button class="btn ghost sm" type="button" id="on-ct" aria-pressed="true">연락처 있는 곳만</button>
+      <button class="btn sm brand" type="button" id="on-dup">🔍 중복업체 검색·제거</button>
+      <span id="on-dupst" class="muted" style="font-size:12.5px"></span>
+      <span style="flex:1"></span>
+      <button class="btn ghost sm" type="button" id="on-unhide" style="display:none"></button>
+      <button class="btn ghost sm" type="button" id="on-deltab" style="color:var(--red)">🗑 이 탭 삭제</button>
     </div>
-    <div style="overflow-x:auto">
-      <table><thead style="white-space:nowrap"><tr><th>상점</th><th>상품수</th><th>사업자번호</th><th>전화</th><th>이메일</th><th>링크</th><th>메모</th><th></th></tr></thead>
-      <tbody id="on-body"></tbody></table>
-    </div>
+    <!-- 가로 스크롤 없이 한 줄 (11-19 홍팀장) — 칸 너비 고정 + 넘치는 글자는 «…»(마우스 올리면 전체) -->
+    <style>
+      #on-table{width:100%;table-layout:fixed;font-size:12px;border-collapse:collapse}
+      #on-table th,#on-table td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:6px 5px}
+      #on-table .cell{display:flex;align-items:center;gap:3px;min-width:0}
+      #on-table .cell>span{overflow:hidden;text-overflow:ellipsis;min-width:0}
+      #on-table .cp{flex:none;border:0;background:none;cursor:pointer;padding:0 2px;font-size:12px;opacity:.6}
+      #on-table .cp:hover{opacity:1}
+      #on-table a{text-decoration:none;margin-right:4px}
+      #on-table .btn.sm{padding:3px 7px;font-size:11.5px}
+    </style>
+    <table id="on-table">
+      <colgroup><col style="width:17%"><col style="width:6%"><col style="width:12%"><col style="width:12%"><col style="width:19%"><col style="width:7%"><col style="width:16%"><col style="width:11%"></colgroup>
+      <thead><tr><th>상점</th><th style="text-align:right">상품수</th><th>사업자번호</th><th>전화</th><th>이메일</th><th>링크</th><th>메모</th><th></th></tr></thead>
+      <tbody id="on-body"></tbody>
+    </table>
   </div>
   </div><!-- /sec-onnuri -->
 
@@ -1646,12 +1665,12 @@ async function copyPreview(){
 /* ══ 📑 섹션 탭 ═══════════════════════════════════════════════════════════
    홍팀장 2026-10-29: 「메일 보낸 히스토리는 탭 하나 더 만들어서 안 보이게 만들어도 되니까
    발굴명단에서 업체 선택하면 바로 메일링 할 수 있게」 */
-const SECS={compose:['sec-compose'], balgul:['sec-balgul'], onnuri:['sec-onnuri'], nuri:['sec-onnuri'], hist:['sec-hist']};
+const SECS={compose:['sec-compose'], onnuri:['sec-onnuri'], nuri:['sec-onnuri'], hist:['sec-hist']};   // 🎯 balgul 탭 삭제(11-19)
 let SEC='compose';
 function showSec(k){
   if(!SECS[k])return;
   SEC=k;
-  Object.keys(SECS).forEach(n=>SECS[n].forEach(id=>{ const e=$(id); if(e)e.hidden=!SECS[k].includes(id); }));
+  ['sec-balgul'].concat(...Object.values(SECS)).forEach(id=>{ const e=$(id); if(e)e.hidden=!SECS[k].includes(id); });
   document.querySelectorAll('.tab[data-sec]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-sec')===k));
   if(k==='balgul')bgLoad();
   if(ON_MALLS[k])onLoad(k);
@@ -1677,21 +1696,79 @@ function onLoad(k){
   s.onerror=()=>{ $('on-body').innerHTML='<tr><td colspan="9">목록을 못 읽었습니다 — 새로고침해 주세요.</td></tr>'; };
   document.head.appendChild(s);
 }
+/* 🙈 숨김 — 메일설정(Supabase mailset)에 둬서 집·회사 어디서 열어도 같다.
+   mall_rowhide = {몰:{상점명:이유}} (🔍 중복업체·🗑 한 줄) / mall_tabs_hide = '몰,몰' (🗑 이 탭 삭제) */
+function onHideMap(){ try{ return JSON.parse(SET.mall_rowhide||'{}')||{}; }catch(e){ return {}; } }
+async function onHideSave(m){ SET.mall_rowhide=JSON.stringify(m); await setSetting('mall_rowhide',SET.mall_rowhide); }
+function onTabsHidden(){ return String(SET.mall_tabs_hide||'').split(',').filter(Boolean); }
+function onApplyTabs(){
+  const h=onTabsHidden();
+  Object.keys(ON_MALLS).forEach(k=>{ const b=document.querySelector('.tab[data-sec="'+k+'"]'); if(b)b.style.display=h.includes(k)?'none':''; });
+  if(h.includes(SEC))showSec('compose');
+}
+(function waitSet(){ if(SET_OK)onApplyTabs(); else setTimeout(waitSet,500); })();
+let ON_SHOWHID=false;
 function onRender(){
-  const M=ON_MALLS[ON_MALL];
-  const rows=(ON_ROWS||[]).filter(r=>!ON_CT||r[2]||r[3]);
+  const M=ON_MALLS[ON_MALL], hid=onHideMap()[ON_MALL]||{};
+  const nHid=(ON_ROWS||[]).filter(r=>hid[r[0]]).length;
+  const rows=(ON_ROWS||[]).filter(r=>(!ON_CT||r[2]||r[3])&&(ON_SHOWHID?hid[r[0]]:!hid[r[0]]));
   $('on-cnt').textContent=rows.length+' / '+(ON_ROWS||[]).length;
-  const cp=v=>v?esc(v)+' <button class="btn sm ghost" title="복사" data-on="cp" data-v="'+esc(v)+'">📋</button>':'<span class="muted">-</span>';
-  $('on-body').innerHTML=rows.map(r=>{ const i=ON_ROWS.indexOf(r); return '<tr>'
-    /* 칸 깨짐 방지 (11-19 홍팀장 「취급 예시 없애고 칸 깨지는 거 막아라」 — 상점명이 한 글자씩 세로로 쪼개졌다) → 메모 말고 전부 한 줄 */
-    +'<td style="white-space:nowrap"><b>'+esc(r[0])+'</b> '+(r[2]||r[3]?(r[4]?'✅':'❓'):'')+' <button class="btn sm ghost" title="복사" data-on="cp" data-v="'+esc(r[0])+'">📋</button></td>'
-    +'<td style="text-align:right;white-space:nowrap">'+Number(r[5]||0).toLocaleString()+'</td>'
-    +'<td style="white-space:nowrap">'+cp(r[1])+'</td><td style="white-space:nowrap">'+cp(r[2])+'</td><td style="white-space:nowrap">'+cp(r[3])+'</td>'
-    /* 🔗 링크 (11-19 홍팀장 「자사몰·판매링크 있으면 들어가서 확인하게 남겨줘」) — 🏪 온누리 상점 + 자사몰·오픈마켓 */
-    +'<td style="white-space:nowrap;font-size:12.5px">'+(r[8]?'<a href="'+M.shop(r[8])+'" target="_blank" rel="noopener">'+M.shopLb+'</a>':'')
-      +String(r[9]||'').split(/\s+/).filter(Boolean).map(u=>{ let h=u; try{ h=new URL(u).hostname.replace(/^www\.|^m\./,''); }catch(e){} return '<br><a href="'+esc(u)+'" target="_blank" rel="noopener">🔗 '+esc(h)+'</a>'; }).join('')+'</td>'
-    +'<td style="font-size:12px;color:var(--sub);min-width:220px">'+esc(r[7])+'</td>'
-    +'<td style="white-space:nowrap">'+(r[3]?'<button class="btn sm brand" data-on="mail" data-i="'+i+'">✉ 메일 쓰기</button>':'')+'</td></tr>'; }).join('');
+  const ub=$('on-unhide'); ub.style.display=nHid?'':'none'; ub.textContent=ON_SHOWHID?'← 목록으로':'🙈 뺀 곳 '+nHid+' 보기';
+  const cell=(v,cp)=>v?'<div class="cell"><span title="'+esc(v)+'">'+esc(v)+'</span>'+(cp?'<button class="cp" title="복사" data-on="cp" data-v="'+esc(v)+'">📋</button>':'')+'</div>':'<span class="muted">-</span>';
+  $('on-body').innerHTML=rows.map(r=>{ const i=ON_ROWS.indexOf(r); const why=hid[r[0]];
+    const links=(r[8]?'<a href="'+M.shop(r[8])+'" target="_blank" rel="noopener" title="'+esc(M.mall)+' 상점">'+M.shopLb.split(' ')[0]+'</a>':'')
+      +String(r[9]||'').split(/\s+/).filter(Boolean).map(u=>{ let h=u; try{ h=new URL(u).hostname.replace(/^www\.|^m\./,''); }catch(e){} return '<a href="'+esc(u)+'" target="_blank" rel="noopener" title="'+esc(h)+'">🔗</a>'; }).join('');
+    return '<tr>'
+    +'<td><div class="cell"><span title="'+esc(r[0])+'"><b>'+esc(r[0])+'</b></span>'+(r[2]||r[3]?(r[4]?'✅':'❓'):'')+'<button class="cp" title="복사" data-on="cp" data-v="'+esc(r[0])+'">📋</button></div></td>'
+    +'<td style="text-align:right">'+Number(r[5]||0).toLocaleString()+'</td>'
+    +'<td>'+cell(r[1],1)+'</td><td>'+cell(r[2],1)+'</td><td>'+cell(r[3],1)+'</td>'
+    +'<td>'+links+'</td>'
+    +'<td style="color:var(--sub)" title="'+esc(why?('뺀 이유: '+why):r[7])+'">'+esc(why?('🙈 '+why):r[7])+'</td>'
+    +'<td style="text-align:right">'+(ON_SHOWHID
+        ? '<button class="btn sm ghost" data-on="unhide" data-i="'+i+'">↩ 되살리기</button>'
+        : (r[3]?'<button class="btn sm brand" data-on="mail" data-i="'+i+'">✉ 메일</button> ':'')+'<button class="btn sm ghost" style="color:var(--red)" title="이 곳 빼기" data-on="hide" data-i="'+i+'">🗑</button>')
+    +'</td></tr>'; }).join('');
+}
+
+/* 🔍 중복업체 검색·제거 (11-19 홍팀장 「mastercco-ext 중복검색에 다른 채널 업체·자회사·문제 업체 다 있으니 한번에 제거」)
+   보드 api 는 보드 로그인 토큰이 있어야 해서 여기서 직접 못 부른다 → 입금확인과 같은 «보드 연결 창»(ipgbridge, 확장이 ipg-bridge.js 를 꽂음)에
+   dup 명령을 부탁한다. 다리는 상점마다 /clients/search(사업자번호·전화·메일·상호 각각) + 자회사·문제업체 명단을 대조해 걸린 이유를 돌려준다. */
+const BR_URL='https://service.masterc.co.kr/mastercco-ext/', BR_O='https://service.masterc.co.kr';
+let BR=null, BR_OK=false, BR_RID=0; const BR_WAIT={};
+window.addEventListener('message',ev=>{ if(ev.origin!==BR_O||!ev.data||ev.data.ipgb!==2)return; const w=BR_WAIT[ev.data.rid]; if(w){ delete BR_WAIT[ev.data.rid]; w(ev.data); } });
+function brSend(cmd,extra,ms){ return new Promise((res,rej)=>{ if(!BR||BR.closed)return rej(new Error('보드 창이 닫혔습니다'));
+  const rid=++BR_RID, t=setTimeout(()=>{ delete BR_WAIT[rid]; rej(new Error('응답 없음')); },ms||60000);
+  BR_WAIT[rid]=d=>{ clearTimeout(t); d.err?rej(new Error(d.err)):res(d.data!==undefined?d.data:d); }; BR.postMessage(Object.assign({ipgb:1,rid,cmd},extra||{}),BR_O); }); }
+async function brOpen(st){
+  if(BR&&!BR.closed&&BR_OK)return true;
+  BR_OK=false;
+  if(!BR||BR.closed){ BR=window.open('','ipgbridge','width=1000,height=760'); if(!BR){ st('팝업이 막혔습니다 — 주소창 오른쪽에서 팝업 허용 후 다시'); return false; }
+    try{ BR.location.href=BR_URL; }catch(e){ BR=window.open(BR_URL,'ipgbridge','width=1000,height=760'); }
+    await new Promise(r=>setTimeout(r,3000)); }
+  st('보드 연결 창 여는 중…');
+  for(let i=0;i<180;i++){ try{ const d=await brSend('ping',{},1500); if(d.pong){ BR_OK=true; return true; } if(i===6)st('열린 보드 창에서 로그인해 주세요'); }
+    catch(e){ if(BR.closed){ st('보드 창이 닫혔습니다'); return false; } if(i===20)st('보드 창이 대답이 없습니다 — 크롬 확장 «마스터 수량대조» 1.6.0 이상인지 확인'); }
+    await new Promise(r=>setTimeout(r,1000)); }
+  return false;
+}
+async function onDup(){
+  const st=t=>{ $('on-dupst').textContent=t; };
+  const hid=onHideMap()[ON_MALL]||{};
+  const rows=(ON_ROWS||[]).filter(r=>!hid[r[0]]);
+  if(!rows.length){ st('검사할 곳이 없습니다'); return; }
+  if(!(await brOpen(st)))return;
+  st('중복검색 중… ('+rows.length+'곳)');
+  let res;
+  try{ res=await brSend('dup',{rows:rows.map(r=>({name:r[0],biz:r[1],tel:r[2],mail:r[3]}))},300000); }
+  catch(e){ st('⚠️ '+e.message+(/모르는 부탁/.test(e.message)?' — 보드 창을 닫고 다시 눌러 주세요(다리 새 버전)':'')); return; }
+  window.focus();
+  const hits=(res||[]).filter(x=>x.why&&x.why.length);
+  if(!hits.length){ st('✅ 중복 없음 ('+rows.length+'곳 검사)'); return; }
+  const msg=hits.map(x=>'· '+x.name+' — '+x.why.join(' / ')).join('\n');
+  if(!confirm('중복·제외 대상 '+hits.length+'곳을 목록에서 뺄까요?\n\n'+msg.slice(0,1800)+(msg.length>1800?'\n…':'')+'\n\n(뺀 곳은 [🙈 뺀 곳 보기]에서 되살릴 수 있습니다)')){ st('중복 '+hits.length+'곳 찾음 — 빼지 않음'); return; }
+  const m=onHideMap(); m[ON_MALL]=m[ON_MALL]||{}; hits.forEach(x=>{ m[ON_MALL][x.name]='중복: '+x.why.join(' / '); });
+  try{ await onHideSave(m); }catch(e){ st('⚠️ 저장 실패 — '+e.message); return; }
+  st('🗑 '+hits.length+'곳 뺌 ('+rows.length+'곳 검사)'); onRender();
 }
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-on]'); if(!b)return;
@@ -1701,7 +1778,23 @@ document.addEventListener('click',e=>{
     bgToMail([r[0],'','',1,'','',r[2],r[3]]);
     const src=$('source-text'); if(src){ const nm=String(r[0]).replace(/주식회사|유한회사|농업회사법인|\(주\)|㈜/g,'').trim(); src.value=ON_MALLS[ON_MALL].mall+'에 입점하신 '+nm+' 스토어 보고 상품 제안드리고 싶어'; if(typeof stampSlots==='function')stampSlots(); } }
 });
-document.addEventListener('click',e=>{ if(e.target&&e.target.id==='on-ct'){ ON_CT=!ON_CT; e.target.setAttribute('aria-pressed',String(ON_CT)); onRender(); } });
+document.addEventListener('click',async e=>{
+  const id=e.target&&e.target.id;
+  if(id==='on-ct'){ ON_CT=!ON_CT; e.target.setAttribute('aria-pressed',String(ON_CT)); onRender(); }
+  if(id==='on-unhide'){ ON_SHOWHID=!ON_SHOWHID; onRender(); }
+  if(id==='on-dup'){ e.target.disabled=true; try{ await onDup(); }finally{ e.target.disabled=false; } }
+  if(id==='on-deltab'){ const M=ON_MALLS[ON_MALL];
+    if(!confirm('«'+M.title+'» 탭을 삭제할까요?\n메일 다 돌렸으면 지워도 됩니다. (집·회사 모든 PC에서 안 보이게 됩니다)'))return;
+    try{ await setSetting('mall_tabs_hide',onTabsHidden().concat(ON_MALL).join(',')); }catch(err){ toast('저장 실패 — '+err.message); return; }
+    onApplyTabs(); toast('🗑 '+M.title+' 탭 삭제'); }
+  const b=e.target.closest&&e.target.closest('[data-on="hide"],[data-on="unhide"]'); if(!b)return;
+  const r=ON_ROWS[+b.getAttribute('data-i')]; if(!r)return;
+  const m=onHideMap(); m[ON_MALL]=m[ON_MALL]||{};
+  if(b.getAttribute('data-on')==='hide'){ if(!confirm(r[0]+' — 목록에서 뺄까요?'))return; m[ON_MALL][r[0]]='직접 뺌'; }
+  else delete m[ON_MALL][r[0]];
+  try{ await onHideSave(m); }catch(err){ toast('저장 실패 — '+err.message); return; }
+  onRender();
+});
 document.querySelectorAll('.tab[data-sec]').forEach(b=>b.addEventListener('click',()=>showSec(b.getAttribute('data-sec'))));
 
 /* ══ 🎯 발굴 명단 ════════════════════════════════════════════════════════

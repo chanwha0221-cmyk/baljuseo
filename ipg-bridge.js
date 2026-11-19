@@ -4,7 +4,8 @@
      list   → 미수금 있는 거래처 목록
      vendor → 그 거래처 미정산 날짜(정산달력) + 그 기간 입금 내역(gw2/dep.php, 입금자 전부 — 이름 고르기는 도구가)
      apply  → 고른 날짜를 정산달력에 «입금»(adj_chk 2)으로 칠함, 입금일자(dep_dt) 같이
-   🔴 받는 곳은 도구 주소(TOOL) 하나뿐, 할 수 있는 일은 위 넷뿐. 칠하기는 도구에서 사람이 [진행] 눌렀을 때만 온다. */
+     dup    → (신규업체메일링) 상점 목록을 거래처 중복검색에 돌려 걸린 이유 — 읽기만
+   🔴 받는 곳은 도구 주소(TOOL) 하나뿐, 할 수 있는 일은 위 다섯뿐. 칠하기는 도구에서 사람이 [진행] 눌렀을 때만 온다. */
 (function () {
   if (window.__ipgb) return; window.__ipgb = 1;
   var TOOL = 'https://chanwha0221-cmyk.github.io';
@@ -21,7 +22,7 @@
   function badge(t, bad) {
     var b = document.getElementById('ipgb-badge');
     if (!b) { b = document.createElement('div'); b.id = 'ipgb-badge'; b.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:99999;padding:8px 12px;border-radius:8px;font:13px "Malgun Gothic",sans-serif;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25)'; document.body.appendChild(b); }
-    b.style.background = bad ? '#c0262d' : '#1b4fb3'; b.textContent = '💰 입금확인 연결 창 — ' + t;
+    b.style.background = bad ? '#c0262d' : '#1b4fb3'; b.textContent = '🔌 보드 연결 창(입금확인·중복검색) — ' + t;
   }
 
   (async function wait() {
@@ -102,6 +103,35 @@
       }
       ds.sort();
       return { id: id, first: ds[0] || null, last: ds[ds.length - 1] || null, n: ds.length, full: acc >= top };
+    },
+    /* 🔍 중복업체 (2026-11-19 신규업체메일링 몰 탭) — 상점마다 보드 «거래처 중복검색»(/clients/search)을 사업자번호·전화·메일·상호로 돌린다.
+       검색 하나가 전 채널 거래처(items)·그룹 자회사(affiliates)·문제 업체(problem_vendors)를 같이 준다.
+       사업자번호·전화·메일로 걸린 건 그대로 중복, 상호로 걸린 건 이름이 똑같을 때만(«신선식품» 같은 흔한 글자가 남의 이름에 섞여 걸리지 않게). 읽기만 한다. */
+    dup: async function (q) {
+      var nk = function (s) { return String(s || '').replace(/주식회사|유한회사|농업회사법인|영농조합법인|\(주\)|㈜|\s+/g, '').toLowerCase(); };
+      var rows = (q.rows || []).slice(0, 400), out = [], i = 0;
+      async function one(r) {
+        var why = [], seen = {};
+        var add = function (t) { if (!seen[t]) { seen[t] = 1; why.push(t); } };
+        var keys = [];
+        if (r.biz) keys.push(['사업자번호', r.biz]);
+        if (r.tel) keys.push(['전화', r.tel]);
+        if (r.mail) keys.push(['메일', r.mail]);
+        if (nk(r.name).length >= 2) keys.push(['상호', r.name.replace(/주식회사|유한회사|농업회사법인|\(주\)|㈜/g, '').trim()]);
+        for (var k = 0; k < keys.length; k++) {
+          var by = keys[k][0], d;
+          try { d = await api('/clients/search?q=' + encodeURIComponent(keys[k][1])); } catch (e) { continue; }
+          var same = function (names) { return by !== '상호' || names.some(function (n) { return n && nk(n) === nk(r.name); }); };
+          (d.items || []).forEach(function (c) {
+            if (same([c.client_name, c.channel_name, c.business_name, c.channel_alias])) add('거래처 «' + (c.client_name || c.channel_name) + '»' + (c.external_distributor_name ? '(' + c.external_distributor_name + ')' : '') + ' ' + by + ' 일치');
+          });
+          (d.affiliates || []).forEach(function (a) { if (same([a.company_name])) add('🚫 자회사 «' + a.company_name + '» ' + by + ' 일치'); });
+          (d.problem_vendors || []).forEach(function (p) { if (same([p.company_name, p.channel_name])) add('⚠ 문제업체 «' + p.company_name + '»' + (p.problem ? ' ' + p.problem : '')); });
+        }
+        return { name: r.name, why: why };
+      }
+      await Promise.all([0, 1, 2].map(async function () { while (i < rows.length) { var r = rows[i++]; out.push(await one(r)); badge('중복검색 ' + out.length + '/' + rows.length); } }));
+      return out;
     },
     apply: async function (q) {
       var id = +q.id, out = [];
