@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.252</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.254</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3864,7 +3864,7 @@ async function loadLowm(){
     const rest=lowmVisible(j.allRows||[]).filter(r=>!lowSet.has(pkey(r.n))).sort((a,b)=>a.rate-b.rate);
     j.every=j.rows.map(r=>Object.assign({},r,{low:1})).concat(rest); }
   /* 🏷 특별단가 목록이 원가로 역마진을 가르게 (spc.js isLoss) — 원가는 마스터 화면에만 있다 */
-  { const m={},s={},v={}; (j.allRows||[]).concat(j.rows||[]).forEach(r=>{ const k=String(r.n).replace(/\s+/g,'').toLowerCase(); if(+r.cost>0)m[k]=+r.cost; if(+r.ship>0)s[k]=+r.ship; v[k]={sell:+r.sell||0,day:r.k==='당일',wh:r.wh||''}; }); window.LOWM_COSTMAP=m; window.LOWM_SHIPMAP=s; window.LOWM_SELLMAP=v; }
+  { const m={},s={},v={}; (j.allRows||[]).concat(j.rows||[]).forEach(r=>{ const k=String(r.n).replace(/\s+/g,'').toLowerCase(); if(+r.cost>0)m[k]=+r.cost; if(+r.ship>0)s[k]=+r.ship; v[k]={sell:+r.sell||0,day:r.k==='당일',wh:r.wh||''}; }); window.LOWM_COSTMAP=m; window.LOWM_SHIPMAP=s; window.LOWM_SELLMAP=v; if((j.allRows||[]).length)window.LOWM_ALL=j.allRows.concat(j.rows||[]); }
   lowmBadge(j.rows.length,j.loss.length+(j.spcLoss||[]).length);
   return j;
 }

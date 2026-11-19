@@ -368,23 +368,48 @@
         + '<button class="ubtn" style="font-size:11.5px" onclick="SPC.edit(' + r.id + ')">수정</button></div>'; }).join('')
       + (F.id ? '' : '<div style="font-size:12px;color:#b45309;margin-top:4px">같은 업체 줄을 고치려면 [수정]을 눌러 주세요.</div>');
   }
+  /* 상품 찾기 — 글자 칠 때마다 masterc 창을 열고 닫던 것(2026-11-19 홍팀장 「뭐만 입력해도 연결창이 켜졌다 꺼졌다 해서 못 건다」)
+     → 카탈로그 마진 화면에 이미 받아 둔 전 상품(LOWM_ALL)에서 바로 찾는다. 창 안 연다.
+     여기 없을 때만 [🔎 masterc 수량시트에서 찾기] 버튼 — 누를 때 한 번만 창이 열린다. 띄어쓰기로 나눈 낱말이 다 들어 있으면 맞음. */
   var ft;
+  function pick(it, L, note) {
+    document.getElementById('spcWh').value = it.wh || ''; document.getElementById('spcItem').value = it.n;
+    F.n = it.n; F.wh = it.wh || ''; F.info = rowInfo(it.n); F.baseNote = note;
+    if (F.info) F.info.day = F.info.day || it.k === 'day' || it.k === '당일'; else F.info = infoOf(it.n, it.k === 'day' || it.k === '당일');
+    L.innerHTML = ''; document.getElementById('spcFind').value = ''; info0(); have(); document.getElementById('spcPrice').focus();
+  }
+  function findMc(q) {
+    var L = document.getElementById('spcFindL'); if (!L) return;
+    L.innerHTML = '<div style="padding:6px;color:var(--muted)">⏳ masterc 수량시트에서 찾는 중…</div>';
+    call('find', { q: q }, true).then(function (x) {
+      if (!x || !x.ok || !x.items.length) { L.innerHTML = '<div style="padding:6px;color:var(--muted)">masterc 수량시트에도 맞는 상품이 없습니다.</div>'; return; }
+      L.innerHTML = x.items.map(function (it, i) { return '<button class="ubtn" style="display:block;width:100%;text-align:left;margin-top:3px" data-i="' + i + '">' + E(it.n) + ' <small style="color:var(--muted)">' + E(it.wh) + ' · 공급가 ' + won(it.base) + (it.k === 'day' ? ' · 당일' : '') + ' · 잔여 ' + won(it.remain) + '</small></button>'; }).join('');
+      L.querySelectorAll('button[data-i]').forEach(function (b) { b.onclick = function () {
+        var it = x.items[+b.dataset.i];
+        pick(it, L, '수량시트 공급가 ' + won(it.base) + (it.k === 'day' ? ' · 당일' : '') + ' · 잔여 ' + won(it.remain));
+      }; });
+    }).catch(function (e) { L.innerHTML = '<div style="padding:6px;color:#b91c1c">⚠️ ' + E(e.message === 'noconn' ? 'masterc 창이 닫혀 있습니다 — 다시 눌러 주세요' : e.message) + '</div>'; });
+  }
   function find(q) {
     clearTimeout(ft); var L = document.getElementById('spcFindL'); if (!L) return;
-    if (!q.trim()) { L.innerHTML = ''; return; }
+    q = q.trim(); if (!q) { L.innerHTML = ''; return; }
     ft = setTimeout(function () {
-      call('find', { q: q.trim() }, true).then(function (x) {
-        if (!x || !x.ok || !x.items.length) { L.innerHTML = '<div style="padding:6px;color:var(--muted)">맞는 상품이 없습니다.</div>'; return; }
-        L.innerHTML = x.items.map(function (it, i) { return '<button class="ubtn" style="display:block;width:100%;text-align:left;margin-top:3px" data-i="' + i + '">' + E(it.n) + ' <small style="color:var(--muted)">' + E(it.wh) + ' · 공급가 ' + won(it.base) + (it.k === 'day' ? ' · 당일' : '') + ' · 잔여 ' + won(it.remain) + '</small></button>'; }).join('');
-        L.querySelectorAll('button[data-i]').forEach(function (b) { b.onclick = function () {
-          var it = x.items[+b.dataset.i];
-          document.getElementById('spcWh').value = it.wh; document.getElementById('spcItem').value = it.n;
-          F.n = it.n; F.wh = it.wh; F.info = rowInfo(it.n); F.baseNote = '수량시트 공급가 ' + won(it.base) + (it.k === 'day' ? ' · 당일' : '') + ' · 잔여 ' + won(it.remain);
-          if (F.info) F.info.day = F.info.day || it.k === 'day'; else F.info = infoOf(it.n, it.k === 'day');
-          L.innerHTML = ''; document.getElementById('spcFind').value = ''; info0(); have(); document.getElementById('spcPrice').focus();
-        }; });
-      }).catch(function (e) { L.innerHTML = '<div style="padding:6px;color:#b91c1c">⚠️ ' + E(e.message === 'noconn' ? 'masterc 창이 닫혀 있습니다 — 창을 닫고 다시 열어 주세요' : e.message) + '</div>'; });
-    }, 200);
+      var ws = q.toLowerCase().split(/\s+/).filter(Boolean), seen = {};
+      var hits = (window.LOWM_ALL || []).filter(function (r) {
+        var k = nk(r.n) + '|' + nk(r.wh); if (seen[k]) return false;
+        var t = nk(r.n + ' ' + (r.wh || ''));
+        if (!ws.every(function (w) { return t.indexOf(w) >= 0; })) return false;
+        seen[k] = 1; return true;
+      }).slice(0, 30);
+      var mcBtn = '<button class="ubtn" id="spcFindMc" style="display:block;width:100%;margin-top:6px">🔎 여기 없으면 masterc 수량시트에서 찾기</button>';
+      L.innerHTML = (hits.length ? hits.map(function (it, i) { return '<button class="ubtn" style="display:block;width:100%;text-align:left;margin-top:3px" data-i="' + i + '">' + E(it.n) + ' <small style="color:var(--muted)">' + E(it.wh || '') + (+it.base ? ' · 공급가 ' + won(it.base) : '') + (+it.sell ? ' · 판매가 ' + won(it.sell) : '') + (it.k === '당일' ? ' · 당일' : '') + '</small></button>'; }).join('')
+        : '<div style="padding:6px;color:var(--muted)">' + (window.LOWM_ALL ? '맞는 상품이 없습니다.' : '상품 목록을 아직 못 받았습니다 — 마진 화면을 한 번 열어 주세요.') + '</div>') + mcBtn;
+      L.querySelectorAll('button[data-i]').forEach(function (b) { b.onclick = function () {
+        var it = hits[+b.dataset.i];
+        pick(it, L, (+it.base ? '공급가 ' + won(it.base) : '') + (it.k === '당일' ? ' · 당일' : ''));
+      }; });
+      document.getElementById('spcFindMc').onclick = function () { findMc(q); };
+    }, 120);
   }
   function save() {
     var g = function (id) { return ((document.getElementById(id) || {}).value || '').trim(); };
