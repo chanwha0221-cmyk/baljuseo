@@ -1719,7 +1719,7 @@ function onRender(){
     const links=(r[8]?'<a href="'+M.shop(r[8])+'" target="_blank" rel="noopener" title="'+esc(M.mall)+' 상점">'+M.shopLb.split(' ')[0]+'</a>':'')
       +String(r[9]||'').split(/\s+/).filter(Boolean).map(u=>{ let h=u; try{ h=new URL(u).hostname.replace(/^www\.|^m\./,''); }catch(e){} return '<a href="'+esc(u)+'" target="_blank" rel="noopener" title="'+esc(h)+'">🔗</a>'; }).join('');
     return '<tr>'
-    +'<td><div class="cell"><span title="'+esc(r[0])+'"><b>'+esc(r[0])+'</b></span>'+(r[2]||r[3]?(r[4]?'✅':'❓'):'')+'<button class="cp" title="복사" data-on="cp" data-v="'+esc(r[0])+'">📋</button></div></td>'
+    +'<td><div class="cell"><span title="'+esc(r[0])+'"><b>'+esc(r[0])+'</b></span>'+'<button class="cp" title="복사" data-on="cp" data-v="'+esc(r[0])+'">📋</button></div></td>'
     +'<td style="text-align:right">'+Number(r[5]||0).toLocaleString()+'</td>'
     +'<td>'+cell(r[1],1)+'</td><td>'+cell(r[2],1)+'</td><td>'+cell(r[3],1)+'</td>'
     +'<td>'+links+'</td>'
