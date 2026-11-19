@@ -1761,6 +1761,7 @@ async function onDup(){
   let res;
   try{ res=await brSend('dup',{rows:rows.map(r=>({name:r[0],biz:r[1],tel:r[2],mail:r[3]}))},300000); }
   catch(e){ st('⚠️ '+e.message+(/모르는 부탁/.test(e.message)?' — 보드 창을 닫고 다시 눌러 주세요(다리 새 버전)':'')); return; }
+  finally{ /* 26-11-19 홍팀장 「자동으로 닫아」 — 검색 끝나면 보드 창 닫기 */ try{ if(BR&&!BR.closed)BR.close(); }catch(_){} BR=null; BR_OK=false; }
   window.focus();
   const hits=(res||[]).filter(x=>x.why&&x.why.length);
   if(!hits.length){ st('✅ 중복 없음 ('+rows.length+'곳 검사)'); return; }
