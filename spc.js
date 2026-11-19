@@ -103,6 +103,16 @@
   }
   function badge() { var b = document.getElementById('spcN'); if (b) b.textContent = LIST ? String(LIST.length) : ''; }
   function vLabel(v) { return v.nick + (v.company && v.company !== v.nick ? ' (' + v.company + ')' : ''); }
+  /* 🏷 고친 특별단가를 역마진 목록에 바로 반영 (11-19 홍팀장 「특단 수정해 놨는데 왜 계속 역마진이라고 뜨냐」) —
+     목록은 감시 창 상시 보내기 때만 새로 와서 고친 뒤에도 옛 값으로 빨간 띠가 남았다. 서버 spclossfix 가 그 id 만 다시 판정. */
+  function lossFix(rows) {
+    try {
+      return api('spclossfix', { token: ME.token, rows: rows }).then(function () {
+        if (typeof lowmPoll === 'function') lowmPoll();
+        if (/^#lowm/.test(location.hash) && location.hash !== '#lowmspc' && typeof renderRoute === 'function') renderRoute();
+      }).catch(function () {});
+    } catch (e) { return Promise.resolve(); }
+  }
   function afterWrite(x, extra) {
     var t = (extra || '') + (x && x.spc >= 0 ? '' : ' · ⚠️ 카탈로그로는 못 보냄(감시 창이 5분 안에 보냅니다)');
     if (x && x.rk && x.rk.wait) t += ' · ⏳ 리모컨은 반영 시간(' + (x.rk.win || '') + ') 시작 때 들어갑니다';
@@ -204,7 +214,7 @@
         if (st) st.textContent = '지우는 중… ' + (i + 1) + '/' + rows.length;
         try {
           var x = await call('special_del', { id: rows[i].id, _nopush: i < rows.length - 1 ? 1 : 0 }, true);
-          if (x && x.ok) ok++; else bad.push(rows[i].item + '(' + ((x && x.msg) || '거절') + ')');
+          if (x && x.ok) { ok++; lossFix([{ id: rows[i].id, del: 1 }]); } else bad.push(rows[i].item + '(' + ((x && x.msg) || '거절') + ')');
           if (x && x.login) { bad.push('— masterc 로그인이 풀려 멈춤'); break; }
         } catch (e) { bad.push(rows[i].item + '(' + e.message + ')'); if (e.message === 'noconn' || /닫혔/.test(e.message)) break; }
       }
@@ -439,6 +449,7 @@
           t += afterWrite(x, dt);
           if (who === '전체 업체' && x.rk && x.rk.wait) { try { var o = rkWaitLocal(); o[item] = { at: Date.now(), win: String(x.rk.win || '') }; localStorage.setItem('rk_wait_v1', JSON.stringify(o)); } catch (e) {} }
           try { lowmDraftDrop([item]); } catch (e) {}
+          if (F.id) lossFix([{ id: F.id, price: price, active: 'Y' }]);
           close(); toast(t.replace(/^✅ /, '🏷 ')); flash(t);
           return loadList(false).then(function () { if (location.hash === '#lowmspc') drawList(); });
         });
@@ -450,14 +461,14 @@
     var to = r.active !== 'Y';
     btn.disabled = true;
     call('special_save', { id: r.id, wh: r.wh, item: r.item, price: r.price, ship_txt: r.ship_txt || '', memo: r.memo || '', active: to ? 'Y' : 'N', member_srl: r.member_srl, d_from: r.d_from || '', d_to: r.d_to || '' }, true)
-      .then(function (x) { if (!x || !x.ok) throw new Error((x && x.msg) || '거절'); toast((to ? '켰습니다' : '껐습니다') + afterWrite(x, '')); return loadList(false); })
+      .then(function (x) { if (!x || !x.ok) throw new Error((x && x.msg) || '거절'); toast((to ? '켰습니다' : '껐습니다') + afterWrite(x, '')); lossFix([{ id: r.id, price: r.price, active: to ? 'Y' : 'N' }]); return loadList(false); })
       .then(drawList).catch(function (e) { btn.disabled = false; alert('⚠️ ' + e.message); });
   }
   function del(btn, id) {
     var r = (LIST || []).filter(function (x) { return x.id === id; })[0]; if (!r) return;
     if (!confirm('「' + r.item + '」 ' + (+r.member_srl ? r.member_nick + ' ' : '전체 ') + won(r.price) + '원 특별단가를 지울까요?')) return;
     btn.disabled = true;
-    call('special_del', { id: id }, true).then(function (x) { if (!x || !x.ok) throw new Error((x && x.msg) || '거절'); toast('지웠습니다' + afterWrite(x, '')); return loadList(false); })
+    call('special_del', { id: id }, true).then(function (x) { if (!x || !x.ok) throw new Error((x && x.msg) || '거절'); toast('지웠습니다' + afterWrite(x, '')); lossFix([{ id: id, del: 1 }]); return loadList(false); })
       .then(drawList).catch(function (e) { btn.disabled = false; alert('⚠️ ' + e.message); });
   }
 
