@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.58</title>
+<title>마스터 유통 상품 도구 v1.59</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -401,7 +401,7 @@ const CTAB='상품분류';
 // 아래 IIFE(추천상품·공지사항)가 같은 서비스계정 키를 또 박지 않도록 공유 (2026-08-12)
 window.__sheets={get token(){return token;},get api(){return api;},DOGU:DOGU,YUTONG:YUTONG};
 const EXCLUDE=['상품변동사항','공급가','리모콘','링크','마감시간','유통시트_1차','유통시트_2차','변동사항'];
-const PRESET=['수산','과일','농산물','축산','김치·반찬','가공식품','생활용품','기타'];
+const PRESET=['수산','농산물','축산','김치·반찬','가공식품','생활용품','기타'];   // 과일은 농산물로 합침(2026-11-19)
 const CLIENT_EMAIL='sheets-writer@baljuseo-sheets.iam.gserviceaccount.com';
 let _tok=null,_exp=0;
 async function token(){
