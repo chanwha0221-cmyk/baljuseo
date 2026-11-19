@@ -1729,7 +1729,7 @@ function onRender(){
     +'<td style="color:var(--sub)" title="'+esc(why?('뺀 이유: '+why):r[7])+'">'+esc(why?('🙈 '+why):r[7])+'</td>'
     +'<td style="text-align:right">'+(ON_SHOWHID
         ? '<button class="btn sm ghost" data-on="unhide" data-i="'+i+'">↩ 되살리기</button>'
-        : (r[3]?'<button class="btn sm brand" data-on="mail" data-i="'+i+'">✉ 메일</button> ':'')+'<button class="btn sm ghost" style="color:var(--red)" title="이 곳 빼기" data-on="hide" data-i="'+i+'">🗑</button>')
+        : (r[3]?'<button class="btn sm brand" data-on="mail" data-i="'+i+'">✉ 메일</button> ':(mobileOf(r[2])?'<button class="btn sm" style="background:#fee500;color:#3a1d1d;border-color:#e6cf00" data-on="kakao" data-i="'+i+'">📱 카톡</button> ':''))+'<button class="btn sm ghost" style="color:var(--red)" title="이 곳 빼기" data-on="hide" data-i="'+i+'">🗑</button>')
     +'</td></tr>'; }).join('');
 }
 
@@ -1778,7 +1778,15 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-on]'); if(!b)return;
   const k=b.getAttribute('data-on');
   if(k==='cp'){ const v=b.getAttribute('data-v'); (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>{b.textContent='✓';setTimeout(()=>b.textContent='📋',900);},()=>prompt('복사',v)); }
+  /* 📱 메일주소 없고 휴대폰만 있는 곳 = 카톡 (11-19 홍팀장 「메일주소 없고 핸드폰 있으면 카톡 보내기로 연결」)
+     메일 작성 화면에 업체명·휴대폰을 꽂고 카톡 문구 칸을 펼친다. 번호는 바로 복사 — 카톡 친구 추가에 붙여넣기. */
+  if(k==='kakao'){ const r=ON_ROWS[+b.getAttribute('data-i')]; if(!r)return;
+    const no=mobileOf(r[2]); $('company-name').value=r[0]||''; $('q-mail').value=''; PING_MAIL='';
+    setPingPhone(r[0],r[2]); if(typeof stampSlots==='function')stampSlots();
+    showSec('compose'); const fk=$('form-kakao'); fk.style.display=''; setTimeout(()=>fk.scrollIntoView({behavior:'smooth',block:'center'}),50);
+    (navigator.clipboard?navigator.clipboard.writeText(no):Promise.reject()).then(()=>toast('📱 '+r[0]+' '+no+' 복사됨 — 카톡 친구 추가 후 아래 카톡 문구 복사'),()=>toast('📱 '+r[0]+' '+no)); }
   if(k==='mail'){ const r=ON_ROWS[+b.getAttribute('data-i')]; if(!r)return;
+    $('form-kakao').style.display='none';
     bgToMail([r[0],'','',1,'','',r[2],r[3]]);
     const src=$('source-text'); if(src){ const nm=String(r[0]).replace(/주식회사|유한회사|농업회사법인|\(주\)|㈜/g,'').trim(); src.value=ON_MALLS[ON_MALL].mall+'에 입점하신 '+nm+' 스토어 보고 상품 제안드리고 싶어'; if(typeof stampSlots==='function')stampSlots(); } }
 });
