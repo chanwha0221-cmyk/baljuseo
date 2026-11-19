@@ -899,11 +899,20 @@ window.addEventListener('message', ev => {
   const w = WAIT[ev.data.rid]; if(w){ delete WAIT[ev.data.rid]; w(ev.data); }
 });
 function abStat(t, bad){ $('abStat').innerHTML = t; $('abStat').style.color = bad ? '#c0262d' : '#777'; }
+/* 26-11-19 홍팀장 「대조를 위해서 연 창은 무조건 끝나면 닫는다」 — 부탁이 다 끝나고 5초 조용하면 보드 창을 닫는다.
+   다음 부탁(업체 고르기·진행)은 brOpen 이 창을 다시 연다. 로그인 대기 중엔 ping 이 계속 오가서 안 닫힌다. */
+let BR_IDLE = null;
+function brIdle(){
+  clearTimeout(BR_IDLE);
+  BR_IDLE = setTimeout(() => { if(Object.keys(WAIT).length) return brIdle(); try{ if(BR && !BR.closed) BR.close(); }catch(_){} BR = null; BR_OK = false; }, 5000);
+}
+window.addEventListener('beforeunload', () => { try{ if(BR && !BR.closed) BR.close(); }catch(_){} });
 function brSend(cmd, extra = {}, ms = 180000){
+  clearTimeout(BR_IDLE);
   return new Promise((res, rej) => {
     if(!BR || BR.closed) return rej(new Error('보드 창이 닫혔습니다 — [🔌 보드 연결]을 다시 눌러 주세요'));
-    const rid = ++RID, t = setTimeout(() => { delete WAIT[rid]; rej(new Error('응답 없음')); }, ms);
-    WAIT[rid] = d => { clearTimeout(t); d.err ? rej(new Error(d.err)) : res(d.data !== undefined ? d.data : d); };
+    const rid = ++RID, t = setTimeout(() => { delete WAIT[rid]; rej(new Error('응답 없음')); brIdle(); }, ms);
+    WAIT[rid] = d => { clearTimeout(t); d.err ? rej(new Error(d.err)) : res(d.data !== undefined ? d.data : d); brIdle(); };
     BR.postMessage({ipgb:1, rid, cmd, ...extra}, BR_O);
   });
 }
@@ -930,6 +939,7 @@ async function brOpen(){
 }
 // 읽기 부탁은 45초 안에 답이 없으면 창을 다시 확인하고 한 번 더 (창이 새로 읽히는 사이 부탁이 사라질 수 있다)
 async function brCall(cmd, extra = {}){
+  if(!BR || BR.closed || !BR_OK){ if(!(await brOpen())) throw new Error('보드 창을 열지 못했습니다'); }
   try{ return await brSend(cmd, extra, 45000); }
   catch(e){ if(!/응답 없음/.test(e.message)) throw e; BR_OK = false; if(!(await brOpen())) throw e; return await brSend(cmd, extra, 90000); }
 }
@@ -1185,6 +1195,7 @@ async function abApply(){
   if(!confirm(`${AB.cur.c.ch || AB.cur.c.name}\n정산달력 ${items.length}일 · ${won(amt)}원을 «입금»으로 칠합니다.\n(${items.map(x => x.date.slice(4,6)+'/'+x.date.slice(6)).join(', ')})\n\n진행할까요?`)) return;
   AB.busy = true; abStat('정산달력 칠하는 중…');
   try{
+    if(!(await brOpen())) throw new Error('보드 창을 열지 못했습니다');
     const r = await brSend('apply', {id:AB.cur.c.id, items});
     const bad = r.filter(x => x.err || !x.updated);
     AB.busy = false;
