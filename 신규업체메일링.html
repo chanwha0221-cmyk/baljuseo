@@ -1711,6 +1711,16 @@ function onApplyTabs(){
 }
 (function waitSet(){ if(SET_OK)onApplyTabs(); else setTimeout(waitSet,500); })();
 let ON_SHOWHID=false;
+/* 📮 이미 보낸 곳 (11-19 홍팀장 「윤자네수산은 내가 메일 하지 않았냐」) — 발송 히스토리(DATA)와 메일·휴대폰·상호로 대조해 줄에 «보냄» 딱지 */
+function onSentOf(r){
+  const nk=s=>String(s||'').replace(/주식회사|유한회사|농업회사법인|영어조합법인|\(주\)|㈜|\(유\)|\s/g,'').toLowerCase();
+  const m=String(r[3]||'').trim().toLowerCase(), t=String(r[2]||'').replace(/\D/g,''), n=nk(r[0]);
+  const hits=(DATA||[]).filter(d=>{ const c=String(d[2]||'').trim().toLowerCase();
+    return (m&&c===m)||(t.length>=9&&c.replace(/\D/g,'')===t)||(n&&nk(d[0])===n); });
+  if(!hits.length)return null;
+  hits.sort((a,b)=>String(b[4]||b[3]||'').localeCompare(String(a[4]||a[3]||'')));
+  return hits[0];
+}
 function onRender(){
   const M=ON_MALLS[ON_MALL], hid=onHideMap()[ON_MALL]||{};
   const nHid=(ON_ROWS||[]).filter(r=>hid[r[0]]).length;
@@ -1729,7 +1739,8 @@ function onRender(){
     +'<td style="color:var(--sub)" title="'+esc(why?('뺀 이유: '+why):r[7])+'">'+esc(why?('🙈 '+why):r[7])+'</td>'
     +'<td style="text-align:right">'+(ON_SHOWHID
         ? '<button class="btn sm ghost" data-on="unhide" data-i="'+i+'">↩ 되살리기</button>'
-        : (r[3]?'<button class="btn sm brand" data-on="mail" data-i="'+i+'">✉ 메일</button> ':(mobileOf(r[2])?'<button class="btn sm" style="background:#fee500;color:#3a1d1d;border-color:#e6cf00" data-on="kakao" data-i="'+i+'">📱 카톡</button> ':''))+'<button class="btn sm ghost" style="color:var(--red)" title="이 곳 빼기" data-on="hide" data-i="'+i+'">🗑</button>')
+        : ((s=>s?'<span title="발송 히스토리: '+esc(s[0])+' · '+esc(s[1])+' · '+esc(s[2])+'" style="font-size:11.5px;color:#0a7a3d;font-weight:700;margin-right:4px">📮 '+esc(String(s[4]||s[3]||'').slice(5))+' 보냄'+(s[8]?'('+esc(s[8])+')':'')+'</span>':'')(onSentOf(r)))
+          +(r[3]?'<button class="btn sm brand" data-on="mail" data-i="'+i+'">✉ 메일</button> ':(mobileOf(r[2])?'<button class="btn sm" style="background:#fee500;color:#3a1d1d;border-color:#e6cf00" data-on="kakao" data-i="'+i+'">📱 카톡</button> ':''))+'<button class="btn sm ghost" style="color:var(--red)" title="이 곳 빼기" data-on="hide" data-i="'+i+'">🗑</button>')
     +'</td></tr>'; }).join('');
 }
 
