@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.266</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.267</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3934,7 +3934,7 @@ function lowmWhy(r,won,uMax){
   const out=[];
   if(+r.cost>0&&+r.sell<+r.cost)out.push('🔴 역마진 — 판매가 '+won(r.sell)+' &lt; 원가 '+won(r.cost)+' · 1개 팔 때마다 '+won(r.cost-r.sell)+'원 밑짐');
   else if(+r.base>0&&+r.sell<+r.base&&!lowmSafe(r,uMax))out.push('🔴 판매가 '+won(r.sell)+' &lt; 공급가 '+won(r.base)+(+r.cost>0?' (원가 '+won(r.cost)+' 대비 마진 '+won(r.sell-r.cost)+'원)':''));
-  if(r.high)out.push('📈 고마진 '+r.rate+'% — 원가 '+won(r.cost)+'원(masterc 값 그대로) 대비 마진 '+won(r.margin)+'원 · 원가·판매가가 맞는지 확인');
+  if(r.high)out.push('📈 고마진 '+r.rate+'% — 원가 '+won(r.cost)+'원(원가 택배비 포함) 대비 마진 '+won(r.margin)+'원 · 원가·판매가가 맞는지 확인');
   if(r.inv)out.push('⚖️ 규격 역전 — '+esc(r.inv)+' '+won(r.invSell)+'원보다 비쌈');
   return out.length?'<br>'+out.map(t=>'<span style="font-size:11.5px;color:'+(t.indexOf('📈')===0?'#1d4ed8':'#b91c1c')+';font-weight:700">'+t+'</span>').join('<br>'):'';
 }
@@ -4104,7 +4104,7 @@ function renderLowm(j,lossOnly){
       }).join('')+'</tbody></table></div><div style="margin-top:8px">'+saveBtn+'</div>';
   }
   if(okOnly){
-    h=subHead('👌 괜찮음 걸어둔 상품','[👌 괜찮음]을 눌러 «마진 다시 안 묻기»로 둔 상품 '+okRows.length+'개 — 누른 순(최근 먼저) · 지금 판매가·원가·마진율로 다시 계산해 보여줍니다 · 원가는 masterc 값 그대로 · 🔴 역마진은 괜찮음이 안 먹어 빨간 탭에 계속 뜹니다'
+    h=subHead('👌 괜찮음 걸어둔 상품','[👌 괜찮음]을 눌러 «마진 다시 안 묻기»로 둔 상품 '+okRows.length+'개 — 누른 순(최근 먼저) · 지금 판매가·원가·마진율로 다시 계산해 보여줍니다 · 원가는 masterc 원가 + 무료배송이면 원가 택배비 · 🔴 역마진은 괜찮음이 안 먹어 빨간 탭에 계속 뜹니다'
       +'<br>↩ <b>[괜찮음 취소]</b>를 누르면 다시 저마진 확인 대상이 됩니다. 🔒 마스터에게만 보입니다.')+bar('');
     if(!okRows.length)return h+'<div class="empty">괜찮음 걸어둔 상품이 없습니다.</div>';
     const day=t=>t?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',year:'2-digit',month:'numeric',day:'numeric'}):'';

@@ -124,10 +124,10 @@
     }
     /* 🧾 등록 안 된 당일 = 리모컨 공급가로 (2026-11-10 홍팀장 「리모컨 79,000 이면 카탈로그도 맞춰라」 — 연안 끝판왕문어 3kg
          규칙가 67,000 / 리모컨 79,000). 정산은 리모컨 값이니 카탈로그도 그 값을 보인다. masterc 엔 아무것도 안 쓴다. */
-    var rkm = {};
+    var rkm = {}, csm = {};   // csm = 원가 택배비 (11-20)
     try {
       var CC = await (await fetch('/xd/api.php?mid=machan_admin&a=cost', { credentials: 'same-origin' })).json();
-      ((CC && CC.rows) || []).forEach(function (x) { if (x.k === 'day' && +x.rk_supply > 0) rkm[String(x.n).replace(/\s+/g, '').toLowerCase()] = +x.rk_supply; });
+      ((CC && CC.rows) || []).forEach(function (x) { var xk = String(x.n).replace(/\s+/g, '').toLowerCase(); if (x.k === 'day' && +x.rk_supply > 0) rkm[xk] = +x.rk_supply; if (+x.cost_ship > 0) csm[xk] = +x.cost_ship; });
     } catch (e) {}
     var items = dayRows.map(function (r) {
       var m = im[String(r.n).replace(/\s+/g, '').toLowerCase()] || {};
@@ -135,7 +135,7 @@
       if (rk) r = Object.assign({}, r, { sell: rk, sug: rk });
       /* 🚚 택배사 (2026-09-29 홍팀장 「택배사 문의 많다, 노출할 수 있게」) — 당일 자료(daily_cand)에 택배사가
          들어오면 그걸, 아직 없으면 상품리스트에 같은 이름이 있을 때 그 택배사를 쓴다. */
-      return { n: r.n, wh: r.wh, qid: r.qid, sell: r.sell, sug: r.sug, base: r.base, cost: r.cost, ship: r.ship, ship_n: m.ship_n,
+      return { n: r.n, wh: r.wh, qid: r.qid, sell: r.sell, sug: r.sug, base: r.base, cost: r.cost, cship: csm[String(r.n).replace(/\s+/g, '').toLowerCase()] || 0, ship: r.ship, ship_n: m.ship_n,
                tax: r.tax, courier: r.courier || r.cou || m.courier || '', cut: r.cut, exp: r.exp, img: m.img, srl: m.srl,
                total: r.total, sold: r.sold, remain: r.remain, reg: r.reg };
     });

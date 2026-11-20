@@ -158,7 +158,7 @@
                tax: p.tax, courier: p.courier, cut: p.cut, exp: p.exp, stock: p.stock, bund: p.bund, k: p.k };
     });
     var costs = (C && C.ok ? (C.rows || []) : []).map(function (r) {
-      return { n: r.n, sell: rkOf(r.n) || r.sell, cost: r.cost, base: r.base, margin: r.margin, how: r.how, remain: r.remain };
+      return { n: r.n, sell: rkOf(r.n) || r.sell, cost: r.cost, cship: r.cost_ship, base: r.base, margin: r.margin, how: r.how, remain: r.remain };   // cship = 원가 택배비(11-20)
     });
     var G = null; try { G = await get('machan_chg', 'changes', '&days=14'); } catch (e) {}
     var chg = (G && G.ok ? (G.rows || []) : []).filter(function (r) { return r.mine; }).map(function (r) {
@@ -217,12 +217,13 @@
         /* 🧾 등록 안 된 당일 = 리모컨 공급가로 (2026-11-10 홍팀장 「리모컨 79,000 이면 카탈로그도 맞춰라」 — 연안 끝판왕문어 3kg
              규칙가 67,000 / 리모컨 79,000). 정산은 리모컨 값이니 카탈로그·월 시트 공급가도 그 값. masterc 엔 아무것도 안 쓴다(mc-day.js 와 같은 규칙). */
         var rkm = {};
-        ((C && C.ok && C.rows) || []).forEach(function (x) { if (x.k === 'day' && +x.rk_supply > 0) rkm[String(x.n).replace(/\s+/g, '').toLowerCase()] = +x.rk_supply; });
+        var csm = {};   // 💰 원가 택배비 (11-20 홍팀장 「원가에는 배송비 있는 거다」)
+        ((C && C.ok && C.rows) || []).forEach(function (x) { var xk = String(x.n).replace(/\s+/g, '').toLowerCase(); if (x.k === 'day' && +x.rk_supply > 0) rkm[xk] = +x.rk_supply; if (+x.cost_ship > 0) csm[xk] = +x.cost_ship; });
         var ditems = dayRows.map(function (r) {
           var m = im[String(r.n).replace(/\s+/g, '').toLowerCase()] || {};
           var rk = !r.reg ? rkm[String(r.n).replace(/\s+/g, '').toLowerCase()] : 0;
           if (rk) r = Object.assign({}, r, { sell: rk, sug: rk });
-          return { n: r.n, wh: r.wh, qid: r.qid, sell: r.sell, sug: r.sug, base: r.base, cost: r.cost, ship: r.ship, ship_n: m.ship_n,
+          return { n: r.n, wh: r.wh, qid: r.qid, sell: r.sell, sug: r.sug, base: r.base, cost: r.cost, cship: csm[String(r.n).replace(/\s+/g, '').toLowerCase()] || 0, ship: r.ship, ship_n: m.ship_n,
                    tax: r.tax, courier: r.courier || r.cou || m.courier || '', cut: r.cut, exp: r.exp, img: m.img, srl: m.srl,
                    total: r.total, sold: r.sold, remain: r.remain, reg: r.reg };
         });

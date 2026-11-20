@@ -24,7 +24,7 @@
                tax: p.tax, courier: p.courier, cut: p.cut, exp: p.exp, stock: p.stock, bund: p.bund, k: p.k };
     });
     var costs = (C && C.ok ? (C.rows || []) : []).map(function (r) {
-      return { n: r.n, sell: rkOf(r.n) || r.sell, cost: r.cost, base: r.base, margin: r.margin, how: r.how, remain: r.remain };
+      return { n: r.n, sell: rkOf(r.n) || r.sell, cost: r.cost, cship: r.cost_ship, base: r.base, margin: r.margin, how: r.how, remain: r.remain };   // cship = 원가 택배비(11-20)
     });
     /* 📋 변동사항도 같이 — 우리가 취급하는 것(mine)만 카탈로그에 나간다 */
     var G = null; try { G = await (await fetch('/xd/api.php?mid=machan_chg&a=changes&days=14')).json(); } catch (e) {}
