@@ -1725,7 +1725,8 @@ let ON_WAITSET=null;
 function onRender(){
   /* 🔴 뺀 곳 목록(mall_rowhide)은 메일설정에 있다 — 설정이 오기 전에 그리면 뺀 곳까지 다 보였다가
      [뺀 곳 보기]를 눌렀다 돌아와야 사라졌다(11-20 홍팀장). 설정 올 때까지 기다렸다 그린다. */
-  if(!SET_OK){ $('on-body').innerHTML='<tr><td colspan="9">불러오는 중…</td></tr>'; if(!ON_WAITSET)ON_WAITSET=setTimeout(()=>{ ON_WAITSET=null; onRender(); },400); return; }
+  /* 🔴 발송 히스토리(DATA)도 기다린다 (11-20 윤자네수산 — 히스토리가 오기 전에 그려서 «보낸 곳»을 못 거르고 [✉ 메일]이 떠 있었다) */
+  if(!SET_OK||!LOADED){ $('on-body').innerHTML='<tr><td colspan="9">불러오는 중…</td></tr>'; if(!ON_WAITSET)ON_WAITSET=setTimeout(()=>{ ON_WAITSET=null; onRender(); },400); return; }
   const M=ON_MALLS[ON_MALL], hid=onHideMap()[ON_MALL]||{};
   const nHid=(ON_ROWS||[]).filter(r=>hid[r[0]]).length;
   // 📮 보낸 곳(발송 히스토리에 있음)은 목록에서 뺀다 — 히스토리 탭에서 본다 (11-20 홍팀장)
