@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.265</title>
+<title>마스터 유통 카탈로그 v23.266</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -4339,7 +4339,7 @@ function renderUser(){
        상대경로라 로컬·테스트본에서도 같은 폴더의 화면으로 열린다. */
     +(ME.master?'<a class="ubtn" href="계정관리.html" target="_blank" rel="noopener" title="업체 권한(업체·단가숨김·임시·차단) 승인·수정">👤 계정관리</a>':'')
     /* 📤 제안서 데이터 — 마스터에게만. 원비씨 제안서 사이트에 넣을 products.json 을 내려받는다. */
-    +(ME.master?'<button class="ubtn" id="ub_exp" title="원비 팀장 제안서 사이트(allproduct)가 읽는 데이터를 지금 카탈로그와 같은 시점으로 올립니다. 1~2분 뒤 그쪽 사이트를 새로고침하면 반영됩니다">🔄 제안서 업데이트</button>':'')
+    +(ME.master?'<button class="ubtn" id="ub_exp" title="상품 소개 사이트(allproduct)·단가 주소(partners)가 읽는 상품·단가 목록을 지금 카탈로그 기준으로 올립니다. 바로 반영됩니다">🔄 제안서 업데이트</button>':'')
     /* 🔗 단가 주소 (2026-10-23 홍팀장 「일주일에 한 번씩 url 변경 버튼 누르면 이전 주소로는 단가 못 보게」) — 마스터만 */
     +(ME.master?'<button class="ubtn" id="ub_ppk" title="단가가 보이는 상품목록(partners) 주소를 봅니다. 바꾸면 이전 주소는 즉시 막힙니다.">🔗 단가 주소</button>':'')
     +(ME.master?'<button class="ubtn" id="ub_spec" title="masterc 상세에서 고친 스펙(미수·구성 등)을 카드에 맞춥니다. masterc 창이 잠깐 열립니다(로그인 필요)">📝 스펙 최신화</button>':'')
