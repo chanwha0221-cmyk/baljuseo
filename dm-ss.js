@@ -154,18 +154,24 @@ window.DM_SS = (function () {
     return { origin: originPairs, rows: rows, lead: lead, cps: cps, qa: qa, steps: steps, tips: tips, etc: etc,
       weight: row(/중량|사이즈/), keep: row(/생물/), pack: row(/포장/), set: row(/구성/) };
   }
-  /* 사진 나누기: 1번=실물, 3번=히어로, 끝 2장=중량·포장(메이커 원래 약속), 나머지=본문 */
+  /* 사진 나누기 = 사진 선택 순서 그대로 위에서부터 (2026-11-20 홍팀장 「히어로가 뭔데, 맨 앞에 있는 게 맨 앞에」).
+       옛 약속(1번=실물·3번=히어로)은 폐기 — 되살리지 말 것. 한 장 요약용: 첫 장 = 맨 위, 끝쪽이 구성·포장. */
   function split(photos) {
     var p = (photos || []).slice(), tail = [];
     if (p.length >= 6) tail = p.splice(-2);
-    var pack = p[0] || '', hero = p[2] || p[0] || '';
-    var mid = p.filter(function (u, i) { return i !== 0 && i !== 2; });
-    return { pack: pack, hero: hero, tail: tail, mid: mid };
+    var hero = p[0] || '', pack = p.length > 1 ? p.pop() : '';
+    return { pack: pack, hero: hero, tail: tail, mid: p.slice(1) };
+  }
+  /* 긴 상세: 사진 칸이 나오는 순서(맨 위 → 매리트 → CHECK POINT → 구성(포장+2장) → 먹는 법 묶음 → 마무리)대로 앞에서부터 채운다 */
+  function splitLong(photos, d) {
+    var p = (photos || []).slice(), nTop = 1 + (d.lead.length ? 1 : 0) + d.cps.length;
+    var rest = p.slice(nTop);
+    return { hero: p[0] || '', pack: rest[0] || '', tail: rest.slice(1, 3), mid: p.slice(1, nTop).concat(rest.slice(3)) };
   }
   function short(v, n) { v = String(v || ''); return v.length > n ? v.slice(0, n - 1) + '…' : v; }
 
   function build(DATA, photos, brand, noticeHtml) {
-    var d = read(DATA), P = split(photos), np = nameParts(DATA.title), mid = P.mid.slice(), h = '';
+    var d = read(DATA), P = splitLong(photos, d), np = nameParts(DATA.title), mid = P.mid.slice(), h = '';
     var sub = DATA.subtitle || '';
     /* 1 맨 위 = 상품 글 첫 두 줄(제목·부제) 그대로, 적당한 크기로 (2026-11-08 홍팀장 「상단이 조금 어색한데
          그냥 내용 맨위에 저 두칸 적당한 사이즈로 넣어줘라」) — 예전 베이지 큰 명조 제목·검은 원산지 알약·따옴표 부제는 뺐다 */
