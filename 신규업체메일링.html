@@ -1721,7 +1721,11 @@ function onSentOf(r){
   hits.sort((a,b)=>String(b[4]||b[3]||'').localeCompare(String(a[4]||a[3]||'')));
   return hits[0];
 }
+let ON_WAITSET=null;
 function onRender(){
+  /* 🔴 뺀 곳 목록(mall_rowhide)은 메일설정에 있다 — 설정이 오기 전에 그리면 뺀 곳까지 다 보였다가
+     [뺀 곳 보기]를 눌렀다 돌아와야 사라졌다(11-20 홍팀장). 설정 올 때까지 기다렸다 그린다. */
+  if(!SET_OK){ $('on-body').innerHTML='<tr><td colspan="9">불러오는 중…</td></tr>'; if(!ON_WAITSET)ON_WAITSET=setTimeout(()=>{ ON_WAITSET=null; onRender(); },400); return; }
   const M=ON_MALLS[ON_MALL], hid=onHideMap()[ON_MALL]||{};
   const nHid=(ON_ROWS||[]).filter(r=>hid[r[0]]).length;
   const rows=(ON_ROWS||[]).filter(r=>(!ON_CT||r[2]||r[3])&&(ON_SHOWHID?hid[r[0]]:!hid[r[0]]));
@@ -1738,7 +1742,8 @@ function onRender(){
     +'<td>'+links+'</td>'
     +'<td style="color:var(--sub)" title="'+esc(why?('뺀 이유: '+why):r[7])+'">'+esc(why?('🙈 '+why):r[7])+'</td>'
     +'<td style="text-align:right;white-space:nowrap">'+(ON_SHOWHID
-        ? ((/^중복: .*거래처/.test(why||'')&&!/추가 채널명 등록/.test(why||'')&&!onWhySame(r[0],why))?'<button class="btn sm" style="border-color:#1b4fb3;color:#1b4fb3" title="이 상호를 걸린 거래처의 «추가 채널명»으로 보드에 넣습니다" data-on="extra" data-i="'+i+'">🏷 추가 채널명 넣기</button> ':'')
+        ? (/추가 채널명 등록/.test(why||'')?'<span style="font-size:11.5px;color:#0a7a3d;font-weight:700;margin-right:4px">✅ 추가 채널명 등록됨</span>'
+          :(/^중복: .*거래처/.test(why||'')&&!onWhySame(r[0],why))?'<button class="btn sm" style="border-color:#1b4fb3;color:#1b4fb3" title="이 상호를 걸린 거래처의 «추가 채널명»으로 보드에 넣습니다" data-on="extra" data-i="'+i+'">🏷 추가 채널명 넣기</button> ':'')
           +'<button class="btn sm ghost" data-on="unhide" data-i="'+i+'">↩ 되살리기</button>'
         : ((s=>s?'<span title="발송 히스토리: '+esc(s[0])+' · '+esc(s[1])+' · '+esc(s[2])+'" style="font-size:11.5px;color:#0a7a3d;font-weight:700;margin-right:4px">📮 '+esc(String(s[4]||s[3]||'').slice(5))+' 보냄'+(s[8]?'('+esc(s[8])+')':'')+'</span>':'')(onSentOf(r)))
           +(r[3]?'<button class="btn sm brand" data-on="mail" data-i="'+i+'">✉ 메일</button> ':(mobileOf(r[2])?'<button class="btn sm" style="background:#fee500;color:#3a1d1d;border-color:#e6cf00" data-on="kakao" data-i="'+i+'">📱 카톡</button> ':''))+'<button class="btn sm ghost" style="color:var(--red)" title="이 곳 빼기" data-on="hide" data-i="'+i+'">🗑</button>')
@@ -1813,7 +1818,7 @@ async function onExtra(r){
     if(!cands.length){ st('⚠️ «'+r[0]+'» — 걸리는 거래처가 없습니다(자회사·문제업체는 대상 아님)'); return; }
     const W={'사업자번호':4,'메일':2,'전화':1,'상호':1}; cands.sort((a,b)=>b.by.reduce((s,x)=>s+(W[x]||0),0)-a.by.reduce((s,x)=>s+(W[x]||0),0));   // 사업자번호로 걸린 곳이 1번
     const done=cands.filter(c=>c.same);
-    if(done.length){ st('✅ «'+r[0]+'» 이미 '+done.map(c=>'«'+c.client+'»').join('·')+' 이름(또는 추가 채널명)과 같음 — 넣을 것 없음(이름이 같은 곳은 리스트에서만 빼면 됨)'); return; }
+    if(done.length){ st('✅ «'+r[0]+'» 이미 '+done.map(c=>'«'+c.client+'»').join('·')+' 이름(또는 추가 채널명)으로 등록돼 있음'); await onExtraMark(r,'(이미 있음 '+done.map(c=>'«'+c.client+'»').join('·')+')'); return; }
     let pick=cands[0];
     if(cands.length>1){
       const no=prompt('«'+r[0]+'» 를 어느 거래처에 넣을까요? 번호 입력\n\n'+cands.map((c,k)=>(k+1)+'. '+c.client+(c.dist?' ('+c.dist+')':'')+' — '+c.by.join('·')+' 일치').join('\n'),'1');
@@ -1832,7 +1837,8 @@ async function onExtraMark(r,what){ const m=onHideMap(); m[ON_MALL]=m[ON_MALL]||
 document.addEventListener('click',async e=>{
   const id=e.target&&e.target.id;
   const xb=e.target.closest&&e.target.closest('[data-on="extra"]');
-  if(xb){ const r=ON_ROWS[+xb.getAttribute('data-i')]; if(!r)return; xb.disabled=true; try{ await onExtra(r); }finally{ xb.disabled=false; } return; }
+  if(xb){ const r=ON_ROWS[+xb.getAttribute('data-i')]; if(!r||xb.disabled)return; const lb=xb.textContent; xb.disabled=true; xb.textContent='⏳ 넣는 중…';
+    try{ await onExtra(r); }finally{ if(xb.isConnected){ xb.disabled=false; xb.textContent=lb; } } return; }   // 등록되면 줄이 다시 그려져 «✅ 등록됨»으로 바뀐다
   if(id==='on-ct'){ ON_CT=!ON_CT; e.target.setAttribute('aria-pressed',String(ON_CT)); onRender(); }
   if(id==='on-unhide'){ ON_SHOWHID=!ON_SHOWHID; onRender(); }
   if(id==='on-dup'){ e.target.disabled=true; try{ await onDup(); }finally{ e.target.disabled=false; } }
