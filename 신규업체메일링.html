@@ -1738,7 +1738,7 @@ function onRender(){
     +'<td>'+links+'</td>'
     +'<td style="color:var(--sub)" title="'+esc(why?('뺀 이유: '+why):r[7])+'">'+esc(why?('🙈 '+why):r[7])+'</td>'
     +'<td style="text-align:right;white-space:nowrap">'+(ON_SHOWHID
-        ? ((/^중복: .*거래처/.test(why||'')&&!/추가 채널명 등록/.test(why||''))?'<button class="btn sm" style="border-color:#1b4fb3;color:#1b4fb3" title="이 상호를 걸린 거래처의 «추가 채널명»으로 보드에 넣습니다" data-on="extra" data-i="'+i+'">🏷 추가 채널명 넣기</button> ':'')
+        ? ((/^중복: .*거래처/.test(why||'')&&!/추가 채널명 등록/.test(why||'')&&!onWhySame(r[0],why))?'<button class="btn sm" style="border-color:#1b4fb3;color:#1b4fb3" title="이 상호를 걸린 거래처의 «추가 채널명»으로 보드에 넣습니다" data-on="extra" data-i="'+i+'">🏷 추가 채널명 넣기</button> ':'')
           +'<button class="btn sm ghost" data-on="unhide" data-i="'+i+'">↩ 되살리기</button>'
         : ((s=>s?'<span title="발송 히스토리: '+esc(s[0])+' · '+esc(s[1])+' · '+esc(s[2])+'" style="font-size:11.5px;color:#0a7a3d;font-weight:700;margin-right:4px">📮 '+esc(String(s[4]||s[3]||'').slice(5))+' 보냄'+(s[8]?'('+esc(s[8])+')':'')+'</span>':'')(onSentOf(r)))
           +(r[3]?'<button class="btn sm brand" data-on="mail" data-i="'+i+'">✉ 메일</button> ':(mobileOf(r[2])?'<button class="btn sm" style="background:#fee500;color:#3a1d1d;border-color:#e6cf00" data-on="kakao" data-i="'+i+'">📱 카톡</button> ':''))+'<button class="btn sm ghost" style="color:var(--red)" title="이 곳 빼기" data-on="hide" data-i="'+i+'">🗑</button>')
@@ -1811,6 +1811,7 @@ async function onExtra(r){
     st('«'+r[0]+'» 걸린 거래처 찾는 중…');
     const cands=await brSend('extracands',{row:{name:r[0],biz:r[1],tel:r[2],mail:r[3]}},60000);
     if(!cands.length){ st('⚠️ «'+r[0]+'» — 걸리는 거래처가 없습니다(자회사·문제업체는 대상 아님)'); return; }
+    const W={'사업자번호':4,'메일':2,'전화':1,'상호':1}; cands.sort((a,b)=>b.by.reduce((s,x)=>s+(W[x]||0),0)-a.by.reduce((s,x)=>s+(W[x]||0),0));   // 사업자번호로 걸린 곳이 1번
     const done=cands.filter(c=>c.same);
     if(done.length){ st('✅ «'+r[0]+'» 이미 '+done.map(c=>'«'+c.client+'»').join('·')+' 이름(또는 추가 채널명)과 같음 — 넣을 것 없음(이름이 같은 곳은 리스트에서만 빼면 됨)'); return; }
     let pick=cands[0];
@@ -1824,6 +1825,9 @@ async function onExtra(r){
   }catch(err){ st('⚠️ '+err.message+(/모르는 부탁/.test(err.message)?' — 보드 창을 닫고 다시 눌러 주세요(다리 새 버전)':'')); }
   finally{ try{ if(BR&&!BR.closed)BR.close(); }catch(_){} BR=null; BR_OK=false; window.focus(); }
 }
+// 걸린 거래처 이름이 상호와 똑같으면 추가 채널명은 필요 없다(홍팀장 — 리스트에서만 뺀다) → 버튼 안 띄움
+function onWhySame(name,why){ const nk=s=>String(s||'').replace(/주식회사|유한회사|농업회사법인|영어조합법인|영농조합법인|\(주\)|㈜|\(구\)|\(.*?\)|\s/g,'').toLowerCase();
+  return [...String(why||'').matchAll(/«([^»]+)»/g)].some(m=>nk(m[1])===nk(name)); }
 async function onExtraMark(r,what){ const m=onHideMap(); m[ON_MALL]=m[ON_MALL]||{}; m[ON_MALL][r[0]]=(m[ON_MALL][r[0]]||'중복')+' · 🏷 추가 채널명 등록 '+what; try{ await onHideSave(m); }catch(e){} onRender(); }
 document.addEventListener('click',async e=>{
   const id=e.target&&e.target.id;
