@@ -254,17 +254,26 @@
     var Sp = await get('machan_admin', 'special_list');
     if (!Sp || !Sp.ok) return '';
     var cost = {};
-    ((C && C.ok && C.rows) || []).forEach(function (r) { if (+r.cost > 0) cost[String(r.n).replace(/\s+/g, '').toLowerCase()] = +r.cost; });
+    /* 💰 원가 = 원가 + 못 받는 택배비 (2026-11-20 홍팀장 «원가에는 배송비 있다» — 무료배송이면 원가 택배비가 원가로).
+       특별단가에 택배비 표기(ship_txt)를 따로 걸었으면 그 값이 판매 택배비. */
+    var shipNum = function (s) { s = String(s || ''); var m = s.replace(/,/g, '').match(/\d+/); return m ? +m[0] : 0; };
+    var cinfo = {};
+    ((C && C.ok && C.rows) || []).forEach(function (r) { if (+r.cost > 0) cinfo[String(r.n).replace(/\s+/g, '').toLowerCase()] = { c: +r.cost, cs: +r.cost_ship || 0, ship: r.ship }; });
+    var costOf = function (r) {
+      var x = cinfo[String(r.item).replace(/\s+/g, '').toLowerCase()]; if (!x) return 0;
+      return x.c + Math.max(0, x.cs - shipNum(String(r.ship_txt || '').trim() ? r.ship_txt : x.ship));
+    };
+    Object.keys(cinfo).forEach(function (k) { cost[k] = cinfo[k].c; });
     var won = function (n) { return Math.round(+n || 0).toLocaleString(); };
     var bad = (Sp.rows || []).filter(function (r) {
       if (r.active !== 'Y' || !(+r.price > 0) || r.per === 'past' || r.per === 'soon' || r.alive === false) return false;
-      var c = cost[String(r.item).replace(/\s+/g, '').toLowerCase()] || 0, p = +r.price;
+      var c = costOf(r), p = +r.price;
       if (c > 0 && p < c) return true;
       if (c > 0 && (p - c) / p * 100 >= 6) return false;   // 공급가만 밑돌고 원가 대비 6% 이상 남으면 아님 (저마진 lowmSafe 와 같은 규칙)
       return +r.base > 0 && p < +r.base;
     }).map(function (r) {
       return { id: r.id, n: r.item, wh: r.wh, who: +r.member_srl ? (r.member_nick || String(r.member_srl)) : '전체', price: +r.price, base: +r.base || 0,
-               cost: cost[String(r.item).replace(/\s+/g, '').toLowerCase()] || 0, from: r.d_from || '', to: r.d_to || '', upd: r.upd_dt || '' };
+               cost: costOf(r), from: r.d_from || '', to: r.d_to || '', upd: r.upd_dt || '' };
     });
     edge({ action: 'mcspcloss', key: KEY, rows: bad }).catch(function () {});
     var seen = {}; try { seen = JSON.parse(localStorage.getItem(SLSEEN_KEY) || '{}') || {}; } catch (e) {}
