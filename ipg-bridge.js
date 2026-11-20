@@ -5,7 +5,9 @@
      vendor → 그 거래처 미정산 날짜(정산달력) + 그 기간 입금 내역(gw2/dep.php, 입금자 전부 — 이름 고르기는 도구가)
      apply  → 고른 날짜를 정산달력에 «입금»(adj_chk 2)으로 칠함, 입금일자(dep_dt) 같이
      dup    → (신규업체메일링) 상점 목록을 거래처 중복검색에 돌려 걸린 이유 — 읽기만
-   🔴 받는 곳은 도구 주소(TOOL) 하나뿐, 할 수 있는 일은 위 다섯뿐. 칠하기는 도구에서 사람이 [진행] 눌렀을 때만 온다. */
+     extracands → (신규업체메일링) 상점 하나로 걸린 거래처 후보 + 이미 있는 추가 채널명 — 읽기만
+     extraadd   → 고른 거래처에 추가 채널명 한 개 등록(보드 [+ 추가]와 같은 POST /clients/{id}/extra-names). 사람이 확인창 눌렀을 때만 온다
+   🔴 받는 곳은 도구 주소(TOOL) 하나뿐, 할 수 있는 일은 위 일곱뿐. 칠하기는 도구에서 사람이 [진행] 눌렀을 때만 온다. */
 (function () {
   if (window.__ipgb) return; window.__ipgb = 1;
   var TOOL = 'https://chanwha0221-cmyk.github.io';
@@ -132,6 +134,35 @@
       }
       await Promise.all([0, 1, 2].map(async function () { while (i < rows.length) { var r = rows[i++]; out.push(await one(r)); badge('중복검색 ' + out.length + '/' + rows.length); } }));
       return out;
+    },
+    /* 🏷 추가 채널명 (2026-11-20 홍팀장) — 몰 상호가 거래처 이름과 달라 중복으로 걸린 곳을 그 거래처의 «추가 채널명»으로 넣는다.
+       후보 = 사업자번호·전화·메일로 걸린 거래처(상호는 이름이 같을 때만 — dup 과 같은 규칙). 자회사·문제업체는 대상 아님. */
+    extracands: async function (q) {
+      var nk = function (s) { return String(s || '').replace(/주식회사|유한회사|농업회사법인|영농조합법인|\(주\)|㈜|\s+/g, '').toLowerCase(); };
+      var r = q.row || {}, keys = [], map = {};
+      if (r.biz) keys.push(['사업자번호', r.biz]);
+      if (r.tel) keys.push(['전화', r.tel]);
+      if (r.mail) keys.push(['메일', r.mail]);
+      if (nk(r.name).length >= 2) keys.push(['상호', r.name]);
+      for (var k = 0; k < keys.length; k++) {
+        var by = keys[k][0], d;
+        try { d = await api('/clients/search?q=' + encodeURIComponent(keys[k][1])); } catch (e) { continue; }
+        (d.items || []).forEach(function (c) {
+          var names = [c.client_name, c.channel_name, c.business_name, c.channel_alias];
+          if (by === '상호' && !names.some(function (n) { return n && nk(n) === nk(r.name); })) return;
+          var ex = (c.extra_names || []).map(function (e) { return e.name; });
+          var m = map[c.id] || (map[c.id] = { id: c.id, client: c.client_name || c.channel_name, dist: c.external_distributor_name || '', by: [], extras: ex,
+            same: names.concat(ex).some(function (n) { return n && nk(n) === nk(r.name); }) });
+          if (m.by.indexOf(by) < 0) m.by.push(by);
+        });
+      }
+      return Object.keys(map).map(function (k) { return map[k]; });
+    },
+    extraadd: async function (q) {
+      var id = +q.id, name = String(q.name || '').trim();
+      if (!id || !name) throw new Error('거래처·이름이 비었습니다');
+      await api('/clients/' + id + '/extra-names', { method: 'POST', body: JSON.stringify({ name: name }) });
+      return { ok: 1 };
     },
     apply: async function (q) {
       var id = +q.id, out = [];
