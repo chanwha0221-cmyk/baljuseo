@@ -1787,6 +1787,16 @@ async function onDup(){
   finally{ /* 26-11-19 홍팀장 「자동으로 닫아」 — 검색 끝나면 보드 창 닫기 */ try{ if(BR&&!BR.closed)BR.close(); }catch(_){} BR=null; BR_OK=false; }
   window.focus();
   const hits=(res||[]).filter(x=>x.why&&x.why.length);
+  /* 🤏 이름이 한두 글자만 다른 거래처 (11-20 홍팀장 «자은앤엔피 ↔ 자은엔앤피 — 비슷한 데가 있는데 여기 맞냐라고 확인해라»)
+       하나씩 묻고, «맞다»면 중복으로 같이 뺀다. «아니다»는 그냥 둔다. */
+  for(const x of (res||[])){
+    if(x.why&&x.why.length||!(x.near&&x.near.length))continue;
+    for(const c of x.near){
+      if(confirm('🤏 이름이 비슷한 거래처가 있습니다 — 같은 업체 맞습니까?\n\n몰 상호:   «'+x.name+'»\n거래처:     «'+c.client+'»'+(c.dist?' ('+c.dist+')':'')+(c.hit&&c.hit!==c.client?'\n걸린 이름: «'+c.hit+'»':'')+'\n\n[확인] = 같은 곳(목록에서 뺌)   [취소] = 다른 곳')){
+        x.why=['거래처 «'+c.client+'»'+(c.dist?'('+c.dist+')':'')+' 비슷한 이름 — 확인함']; hits.push(x); break;
+      }
+    }
+  }
   if(!hits.length){ st('✅ 중복 없음 ('+rows.length+'곳 검사)'); return; }
   const msg=hits.map(x=>'· '+x.name+' — '+x.why.join(' / ')).join('\n');
   if(!confirm('중복·제외 대상 '+hits.length+'곳을 목록에서 뺄까요?\n\n'+msg.slice(0,1800)+(msg.length>1800?'\n…':'')+'\n\n(뺀 곳은 [🙈 뺀 곳 보기]에서 되살릴 수 있습니다)')){ st('중복 '+hits.length+'곳 찾음 — 빼지 않음'); return; }

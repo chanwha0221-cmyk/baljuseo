@@ -34,6 +34,29 @@
     }
   })();
 
+  // 글자 몇 개를 바꿔야 같아지나 (비슷한 상호 찾기)
+  function lev(a, b) {
+    var p = [], i, j;
+    for (j = 0; j <= b.length; j++) p[j] = j;
+    for (i = 1; i <= a.length; i++) {
+      var c = [i];
+      for (j = 1; j <= b.length; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      p = c;
+    }
+    return p[b.length];
+  }
+  /* 🤏 비슷한 상호 — 끝의 흔한 말(수산·식품·마켓…)을 떼고 남은 «이름»이 3글자 이상일 때만 본다(바다수산↔바당수산 같은 흔한 건 안 묻게).
+     글자 순서만 바뀜(자은앤엔피↔자은엔앤피) 또는 한 글자 다름, 6글자 이상이면 두 글자 다름까지. 똑같으면 비슷이 아니라 중복이다. */
+  function nkName(s) { return String(s || '').replace(/주식회사|유한회사|농업회사법인|영농조합법인|\(주\)|㈜|\s+/g, '').toLowerCase(); }
+  function coreName(s) { return nkName(s).replace(/(농수산|수산물?|농산물?|식품|푸드|마켓|마트|상회|유통|스토어|몰|컴퍼니|상사|팜|f&b)$/, ''); }
+  function likeName(a, b) {
+    if (!a || !b || nkName(a) === nkName(b)) return false;
+    var x = coreName(a), y = coreName(b);
+    if (x.length < 3 || y.length < 3 || Math.abs(x.length - y.length) > 1) return false;
+    if (x.split('').sort().join('') === y.split('').sort().join('')) return true;
+    var d = lev(x, y);
+    return d <= 1 || (d === 2 && Math.max(x.length, y.length) >= 6);
+  }
   async function depList(st, ed) {
     var r = await fetch('/gw2/dep.php?a=list', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-GW2': '1' },
       body: JSON.stringify({ st: st + ' 00:00', ed: ed + ' 23:59', acct: '', name: '', ty: '0' }) });
@@ -130,7 +153,29 @@
           (d.affiliates || []).forEach(function (a) { if (same([a.company_name])) add('🚫 자회사 «' + a.company_name + '» ' + by + ' 일치'); });
           (d.problem_vendors || []).forEach(function (p) { if (same([p.company_name, p.channel_name])) add('⚠ 문제업체 «' + p.company_name + '»' + (p.problem ? ' ' + p.problem : '')); });
         }
-        return { name: r.name, why: why };
+        /* 🤏 비슷한 이름 (2026-11-20 홍팀장 «자은앤엔피 — 내 업체 자은엔앤피인데 못 거른다 / 짜치게 틀린 건 비슷한 데가 있는데 여기 맞냐고 확인해라»)
+           보드 검색은 글자가 그대로 들어 있어야 걸린다 → 상호 앞 두 글자·뒤 두 글자로 따로 찾아, 한두 글자만 다른 거래처를 «비슷»으로 돌려준다.
+           빼지는 않는다 — 도구가 하나씩 «여기 맞냐» 묻는다. 이미 중복으로 걸렸으면 안 찾는다. */
+        var near = [];
+        var me = nk(r.name);
+        var mc = coreName(r.name);
+        if (!why.length && mc.length >= 3) {
+          var nseen = {};
+          var qs = [mc.slice(0, 2), mc.slice(-2)];
+          for (var j = 0; j < qs.length; j++) {
+            var dd; try { dd = await api('/clients/search?q=' + encodeURIComponent(qs[j])); } catch (e) { continue; }
+            (dd.items || []).forEach(function (c) {
+              [c.client_name, c.channel_name, c.business_name, c.channel_alias].concat((c.extra_names || []).map(function (e) { return e.name; })).forEach(function (n) {
+                if (nseen[c.id]) return;
+                if (likeName(n, r.name)) {
+                  nseen[c.id] = 1;
+                  near.push({ id: c.id, client: c.client_name || c.channel_name, dist: c.external_distributor_name || '', hit: n });
+                }
+              });
+            });
+          }
+        }
+        return { name: r.name, why: why, near: near };
       }
       await Promise.all([0, 1, 2].map(async function () { while (i < rows.length) { var r = rows[i++]; out.push(await one(r)); badge('중복검색 ' + out.length + '/' + rows.length); } }));
       return out;
@@ -155,6 +200,22 @@
             same: names.concat(ex).some(function (n) { return n && nk(n) === nk(r.name); }) });
           if (m.by.indexOf(by) < 0) m.by.push(by);
         });
+      }
+      /* 🤏 비슷한 이름으로 확인해 뺀 곳(자은앤엔피 ↔ 자은엔앤피)도 후보를 찾게 — dup 과 같은 기준 (11-20) */
+      var me = nk(r.name);
+      var mc = coreName(r.name);
+      if (!Object.keys(map).length && mc.length >= 3) {
+        var qs = [mc.slice(0, 2), mc.slice(-2)];
+        for (var j = 0; j < qs.length; j++) {
+          var dd; try { dd = await api('/clients/search?q=' + encodeURIComponent(qs[j])); } catch (e) { continue; }
+          (dd.items || []).forEach(function (c) {
+            if (map[c.id]) return;
+            var ex = (c.extra_names || []).map(function (e) { return e.name; });
+            var hit = [c.client_name, c.channel_name, c.business_name, c.channel_alias].concat(ex).some(function (n) { return likeName(n, r.name); });
+            if (hit) map[c.id] = { id: c.id, client: c.client_name || c.channel_name, dist: c.external_distributor_name || '', by: ['비슷한 이름'], extras: ex,
+              same: ex.some(function (n) { return nk(n) === me; }) };
+          });
+        }
       }
       return Object.keys(map).map(function (k) { return map[k]; });
     },
