@@ -1088,6 +1088,7 @@ function touchSent(mail,name,date,keyword,chan){
     const prev=hit[4]||'', d=daysSince(prev);
     hit[4]=day;                                     // 마지막연락만 갱신
     if(!hit[0]&&name)hit[0]=name;                   // 업체명이 비어 있던 옛 행이면 채워준다
+    { const k=DATA.indexOf(hit); if(k>=0&&k<DATA.length-1){ DATA.splice(k,1); DATA.push(hit); } }   // 🆕 다시 보낸 줄은 맨 뒤로 = 히스토리 맨 위 (11-20)
     res={updated:true, prev, days:d, name:hit[0]||name||mail};
   }else{
     // HEADER: 업체명·연락방식·연락처·보낸날짜·마지막연락·상태·메모·검색키워드·담당
@@ -1316,7 +1317,9 @@ function render(){
   /* 📅 보낸날짜·마지막연락 머리글을 누르면 그 칸으로 정렬, 한 번 더 누르면 뒤집힌다 (홍팀장 2026-09-11).
      날짜 없는 줄은 어느 쪽이든 맨 아래. */
   const col=ALL_SORT.k==='sent'?3:4, dir=ALL_SORT.dir==='asc'?1:-1;
-  _view.sort((a,b)=>{ const x=a.r[col]||'', y=b.r[col]||''; if(!x&&!y) return 0; if(!x) return 1; if(!y) return -1; return x<y?-dir:(x>y?dir:0); });
+  /* 🆕 같은 날짜끼리는 나중에 보낸 게 위 (11-20 홍팀장 「최근 보낸 거 최상단에」) — 날짜만 있고 시각이 없어서 DATA 순서로 가른다.
+       보내면 그 줄이 DATA 맨 뒤로 간다(touchSent) → 맨 뒤 = 제일 최근. */
+  _view.sort((a,b)=>{ const x=a.r[col]||'', y=b.r[col]||''; if(!x&&!y) return b.i-a.i; if(!x) return 1; if(!y) return -1; return x<y?-dir:(x>y?dir:(dir<0?b.i-a.i:a.i-b.i)); });
   document.querySelectorAll('#all-table th.sortable').forEach(th=>{ const s=th.querySelector('.sarr'); if(s) s.textContent=(th.dataset.sort===ALL_SORT.k)?(ALL_SORT.dir==='asc'?'▲':'▼'):'↕'; });
   /* 📄 이 쪽에 그릴 것만 남긴다 — overdue(20일+) 집계는 아래에서 DATA 전체로 다시 세므로 영향 없다 */
   const _pages=Math.max(1,Math.ceil(_view.length/ALL_PAGE_SIZE));
