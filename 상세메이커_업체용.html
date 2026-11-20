@@ -28,6 +28,10 @@
 #dm .dm-th.off{opacity:.32}
 #dm .dm-th.hero{border-color:#C0392B}
 #dm .dm-th img{width:100%;height:100%;object-fit:cover}
+#dm .dm-th.pick{border-color:#e74c3c;box-shadow:0 0 0 3px #e74c3c;opacity:1}
+#dm-page .gimg,#dm-page .hero,#dm-page .gk-photo,#dm-page .go-photo{cursor:pointer}
+#dm-page .dm-picked{outline:5px solid #e74c3c;outline-offset:-5px}
+#dm-pickbar{display:none;margin:4px 0 6px;padding:6px 8px;border-radius:6px;background:#fdecea;color:#c0392b;font-size:12px;font-weight:700}
 #dm .dm-th .n{position:absolute;top:1px;left:2px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;font-weight:700;padding:0 4px;border-radius:6px}
 #dm .dm-th .tg{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:#fff;background:rgba(192,57,43,.85)}
 #dm .dm-right{flex:1;background:#d7d4ce;border-radius:10px;display:flex;justify-content:center;padding:18px}
@@ -262,7 +266,7 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
 </style>
 </head>
 <body>
-<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.14</span></div>
+<div class="nav"><span style="font-size:15px;font-weight:800;color:#1a1816;padding:6px 6px">🎨 상세 메이커</span><span style="flex:0 0 auto;align-self:center;padding:0 14px;font-size:11px;color:#27ae60;font-weight:700;white-space:nowrap">팀 공유용 · v1.15</span></div>
 <!-- ═══════════════ 탭: 상세 메이커 ═══════════════ -->
 <div id="tab-maker" class="tab active">
   <div class="title-bar">
@@ -294,6 +298,8 @@ body{background:#f5f4f0;color:#1a1816;font-family:'Apple SD Gothic Neo','Noto Sa
       <button class="dm-mb" style="border-color:#0d6efd;color:#0d6efd;margin-bottom:6px" onclick="document.getElementById('dm-file').click()">＋ 내 사진 추가 (당일·최근 사진)</button>
       <button class="dm-mb" style="border-color:#2C7A4B;color:#2C7A4B;margin-bottom:6px" onclick="DM.dedupCurrent()">🧹 비슷한 사진 자동 거르기</button>
       <input type="file" id="dm-file" accept="image/*" multiple style="display:none" onchange="DM.addFiles(this.files); this.value='';">
+      <div style="font-size:11px;color:#888;margin-bottom:4px">💡 오른쪽 상세에서 사진을 누르면 여기서 그 사진이 빨갛게 잡힙니다 → 바꿀 사진을 누르면 그 자리에 들어갑니다.</div>
+      <div id="dm-pickbar"></div>
       <div id="dm-thumbs" class="dm-thumbs"></div>
       <div style="font-size:11px;color:#aaa;margin-top:6px" id="dm-photohint"></div>
       <div class="dm-h3">④ 썸네일 추출 <span style="font-weight:400;color:#aaa;font-size:11px">(1000×1000 · 어디든 공용)</span></div>
@@ -406,7 +412,7 @@ const DM=(function(){
   ];
   // 🥩 강경준 고기 모드 고정 아웃트로 배너 (맨 아래)
   const GOGI_OUTRO='https://ecimg.cafe24img.com/pg490b98002499056/rhrl24tl/web/upload/NNEditor/20260609/014.jpg';
-  let MODE='master',DATA=null,PHOTOS=[],dragI=null,editing=false,NOTICE_ON=false,POSTER=false;
+  let MODE='master',DATA=null,PHOTOS=[],PICK=null,dragI=null,editing=false,NOTICE_ON=false,POSTER=false;
   try{ NOTICE_ON=(localStorage.getItem('dm_notice_on')==='1'); }catch(e){}
   const $=id=>document.getElementById(id);
   const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -618,6 +624,7 @@ const DM=(function(){
         [].forEach.call(now,function(e){ e.contentEditable=true; });   // 구조가 바뀐 드문 경우엔 편집모드만 다시 켬
       }
     }
+    markPick();
   }
   function togglePoster(){ if(!DATA){alert('먼저 생성하세요.');return;} if(editing)toggleEdit(); POSTER=!POSTER; const b=$('dm-posterb'); if(b)b.textContent=POSTER?'📜 긴 상세 보기':'🪧 한 장 요약 보기'; $('dm-page').innerHTML=''; render(); }
   function setProd(){ if(!DATA) return; const v=($('dm-prodname')?$('dm-prodname').value:'').trim(); DATA.title=v; if(DATA.notice&&DATA.notice[0]&&DATA.notice[0][0]==='제품명') DATA.notice[0][1]=v; const pf=$('dm-th-prefix'); if(pf) pf.value=v.replace(/\n/g,' ').slice(0,40); render(); }
@@ -648,7 +655,7 @@ const DM=(function(){
     if(typeof toast==='function') toast('비슷한 사진 '+off+'장 껐어요 (썸네일 클릭하면 다시 켜짐)');
   }
   function drawThumbs(){const _ons=PHOTOS.map((p,i)=>p.on?i:-1).filter(i=>i>=0),firstOn=(_ons.length>=3?_ons[2]:(_ons[0]==null?-1:_ons[0])),onC=_ons.length;
-    $('dm-thumbs').innerHTML=PHOTOS.map((p,i)=>{const up=p.url.startsWith('data:');const thumb=up?p.url:weserv(p.url)+'&w=160&h=120&fit=cover';return `<div class="dm-th ${p.on?'':'off'} ${i===firstOn?'hero':''}" draggable="true" onclick="DM.toggle(${i})" ondragstart="DM.drag(${i})" ondragover="event.preventDefault()" ondrop="DM.drop(${i})"><img src="${thumb}" referrerpolicy="no-referrer"><span class="n">${i+1}</span>${up?'<span style="position:absolute;top:1px;right:2px;background:rgba(13,110,253,.9);color:#fff;font-size:8px;font-weight:700;padding:0 3px;border-radius:5px">내</span>':''}${i===firstOn?'<span class="tg">히어로</span>':''}</div>`;}).join('');
+    $('dm-thumbs').innerHTML=PHOTOS.map((p,i)=>{const up=p.url.startsWith('data:');const thumb=up?p.url:weserv(p.url)+'&w=160&h=120&fit=cover';return `<div class="dm-th ${p.on?'':'off'} ${i===firstOn?'hero':''} ${i===PICK?'pick':''}" draggable="true" onclick="DM.toggle(${i})" ondragstart="DM.drag(${i})" ondragover="event.preventDefault()" ondrop="DM.drop(${i})"><img src="${thumb}" referrerpolicy="no-referrer"><span class="n">${i+1}</span>${up?'<span style="position:absolute;top:1px;right:2px;background:rgba(13,110,253,.9);color:#fff;font-size:8px;font-weight:700;padding:0 3px;border-radius:5px">내</span>':''}${i===firstOn?'<span class="tg">히어로</span>':''}</div>`;}).join('');
     $('dm-photohint').textContent=`선택 ${onC}장 / 전체 ${PHOTOS.length}장`;
   }
   function generate(){
@@ -665,15 +672,47 @@ const DM=(function(){
       imgs=[...new Set([...picked,...tail])];
     }
     const n=imgs.length;
-    const _onSet=new Set(); if(n<=18){imgs.forEach((u,i)=>_onSet.add(i));}else{for(let i=0;i<16;i++)_onSet.add(Math.round(i*(n-3)/15));_onSet.add(n-2);_onSet.add(n-1);} PHOTOS=imgs.map((u,i)=>({url:u, on:_onSet.has(i)}));   // 기본: 앞10 + 끝2(중량·포장)
+    const _onSet=new Set(); if(n<=18){imgs.forEach((u,i)=>_onSet.add(i));}else{for(let i=0;i<16;i++)_onSet.add(Math.round(i*(n-3)/15));_onSet.add(n-2);_onSet.add(n-1);} PHOTOS=imgs.map((u,i)=>({url:u, on:_onSet.has(i)})); PICK=null;   // 기본: 앞10 + 끝2(중량·포장)
     const _pn=$('dm-prodname'); if(_pn) _pn.value=DATA.title||'';
     const _pf=$('dm-th-prefix'); if(_pf) _pf.value=(DATA.title||'').replace(/\n/g,' ').slice(0,40);
     drawThumbs(); render(); renderNoticeEditor();
   }
   function setMode(m){MODE=m;document.querySelectorAll('#dm .dm-mb').forEach(b=>b.classList.toggle('on',b.dataset.m===m));const bi=$('dm-brand');if(bi)bi.placeholder=(m==='master'?'예: 주식회사 마스터':m==='gkj'?'예: 강경준 수산물':m==='gogi'?'예: 강경준 고기':m==='gsg'?'예: 강경준 수산물':m==='jh'?'예: 주식회사 마스터':'예: 새벽소리');render();}
-  function toggle(i){PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();}
+  /* 🖱 상세 사진 클릭 → 사진 선택에서 잡기 → 다른 사진 누르면 그 자리에 교체 (2026-11-20 홍팀장)
+       잡힌 칸(PICK)은 교체 뒤에도 그대로 둔다 — 여러 장 눌러 보며 고를 수 있게. 같은 사진·Esc 로 풀린다. */
+  function toggle(i){
+    if(PICK!=null){
+      if(i===PICK){ setPick(null); return; }
+      const a=PICK, oa=PHOTOS[a].on, ob=PHOTOS[i].on, t=PHOTOS[a];
+      PHOTOS[a]=PHOTOS[i]; PHOTOS[i]=t; PHOTOS[a].on=oa; PHOTOS[i].on=ob;
+      drawThumbs(); render(); return;
+    }
+    PHOTOS[i].on=!PHOTOS[i].on;drawThumbs();render();
+  }
+  function bgUrl(el){ const bg=el&&el.style?el.style.backgroundImage:''; const m=bg&&bg.match(/url\(["']?(.*?)["']?\)/); return m?m[1]:''; }
+  function markPick(){
+    const p=$('dm-page'); if(!p) return;
+    p.querySelectorAll('.dm-picked').forEach(e=>e.classList.remove('dm-picked'));
+    const bar=$('dm-pickbar');
+    if(PICK==null||!PHOTOS[PICK]){ if(bar) bar.style.display='none'; return; }
+    const u=PHOTOS[PICK].url;
+    p.querySelectorAll('.gimg,.hero,.gk-photo,.go-photo').forEach(e=>{ if(bgUrl(e)===u) e.classList.add('dm-picked'); });
+    if(bar){ bar.style.display='block'; bar.textContent='🔴 '+(PICK+1)+'번 사진 잡힘 — 바꿀 사진을 누르세요 (다시 누르거나 Esc = 풀기)'; }
+  }
+  function setPick(i){
+    PICK=i; drawThumbs(); markPick();
+    if(i!=null){ const th=$('dm-thumbs').children[i]; if(th&&th.scrollIntoView) th.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  }
+  function pagePick(e){
+    if(!PHOTOS.length) return;
+    const el=e.target.closest&&e.target.closest('.gimg,.hero,.gk-photo,.go-photo'); if(!el) return;
+    if(editing&&e.target!==el&&e.target.isContentEditable) return;   // 수정 중 글자 누른 건 무시
+    const u=bgUrl(el); if(!u) return;
+    const i=PHOTOS.findIndex(p=>p.url===u); if(i<0) return;
+    setPick(PICK===i?null:i);
+  }
   function drag(i){dragI=i;}
-  function drop(i){if(dragI==null||dragI===i)return;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
+  function drop(i){if(dragI==null||dragI===i)return;PICK=null;const[m]=PHOTOS.splice(dragI,1);PHOTOS.splice(i,0,m);dragI=null;drawThumbs();render();}
   const EDSEL='#dm-page :is(.ss-ed,h1,.sub,h2,.tag,.sec p,.spec td,.step .tx,.mat,.qa .q,.qa .a,.badge,.gk-head h1,.gk-hsub,.gk-bt,.gk-so,.gk-sv,.gk-body,.gk-step,.gk-bt2,.gk-q,.gk-a,.gk-bar,.gk-bar2,.go-head h1,.go-hsub,.go-bar,.go-sline,.go-rtitle,.go-gtitle,.go-body,.go-step,.go-q,.go-a,.dm-notice td.nv)';
   function toggleEdit(){editing=!editing;document.querySelectorAll(EDSEL).forEach(e=>e.contentEditable=editing);$('dm').classList.toggle('editing',editing);$('dm-edb').textContent=editing?'✅ 완료':'✏️ 수정';}
   function toggleNotice(){ NOTICE_ON=$('dm-notice-on')?$('dm-notice-on').checked:!NOTICE_ON; try{localStorage.setItem('dm_notice_on',NOTICE_ON?'1':'0');}catch(e){} render(); renderNoticeEditor(); }
@@ -681,6 +720,7 @@ const DM=(function(){
     mode=mode||'split'; // 'single'=한 장 / 'split'=분할(모바일 안전, 2026-07-08 사장님: 모드 2개로)
     if(!DATA){alert('먼저 생성하세요.');return;}
     if(editing)toggleEdit();
+    if(PICK!=null) setPick(null);   // 빨간 테두리가 JPG 에 찍히지 않게
     const clone=$('dm-page').cloneNode(true);
     clone.style.cssText='position:fixed;left:-9999px;top:0;width:860px';
     document.body.appendChild(clone);
@@ -744,6 +784,7 @@ const DM=(function(){
   function copyHtml(){
     if(!DATA){alert('먼저 생성하세요.');return;}
     if(editing)toggleEdit();
+    if(PICK!=null) setPick(null);
     const vars=(MODE==='master'||MODE==='jh')?'--red:#0E3A5F;--gold:#2BB3A3;--goldL:#7FD9CD;--cream:#EEF5F7;--dark:#06121C':'--red:#C0392B;--gold:#C9A84C;--goldL:#F0D080;--cream:#FDF6EC;--dark:#1A0A00';
     const dmStyle=document.getElementById('dm-style').textContent;
     const theme=dmStyle.split('/* 상세 테마')[1]||'';
@@ -793,6 +834,8 @@ const DM=(function(){
     });
   }
   { const _nc=$('dm-notice-on'); if(_nc) _nc.checked=NOTICE_ON; }
+  { const _pg=$('dm-page'); if(_pg) _pg.addEventListener('click',pagePick); }
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&PICK!=null) setPick(null); });
   return {togglePoster,generate,setMode,render,toggle,drag,drop,addFiles,toggleEdit,saveJpg,copyHtml,thExtract,thToggle,thDownloadOne,thDownloadAll,toggleNotice,renderNoticeEditor,noticeEdit,noticeAdd,noticeDel,noticeReset,setProd,dedupCurrent};
 })();
 </script>
