@@ -1080,7 +1080,7 @@ window.addEventListener('beforeunload',e=>{ if(MAILTO_GO) return; if(hideTimer||
       추가연락 대상 계산도 회신 추적도 다 어그러진다.
       · 보낸날짜(최초)는 그대로 둔다 — 언제부터 두드린 곳인지가 남아야 한다.
       · 상태(회신·보류 등)도 안 건드린다. 그건 사람이 판단해서 넣은 값이다. */
-function touchSent(mail,name,date,keyword){
+function touchSent(mail,name,date,keyword,chan){
   const day=date||todayKST();
   const hit=qFind(mail)[0];
   let res;
@@ -1091,7 +1091,7 @@ function touchSent(mail,name,date,keyword){
     res={updated:true, prev, days:d, name:hit[0]||name||mail};
   }else{
     // HEADER: 업체명·연락방식·연락처·보낸날짜·마지막연락·상태·메모·검색키워드·담당
-    DATA.push([name||'','이메일',mail,day,day,'진행중','',keyword||'',PERSON]);
+    DATA.push([name||'',chan||'이메일',mail,day,day,'진행중','',keyword||'',PERSON]);
     res={updated:false, name:name||mail};
   }
   render(); renderPros();       // 화면은 지금 바로 — DATA 는 이미 고쳐졌다
@@ -1728,8 +1728,10 @@ function onRender(){
   if(!SET_OK){ $('on-body').innerHTML='<tr><td colspan="9">불러오는 중…</td></tr>'; if(!ON_WAITSET)ON_WAITSET=setTimeout(()=>{ ON_WAITSET=null; onRender(); },400); return; }
   const M=ON_MALLS[ON_MALL], hid=onHideMap()[ON_MALL]||{};
   const nHid=(ON_ROWS||[]).filter(r=>hid[r[0]]).length;
-  const rows=(ON_ROWS||[]).filter(r=>(!ON_CT||r[2]||r[3])&&(ON_SHOWHID?hid[r[0]]:!hid[r[0]]));
-  $('on-cnt').textContent=rows.length+' / '+(ON_ROWS||[]).length;
+  // 📮 보낸 곳(발송 히스토리에 있음)은 목록에서 뺀다 — 히스토리 탭에서 본다 (11-20 홍팀장)
+  const nSent=(ON_ROWS||[]).filter(r=>!hid[r[0]]&&onSentOf(r)).length;
+  const rows=(ON_ROWS||[]).filter(r=>(!ON_CT||r[2]||r[3])&&(ON_SHOWHID?hid[r[0]]:(!hid[r[0]]&&!onSentOf(r))));
+  $('on-cnt').textContent=rows.length+' / '+(ON_ROWS||[]).length; $('on-cnt').title=nSent?('보낸 곳 '+nSent+'곳은 발송 히스토리로 빠짐'):'';
   const ub=$('on-unhide'); ub.style.display=nHid?'':'none'; ub.textContent=ON_SHOWHID?'← 목록으로':'🙈 뺀 곳 '+nHid+' 보기';
   const cell=(v,cp)=>v?'<div class="cell"><span title="'+esc(v)+'">'+esc(v)+'</span>'+(cp?'<button class="cp" title="복사" data-on="cp" data-v="'+esc(v)+'">📋</button>':'')+'</div>':'<span class="muted">-</span>';
   $('on-body').innerHTML=rows.map(r=>{ const i=ON_ROWS.indexOf(r); const why=hid[r[0]];
@@ -1800,6 +1802,9 @@ document.addEventListener('click',e=>{
   if(k==='kakao'){ const r=ON_ROWS[+b.getAttribute('data-i')]; if(!r)return;
     const no=mobileOf(r[2]); $('company-name').value=r[0]||''; $('q-mail').value=''; PING_MAIL='';
     setPingPhone(r[0],r[2]); if(typeof stampSlots==='function')stampSlots();
+    /* 📮 카톡 버튼 = 보낸 곳 (11-20 홍팀장 「카톡 보낸 업체로 해서 히스토리로 빠져야지」) — 발송 히스토리에 «카톡/전화»로 기록,
+         몰 목록에선 보낸 곳이 빠진다(onRender). */
+    touchSent(no,r[0],todayKST(),ON_MALLS[ON_MALL].mall,'카톡전화'); onRender();
     showSec('compose'); const fk=$('form-kakao'); fk.style.display=''; setTimeout(()=>fk.scrollIntoView({behavior:'smooth',block:'center'}),50);
     (navigator.clipboard?navigator.clipboard.writeText(no):Promise.reject()).then(()=>toast('📱 '+r[0]+' '+no+' 복사됨 — 카톡 친구 추가 후 아래 카톡 문구 복사'),()=>toast('📱 '+r[0]+' '+no)); }
   if(k==='mail'){ const r=ON_ROWS[+b.getAttribute('data-i')]; if(!r)return;
