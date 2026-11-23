@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.270</title>
+<title>마스터 유통 카탈로그 v23.271</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3888,8 +3888,11 @@ const LOWM_MAX=8;
 function lowmVisible(rows){
   const on=new Set((typeof ALL!=='undefined'?ALL:[]).filter(p=>!p.exc).map(p=>pkey(p.name)));
   // 🙈 역마진 보류 당일(hold)은 업체 화면엔 없지만 풀어 줘야 하니 남긴다 (10-16)
-  return rows.filter(r=>r.hold||(on.has(pkey(r.n))&&!(typeof isZeroQ==='function'&&isZeroQ(r.n))));
+  /* 🚫 재고 없음도 빼지 않는다 — 딱지만 (2026-11-23 홍팀장 「새로고침하면 새조개 역마진 나오는데 왜 누르면 없냐」:
+     띠는 재고 정보 오기 전에 떠서 걸리고, 목록은 재고 0 이라 숨겨서 둘이 달랐다. 카드는 «재고 없음»으로 떠 있고 값도 그대로다) */
+  return rows.filter(r=>r.hold||on.has(pkey(r.n))).map(lowmTag);
 }
+function lowmTag(r){ return (!r.st&&typeof isZeroQ==='function'&&isZeroQ(r.n))?Object.assign({},r,{st:'🚫 재고 없음'}):r; }
 async function loadLowm(){
   const j=await api('lowmargin',{token:ME.token,max:LOWM_MAX,all:1});   // 📋 all:1 = 전체 상품 마진(allRows)도 같이 (11-17)
   window.LOWM_DATA_AT=(j.at||0)+'|'+(j.dayAt||0);   // 🔄 2분 폴링이 새 자료를 보면 마진 화면을 다시 그린다 (11-23)
@@ -3903,7 +3906,7 @@ async function loadLowm(){
   { const lowSet=new Set(j.rows.map(r=>pkey(r.n)));
     /* 💸 재고 없음·판매 완료·화면에 없는 상품도 전체 마진엔 다 싣는다 (2026-11-23 홍팀장 「마진표엔 나오게 하라고」) — 상태만 딱지로 */
     const vis=new Set(lowmVisible(j.allRows||[]).map(r=>pkey(r.n)));
-    const rest=(j.allRows||[]).filter(r=>!lowSet.has(pkey(r.n))).map(r=>vis.has(pkey(r.n))?r:Object.assign({},r,{st:(typeof isZeroQ==='function'&&isZeroQ(r.n))?'🚫 재고 없음':String(r.k||'').startsWith('당일(')?'🌇 오늘 판매 없음':'🙈 화면에 없음'})).sort((a,b)=>a.rate-b.rate);
+    const rest=(j.allRows||[]).filter(r=>!lowSet.has(pkey(r.n))).map(r=>vis.has(pkey(r.n))?lowmTag(r):Object.assign({},r,{st:(typeof isZeroQ==='function'&&isZeroQ(r.n))?'🚫 재고 없음':String(r.k||'').startsWith('당일(')?'🌇 오늘 판매 없음':'🙈 화면에 없음'})).sort((a,b)=>a.rate-b.rate);
     j.every=j.rows.map(r=>Object.assign({},r,{low:1})).concat(rest); }
   /* 🏷 특별단가 목록이 원가로 역마진을 가르게 (spc.js isLoss) — 원가는 마스터 화면에만 있다 */
   { const m={},s={},v={}; (j.allRows||[]).concat(j.rows||[]).forEach(r=>{ const k=String(r.n).replace(/\s+/g,'').toLowerCase(); if(+r.cost>0)m[k]=+r.cost; if(+r.ship>0)s[k]=+r.ship; v[k]={sell:+r.sell||0,day:r.k==='당일',wh:r.wh||''}; }); window.LOWM_COSTMAP=m; window.LOWM_SHIPMAP=s; window.LOWM_SELLMAP=v; if((j.allRows||[]).length)window.LOWM_ALL=j.allRows.concat(j.rows||[]); }
