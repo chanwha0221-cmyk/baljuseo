@@ -420,7 +420,12 @@ const BONE_SET   = new Set(BONE_ITEMS.map(x => String(x).replace(/\s+/g, '').toL
    대상 = 마스터가 카탈로그 카드 [✂️ 소분 상품]으로 지정한 상품(app_config SOBUN → window.SOBUN_LIST).
    ⚠️ 안 눌러도 발주는 된다(경고만). 업체가 「소분」「(소분 요청)」처럼 적어 와도 같은 뜻으로 받는다.
    🔴 순서는 언제나 「이름 (뼈,머리 포함) (소분 요청 드립니다)」 — 소분 괄호가 맨 끝이다. */
-const SOBUN_TAG  = '소분 요청 드립니다';
+/* 🔁 (2026-11-23 홍팀장) 표기를 「(소분 요청)」으로 — 「활 홍가리비 1kg x 3 (소분 요청)」. 옛 「(소분 요청 드립니다)」도 계속 읽는다.
+   · 경고 = «소분 요청 안 하시면 대봉으로 나갑니다», [소분 안 함]을 누르면 확인창으로 한 번 더 대봉 경고.
+   · 소분은 총 8kg 까지만 — 9kg·10kg(상품 무게 × 수량)이면 «소분 불가», 소분 요청은 빼고 대봉으로 나간다(10kg 은 대봉이라야 나감). */
+const SOBUN_TAG  = '소분 요청';
+const SOBUN_MAX_KG = 8;
+const SOBUN_OUT_RE = /\s*[\(（]\s*소분\s*요청(?:\s*드립니다)?\s*[\)）]\s*$/;   // 글자로 나간 꼬리(옛·새 표기 둘 다)
 const SOBUN_RE   = /\s*[\(（\[]?\s*소분\s*(?:요청)?\s*(?:드립니다|부탁\s*(?:드립니다|해요|합니다)?|해\s*주세요|요망|필요)?\s*[\)）\]]?\s*$/;
 const stripSobun = nm => S(nm).replace(SOBUN_RE, '').trim();
 const hasSobun   = nm => SOBUN_RE.test(S(nm));
@@ -435,6 +440,9 @@ const stripBone  = nm => stripSobun(nm).replace(BONE_RE, '').trim();          //
 const hasBone    = nm => BONE_RE.test(stripSobun(nm));
 const canBone    = nm => BONE_SET.has(String(stripAge(stripBone(nm))).replace(/\s+/g, '').toLowerCase());
 const needSobun  = nm => sobunSet().has(String(stripAge(stripBone(nm))).replace(/\s+/g, '').toLowerCase());
+// ✂️ 총 무게(kg) = 상품 이름 무게 × 수량. 이름에 무게가 없으면 0(한도 안 따짐)
+const sobunKg    = (pn, qty) => { const w = kgOf(pn), q = parseInt(String(qty == null ? '' : qty).replace(/[^0-9]/g, ''), 10) || 1; return w > 0 ? Math.round(w * q * 100) / 100 : 0; };
+const sobunOk    = (pn, qty) => sobunKg(pn, qty) <= SOBUN_MAX_KG;
 const withBone   = (nm, on) => withSobun(on ? (stripBone(nm) + ' (' + BONE_TAG + ')') : stripBone(nm), hasSobun(nm));
 /* 🦴 발주서 표기는 「특왕 민물장어 1kg x 1 (뼈,머리 포함)」 — 수량 **뒤**에 붙인다 (홍팀장 2026-09-15).
    예전엔 「… 1kg (뼈,머리 포함) x 1」로 나갔다. 화면 안에서는 이름에 붙여 들고 다니고, 글자로 내보낼 때만 뒤로 뺀다.
@@ -444,8 +452,8 @@ const itemText   = (nm, qty) => (hasBone(nm) || hasSobun(nm))
   : (S(nm) + ' x ' + qty);
 /* 글자 → 화면: 수량 뒤 괄호(뼈·머리, 소분)를 이름 쪽으로 되돌린다. 수정·중복검사가 이걸로 읽는다. */
 const boneBack   = s => {
-  let t = S(s); const so = /\s*[\(（]\s*소분\s*요청\s*드립니다\s*[\)）]\s*$/.test(t);
-  if(so) t = t.replace(/\s*[\(（]\s*소분\s*요청\s*드립니다\s*[\)）]\s*$/, '');
+  let t = S(s); const so = SOBUN_OUT_RE.test(t);
+  if(so) t = t.replace(SOBUN_OUT_RE, '');
   t = t.replace(/\s*[xX×]\s*(\d+)\s*[\(（]\s*뼈\s*,\s*머리\s*포함\s*[\)）]\s*$/, ' (' + BONE_TAG + ') x $1');
   return so ? t.replace(/\s*[xX×]\s*(\d+)\s*$/, ' (' + SOBUN_TAG + ') x $1') : t;
 };
@@ -714,8 +722,15 @@ function checkRow(r){
   if(p && hasBone(r.name) && !canBone(p.name))
     warns.push('🦴 「뼈·머리 포함」은 민장 민물장어(갓성비·통실·특왕 1kg, 프리미엄 2kg, 민물장어 1kg)만 됩니다 — 이 상품은 빼고 넣습니다.');
   /* ✂️ 소분 상품인데 소분 요청이 없으면 경고 — 막지는 않는다. 소분 상품이 아닌데 적어 왔으면 빠진다는 걸 말한다. */
-  if(p && needSobun(p.name) && !hasSobun(r.name))
-    warns.push('✂️ 소분 필요한 상품입니다 — 발주에 소분 요청을 표기하셔야 소분됩니다. 아래 [✂️ 소분 요청]을 눌러주세요.');
+  if(p && needSobun(p.name)){
+    const kg = sobunKg(p.name, r.qty);
+    if(kg > SOBUN_MAX_KG)
+      warns.push('✂️ 소분 불가 — 총 ' + kg + 'kg 입니다. 소분은 ' + SOBUN_MAX_KG + 'kg 까지만 되고, 그 이상은 대봉으로 나갑니다.');
+    else if(r._noSobun && !hasSobun(r.name))
+      warns.push('⚠️ 소분 안 함 — 대봉으로 나갑니다.');
+    else if(!hasSobun(r.name))
+      warns.push('✂️ 소분 요청 안 하시면 대봉으로 나갑니다 — 소분이 필요하면 아래 [✂️ 소분 요청]을 눌러주세요.');
+  }
   if(p && hasSobun(r.name) && !needSobun(p.name))
     warns.push('✂️ 이 상품은 소분 대상이 아니라 「소분 요청」은 빼고 넣습니다.');
   // 🐟 카탈로그에서 내린 상품을 받아주는 경우 — 무엇을 감안하는 것인지 그 자리에서 알린다
@@ -802,8 +817,8 @@ function buildOut(){
     /* 🐟 발주서에 나가는 이름 = 카탈로그 정식 이름 + 고른 삭힘정도.
        합포장 한도·합포장 불가 판정은 괄호 없는 정식 이름(base)으로 봐야 한다 — 괄호가 붙으면 못 찾는다. */
     // 🦴 민장 민물장어는 (뼈,머리 포함)을 골랐으면 그 괄호도 달고 나간다 — 합포장·한도는 여전히 정식 이름(base)으로
-    // ✂️ 소분 상품은 (소분 요청 드립니다)를 눌렀으면 그 괄호도 — 소분 상품이 아니면 뗀다(checkRow 가 알린다)
-    g.items.push({name:withSobun(withBone(withAge(c.p.name, needAge(c.p.name) ? ageOf(r.name) : ''), canBone(c.p.name) && hasBone(r.name)), needSobun(c.p.name) && hasSobun(r.name)), base:c.p.name, qty:c.qty, lim:hapLimit(c.p.name), free:isFreeShip(c.p)});
+    // ✂️ 소분 상품은 (소분 요청)을 눌렀으면 그 괄호도 — 소분 상품이 아니면 뗀다(checkRow 가 알린다), 총 8kg 넘으면 빼고 대봉(11-23)
+    g.items.push({name:withSobun(withBone(withAge(c.p.name, needAge(c.p.name) ? ageOf(r.name) : ''), canBone(c.p.name) && hasBone(r.name)), needSobun(c.p.name) && hasSobun(r.name) && sobunOk(c.p.name, c.qty)), base:c.p.name, qty:c.qty, lim:hapLimit(c.p.name), free:isFreeShip(c.p)});
     if(S(r.msg) && !g.msg) g.msg = S(r.msg);
     else if(S(r.msg) && g.msg && g.msg !== S(r.msg)) notes.push((i+1) + '번 행: 같은 배송지에 배송메시지가 둘이라 첫 번째 것만 넣었습니다.');
   });
@@ -1613,11 +1628,11 @@ function rowHtml(r, i){
         + '</div>';
     }
     /* ✂️ 소분 요청 — 누르면 상품명 뒤에 「(소분 요청 드립니다)」가 붙어 발주서에 「… x 1 (소분 요청 드립니다)」로 나간다 */
-    if(askSobun){
-      const on = hasSobun(r.name);
+    if(askSobun && sobunOk(c.p.name, r.qty)){   // 8kg 넘으면 버튼 없음(소분 불가 경고만)
+      const on = hasSobun(r.name), off = !on && !!r._noSobun;
       h += '<div class="ordcand">'
         + '<button class="ordb2' + (on ? ' pri' : '') + '" data-sobun="1" data-i="' + i + '" style="margin:3px 5px 0 0">✂️ 소분 요청' + (on ? ' ✓' : '') + '</button>'
-        + (on ? '<button class="ordb2" data-sobun="0" data-i="' + i + '" style="margin:3px 5px 0 0">소분 안 함</button>' : '')
+        + '<button class="ordb2' + (off ? ' pri' : '') + '" data-sobun="0" data-i="' + i + '" style="margin:3px 5px 0 0">소분 안 함 (대봉)' + (off ? ' ✓' : '') + '</button>'
         + '</div>';
     }
     if(!c.p && S(r.name)){
@@ -4042,7 +4057,11 @@ document.addEventListener('click', e => {
   if(sb){
     const i = +sb.getAttribute('data-i');
     if(ROWS[i]){
-      ROWS[i].name = withSobun(S(ROWS[i].name), sb.getAttribute('data-sobun') === '1');
+      const want = sb.getAttribute('data-sobun') === '1';
+      /* ⚠️ 소분 안 함 = 대봉 — 꼭 한 번 더 경고 (2026-11-23 홍팀장) */
+      if(!want && !confirm('⚠️ 소분 요청 없이 넣으면 대봉으로 나갑니다.\n\n소분 안 함(대봉)으로 할까요?')) return;
+      ROWS[i].name = withSobun(S(ROWS[i].name), want);
+      ROWS[i]._noSobun = want ? 0 : 1;
       saveDraft(); paint();
     }
     return;
@@ -4276,7 +4295,7 @@ document.addEventListener('click', e => {
       const prod = qs.length ? qs.map(q => itemText(q.getAttribute('data-name'), S(q.value))).join(' / ') : undefined;
       return {seq, prod, rcv:g('rcv'), addr:g('addr'), tel:(fmtTel(g('tel')) || S(g('tel'))), msg:g('msg')};
     });
-    const badQ = edits.find(x => x.prod !== undefined && !/^(.+ x [1-9]\d*( \(뼈,머리 포함\))?( \(소분 요청 드립니다\))?)( \/ .+ x [1-9]\d*( \(뼈,머리 포함\))?( \(소분 요청 드립니다\))?)*$/.test(x.prod));
+    const badQ = edits.find(x => x.prod !== undefined && !/^(.+ x [1-9]\d*( \(뼈,머리 포함\))?( \(소분 요청( 드립니다)?\))?)( \/ .+ x [1-9]\d*( \(뼈,머리 포함\))?( \(소분 요청( 드립니다)?\))?)*$/.test(x.prod));
     if(badQ){ alert('수량은 1 이상 숫자로 넣어주세요.'); return; }
     const bad = edits.find(x => !x.rcv || !x.addr || !x.tel);
     if(bad){ alert('성함 · 주소 · 연락처는 비울 수 없습니다.'); return; }
