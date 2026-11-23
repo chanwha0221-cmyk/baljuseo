@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.272</title>
+<title>마스터 유통 카탈로그 v23.273</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3906,7 +3906,7 @@ async function loadLowm(){
   { const lowSet=new Set(j.rows.map(r=>pkey(r.n)));
     /* 💸 재고 없음·판매 완료·화면에 없는 상품도 전체 마진엔 다 싣는다 (2026-11-23 홍팀장 「마진표엔 나오게 하라고」) — 상태만 딱지로 */
     const vis=new Set(lowmVisible(j.allRows||[]).map(r=>pkey(r.n)));
-    const rest=(j.allRows||[]).filter(r=>!lowSet.has(pkey(r.n))).map(r=>vis.has(pkey(r.n))?lowmTag(r):Object.assign({},r,{st:(typeof isZeroQ==='function'&&isZeroQ(r.n))?'🚫 재고 없음':String(r.k||'').startsWith('당일(')?'🌇 오늘 판매 없음':'🙈 화면에 없음'})).sort((a,b)=>a.rate-b.rate);
+    const rest=(j.allRows||[]).filter(r=>!lowSet.has(pkey(r.n))).map(r=>r.k==='지난 기록'?Object.assign({},r,{st:'📜 지난 기록'+(r.day?' · '+(/^\d{8}$/.test(r.day)?(+r.day.slice(4,6))+'/'+(+r.day.slice(6)):r.day):'')+(r.src==='sales'?' (판매 기준)':'')}):vis.has(pkey(r.n))?lowmTag(r):Object.assign({},r,{st:(typeof isZeroQ==='function'&&isZeroQ(r.n))?'🚫 재고 없음':String(r.k||'').startsWith('당일(')?'🌇 오늘 판매 없음':'🙈 화면에 없음'})).sort((a,b)=>a.rate-b.rate);
     j.every=j.rows.map(r=>Object.assign({},r,{low:1})).concat(rest); }
   /* 🏷 특별단가 목록이 원가로 역마진을 가르게 (spc.js isLoss) — 원가는 마스터 화면에만 있다 */
   { const m={},s={},v={}; (j.allRows||[]).concat(j.rows||[]).forEach(r=>{ const k=String(r.n).replace(/\s+/g,'').toLowerCase(); if(+r.cost>0)m[k]=+r.cost; if(+r.ship>0)s[k]=+r.ship; v[k]={sell:+r.sell||0,day:r.k==='당일',wh:r.wh||''}; }); window.LOWM_COSTMAP=m; window.LOWM_SHIPMAP=s; window.LOWM_SELLMAP=v; if((j.allRows||[]).length)window.LOWM_ALL=j.allRows.concat(j.rows||[]); }
@@ -4157,7 +4157,7 @@ function renderLowm(j,lossOnly){
     +'</tr></thead><tbody>'
     +rows.map(r=>'<tr'+(r.low&&!lossOnly&&!highOnly?' style="background:#fff7ed"':'')+' data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'"'+(lossOnly?' data-lowmack="1"':'')+'>'
       +'<td style="'+td+';text-align:left;font-size:12px;color:'+(r.urgent?'#b91c1c;font-weight:700':'var(--muted)')+'">'+hm(r.at)+'</td>'
-      +'<td style="'+td+';text-align:left">'+(String(r.k||'').startsWith('당일')?'🐟 당일':'상시')+(r.st?'<br><span style="font-size:11px;color:var(--muted)">'+r.st+'</span>':'')+'</td>'
+      +'<td style="'+td+';text-align:left">'+(String(r.k||'').startsWith('당일')?'🐟 당일':r.k==='지난 기록'?'📜':'상시')+(r.st?'<br><span style="font-size:11px;color:var(--muted)">'+r.st+'</span>':'')+'</td>'
       +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
       +'<td style="'+td+';text-align:left;white-space:normal">'+esc(r.n)+' <button class="cpbtn" data-cp="'+esc(r.n)+'" title="상품명 복사">📋</button>'
         +lowmWhy(r,won,j.urgentMax)+'</td>'
