@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.273</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.274</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -3913,7 +3913,7 @@ async function loadLowm(){
   { const lowSet=new Set(j.rows.map(r=>pkey(r.n)));
     /* 💸 재고 없음·판매 완료·화면에 없는 상품도 전체 마진엔 다 싣는다 (2026-11-23 홍팀장 「마진표엔 나오게 하라고」) — 상태만 딱지로 */
     const vis=new Set(lowmVisible(j.allRows||[]).map(r=>pkey(r.n)));
-    const rest=(j.allRows||[]).filter(r=>!lowSet.has(pkey(r.n))).map(r=>r.k==='지난 기록'?Object.assign({},r,{st:'📜 지난 기록'+(r.day?' · '+(/^\d{8}$/.test(r.day)?(+r.day.slice(4,6))+'/'+(+r.day.slice(6)):r.day):'')+(r.src==='sales'?' (판매 기준)':'')}):vis.has(pkey(r.n))?lowmTag(r):Object.assign({},r,{st:(typeof isZeroQ==='function'&&isZeroQ(r.n))?'🚫 재고 없음':String(r.k||'').startsWith('당일(')?'🌇 오늘 판매 없음':'🙈 화면에 없음'})).sort((a,b)=>a.rate-b.rate);
+    const rest=(j.allRows||[]).filter(r=>!lowSet.has(pkey(r.n))).map(r=>r.k==='지난 기록'?Object.assign({},r,{st:'📜 지난 기록'+(r.day?' · '+(/^\d{8}$/.test(r.day)?(+r.day.slice(4,6))+'/'+(+r.day.slice(6)):r.day):'')+(r.src==='sales'?' · '+(+r.sq||0)+'개 판매 · 원가 기록 없음':r.src==='manual'?' · ✋ 원가 직접 입력':'')}):vis.has(pkey(r.n))?lowmTag(r):Object.assign({},r,{st:(typeof isZeroQ==='function'&&isZeroQ(r.n))?'🚫 재고 없음':String(r.k||'').startsWith('당일(')?'🌇 오늘 판매 없음':'🙈 화면에 없음'})).sort((a,b)=>(a.rate==null?1e9:a.rate)-(b.rate==null?1e9:b.rate));
     j.every=j.rows.map(r=>Object.assign({},r,{low:1})).concat(rest); }
   /* 🏷 특별단가 목록이 원가로 역마진을 가르게 (spc.js isLoss) — 원가는 마스터 화면에만 있다 */
   { const m={},s={},v={}; (j.allRows||[]).concat(j.rows||[]).forEach(r=>{ const k=String(r.n).replace(/\s+/g,'').toLowerCase(); if(+r.cost>0)m[k]=+r.cost; if(+r.ship>0)s[k]=+r.ship; v[k]={sell:+r.sell||0,day:r.k==='당일',wh:r.wh||''}; }); window.LOWM_COSTMAP=m; window.LOWM_SHIPMAP=s; window.LOWM_SELLMAP=v; if((j.allRows||[]).length)window.LOWM_ALL=j.allRows.concat(j.rows||[]); }
@@ -4168,12 +4168,12 @@ function renderLowm(j,lossOnly){
       +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
       +'<td style="'+td+';text-align:left;white-space:normal">'+esc(r.n)+' <button class="cpbtn" data-cp="'+esc(r.n)+'" title="상품명 복사">📋</button>'
         +lowmWhy(r,won,j.urgentMax)+'</td>'
-      +'<td style="'+td+'">'+won(r.sell)+'</td>'
+      +'<td style="'+td+'">'+(+r.sell>0?won(r.sell):'-')+'</td>'
       +(lossOnly?'<td style="'+td+';color:#b91c1c;font-weight:700">'+won(r.base)+'</td>':'')
       +'<td style="'+td+'">'+inCell(r)+(lossOnly&&r.k==='당일'&&r.hold?'<br><span style="font-size:11.5px;color:#b91c1c;font-weight:700">🙈 업체 화면 숨김</span> <button class="ubtn" style="font-size:11.5px;margin-top:3px" onclick="dayOk(this,'+esc(JSON.stringify(r.n))+')">✅ 이 가격으로 노출</button>':'')+'</td>'
-      +'<td style="'+td+'">'+won(r.cost)+'</td><td style="'+td+'">'+won(r.ship)+'</td>'
-      +'<td class="lowm-mg" style="'+td+(r.margin<0?';color:#b91c1c;font-weight:700':'')+'">'+won(r.margin)+'</td>'
-      +'<td class="lowm-rt" style="'+td+';font-weight:800;color:'+(r.rate<0?'#b91c1c':r.high?'#1d4ed8':'#b45309')+'">'+r.rate+'%</td>'
+      +'<td style="'+td+'">'+(+r.cost>0?won(r.cost):'-')+'</td><td style="'+td+'">'+(r.src==='sales'?'-':won(r.ship))+'</td>'
+      +'<td class="lowm-mg" style="'+td+(r.margin<0||+r.smg<0?';color:#b91c1c;font-weight:700':'')+'">'+(r.src==='sales'?won(r.smg)+'<br><span style="font-size:11px;color:var(--muted)">그날 마진 합계</span>':r.margin==null?'-':won(r.margin))+'</td>'
+      +'<td class="lowm-rt" style="'+td+';font-weight:800;color:'+(r.rate<0?'#b91c1c':r.high?'#1d4ed8':'#b45309')+'">'+(r.rate==null?'-':r.rate+'%')+'</td>'
       +'<td style="'+td+'">'+((r.low||lossOnly||highOnly)?okBtn(r):'')
         +' <button class="ubtn" style="font-size:11.5px;color:#15803d;border-color:#15803d" title="이 상품에 특별단가 걸기(전체·업체별·기간)" onclick="SPC.form('+esc(JSON.stringify(r.n))+','+esc(JSON.stringify(r.wh||''))+')">🏷</button></td>'
       +'</tr>').join('')
