@@ -135,7 +135,11 @@
     var b = (Sp.rows || []).map(function (r) { return [r.id, r.price, r.active, r.upd_dt, r.per || ''].join('|'); }).join(';');   // per = 기간 시작·끝 날에도 바로 보내게
     // 🐟 아직 등록 안 한 당일(잔여 있음)도 지문에 넣는다 — 새 당일이 풀리면 30분 기다리지 않고 바로 등록·보내기
     var c = (Q.cands || []).filter(function (r) { return r.k === 'day' && (r.reg || r.remain > 0); })
-      .map(function (r) { return r.reg ? [r.n, r.reg.price, r.reg.on, r.base].join('|') : [r.n, 'new', r.sug, r.base].join('|'); }).join(';');
+      .map(function (r) { return r.reg ? [r.n, r.reg.price, r.reg.on, r.base].join('|') : [r.n, 'new', r.sug, r.base].join('|'); }).join(';')
+      /* 📦 당일 수량이 잡히거나(총수량) 다 나가면(잔여 0) 바로 보낸다 (2026-11-23 홍팀장 「생대구 6kg 재고 올라오면 마진도 바로 올라오게」)
+         — 등록 꺼진 당일은 위 지문에 안 걸려 30분을 기다렸다. 잔여 숫자 자체는 넣지 않는다(팔릴 때마다 보내게 됨). */
+      + '#' + (Q.cands || []).filter(function (r) { return r.k === 'day'; })
+        .map(function (r) { return [r.n, +r.total || 0, (+r.remain > 0 ? 1 : 0)].join('|'); }).join(';');
     // 💰 공급가·판매가가 바뀌어도 다시 보낸다 — 고정가 역마진을 저마진 화면에서도 바로 보게
     var d = (C && C.ok ? (C.rows || []) : []).map(function (r) { return [r.n, r.sell, r.base, r.rk_supply].join('|'); }).join(';');
     lossCheck(C, Q);
