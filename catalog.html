@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.274</title>
+<title>마스터 유통 카탈로그 v23.275</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -2637,7 +2637,7 @@ const DELTAB={news:'소식글',notice:'공지사항',rec:'추천상품'};
 const DELWHAT={news:'소식글',notice:'공지',rec:'추천상품'};
 function delBtn(kind,n,cls,label){
   if(!(ME&&ME.master))return '';
-  return '<button class="'+(cls||'delb')+'" data-del="'+kind+':'+(n.i+2)+'" data-dt="'+esc(n.title||n.name||'')
+  return '<button class="'+(cls||'delb')+'" data-del="'+kind+':'+(n.i+2)+'" data-dt="'+esc(n.raw||n.title||n.name||'')
     +'" title="이 '+(DELWHAT[kind]||'글')+'을 화면에서 내립니다">'+(label||'🗑')+'</button>';
 }
 /* 🗄 2026-09-14 — 이 탭들의 원본은 Supabase다. 서버가 마스터 토큰을 확인하고,
@@ -2711,10 +2711,13 @@ function ntcEditOpen(row){
     +'<p class="hint">저장하면 업체 화면에 바로 반영됩니다. 작성일('+esc(n.at||'-')+')은 그대로 둡니다.</p>'
     +'<input class="t" id="ntcEdT" type="text" placeholder="공지 제목" value="'+esc(ntcPopStrip(n.title))+'">'
     +'<textarea id="ntcEdB" rows="9" placeholder="공지 내용 — 줄바꿈 그대로 보입니다">'+esc(n.body||'')+'</textarea>'
-    +'<div><label class="impl"><input type="checkbox" id="ntcEdI"'+(n.imp?' checked':'')+'> 중요 공지 (맨 위로 · 빨간 줄 표시)</label></div>'
+    +'<div><label class="impl"><input type="checkbox" id="ntcEdI"'+((n.impR!=null?n.impR:n.imp)?' checked':'')+'> 중요 공지 (맨 위로 · 빨간 줄 표시)</label></div>'
     /* 📌 는 손으로 치는 게 아니라 여기서 켠다 (홍팀장 2026-09-16 "이모티콘을 소환할 수도 없고 버튼으로 만들어줘")
        제목 앞의 📌 한 글자가 팝업 스위치라, 체크하면 붙이고 풀면 뗀다. */
-    +'<div><label class="impl"><input type="checkbox" id="ntcEdP"'+(ntcPopOn(n)?' checked':'')+'> 📌 팝업으로 띄우기 (들어오는 즉시 창으로 보여줍니다)</label></div>'
+    +'<div><label class="impl"><input type="checkbox" id="ntcEdP"'+(NTC_POP_RE.test(n.title||'')?' checked':'')+'> 📌 팝업으로 띄우기 (들어오는 즉시 창으로 보여줍니다)</label></div>'
+    +'<div class="impl" style="margin-top:6px">⏰ 팝업·중요 노출 마감 <input type="date" id="ntcEdTo" value="'+esc(n.to||'')+'" style="font:inherit;padding:2px 4px"> '
+      +'<button type="button" data-ntcto="0" style="font-size:12px">오늘까지</button> <button type="button" data-ntcto="1" style="font-size:12px">내일까지</button> <button type="button" data-ntcto="" style="font-size:12px">계속</button>'
+      +'<br><span style="font-size:11.5px;color:var(--muted)">그날이 지나면 팝업이 안 뜨고 중요 표시도 풀립니다 — 공지는 게시판에 남습니다'+(ntcPerOver(n.to)?' · <b style="color:#b91c1c">지금 기간 지남</b>':'')+'</span></div>'
     +'<div class="btns"><button class="x" id="ntcEdX">취소</button><button id="ntcEdS">💾 저장</button></div>'
     +'<div class="msg" id="ntcEdMsg"></div>'
     +'</div>';
@@ -2722,6 +2725,7 @@ function ntcEditOpen(row){
   d.addEventListener('click',e=>{ if(e.target===d)ntcEditClose(); });   // 바깥을 누르면 닫는다
   $('ntcEdX').onclick=ntcEditClose;
   $('ntcEdS').onclick=ntcEditSave;
+  d.querySelectorAll('[data-ntcto]').forEach(b=>{ b.onclick=()=>{ const v=b.getAttribute('data-ntcto'); $('ntcEdTo').value=v===''?'':ntcDayPlus(+v); }; });
   const t=$('ntcEdT'); t.focus(); t.setSelectionRange(t.value.length,t.value.length);
 }
 async function ntcEditSave(){
@@ -2730,14 +2734,15 @@ async function ntcEditSave(){
   const msg=$('ntcEdMsg'), b=$('ntcEdS');
   const body=$('ntcEdB').value, imp=$('ntcEdI').checked, pop=$('ntcEdP').checked;
   /* 📌 는 제목 맨 앞의 한 글자다 — 체크에 맞춰 붙이거나 뗀다. 칸에 직접 📌 를 붙여 넣어도 두 번 붙지 않는다. */
-  const bare=ntcPopStrip($('ntcEdT').value), title=(pop?'📌 ':'')+bare;
+  const to=($('ntcEdTo')&&$('ntcEdTo').value)||'';
+  const bare=ntcPerStrip(ntcPopStrip($('ntcEdT').value)), title=(pop?'📌 ':'')+bare+ntcPerTag(to);
   /* 제목이 빈 공지는 저장해도 다시 못 읽어온다(불러올 때 제목 없는 행은 버린다) — 유실을 여기서 막는다 */
   if(!bare){ msg.textContent='⚠️ 제목은 비울 수 없습니다.'; return; }
   b.disabled=true; b.textContent='저장 중…'; msg.textContent='';
   try{
     // 🗄 원본은 Supabase (2026-09-14) — 줄 번호 + 옛 제목·작성일로 그 공지가 맞는지 서버가 확인하고 A~D만 고친다
-    await api('tabrow',{token:ME.token,name:'공지사항',idx:row-2,match:{0:n.title,4:n.at||''},set:{0:title,1:body,2:'Y',3:imp?'Y':'N'}});
-    n.title=title; n.body=body; n.imp=imp;
+    await api('tabrow',{token:ME.token,name:'공지사항',idx:row-2,match:{0:n.raw||n.title,4:n.at||''},set:{0:title,1:body,2:'Y',3:imp?'Y':'N'}});
+    n.raw=title; n.title=ntcPerStrip(title); n.to=to; n.body=body; n.impR=imp; n.imp=imp&&!ntcPerOver(to);
     /* 제목이 바뀌면 읽음 표시의 신원(제목+작성일)이 달라져 업체 화면엔 '안 읽은 공지'로 다시 뜬다 —
        내용이 바뀌었으니 그게 맞다. 다만 방금 고친 나까지 알림을 받을 필요는 없다. */
     try{ const s=ntcSeenSet(); s.add(ntcKey(n)); localStorage.setItem(ntcSeenKey(),JSON.stringify([...s])); }catch(e){}
@@ -2815,7 +2820,16 @@ function ntcBodyHtml(body){
       존재 이유라, 어제 본 사람이 오늘 바뀐 일정을 못 보면 안 띄우느니만 못하다.
    🔴 확인 전(임시) 계정에는 안 띄운다 — 그 화면은 pendwall 하나만 보여야 한다. */
 const NTC_POP_RE=/^\s*📌\s*/;                                        // 제목 맨 앞의 📌 = 팝업 표시
-function ntcPopOn(n){ return NTC_POP_RE.test(String((n&&n.title)||'')); }
+function ntcPopOn(n){ return NTC_POP_RE.test(String((n&&n.title)||''))&&!ntcPerOver(n&&n.to); }
+/* ⏰ 노출 기간 (2026-11-23 홍팀장 「공지도 팝업이랑 상단 노출 기간 정할 수 있게 — 이런 건 오늘하고 내일까지만 걸면 되잖아」)
+   공지사항 탭은 A~E 고정이고 상품도구가 통째로 다시 쓴다 → 칸을 늘리지 않고 📌 처럼 **제목 끝 ⟦~YYYY-MM-DD⟧** 로 둔다.
+   그날이 지나면 📌 팝업이 안 뜨고 중요(맨 위·빨간 줄)도 풀린다. 공지 자체는 게시판에 그대로 남는다. */
+const NTC_PER_RE=/\s*⟦~(\d{4}-\d{2}-\d{2})⟧/g;
+function ntcPer(t){ let d=''; String(t||'').replace(NTC_PER_RE,(m,x)=>{ d=x; return m; }); return d; }
+function ntcPerStrip(t){ return String(t||'').replace(NTC_PER_RE,'').trim(); }
+function ntcPerTag(d){ return d?(' ⟦~'+d+'⟧'):''; }
+function ntcPerOver(d){ return !!(d&&ntcPopDay()>d); }
+function ntcDayPlus(k){ const d=new Date(Date.now()+k*864e5),p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
 function ntcPopStrip(t){ return String(t||'').replace(NTC_POP_RE,'').trim(); }
 function ntcPopSum(s){ let h=0; s=String(s||''); for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0; return h.toString(36); }
 function ntcPopKey(n){ return ntcKey(n)+'|'+ntcPopSum(n.body); }     // 본문이 바뀌면 다른 글로 친다
@@ -3127,7 +3141,9 @@ async function loadNotices(){
   if(!vals)throw new Error('공지사항을 읽지 못했습니다.');
   const j={values:vals};
   const t=x=>(x==null?'':String(x)).trim();
-  return (j.values||[]).map((v,i)=>({title:t(v[0]),body:t(v[1]),show:t(v[2])||'Y',imp:t(v[3]).toUpperCase()==='Y',at:t(v[4]),i}))
+  /* ⏰ 제목 끝 ⟦~YYYY-MM-DD⟧ = 팝업·상단(중요) 노출 마감일 (2026-11-23). 화면엔 떼고 보여주고, 시트 줄 확인(match)엔 raw 를 쓴다. */
+  return (j.values||[]).map((v,i)=>{ const raw=t(v[0]), to=ntcPer(raw), impR=t(v[3]).toUpperCase()==='Y';
+      return {raw,title:ntcPerStrip(raw),body:t(v[1]),show:t(v[2])||'Y',impR,imp:impR&&!ntcPerOver(to),to,at:t(v[4]),i}; })
     .filter(n=>n.title&&n.show.toUpperCase()!=='N')
     .sort((a,b)=>(b.imp-a.imp)||(b.at||'').localeCompare(a.at||'')||(b.i-a.i));
 }
