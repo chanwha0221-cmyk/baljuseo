@@ -141,8 +141,9 @@
       + '#' + (Q.cands || []).filter(function (r) { return r.k === 'day'; })
         .map(function (r) { return [r.n, +r.total || 0, (+r.remain > 0 ? 1 : 0)].join('|'); }).join(';');
     // 💰 공급가·판매가가 바뀌어도 다시 보낸다 — 고정가 역마진을 저마진 화면에서도 바로 보게
-    var d = (C && C.ok ? (C.rows || []) : []).map(function (r) { return [r.n, r.sell, r.base, r.rk_supply].join('|'); }).join(';');
+    var d = (C && C.ok ? (C.rows || []) : []).map(function (r) { return [r.n, r.sell, r.base, r.cost, r.cost_ship].join('|'); }).join(';');
     lossCheck(C, Q);
+    try { costDropCheck(C); } catch (e) {}
     return { sig: hash(a + '#' + b + '#' + c + '#' + d), chgN: (G.rows || []).length };
   }
 
@@ -329,6 +330,43 @@
       return { spc: spc, last: String((St.rk_last && St.rk_last.at) || ''), label: (now < from ? '오늘 ' : '내일 ') + from };
     } catch (e) { return null; }
   }
+  /* 📉 원가가 떨어져 마진이 오르면 늘 알린다 (2026-11-24 홍팀장 «규칙가 걸어놓은 거보다 원가 떨어져서 마진 올라가면 항상 알려라, 40% 될 때까지 그냥 둘래»).
+        판매가는 공급가 + 500/1,000 규칙이라 공급가가 그대로면 원가가 내려도 판매가가 안 내려간다 → 마진만 커진다.
+        · 대상 = 판매 중(sold 제외) · 판매가 > 0 · 원가(택배비 차액 포함)가 지난번 본 값보다 내려감
+        · 이 창 localStorage 에 상품별 마지막 원가를 기억. 처음 본 상품은 기억만 하고 안 알림.
+        · 알림 + 기록 + 확인창(같은 원가로는 한 번만). 🔴 읽기만 — 가격은 안 건드린다. */
+  var COSTSEEN_KEY = 'mcw_cost_seen_v1';
+  function costDropCheck(C) {
+    if (!C || !C.ok) return;
+    var won = function (n) { return Math.round(+n || 0).toLocaleString(); };
+    var seen = {}; try { seen = JSON.parse(localStorage.getItem(COSTSEEN_KEY) || '{}') || {}; } catch (e) {}
+    var first = !Object.keys(seen).length, drop = [], next = {};
+    (C.rows || []).forEach(function (r) {
+      var sell = +r.sell || 0, c = +r.cost || 0; if (!(sell > 0 && c > 0) || r.k === 'sold') return;
+      var ce = c + ((+r.cost_ship || 0) > 0 ? (+r.cost_ship || 0) - shipNum(r.ship) : 0);
+      var k = String(r.n).replace(/\s+/g, '').toLowerCase(), o = seen[k];
+      next[k] = { c: ce, s: sell };
+      if (first || !o || !(ce < o.c)) return;
+      var rt0 = Math.round((o.s - o.c) / o.s * 1000) / 10, rt1 = Math.round((sell - ce) / sell * 1000) / 10;
+      if (rt1 <= rt0) return;   // 판매가도 같이 내려 마진율이 안 오른 건 빼기
+      drop.push({ n: r.n, wh: r.wh, c0: o.c, c1: ce, sell: sell, base: +r.base || 0, rt0: rt0, rt1: rt1 });
+    });
+    // 판매 끝난 상품 기억은 남겨 둔다(다시 팔 때 비교)
+    Object.keys(seen).forEach(function (k) { if (!next[k]) next[k] = seen[k]; });
+    try { localStorage.setItem(COSTSEEN_KEY, JSON.stringify(next)); } catch (e) {}
+    if (!drop.length) return;
+    drop.sort(function (a, b) { return b.rt1 - a.rt1; });
+    var txt = drop.slice(0, 20).map(function (x) {
+      return '· 📉 ' + x.n + ' (' + x.wh + ') 원가 ' + won(x.c0) + ' → ' + won(x.c1) + ' · 판매가 ' + won(x.sell) + ' (공급가 ' + won(x.base) + ') · 마진율 ' + x.rt0 + '% → ' + x.rt1 + '%';
+    }).join('\n') + (drop.length > 20 ? '\n… 외 ' + (drop.length - 20) + '개' : '');
+    log('📉 원가 내려 마진 오름 ' + drop.length + '개 — 판매가 그대로\n' + txt);
+    notify('📉 원가 내려 마진 오름 ' + drop.length + '개', drop.slice(0, 5).map(function (x) { return x.n + ' ' + x.rt0 + '%→' + x.rt1 + '%'; }).join('\n'));
+    setTimeout(function () {
+      if (confirm('📉 원가가 내려서 마진이 올랐습니다 — 판매가는 그대로입니다.\n\n' + txt + '\n\n[확인] 카탈로그 마진 화면 열기   [취소] 닫기'))
+        window.open('https://chanwha0221-cmyk.github.io/baljuseo/catalog.html#lowm', 'catalog_lowm');
+    }, 100);
+  }
+
   /* 🛑 리모컨 서비스 중지 (2026-11-24 홍팀장 「리모컨 이제 서비스 중지했어, 정산 단가는 다 웹 판매가랑 동일, #cost 에서 확인」).
         a=cost 의 rk_supply 는 죽은 값(13:48 갱신 뒤 300건 넘게 어긋나 보였다) → 비교하지 않고 빈 목록만 보내 탭을 비운다. */
   var RK_DEAD = true;
