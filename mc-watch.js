@@ -162,7 +162,8 @@
       return { n: p.n, nk: p.nk, srl: p.srl, img: p.img, price: rkOf(p.n) || p.price, wh: p.wh, grp: p.grp, ship: p.ship, ship_n: p.ship_n,
                tax: p.tax, courier: p.courier, cut: p.cut, exp: p.exp, stock: p.stock, bund: p.bund, k: p.k };
     });
-    var costs = (C && C.ok ? (C.rows || []) : []).map(function (r) {
+    // 🙈 masterc 원가표 «노출안함»(hid) 상품은 안 보낸다 — 마진·역마진 화면에도 안 뜨게 (11-24 실치 재고 정리)
+    var costs = (C && C.ok ? (C.rows || []) : []).filter(function (r) { return !+r.hid; }).map(function (r) {
       return { n: r.n, sell: rkOf(r.n) || r.sell, cost: r.cost, cship: r.cost_ship, base: r.base, margin: r.margin, how: r.how, remain: r.remain };   // cship = 원가 택배비(11-20)
     });
     var G = null; try { G = await get('machan_chg', 'changes', '&days=14'); } catch (e) {}

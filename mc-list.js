@@ -23,7 +23,7 @@
       return { n: p.n, nk: p.nk, srl: p.srl, img: p.img, price: rkOf(p.n) || p.price, wh: p.wh, grp: p.grp, ship: p.ship, ship_n: p.ship_n,
                tax: p.tax, courier: p.courier, cut: p.cut, exp: p.exp, stock: p.stock, bund: p.bund, k: p.k };
     });
-    var costs = (C && C.ok ? (C.rows || []) : []).map(function (r) {
+    var costs = (C && C.ok ? (C.rows || []) : []).filter(function (r) { return !+r.hid; }).map(function (r) {   // 🙈 노출안함 제외(11-24)
       return { n: r.n, sell: rkOf(r.n) || r.sell, cost: r.cost, cship: r.cost_ship, base: r.base, margin: r.margin, how: r.how, remain: r.remain };   // cship = 원가 택배비(11-20)
     });
     /* 📋 변동사항도 같이 — 우리가 취급하는 것(mine)만 카탈로그에 나간다 */
