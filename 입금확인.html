@@ -1203,7 +1203,7 @@ async function abApply(){
       if(i >= 0){ const d = pool.splice(i,1)[0]; if(!d.ch) gids.push(d.id); }
     }));
     let gw = {ok:1, n:0};
-    if(gids.length){ try{ gw = await brSend('gwchk', {ids:gids}); }catch(e){ gw = {ok:0, why:e.message}; } }
+    if(gids.length){ try{ const c0 = AB.cur.c; gw = await brSend('gwchk', {ids:gids, names:[c0.ch, c0.name, c0.alias, c0.biz].filter(Boolean)}); }catch(e){ gw = {ok:0, why:e.message}; } }
     AB.busy = false;
     const gwMsg = !gids.length ? '' : gw.ok ? ` · 그룹웨어 입금확인 ${gids.length}건` : ' · ⚠ 그룹웨어 확인 못 찍음';
     toast((bad.length ? `⚠ ${r.length - bad.length}일 처리 · ${bad.length}일 못 함` : `✅ ${r.length}일 입금 처리 완료`) + gwMsg);

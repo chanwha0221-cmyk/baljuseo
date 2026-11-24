@@ -248,7 +248,11 @@
       try { D = JSON.parse(m[1]); } catch (e) { return { ok: 0, why: '그룹웨어 입금확인 화면을 못 읽음' }; }
       var chs = D.chs || [];
       if (!chs.length) return { ok: 0, why: '그룹웨어 계정(' + (D.nick || '') + ')에 «확인 채널»이 없음 — 그룹웨어 관리자에게 채널을 받아야 찍힘' };
-      var want = String(q.ch || ''), ch = chs.filter(function (c) { return String(c.n) === want || String(c.c) === want; })[0] || chs[0];
+      /* 채널 = 리모컨처럼 «이 입금이 어느 채널(업체) 돈인가» — 아무 채널이나 찍으면 2팀 시트에 엉뚱한 채널로 남는다. 업체 이름과 맞는 채널만, 없으면 안 찍음 */
+      var nk = function (s) { return String(s || '').replace(/주식회사|\(주\)|㈜|\s+/g, '').toLowerCase(); };
+      var wants = (q.names || [q.ch]).map(nk).filter(Boolean);
+      var ch = chs.filter(function (c) { return wants.indexOf(nk(c.n)) >= 0 || wants.indexOf(nk(c.c)) >= 0; })[0];
+      if (!ch) return { ok: 0, why: '그룹웨어 확인 채널 목록에 이 업체(' + (q.names || [q.ch]).join('/') + ')가 없음' };
       var r = await fetch('/gw2/dep.php?a=set', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-GW2': '1' },
         body: JSON.stringify({ op: 'chk', ids: ids, ch: String(ch.c) }) }).then(function (x) { return x.json(); });
       return { ok: r.ok ? 1 : 0, why: r.ok ? (r.msg || '') : (r.why || '실패'), ch: ch.n, n: ids.length };
