@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-18c';
+  var QTYB_VER = '2026-11-24a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -3339,7 +3339,14 @@
     window.__QTYB_PUSHING = true;
     if (sEl) sEl.textContent = '📤 보내는 중…';
     // 시트에 쓰인 주문 — 셋 중 하나라도 못 읽으면 null(우리 몫은 안 더한다)
-    var usedP = Promise.all([tallyTab(CFG.day), tallyTab(CFG.none, CFG.noneStart), tallyTab(dayTab())]).then(function (ts) {
+    /* 🗓 날짜 탭이 «아직 없다» 는 답은 실패가 아니라 «아직 나간 것 0» 이다 (2026-11-24 홍팀장 「수량 잡았는데 왜 재고 없음」 — 생대구 6kg급
+         우리 몫 10 인데 1124 탭이 안 만들어진 아침이라 셋 중 하나 실패 → used=null → 당일 우리 몫이 전부 0 으로 나갔다).
+         읽기 자체가 실패한 경우(웹앱·프록시 먹통)는 그대로 null — 모르는 몫으로 발주를 열지 않는다. */
+    var dateTally = tallyTab(dayTab()).catch(function (e) {
+      if (e && /찾을 수 없/.test(e.message || '')) return { map: {}, lines: 0, tab: dayTab() };
+      throw e;
+    });
+    var usedP = Promise.all([tallyTab(CFG.day), tallyTab(CFG.none, CFG.noneStart), dateTally]).then(function (ts) {
       var u = {};
       ts.forEach(function (t) { Object.keys(t.map).forEach(function (k) { u[k] = (u[k] || 0) + (t.map[k].qty || 0); }); });
       return u;
