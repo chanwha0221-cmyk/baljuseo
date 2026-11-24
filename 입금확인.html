@@ -1078,7 +1078,10 @@ function abLoose(S, D, m, best){
   const rAmt = refs.reduce((s,r) => s + r.amt, 0);
   const diff = dAmt - rAmt - sAmt;
   if(rAmt && !diff) Object.keys(why).forEach(k => why[k] += ` → <span style="color:#2d7a3a">${refs.map(r => kDate(r.date)+' 환불 '+won(r.amt)).join(', ')}로 정리</span>`);
-  return {from:S[s0].date, to:S[best.s].date, sAmt, dAmt, refs, rAmt, over:dAmt - sAmt, diff, n:looseD.length, why};
+  /* 💸 입금 짝 없는 정산일 (2026-11-24 홍팀장 참조은수산 «19,500 덜 들어왔다 해 놓고 밑엔 다 맞다 하면 업체에 뭘 말하냐») —
+     입금은 다 딱 맞았는데 그 사이 정산일 하나(11/10 19,500)가 어느 입금에도 안 들어가 있었다. 그 날을 짚어 준다. */
+  const noPay = looseS.slice(k).map(i => S[i]);
+  return {from:S[s0].date, to:S[best.s].date, sAmt, dAmt, refs, rAmt, over:dAmt - sAmt, diff, n:looseD.length, why, noPay};
 }
 function abFill(){
   const {c, v} = AB.cur;
@@ -1138,7 +1141,8 @@ function abApplyDraw(){
     : lo && lo.diff ? `<div style="margin-bottom:8px;padding:8px 10px;border:2px solid #c0262d;border-radius:6px;background:#fff4f4;line-height:1.6">` +
     `⚠ <b>지난 정산 돈이 안 맞습니다</b> — ${rangeLabel({from:lo.from, to:lo.to, n:2})} 정산 <b>${won(lo.sAmt)}</b> · 입금 <b>${won(lo.dAmt)}</b>${lo.rAmt ? ` · 환불 <b>${won(lo.rAmt)}</b>` : ''} → ` +
     `<b style="color:#c0262d">${won(Math.abs(lo.diff))}원 ${lo.diff > 0 ? '더 들어옴' : '덜 들어옴'}</b><br>` +
-    `<span class="hint">${lo.diff > 0 ? '그룹웨어 «입금요청»에 이 업체 환불이 없습니다. 환불 안 했으면 돌려줄 돈(또는 다음 정산에서 차감)입니다.' : '못 받은 돈입니다.'} 짝 없는 입금 ${lo.n}건 이유는 아래 «최근 입금 내역» 빨간 글씨.</span></div>` : '';
+    (lo.noPay && lo.noPay.length ? `💸 <b>입금이 안 들어온 정산일: ${lo.noPay.map(s => kDate(s.date) + ' ' + won(s.amt) + '원').join(', ')}</b> <span class="hint">(앞뒤 입금은 딱 맞았는데 이 날 몫만 어느 입금에도 없음 — 달력엔 이미 칠해져 있음)</span><br>` : '') +
+    `<span class="hint">${lo.diff > 0 ? '그룹웨어 «입금요청»에 이 업체 환불이 없습니다. 환불 안 했으면 돌려줄 돈(또는 다음 정산에서 차감)입니다.' : '못 받은 돈입니다.'}${lo.n ? ` 짝 없는 입금 ${lo.n}건 이유는 아래 «최근 입금 내역» 빨간 글씨.` : ''}</span></div>` : '';
   el.innerHTML = loHtml + `<div style="margin-bottom:6px">⚓ 대조 시작:${an ? `<b>${rangeLabel(an)}</b> 정산 = ${an.deps.map(d => kDate(d.date)+' '+won(d.amt)).join(' + ')} 입금 <b>딱 맞음</b> → 그 다음부터 대조` : '딱 맞은 지점을 못 찾음 — 마지막으로 칠한 날 다음 입금부터'}</div>` +
     `<b>✅ 정산달력에 «입금»으로 칠할 것 — ${n}일 · ${won(amt)}원</b> <span class="hint">(딱 맞은 구간만. 안 맞는 줄은 그대로 미정산)</span>` +
     (bs.length ? '<div style="margin:6px 0 8px;line-height:1.7">' + bs.map(b => `· ${rangeLabel(b)} ${won(b.amt)}원 ← ${(b.dep.parts || [b.dep]).map(d => kDate(d.date)+' '+won(d.amt)).join(' + ')}${b.ref ? ' (환불 '+won(b.ref.amt)+' 뺌)' : ''} → 입금일자 ${kDate(lastD(b))}`).join('<br>') + '</div>'
