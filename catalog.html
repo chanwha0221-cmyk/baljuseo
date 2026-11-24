@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.278</title>
+<title>마스터 유통 카탈로그 v23.279</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -4185,7 +4185,7 @@ function renderLowm(j,lossOnly){
       +'<td style="'+td+'">'+(+r.sell>0?won(r.sell):'-')+'</td>'
       +(lossOnly?'<td style="'+td+';color:#b91c1c;font-weight:700">'+won(r.base)+'</td>':'')
       +'<td style="'+td+'">'+inCell(r)+(lossOnly&&r.k==='당일'&&r.hold?'<br><span style="font-size:11.5px;color:#b91c1c;font-weight:700">🙈 업체 화면 숨김</span> <button class="ubtn" style="font-size:11.5px;margin-top:3px" onclick="dayOk(this,'+esc(JSON.stringify(r.n))+')">✅ 이 가격으로 노출</button>':'')+'</td>'
-      +'<td style="'+td+'">'+(+r.cost>0?won(r.cost):'-')+'</td><td style="'+td+'">'+(r.src==='sales'?'-':won(r.ship))+'</td>'
+      +'<td style="'+td+'">'+(+r.cost>0?won(r.cost)+((+r.cship>0&&+r.craw>0&&+r.cship!==+r.ship)?'<br><span style="font-size:11px;color:#b45309;white-space:nowrap">원가 '+won(r.craw)+' + 택배 '+won(r.cship)+(+r.ship>0?' − 받는 '+won(r.ship):' (무료배송)')+'</span>':''):'-')+'</td><td style="'+td+'">'+(r.src==='sales'?'-':won(r.ship))+'</td>'
       +'<td class="lowm-mg" style="'+td+(r.margin<0||+r.smg<0?';color:#b91c1c;font-weight:700':'')+'">'+(r.src==='sales'?won(r.smg)+'<br><span style="font-size:11px;color:var(--muted)">그날 마진 합계</span>':r.margin==null?'-':won(r.margin))+'</td>'
       +'<td class="lowm-rt" style="'+td+';font-weight:800;color:'+(r.rate<0?'#b91c1c':r.high?'#1d4ed8':'#b45309')+'">'+(r.rate==null?'-':r.rate+'%')+'</td>'
       +'<td style="'+td+'">'+((r.low||lossOnly||highOnly)?okBtn(r):'')
