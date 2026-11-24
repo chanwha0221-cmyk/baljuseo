@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.282</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.283</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -4178,15 +4178,14 @@ function renderLowm(j,lossOnly){
   const okBtn=r=>highOnly?'':lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?'<span style="font-size:11.5px;color:#b91c1c;font-weight:700;white-space:nowrap">🔴 단가 수정</span>':r.ok?'<button class="ubtn" style="font-size:11.5px" title="다시 확인 대상으로" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',false)">👌 괜찮음 ✓</button>':'<button class="ubtn" style="font-size:11.5px" title="이 상품은 마진을 다시 묻지 않습니다" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',true)">👌 괜찮음</button>';
   const inCell=r=>'<input class="lowm-in" inputmode="numeric" placeholder="'+won(r.sell)+'" value="'+(lowmDraftOf(r.n)||'')+'" oninput="lowmCalc(this);lowmKeep(this)" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit">';
   const okAllBtn=lossOnly?'<button class="ubtn" style="font-weight:800" onclick="lowmOkAll(this)">👌 전체 괜찮음 '+rows.length+'</button>':'';
-  const lossN=highOnly?0:rows.filter(r=>lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)&&+r.cost>0).length;
-  const fix88Btn=lossN?'<button class="ubtn" style="font-weight:800;color:#b91c1c;border-color:#b91c1c" title="역마진 줄만 — 새 판매가 = 원가 ÷ (1 − 8.8%), 100원 단위 올림 → 바로 단가 저장" onclick="lowmFix88(this)">📐 역마진 전체 8.8%로 '+lossN+'</button>':'';
+  const fix88Btn='<button class="ubtn" style="font-weight:800;color:#b91c1c;border-color:#b91c1c" title="체크한 줄만 — 새 판매가 = 원가 ÷ (1 − 8.8%), 100원 단위 올림 → 바로 단가 저장" onclick="lowmFix88(this)">📐 선택 상품 마진 8.8%로 <span class="lowm-pickn">0</span></button>';
   h+=bar(saveBtn+fix88Btn+okAllBtn)
     +'<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px">'
     +'<table style="border-collapse:collapse;width:100%"><thead><tr>'
-    +cols.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+';cursor:pointer" onclick="lowmSort(this)" title="눌러서 정렬">'+t+'</th>').join('')
+    +cols.map((t,i)=>'<th style="'+th+(i<4?';text-align:left':'')+';cursor:pointer" onclick="lowmSort(this)" title="눌러서 정렬">'+(i===0?'<input type="checkbox" title="보이는 줄 전체 선택" onclick="event.stopPropagation();lowmPickAll(this)" style="margin-right:6px;vertical-align:middle">':'')+t+'</th>').join('')
     +'</tr></thead><tbody>'
     +rows.map(r=>'<tr'+(r.low&&!lossOnly&&!highOnly?' style="background:#fff7ed"':'')+' data-lowm="'+esc(r.n)+'" data-wh="'+esc(r.wh)+'" data-day="'+(r.k==='당일'?1:0)+'" data-loss="'+(lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?1:0)+'" data-sell="'+(+r.sell||0)+'" data-cost="'+(+r.cost||0)+'" data-ship="'+(+r.ship||0)+'"'+(lossOnly?' data-lowmack="1"':'')+'>'
-      +'<td style="'+td+';text-align:left;font-size:12px;color:'+(r.urgent?'#b91c1c;font-weight:700':'var(--muted)')+'">'+hm(r.at)+'</td>'
+      +'<td style="'+td+';text-align:left;font-size:12px;color:'+(r.urgent?'#b91c1c;font-weight:700':'var(--muted)')+'"><input type="checkbox" class="lowm-pick" onchange="lowmPickCnt()" style="margin-right:6px;vertical-align:middle">'+hm(r.at)+'</td>'
       +'<td style="'+td+';text-align:left;white-space:normal"><div style="width:110px">'+(String(r.k||'').startsWith('당일')?'🐟 당일':r.k==='지난 기록'?'📜':'상시')+(r.st?'<br><span style="font-size:11px;color:var(--muted)">'+r.st+'</span>':'')+'</div></td>'
       +'<td style="'+td+';text-align:left">'+esc(r.wh)+'</td>'
       +'<td style="'+td+';text-align:left;white-space:normal"><div style="min-width:260px">'+esc(r.n)+' <button class="cpbtn" data-cp="'+esc(r.n)+'" title="상품명 복사">📋</button>'
@@ -4221,7 +4220,7 @@ function lowmDraftDrop(names){ const o=lowmDraftAll(); (names||[]).forEach(n=>de
    한 번 = 큰 것부터, 또 누르면 작은 것부터. 화면(탭)마다 마지막 정렬을 기억해 다시 그려도 유지. */
 function lowmSortVal(td){
   if(!td)return '';
-  const inp=td.querySelector('input'); let t=inp?(inp.value||inp.placeholder||''):td.textContent;
+  const inp=td.querySelector('input:not(.lowm-pick)'); let t=inp?(inp.value||inp.placeholder||''):td.textContent;
   t=String(t).trim().split('\n')[0];
   const m=t.replace(/[,원%\s]/g,'').match(/^[+-]?\d+(\.\d+)?$/);
   if(m)return +m[0];
@@ -4274,9 +4273,14 @@ function lowmCalc(inp){
 /* 📐 역마진 전체 8.8% (2026-11-24 홍팀장 «전체 8.8% 로 판매가 수정 버튼, 역마진 상품들 한번에, 무조건 올림해서 100원 단위»).
    역마진 줄(data-loss=1, 원가 있음)만 새 판매가 = ⌈원가 ÷ 0.912 ÷ 100⌉ × 100 으로 채우고 바로 [💾 단가 저장] 과 같은 길로 저장한다.
    원가 = 화면 원가(택배비 차액 포함) — 마진율 식 (판매가 − 원가) ÷ 판매가 와 같다. */
+function lowmPickCnt(){ const n=document.querySelectorAll('tr[data-lowm] .lowm-pick:checked').length; document.querySelectorAll('.lowm-pickn').forEach(s=>s.textContent=n); }
+function lowmPickAll(cb){ document.querySelectorAll('tr[data-lowm]').forEach(tr=>{ if(tr.style.display==='none')return; const c=tr.querySelector('.lowm-pick'); if(c)c.checked=cb.checked; }); lowmPickCnt(); }
 function lowmFix88(btn){
-  const trs=[...document.querySelectorAll('tr[data-lowm][data-loss="1"]')].filter(tr=>+tr.dataset.cost>0);
-  if(!trs.length){alert('바꿀 역마진 상품이 없습니다.');return;}
+  const picked=[...document.querySelectorAll('tr[data-lowm]')].filter(tr=>{const c=tr.querySelector('.lowm-pick');return c&&c.checked;});
+  if(!picked.length){alert('바꿀 상품을 먼저 체크하세요(줄 맨 앞 칸).');return;}
+  const trs=picked.filter(tr=>+tr.dataset.cost>0), noCost=picked.length-trs.length;
+  if(!trs.length){alert('체크한 상품에 원가가 없어 계산할 수 없습니다.');return;}
+  if(noCost)alert('원가 없는 '+noCost+'개는 빼고 '+trs.length+'개만 바꿉니다.');
   trs.forEach(tr=>{ const p=Math.ceil(+tr.dataset.cost/0.912/100)*100; const inp=tr.querySelector('.lowm-in'); if(inp){inp.value=p; try{lowmCalc(inp);lowmKeep(inp);}catch(e){}} });
   lowmSave(btn);
 }
