@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.277</title>
+<title>🧪 [테스트본] 마스터 유통 카탈로그 v23.278</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -1931,6 +1931,10 @@ function card(p,extra,top,foot){
   /* 📞 당일 재고 문의 = 오늘 수량 다 나감 → 담기 막고 문의로 (2026-10-29 홍팀장 「소량은 발주 가능, 재고 문의는 발주 불가」)
      🆕 마스터 전용 «오늘 미판매» 카드(p.ghost)도 재고 문의로 (2026-11-08) */
   const dq=(day||!!p.ghost)&&zq0;
+  /* 🔐 마스터 화면: 업체 전용으로 열린 카드 = 어느 업체에 열렸는지 찍는다 (2026-11-24 홍팀장 「마스터엔 다 열려 보이면 내가 어떻게 아냐」).
+     서버는 마스터에게 업체 전용 목록을 전부 준다 → 열려 보이지만 실제로는 그 업체만 발주 가능. 재고 0 이면 «재고 없음» 딱지도 같이. */
+  const voWho=amMasterC()?[...new Set((window.VONLY||[]).filter(o=>pkey(o.name)===pkey(p.name)).map(o=>o.who||'?'))]:[];
+  const voZero=voWho.length&&isZeroQ(p.name);
   /* 🌇 금일 판매 완료 (2026-11-19) — 마감 뒤·지난 날 당일, 오늘 수량 잡혔다가 목록에서 빠진 것. 카드·상세·사진은 그대로, 발주만 막는다. */
   const done=DAYDONE.has(pkey(p.name))&&!(typeof vonlyOpen==='function'&&vonlyOpen(p.name));
   const hot=((!!TINT[pkey(p.name)]||isLowQ(p.name)||zq)&&!day)||(day&&DAYLOW.has(pkey(p.name)));
@@ -1943,7 +1947,7 @@ function card(p,extra,top,foot){
     +(top||'')+recBadge
     +(day&&RESTOCK.has(pkey(p.name))?'<span class="recb news">🔁 재입고</span>':'')
     /* 🏷 이름 (2026-11-19 홍팀장): 재고 없음 = 발주 불가·연락 유도 / 수량 문의 = 수량 적음, 발주는 받는다 (옛 «재고 문의»·«소량») */
-    +(done?'<span class="hotb">🌇 금일 판매 완료</span>':(zq||dq)?'<span class="hotb">🚫 재고 없음</span>':hot?'<span class="hotb">🟡 수량 문의</span>':'')
+    +(done?'<span class="hotb">🌇 금일 판매 완료</span>':(zq||dq||voZero)?'<span class="hotb">🚫 재고 없음</span>':hot?'<span class="hotb">🟡 수량 문의</span>':'')
     +(bt?'<button class="whb" data-wh="'+esc(p.effWh||'')+'" title="이 창고 상품만 보기">📦 '+esc(bt)+'</button>':'')
     +'<div class="pn"><span>'+nm+'</span><button class="cpbtn" data-cp="'+esc(p.name)+'" title="상품명 복사">📋</button></div>'
     +tagRow(p,taxc)
@@ -1968,7 +1972,8 @@ function card(p,extra,top,foot){
            :(zq||dq)
              ?'<div class="lowq">🚫 <b>재고 없음</b><br>입고 일정은 문의해 주세요 — <b>010-2455-4156 홍찬화 팀장</b>'
               +'<a class="lowqb" href="tel:01024554156">📞 재고 문의</a></div>'
-             :'<button class="ordb" data-ord="'+esc(p.name)+'">+ 발주담기</button>')
+             :(voWho.length?'<div class="excnote">🔐 업체 전용으로 열림 — <b>'+esc(voWho.join(', '))+'</b>'+(voWho.some(w=>/^(전체|전체업체|모든업체|공통)$/.test(w.replace(/\s/g,'')))?' (모든 업체 발주 가능)':'만 발주 가능 · 다른 업체 화면은 '+(voZero?'재고 없음':'그대로'))+'</div>':'')
+              +'<button class="ordb" data-ord="'+esc(p.name)+'">+ 발주담기</button>')
     /* 🖼 상세페이지 만들기 — 발주담기 바로 밑, **상품마다** (홍팀장 2026-09-03)
        "각 상품별로 넣어두고 그걸 누르면 그 상품껄 가져가면 헷갈리지가 않잖아."
        처음엔 위 메뉴에 하나만 뒀는데, 그러면 상세메이커에서 상품을 또 골라야 했다.
@@ -2353,7 +2358,7 @@ async function startCatalog(){
     else if(ME&&ME.token){try{window.SOBUN_LIST=(await api('sobun',{token:ME.token})).list||[];}catch(e){window.SOBUN_LIST=window.SOBUN_LIST||[];}}
     /* 🔐 이 업체에게만 열어준 상품 (2026-09-09) — 서버가 내 계정 것만 걸러서 보낸다.
        카탈로그 상품 목록에는 안 올라가고, 발주 화면(order.js)의 검색·후보에서만 쓴다. */
-    window.VONLY=(SNAP&&SNAP.vonly)?SNAP.vonly.map(r=>({name:String(r[1]||'').trim(),wh:String(r[2]||'').trim(),note:String(r[3]||'').trim()})).filter(x=>x.name):[];
+    window.VONLY=(SNAP&&SNAP.vonly)?SNAP.vonly.map(r=>({name:String(r[1]||'').trim(),wh:String(r[2]||'').trim(),note:String(r[3]||'').trim(),who:String(r[0]||'').trim()})).filter(x=>x.name):[];
     const gridP=loadCatalog();
     gridP.catch(()=>{});   // 아래에서 받을 때까지 '처리 안 된 오류'로 잡히지 않게
     /* 🚑 곁다리를 **기다리지 않는다** (2026-09-04 라이브 장애).
