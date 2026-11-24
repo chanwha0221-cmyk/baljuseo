@@ -96,6 +96,17 @@
       var first = days.length ? days[0].date : null;
       var lastDone = first ? done.filter(function (d) { return d < first; }).sort().pop() || null : null;
       var from = toD(first || ymd(now)); from.setDate(from.getDate() - HIST);
+      /* 📅 마지막으로 칠한 날이 45일 창보다 앞이면 그 날(-14일)까지 더 가져온다 (2026-11-24 에보아르코리아 — 칠한 마지막 날 9/7,
+         창은 9/18부터라 9/7 정산을 못 봐서 10/2 입금이 «짝 못 찾음»이 됐다). 그래야 그 입금이 어느 정산 몫인지 짝이 지어진다. */
+      if (lastDone && lastDone < ymd(from)) {
+        var want = toD(lastDone); want.setDate(want.getDate() - 14);
+        for (var k2 = 0; k2 < 6 && new Date(y, m - 1, 1) > want; k2++) {
+          m--; if (!m) { m = 12; y--; }
+          var c2 = await api('/clients/' + id + '/settlement-calendar?year=' + y + '&month=' + m);
+          (c2.days || []).forEach(function (d) { if (!+d.unpaid_amt && +d.total_amt) { done.push(d.date); hist.push({ date: d.date, amt: +d.total_amt }); } });
+        }
+        from = want;
+      }
       hist = hist.filter(function (d) { return d.date >= ymd(from); }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
       var deps = [], s = new Date(from);
       while (s <= now) {
