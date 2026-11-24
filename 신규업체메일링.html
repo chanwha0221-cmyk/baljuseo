@@ -93,6 +93,7 @@
     <button class="tab" type="button" data-sec="gm">🟢 G마켓</button>
     <button class="tab" type="button" data-sec="el">🔟 11번가</button>
     <button class="tab" type="button" data-sec="cp">🛒 쿠팡</button>
+    <button class="tab" type="button" data-sec="pd">🍱 팔도감</button>
     <button class="tab" type="button" data-sec="hist">📋 발송 히스토리</button>
   </div>
 
@@ -1712,7 +1713,7 @@ async function copyPreview(){
 /* ══ 📑 섹션 탭 ═══════════════════════════════════════════════════════════
    홍팀장 2026-10-29: 「메일 보낸 히스토리는 탭 하나 더 만들어서 안 보이게 만들어도 되니까
    발굴명단에서 업체 선택하면 바로 메일링 할 수 있게」 */
-const SECS={compose:['sec-compose'], onnuri:['sec-onnuri'], nuri:['sec-onnuri'], gm:['sec-onnuri'], el:['sec-onnuri'], cp:['sec-onnuri'], hist:['sec-hist']};   // 🎯 balgul 탭 삭제(11-19)
+const SECS={compose:['sec-compose'], onnuri:['sec-onnuri'], nuri:['sec-onnuri'], gm:['sec-onnuri'], el:['sec-onnuri'], cp:['sec-onnuri'], pd:['sec-onnuri'], hist:['sec-hist']};   // 🎯 balgul 탭 삭제(11-19)
 let SEC='compose';
 function showSec(k){
   if(!SECS[k])return;
@@ -1739,7 +1740,9 @@ var ON_MALLS={
   el:{file:'11st-sellers.js', v:'ELEVENST_SELLERS', title:'🔟 11번가 · 수산 판매자 (2024년 이후 신고)', mall:'11번가', shop:n=>'https://search.11st.co.kr/pc/total-search?kwd='+encodeURIComponent(n), shopLb:'🔟 11번가 상품',
     desc:'11번가 수산 검색 15개 단어 상품 908개 → 판매자 287곳 → 공정위 신고일자 2024년 이후 + 메일이나 휴대폰이 잡힌 26곳. 상호·대표자·스토어명은 11번가 판매자정보, 사업자번호·신고일자·취급품목·메일·휴대폰은 공정위 사업자번호 조회(11번가는 판매자 메일을 공개하지 않는다). 메모 🔎 = 다른 몰 명단에도 사업자번호가 같은 업체가 있다는 뜻. 한 사람이 번호만 바꿔 돌리는 스토어는 한 줄로 합쳤다. 메모 칸 = 신고연도 · 공정위 취급품목'},
   cp:{file:'coupang-sellers.js', v:'COUPANG_SELLERS', title:'🛒 쿠팡 · 수산 판매자 (2024년 이후 신고)', mall:'쿠팡', shop:n=>'https://www.coupang.com/vp/products/'+n, shopLb:'🛒 쿠팡 상품',
-    desc:'쿠팡 수산 검색 19개 단어 상품 959개 중 판매자정보를 읽은 것에서 통신판매업 신고가 2024년 이후인 곳만. 상호·대표자·사업자번호·연락처·메일·주소·신고번호 전부 쿠팡 상품 페이지 공식 표시 그대로. 🔴 쿠팡이 수집 도중 차단해 표본이 작다 — 풀리면 더 채운다. 메모 칸 = 신고연도 · 주소'}
+    desc:'쿠팡 수산 검색 19개 단어 상품 959개 중 판매자정보를 읽은 것에서 통신판매업 신고가 2024년 이후인 곳만. 상호·대표자·사업자번호·연락처·메일·주소·신고번호 전부 쿠팡 상품 페이지 공식 표시 그대로. 🔴 쿠팡이 수집 도중 차단해 표본이 작다 — 풀리면 더 채운다. 메모 칸 = 신고연도 · 주소'},
+  pd:{file:'paldogam-sellers.js', v:'PALDOGAM_SELLERS', title:'🍱 팔도감 · 수산 판매자 (2024년 이후 신고)', mall:'팔도감', shop:n=>'https://8dogam.com/search?keyword='+encodeURIComponent(n), shopLb:'🍱 팔도감 상품',
+    desc:'팔도감(8dogam.com, (주)라포랩스 제철먹거리 앱) 수산물 카테고리 + 수산 검색어 15개 상품 849개 → 판매자 219곳 → 신고 2024년 이후 29곳(거래처·주력 아닌 곳 제외). 상호·대표자·사업자번호·휴대폰·메일·주소·신고번호 전부 팔도감 공식 판매자정보 그대로. 🟢 연락처 품질이 제일 좋다 — 전체 219곳 중 메일 92%·휴대폰 95%. 🔴 산지 생산자가 많아 오래된 신고가 대부분이다(2023년 27·2022년 33·2021년 24곳) — 연도 기준을 풀면 바로 늘어난다. 메모 칸 = 신고연도 · 사업장 주소'}
 };
 let ON_ROWS=null, ON_CT=true, ON_MALL='onnuri'; const ON_CACHE={};
 function onLoad(k){
