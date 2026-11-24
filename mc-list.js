@@ -32,7 +32,7 @@
       return { ap: r.ap, d: r.d, raw: r.raw, k: r.k, sale: r.sale, wh: r.wh, n: r.n, p: r.p, p0: r.p0, cou: r.cou, ship: r.ship,
                tax: r.tax, spec: r.spec, memo: r.memo, stock: r.stock };
     });
-    var j = await post({ action: 'mcpush', key: KEY, items: items, costs: costs, chg: chg });
+    var j = await post({ action: 'mcpush', key: KEY, items: items, costs: costs, hid: ((C && C.ok && C.rows) || []).filter(function (r) { return +r.hid; }).map(function (r) { return r.n; }), chg: chg });
 
     /* 🏷 특별단가 «전체»(업체 지정 없이 켜둔 것) — 카탈로그 가격을 이 값으로 (2026-10-06 홍팀장). 못 읽으면 건드리지 않는다. */
     var spcTxt = '';

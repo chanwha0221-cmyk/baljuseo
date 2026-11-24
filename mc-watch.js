@@ -180,7 +180,7 @@
         postTxt = pr && pr.ok ? ' · 📷 글 ' + pr.count + '개' : ' · ⚠️ 글 목록 못 보냄: ' + ((pr && pr.error) || '');
       }
     } catch (e) { postTxt = ' · ⚠️ 글 목록 못 읽음'; }
-    var j = await edge({ action: 'mcpush', key: KEY, items: items, costs: costs, chg: chg });
+    var j = await edge({ action: 'mcpush', key: KEY, items: items, costs: costs, hid: ((C && C.ok && C.rows) || []).filter(function (r) { return +r.hid; }).map(function (r) { return r.n; }), chg: chg });
     if (!j || !j.ok) throw new Error('상시 보내기 거절: ' + ((j && j.error) || '알 수 없음'));
 
     var sameTxt = ''; try { sameTxt = await spcSameClean(C); } catch (e) { sameTxt = ' · ⚠️ 규칙가 같은 특별단가 정리 실패: ' + e.message; }
