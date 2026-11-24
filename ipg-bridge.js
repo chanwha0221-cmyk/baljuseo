@@ -7,7 +7,8 @@
      dup    → (신규업체메일링) 상점 목록을 거래처 중복검색에 돌려 걸린 이유 — 읽기만
      extracands → (신규업체메일링) 상점 하나로 걸린 거래처 후보 + 이미 있는 추가 채널명 — 읽기만
      extraadd   → 고른 거래처에 추가 채널명 한 개 등록(보드 [+ 추가]와 같은 POST /clients/{id}/extra-names). 사람이 확인창 눌렀을 때만 온다
-   🔴 받는 곳은 도구 주소(TOOL) 하나뿐, 할 수 있는 일은 위 일곱뿐. 칠하기는 도구에서 사람이 [진행] 눌렀을 때만 온다. */
+     gwchk      → [진행] 때 그 구간 입금들을 그룹웨어 입금확인(F4)으로 찍음(a=set op:chk) — 계정에 확인 채널이 있어야 됨
+   🔴 받는 곳은 도구 주소(TOOL) 하나뿐, 할 수 있는 일은 위 여덟뿐. 칠하기는 도구에서 사람이 [진행] 눌렀을 때만 온다. */
 (function () {
   if (window.__ipgb) return; window.__ipgb = 1;
   var TOOL = 'https://chanwha0221-cmyk.github.io';
@@ -63,7 +64,7 @@
     var j = await r.json();
     if (!j.ok) throw new Error('입금 내역을 못 읽었습니다 — ' + (j.why || '그룹웨어 로그인 확인'));
     return (j.rows || []).filter(function (x) { return x.io === 'IN' && String(x.hid) !== '1'; })
-      .map(function (x) { return { id: x.id, dt: x.dt, name: x.name, amt: +x.amount, memo: x.memo || '' }; });
+      .map(function (x) { return { id: x.id, dt: x.dt, name: x.name, amt: +x.amount, memo: x.memo || '', ch: x.ch || '' }; });
   }
 
   var CMD = {
@@ -235,6 +236,22 @@
       if (!id || !name) throw new Error('거래처·이름이 비었습니다');
       await api('/clients/' + id + '/extra-names', { method: 'POST', body: JSON.stringify({ name: name }) });
       return { ok: 1 };
+    },
+    /* ☑ 그룹웨어 입금확인 (2026-11-24 홍팀장 «입금확인에서 확인되면 그룹웨어에도 확인 찍어라»)
+       정산달력과 그룹웨어 입금확인(gw2/dep.php, 리모컨 [마스터입금확인]·2팀 시트와 같은 장부)은 서로 안 이어져 있다 → [진행] 때 둘 다 찍는다.
+       F4 와 같은 요청(a=set op:chk) — 서버가 «확인 채널»을 꼭 요구하고, 채널 목록은 그 사람 계정에 붙은 것(window.DEP.chs)만 쓸 수 있다. */
+    gwchk: async function (q) {
+      var ids = (q.ids || []).map(Number).filter(function (x) { return x > 0; });
+      if (!ids.length) return { ok: 0, why: '찍을 입금이 없음' };
+      var h = await fetch('/gw2/dep.php', { credentials: 'same-origin' }).then(function (r) { return r.text(); });
+      var m = h.match(/window\.DEP\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/), D = {};
+      try { D = JSON.parse(m[1]); } catch (e) { return { ok: 0, why: '그룹웨어 입금확인 화면을 못 읽음' }; }
+      var chs = D.chs || [];
+      if (!chs.length) return { ok: 0, why: '그룹웨어 계정(' + (D.nick || '') + ')에 «확인 채널»이 없음 — 그룹웨어 관리자에게 채널을 받아야 찍힘' };
+      var want = String(q.ch || ''), ch = chs.filter(function (c) { return String(c.n) === want || String(c.c) === want; })[0] || chs[0];
+      var r = await fetch('/gw2/dep.php?a=set', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-GW2': '1' },
+        body: JSON.stringify({ op: 'chk', ids: ids, ch: String(ch.c) }) }).then(function (x) { return x.json(); });
+      return { ok: r.ok ? 1 : 0, why: r.ok ? (r.msg || '') : (r.why || '실패'), ch: ch.n, n: ids.length };
     },
     apply: async function (q) {
       var id = +q.id, out = [];

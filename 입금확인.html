@@ -1141,7 +1141,7 @@ function abApplyDraw(){
     `<b>✅ 정산달력에 «입금»으로 칠할 것 — ${n}일 · ${won(amt)}원</b> <span class="hint">(딱 맞은 구간만. 안 맞는 줄은 그대로 미정산)</span>` +
     (bs.length ? '<div style="margin:6px 0 8px;line-height:1.7">' + bs.map(b => `· ${rangeLabel(b)} ${won(b.amt)}원 ← ${(b.dep.parts || [b.dep]).map(d => kDate(d.date)+' '+won(d.amt)).join(' + ')}${b.ref ? ' (환불 '+won(b.ref.amt)+' 뺌)' : ''} → 입금일자 ${kDate(lastD(b))}`).join('<br>') + '</div>'
       : '<div class="hint" style="margin:6px 0">딱 맞은 구간이 없습니다 — 칠할 게 없습니다.</div>') +
-    `<button onclick="abApply()"${bs.length ? '' : ' disabled'} style="background:#2d7a3a">✅ 진행 — 정산달력에 입금 처리</button> ` +
+    `<button onclick="abApply()"${bs.length ? '' : ' disabled'} style="background:#2d7a3a">✅ 진행 — 정산달력 칠하기 + 그룹웨어 입금확인</button> ` +
     `<button class="mini" onclick="abAddAlias()">🏷 입금자명 추가</button> ` +
     `<span class="hint">입금자로 잡은 이름: ${esc([...new Set(AB.cur.deps.map(d => d.name))].join(', ') || '없음')}</span>` +
     abRecent();
@@ -1189,14 +1189,26 @@ async function abApply(){
   bs.forEach(b => { const p = b.dep.parts || [b.dep], dd = p[p.length-1].date.replace(/-/g,''); b.rs.forEach(r => { const k = r.date.replace(/-/g,''); if(un.has(k)) items.push({date:k, dep_dt:dd}); }); });
   if(!items.length){ toast('칠할 미정산 날이 없습니다'); return; }
   const amt = bs.reduce((s,b) => s + b.amt, 0);
-  if(!confirm(`${AB.cur.c.ch || AB.cur.c.name}\n정산달력 ${items.length}일 · ${won(amt)}원을 «입금»으로 칠합니다.\n(${items.map(x => x.date.slice(4,6)+'/'+x.date.slice(6)).join(', ')})\n\n진행할까요?`)) return;
+  if(!confirm(`${AB.cur.c.ch || AB.cur.c.name}\n정산달력 ${items.length}일 · ${won(amt)}원을 «입금»으로 칠하고, 그 입금들을 그룹웨어 입금확인에도 찍습니다.\n(${items.map(x => x.date.slice(4,6)+'/'+x.date.slice(6)).join(', ')})\n\n진행할까요?`)) return;
   AB.busy = true; abStat('정산달력 칠하는 중…');
   try{
     const r = await brSend('apply', {id:AB.cur.c.id, items});
     const bad = r.filter(x => x.err || !x.updated);
     AB.busy = false;
-    toast(bad.length ? `⚠ ${r.length - bad.length}일 처리 · ${bad.length}일 못 함` : `✅ ${r.length}일 입금 처리 완료`);
+    /* ☑ 그룹웨어 입금확인도 같이 (2026-11-24 홍팀장 «찍어라») — 달력과 그룹웨어 입금확인은 서로 안 이어져 있어서 둘 다 찍는다.
+       칠한 구간에 쓰인 입금(날짜+금액으로 이 업체 입금 줄을 찾음) 중 아직 확인 안 된 것만. */
+    const pool = AB.cur.deps.slice(), gids = [];
+    bs.forEach(b => (b.dep.parts || [b.dep]).forEach(p => {
+      const i = pool.findIndex(d => d.dt.slice(0,10) === p.date && +d.amt === +p.amt);
+      if(i >= 0){ const d = pool.splice(i,1)[0]; if(!d.ch) gids.push(d.id); }
+    }));
+    let gw = {ok:1, n:0};
+    if(gids.length){ try{ gw = await brSend('gwchk', {ids:gids}); }catch(e){ gw = {ok:0, why:e.message}; } }
+    AB.busy = false;
+    const gwMsg = !gids.length ? '' : gw.ok ? ` · 그룹웨어 입금확인 ${gids.length}건` : ' · ⚠ 그룹웨어 확인 못 찍음';
+    toast((bad.length ? `⚠ ${r.length - bad.length}일 처리 · ${bad.length}일 못 함` : `✅ ${r.length}일 입금 처리 완료`) + gwMsg);
     if(bad.length) alert('못 칠한 날:\n' + bad.map(x => x.date + ' — ' + (x.err || '바꿀 수 있는 건이 없음')).join('\n'));
+    if(gids.length && !gw.ok) alert(`정산달력은 칠했고, 그룹웨어 입금확인은 못 찍었습니다 (${gids.length}건)\n— ${gw.why || '실패'}`);
     // 다시 불러와서 남은 미정산으로 대조표·메시지 갱신
     const c = AB.cur.c; AB.list = await brCall('list').catch(() => AB.list);
     await abPick(c.id);
