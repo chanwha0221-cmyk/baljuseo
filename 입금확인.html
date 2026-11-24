@@ -1160,7 +1160,10 @@ function abRecent(){
   const gap = (s, d) => s === d ? '<span style="color:#2d7a3a">딱 맞음</span>' : s > d ? `<span style="color:#b3261e">${won(s - d)} 덜</span>` : `<span style="color:#1b4fb3">${won(d - s)} 더</span>`;
   const hist = d => {
     const x = (AB.cur.depMap || {})[d.id];
-    if(!x){ const w = AB.cur.loose && AB.cur.loose.why[d.id]; return w ? `<span style="color:#c0262d">${w}</span>` : '<span class="hint">짝 못 찾음</span>'; }
+    if(!x){ const w = AB.cur.loose && AB.cur.loose.why[d.id]; if(w) return `<span style="color:#c0262d">${w}</span>`;
+      /* 마지막으로 칠한 날 전에 들어온 입금 = 그 전 칠한 정산 몫(가져온 달력 밖) — «짝 못 찾음»으로 겁주지 않는다 (11-24 에보아르 9/1 112,000) */
+      const ld = v.lastDone ? dashD(v.lastDone) : '';
+      return ld && d.dt.slice(0,10) <= ld ? '<span class="hint">그 전 칠한 정산 몫 (달력 범위 밖)</span>' : '<span class="hint">짝 못 찾음</span>'; }
     const w = x.with ? ` <span class="hint">(입금 ${x.with.length}건 합 ${won(x.dAmt)})</span>` : '';
     return `${per(x.from, x.to, x.n)} ${won(x.sAmt)} · ${gap(x.sAmt, x.dAmt)}${w}`;
   };
