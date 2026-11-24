@@ -91,6 +91,8 @@
     <button class="tab" type="button" data-sec="onnuri">🐟 꾹AI온누리몰</button>
     <button class="tab" type="button" data-sec="nuri">🛒 온누리마켓</button>
     <button class="tab" type="button" data-sec="gm">🟢 G마켓</button>
+    <button class="tab" type="button" data-sec="el">🔟 11번가</button>
+    <button class="tab" type="button" data-sec="cp">🛒 쿠팡</button>
     <button class="tab" type="button" data-sec="hist">📋 발송 히스토리</button>
   </div>
 
@@ -1710,7 +1712,7 @@ async function copyPreview(){
 /* ══ 📑 섹션 탭 ═══════════════════════════════════════════════════════════
    홍팀장 2026-10-29: 「메일 보낸 히스토리는 탭 하나 더 만들어서 안 보이게 만들어도 되니까
    발굴명단에서 업체 선택하면 바로 메일링 할 수 있게」 */
-const SECS={compose:['sec-compose'], onnuri:['sec-onnuri'], nuri:['sec-onnuri'], gm:['sec-onnuri'], hist:['sec-hist']};   // 🎯 balgul 탭 삭제(11-19)
+const SECS={compose:['sec-compose'], onnuri:['sec-onnuri'], nuri:['sec-onnuri'], gm:['sec-onnuri'], el:['sec-onnuri'], cp:['sec-onnuri'], hist:['sec-hist']};   // 🎯 balgul 탭 삭제(11-19)
 let SEC='compose';
 function showSec(k){
   if(!SECS[k])return;
@@ -1731,7 +1733,13 @@ var ON_MALLS={
   nuri:{file:'nurimarket-sellers.js', v:'NURIMARKET_SELLERS', title:'🛒 온누리마켓 · 수산/건어물 판매자', mall:'온누리마켓', shop:n=>'https://nurimarket.co.kr/shop/seller/'+n, shopLb:'🛒 판매자 상품',
     desc:'nurimarket.co.kr 수산/건어물 1,351개 중 500개 샘플의 «판매자 정보»로 묶은 48곳 (11-19 수집). 전화·주소는 몰 공식 판매자 정보라 확실. 이메일은 몰에 안 나와서 꾹AI온누리몰과 겹치는 곳만 있음. 상품수 = 샘플 안 수산 상품 수. 메모 칸 = 주소'},
   gm:{file:'gmarket-sellers.js', v:'GMARKET_SELLERS', title:'🟢 G마켓 · 수산 판매자', mall:'G마켓', shop:n=>'https://minishop.gmarket.co.kr/'+n, shopLb:'🟢 미니샵',
-    desc:'G마켓 수산 검색(수산물·오징어·새우·꽃게 등 16개 단어) 상품 1,615개에서 수산 상품 3개 이상 올린 판매자 152곳 (11-19 수집, 백화점·홈쇼핑 제외). 상호·전화·메일·사업자번호·주소는 미니샵 [판매자정보] 그대로. 상품수 = 샘플 안 수산 상품 수. 취급 칸 = 미니샵 G마켓 카테고리. 메모 칸 = 주소'}
+    desc:'G마켓 수산 검색(수산물·오징어·새우·꽃게 등 16개 단어) 상품 1,615개에서 수산 상품 3개 이상 올린 판매자 152곳 (11-19 수집, 백화점·홈쇼핑 제외). 상호·전화·메일·사업자번호·주소는 미니샵 [판매자정보] 그대로. 상품수 = 샘플 안 수산 상품 수. 취급 칸 = 미니샵 G마켓 카테고리. 메모 칸 = 주소'},
+  /* 🔴 홍팀장 2026-11-24 「g마켓 너무 오래된 업체들이 많다 · 11번가도 같은 기준으로 해 24년 이후 업체만」
+     → 아래 두 탭은 «공정위 신고일자 2024-01-01 이후»만 담는다(업체 나이는 가장 이른 신고일로 본다). */
+  el:{file:'11st-sellers.js', v:'ELEVENST_SELLERS', title:'🔟 11번가 · 수산 판매자 (2024년 이후 신고)', mall:'11번가', shop:n=>'https://search.11st.co.kr/pc/total-search?kwd='+encodeURIComponent(n), shopLb:'🔟 11번가 상품',
+    desc:'11번가 수산 검색 15개 단어 상품 908개를 판매자정보로 묶은 뒤 공정위 신고일자가 2024년 이후인 곳만. 상호·대표자·스토어명은 11번가 판매자정보, 사업자번호·신고일자·취급품목은 공정위. 🔴 11번가는 판매자 메일을 공개하지 않는다 — 전화는 A/S안내 번호다. 메모 칸 = 신고연도 · 공정위 취급품목'},
+  cp:{file:'coupang-sellers.js', v:'COUPANG_SELLERS', title:'🛒 쿠팡 · 수산 판매자 (2024년 이후 신고)', mall:'쿠팡', shop:n=>'https://www.coupang.com/vp/products/'+n, shopLb:'🛒 쿠팡 상품',
+    desc:'쿠팡 수산 검색 19개 단어 상품 959개 중 판매자정보를 읽은 것에서 통신판매업 신고가 2024년 이후인 곳만. 상호·대표자·사업자번호·연락처·메일·주소·신고번호 전부 쿠팡 상품 페이지 공식 표시 그대로. 🔴 쿠팡이 수집 도중 차단해 표본이 작다 — 풀리면 더 채운다. 메모 칸 = 신고연도 · 주소'}
 };
 let ON_ROWS=null, ON_CT=true, ON_MALL='onnuri'; const ON_CACHE={};
 function onLoad(k){
