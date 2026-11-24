@@ -181,6 +181,7 @@
     var j = await edge({ action: 'mcpush', key: KEY, items: items, costs: costs, chg: chg });
     if (!j || !j.ok) throw new Error('상시 보내기 거절: ' + ((j && j.error) || '알 수 없음'));
 
+    var sameTxt = ''; try { sameTxt = await spcSameClean(C); } catch (e) { sameTxt = ' · ⚠️ 규칙가 같은 특별단가 정리 실패: ' + e.message; }
     var spcN = -1;
     try {
       var Sp = await get('machan_admin', 'special_list');
@@ -246,7 +247,7 @@
     } catch (e) { specTxt = ' · ⚠️ 스펙 못 채움: ' + (e && e.message ? e.message : e); }
 
     // 💸 저마진 알림은 lossAsk(서버 lowmq 긴급 목록)가 맡는다 — 옛 lowmCheck(8% 이하 새것 전부)는 안 부른다 (10-16)
-    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt + specTxt + rkTxt + slTxt + postTxt;
+    return '상품 ' + j.count + '개 · 변동 ' + (j.chg || 0) + '건 · ' + dayTxt + (spcN >= 0 ? ' · 특별단가 ' + spcN + '개' : ' · ⚠️ 특별단가 못 보냄') + regTxt + specTxt + rkTxt + slTxt + sameTxt + postTxt;
   }
 
   /* 🏷 특별단가 역마진 (2026-11-18 홍팀장 「장기 특별단가도 역마진 시에는 바로 떠야 한다」)
@@ -372,6 +373,61 @@
       }, 80);
     }
     return bad.length ? ' · 🚨 리모컨≠판매가 ' + bad.length + '개' : '';
+  }
+
+  /* 🧹 특별단가 = 규칙가면 지운다 (2026-11-24 홍팀장 「규칙가랑 특별단가 동일해지면 특별단가 삭제해, 삭제하기 전에 마진율 8% 이하면 확인 한 번」).
+     같은 값이면 걸어 둘 이유가 없고, 원가가 오르면 옛 특별단가만 남아 규칙가보다 낮게 정산된다.
+     · 대상 = 켜짐 · 기간 예정(soon) 아님 · 규칙가 > 0 · 특별단가 === 규칙가 (전체·업체별 다)
+     · 마진율 = (특별단가 − 원가) ÷ (특별단가 + 택배비), 원가 = 원가 + (원가 택배비 − 판매 택배비, 0 미만은 0) — 카탈로그 마진 화면과 같은 식
+     · 8% 넘음 → 바로 지움 / 8% 이하·원가 모름 → 이 창에서 확인창, [취소]한 줄은 값이 바뀌기 전엔 다시 안 묻는다 */
+  var SAME_MIN = 8, SAMENO_KEY = 'mcw_spc_same_no_v1';
+  function delSpc(id) {
+    var fd = new FormData(); fd.append('a', 'special_del'); fd.append('id', String(id));
+    return fetch('/xd/api.php?mid=machan_admin', { method: 'POST', credentials: 'same-origin', cache: 'no-store', body: fd }).then(function (r) { return r.json(); });
+  }
+  var sameAsking = false;
+  async function spcSameClean(C) {
+    var Sp = await get('machan_admin', 'special_list');
+    if (!Sp || !Sp.ok) return '';
+    var won = function (n) { return Math.round(+n || 0).toLocaleString(); };
+    var k = function (s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); };
+    var cm = {}; ((C && C.ok && C.rows) || []).forEach(function (r) { cm[k(r.n)] = r; });
+    var same = (Sp.rows || []).filter(function (r) { return r.active === 'Y' && r.per !== 'soon' && +r.rule > 0 && +r.price === +r.rule; }).map(function (r) {
+      var c = cm[k(r.item)], p = +r.price, rt = null;
+      if (c && +c.cost > 0) { var sh = shipNum(c.ship), ce = +c.cost + Math.max(0, (+c.cost_ship || 0) - sh); rt = Math.round((p - ce) / (p + sh) * 1000) / 10; }
+      return { id: r.id, item: r.item, wh: r.wh, who: +r.member_srl ? (r.member_nick || r.member_srl) : '전체', price: p, rt: rt, key: r.id + '|' + p };
+    });
+    if (!same.length) return '';
+    var auto = same.filter(function (x) { return x.rt != null && x.rt > SAME_MIN; });
+    var ask = same.filter(function (x) { return !(x.rt != null && x.rt > SAME_MIN); });
+    var line = function (x) { return '· ' + x.item + ' (' + x.wh + ' · ' + x.who + ') ' + won(x.price) + ' · 마진율 ' + (x.rt == null ? '원가 모름' : x.rt + '%'); };
+    var gone = [], bad = [];
+    for (var i = 0; i < auto.length; i++) {
+      try { var x = await delSpc(auto[i].id); if (x && x.ok) gone.push(auto[i]); else bad.push(auto[i].item); } catch (e) { bad.push(auto[i].item); }
+    }
+    if (gone.length) {
+      log('🧹 특별단가 = 규칙가라 지움 ' + gone.length + '개\n' + gone.map(line).join('\n'));
+      notify('🧹 규칙가와 같은 특별단가 ' + gone.length + '개 지움', gone.slice(0, 5).map(function (x) { return x.item + ' ' + won(x.price); }).join('\n'));
+    }
+    var no = {}; try { no = JSON.parse(localStorage.getItem(SAMENO_KEY) || '{}') || {}; } catch (e) {}
+    var keep = {}; ask.forEach(function (x) { if (no[x.key]) keep[x.key] = 1; });
+    try { localStorage.setItem(SAMENO_KEY, JSON.stringify(keep)); } catch (e) {}
+    var q = ask.filter(function (x) { return !no[x.key]; });
+    if (q.length && !sameAsking) {
+      sameAsking = true;
+      setTimeout(async function () {
+        try {
+          var txt = q.map(line).join('\n');
+          var ok = confirm('🧹 특별단가가 규칙가와 같아졌습니다 — 지워도 가격은 그대로입니다.\n마진율 ' + SAME_MIN + '% 이하(또는 원가 모름)라 확인합니다.\n\n' + txt + '\n\n[확인] 지움   [취소] 그대로 둠(값이 바뀌기 전엔 다시 안 물음)');
+          var nn = {}; try { nn = JSON.parse(localStorage.getItem(SAMENO_KEY) || '{}') || {}; } catch (e) {}
+          if (!ok) { q.forEach(function (x) { nn[x.key] = 1; }); try { localStorage.setItem(SAMENO_KEY, JSON.stringify(nn)); } catch (e) {} log('🧹 규칙가 같은 특별단가 ' + q.length + '개 — 그대로 둠\n' + txt); return; }
+          var g = [], b = [];
+          for (var j = 0; j < q.length; j++) { try { var y = await delSpc(q[j].id); if (y && y.ok) g.push(q[j]); else b.push(q[j].item); } catch (e) { b.push(q[j].item); } }
+          log('🧹 확인 후 지움 ' + g.length + '개' + (b.length ? ' · 실패 ' + b.join(', ') : '') + '\n' + g.map(line).join('\n'));
+        } finally { sameAsking = false; }
+      }, 120);
+    }
+    return (gone.length ? ' · 🧹 규칙가 같은 특별단가 ' + gone.length + '개 지움' : '') + (bad.length ? ' · ⚠️ 못 지움 ' + bad.join(', ') : '') + (q.length ? ' · 🧹 확인 대기 ' + q.length + '개' : '');
   }
 
   var RKAUTO_KEY = 'mcw_rk_auto_v1';
