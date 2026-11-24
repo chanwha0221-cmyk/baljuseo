@@ -17,7 +17,7 @@
     if (!L.ok) { alert('상품리스트를 읽지 못했습니다 — masterc 로그인을 확인해주세요.'); return; }
     /* 🧾 등록 꺼진 당일 = 리모컨 공급가로 (2026-11-10 홍팀장 「리모컨 79,000 이면 카탈로그도 맞춰라」, mc-watch 와 같은 규칙) */
     var rkOff = {};
-    ((C && C.ok && C.rows) || []).forEach(function (r) { if (r.k === 'day' && r.how === 'off' && +r.rk_supply > 0) rkOff[String(r.n).replace(/\s+/g, '').toLowerCase()] = +r.rk_supply; });
+    ((C && C.ok && C.rows) || []).forEach(function (r) { if (false /* 🛑 11-24 리모컨 서비스 중지 — 정산 = 웹 판매가 */ && r.k === 'day' && r.how === 'off' && +r.rk_supply > 0) rkOff[String(r.n).replace(/\s+/g, '').toLowerCase()] = +r.rk_supply; });
     var rkOf = function (n) { return rkOff[String(n).replace(/\s+/g, '').toLowerCase()] || 0; };
     var items = (L.items || []).map(function (p) {
       return { n: p.n, nk: p.nk, srl: p.srl, img: p.img, price: rkOf(p.n) || p.price, wh: p.wh, grp: p.grp, ship: p.ship, ship_n: p.ship_n,

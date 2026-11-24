@@ -155,7 +155,7 @@
     var slTxt = ''; try { slTxt = await spcLossCheck(C); } catch (e) {}
     /* 🧾 등록 꺼진 당일 = 리모컨 공급가로 — 상품리스트 카드·원가표 판매가도 (2026-11-10 끝판왕문어 카드가 상품리스트 67,000 에서 왔다) */
     var rkOff = {};
-    ((C && C.ok && C.rows) || []).forEach(function (r) { if (r.k === 'day' && r.how === 'off' && +r.rk_supply > 0) rkOff[String(r.n).replace(/\s+/g, '').toLowerCase()] = +r.rk_supply; });
+    ((C && C.ok && C.rows) || []).forEach(function (r) { if (!RK_DEAD && r.k === 'day' && r.how === 'off' && +r.rk_supply > 0) rkOff[String(r.n).replace(/\s+/g, '').toLowerCase()] = +r.rk_supply; });
     var rkOf = function (n) { return rkOff[String(n).replace(/\s+/g, '').toLowerCase()] || 0; };
     var items = (L.items || []).map(function (p) {
       return { n: p.n, nk: p.nk, srl: p.srl, img: p.img, price: rkOf(p.n) || p.price, wh: p.wh, grp: p.grp, ship: p.ship, ship_n: p.ship_n,
@@ -223,7 +223,7 @@
              규칙가 67,000 / 리모컨 79,000). 정산은 리모컨 값이니 카탈로그·월 시트 공급가도 그 값. masterc 엔 아무것도 안 쓴다(mc-day.js 와 같은 규칙). */
         var rkm = {};
         var csm = {};   // 💰 원가 택배비 (11-20 홍팀장 「원가에는 배송비 있는 거다」)
-        ((C && C.ok && C.rows) || []).forEach(function (x) { var xk = String(x.n).replace(/\s+/g, '').toLowerCase(); if (x.k === 'day' && +x.rk_supply > 0) rkm[xk] = +x.rk_supply; if (+x.cost_ship > 0) csm[xk] = +x.cost_ship; });
+        ((C && C.ok && C.rows) || []).forEach(function (x) { var xk = String(x.n).replace(/\s+/g, '').toLowerCase(); if (!RK_DEAD && x.k === 'day' && +x.rk_supply > 0) rkm[xk] = +x.rk_supply; if (+x.cost_ship > 0) csm[xk] = +x.cost_ship; });
         var ditems = dayRows.map(function (r) {
           var m = im[String(r.n).replace(/\s+/g, '').toLowerCase()] || {};
           var rk = !r.reg ? rkm[String(r.n).replace(/\s+/g, '').toLowerCase()] : 0;
@@ -329,7 +329,11 @@
       return { spc: spc, last: String((St.rk_last && St.rk_last.at) || ''), label: (now < from ? '오늘 ' : '내일 ') + from };
     } catch (e) { return null; }
   }
+  /* 🛑 리모컨 서비스 중지 (2026-11-24 홍팀장 「리모컨 이제 서비스 중지했어, 정산 단가는 다 웹 판매가랑 동일, #cost 에서 확인」).
+        a=cost 의 rk_supply 는 죽은 값(13:48 갱신 뒤 300건 넘게 어긋나 보였다) → 비교하지 않고 빈 목록만 보내 탭을 비운다. */
+  var RK_DEAD = true;
   function rkCheck(C, W) {
+    if (RK_DEAD) { if (C && C.ok) edge({ action: 'mcrk', key: KEY, rows: [] }).catch(function () {}); S.rk = []; return ''; }
     var won = function (n) { return Math.round(+n || 0).toLocaleString(); };
     var bad = [];
     ((C && C.ok && C.rows) || []).forEach(function (r) {

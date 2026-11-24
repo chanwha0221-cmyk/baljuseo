@@ -86,7 +86,7 @@
           // 🧾 등록 안 된 당일 = 리모컨 공급가로 (2026-11-10, mc-watch·mc-day 와 같은 규칙)
           var rkm = {};
           try { var CC = await (await fetch('/xd/api.php?mid=machan_admin&a=cost', { credentials: 'same-origin', cache: 'no-store' })).json();
-                ((CC && CC.rows) || []).forEach(function (x) { if (x.k === 'day' && +x.rk_supply > 0) rkm[key(x.n)] = +x.rk_supply; }); } catch (e) {}
+                ((CC && CC.rows) || []).forEach(function (x) { if (false /* 🛑 11-24 리모컨 서비스 중지 */ && x.k === 'day' && +x.rk_supply > 0) rkm[key(x.n)] = +x.rk_supply; }); } catch (e) {}
           var items = ((Q2 && Q2.cands) || []).filter(function (r) { return r.k === 'day'; }).map(function (r) {
             var m = im[key(r.n)] || {};
             var rk = !r.reg ? rkm[key(r.n)] : 0;

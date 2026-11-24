@@ -127,7 +127,7 @@
     var rkm = {}, csm = {};   // csm = 원가 택배비 (11-20)
     try {
       var CC = await (await fetch('/xd/api.php?mid=machan_admin&a=cost', { credentials: 'same-origin' })).json();
-      ((CC && CC.rows) || []).forEach(function (x) { var xk = String(x.n).replace(/\s+/g, '').toLowerCase(); if (x.k === 'day' && +x.rk_supply > 0) rkm[xk] = +x.rk_supply; if (+x.cost_ship > 0) csm[xk] = +x.cost_ship; });
+      ((CC && CC.rows) || []).forEach(function (x) { var xk = String(x.n).replace(/\s+/g, '').toLowerCase(); if (false /* 🛑 11-24 리모컨 서비스 중지 — 정산 = 웹 판매가 */ && x.k === 'day' && +x.rk_supply > 0) rkm[xk] = +x.rk_supply; if (+x.cost_ship > 0) csm[xk] = +x.cost_ship; });
     } catch (e) {}
     var items = dayRows.map(function (r) {
       var m = im[String(r.n).replace(/\s+/g, '').toLowerCase()] || {};

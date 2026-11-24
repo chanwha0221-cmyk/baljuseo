@@ -79,7 +79,7 @@
       var im = {};
       [].concat((L && L.items) || [], (L && L.today) || []).forEach(function (p) { im[nk(p.n)] = { img: p.img, srl: p.srl, ship_n: p.ship_n, courier: p.courier }; });
       var rkm = {};
-      try { var CC = await get('cost'); ((CC && CC.rows) || []).forEach(function (x) { if (x.k === 'day' && +x.rk_supply > 0) rkm[nk(x.n)] = +x.rk_supply; }); } catch (e) {}
+      try { var CC = await get('cost'); ((CC && CC.rows) || []).forEach(function (x) { if (false && x.k === 'day' && +x.rk_supply > 0)   /* 🛑 11-24 리모컨 서비스 중지 */ rkm[nk(x.n)] = +x.rk_supply; }); } catch (e) {}
       var items = ((Q2 && Q2.cands) || []).filter(function (r) { return r.k === 'day'; }).map(function (r) {
         var m = im[nk(r.n)] || {};
         var rk = !r.reg ? rkm[nk(r.n)] : 0;
