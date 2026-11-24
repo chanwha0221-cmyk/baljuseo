@@ -64,8 +64,10 @@
   <div class="row">
     <button onclick="abConnect()">🔌 보드 연결 · 미정산 불러오기</button>
     <input type="text" id="abQ" placeholder="업체 찾기" oninput="abDraw()" style="width:160px">
+    <button onclick="abAll()" style="background:#2d7a3a">🔄 전체 업체 입금 대조 → 칠할 것 모으기</button>
     <span id="abStat" class="hint"></span>
   </div>
+  <div id="abAllBox" style="display:none;margin:8px 0;padding:10px 12px;border:2px solid #2d7a3a;border-radius:8px;background:#f1faf3;font-size:13px"></div>
   <div class="hint">처음 한 번 보드 창이 따로 열립니다(닫지 말고 두기). 업체 [입금 확인]을 누르면 아래 ①입금 ②정산 칸이 자동으로 채워지고 대조표가 나옵니다.</div>
   <div id="abList" style="max-height:340px;overflow-y:auto;margin-top:8px"></div>
 </div>
@@ -1141,7 +1143,7 @@ function abApplyDraw(){
     `<b>✅ 정산달력에 «입금»으로 칠할 것 — ${n}일 · ${won(amt)}원</b> <span class="hint">(딱 맞은 구간만. 안 맞는 줄은 그대로 미정산)</span>` +
     (bs.length ? '<div style="margin:6px 0 8px;line-height:1.7">' + bs.map(b => `· ${rangeLabel(b)} ${won(b.amt)}원 ← ${(b.dep.parts || [b.dep]).map(d => kDate(d.date)+' '+won(d.amt)).join(' + ')}${b.ref ? ' (환불 '+won(b.ref.amt)+' 뺌)' : ''} → 입금일자 ${kDate(lastD(b))}`).join('<br>') + '</div>'
       : '<div class="hint" style="margin:6px 0">딱 맞은 구간이 없습니다 — 칠할 게 없습니다.</div>') +
-    `<button onclick="abApply()"${bs.length ? '' : ' disabled'} style="background:#2d7a3a">✅ 진행 — 정산달력 칠하기 + 그룹웨어 입금확인</button> ` +
+    `<button onclick="abApply()"${bs.length ? '' : ' disabled'} style="background:#2d7a3a">✅ 진행 — 정산달력에 입금 처리</button> ` +
     `<button class="mini" onclick="abAddAlias()">🏷 입금자명 추가</button> ` +
     `<span class="hint">입금자로 잡은 이름: ${esc([...new Set(AB.cur.deps.map(d => d.name))].join(', ') || '없음')}</span>` +
     abRecent();
@@ -1189,30 +1191,68 @@ async function abApply(){
   bs.forEach(b => { const p = b.dep.parts || [b.dep], dd = p[p.length-1].date.replace(/-/g,''); b.rs.forEach(r => { const k = r.date.replace(/-/g,''); if(un.has(k)) items.push({date:k, dep_dt:dd}); }); });
   if(!items.length){ toast('칠할 미정산 날이 없습니다'); return; }
   const amt = bs.reduce((s,b) => s + b.amt, 0);
-  if(!confirm(`${AB.cur.c.ch || AB.cur.c.name}\n정산달력 ${items.length}일 · ${won(amt)}원을 «입금»으로 칠하고, 그 입금들을 그룹웨어 입금확인에도 찍습니다.\n(${items.map(x => x.date.slice(4,6)+'/'+x.date.slice(6)).join(', ')})\n\n진행할까요?`)) return;
+  if(!confirm(`${AB.cur.c.ch || AB.cur.c.name}\n정산달력 ${items.length}일 · ${won(amt)}원을 «입금»으로 칠합니다.\n(${items.map(x => x.date.slice(4,6)+'/'+x.date.slice(6)).join(', ')})\n\n진행할까요?`)) return;
   AB.busy = true; abStat('정산달력 칠하는 중…');
   try{
     const r = await brSend('apply', {id:AB.cur.c.id, items});
     const bad = r.filter(x => x.err || !x.updated);
     AB.busy = false;
-    /* ☑ 그룹웨어 입금확인도 같이 (2026-11-24 홍팀장 «찍어라») — 달력과 그룹웨어 입금확인은 서로 안 이어져 있어서 둘 다 찍는다.
-       칠한 구간에 쓰인 입금(날짜+금액으로 이 업체 입금 줄을 찾음) 중 아직 확인 안 된 것만. */
-    const pool = AB.cur.deps.slice(), gids = [];
-    bs.forEach(b => (b.dep.parts || [b.dep]).forEach(p => {
-      const i = pool.findIndex(d => d.dt.slice(0,10) === p.date && +d.amt === +p.amt);
-      if(i >= 0){ const d = pool.splice(i,1)[0]; if(!d.ch) gids.push(d.id); }
-    }));
-    let gw = {ok:1, n:0};
-    if(gids.length){ try{ const c0 = AB.cur.c; gw = await brSend('gwchk', {ids:gids, names:[c0.ch, c0.name, c0.alias, c0.biz].filter(Boolean)}); }catch(e){ gw = {ok:0, why:e.message}; } }
-    AB.busy = false;
-    const gwMsg = !gids.length ? '' : gw.ok ? ` · 그룹웨어 입금확인 ${gids.length}건` : ' · ⚠ 그룹웨어 확인 못 찍음';
-    toast((bad.length ? `⚠ ${r.length - bad.length}일 처리 · ${bad.length}일 못 함` : `✅ ${r.length}일 입금 처리 완료`) + gwMsg);
+    toast(bad.length ? `⚠ ${r.length - bad.length}일 처리 · ${bad.length}일 못 함` : `✅ ${r.length}일 입금 처리 완료`);
     if(bad.length) alert('못 칠한 날:\n' + bad.map(x => x.date + ' — ' + (x.err || '바꿀 수 있는 건이 없음')).join('\n'));
-    if(gids.length && !gw.ok) alert(`정산달력은 칠했고, 그룹웨어 입금확인은 못 찍었습니다 (${gids.length}건)\n— ${gw.why || '실패'}`);
     // 다시 불러와서 남은 미정산으로 대조표·메시지 갱신
     const c = AB.cur.c; AB.list = await brCall('list').catch(() => AB.list);
     await abPick(c.id);
   }catch(e){ AB.busy = false; abStat(esc(e.message), 1); }
+}
+/* 🔄 전체 업체 한 번에 (2026-11-24 홍팀장 «입금 내역 뒤져서 정산달력에 칠하는 걸로 해라» — 그룹웨어 입금확인 화면은 조회만 됨)
+   미수 남은 업체를 하나씩 [입금 확인]과 똑같이 대조하고, 차액 0 으로 딱 맞은 구간(abReady)만 모은다.
+   모으기만 하고 안 칠한다 — 목록 보고 [✅ 전부 칠하기]를 눌러야 업체마다 abApply 와 같은 PATCH 를 보낸다. */
+AB.all = null;
+async function abAll(){
+  if(AB.busy) return;
+  if(!(await brOpen())) return;
+  if(!AB.list || !AB.list.length){ try{ AB.list = await brCall('list'); abDraw(); }catch(e){ abStat(esc(e.message), 1); return; } }
+  AB.busy = true; const out = [], box = $('abAllBox'); box.style.display = '';
+  const list = AB.list.slice();
+  for(let i = 0; i < list.length; i++){
+    const c = list[i];
+    box.innerHTML = `⏳ 대조 중 ${i+1}/${list.length} — ${esc(c.ch || c.name)} <span class="hint">(칠할 것 ${out.length}곳)</span>`;
+    try{
+      const v = await brCall('vendor', {id:c.id, top:c.unpaid});
+      AB.cur = {c, v}; abFill();
+      const un = new Set(v.days.map(d => d.date)), items = [], segs = [];
+      abReady().forEach(b => {
+        const p = b.dep.parts || [b.dep], dd = p[p.length-1].date.replace(/-/g,'');
+        const ds = b.rs.map(r => r.date.replace(/-/g,'')).filter(k => un.has(k));
+        ds.forEach(k => items.push({date:k, dep_dt:dd}));
+        if(ds.length) segs.push(`${rangeLabel(b)} ${won(b.amt)} ← ${p.map(d => kDate(d.date)+' '+won(d.amt)).join(' + ')}`);
+      });
+      if(items.length) out.push({c, items, segs, amt:items.reduce((s,x) => s + (v.days.find(d => d.date === x.date) || {}).amt, 0)});
+    }catch(e){ out.push({c, err:e.message}); }
+  }
+  AB.busy = false; AB.all = out; abAllDraw();
+}
+function abAllDraw(){
+  const box = $('abAllBox'), ok = AB.all.filter(x => !x.err), bad = AB.all.filter(x => x.err);
+  const n = ok.reduce((s,x) => s + x.items.length, 0), amt = ok.reduce((s,x) => s + x.amt, 0);
+  box.innerHTML = `<b>✅ 딱 맞아서 칠할 것 — ${ok.length}곳 · ${n}일 · ${won(amt)}원</b> <span class="hint">(입금 합 = 정산 합인 구간만. 안 맞는 건 그대로 미정산 — 업체 [입금 확인]으로 따로 보기)</span>` +
+    (ok.length ? '<div style="margin:6px 0 8px;line-height:1.7;max-height:300px;overflow-y:auto">' + ok.map(x => `<b>${esc(x.c.ch || x.c.name)}</b> ${x.items.length}일 ${won(x.amt)}원<br><span class="hint">${x.segs.map(esc).join('<br>')}</span>`).join('<br>') + '</div>' : '<div class="hint">칠할 게 없습니다.</div>') +
+    (bad.length ? `<div style="color:#c0262d">못 읽은 곳 ${bad.length}: ${bad.map(x => esc(x.c.ch || x.c.name)).join(', ')}</div>` : '') +
+    (ok.length ? `<button onclick="abAllApply()" style="background:#2d7a3a">✅ 전부 칠하기 (${ok.length}곳 ${n}일)</button>` : '');
+}
+async function abAllApply(){
+  const ok = (AB.all || []).filter(x => !x.err && x.items.length); if(!ok.length || AB.busy) return;
+  const n = ok.reduce((s,x) => s + x.items.length, 0);
+  if(!confirm(`${ok.length}곳 · 정산달력 ${n}일을 «입금»으로 칠합니다. 진행할까요?`)) return;
+  AB.busy = true; const box = $('abAllBox'), fail = [];
+  for(let i = 0; i < ok.length; i++){
+    const x = ok[i]; box.innerHTML = `⏳ 칠하는 중 ${i+1}/${ok.length} — ${esc(x.c.ch || x.c.name)}`;
+    try{ const r = await brSend('apply', {id:x.c.id, items:x.items}); r.filter(y => y.err || !y.updated).forEach(y => fail.push((x.c.ch || x.c.name) + ' ' + y.date + ' — ' + (y.err || '바꿀 건 없음'))); }
+    catch(e){ fail.push((x.c.ch || x.c.name) + ' — ' + e.message); }
+  }
+  AB.busy = false;
+  box.innerHTML = `<b>✅ ${ok.length}곳 칠함</b>` + (fail.length ? `<div style="color:#c0262d">못 칠한 것 ${fail.length}:<br>${fail.map(esc).join('<br>')}</div>` : '');
+  AB.list = await brCall('list').catch(() => AB.list); AB.span = {}; abDraw(); abSpans();
 }
 { const _render = render; render = function(){ _render(); abApplyDraw(); }; }
 </script>
