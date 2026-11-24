@@ -1086,7 +1086,11 @@ function abFill(){
     .map(r => ({date:dashD(String(r.dt).slice(0,8)), amt:r.amt, name:r.co || vendorFromPayer(r.hd), rs:r.rs})).sort((a,b) => a.date < b.date ? -1 : 1);
   const an = abAnchor(v, all);
   const lastDone = v.lastDone ? dashD(v.lastDone) : '';
-  const deps = an ? an.deps : all.filter(d => d.dt.slice(0,10) > lastDone);
+  /* 닻이 없을 때: 마지막으로 칠한 날 다음 입금 중 «첫 미정산 날 전» 입금은 뺀다 (2026-11-24 홍팀장 에보아르코리아 —
+     10/2 11,000 은 이미 칠한 9/7 정산 몫인데, 지난 정산을 45일(9/18~)만 가져와 9/7 을 못 보고 «더 들어온 돈»으로 대조에 넣어
+     업체에 11,000 빼고 입금하라고 안내했다). 칠한 날 = 그 돈은 이미 정리된 것. 첫 미정산 날 이후 입금만 이번 대조. */
+  const firstUn = v.days.length ? dashD(v.days[0].date) : '';
+  const deps = an ? an.deps : all.filter(d => d.dt.slice(0,10) > lastDone && (!firstUn || d.dt.slice(0,10) >= firstUn));
   const settles = an ? an.settles : v.days.map(d => ({date:dashD(d.date), amt:d.amt}));
   AB.cur.deps = deps; AB.cur.anchor = an ? an.anchor : null;
   AB.cur.others = [...new Set(v.deps.filter(d => !abHit(d.name, c)).map(d => d.name))];
@@ -1152,7 +1156,7 @@ function abRecent(){
   // 이번 대조 입금 → 대조표 구간(흐름 줄) / 지난 입금 → 지난 정산과 짝지은 구간
   const cur = {};
   (CUR ? CUR.blocks : []).forEach(b => { if(!b.dep) return; (b.dep.parts || [b.dep]).forEach(p => cur[p.date + '|' + p.amt] = b); });
-  const per = (from, to, n) => from ? rangeLabel({from, to, n: from === to ? 1 : n || 2}) + ' 몫' : '정산 없음';
+  const per = (from, to, n) => from ? rangeLabel({from, to: to || from, n: !to || from === to ? 1 : n || 2}) + ' 몫' : '정산 없음';
   const gap = (s, d) => s === d ? '<span style="color:#2d7a3a">딱 맞음</span>' : s > d ? `<span style="color:#b3261e">${won(s - d)} 덜</span>` : `<span style="color:#1b4fb3">${won(d - s)} 더</span>`;
   const hist = d => {
     const x = (AB.cur.depMap || {})[d.id];
