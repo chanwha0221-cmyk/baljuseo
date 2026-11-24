@@ -266,7 +266,7 @@
     ((C && C.ok && C.rows) || []).forEach(function (r) { if (+r.cost > 0) cinfo[String(r.n).replace(/\s+/g, '').toLowerCase()] = { c: +r.cost, cs: +r.cost_ship || 0, ship: r.ship }; });
     var costOf = function (r) {
       var x = cinfo[String(r.item).replace(/\s+/g, '').toLowerCase()]; if (!x) return 0;
-      return x.c + Math.max(0, x.cs - shipNum(String(r.ship_txt || '').trim() ? r.ship_txt : x.ship));
+      return x.c + (x.cs > 0 ? x.cs - shipNum(String(r.ship_txt || '').trim() ? r.ship_txt : x.ship) : 0);   // 11-24 차액만(+/−)
     };
     Object.keys(cinfo).forEach(function (k) { cost[k] = cinfo[k].c; });
     var won = function (n) { return Math.round(+n || 0).toLocaleString(); };
@@ -394,7 +394,7 @@
     var cm = {}; ((C && C.ok && C.rows) || []).forEach(function (r) { cm[k(r.n)] = r; });
     var same = (Sp.rows || []).filter(function (r) { return r.active === 'Y' && r.per !== 'soon' && +r.rule > 0 && +r.price === +r.rule; }).map(function (r) {
       var c = cm[k(r.item)], p = +r.price, rt = null;
-      if (c && +c.cost > 0) { var sh = shipNum(c.ship), ce = +c.cost + Math.max(0, (+c.cost_ship || 0) - sh); rt = Math.round((p - ce) / p * 1000) / 10; }
+      if (c && +c.cost > 0) { var sh = shipNum(c.ship), ce = +c.cost + ((+c.cost_ship || 0) > 0 ? (+c.cost_ship || 0) - sh : 0); rt = Math.round((p - ce) / p * 1000) / 10; }
       return { id: r.id, item: r.item, wh: r.wh, who: +r.member_srl ? (r.member_nick || r.member_srl) : '전체', price: p, rt: rt, key: r.id + '|' + p };
     });
     if (!same.length) return '';
