@@ -160,7 +160,7 @@
     var vis = rows.filter(function (r) { return filt === 'all' ? !+r.member_srl : filt === 'mem' ? +r.member_srl : filt === 'past' ? r.per === 'past' || !r.alive : filt === 'loss' ? isLoss(r) : true; });
     vis.sort(function (a, b) { return (isLoss(b) - isLoss(a)) || ((b.per === 'past') - (a.per === 'past')) || String(b.upd_dt || '').localeCompare(String(a.upd_dt || '')); });
     VIS = vis;
-    /* 💰 원가·마진·마진율 (11-18 홍팀장 「역마진이라고 하는데 원가가 얼만지도 몰라」) — 마진 화면과 같은 식: (특별단가 − 원가) ÷ (특별단가 + 택배비) */
+    /* 💰 원가·마진·마진율 (11-18 홍팀장 「역마진이라고 하는데 원가가 얼만지도 몰라」) — 마진 화면과 같은 식: (특별단가 − 원가) ÷ 특별단가 */
     var cols = ['', '상품', '창고', '적용 업체', '특별단가', '원가', '마진', '마진율', '공급가', '규칙가', '상태', '적용 기간', '메모', '고친 때', '켬', ''];
     if (!vis.length) return '<div class="empty">해당하는 특별단가가 없습니다.</div>';
     return '<div id="spcWrap" style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px"><table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr>'
@@ -179,7 +179,7 @@
             + (c && +r.price < c ? ' title="원가보다 낮음"' : low ? ' title="공급가보다 낮음"' : '') + '>' + (loss || (c && +r.price < c) ? '🔴 ' : '') + won(r.price) + '</td>'
           + (function () {
               if (!c) return '<td style="' + td + ';color:var(--muted)" title="마진 화면에 원가가 없는 상품(품절·내림 등)">-</td><td style="' + td + ';color:var(--muted)">-</td><td style="' + td + ';color:var(--muted)">-</td>';
-              var p = +r.price, sh = shipOf(r.item), mg = p - c, rt = Math.round(mg / (p + sh) * 1000) / 10;
+              var p = +r.price, sh = shipOf(r.item), mg = p - c, rt = Math.round(mg / p * 1000) / 10;
               var col = mg < 0 || rt < 0 ? '#b91c1c' : rt < 6 ? '#b45309' : '#065f46';
               return '<td style="' + td + '">' + won(c) + '</td><td style="' + td + ';color:' + col + ';font-weight:700">' + won(mg) + '</td>'
                 + '<td style="' + td + ';color:' + col + ';font-weight:800">' + rt + '%</td>';
@@ -344,7 +344,7 @@
       ? '오늘 당일 등록이 켜져 있으면 masterc 는 그날 <b>등록가</b>로 팝니다 — 등록가도 이 값으로 바꿔야 오늘 이 가격이 나갑니다. 오늘 등록이 <b>' + E(dT || '…') + '</b> 안에 끝나는 경우만 고치고, 그다음 날은 자동 등록이 <b>규칙가</b>로 다시 겁니다(특별단가도 기간이 끝나면 빠짐).'
       : '오늘 당일 등록이 켜져 있으면 masterc 는 그날 <b>등록가</b>로 팝니다 — 등록가도 이 값으로 바꿔야 오늘부터 이 가격이 나갑니다(등록 기간은 그대로).';
     if (!(v > 0) || !i || !(i.cost > 0)) { el.textContent = ''; return; }
-    var mg = v - i.cost, rate = Math.round(mg / (v + (i.ship || 0)) * 1000) / 10;
+    var mg = v - i.cost, rate = Math.round(mg / v * 1000) / 10;
     el.innerHTML = '이 값이면 마진 <b style="color:' + (mg < 0 ? '#b91c1c' : '#065f46') + '">' + won(mg) + '원 · ' + rate + '%</b>' + (mg < 0 ? ' — 🔴 원가보다 낮습니다(1개당 ' + won(-mg) + '원 밑짐)' : '') + (i.sell ? ' · 지금보다 ' + (v > i.sell ? '+' : '') + won(v - i.sell) : '');
   }
   function vfill(q) {

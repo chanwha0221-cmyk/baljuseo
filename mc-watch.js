@@ -17,7 +17,7 @@
        이미 등록한 것(꺼둔 것 포함)·잔여 0 은 손대지 않는다. 규칙가 < 공급가(역마진)는 등록하지 않고 확인창으로 알린다.
      · 🔴 매 확인 끝에 서버(lowmq)의 «지금 바로 확인할 상품» 중 안 물어본 것을 한 개씩 확인창으로 묻는다 (lossAsk, 10-16).
        기준 = 역마진(판매가 < 공급가) + 마진율 6% 미만 중 새로 생기거나 값이 바뀐 것, 👌괜찮음 제외 — 서버 한 곳에서 정한다.
-       마진율 = (판매가 − 원가) ÷ (판매가 + 택배비) — 카탈로그 저마진·월 시트 Q열과 같은 식. 원가는 이 창 밖으로 안 나간다.
+       마진율 = (판매가 − 원가) ÷ 판매가 (11-24 — 택배비는 분모에 안 넣음). 원가는 이 창 밖으로 안 나간다.
      · 📝 스펙 최신화 자동 (2026-11-04 홍팀장) — 서울 시간 08:30~15:30, 30분마다 한 번(spec-sync.js). 바뀐 스펙만 고친다.
      · 🚨 리모컨 공급가 ≠ 웹 판매가 알림 (2026-11-10, rkCheck) — 읽기만, 고치는 건 사람.
    🔴 masterc 에 쓰는 건 당일 자동 등록(daily_save) 하나뿐이다. 리모컨·특별단가는 절대 안 쓴다(rkSync 는 꺼 둠). 우리 서버로 보내는 저장은 30% 넘게 줄면 서버가 거절한다.
@@ -378,7 +378,7 @@
   /* 🧹 특별단가 = 규칙가면 지운다 (2026-11-24 홍팀장 「규칙가랑 특별단가 동일해지면 특별단가 삭제해, 삭제하기 전에 마진율 8% 이하면 확인 한 번」).
      같은 값이면 걸어 둘 이유가 없고, 원가가 오르면 옛 특별단가만 남아 규칙가보다 낮게 정산된다.
      · 대상 = 켜짐 · 기간 예정(soon) 아님 · 규칙가 > 0 · 특별단가 === 규칙가 (전체·업체별 다)
-     · 마진율 = (특별단가 − 원가) ÷ (특별단가 + 택배비), 원가 = 원가 + (원가 택배비 − 판매 택배비, 0 미만은 0) — 카탈로그 마진 화면과 같은 식
+     · 마진율 = (특별단가 − 원가) ÷ 특별단가, 원가 = 원가 + (원가 택배비 − 판매 택배비, 0 미만은 0) — 카탈로그 마진 화면과 같은 식
      · 8% 넘음 → 바로 지움 / 8% 이하·원가 모름 → 이 창에서 확인창, [취소]한 줄은 값이 바뀌기 전엔 다시 안 묻는다 */
   var SAME_MIN = 8, SAMENO_KEY = 'mcw_spc_same_no_v1';
   function delSpc(id) {
@@ -394,7 +394,7 @@
     var cm = {}; ((C && C.ok && C.rows) || []).forEach(function (r) { cm[k(r.n)] = r; });
     var same = (Sp.rows || []).filter(function (r) { return r.active === 'Y' && r.per !== 'soon' && +r.rule > 0 && +r.price === +r.rule; }).map(function (r) {
       var c = cm[k(r.item)], p = +r.price, rt = null;
-      if (c && +c.cost > 0) { var sh = shipNum(c.ship), ce = +c.cost + Math.max(0, (+c.cost_ship || 0) - sh); rt = Math.round((p - ce) / (p + sh) * 1000) / 10; }
+      if (c && +c.cost > 0) { var sh = shipNum(c.ship), ce = +c.cost + Math.max(0, (+c.cost_ship || 0) - sh); rt = Math.round((p - ce) / p * 1000) / 10; }
       return { id: r.id, item: r.item, wh: r.wh, who: +r.member_srl ? (r.member_nick || r.member_srl) : '전체', price: p, rt: rt, key: r.id + '|' + p };
     });
     if (!same.length) return '';
@@ -539,10 +539,10 @@
       var sell = +r.sell || 0, cost = +r.cost || 0;
       if (!(sell > 0 && cost > 0)) return false;
       if (!on[String(r.n).replace(/\s+/g, '').toLowerCase()]) return false;
-      return (sell - cost) / (sell + shipNum(r.ship)) * 100 <= LOWM_MAX;
+      return (sell - cost) / sell * 100 <= LOWM_MAX;
     }).map(function (r) {
       var sell = +r.sell, cost = +r.cost;
-      return { n: r.n, wh: r.wh, sell: sell, cost: cost, rate: Math.round((sell - cost) / (sell + shipNum(r.ship)) * 1000) / 10 };
+      return { n: r.n, wh: r.wh, sell: sell, cost: cost, rate: Math.round((sell - cost) / sell * 1000) / 10 };
     });
     var prev = null; try { prev = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); } catch (e) {}
     try { localStorage.setItem(SEEN_KEY, JSON.stringify(now.map(function (x) { return x.n; }))); } catch (e) {}
