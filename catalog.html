@@ -25,7 +25,7 @@
 ==================================================================================
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 카탈로그 v23.288</title>
+<title>마스터 유통 카탈로그 v23.289</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--line2:#eef1ec;
 --accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed;--up:#d64545;--down:#1f6fd6;--gold:#b7791f;--chip:#f0f2ef;
@@ -4173,7 +4173,7 @@ function renderLowm(j,lossOnly){
   const okBtn=r=>highOnly?'':lowmIsLoss(r)&&!lowmSafe(r,j.urgentMax)?'<span style="font-size:11.5px;color:#b91c1c;font-weight:700;white-space:nowrap">🔴 단가 수정</span>':r.ok?'<button class="ubtn" style="font-size:11.5px" title="다시 확인 대상으로" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',false)">👌 괜찮음 ✓</button>':'<button class="ubtn" style="font-size:11.5px" title="이 상품은 마진을 다시 묻지 않습니다" onclick="lowmOk(this,'+esc(JSON.stringify(r.n))+',true)">👌 괜찮음</button>';
   const inCell=r=>'<input class="lowm-in" inputmode="numeric" placeholder="'+won(r.sell)+'" value="'+(lowmDraftOf(r.n)||'')+'" oninput="lowmCalc(this);lowmKeep(this)" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit">';
   const okAllBtn=lossOnly?'<button class="ubtn" style="font-weight:800" onclick="lowmOkAll(this)">👌 선택 괜찮음 <span class="lowm-pickn">0</span></button>':'';
-  const fix88Btn='<button class="ubtn" style="font-weight:800;color:#b91c1c;border-color:#b91c1c" title="체크한 줄만 — 새 판매가 = 원가 ÷ (1 − 8.8%), 100원 단위 올림 → 바로 단가 저장" onclick="lowmFix88(this)">📐 선택 상품 마진 8.8%로 <span class="lowm-pickn">0</span></button>';
+  const fix88Btn='<button class="ubtn" style="font-weight:800;color:#b91c1c;border-color:#b91c1c" title="체크한 줄만 — 새 판매가 = 원가 ÷ (1 − 8.8%), 500원 단위 사사오입 → 바로 단가 저장" onclick="lowmFix88(this)">📐 선택 상품 마진 8.8%로 <span class="lowm-pickn">0</span></button>';
   h+=bar(saveBtn+fix88Btn+okAllBtn)
     +'<div style="overflow-x:auto;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:11px">'
     +'<table style="border-collapse:collapse;width:100%"><thead><tr>'
@@ -4282,7 +4282,7 @@ function lowmFix88(btn){
   const trs=picked.filter(tr=>+tr.dataset.cost>0), noCost=picked.length-trs.length;
   if(!trs.length){alert('체크한 상품에 원가가 없어 계산할 수 없습니다.');return;}
   if(noCost)alert('원가 없는 '+noCost+'개는 빼고 '+trs.length+'개만 바꿉니다.');
-  trs.forEach(tr=>{ const p=Math.ceil(+tr.dataset.cost/0.912/100)*100; const inp=tr.querySelector('.lowm-in'); if(inp){inp.value=p; try{lowmCalc(inp);lowmKeep(inp);}catch(e){}} });
+  trs.forEach(tr=>{ const p=Math.round(+tr.dataset.cost/0.912/500)*500; /* 26-11-25 홍팀장: 500원 단위 사사오입 */ const inp=tr.querySelector('.lowm-in'); if(inp){inp.value=p; try{lowmCalc(inp);lowmKeep(inp);}catch(e){}} });
   lowmSave(btn);
 }
 function lowmSave(btn){
