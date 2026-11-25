@@ -79,6 +79,8 @@ let wc=0;
 function sl(m,t){const e=document.getElementById('log');e.textContent=m;e.className='log-pill'+(t?' '+t:'');if(t==='warn')wc++;}
 function fp(t){
   if(!t)return"";let n=String(t).replace(/[^0-9]/g,'');if(!n)return"";
+  // 🌏 국제번호 +82 010… (2026-11-25 테무) — 82 로 시작하는 12~13자리는 국내번호에 없다 → 82 떼고 0
+  if(/^82\d{10,11}$/.test(n)){n=n.slice(2);if(n[0]!=='0')n='0'+n;}
   // 엑셀 복사시 앞 0 소실 복원 (2026-08-05): 한국 번호는 8자리 대표번호(1577·1833 등)만 빼고 전부 0 시작.
   // 1039727072→010-3972-7072, 5024433375→0502-443-3375, 서울 23456789→02-345-6789, 지역번호(31/53…)도 동일
   if(!n.startsWith('0')&&n.length>=8&&!(n.length===8&&n.startsWith('1')))n='0'+n;

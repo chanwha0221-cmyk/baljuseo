@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>외부 업체 등록 도구 v3.7</title>
+<title>외부 업체 등록 도구 v3.8</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
@@ -79,7 +79,7 @@ details.extra .form-grid{margin-top:10px}
 <body>
 <header>
   <span class="logo">외부 업체 <span>등록 도구</span></span>
-  <span class="ver">v3.7 통합등록</span>
+  <span class="ver">v3.8 통합등록</span>
   <span class="subtitle">사업자등록증 + 업체자료 조합 → 리모컨 붙여넣기</span>
 </header>
 <div class="main">
@@ -267,6 +267,8 @@ function fixEmailTypos(email){
 
 function formatPhone(n){
   if (!n) return '';
+  // 🌏 국제번호 +82 010… (2026-11-25 테무) — 82 로 시작하는 12~13자리는 국내번호에 없다 → 82 떼고 0
+  if (/^82\d{10,11}$/.test(n)) { n = n.slice(2); if (n[0] !== '0') n = '0' + n; }
   // 엑셀 복사시 앞 0 소실 복원 (2026-09-01 — 변환기 fp()와 같은 규칙으로 맞춤).
   // 한국 번호는 8자리 대표번호(1577·1833 등)만 빼고 전부 0으로 시작한다. 5051234567 → 0505-123-4567
   if (!n.startsWith('0') && n.length >= 8 && !(n.length === 8 && n.startsWith('1'))) n = '0' + n;
