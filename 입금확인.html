@@ -77,6 +77,13 @@
     <label>보내는 회사명</label><input type="text" id="company" placeholder="예: ○○수산" style="width:180px">
     <span class="hint">메시지 「안녕하세요, ○○입니다」와 이미지 아래에 들어감</span>
   </div>
+  <div class="row" style="background:#f6f8ff;border:1px solid #c9d6f5;border-radius:7px;padding:7px 10px">
+    <label>📅 기간으로 내역 보기</label>
+    <input type="date" id="rgSt" style="padding:4px"> ~ <input type="date" id="rgEd" style="padding:4px">
+    <button class="mini" onclick="rgQuick(30)">30일</button><button class="mini" onclick="rgQuick(60)">60일</button><button class="mini" onclick="rgQuick(90)">90일</button>
+    <button onclick="abRange()">불러오기</button>
+    <span id="rgStat" class="hint">위 목록에서 [입금 확인] 누른 업체 기준 — 칠한 날 포함 정산·입금 전부 (보기만, 칠하기 없음)</span>
+  </div>
   <div class="hint">한 번에 한 업체씩. 입금 내역과 정산 내역을 붙여넣고 [대조하기] → 입금 한 건마다 어느 정산일 구간 몫인지 찾아 정산금액·실 입금액·차액을 보여줌.</div>
 
   <h3>① 입금 내역 <span class="hint">계좌 / 일시 / 입금자명 / 금액 (탭·콤마·공백 구분 다 됨)</span></h3>
@@ -1085,6 +1092,7 @@ function abLoose(S, D, m, best){
 }
 function abFill(){
   const {c, v} = AB.cur;
+  AB.rangeOn = false;
   const all = v.deps.filter(d => abHit(d.name, c)).sort((a,b) => a.dt < b.dt ? -1 : a.dt > b.dt ? 1 : 0);
   // 이 업체 환불(그룹웨어 입금요청, 지급 끝난 것) — 날짜 = 지급일
   AB.cur.refs = (v.refs || []).filter(r => [r.co, r.hd, r.tg].some(n => abHit(n, c)))
@@ -1115,6 +1123,42 @@ function abFill(){
   delete $('startSel').dataset.pick; delete $('depSel').dataset.pick;
   run();
 }
+/* 📅 기간으로 내역 보기 (2026-11-25 홍팀장 «이해 안 되는 부분 있을 때 기간 넣어서 내역 좀 더 보게») — 읽기만.
+   고른 업체의 그 기간 정산(칠한 날 포함)·입금·환불을 ①②③에 채우고 처음부터 대조. 이 상태에선 [✅ 진행](칠하기)을 숨긴다. */
+const isoD = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+function rgQuick(n){ const e = new Date(), s = new Date(); s.setDate(s.getDate() - n); $('rgSt').value = isoD(s); $('rgEd').value = isoD(e); abRange(); }
+function rgStat(t, bad){ $('rgStat').innerHTML = t; $('rgStat').style.color = bad ? '#c0262d' : '#777'; }
+async function abRange(){
+  if(AB.busy) return;
+  const c = AB.cur && AB.cur.c;
+  if(!c) return rgStat('위 🔄 미정산 업체 목록에서 업체 [입금 확인]을 먼저 눌러 주세요', 1);
+  const st = $('rgSt').value.replace(/-/g,''), ed = $('rgEd').value.replace(/-/g,'');
+  if(!/^\d{8}$/.test(st) || !/^\d{8}$/.test(ed) || st > ed) return rgStat('기간을 넣어 주세요', 1);
+  if(!(await brOpen())) return;
+  AB.busy = true; rgStat(`${esc(c.ch || c.name)} ${dashD(st)} ~ ${dashD(ed)} 불러오는 중…`);
+  try{
+    const r = await brCall('range', {id:c.id, st, ed});
+    const deps = r.deps.filter(d => abHit(d.name, c) && d.dt.slice(0,10) >= dashD(st)).sort((a,b) => a.dt < b.dt ? -1 : a.dt > b.dt ? 1 : 0);
+    const refs = (r.refs || []).filter(x => [x.co, x.hd, x.tg].some(n => abHit(n, c)))
+      .map(x => ({date:dashD(String(x.dt).slice(0,8)), amt:x.amt, name:x.co || vendorFromPayer(x.hd)})).sort((a,b) => a.date < b.date ? -1 : 1);
+    AB.rangeOn = true;
+    $('dep').value = deps.map(d => `${d.dt}\t${d.name}\t${won(d.amt)}`).join('\n');
+    $('ref').value = refs.map(x => `${x.date}\t${x.name}\t${won(x.amt)}`).join('\n');
+    gridClear(); gridBuild(Math.max(ROWS, r.days.length));
+    r.days.forEach((d, i) => { cell(i,0).value = dashD(d.date); cell(i,2).value = won(d.amt); });
+    gridSave();
+    $('vendor').value = c.ch || c.name;
+    PICK = {d:[], s:[]}; AB_FULL = false;
+    delete $('startSel').dataset.pick; delete $('depSel').dataset.pick;
+    run();
+    const paid = r.days.filter(d => !d.unpaid), un = r.days.filter(d => d.unpaid);
+    rgStat(`${esc(c.ch || c.name)} ${dashD(st)} ~ ${dashD(ed)} — 정산 ${r.days.length}일 ${won(r.days.reduce((s,d) => s+d.amt, 0))}원`
+      + ` (칠한 날 ${paid.length} · 미정산 ${un.length}) · 입금 ${deps.length}건 ${won(deps.reduce((s,d) => s+d.amt, 0))}원 (${dashD(r.depTo)}까지)`
+      + (refs.length ? ` · 환불 ${refs.length}건` : '') + ' <b>· 보기 전용</b>');
+    $('resPanel').scrollIntoView({behavior:'smooth'});
+  }catch(e){ rgStat(esc(e.message), 1); }
+  AB.busy = false;
+}
 function abAddAlias(){
   const id = AB.cur.c.id, v = prompt('이 업체 입금자명 (쉼표로 여러 개) — 다음부터 자동으로 잡습니다', abAliases(id).join(', '));
   if(v === null) return;
@@ -1128,6 +1172,7 @@ function abReady(){
 }
 function abApplyDraw(){
   const el = $('abApply');
+  if(AB.rangeOn){ el.style.display = 'none'; return; }   // 📅 기간 보기는 읽기 전용 — 칠하기 없음
   if(!AB.cur || !CUR || CUR.vendor !== ($('vendor').value.trim() || '(업체명)') || abNorm(CUR.vendor) !== abNorm(AB.cur.c.ch || AB.cur.c.name)){ el.style.display = 'none'; return; }
   const un = new Set(AB.cur.v.days.map(d => dashD(d.date)));
   const bs = abReady(), n = bs.reduce((s,b) => s + b.rs.filter(r => un.has(r.date)).length, 0), amt = bs.reduce((s,b) => s + b.rs.filter(r => un.has(r.date)).reduce((t,r) => t + r.amt, 0), 0);

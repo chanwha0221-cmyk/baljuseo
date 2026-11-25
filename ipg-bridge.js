@@ -125,6 +125,37 @@
       } catch (e) {}
       return { id: id, top: top, sum: acc, days: days, hist: hist, lastDone: lastDone, depFrom: ymd(from), deps: deps, refs: refs };
     },
+    /* 📅 기간 내역 (2026-11-25 홍팀장 «이해 안 되는 부분 있을 때 기간 넣어서 내역 더 보게») — 읽기만.
+       st~ed(YYYYMMDD) 정산달력 전부(칠한 날 포함, paid=칠한 날) + 그 기간 입금(+7일 뒤까지) + 지급 끝난 환불. */
+    range: async function (q) {
+      var id = +q.id, st = String(q.st || ''), ed = String(q.ed || '');
+      if (!id || !/^\d{8}$/.test(st) || !/^\d{8}$/.test(ed) || st > ed) throw new Error('기간이 이상합니다');
+      var days = [], y = +st.slice(0, 4), m = +st.slice(4, 6), ey = +ed.slice(0, 4), em = +ed.slice(4, 6);
+      for (var k = 0; k < 24 && (y < ey || (y === ey && m <= em)); k++) {
+        var c = await api('/clients/' + id + '/settlement-calendar?year=' + y + '&month=' + m);
+        (c.days || []).forEach(function (d) {
+          if (+d.total_amt && d.date >= st && d.date <= ed) days.push({ date: d.date, amt: +d.total_amt, unpaid: +d.unpaid_amt || 0 });
+        });
+        m++; if (m > 12) { m = 1; y++; }
+      }
+      days.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+      var now = new Date(), dEnd = toD(ed); dEnd.setDate(dEnd.getDate() + 7); if (dEnd > now) dEnd = now;
+      var deps = [], s = toD(st);
+      while (s <= dEnd) {
+        var e = new Date(s); e.setDate(e.getDate() + 60); if (e > dEnd) e = new Date(dEnd);
+        deps = deps.concat(await depList(dash(ymd(s)), dash(ymd(e))));
+        s = new Date(e); s.setDate(s.getDate() + 1);
+      }
+      var refs = [];
+      try {
+        var pr = await fetch('/gw2/payreq.php?a=list&co=board_xjVk44', { method: 'POST', credentials: 'same-origin', headers: { 'X-GW2': '1', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ st: st, ed: ymd(dEnd), q: '', un: 0, all: 1 }) }).then(function (r) { return r.json(); });
+        if (pr.ok) refs = (pr.rows || []).filter(function (x) { return x.paid && +x.amt > 0; }).map(function (x) {
+          return { id: x.id, dt: x.pd || x.d, req: x.d, co: x.co || '', hd: x.hd || '', tg: x.tg || '', rs: x.rs || '', amt: +x.amt };
+        });
+      } catch (e) {}
+      return { id: id, st: st, ed: ed, depTo: ymd(dEnd), days: days, deps: deps, refs: refs };
+    },
     /* 미정산 기간 (홍팀장 26-11-17 «미정산 기간이랑 정렬 기능도») — 거래처 목록엔 첫 미정산일이 없어서 달력을 거꾸로 훑는다.
        이번 달부터 한 달씩, 모은 미정산 합이 미수금에 닿으면 멈춘다(최대 14달). */
     span: async function (q) {
