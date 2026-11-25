@@ -77,13 +77,6 @@
     <label>보내는 회사명</label><input type="text" id="company" placeholder="예: ○○수산" style="width:180px">
     <span class="hint">메시지 「안녕하세요, ○○입니다」와 이미지 아래에 들어감</span>
   </div>
-  <div class="row" style="background:#f6f8ff;border:1px solid #c9d6f5;border-radius:7px;padding:7px 10px">
-    <label>📅 기간으로 내역 보기</label>
-    <input type="date" id="rgSt" style="padding:4px"> ~ <input type="date" id="rgEd" style="padding:4px">
-    <button class="mini" onclick="rgQuick(30)">30일</button><button class="mini" onclick="rgQuick(60)">60일</button><button class="mini" onclick="rgQuick(90)">90일</button>
-    <button onclick="abRange()">불러오기</button>
-    <span id="rgStat" class="hint">위 목록에서 [입금 확인] 누른 업체 기준 — 칠한 날 포함 정산·입금 전부 (보기만, 칠하기 없음)</span>
-  </div>
   <div class="hint">한 번에 한 업체씩. 입금 내역과 정산 내역을 붙여넣고 [대조하기] → 입금 한 건마다 어느 정산일 구간 몫인지 찾아 정산금액·실 입금액·차액을 보여줌.</div>
 
   <h3>① 입금 내역 <span class="hint">계좌 / 일시 / 입금자명 / 금액 (탭·콤마·공백 구분 다 됨)</span></h3>
@@ -979,12 +972,15 @@ function abDraw(){
     .slice().sort((a, b) => { const x = f(a), y = f(b); return (x < y ? -1 : x > y ? 1 : 0) * d || b.unpaid - a.unpaid; });
   const th = (k, t) => `<th style="cursor:pointer;white-space:nowrap" onclick="abSort('${k}')">${t}${AB.sort.k === k ? (AB.sort.d > 0 ? ' ▲' : ' ▼') : ' <span class="hint">↕</span>'}</th>`;
   const box = $('abList'), top = box.scrollTop;
+  const ae = document.activeElement, fid = ae && /^abd_/.test(ae.id) ? ae.id : null, fpos = fid ? (ae.selectionStart || String(ae.value).length) : 0;   // 일수 입력 중 목록이 다시 그려져도 칸 유지
   box.innerHTML = !AB.list.length ? '' : `<table class="res"><thead><tr>${th('name','업체')}${th('cyc','정산주기')}${th('last','최근 입금일')}${th('span','미정산 기간')}${th('unpaid','미수금')}${th('st','상태')}<th></th></tr></thead><tbody>` +
     rows.map(c => `<tr${AB.cur && AB.cur.c.id === c.id ? ' style="background:#eef4ff"' : ''}><td>${esc(c.ch || c.name)}${c.ch && c.name !== c.ch ? ' <span class="hint">'+esc(c.name)+'</span>' : ''}</td>
       <td class="c">${esc(c.cyc||'')}</td><td class="c">${esc(c.last||'-')}</td><td class="c" style="white-space:nowrap">${abSpanTxt(c)}</td><td class="n"><b>${won(c.unpaid)}</b></td>
       <td class="c" style="color:${c.st==='위험'?'#c0262d':c.st==='주의'?'#b36b00':'#2d7a3a'}">${esc(c.st||'')}</td>
-      <td class="c"><button class="mini" onclick="abPick(${c.id})">입금 확인</button></td></tr>`).join('') + '</tbody></table>';
+      <td class="c" style="white-space:nowrap"><button class="mini" onclick="abPick(${c.id})">입금 확인</button>
+        <input type="number" id="abd_${c.id}" min="1" max="700" placeholder="일수" value="${AB.days[c.id] || ''}" oninput="AB.days[${c.id}]=this.value" onkeydown="if(event.key==='Enter')abPick(${c.id})" title="넣으면 오늘부터 이만큼 거슬러 입금·정산(칠한 날 포함)을 전부 보여줌 — 보기 전용" style="width:58px;padding:3px;font-size:12px"><span class="hint">일</span></td></tr>`).join('') + '</tbody></table>';
   box.scrollTop = top;
+  if(fid && $(fid)){ const el = $(fid); el.focus(); try{ el.setSelectionRange(fpos, fpos); }catch(e){} }
 }
 // 입금자 이름 맞추기 — 업체명·채널명·사업자명·별칭 + 이 업체에 직접 넣은 입금자명(브라우저 저장)
 const abNorm = s => String(s||'').replace(/\(주\)|주식회사|㈜|\s/g, '').toLowerCase();
@@ -1000,6 +996,8 @@ async function abPick(id){
   if(AB.busy) return;
   const c = AB.list.find(x => x.id === id) || (AB.cur && AB.cur.c.id === id ? AB.cur.c : null); if(!c) return;
   if(!(await brOpen())) return;
+  const nDays = parseInt(AB.days[id], 10);
+  if(nDays > 0) return abRange(c, nDays);   // 📅 일수 넣었으면 그만큼 거슬러 전부 보기
   AB.busy = true; abStat(`${esc(c.ch || c.name)} 정산달력·입금 내역 불러오는 중…`);
   try{
     const v = await brCall('vendor', {id, top:c.unpaid});
@@ -1123,25 +1121,22 @@ function abFill(){
   delete $('startSel').dataset.pick; delete $('depSel').dataset.pick;
   run();
 }
-/* 📅 기간으로 내역 보기 (2026-11-25 홍팀장 «이해 안 되는 부분 있을 때 기간 넣어서 내역 좀 더 보게») — 읽기만.
-   고른 업체의 그 기간 정산(칠한 날 포함)·입금·환불을 ①②③에 채우고 처음부터 대조. 이 상태에선 [✅ 진행](칠하기)을 숨긴다. */
-const isoD = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-function rgQuick(n){ const e = new Date(), s = new Date(); s.setDate(s.getDate() - n); $('rgSt').value = isoD(s); $('rgEd').value = isoD(e); abRange(); }
-function rgStat(t, bad){ $('rgStat').innerHTML = t; $('rgStat').style.color = bad ? '#c0262d' : '#777'; }
-async function abRange(){
-  if(AB.busy) return;
-  const c = AB.cur && AB.cur.c;
-  if(!c) return rgStat('위 🔄 미정산 업체 목록에서 업체 [입금 확인]을 먼저 눌러 주세요', 1);
-  const st = $('rgSt').value.replace(/-/g,''), ed = $('rgEd').value.replace(/-/g,'');
-  if(!/^\d{8}$/.test(st) || !/^\d{8}$/.test(ed) || st > ed) return rgStat('기간을 넣어 주세요', 1);
-  if(!(await brOpen())) return;
-  AB.busy = true; rgStat(`${esc(c.ch || c.name)} ${dashD(st)} ~ ${dashD(ed)} 불러오는 중…`);
+/* 📅 일수로 내역 보기 (2026-11-25 홍팀장 «입금확인 오른쪽에 기간 넣어서 입금·정산 내역 원하는 일수만큼 보게») — 읽기만.
+   업체 줄 [입금 확인] 옆 일수 칸 → 오늘부터 N일 거슬러 정산(칠한 날 포함)·입금·환불을 ①②③에 채우고 처음부터 대조.
+   이 상태에선 [✅ 진행](칠하기)을 숨긴다. 일수 칸을 비우고 [입금 확인] = 원래 미정산 대조. */
+AB.days = {};
+const ymdOf = d => d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+async function abRange(c, n){
+  const e = new Date(), s = new Date(); s.setDate(s.getDate() - n);
+  const st = ymdOf(s), ed = ymdOf(e), rgStat = abStat;
+  AB.busy = true; rgStat(`${esc(c.ch || c.name)} 최근 ${n}일 (${dashD(st)} ~ ${dashD(ed)}) 불러오는 중…`);
   try{
     const r = await brCall('range', {id:c.id, st, ed});
     const deps = r.deps.filter(d => abHit(d.name, c) && d.dt.slice(0,10) >= dashD(st)).sort((a,b) => a.dt < b.dt ? -1 : a.dt > b.dt ? 1 : 0);
     const refs = (r.refs || []).filter(x => [x.co, x.hd, x.tg].some(n => abHit(n, c)))
       .map(x => ({date:dashD(String(x.dt).slice(0,8)), amt:x.amt, name:x.co || vendorFromPayer(x.hd)})).sort((a,b) => a.date < b.date ? -1 : 1);
-    AB.rangeOn = true;
+    if(!AB.cur || AB.cur.c.id !== c.id) AB.cur = {c, v:{days:[], hist:[], deps:[], refs:[]}};   // 목록 줄 표시용
+    AB.rangeOn = true; abDraw();
     $('dep').value = deps.map(d => `${d.dt}\t${d.name}\t${won(d.amt)}`).join('\n');
     $('ref').value = refs.map(x => `${x.date}\t${x.name}\t${won(x.amt)}`).join('\n');
     gridClear(); gridBuild(Math.max(ROWS, r.days.length));
