@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>마스터 유통 상품 도구 v1.59</title>
+<title>마스터 유통 상품 도구 v1.60</title>
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#18211f;--muted:#6a7671;--line:#e4e8e3;--accent:#0f7a5a;--accent-d:#0b5f46;--soft:#e7f3ed}
 @media(prefers-color-scheme:dark){:root{--bg:#121613;--card:#1a201d;--ink:#e8ede9;--muted:#93a099;--line:#2a322d;--accent:#3fae86;--accent-d:#2f9873;--soft:#17332a}}
@@ -286,7 +286,8 @@ a{color:var(--accent)}
   <p style="font-size:12.5px;color:var(--muted)">카탈로그에는 <b>안 올리고</b>, 적어둔 업체 화면에서만 검색·발주되게 여는 자리입니다.<br>
      그 업체가 발주 화면에서 상품명 일부만 쳐도 후보에 뜹니다. 다른 업체에게는 보이지 않습니다. 단가는 안 붙습니다.<br>
      <b style="color:var(--up)">🌐 전체 업체</b>로 열면 <b>모든 업체</b>가 발주할 수 있습니다 — 카탈로그에는 여전히 안 올라갑니다.
-     소량만 들어와 카탈로그에 올리기는 뭐한 물건(예: 단가가 확 뛴 날의 꽃게)을 필요한 곳만 넣게 할 때 씁니다.</p>
+     소량만 들어와 카탈로그에 올리기는 뭐한 물건(예: 단가가 확 뛴 날의 꽃게)을 필요한 곳만 넣게 할 때 씁니다.<br>
+     ⏰ 매일 16:10에 비워집니다. <b>📌 고정</b>을 켠 상품만 안 지워지고 남습니다.</p>
   <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
     <input id="voBiz" list="voBizDL" placeholder="업체명 — 계정 이름 그대로 (예: 동글지구)" autocomplete="off" style="margin:0;flex:1">
     <button class="cp" id="voAll" type="button" style="margin:0;white-space:nowrap" title="모든 업체가 발주할 수 있게">🌐 전체 업체</button>
@@ -2049,7 +2050,8 @@ async function voLoad(){
     const v=await readTab(VOTAB,'E');
     /* 창고는 안 쓴다 (홍팀장 2026-09-09 — "발주할 때 창고명 블랭크잖아").
        시트 C열은 옛 자료 때문에 남겨두되 읽지도 쓰지도 않는다. */
-    VO=v.map(r=>({biz:t(r[0]),name:t(r[1]),note:t(r[3]),at:t(r[4])})).filter(x=>x.biz&&x.name);
+    /* 📌 고정 (2026-11-26 홍팀장) — C열에 «고정» 이 적힌 줄은 서버 16:10 초기화(vonlyReset)에서 남는다. */
+    VO=v.map(r=>({biz:t(r[0]),name:t(r[1]),pin:t(r[2])==='고정',note:t(r[3]),at:t(r[4])})).filter(x=>x.biz&&x.name);
     VON=v.length; VOOK=true;
     $p('voStat').textContent=VO.length+'건';
     voCnt();
@@ -2064,8 +2066,8 @@ function voDraw(){
      저장 모양(시트·서버)은 그대로 «업체 1곳 = 1줄» 이다 — 화면만 상품별로 묶어 보여 주고, [＋ 업체] 는 같은 상품으로 줄을 하나 더 만든다.
      그래서 서버 doSubmit·카탈로그 vonly 는 손댈 게 없다. */
   const groups=[],byK={};
-  VO.forEach((v,i)=>{const k=pkey(v.name);if(!byK[k]){byK[k]={k:k,name:v.name,note:'',at:'',rows:[]};groups.push(byK[k]);}
-    const g=byK[k];g.rows.push(i);if(!g.note&&v.note)g.note=v.note;if(String(v.at)>String(g.at))g.at=v.at;});
+  VO.forEach((v,i)=>{const k=pkey(v.name);if(!byK[k]){byK[k]={k:k,name:v.name,note:'',at:'',pin:false,rows:[]};groups.push(byK[k]);}
+    const g=byK[k];g.rows.push(i);if(v.pin)g.pin=true;if(!g.note&&v.note)g.note=v.note;if(String(v.at)>String(g.at))g.at=v.at;});
   const chip=(v,i)=>(voIsAll(v.biz)
       ? '<span style="font-size:11.5px;font-weight:800;color:#c2410c;background:rgba(234,88,12,.14);padding:2px 4px 2px 8px;border-radius:5px;white-space:nowrap">🌐 전체 업체'
       : '<span style="font-size:11.5px;font-weight:800;color:#1f6fd6;background:rgba(31,111,214,.12);padding:2px 4px 2px 8px;border-radius:5px;white-space:nowrap">'+esc(v.biz))
@@ -2078,6 +2080,8 @@ function voDraw(){
     +'<input list="voBizDL" data-voadd="'+esc(g.k)+'" placeholder="＋ 업체 추가" autocomplete="off" style="margin:0;width:130px;padding:2px 6px;font-size:12px">'
     +'<button class="cp" data-vo="addbiz" data-k="'+esc(g.k)+'" style="margin:0;padding:2px 8px;font-size:12px">추가</button></span>'
     +'<span style="font-size:11px;color:var(--muted)">'+esc(g.at)+'</span>'
+    +'<button class="cp" data-vo="pin" data-k="'+esc(g.k)+'" title="'+(g.pin?'고정 풀기 — 다음 16:10에 지워집니다':'고정 — 16:10 초기화에서 안 지움')+'" style="margin:0;padding:2px 8px;font-size:12px;white-space:nowrap;'
+      +(g.pin?'background:#c2410c;color:#fff;border-color:transparent;font-weight:800':'')+'">📌 '+(g.pin?'고정됨':'고정')+'</button>'
     +'<button class="fxg del" data-vo="delgrp" data-k="'+esc(g.k)+'" title="이 상품 통째로 지우기">🗑</button>'
     +(g.note?'<div style="flex:1 1 100%;font-size:11.5px;color:var(--muted)">ℹ️ '+esc(g.note)+'</div>':'')
     +'</div>').join('');
@@ -2090,7 +2094,8 @@ function voAddBiz(k,biz){
   if(VO.some(v=>pkey(v.biz)===pkey(biz)&&pkey(v.name)===k))return alert('이미 열어둔 업체입니다.');
   if(!all&&VO.some(v=>voIsAll(v.biz)&&pkey(v.name)===k))return alert('「'+base.name+'」은 이미 🌐 전체 업체에 열려 있습니다.');
   const note=(VO.find(v=>pkey(v.name)===k&&v.note)||{}).note||'';
-  VO.unshift({biz:biz,name:base.name,note:note,at:day()});
+  const pin=VO.some(v=>pkey(v.name)===k&&v.pin);   // 고정된 상품에 붙인 업체도 같이 고정
+  VO.unshift({biz:biz,name:base.name,pin:pin,note:note,at:day()});
   voDraw();$p('voLog').textContent='「'+base.name+'」에 '+(all?'전체 업체':biz)+' 추가 — 저장을 눌러야 반영됩니다.';
 }
 $p('voRows').addEventListener('keydown',function(ev){
@@ -2100,6 +2105,10 @@ $p('voRows').addEventListener('keydown',function(ev){
 $p('voRows').addEventListener('click',function(ev){
   const c=ev.target.closest('[data-cp]');
   if(c){ try{ navigator.clipboard.writeText(c.getAttribute('data-cp')); c.textContent='✅'; setTimeout(()=>c.textContent='📋',900); }catch(e){} return; }
+  const pn=ev.target.closest('[data-vo="pin"]');
+  if(pn){const k=pn.getAttribute('data-k');const on=!VO.some(v=>pkey(v.name)===k&&v.pin);
+    VO.forEach(v=>{if(pkey(v.name)===k)v.pin=on;});voDraw();
+    $p('voLog').textContent=(on?'📌 고정했습니다 — 16:10에 안 지워집니다.':'고정 풀었습니다 — 다음 16:10에 지워집니다.')+' 저장을 눌러야 반영됩니다.';return;}
   const ad=ev.target.closest('[data-vo="addbiz"]');
   if(ad){const k=ad.getAttribute('data-k');const inp=[].find.call($p('voRows').querySelectorAll('[data-voadd]'),x=>x.getAttribute('data-voadd')===k);voAddBiz(k,inp?inp.value:'');return;}
   const g=ev.target.closest('[data-vo="delgrp"]');
@@ -2130,7 +2139,7 @@ $p('voSave').onclick=async function(){
   if(!VOOK){ $p('voLog').textContent='⚠️ 목록을 불러오지 못한 상태입니다. 새로고침한 뒤에 저장하세요.'; return; }
   const b=this;b.disabled=true;b.textContent='저장 중…';$p('voLog').textContent='';
   try{
-    const rows=VO.map(v=>[v.biz,v.name,'',v.note,v.at||day()]);   // C열(창고)은 안 쓴다
+    const rows=VO.map(v=>[v.biz,v.name,v.pin?'고정':'',v.note,v.at||day()]);   // C열(옛 창고) = 📌 고정 표시
     await writeTab(VOTAB,{end:'E',length:5},rows);
     VON=VO.length;
     $p('voStat').textContent=VO.length+'건';
