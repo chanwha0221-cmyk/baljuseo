@@ -142,6 +142,11 @@ td.mut{color:var(--muted);font-size:12.5px}
   <div class="bar">
     <input class="search" id="q" type="search" placeholder="업체명 · 아이디 · 연락처 · 메모 검색" autocomplete="off">
     <div class="tabs" id="tabs"></div>
+    <!-- 🔃 정렬 (2026-11-27 홍팀장 «가입일 순서로, 최근 가입이 위로 — 제대로 쓰고 있는지 확인») — 기본 최근 가입순 -->
+    <div class="tabs" id="sorts">
+      <button class="tab" data-sort="joined_at">🆕 최근 가입순</button>
+      <button class="tab" data-sort="name">가나다순</button>
+    </div>
   </div>
 
   <div class="tblwrap">
@@ -219,7 +224,7 @@ const $=id=>document.getElementById(id);
 const T=s=>String(s==null?'':s).trim();
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let TOKEN=null,ROWS=[],FILTER='임시',SORT='name',DESC=false,CUR=null,ALTMAP={},ALTTXT='';
+let TOKEN=null,ROWS=[],FILTER='임시',SORT='joined_at',DESC=true,CUR=null,ALTMAP={},ALTTXT='';
 const altKey=id=>T(id).toLowerCase();
 const altText=l=>(l||[]).map(a=>[a.name,a.phone,a.addr].map(T).join(' | ').replace(/( \| )+$/,'')).join('\n');
 const altParse=s=>String(s||'').split('\n').map(l=>l.split('|').map(T)).filter(p=>p[0]).map(p=>({name:p[0],phone:p[1]||'',addr:p[2]||''}));
@@ -291,6 +296,7 @@ function render(){
     return String(v||'');
   };
   list.sort((x,y)=>{const a=val(x),b=val(y);return (a<b?-1:a>b?1:0)*(DESC?-1:1);});
+  document.querySelectorAll('#sorts [data-sort]').forEach(b=>b.classList.toggle('on',b.dataset.sort===SORT));
 
   $('rows').innerHTML=list.map(a=>{
     const rc=roleClass(a.role);
@@ -389,6 +395,7 @@ document.querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{
   if(SORT===k)DESC=!DESC;else{SORT=k;DESC=(k==='orders'||k==='last_login'||k==='joined_at');}
   render();
 });
+document.querySelectorAll('#sorts [data-sort]').forEach(b=>b.onclick=()=>{SORT=b.dataset.sort;DESC=(SORT==='joined_at');render();});
 $('q').addEventListener('input',render);
 $('reload').onclick=async()=>{$('reload').disabled=true;try{await load();toast('불러왔습니다');}catch(e){alert(e.message);}finally{$('reload').disabled=false;}};
 $('out').onclick=()=>{if(!confirm('로그아웃 할까요?'))return;try{localStorage.removeItem(TK);}catch(e){}location.reload();};
