@@ -24,7 +24,7 @@
      북마크릿을 다시 눌러도 옛 코드가 그대로 돌았다 — 고쳐서 배포해도 홍팀장 화면은
      계속 옛 판정(증량요청)을 내고 있었다. 새로고침을 시키지 말고 여기서 갈아 끼운다.
      붙여넣은 필요수량은 localStorage 에 있으니 새로 떠도 그대로 채워진다. */
-  var QTYB_VER = '2026-11-24a';
+  var QTYB_VER = '2026-11-27a';
   /* ✅ 「판정대로 실행」을 눌렀는지 — 버튼 핸들러(가져오기·수동대조·비우기)와 draw 가 같이 쓰므로
      🔴 반드시 IIFE 최상단에 둔다. 2026-10-21 에 이걸 깊은 블록 안에 뒀다가 엄격 모드에서
      ReferenceError 가 나 가져오기·수동대조 버튼이 통째로 먹통이 됐다. */
@@ -2147,10 +2147,12 @@
           · 우리 대기 앞에 남의 대기가 AHEAD_MORE개 이상이면 증량도 같이 요청(증량 총량 = 모자란 몫) */
     var AHEAD_MORE = 20;
     function soldOut(f) { return f.total > 0 && f.left === 0 && f.open; }
+    /* 🔁 2026-11-27 홍팀장 「제철 대방어 필렛 500g 필요해서 감시 돌린 건데 대기 500 걸었다고 감시를 내려 버렸네」 —
+          다 나갔을 때 대기·증량은 «한 번» 걸고, 감시는 그대로 둔다(재입고·증량 풀림·누가 무르면 바로 잡는다).
+          잡으면 unAfterGrab 이 그만큼 대기·증량을 무른다. 감시를 끝내는 건 «다 찼다»·[예약 취소]·기한뿐. */
     function fallback(w, row, f, need) {
-      if (left.indexOf(w) < 0) return;                 // 1초·10초 감시가 같은 줄을 두 번 넘기지 않게
-      left.splice(left.indexOf(w), 1);
-      dropFromGrabBox([w.key]);
+      if (left.indexOf(w) < 0 || w.fb) return;         // 1초·10초 감시가 같은 줄에 대기를 두 번 걸지 않게
+      w.fb = Date.now();
       var hm = hhmm(), p = Promise.resolve(), msg = [];
       if (f.wait < need)
         p = p.then(function () { return qpost({ do: 'wait', tab: whTab(row), nkey: row.key, co: row.co, qty: need }); })
@@ -2160,9 +2162,9 @@
         p = p.then(function () { return qpost({ do: 'more', tab: whTab(row), nkey: row.key, co: row.co, qty: need, why: '대기 앞 ' + f.aheadN + '곳 ' + f.ahead + '개 — 증량 부탁드립니다' }); })
           .then(function () { msg.push('증량 ' + f.more + '→' + need + ' (앞 대기 ' + f.aheadN + '곳 ' + f.ahead + '개)'); }, function (e) { msg.push('⚠️ 증량 실패(' + (e.message || e) + ')'); });
       return p.then(function () {
-        log.push('· 🛑 ' + hm + ' ' + w.name + ' — 총 ' + f.total + '개 다 나감, 감시 끝 → ' + msg.join(' · '));
-        try { if (window.Notification && Notification.permission === 'granted') new Notification('🛑 다 나갔습니다 — 대기·증량으로', { body: w.name + ' ' + msg.join(' · '), tag: 'qtyb-out' }); } catch (e) {}
-        paint(hm + ' ' + w.name + ' 다 나감 → 대기·증량');
+        log.push('· 🛑 ' + hm + ' ' + w.name + ' — 총 ' + f.total + '개 다 나감 → ' + msg.join(' · ') + ' · 감시는 계속(풀리면 바로 잡음)');
+        try { if (window.Notification && Notification.permission === 'granted') new Notification('🛑 다 나갔습니다 — 대기·증량 걸고 계속 감시', { body: w.name + ' ' + msg.join(' · '), tag: 'qtyb-out' }); } catch (e) {}
+        paint(hm + ' ' + w.name + ' 다 나감 → 대기·증량 + 감시 계속');
       });
     }
     function ntCheck() {
