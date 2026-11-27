@@ -203,6 +203,7 @@
         var rg = await dayRegister(Q);
         if (rg.ok) Q = await get('machan_admin', 'daily_cand');   // 등록한 상태로 다시 읽어서 보낸다
         regTxt = rg.txt;
+        try { var gr = await spcGoneDayRule(Q); if (gr.n) Q = await get('machan_admin', 'daily_cand'); regTxt += gr.txt; } catch (e) { regTxt += ' · ⚠️ 특별단가 뺀 당일 규칙가 맞춤 실패: ' + e.message; }
       }
       if (Q && Q.ok) {
         var im = {};
@@ -526,6 +527,45 @@
     notify('🧾 리모컨가 맞춤 ' + todo.length + '개', todo.slice(0, 5).map(function (t) { return t.item + ' ' + won(t.price); }).join('\n'));
     if (bad.length) notify('⚠️ 리모컨이 안 바뀐 상품 ' + bad.length + '개', bad.slice(0, 5).join('\n'));
     return { txt: ' · 🧾 리모컨 맞춤 ' + todo.length + '개' + (bad.length ? '(⚠️ 안 바뀜 ' + bad.length + ')' : ''), wrote: todo.length };
+  }
+
+  /* 🏷→📏 특별단가(전체)가 빠지면 그 당일 상품 등록가를 규칙가로 (2026-11-27 홍팀장 «특별단가 내리면 규칙가로 하도록» —
+        초대왕 생대구 6kg급 특별단가를 지웠는데 당일 등록가 45,000 이 남아 규칙가 41,000 대신 45,000 에 나갔다.
+        판매가 순서가 «당일 등록가 → 특별단가 → 규칙가» 라 특별단가만 지우면 등록가가 그대로 먹는다).
+     · «빠짐» = 지난 판에 켜져 적용 중이던 전체 특별단가가 이번 판엔 없음(삭제·끔·기간 끝 — masterc 에서 지웠든 카탈로그에서 지웠든)
+     · 대상 = 오늘 당일 등록(reg)이 있고 등록가 ≠ 규칙가(sug)인 줄만. 규칙가 < 공급가면 안 고치고 알림만.
+     · 요청은 masterc [가격 수정]과 같은 daily_save(기간 0 = 지금 기간 그대로). 첫 판은 기준선만 적는다. */
+  var SPCPREV_KEY = 'mcw_spc_prev_v1';
+  async function spcGoneDayRule(Q) {
+    var Sp = await get('machan_admin', 'special_list');
+    if (!Sp || !Sp.ok || !Q || !Q.ok) return { n: 0, txt: '' };
+    var k = function (s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); };
+    var won = function (n) { return Math.round(+n || 0).toLocaleString(); };
+    var cur = {};
+    (Sp.rows || []).forEach(function (r) { if (+r.member_srl === 0 && r.active === 'Y' && +r.price > 0 && r.per !== 'past' && r.per !== 'soon') cur[k(r.item)] = +r.price; });
+    var prev = null; try { prev = JSON.parse(localStorage.getItem(SPCPREV_KEY) || 'null'); } catch (e) {}
+    try { localStorage.setItem(SPCPREV_KEY, JSON.stringify(cur)); } catch (e) {}
+    if (!prev) return { n: 0, txt: '' };
+    var gone = Object.keys(prev).filter(function (x) { return !(x in cur); });
+    if (!gone.length) return { n: 0, txt: '' };
+    var rows = (Q.cands || []).filter(function (r) { return r.k === 'day' && r.reg && gone.indexOf(k(r.n)) >= 0 && +r.sug > 0 && +r.reg.price !== +r.sug; });
+    var ok = [], skip = [], fail = [];
+    for (var i = 0; i < rows.length; i++) {
+      var c = rows[i];
+      if (+c.base > 0 && +c.sug < +c.base) { skip.push('· ' + c.n + ' 규칙가 ' + won(c.sug) + ' < 공급가 ' + won(c.base) + ' — 등록가 ' + won(c.reg.price) + ' 그대로'); continue; }
+      try {
+        var fd = new FormData();
+        fd.append('a', 'daily_save'); fd.append('wh', c.wh); fd.append('item', c.n); fd.append('price', String(Math.round(+c.sug)));
+        fd.append('ship_txt', c.ship || ''); fd.append('tax', c.tax || ''); fd.append('memo', (c.reg && c.reg.memo) || ''); fd.append('days', '0');
+        var y = await fetch('/xd/api.php?mid=machan_admin&a=daily_save', { method: 'POST', body: fd, credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); });
+        if (y && y.ok) ok.push('· ' + c.n + ' (' + c.wh + ') 등록가 ' + won(c.reg.price) + ' → 규칙가 ' + won(c.sug) + ' (특별단가 ' + won(prev[k(c.n)]) + ' 빠짐)');
+        else fail.push(c.n + ' — ' + ((y && y.msg) || '거절'));
+      } catch (e) { fail.push(c.n + ' — ' + (e && e.message ? e.message : e)); }
+    }
+    if (ok.length) { log('📏 특별단가 빠진 당일 → 규칙가 ' + ok.length + '개\n' + ok.join('\n')); notify('📏 특별단가 빠짐 → 규칙가 ' + ok.length + '개', ok.slice(0, 5).join('\n')); }
+    if (skip.length) { log('⚠️ 특별단가 빠졌는데 규칙가가 공급가보다 낮아 안 고침 ' + skip.length + '개\n' + skip.join('\n')); notify('⚠️ 규칙가 < 공급가 — 등록가 안 고침', skip.slice(0, 3).join('\n')); }
+    if (fail.length) { log('⚠️ 규칙가 맞춤 실패 ' + fail.length + '개\n' + fail.join('\n')); notify('⚠️ 규칙가 맞춤 실패 ' + fail.length + '개', fail.slice(0, 3).join('\n')); }
+    return { n: ok.length, txt: (ok.length ? ' · 📏 특별단가 빠진 당일 규칙가 ' + ok.length + '개' : '') + (skip.length ? ' · ⚠️ 규칙가<공급가 ' + skip.length + '개' : '') + (fail.length ? ' · ⚠️ 맞춤 실패 ' + fail.length + '개' : '') };
   }
 
   /* ── 🐟 당일 자동 등록 — mc-day.js ① 과 같은 규칙·같은 요청(daily_save · 규칙가 · 오늘만) ── */
